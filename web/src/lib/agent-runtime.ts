@@ -31,6 +31,13 @@ export type Proposal = {
   rejectedAlternatives: RejectedAlternative[];
 };
 
+export type ConsultRequest = {
+  agent: string;
+  question: string;
+};
+
+const SPECIALIST_AGENTS = ["People Agent", "Process Agent", "Tech Agent"];
+
 export type LogLine = {
   ts: number;
   channel: "meta" | "agent" | "system";
@@ -49,6 +56,13 @@ export type AgentRun = {
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
+  // docs 3.3「階層型マルチエージェント」用。Lead Agentが専門エージェントに相談した際、
+  // 相談先のrunにはconsultedBy（相談元のLead run id）を付与し、EM向けの表示で
+  // 「誰から相談されたrunか」を追跡できるようにする。pendingConsultは
+  // handleStreamEventからrunClaudeTurnへ「相談したい」を伝えるための一時フィールドで、
+  // 外部からは基本的に参照しない。
+  consultedBy?: string;
+  pendingConsult?: ConsultRequest;
 };
 
 // `.data/agent-runs.json`への簡易永続化。Core Context DB / Daily Logs DBとしての
@@ -86,12 +100,26 @@ function buildOrgContextBlock(): string {
   return maskNames(block);
 }
 
-function buildSystemPrompt(agentName: string): string {
+function buildSystemPrompt(agentName: string, allowConsult: boolean): string {
+  const consultRule =
+    agentName === "Lead Agent" && allowConsult
+      ? [
+          "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent）のうち1つに、1ターンにつき1回だけ相談できます。",
+          "  自分の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません）。",
+          "  ```consult",
+          '  { "agent": "People Agent", "question": "相談したい内容を1つの質問文で" }',
+          "  ```",
+          '  agentは "People Agent" / "Process Agent" / "Tech Agent" のいずれか1つのみ指定できます。',
+          "",
+        ]
+      : [];
+
   const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
     "与えられたタスクの文脈だけを判断材料とし、実際の外部システムやファイルには一切アクセスできません（ツールは無効化されています）。",
     "",
     "回答のルール:",
+    ...consultRule,
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
     "",
     "proposalブロックのフォーマット（このとおりのfenced code blockにすること）:",
@@ -169,6 +197,21 @@ function extractProposal(resultText: string): Proposal | undefined {
   return undefined;
 }
 
+// docs 3.3「階層型マルチエージェント」: Lead Agentが専門エージェントに相談したい場合の合図。
+function extractConsult(resultText: string): ConsultRequest | undefined {
+  const match = resultText.match(/```consult\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed && typeof parsed.agent === "string" && typeof parsed.question === "string" && SPECIALIST_AGENTS.includes(parsed.agent)) {
+      return { agent: parsed.agent, question: parsed.question };
+    }
+  } catch {
+    // 不正なconsultブロックは相談なしとして扱う
+  }
+  return undefined;
+}
+
 function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
   run.log.push({ ts: Date.now(), channel, text });
   run.updatedAt = Date.now();
@@ -221,7 +264,7 @@ async function sanitizeForCloud(run: AgentRun, text: string): Promise<string> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handleStreamEvent(run: AgentRun, event: any) {
+function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
   switch (event.type) {
     case "assistant": {
       const content = event.message?.content ?? [];
@@ -242,6 +285,16 @@ function handleStreamEvent(run: AgentRun, event: any) {
         appendLog(run, "system", `エラーで終了しました: ${unmaskNames(event.result ?? "(no message)")}`);
       } else {
         const resultText = unmaskNames(typeof event.result === "string" ? event.result : "");
+        const consultRequest =
+          run.agentName === "Lead Agent" && allowConsult ? extractConsult(resultText) : undefined;
+
+        if (consultRequest) {
+          // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
+          run.pendingConsult = consultRequest;
+          appendLog(run, "system", `[相談] ${consultRequest.agent}に質問: ${consultRequest.question}`);
+          break;
+        }
+
         const yieldRequest = extractYield(resultText);
         if (yieldRequest) {
           run.status = "yield";
@@ -266,15 +319,16 @@ function handleStreamEvent(run: AgentRun, event: any) {
   }
 }
 
-async function runClaudeTurn(run: AgentRun, rawPrompt: string): Promise<void> {
+async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true): Promise<void> {
   // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
   // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
   // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
   run.status = "active";
+  run.pendingConsult = undefined;
 
   const prompt = await sanitizeForCloud(run, rawPrompt);
 
-  return new Promise((resolve) => {
+  await new Promise<void>((resolve) => {
     const args = [
       "-p",
       prompt,
@@ -286,7 +340,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string): Promise<void> {
       "--max-budget-usd",
       PER_TURN_BUDGET_USD,
       "--append-system-prompt",
-      buildSystemPrompt(run.agentName),
+      buildSystemPrompt(run.agentName, allowConsult),
     ];
     if (run.sessionId) {
       args.push("--resume", run.sessionId);
@@ -314,7 +368,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string): Promise<void> {
         buffer = buffer.slice(idx + 1);
         if (!line.trim()) continue;
         try {
-          handleStreamEvent(run, JSON.parse(line));
+          handleStreamEvent(run, JSON.parse(line), allowConsult);
         } catch {
           appendLog(run, "system", line);
         }
@@ -329,12 +383,12 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string): Promise<void> {
     child.on("close", (code) => {
       if (buffer.trim()) {
         try {
-          handleStreamEvent(run, JSON.parse(buffer));
+          handleStreamEvent(run, JSON.parse(buffer), allowConsult);
         } catch {
           appendLog(run, "system", buffer.trim());
         }
       }
-      if (run.status === "active") {
+      if (run.status === "active" && !run.pendingConsult) {
         run.status = "error";
         appendLog(run, "system", `プロセスが結果を返さずに終了しました (exit code: ${code})`);
       }
@@ -347,6 +401,49 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string): Promise<void> {
       resolve();
     });
   });
+
+  if (run.pendingConsult) {
+    const consult = run.pendingConsult;
+    run.pendingConsult = undefined;
+    await handleConsult(run, consult);
+  }
+}
+
+// docs 3.3「階層型マルチエージェント」: Lead Agentからの相談を実際に専門エージェントへ
+// 委譲し、その回答をLead Agent自身の会話（--resumeで同一セッション）に返して
+// 最終的な結論を出させる。相談は1ターンにつき1回だけ（フォローアップ呼び出しは
+// allowConsult=falseにして再帰的な相談連鎖を禁止する）。
+async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promise<void> {
+  const specialistRun: AgentRun = {
+    id: randomUUID(),
+    agentName: consult.agent,
+    task: consult.question,
+    status: "active",
+    log: [],
+    totalCostUsd: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    consultedBy: leadRun.id,
+  };
+  runs.set(specialistRun.id, specialistRun);
+  appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${consult.question}`);
+
+  await runClaudeTurn(specialistRun, consult.question, false);
+
+  const lastAgentLine = [...specialistRun.log].reverse().find((l) => l.channel === "agent");
+  const answerText = lastAgentLine?.text ?? "(専門エージェントから回答を取得できませんでした)";
+
+  appendLog(leadRun, "agent", `[${consult.agent}からの回答]\n${answerText}`);
+
+  const followUp = [
+    `${consult.agent}に相談した結果は以下の通りです。`,
+    "",
+    answerText,
+    "",
+    "これを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。",
+  ].join("\n");
+
+  await runClaudeTurn(leadRun, followUp, false);
 }
 
 export function listRuns(): AgentRun[] {
