@@ -102,6 +102,15 @@ function StatusBadge({ status }: { status: AgentStatus }) {
   );
 }
 
+// docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunの状態を代表値として見せる。
+// そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
+function computeFleetStatus(agentName: string, runs: AgentRun[]): AgentStatus {
+  const relevant = runs.filter((r) => r.agentName === agentName);
+  if (relevant.length === 0) return "idle";
+  const latest = relevant.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
+  return latest.status;
+}
+
 function logLineClass(line: LogLine): string {
   if (line.channel === "meta") return styles.meta;
   if (line.channel === "agent") return styles.agent;
@@ -340,6 +349,15 @@ export default function Home() {
         <p className={styles.subtitle}>
           claude CLIサブプロセスでエージェントを実行し、Yield（一時停止）が発生したら人間の判断を仰いでから再開する最小構成。
         </p>
+      </div>
+
+      <div className={styles.fleetRow}>
+        {AGENT_OPTIONS.map((name) => (
+          <div key={name} className={styles.fleetBadge}>
+            <span className={styles.fleetName}>{name}</span>
+            <StatusBadge status={computeFleetStatus(name, runs)} />
+          </div>
+        ))}
       </div>
 
       <div className={`${styles.panel} ${styles.vitalsPanel}`}>

@@ -340,6 +340,29 @@
   color: var(--red-fg);
 }
 
+/* ---------- Agent Fleet ---------- */
+.fleetRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.fleetBadge {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fleetName {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ---------- Team Vitals ---------- */
 .vitalsPanel {
   margin-bottom: 16px;
