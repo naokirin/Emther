@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
+import { maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
 
@@ -86,6 +88,51 @@ function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
   run.updatedAt = Date.now();
 }
 
+// docs/memo.md の匿名化方式: クラウド(claude -p)に送る前に、テキスト中の人物名を
+// ローカルモデルで検出してpeople-directoryに登録し、既知の名前をすべてIDに置換する。
+// 実名はEM向けの表示（run.task, ログ）にはそのまま残し、外部に出る経路だけをマスクする。
+const NAME_EXTRACTION_SYSTEM_PROMPT = [
+  "入力テキストに含まれる人物名だけをJSON形式で出力してください。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力すること。",
+  'フォーマット: {"people": string[]}',
+  "敬称はそのまま残すこと（例: Aさん）。人物が見当たらなければ空配列にすること。",
+].join("\n");
+
+async function detectAndRegisterNames(text: string): Promise<void> {
+  try {
+    const content = await runLocalChat(
+      [
+        { role: "system", content: NAME_EXTRACTION_SYSTEM_PROMPT },
+        { role: "user", content: "経営会議。Q3のリリース日が前倒しになった。" },
+        { role: "assistant", content: JSON.stringify({ people: [] }) },
+        { role: "user", content: "CさんのPRレビューが速い。" },
+        { role: "assistant", content: JSON.stringify({ people: ["Cさん"] }) },
+        { role: "user", content: text },
+      ],
+      100,
+    );
+    const jsonText = extractFirstJsonObject(content);
+    if (!jsonText) return;
+    const parsed = JSON.parse(jsonText);
+    if (Array.isArray(parsed.people)) {
+      for (const p of parsed.people) {
+        if (typeof p === "string" && p.trim()) registerName(p);
+      }
+    }
+  } catch {
+    // ローカルNERの失敗は握りつぶす。既知の名前のマスクは引き続き有効なので、
+    // 「新規の名前だけ検出できない」という劣化に留まる。
+  }
+}
+
+async function sanitizeForCloud(run: AgentRun, text: string): Promise<string> {
+  await detectAndRegisterNames(text);
+  const masked = maskNames(text);
+  if (masked !== text) {
+    appendLog(run, "meta", "送信前に人物名を匿名化しました（人物名はローカルのみで保持）");
+  }
+  return masked;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function handleStreamEvent(run: AgentRun, event: any) {
   switch (event.type) {
@@ -94,7 +141,7 @@ function handleStreamEvent(run: AgentRun, event: any) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const block of content as any[]) {
         if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
-          appendLog(run, "agent", block.text.trim());
+          appendLog(run, "agent", unmaskNames(block.text.trim()));
         }
       }
       break;
@@ -105,9 +152,9 @@ function handleStreamEvent(run: AgentRun, event: any) {
       if (event.is_error) {
         run.status = "error";
         run.yieldRequest = undefined;
-        appendLog(run, "system", `エラーで終了しました: ${event.result ?? "(no message)"}`);
+        appendLog(run, "system", `エラーで終了しました: ${unmaskNames(event.result ?? "(no message)")}`);
       } else {
-        const yieldRequest = extractYield(typeof event.result === "string" ? event.result : "");
+        const yieldRequest = extractYield(unmaskNames(typeof event.result === "string" ? event.result : ""));
         if (yieldRequest) {
           run.status = "yield";
           run.yieldRequest = yieldRequest;
@@ -125,7 +172,14 @@ function handleStreamEvent(run: AgentRun, event: any) {
   }
 }
 
-function runClaudeTurn(run: AgentRun, prompt: string): Promise<void> {
+async function runClaudeTurn(run: AgentRun, rawPrompt: string): Promise<void> {
+  // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
+  // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
+  // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
+  run.status = "active";
+
+  const prompt = await sanitizeForCloud(run, rawPrompt);
+
   return new Promise((resolve) => {
     const args = [
       "-p",
@@ -144,7 +198,6 @@ function runClaudeTurn(run: AgentRun, prompt: string): Promise<void> {
       args.push("--resume", run.sessionId);
     }
 
-    run.status = "active";
     appendLog(run, "meta", run.sessionId ? "エージェントを再開しています…" : "エージェントを起動しています…");
 
     let child;
