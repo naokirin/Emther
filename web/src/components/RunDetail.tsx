@@ -18,6 +18,18 @@ export type LogLine = {
   text: string;
 };
 
+export type RejectedAlternative = {
+  option: string;
+  reason: string;
+};
+
+export type Proposal = {
+  conclusion: string;
+  facts: string[];
+  logic: string;
+  rejectedAlternatives: RejectedAlternative[];
+};
+
 export type AgentRun = {
   id: string;
   agentName: string;
@@ -26,6 +38,7 @@ export type AgentRun = {
   sessionId?: string;
   log: LogLine[];
   yieldRequest?: { reason: string; options: YieldOption[] };
+  proposal?: Proposal;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -126,6 +139,39 @@ export function RunDetail({
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {run.status === "idle" && run.proposal && (
+        <div className={styles.proposalBlock}>
+          <strong>✅ 結論</strong>
+          <p style={{ fontSize: 13, marginTop: 4 }}>{run.proposal.conclusion}</p>
+
+          {run.proposal.facts.length > 0 && (
+            <>
+              <strong style={{ fontSize: 12 }}>参照ファクト</strong>
+              <ul style={{ margin: "4px 0 8px 18px", fontSize: 12 }}>
+                {run.proposal.facts.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <strong style={{ fontSize: 12 }}>判断ロジック</strong>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 8px" }}>{run.proposal.logic}</p>
+
+          {run.proposal.rejectedAlternatives.length > 0 && (
+            <>
+              <strong style={{ fontSize: 12 }}>棄却した代替案</strong>
+              {run.proposal.rejectedAlternatives.map((r, i) => (
+                <div key={i} style={{ fontSize: 12, marginTop: 4 }}>
+                  <strong>{r.option}</strong>
+                  <span style={{ color: "var(--text-muted)" }}> — {r.reason}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 

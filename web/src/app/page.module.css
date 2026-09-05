@@ -218,6 +218,14 @@
   margin-top: 14px;
 }
 
+.proposalBlock {
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 14px;
+}
+
 .option {
   border: 1px solid var(--border);
   background: #fff;
