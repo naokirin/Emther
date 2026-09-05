@@ -1,0 +1,266 @@
+.page {
+  padding: 24px 28px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 20px;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.panel h2 {
+  font-size: 14px;
+  margin: 0 0 10px 0;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.field select,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.primaryBtn {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.errorText {
+  color: var(--red-fg);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.runList {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.runItem {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.runItem.selected {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue) inset;
+}
+
+.runItemTask {
+  color: var(--text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.badge.active {
+  background: var(--green-bg);
+  color: var(--green-fg);
+  border-color: var(--green-border);
+}
+
+.badge.yield {
+  background: var(--yellow-bg);
+  color: var(--yellow-fg);
+  border-color: var(--yellow-border);
+}
+
+.badge.idle {
+  background: var(--gray-bg);
+  color: var(--gray-fg);
+  border-color: var(--gray-border);
+}
+
+.badge.error {
+  background: var(--red-bg);
+  color: var(--red-fg);
+  border-color: var(--red-border);
+}
+
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.detailTask {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.terminal {
+  background: var(--terminal-bg);
+  color: #d7dde5;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  min-height: 260px;
+  max-height: 420px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.logLine {
+  margin-bottom: 4px;
+}
+
+.logLine.meta {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.logLine.agent {
+  color: #d7dde5;
+}
+
+.logLine.agentPrefix {
+  color: #86efac;
+  font-weight: 700;
+}
+
+.logLine.systemWarn {
+  color: #fca5a5;
+}
+
+.logLine.systemYield {
+  color: #fde68a;
+  font-weight: 700;
+}
+
+.logLine.system {
+  color: #7dd3fc;
+}
+
+.yieldBlock {
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 14px;
+}
+
+.option {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 10px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.option .risk {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.optionBtn {
+  border: 1px solid var(--blue);
+  background: #fff;
+  color: var(--blue);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.chatRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chatRow input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.emptyState {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 40px 0;
+  text-align: center;
+}
