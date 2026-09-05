@@ -339,3 +339,106 @@
 .urgencyhigh {
   color: var(--red-fg);
 }
+
+/* ---------- Team Vitals ---------- */
+.vitalsPanel {
+  margin-bottom: 16px;
+}
+
+.vitalsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.vitalsLegend {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.vitalsLegend span {
+  margin-left: 10px;
+}
+
+.vitalsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.vitalCard {
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
+}
+
+.vitalLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.vitalValue {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vital-good {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+.vital-good .vitalValue {
+  color: var(--green-fg);
+}
+
+.vital-warn {
+  background: var(--yellow-bg);
+  border-color: var(--yellow-border);
+}
+
+.vital-warn .vitalValue {
+  color: var(--yellow-fg);
+}
+
+.vital-bad {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+}
+
+.vital-bad .vitalValue {
+  color: var(--red-fg);
+}
+
+.vital-unknown {
+  background: repeating-linear-gradient(135deg, #f7f7f8, #f7f7f8 6px, #eef0f2 6px, #eef0f2 12px);
+  border: 1.5px dashed var(--gray-border);
+}
+
+.vital-unknown .vitalValue {
+  color: var(--gray-fg);
+}
+
+.detailToggle {
+  margin-top: 6px;
+  font-size: 11px;
+  border: none;
+  background: none;
+  color: var(--blue);
+  cursor: pointer;
+  padding: 0;
+}
+
+.vitalDetail {
+  margin-top: 6px;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text-muted);
+}
