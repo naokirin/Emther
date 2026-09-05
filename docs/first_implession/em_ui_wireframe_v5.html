@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EM Support System - v5 UI Wireframe (Team Vitals)</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --border: #e2e4e9;
+    --text: #1f2430;
+    --text-muted: #6b7280;
+    --green-bg: #e6f7ec; --green-fg: #1c7a3f; --green-border: #34c471;
+    --yellow-bg: #fff8e1; --yellow-fg: #92700a; --yellow-border: #f3b62b;
+    --red-bg: #fdecea; --red-fg: #a3241a; --red-border: #e5534b;
+    --gray-bg: #f2f3f5; --gray-fg: #6b7280; --gray-border: #b9bec7;
+    --blue: #2f6fed;
+    --terminal-bg: #1b2230;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header.app-header {
+    padding: 20px 28px 0 28px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px 0; }
+  .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 16px 0; }
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    background: var(--panel);
+  }
+  nav.tabs button {
+    border: none;
+    background: none;
+    padding: 12px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+  }
+  nav.tabs button.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+    font-weight: 600;
+  }
+  main { padding: 20px 28px 40px 28px; max-width: 1200px; margin: 0 auto; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 4px 0; }
+  .panel .desc { color: var(--text-muted); font-size: 12px; margin: 0 0 12px 0; }
+
+  /* ---------- Team Vitals ---------- */
+  .vitals-panel { margin-bottom: 18px; }
+  .vitals-head {
+    display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px;
+  }
+  .vitals-head h2 { margin: 0; }
+  .vitals-legend { font-size: 11px; color: var(--text-muted); }
+  .vitals-legend span { margin-right: 10px; white-space: nowrap; }
+  .vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .vital-card {
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: var(--gray-bg);
+    cursor: default;
+    position: relative;
+  }
+  .vital-card .label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .vital-card .value { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .vital-card .trend { font-size: 12px; font-weight: 400; }
+
+  .vital-card.good { background: var(--green-bg); border-color: var(--green-border); }
+  .vital-card.good .value { color: var(--green-fg); }
+  .vital-card.warn { background: var(--yellow-bg); border-color: var(--yellow-border); }
+  .vital-card.warn .value { color: var(--yellow-fg); }
+  .vital-card.bad { background: var(--red-bg); border-color: var(--red-border); }
+  .vital-card.bad .value { color: var(--red-fg); }
+
+  /* 評価不能: Agent StatusのIdle(灰色実線)と混同しないよう破線+アイコンで明確に区別 */
+  .vital-card.unknown {
+    background: repeating-linear-gradient(135deg, #f7f7f8, #f7f7f8 6px, #eef0f2 6px, #eef0f2 12px);
+    border: 1.5px dashed var(--gray-border);
+    color: var(--gray-fg);
+  }
+  .vital-card.unknown .value { color: var(--gray-fg); }
+  .vital-card.unknown .value .qmark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px dashed var(--gray-border);
+    font-size: 10px; font-weight: 700;
+  }
+  .vital-card button.detail-toggle {
+    margin-top: 6px;
+    font-size: 11px;
+    border: none;
+    background: none;
+    color: var(--blue);
+    cursor: pointer;
+    padding: 0;
+  }
+  .vital-detail {
+    margin-top: 6px;
+    font-size: 11px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: var(--text-muted);
+  }
+  .vital-detail[hidden] { display: none; }
+
+  /* ---------- Agent Fleet ---------- */
+  .fleet-row { display: flex; gap: 12px; margin: 18px 0; }
+  .fleet-badge {
+    padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border); flex: 1;
+  }
+  .fleet-badge .agent-name { display:block; font-size: 11px; font-weight: 400; color: inherit; opacity: .85; }
+  .fleet-badge.active { background: var(--green-bg); color: var(--green-fg); border-color: var(--green-border); }
+  .fleet-badge.yield { background: var(--yellow-bg); color: var(--yellow-fg); border-color: var(--yellow-border); }
+  .fleet-badge.idle { background: var(--gray-bg); color: var(--gray-fg); border-color: var(--border); }
+  .fleet-badge.error { background: var(--red-bg); color: var(--red-fg); border-color: var(--red-border); }
+
+  /* ---------- Dashboard 2-col ---------- */
+  .dash-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .journal-input { display: flex; gap: 8px; margin-bottom: 8px; }
+  .journal-input input {
+    flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+  }
+  .journal-input button, .btn-primary {
+    background: var(--blue); color: #fff; border: none; border-radius: 6px; padding: 8px 16px;
+    font-size: 13px; cursor: pointer;
+  }
+  .journal-note { font-size: 11px; color: var(--text-muted); margin: 0 0 12px 0; }
+  .journal-entry {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px;
+  }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px; margin: 4px 4px 0 0; }
+  .tag.person { background: #eef1ff; color: #3b4bcc; }
+  .tag.topic { background: #eef6ff; color: #1b6fc9; }
+  .tag.neg { background: #fdecea; color: #a3241a; }
+  .tag.pos { background: #e6f7ec; color: #1c7a3f; }
+  .urgency { font-size: 11px; font-weight: 700; margin-left: 4px; }
+  .urgency.high { color: var(--red-fg); }
+  .urgency.mid { color: #b5760c; }
+
+  .terminal {
+    background: var(--terminal-bg); color: #d7dde5; border-radius: 8px; padding: 12px 14px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.6; min-height: 320px;
+  }
+  .terminal .tag-sys { color: #7dd3fc; }
+  .terminal .tag-people { color: #86efac; }
+  .terminal .tag-lead { color: #fde68a; }
+  .terminal .warn-line { color: #fca5a5; }
+  .terminal .yield-line { color: #fde68a; font-weight: 700; }
+
+  /* ---------- Issue Workspace ---------- */
+  .issue-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+  .issue-status { display: inline-block; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+  .back-btn { border: 1px solid var(--border); background: #fff; border-radius: 6px; padding: 8px 14px; font-size: 12px; cursor: pointer; }
+  .issue-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .yield-block { background: var(--yellow-bg); border: 1px solid var(--yellow-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+  .option { border: 1px solid var(--border); background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
+  .option .risk { color: var(--text-muted); font-size: 11px; }
+  .yield-actions { display: flex; gap: 8px; }
+  .btn-outline { border: 1px solid var(--border); background: #fff; border-radius: 6px; padding: 8px 14px; font-size: 12px; cursor: pointer; }
+  .action-items li { color: var(--text-muted); font-size: 13px; margin-bottom: 6px; }
+  .chat-bubble { border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
+  .chat-bubble.user { background: #eef1f5; margin-left: 30px; }
+  .chat-bubble.ai { background: #eef6ff; margin-right: 10px; }
+  .chat-input { display: flex; gap: 8px; margin-top: 10px; }
+  .chat-input input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+
+  /* ---------- Org Context ---------- */
+  .org-columns { display: grid; grid-template-columns: 260px 1fr; gap: 16px; }
+  .tree { font-size: 13px; line-height: 2; }
+  .tree .folder { font-weight: 600; margin-top: 6px; }
+  .tree .file { padding-left: 20px; color: var(--text-muted); cursor: pointer; }
+  .tree .file.selected { color: var(--blue); font-weight: 600; }
+  .editor-path { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .editor-path code { font-size: 13px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; margin: 10px 0 4px 0; color: var(--text-muted); }
+  .field textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 13px; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>EM Support System &mdash; UI Wireframe v5</h1>
+  <p class="subtitle">HTMLサンプル版（従来のPDFワイヤーフレームを置き換え）。v4からの変更点: ダッシュボードに <strong>Team Vitals</strong>（三値の健全性バイタル表示）を追加。</p>
+</header>
+
+<nav class="tabs">
+  <button class="active" data-target="dashboard">Dashboard</button>
+  <button data-target="issue">Issue Workspace</button>
+  <button data-target="org">Organization Context</button>
+</nav>
+
+<main>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section id="dashboard" class="screen active">
+
+    <div class="panel vitals-panel">
+      <div class="vitals-head">
+        <div>
+          <h2>Team Vitals（チーム健全性）</h2>
+          <p class="desc">数秒で「良い／悪い／まだ分からない」を切り分けるための帯。クリックで判定根拠を表示。</p>
+        </div>
+        <div class="vitals-legend">
+          <span>🟢 安定</span><span>🟡/🔴 要注意・危険</span><span>⚪️ 評価不能（情報不足）</span>
+        </div>
+      </div>
+
+      <div class="vitals-grid">
+        <div class="vital-card good">
+          <div class="label">Team A</div>
+          <div class="value">🟢 安定 <span class="trend">(+2%)</span></div>
+        </div>
+
+        <div class="vital-card warn">
+          <div class="label">Team B</div>
+          <div class="value">🟡 低下 <span class="trend">(-15%)</span></div>
+        </div>
+
+        <div class="vital-card unknown" id="teamCCard">
+          <div class="label">Team C</div>
+          <div class="value"><span class="qmark">?</span> 評価不能</div>
+          <button class="detail-toggle" onclick="var d=document.getElementById('teamCDetail'); d.hidden = !d.hidden;">なぜ？（根拠を見る）</button>
+          <div class="vital-detail" id="teamCDetail" hidden>
+            過去30日間、Team Cのジャーナル入力・1on1ログが0件のため判定不能です。🟢/🔴で表示すると誤った安心／不安を招くため、意図的に「評価不能」としています。
+          </div>
+        </div>
+
+        <div class="vital-card good">
+          <div class="label">1on1 Coverage (30日)</div>
+          <div class="value">🟢 4 / 5</div>
+        </div>
+
+        <div class="vital-card bad">
+          <div class="label">今期目標</div>
+          <div class="value">🔴 15 / 33 完了</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fleet-row">
+      <div class="fleet-badge yield">🟡 Lead Agent<span class="agent-name">Yield / Waiting</span></div>
+      <div class="fleet-badge active">🟢 People Agent<span class="agent-name">Active</span></div>
+      <div class="fleet-badge idle">⚪️ Process Agent<span class="agent-name">Idle</span></div>
+      <div class="fleet-badge idle">⚪️ Tech Agent<span class="agent-name">Idle</span></div>
+    </div>
+
+    <div class="dash-columns">
+      <div class="panel">
+        <h2>Quick Journal (Hybrid Data Ingestion)</h2>
+        <div class="journal-input">
+          <input type="text" placeholder="例: 今日のAさんとの1on1で、リファク..." />
+          <button>Submit</button>
+        </div>
+        <p class="journal-note">※入力後、軽量モデルが自動でタグ付け・メタデータ抽出を行います。</p>
+
+        <div class="journal-entry">
+          今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた。Bチームからの割り込みタスクが多いのが原因らしい。
+          <div>
+            <span class="tag person">@Aさん</span><span class="tag person">@Team_B</span>
+            <span class="tag topic">#1on1</span><span class="tag topic">#技術的負債</span>
+            <span class="tag neg">#モチベーション低下</span>
+            <span class="urgency mid">Urgency: Mid</span>
+          </div>
+        </div>
+
+        <div class="journal-entry">
+          経営会議。Q3のエンタープライズ向けリリース日が2週間前倒しになった。
+          <div>
+            <span class="tag topic">#経営方針</span><span class="tag topic">#スケジュール変更</span>
+            <span class="urgency high">Urgency: High</span>
+          </div>
+        </div>
+
+        <div class="journal-entry">
+          CさんのPRレビューが非常に速く、品質も良い。褒めた。
+          <div>
+            <span class="tag person">@Cさん</span><span class="tag pos">#ポジティブ</span><span class="tag pos">#パフォーマンス</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Agent Activity Stream</h2>
+        <div class="terminal">
+          <div><span class="tag-sys">[System]</span> Polling journal queue... 1 new entry detected.</div>
+          <div><span class="tag-sys">[Ingestion]</span> Applying tags to entry ID #8492.</div>
+          <div><span class="tag-people">[People Agent]</span> Triggered by #モチベーション低下. Loading 1on1 logs for @Aさん (30 days).</div>
+          <div><span class="tag-people">[People Agent]</span> Cross-referencing @Team_B task dependencies...</div>
+          <div><span class="tag-lead">[Lead Agent]</span> Consolidating insights from People &amp; Process contexts.</div>
+          <div class="warn-line"><span class="tag-lead">[Lead Agent]</span> Warning: Reassignment impacts Q3 OKR (Critical Path).</div>
+          <div class="yield-line"><span class="tag-lead">[Lead Agent]</span> [YIELD] Multiple valid resolution paths found. Pausing autonomous execution to await Human (EM) decision for Issue #124.</div>
+          <div>&gt;_ &nbsp;<span style="animation:none;">|</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ISSUE WORKSPACE ============ -->
+  <section id="issue" class="screen">
+    <div class="issue-header">
+      <div>
+        <h1 style="font-size:18px; margin:0 0 8px 0;">Issue #124: Aさんのリファクタリング停滞とモチベーション低下</h1>
+        <span class="issue-status" style="background:var(--yellow-bg); color:var(--yellow-fg); border:1px solid var(--yellow-border);">🟡 Yield (Waiting for Human Decision)</span>
+      </div>
+      <button class="back-btn">Back to Dashboard</button>
+    </div>
+
+    <div class="issue-columns">
+      <div class="panel">
+        <h2>Execution State</h2>
+        <p style="font-size:13px;">
+          <strong>Context:</strong> Q3リリースの前倒しに伴うBチームの割り込みタスクが、Aさんの決済基盤リファクタリングを阻害。Aさんの離脱リスク (Medium)。
+        </p>
+
+        <div class="yield-block">
+          <strong>⚠️ AI Yield: Please select a resolution path.</strong>
+          <p style="font-size:12px; color:var(--text-muted);">無駄な推論コスト（トークン）を防ぐため処理を一時停止しました。組織の泥臭い文脈に基づいて、進行方針を決定してください。</p>
+
+          <div class="option">
+            <strong>Option A: 割り込みタスクの遮断（推奨）</strong><br/>
+            BチームのタスクをCさんに振り替え、Aさんをリファクタリングに専念させる。
+            <div class="risk">※Risk: Cさんの負荷増大。</div>
+          </div>
+          <div class="option">
+            <strong>Option B: リファクタリングのスコープ縮小</strong><br/>
+            Q3リリースに最低限必要な部分のみにスコープを絞る。
+            <div class="risk">※Risk: 来期以降の技術的負債の残存。</div>
+          </div>
+
+          <div class="yield-actions">
+            <button class="btn-primary">選択してStateを更新</button>
+            <button class="btn-outline">別の案をチャットで壁打ち</button>
+          </div>
+        </div>
+
+        <h2 style="margin-top:16px;">Action Items (Draft)</h2>
+        <ul class="action-items">
+          <li>☐ 選択された方針に基づくスケジュール引き直し (Pending)</li>
+          <li>☐ 関係各所への合意形成 (Pending)</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h2>Copilot Workspace (Interactive)</h2>
+        <div class="chat-bubble user">Option AだとCさんの負荷が心配。Cさんの現在のキャパシティと、最近の1on1での発言を確認して。</div>
+        <div class="chat-bubble ai">
+          <strong>[People Agentからの回答]</strong><br/>
+          Cさんの直近のスプリントベロシティは余裕があります（稼働率約75%）。また、先週の1on1ログで「もっとフロントエンド全体の仕様に関わるタスクをやりたい」と発言しており、Bチームのタスクを引き受けることはキャリアの志向（成長機会）と合致する可能性が高いです。
+        </div>
+        <div class="chat-bubble user">なるほど。じゃあOption Aをベースにしつつ、AさんがCさんのコードレビューを手厚くする「ペア体制」に改変できないかな？</div>
+        <div class="chat-bubble ai">
+          素晴らしいアプローチです。Aさんは「後進の育成」にもモチベーションがあるため、離脱リスクの低減にも寄与します。左側のYield Blockの選択肢を無視し、「Option C: A-Cペア体制によるタスク分散とリファクタリング進行」としてStateを直接上書き更新しますか？
+          <div style="margin-top:8px;"><button class="btn-primary">Stateを更新して再開 (Resume)</button></div>
+        </div>
+        <div class="chat-input">
+          <input type="text" placeholder="チャットで相談する..." />
+          <button class="btn-primary">Send</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ORGANIZATION CONTEXT ============ -->
+  <section id="org" class="screen">
+    <div class="panel">
+      <h2>Organization Context (Core Knowledge)</h2>
+      <p class="desc">エージェントの推論の「絶対的な前提」となる組織構造とルールを定義。動的ローディングの対象。</p>
+
+      <div class="org-columns">
+        <div class="tree">
+          <div class="folder">📁 Strategy (経営戦略)</div>
+          <div class="file">📄 MVV_and_Vision</div>
+          <div class="file selected">📄 Q3_OKRs (Viewing)</div>
+          <div class="folder">📁 Teams (組織体制)</div>
+          <div class="file">📁 Team_A (決済基盤)</div>
+          <div class="file" style="padding-left:36px;">📄 Mission</div>
+          <div class="file" style="padding-left:36px;">📄 Members_Profile</div>
+          <div class="file">📁 Team_B (新規事業)</div>
+          <div class="folder">📁 Rules_and_Constraints</div>
+          <div class="file">📄 AI_Directives (絶対命令)</div>
+          <div class="file">📄 Evaluation_Cycle</div>
+          <div class="file">📄 Vitals_Thresholds <span style="color:var(--blue); font-size:10px;">(new)</span></div>
+        </div>
+
+        <div>
+          <div class="editor-path">
+            <code>/Strategy/Q3_OKRs</code>
+            <button class="btn-primary">Save Changes</button>
+          </div>
+
+          <div class="field">
+            <label>Objective 1 (全社)</label>
+            <textarea rows="2">BtoBエンタープライズ市場でのシェアを拡大し、新規顧客を10社獲得する。</textarea>
+          </div>
+          <div class="field">
+            <label>Key Results (開発部門カスケード)</label>
+            <textarea rows="4">KR1: 決済基盤のリファクタリングを完了させ、スケーラビリティを確保する。
+KR2: 新規エンタープライズ向け機能のリリース日を遵守する（※直近の経営会議で2週間前倒しに変更済）。
+KR3: 障害発生時のMTTR（平均復旧時間）を30分以内に短縮する。</textarea>
+          </div>
+          <div class="field">
+            <label>Context Notes (AIへの補足指示)</label>
+            <textarea rows="3">KR1とKR2はトレードオフになりやすい。リソース競合が発生した場合、原則としてKR2（リリース遵守）を優先するが、技術的負債が限界値を超える場合はCTOへエスカレーションすること。</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  document.querySelectorAll('nav.tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('nav.tabs button').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.target).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
