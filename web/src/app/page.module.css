@@ -264,3 +264,78 @@
   padding: 40px 0;
   text-align: center;
 }
+
+.journalInputRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.journalInputRow input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.journalEntry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.tagRow {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 12px;
+}
+
+.tagPerson {
+  background: #eef1ff;
+  color: #3b4bcc;
+}
+
+.tagTopic {
+  background: #eef6ff;
+  color: #1b6fc9;
+}
+
+.tagPos {
+  background: var(--green-bg);
+  color: var(--green-fg);
+}
+
+.tagNeg {
+  background: var(--red-bg);
+  color: var(--red-fg);
+}
+
+.urgencyLabel {
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.urgencylow {
+  color: var(--text-muted);
+}
+
+.urgencymid {
+  color: #b5760c;
+}
+
+.urgencyhigh {
+  color: var(--red-fg);
+}
