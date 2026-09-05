@@ -19,6 +19,18 @@ export type YieldRequest = {
   options: YieldOption[];
 };
 
+export type RejectedAlternative = {
+  option: string;
+  reason: string;
+};
+
+export type Proposal = {
+  conclusion: string;
+  facts: string[];
+  logic: string;
+  rejectedAlternatives: RejectedAlternative[];
+};
+
 export type LogLine = {
   ts: number;
   channel: "meta" | "agent" | "system";
@@ -33,6 +45,7 @@ export type AgentRun = {
   sessionId?: string;
   log: LogLine[];
   yieldRequest?: YieldRequest;
+  proposal?: Proposal;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -79,8 +92,20 @@ function buildSystemPrompt(agentName: string): string {
     "与えられたタスクの文脈だけを判断材料とし、実際の外部システムやファイルには一切アクセスできません（ツールは無効化されています）。",
     "",
     "回答のルール:",
-    "- タスクを完結できる場合は、通常どおり結論を述べて終了してください（yieldブロックは不要です）。",
-    "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください。",
+    "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
+    "",
+    "proposalブロックのフォーマット（このとおりのfenced code blockにすること）:",
+    "```proposal",
+    "{",
+    '  "conclusion": "結論（一文で）",',
+    '  "facts": ["判断の根拠にした参照ファクト（与えられた情報の中から）"],',
+    '  "logic": "その結論に至った判断ロジック",',
+    '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ]',
+    "}",
+    "```",
+    "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
+    "",
+    "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき",
     "  2. 判断に必須の前提情報が不足しているとき",
     "",
@@ -113,6 +138,33 @@ function extractYield(resultText: string): YieldRequest | undefined {
     }
   } catch {
     // 不正なyieldブロックは「yieldなし（通常完了）」として扱う
+  }
+  return undefined;
+}
+
+// docs 3.5「構造化された提案」: 結論・参照ファクト・判断ロジック・棄却した代替案を
+// 必ず含めさせる。抽出できない（規約に従わなかった）場合はundefinedを返し、
+// UI側は素のテキストログのみを表示する（無理に構造化して見せない）。
+function extractProposal(resultText: string): Proposal | undefined {
+  const match = resultText.match(/```proposal\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed && typeof parsed.conclusion === "string" && typeof parsed.logic === "string") {
+      return {
+        conclusion: parsed.conclusion,
+        facts: Array.isArray(parsed.facts) ? parsed.facts.filter((f: unknown) => typeof f === "string") : [],
+        logic: parsed.logic,
+        rejectedAlternatives: Array.isArray(parsed.rejectedAlternatives)
+          ? parsed.rejectedAlternatives.filter(
+              (r: unknown): r is RejectedAlternative =>
+                typeof r === "object" && r !== null && typeof (r as RejectedAlternative).option === "string",
+            )
+          : [],
+      };
+    }
+  } catch {
+    // 不正なproposalブロックは構造化なしとして扱う
   }
   return undefined;
 }
@@ -189,15 +241,22 @@ function handleStreamEvent(run: AgentRun, event: any) {
         run.yieldRequest = undefined;
         appendLog(run, "system", `エラーで終了しました: ${unmaskNames(event.result ?? "(no message)")}`);
       } else {
-        const yieldRequest = extractYield(unmaskNames(typeof event.result === "string" ? event.result : ""));
+        const resultText = unmaskNames(typeof event.result === "string" ? event.result : "");
+        const yieldRequest = extractYield(resultText);
         if (yieldRequest) {
           run.status = "yield";
           run.yieldRequest = yieldRequest;
+          run.proposal = undefined;
           appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
         } else {
           run.status = "idle";
           run.yieldRequest = undefined;
-          appendLog(run, "system", "タスクが完了しました（人間の入力は不要です）。");
+          run.proposal = extractProposal(resultText);
+          appendLog(
+            run,
+            "system",
+            run.proposal ? "タスクが完了しました（人間の入力は不要です）。" : "タスクが完了しました（proposal形式には従いませんでした）。",
+          );
         }
       }
       break;
