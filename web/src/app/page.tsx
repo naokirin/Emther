@@ -42,7 +42,43 @@ type JournalEntry = {
   createdAt: number;
 };
 
+type Team = {
+  id: string;
+  name: string;
+  members: string[];
+  createdAt: number;
+};
+
+type VitalStatus = "good" | "warn" | "bad" | "unknown";
+
+type TeamVital = {
+  teamId: string;
+  teamName: string;
+  status: VitalStatus;
+  label: string;
+  reason: string;
+};
+
+type CoverageVital = {
+  status: VitalStatus;
+  covered: number;
+  total: number;
+  reason: string;
+};
+
+type OrgVitals = {
+  teams: TeamVital[];
+  oneOnOneCoverage: CoverageVital;
+};
+
 const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent"];
+
+const VITAL_ICON: Record<VitalStatus, string> = {
+  good: "🟢",
+  warn: "🟡",
+  bad: "🔴",
+  unknown: "⚪️",
+};
 
 const URGENCY_LABEL: Record<JournalEntry["urgency"], string> = {
   low: "Urgency: Low",
@@ -89,6 +125,14 @@ export default function Home() {
   const [journalText, setJournalText] = useState("");
   const [journalSubmitting, setJournalSubmitting] = useState(false);
   const [journalError, setJournalError] = useState<string | null>(null);
+
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [vitals, setVitals] = useState<OrgVitals | null>(null);
+  const [teamName, setTeamName] = useState("");
+  const [teamMembers, setTeamMembers] = useState("");
+  const [teamSubmitting, setTeamSubmitting] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [openVitalId, setOpenVitalId] = useState<string | null>(null);
 
   const selectedRun = runs.find((r) => r.id === selectedId) ?? null;
 
@@ -149,6 +193,79 @@ export default function Home() {
       clearInterval(interval);
     };
   }, []);
+
+  const refreshOrg = useCallback(async () => {
+    try {
+      const [teamsRes, vitalsRes] = await Promise.all([fetch("/api/teams"), fetch("/api/vitals")]);
+      const teamsData = await teamsRes.json();
+      const vitalsData = await vitalsRes.json();
+      setTeams(teamsData.teams ?? []);
+      setVitals(vitalsData);
+    } catch {
+      // ポーリング失敗は静かに無視し、次回のポーリングに任せる
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const [teamsRes, vitalsRes] = await Promise.all([fetch("/api/teams"), fetch("/api/vitals")]);
+        const teamsData = await teamsRes.json();
+        const vitalsData = await vitalsRes.json();
+        if (!cancelled) {
+          setTeams(teamsData.teams ?? []);
+          setVitals(vitalsData);
+        }
+      } catch {
+        // ポーリング失敗は静かに無視し、次回のポーリングに任せる
+      }
+    }
+
+    const interval = setInterval(poll, 5000);
+    void poll();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  async function handleAddTeam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!teamName.trim()) return;
+    setTeamSubmitting(true);
+    setTeamError(null);
+    try {
+      const members = teamMembers
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean);
+      const res = await fetch("/api/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: teamName, members }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "チームの追加に失敗しました");
+      setTeamName("");
+      setTeamMembers("");
+      await refreshOrg();
+    } catch (err) {
+      setTeamError((err as Error).message);
+    } finally {
+      setTeamSubmitting(false);
+    }
+  }
+
+  async function handleRemoveTeam(id: string) {
+    try {
+      await fetch(`/api/teams/${id}`, { method: "DELETE" });
+      await refreshOrg();
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
 
   async function handleJournalSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -225,6 +342,99 @@ export default function Home() {
         </p>
       </div>
 
+      <div className={`${styles.panel} ${styles.vitalsPanel}`}>
+        <div className={styles.vitalsHead}>
+          <div>
+            <h2>Team Vitals（チーム健全性）</h2>
+            <p className={styles.subtitle}>直近のJournalから算出。判断材料が足りない場合は「評価不能」として表示します。</p>
+          </div>
+          <div className={styles.vitalsLegend}>
+            <span>🟢 安定</span>
+            <span>🟡/🔴 要注意・危険</span>
+            <span>⚪️ 評価不能（情報不足）</span>
+          </div>
+        </div>
+
+        <div className={styles.vitalsGrid}>
+          {vitals?.teams.map((v) => (
+            <div key={v.teamId} className={`${styles.vitalCard} ${styles[`vital-${v.status}`]}`}>
+              <div className={styles.vitalLabel}>{v.teamName}</div>
+              <div className={styles.vitalValue}>
+                {VITAL_ICON[v.status]} {v.label}
+              </div>
+              <button
+                className={styles.detailToggle}
+                onClick={() => setOpenVitalId(openVitalId === v.teamId ? null : v.teamId)}
+              >
+                根拠を見る
+              </button>
+              {openVitalId === v.teamId && <div className={styles.vitalDetail}>{v.reason}</div>}
+            </div>
+          ))}
+
+          {vitals && (
+            <div
+              className={`${styles.vitalCard} ${styles[`vital-${vitals.oneOnOneCoverage.status}`]}`}
+            >
+              <div className={styles.vitalLabel}>1on1 Coverage (30日)</div>
+              <div className={styles.vitalValue}>
+                {VITAL_ICON[vitals.oneOnOneCoverage.status]} {vitals.oneOnOneCoverage.covered} / {vitals.oneOnOneCoverage.total}
+              </div>
+              <button
+                className={styles.detailToggle}
+                onClick={() => setOpenVitalId(openVitalId === "coverage" ? null : "coverage")}
+              >
+                根拠を見る
+              </button>
+              {openVitalId === "coverage" && <div className={styles.vitalDetail}>{vitals.oneOnOneCoverage.reason}</div>}
+            </div>
+          )}
+
+          {vitals && vitals.teams.length === 0 && (
+            <p className={styles.subtitle}>チームが登録されていません。下のOrganization Contextから追加してください。</p>
+          )}
+        </div>
+      </div>
+
+      <div className={styles.panel} style={{ marginBottom: 16 }}>
+        <h2>Organization Context（チーム・メンバー）</h2>
+        <form onSubmit={handleAddTeam}>
+          <div className={styles.journalInputRow}>
+            <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="チーム名（例: Team A）" style={{ maxWidth: 180 }} />
+            <input
+              type="text"
+              value={teamMembers}
+              onChange={(e) => setTeamMembers(e.target.value)}
+              placeholder="メンバー（カンマ区切り。例: Aさん, Bさん）※Journalのpeopleと同じ表記で"
+            />
+            <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={teamSubmitting || !teamName.trim()}>
+              追加
+            </button>
+          </div>
+        </form>
+        {teamError && <p className={styles.errorText}>{teamError}</p>}
+
+        {teams.length === 0 && <p className={styles.subtitle}>まだチームが登録されていません。</p>}
+        {teams.map((t) => (
+          <div key={t.id} className={styles.journalEntry}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <strong>{t.name}</strong>
+              <button className={styles.detailToggle} onClick={() => handleRemoveTeam(t.id)}>
+                削除
+              </button>
+            </div>
+            <div className={styles.tagRow}>
+              {t.members.length === 0 && <span className={styles.subtitle}>メンバー未登録</span>}
+              {t.members.map((m) => (
+                <span key={m} className={`${styles.tag} ${styles.tagPerson}`}>
+                  @{m}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className={styles.panel} style={{ marginBottom: 16 }}>
         <h2>Quick Journal（雑多なメモの自動タグ付け）</h2>
         <form onSubmit={handleJournalSubmit}>
@@ -241,7 +451,7 @@ export default function Home() {
           </div>
         </form>
         <p className={styles.subtitle} style={{ margin: "6px 0 12px" }}>
-          ※入力後、軽量モデル（{"claude-haiku-4-5"}）が自動でタグ・人物・緊急度・感情を抽出します。
+          ※入力後、完全ローカルの軽量モデル（Qwen2.5-0.5B, 外部送信なし）が自動でタグ・人物・緊急度・感情を抽出します。
         </p>
         {journalError && <p className={styles.errorText}>{journalError}</p>}
 
