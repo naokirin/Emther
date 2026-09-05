@@ -639,6 +639,11 @@ export default function Home() {
               >
                 <div>
                   <strong>{run.agentName}</strong> <StatusBadge status={run.status} />
+                  {run.consultedBy && (
+                    <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                      🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
+                    </span>
+                  )}
                 </div>
                 <div className={styles.runItemTask}>{run.task}</div>
               </button>

@@ -42,6 +42,7 @@ export type AgentRun = {
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
+  consultedBy?: string;
 };
 
 export const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls: string }> = {
