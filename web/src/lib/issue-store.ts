@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { loadJSON, saveJSON } from "@/lib/persistence";
 
 // docs 3.7「双方向のIssueトラッキング基盤」の最小実装。
 // v5設計書はIssueが独自の実行計画・ロードマップを持つ想定だが、MVPでは
@@ -22,8 +23,11 @@ export type Issue = {
   updatedAt: number;
 };
 
-// MVPではプロセス内メモリのみ。永続化は今後の課題（README参照）。
-const issues: Issue[] = [];
+const issues: Issue[] = loadJSON<Issue[]>("issues.json", []);
+
+function persist(): void {
+  saveJSON("issues.json", issues);
+}
 
 export function listIssues(): Issue[] {
   return [...issues].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -44,6 +48,7 @@ export function createIssue(title: string, agentRunId?: string): Issue {
     updatedAt: now,
   };
   issues.push(issue);
+  persist();
   return issue;
 }
 
@@ -54,6 +59,7 @@ export function addActionItem(issueId: string, text: string): Issue | undefined 
   if (!trimmed) return issue;
   issue.actionItems.push({ id: randomUUID(), text: trimmed, done: false });
   issue.updatedAt = Date.now();
+  persist();
   return issue;
 }
 
@@ -64,5 +70,6 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
   if (!item) return undefined;
   item.done = !item.done;
   issue.updatedAt = Date.now();
+  persist();
   return issue;
 }

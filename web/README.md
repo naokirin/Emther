@@ -8,6 +8,7 @@
 - **3.1 Core Context（最小版）** と **3.1.1 Team Vitals** — チーム・メンバー登録と、Journal実データに基づく三値ステータス算出
 - Agent Fleetステータス表示 — エージェント種別ごとの直近の稼働状況を信号機で表示
 - **3.7 双方向Issueトラッキング（最小版）** — Issue Workspace
+- ローカルファイルへの簡易永続化 — `.data/*.json`。プロセス再起動でデータが消える問題を解消
 
 ## できること
 
@@ -59,6 +60,14 @@ docs 3.7/3.8で想定するIssue Workspaceの最小実装。ただしYieldと壁
 - Agent Runtimeパネルの各runに「📌 このRunをIssueにする」ボタンがあり、押すとそのrunに紐づいたIssueが作られてIssueタブへ切り替わる。Issue側は既存のrunと同じ`/api/agents/[id]/decide`を叩くので、Yield→再開のロジックは重複させていない。
 - 実機検証: 単独Issueの作成・Action Item追加・完了チェックのトグル、および実際のAgent Run（Tech Agentがyieldに到達したもの）へのIssue紐付けを確認済み。
 
+### 永続化
+
+- `web/src/lib/persistence.ts` の`loadJSON`/`saveJSON`で、各ストア（journal, teams, issues, agent-runs, people-directory）が`.data/*.json`へ読み書きする。複数ワーカーや同時書き込みは想定しない、シングルプロセス前提の最小実装。
+- 起動時に`.data/agent-runs.json`から復元する際、`status: "active"`のままのrunは実体の子プロセスがもう存在しないため、自動的に`error`へ変換する（安全側に倒す設計）。それ以外（yield/idle/error）はログ・yield内容・`sessionId`ごとそのまま復元されるため、再起動後も`--resume`は機能する。
+- `.data/people-directory.json`には実名⇔`PERSON_n`の対応表が保存される。これはローカルディスク上のファイルであり、外部LLMには一切送信されないので、memo.mdが要求する「ローカルのみが読める場所」という条件は保ったままである。
+- 実機検証: チーム・Issue作成→サーバー再起動→両方とも復元されることを確認。Agent Runを起動して`active`のままサーバーを強制終了→再起動後に`error`＋説明ログへ変換されることを確認。
+- `.data/`は`.gitignore`済み（ジャーナルの生テキストや実名を含みうるため、コミット対象にしない）。
+
 ## 実行方法
 
 ```bash
@@ -74,7 +83,7 @@ npm run dev
 
 ## 既知のスコープ外（今後の拡張ポイント）
 
-- 実行状態はプロセス内メモリのみで保持（再起動で消える）。永続化はCore Context DB/Daily Logs DBの実装時に対応。
+- 永続化は`.data/*.json`へのベタ書きのみ。Core Context DB/Daily Logs DBが想定するようなイベントソーシングや構造化スキーマ、複数プロセス/ワーカー間の整合性は無い。
 - 現在はポーリング（1.5秒間隔）でActivity Streamを更新している。SSE/WebSocketへの置き換えは今後の課題。
 - エージェントはツール利用を無効化（`--tools ""`）した「テキスト推論のみ」の存在として動作する。Organization Contextはチーム名簿のみ注入しており、Journal本文やIssueの文脈は渡していない。
 - Quick Journalのサニタイズ（マスキング、docs 3.2）は未実装。生のメモがそのまま画面にも表示される（推論自体はローカル完結になったが、表示上のマスキングは別課題として残っている）。

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { listTeams } from "@/lib/org-context-store";
+import { loadJSON, saveJSON } from "@/lib/persistence";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
 
@@ -37,9 +38,19 @@ export type AgentRun = {
   updatedAt: number;
 };
 
-// MVPではシングルプロセス内のメモリに実行状態を保持する。
-// 複数ワーカー/再起動をまたいだ永続化はスコープ外（Core Context DB / Daily Logs DBの実装時に再検討）。
-const runs = new Map<string, AgentRun>();
+// `.data/agent-runs.json`への簡易永続化。Core Context DB / Daily Logs DBとしての
+// 本格実装は今後の課題（README参照）。再起動時に残っていた"active"は、実体の
+// 子プロセスがもう存在しないため、安全側に倒して"error"へ変換する。
+const persistedRuns = loadJSON<AgentRun[]>("agent-runs.json", []).map((r) =>
+  r.status === "active"
+    ? { ...r, status: "error" as const, log: [...r.log, { ts: Date.now(), channel: "system" as const, text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" }] }
+    : r,
+);
+const runs = new Map<string, AgentRun>(persistedRuns.map((r) => [r.id, r]));
+
+function persistRuns(): void {
+  saveJSON("agent-runs.json", Array.from(runs.values()));
+}
 
 const PER_TURN_BUDGET_USD = "0.5";
 
@@ -109,6 +120,7 @@ function extractYield(resultText: string): YieldRequest | undefined {
 function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
   run.log.push({ ts: Date.now(), channel, text });
   run.updatedAt = Date.now();
+  persistRuns();
 }
 
 // docs/memo.md の匿名化方式: クラウド(claude -p)に送る前に、テキスト中の人物名を

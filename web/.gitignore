@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local persisted app data (journal, teams, issues, agent runs, name<->ID mapping)
+/.data/
