@@ -6,6 +6,8 @@
 - **3.2 ハイブリッド・データ収集**（Quick Journal — 軽量モデルによる自動タグ付け）
 - 人物名の匿名化（`docs/memo.md`） — クラウドLLMに送る前に実名をIDへ置換し、表示時のみ実名に戻す
 - **3.1 Core Context（最小版）** と **3.1.1 Team Vitals** — チーム・メンバー登録と、Journal実データに基づく三値ステータス算出
+- Agent Fleetステータス表示 — エージェント種別ごとの直近の稼働状況を信号機で表示
+- **3.7 双方向Issueトラッキング（最小版）** — Issue Workspace
 
 ## できること
 
@@ -48,6 +50,15 @@
 - 判定式や閾値（14日、2件、平均センチメント±0.34/0.2、30日、80%/40%）はすべて暫定値。Organization Contextの`Rules_and_Constraints`側で調整可能にする、というv5設計書3.1.1の想定はまだ実装していない（今はソースコード直書き）。
 - 実機検証: チーム未登録→全体が評価不能。メンバー登録直後（Journal無し）→そのチームは評価不能。ネガティブなJournalを2件投稿→「要注意」に切り替わることを確認。1on1タグ付きJournalで1/2メンバーのみ言及→Coverageが「やや注意」域になることを確認。
 
+### Issue Workspace（最小版）
+
+docs 3.7/3.8で想定するIssue Workspaceの最小実装。ただしYieldと壁打ちチャットの実体は独自実装せず、**既存のAgent Runにそのまま委譲**している——Issue自体が持つのはタイトルとAction Itemsチェックリストだけ。
+
+- `web/src/lib/issue-store.ts` — Issue（title, agentRunId?, actionItems）のCRUD。`agentRunId`は任意で、「EMが直接起票（AI runと無関係）」と「既存のAgent Run（AIのYieldを含む）をIssue化」の両方に対応する（docs 3.7の「双方向性」）。
+- `web/src/components/RunDetail.tsx` — Agent Runtimeパネルの詳細表示（Activity Stream / Yield選択 / チャット）を切り出した共通コンポーネント。Agent RuntimeパネルとIssue詳細の両方から使う。
+- Agent Runtimeパネルの各runに「📌 このRunをIssueにする」ボタンがあり、押すとそのrunに紐づいたIssueが作られてIssueタブへ切り替わる。Issue側は既存のrunと同じ`/api/agents/[id]/decide`を叩くので、Yield→再開のロジックは重複させていない。
+- 実機検証: 単独Issueの作成・Action Item追加・完了チェックのトグル、および実際のAgent Run（Tech Agentがyieldに到達したもの）へのIssue紐付けを確認済み。
+
 ## 実行方法
 
 ```bash
@@ -70,4 +81,5 @@ npm run dev
 - ローカルモデルの初回ロードは重み（0.5B・q4で数百MB）のダウンロード＋ONNX Runtime初期化を含み、リクエストが数十秒ブロックする。2回目以降はプロセス内キャッシュにより数秒程度。
 - Organization Contextはチーム名簿のみで、v5設計書が想定するツリー構造・MVV/OKR/Rules_and_Constraintsなどの構造化コンテンツは未実装。
 - Team Vitalsの判定閾値はソースコード直書きの暫定値で、EMが調整するUIは無い。「今期目標 15/33」のようなOKR進捗バイタルも未実装（進捗率だけでは良悪判定できない＝評価不能にすべきケースだと考えており、期限に対する期待値をどう持つかを未決定のまま保留している）。
-- Issue Workspace（双方向Issueトラッキング、docs 3.7/3.8）、Agent Activity Streamの信号機ステータス表示、階層型マルチエージェント（Lead Agentが専門エージェントを束ねる構成、docs 3.3）は未着手。
+- Issueのズームイン/ズームアウトやタスク分解（docs 3.8「動的Issue実行管理」）、AIによる自動ドラフトIssue（異常検知経由の起票）は未実装。今のIssueはEMが手動で作る（既存Agent Runへの紐付けを含む）だけ。
+- 階層型マルチエージェント（Lead Agentが専門エージェントを束ねる構成、docs 3.3）は未着手。今の4エージェントは互いに独立しており、Lead Agentが他を呼び出すことはない。

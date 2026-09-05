@@ -1,35 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import styles from "./page.module.css";
-
-type AgentStatus = "active" | "yield" | "idle" | "error";
-
-type YieldOption = {
-  id: string;
-  label: string;
-  detail?: string;
-  risk?: string;
-};
-
-type LogLine = {
-  ts: number;
-  channel: "meta" | "agent" | "system";
-  text: string;
-};
-
-type AgentRun = {
-  id: string;
-  agentName: string;
-  task: string;
-  status: AgentStatus;
-  sessionId?: string;
-  log: LogLine[];
-  yieldRequest?: { reason: string; options: YieldOption[] };
-  totalCostUsd: number;
-  createdAt: number;
-  updatedAt: number;
-};
+import { RunDetail, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 
 type JournalEntry = {
   id: string;
@@ -71,6 +44,21 @@ type OrgVitals = {
   oneOnOneCoverage: CoverageVital;
 };
 
+type ActionItem = {
+  id: string;
+  text: string;
+  done: boolean;
+};
+
+type Issue = {
+  id: string;
+  title: string;
+  agentRunId?: string;
+  actionItems: ActionItem[];
+  createdAt: number;
+  updatedAt: number;
+};
+
 const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent"];
 
 const VITAL_ICON: Record<VitalStatus, string> = {
@@ -86,22 +74,6 @@ const URGENCY_LABEL: Record<JournalEntry["urgency"], string> = {
   high: "Urgency: High",
 };
 
-const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls: string }> = {
-  active: { icon: "🟢", label: "Active", cls: styles.active },
-  yield: { icon: "🟡", label: "Yield / Waiting", cls: styles.yield },
-  idle: { icon: "⚪️", label: "Idle（完了・待機中）", cls: styles.idle },
-  error: { icon: "🔴", label: "Error", cls: styles.error },
-};
-
-function StatusBadge({ status }: { status: AgentStatus }) {
-  const meta = STATUS_META[status];
-  return (
-    <span className={`${styles.badge} ${meta.cls}`}>
-      {meta.icon} {meta.label}
-    </span>
-  );
-}
-
 // docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunの状態を代表値として見せる。
 // そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
 function computeFleetStatus(agentName: string, runs: AgentRun[]): AgentStatus {
@@ -109,14 +81,6 @@ function computeFleetStatus(agentName: string, runs: AgentRun[]): AgentStatus {
   if (relevant.length === 0) return "idle";
   const latest = relevant.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
   return latest.status;
-}
-
-function logLineClass(line: LogLine): string {
-  if (line.channel === "meta") return styles.meta;
-  if (line.channel === "agent") return styles.agent;
-  if (line.text.startsWith("[YIELD]")) return styles.systemYield;
-  if (line.text.includes("エラー")) return styles.systemWarn;
-  return styles.system;
 }
 
 export default function Home() {
@@ -128,7 +92,6 @@ export default function Home() {
   const [starting, setStarting] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const terminalRef = useRef<HTMLDivElement | null>(null);
 
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [journalText, setJournalText] = useState("");
@@ -143,7 +106,19 @@ export default function Home() {
   const [teamError, setTeamError] = useState<string | null>(null);
   const [openVitalId, setOpenVitalId] = useState<string | null>(null);
 
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [issueTitle, setIssueTitle] = useState("");
+  const [issueRunId, setIssueRunId] = useState("");
+  const [issueSubmitting, setIssueSubmitting] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [actionItemText, setActionItemText] = useState("");
+  const [issueMessage, setIssueMessage] = useState("");
+  const [issueDeciding, setIssueDeciding] = useState(false);
+
   const selectedRun = runs.find((r) => r.id === selectedId) ?? null;
+  const selectedIssue = issues.find((i) => i.id === selectedIssueId) ?? null;
+  const selectedIssueRun = selectedIssue ? runs.find((r) => r.id === selectedIssue.agentRunId) ?? null : null;
 
   const refreshRuns = useCallback(async () => {
     try {
@@ -175,12 +150,6 @@ export default function Home() {
       clearInterval(interval);
     };
   }, []);
-
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [selectedRun?.log.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +242,132 @@ export default function Home() {
       await refreshOrg();
     } catch {
       // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  const refreshIssues = useCallback(async () => {
+    try {
+      const res = await fetch("/api/issues");
+      const data = await res.json();
+      setIssues(data.issues ?? []);
+    } catch {
+      // ポーリング失敗は静かに無視し、次回のポーリングに任せる
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const res = await fetch("/api/issues");
+        const data = await res.json();
+        if (!cancelled) setIssues(data.issues ?? []);
+      } catch {
+        // ポーリング失敗は静かに無視し、次回のポーリングに任せる
+      }
+    }
+
+    const interval = setInterval(poll, 3000);
+    void poll();
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  async function handleCreateIssue(e: React.FormEvent) {
+    e.preventDefault();
+    if (!issueTitle.trim()) return;
+    setIssueSubmitting(true);
+    setIssueError(null);
+    try {
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: issueTitle, agentRunId: issueRunId || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Issueの起票に失敗しました");
+      setIssueTitle("");
+      setIssueRunId("");
+      setSelectedIssueId(data.issue.id);
+      await refreshIssues();
+    } catch (err) {
+      setIssueError((err as Error).message);
+    } finally {
+      setIssueSubmitting(false);
+    }
+  }
+
+  async function handlePromoteToIssue(run: AgentRun) {
+    setIssueSubmitting(true);
+    setIssueError(null);
+    try {
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: run.task.slice(0, 60), agentRunId: run.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Issueの起票に失敗しました");
+      setSelectedIssueId(data.issue.id);
+      await refreshIssues();
+    } catch (err) {
+      setIssueError((err as Error).message);
+    } finally {
+      setIssueSubmitting(false);
+    }
+  }
+
+  async function handleAddActionItem(issueId: string) {
+    if (!actionItemText.trim()) return;
+    try {
+      const res = await fetch(`/api/issues/${issueId}/action-items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: actionItemText }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIssues((prev) => prev.map((i) => (i.id === issueId ? data.issue : i)));
+        setActionItemText("");
+      }
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  async function handleToggleActionItem(issueId: string, itemId: string) {
+    try {
+      const res = await fetch(`/api/issues/${issueId}/action-items/${itemId}`, { method: "PATCH" });
+      const data = await res.json();
+      if (res.ok) {
+        setIssues((prev) => prev.map((i) => (i.id === issueId ? data.issue : i)));
+      }
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  async function sendIssueDecision(run: AgentRun, text: string) {
+    if (!text.trim()) return;
+    setIssueDeciding(true);
+    setIssueError(null);
+    try {
+      const res = await fetch(`/api/agents/${run.id}/decide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "送信に失敗しました");
+      setIssueMessage("");
+      await refreshRuns();
+    } catch (err) {
+      setIssueError((err as Error).message);
+    } finally {
+      setIssueDeciding(false);
     }
   }
 
@@ -556,74 +651,123 @@ export default function Home() {
 
           {selectedRun && (
             <>
-              <div className={styles.detailHeader}>
-                <div>
-                  <h2 style={{ marginBottom: 4 }}>{selectedRun.agentName}</h2>
-                  <div className={styles.detailTask}>{selectedRun.task}</div>
-                </div>
-                <StatusBadge status={selectedRun.status} />
+              <button
+                className={styles.detailToggle}
+                style={{ marginBottom: 8 }}
+                disabled={issueSubmitting}
+                onClick={() => handlePromoteToIssue(selectedRun)}
+              >
+                📌 このRunをIssueにする
+              </button>
+              <RunDetail run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className={styles.layout} style={{ marginTop: 16 }}>
+        <div>
+          <div className={styles.panel}>
+            <h2>Issues</h2>
+            <form onSubmit={handleCreateIssue}>
+              <div className={styles.field}>
+                <label>タイトル</label>
+                <input type="text" value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)} placeholder="例: Aさんのリファクタリング停滞" />
               </div>
-
-              <div className={styles.terminal} ref={terminalRef}>
-                {selectedRun.log.map((line, i) => (
-                  <div key={i} className={`${styles.logLine} ${logLineClass(line)}`}>
-                    {line.channel === "agent" ? (
-                      <>
-                        <span className={styles.agentPrefix}>[{selectedRun.agentName}] </span>
-                        {line.text}
-                      </>
-                    ) : (
-                      line.text
-                    )}
-                  </div>
-                ))}
-                {selectedRun.status === "active" && <div className={styles.logLine}>{">_ …"}</div>}
-              </div>
-
-              {selectedRun.status === "yield" && selectedRun.yieldRequest && (
-                <div className={styles.yieldBlock}>
-                  <strong>⚠️ AI Yield: 判断をお願いします</strong>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
-                    {selectedRun.yieldRequest.reason}
-                  </p>
-
-                  {selectedRun.yieldRequest.options.map((opt) => (
-                    <div className={styles.option} key={opt.id}>
-                      <strong>
-                        Option {opt.id}: {opt.label}
-                      </strong>
-                      {opt.detail && <div>{opt.detail}</div>}
-                      {opt.risk && <div className="risk" style={{ color: "var(--text-muted)", fontSize: 11 }}>※Risk: {opt.risk}</div>}
-                      <br />
-                      <button
-                        className={styles.optionBtn}
-                        disabled={deciding}
-                        onClick={() => sendDecision(`Option ${opt.id}（${opt.label}）を採用します。この方針で進めてください。`)}
-                      >
-                        このOptionを選択してStateを更新
-                      </button>
-                    </div>
+              <div className={styles.field}>
+                <label>関連づけるAgent Run（任意）</label>
+                <select value={issueRunId} onChange={(e) => setIssueRunId(e.target.value)}>
+                  <option value="">なし</option>
+                  {runs.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      [{r.agentName}] {r.task.slice(0, 30)}
+                    </option>
                   ))}
+                </select>
+              </div>
+              <button className={styles.primaryBtn} type="submit" disabled={issueSubmitting || !issueTitle.trim()}>
+                Issueを起票
+              </button>
+            </form>
+            {issueError && <p className={styles.errorText}>{issueError}</p>}
+          </div>
+
+          <div className={styles.runList}>
+            {issues.length === 0 && <p className={styles.subtitle}>Issueはまだありません。</p>}
+            {issues.map((issue) => {
+              const linkedRun = runs.find((r) => r.id === issue.agentRunId);
+              const doneCount = issue.actionItems.filter((a) => a.done).length;
+              return (
+                <button
+                  key={issue.id}
+                  className={`${styles.runItem} ${issue.id === selectedIssueId ? styles.selected : ""}`}
+                  onClick={() => setSelectedIssueId(issue.id)}
+                >
+                  <div>
+                    <strong>{issue.title}</strong> {linkedRun && <StatusBadge status={linkedRun.status} />}
+                  </div>
+                  <div className={styles.runItemTask}>
+                    Action Items: {doneCount}/{issue.actionItems.length}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className={styles.panel}>
+          {!selectedIssue && <p className={styles.emptyState}>左でIssueを起票するか、選択してください。</p>}
+
+          {selectedIssue && (
+            <>
+              <div className={styles.detailHeader}>
+                <h2 style={{ marginBottom: 4 }}>{selectedIssue.title}</h2>
+              </div>
+
+              <h3 style={{ fontSize: 13, marginBottom: 6 }}>Action Items</h3>
+              {selectedIssue.actionItems.length === 0 && <p className={styles.subtitle}>まだありません。</p>}
+              <ul style={{ listStyle: "none", marginBottom: 10 }}>
+                {selectedIssue.actionItems.map((item) => (
+                  <li key={item.id} style={{ fontSize: 13, marginBottom: 6 }}>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+                      <input type="checkbox" checked={item.done} onChange={() => handleToggleActionItem(selectedIssue.id, item.id)} />
+                      <span style={{ textDecoration: item.done ? "line-through" : "none", color: item.done ? "var(--text-muted)" : "inherit" }}>
+                        {item.text}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <div className={styles.chatRow}>
+                <input
+                  type="text"
+                  placeholder="Action Itemを追加…"
+                  value={actionItemText}
+                  onChange={(e) => setActionItemText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddActionItem(selectedIssue.id);
+                  }}
+                />
+                <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={!actionItemText.trim()} onClick={() => handleAddActionItem(selectedIssue.id)}>
+                  追加
+                </button>
+              </div>
+
+              {selectedIssueRun && (
+                <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                  <RunDetail
+                    run={selectedIssueRun}
+                    message={issueMessage}
+                    setMessage={setIssueMessage}
+                    deciding={issueDeciding}
+                    onDecide={(text) => sendIssueDecision(selectedIssueRun, text)}
+                  />
                 </div>
               )}
-
-              {selectedRun.status !== "active" && (
-                <div className={styles.chatRow}>
-                  <input
-                    type="text"
-                    placeholder={
-                      selectedRun.status === "yield" ? "別の案をチャットで壁打ち…" : "追加で相談する…"
-                    }
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendDecision(message);
-                    }}
-                  />
-                  <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={deciding || !message.trim()} onClick={() => sendDecision(message)}>
-                    Send
-                  </button>
-                </div>
+              {!selectedIssueRun && (
+                <p className={styles.subtitle} style={{ marginTop: 12 }}>
+                  Agent Runが紐づいていません。左のAgent Runtimeパネルで実行結果を「Issueにする」ことで壁打ちチャットが表示されます。
+                </p>
               )}
             </>
           )}
