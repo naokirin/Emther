@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import { listTeams } from "@/lib/org-context-store";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
 
@@ -42,8 +43,27 @@ const runs = new Map<string, AgentRun>();
 
 const PER_TURN_BUDGET_USD = "0.5";
 
+// docs 3.1「動的ロード」の簡略版: 本来は対象Issueに関連する部分だけを動的にロードすべきだが、
+// MVPではチーム数が少ない前提でOrganization Context（チーム名簿）全体を常に注入する。
+// メンバー名はここで初めて登場する可能性があるため、注入前に必ずpeople-directoryへ登録し、
+// 実名のままクラウドに出さないようmaskNamesを通す（他の経路と同じ匿名化ルール）。
+function buildOrgContextBlock(): string {
+  const teams = listTeams();
+  if (teams.length === 0) return "";
+
+  for (const team of teams) {
+    for (const member of team.members) {
+      registerName(member);
+    }
+  }
+
+  const lines = teams.map((t) => `- ${t.name}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
+  const block = ["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n");
+  return maskNames(block);
+}
+
 function buildSystemPrompt(agentName: string): string {
-  return [
+  const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
     "与えられたタスクの文脈だけを判断材料とし、実際の外部システムやファイルには一切アクセスできません（ツールは無効化されています）。",
     "",
@@ -64,6 +84,9 @@ function buildSystemPrompt(agentName: string): string {
     "```",
     '情報が単に不足しているだけで具体的な選択肢を提示できない場合は "options": [] としてください。',
   ].join("\n");
+
+  const orgContext = buildOrgContextBlock();
+  return orgContext ? `${base}\n\n${orgContext}` : base;
 }
 
 function extractYield(resultText: string): YieldRequest | undefined {
