@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { registerName } from "@/lib/people-directory";
+import { loadJSON, saveJSON } from "@/lib/persistence";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
@@ -23,8 +24,13 @@ export type JournalEntry = {
   createdAt: number;
 };
 
-// MVPではプロセス内メモリのみ。Daily Logs DBとしての永続化は今後の課題（README参照）。
-const entries: JournalEntry[] = [];
+// `.data/journal.json`への簡易永続化。Daily Logs DBとしての本格実装（イベントソーシング等）は
+// 今後の課題（README参照）。
+const entries: JournalEntry[] = loadJSON<JournalEntry[]>("journal.json", []);
+
+function persist(): void {
+  saveJSON("journal.json", entries);
+}
 
 const SYSTEM_PROMPT = [
   "あなたはメモから情報を抽出し、JSONだけを出力するツールです。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力してください。",
@@ -111,6 +117,7 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
   };
 
   entries.unshift(entry);
+  persist();
   return entry;
 }
 

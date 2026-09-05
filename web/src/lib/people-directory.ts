@@ -3,13 +3,29 @@
 //   ID:名前の対応表はローカルのみが読める場所に持ち、外部送信前にIDへ置換、
 //   表示時にはプログラムでID→名前に戻す」
 //
-// この対応表はプロセス内メモリにのみ存在し、外部LLM（claude -p 等）には絶対に渡さない。
+// この対応表は`.data/people-directory.json`（ローカルファイル）にのみ存在し、
+// 外部LLM（claude -p 等）には絶対に渡さない。ファイルに書き出してもローカルディスクに
+// 保存されるだけなので、memo.mdが要求する「ローカルのみが読める場所」という条件は保ったまま、
+// プロセス再起動をまたいで対応関係が失われないようにしている。
 // 名前の登録元は現状 journal-store.ts（ローカルモデルによる人物抽出）と
 // agent-runtime.ts（クラウドに送る直前のローカルNERによる検出）の2箇所。
 
-const nameToId = new Map<string, string>();
-const idToName = new Map<string, string>();
-let counter = 0;
+import { loadJSON, saveJSON } from "@/lib/persistence";
+
+type PersistedState = {
+  entries: [string, string][]; // [name, id][]
+  counter: number;
+};
+
+const initial = loadJSON<PersistedState>("people-directory.json", { entries: [], counter: 0 });
+
+const nameToId = new Map<string, string>(initial.entries);
+const idToName = new Map<string, string>(initial.entries.map(([name, id]) => [id, name]));
+let counter = initial.counter;
+
+function persist(): void {
+  saveJSON("people-directory.json", { entries: Array.from(nameToId.entries()), counter });
+}
 
 export type PersonRecord = { id: string; name: string };
 
@@ -22,6 +38,7 @@ export function registerName(name: string): string {
   const id = `PERSON_${counter}`;
   nameToId.set(trimmed, id);
   idToName.set(id, trimmed);
+  persist();
   return id;
 }
 

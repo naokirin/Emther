@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { loadJSON, saveJSON } from "@/lib/persistence";
 
 // docs 3.1「厳格に分離されたナレッジモデル」のCore Contextに相当する最小実装。
 // v5設計書はツリー型ディレクトリ+構造化フォーマットを想定しているが、MVPでは
@@ -12,8 +13,11 @@ export type Team = {
   createdAt: number;
 };
 
-// MVPではプロセス内メモリのみ。永続化はCore Context DB実装時の課題（README参照）。
-const teams: Team[] = [];
+const teams: Team[] = loadJSON<Team[]>("teams.json", []);
+
+function persist(): void {
+  saveJSON("teams.json", teams);
+}
 
 export function listTeams(): Team[] {
   return teams;
@@ -27,6 +31,7 @@ export function addTeam(name: string, members: string[]): Team {
     createdAt: Date.now(),
   };
   teams.push(team);
+  persist();
   return team;
 }
 
@@ -34,5 +39,6 @@ export function removeTeam(id: string): boolean {
   const idx = teams.findIndex((t) => t.id === id);
   if (idx === -1) return false;
   teams.splice(idx, 1);
+  persist();
   return true;
 }
