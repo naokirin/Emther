@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
+import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useJournal, useRuns, useVitals } from "@/lib/hooks";
 import { AGENT_OPTIONS, URGENCY_LABEL } from "@/lib/types";
@@ -114,12 +114,18 @@ export default function DashboardPage() {
   return (
     <div className={styles.screen}>
       <div className={styles.fleetRow}>
-        {AGENT_OPTIONS.map((name) => (
-          <div key={name} className={styles.fleetBadge}>
-            <span className={styles.fleetName}>{name}</span>
-            <StatusBadge status={computeFleetStatus(name, runs)} />
-          </div>
-        ))}
+        {AGENT_OPTIONS.map((name) => {
+          const status = computeFleetStatus(name, runs);
+          const meta = STATUS_META[status];
+          return (
+            <div key={name} className={`${styles.fleetBadge} ${meta.cls}`}>
+              <strong>
+                {meta.icon} {name}
+              </strong>
+              <span className={styles.fleetName}>{meta.label}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className={`${styles.panel} ${styles.vitalsPanel}`}>

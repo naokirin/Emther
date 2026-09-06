@@ -26,6 +26,7 @@
 - チームの組織階層（`docs/memo.md`のTODO対応） — チーム名を`"Engineering / Team A"`のように`/`区切りにすると、`/org`のツリーがネストしたフォルダとして表示される
 - Issueのタグ付け（`docs/memo.md`のTODO対応） — Issueにカンマ区切りのタグを付与でき、一覧・詳細に表示。Agent Runtimeへも「絶対の前提」として注入される
 - リストのフィルタ・ページネーション（`docs/memo.md`のTODO対応） — Issue一覧のタグ/charter未整理フィルタ、DashboardのInbox状態フィルタ、共通の`usePagination`によるページ送り
+- ワイヤーフレームのスタイルテーマ適用（`docs/memo.md`のTODO対応） — Agent Fleetのカードを状態色で塗る「信号機」表示に変更（他の見た目は既に一致していたため未変更）
 
 ## できること
 
@@ -200,6 +201,15 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - Dashboard: Quick Journalのエントリ一覧（5件単位）とInboxのAgent Run一覧（状態（Active/Yield/Idle/Error）での絞り込み＋5件単位のページネーション）に適用。
 - ページネーションのコントロールは、スクロール領域（`.runList`のmax-height）の**外側**に配置し、ページを切り替えても常に見える位置にしている。
 - 実機検証: タグ`検証用ページネーション`を持つIssueを12件作成し、`/api/issues`で実際に12件（うち`tags`に指定タグを含む）が存在することを確認。フィルタ・ページ送り自体はクライアント側の純粋なJS計算（`usePagination`）であり、型チェック・lint・ビルドは通過。ブラウザでのページ送りクリック操作自体は今回も未検証（Claude in Chrome未接続のため）。
+
+### ワイヤーフレームのスタイルテーマ適用: Agent Fleetの信号機表示
+
+`docs/memo.md`のTODO「ワイヤーフレームのスタイルテーマを適用する」への対応。色トークン（`--green-bg`等）自体は以前のUI改修で`docs/first_implession/em_ui_wireframe_v5.html`と一致していたが、比較の結果**Agent Fleet（画面上部の4枚のカード）だけが未適用**だった——ワイヤーフレームはカード全体を状態色で塗る「信号機」表現（`.fleet-badge.active`等）だが、実装はカードを常に白背景のままにし、中に小さな色付きバッジを置くだけだった。
+
+- `page.module.css`に`.fleetBadge.active/.yield/.idle/.error`を追加し、`.badge.active`等と同じ状態クラス名をカード自体にも適用できるようにした（`STATUS_META[status].cls`を流用、二重定義を避けている）。
+- DashboardのAgent Fleet行を、アイコン+エージェント名（太字）／状態ラベル（小さめ、カード地色を継承）という、ワイヤーフレームと同じ2行構成に変更。
+- 実機検証: `computeFleetStatus`が返す状態に応じて`fleetBadge`へ正しいクラス（例: 直近runが`yield`のPeople Agentには`fleetBadge yield`）が付与されるロジックをAPIレスポンス側のstatusと突き合わせて確認、コンパイル後のCSSに`.fleetBadge.active/.yield/.idle/.error`の各ルールが生成されていることを確認。ブラウザでの実際の色の見た目自体は今回も未検証（Claude in Chrome未接続のため）。
+- 他の主要な見た目（タグ・チャット吹き出し・Yieldブロック・Option選択・ボタン形状など）は既存の実装がワイヤーフレームの配色・形状と既に一致していることを再確認済みで、変更していない。
 
 ### 永続化
 
