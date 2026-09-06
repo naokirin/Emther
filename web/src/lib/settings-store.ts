@@ -36,6 +36,14 @@ export type RulesAndConstraints = {
   // エージェント名だけがCursor CLI（cursor-agent）へのフォールバックを試みる。
   // 既定は空（全エージェントフォールバック無効）。
   cursorFallbackAgents: string[];
+  // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動」対応。
+  // どちらも既定OFF（EMの明示opt-inが必須。自律実行によるコスト発生を勝手に始めない）。
+  // イベント駆動: Journalに緊急度highのエントリが追加された時、Lead Agentへ自動で分析タスクを投げる。
+  autoAnomalyDetectionEnabled: boolean;
+  // バッチ駆動: 毎日この時刻（EMのブラウザではなくサーバーのローカル時刻）以降、最初のwatchdog
+  // tickで一度だけLead Agentへ朝のサマリー作成タスクを投げる。
+  autoMorningSummaryEnabled: boolean;
+  autoMorningSummaryHour: number;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -51,6 +59,9 @@ const DEFAULT_RULES: RulesAndConstraints = {
   journalFactTtlDays: 90,
   agyFallbackAgents: [],
   cursorFallbackAgents: [],
+  autoAnomalyDetectionEnabled: false,
+  autoMorningSummaryEnabled: false,
+  autoMorningSummaryHour: 7,
 };
 
 let rules: RulesAndConstraints = {

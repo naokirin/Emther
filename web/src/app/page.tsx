@@ -251,6 +251,15 @@ export default function DashboardPage() {
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
+    // AI主導（イベント駆動・バッチ駆動、docs/first_implession 3.6/3.7）で自動起動されたrunは、
+    // EMがまだ内容を確認していない（reviewed=false）間はstatusに関わらず必ずここに残す
+    // （idleで完結していても「対応不要」と見なさない——見て見ぬふりを防ぐ）。クリック先も
+    // 通常のgoToRunIssue（即Issue化）ではなく、EMが中身を見てからIssue化/却下を選べる
+    // /chatへ寄せる。
+    const isUnreviewedAuto = run.origin !== "manual" && !run.reviewed;
+    const autoLabel = run.origin === "auto-anomaly" ? "AIが異常を検知" : "朝のサマリー";
+    const onSelectAuto = () => router.push(`/chat?runId=${run.id}`);
+
     if (staleRunIds.has(run.id)) {
       const minutes = Math.round((Date.now() - run.updatedAt) / 60000);
       nextActions.push({
@@ -258,23 +267,31 @@ export default function DashboardPage() {
         severity: "urgent",
         icon: "❔",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
-        onSelect: () => goToRunIssue(run),
+        onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
       });
     } else if (run.status === "yield") {
       nextActions.push({
         id: `yield-${run.id}`,
         severity: "urgent",
         icon: "🟡",
-        text: `${run.agentName}が判断待ちです: ${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
-        onSelect: () => goToRunIssue(run),
+        text: `${isUnreviewedAuto ? `${autoLabel}: ` : `${run.agentName}が判断待ちです: `}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
+        onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
       });
     } else if (run.status === "error") {
       nextActions.push({
         id: `error-${run.id}`,
         severity: "urgent",
         icon: "🔴",
-        text: `${run.agentName}でエラーが発生しました: ${run.task.slice(0, 44)}`,
-        onSelect: () => goToRunIssue(run),
+        text: `${isUnreviewedAuto ? `${autoLabel}（エラー）: ` : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
+        onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
+      });
+    } else if (isUnreviewedAuto && run.status === "idle") {
+      nextActions.push({
+        id: `auto-${run.id}`,
+        severity: "warn",
+        icon: "🤖",
+        text: `${autoLabel}: ${run.task.slice(0, 44)}`,
+        onSelect: onSelectAuto,
       });
     }
   }

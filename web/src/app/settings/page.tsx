@@ -193,6 +193,38 @@ export default function SettingsPage() {
             {name}
           </label>
         ))}
+
+        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>AIエージェントの自動起動（イベント駆動・バッチ駆動）</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          既定はどちらもOFFです。ONにすると、EMが何も指示していなくてもLead Agentが自動的に起動しコストが発生します（Human-in-the-Loopの原則上、既定を勝手に有効化することはしません）。
+          自動起動されたRunはDashboardの「次にすべきこと」に🤖マーク付きで表示され、EMが内容を確認する（または却下する）までそこに残り続けます。
+        </p>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+          <input
+            type="checkbox"
+            checked={draft.autoAnomalyDetectionEnabled}
+            onChange={(e) => setDraft({ ...draft, autoAnomalyDetectionEnabled: e.target.checked })}
+          />
+          Journalに緊急度highのエントリが追加されたら、Lead Agentが自動で分析しIssue化すべきか判断する
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+          <input
+            type="checkbox"
+            checked={draft.autoMorningSummaryEnabled}
+            onChange={(e) => setDraft({ ...draft, autoMorningSummaryEnabled: e.target.checked })}
+          />
+          毎朝、指定時刻以降に自動で「朝のサマリー」をLead Agentに作成させる
+        </label>
+        <div className={styles.field} style={{ maxWidth: 160 }}>
+          <label>朝のサマリーを生成する時刻（サーバーのローカル時刻、0〜23時）</label>
+          <input
+            type="number"
+            min={0}
+            max={23}
+            value={draft.autoMorningSummaryHour}
+            onChange={(e) => setDraft({ ...draft, autoMorningSummaryHour: Number(e.target.value) })}
+          />
+        </div>
       </div>
     </div>
   );

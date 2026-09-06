@@ -108,6 +108,14 @@ function migrate(database: DatabaseSync): void {
   // conversation_idとは別のID空間なので、専用のカラムで持つ。
   addColumnIfMissing(database, "agent_runs", "cursor_session_id", "TEXT");
 
+  // docs/first_implession 3.6「トリガー（起動条件）」対応。起動要因（人間駆動/イベント駆動/
+  // バッチ駆動）と、AI主導のrunをEMがまだレビューしたかどうかを持つ。
+  addColumnIfMissing(database, "agent_runs", "origin", "TEXT");
+  addColumnIfMissing(database, "agent_runs", "reviewed", "INTEGER");
+
+  // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの下書き。
+  addColumnIfMissing(database, "agent_runs", "suggested_action_items_json", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

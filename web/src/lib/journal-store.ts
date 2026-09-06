@@ -4,6 +4,7 @@ import { registerName } from "@/lib/people-directory";
 import { recordEvent, listEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
+import { startRun } from "@/lib/agent-runtime";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
@@ -148,6 +149,29 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     ttlDays: getRulesAndConstraints().journalFactTtlDays,
     embedding,
   });
+
+  // docs/first_implession 3.6/3.7対応: 「イベント駆動」トリガー＋「AIによる異常検知経由の
+  // ドラフトIssue起票」。緊急度highのJournalが登録された時に限り、Lead Agentへ自動で
+  // 分析タスクを投げる。Issueを直接作成はせず、通常のAgent Runとして起動するだけ——
+  // 既存の「📌 このRunをIssueにする」導線をEMが使うかどうかで、起票の最終判断は
+  // 必ず人間に残す（業務要求7 Human-in-the-Loop）。既定はOFF（EMの明示opt-inが必要）。
+  if (event.urgency === "high" && getRulesAndConstraints().autoAnomalyDetectionEnabled) {
+    try {
+      startRun(
+        "Lead Agent",
+        [
+          "Journalに緊急度highのエントリが追加されました。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+          "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
+          "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
+          "",
+          `対象のJournalエントリ: "${rawText}"`,
+        ].join("\n"),
+        "auto-anomaly",
+      );
+    } catch {
+      // 自動分析の起動失敗でJournal記録自体は失敗させない（あくまで補助機能）。
+    }
+  }
 
   return eventToJournalEntry(event);
 }

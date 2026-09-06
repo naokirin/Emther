@@ -39,10 +39,13 @@ export type AgentRun = {
   log: LogLine[];
   yieldRequest?: { reason: string; options: YieldOption[] };
   proposal?: Proposal;
+  suggestedActionItems?: string[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
   consultedBy?: string;
+  origin: "manual" | "auto-anomaly" | "auto-summary";
+  reviewed: boolean;
 };
 
 export const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls: string }> = {
@@ -80,6 +83,9 @@ export function ExecutionState({
   deciding,
   stale,
   onRetry,
+  onAdoptActionItems,
+  onDismissActionItems,
+  actionItemsSubmitting,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -89,6 +95,9 @@ export function ExecutionState({
   deciding: boolean;
   stale?: boolean;
   onRetry?: () => void;
+  onAdoptActionItems?: (items: string[]) => void;
+  onDismissActionItems?: () => void;
+  actionItemsSubmitting?: boolean;
 }) {
   return (
     <>
@@ -159,6 +168,30 @@ export function ExecutionState({
               ))}
             </>
           )}
+
+          {run.suggestedActionItems && run.suggestedActionItems.length > 0 && (
+            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
+              <strong>💡 AIが提案するAction Items</strong>
+              <ul style={{ margin: "6px 0 8px 18px", fontSize: 12 }}>
+                {run.suggestedActionItems.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+              <div className={styles.yieldActions}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={actionItemsSubmitting}
+                  onClick={() => onAdoptActionItems?.(run.suggestedActionItems ?? [])}
+                >
+                  採用してAction Itemsに追加
+                </button>
+                <button className={styles.btnOutline} disabled={actionItemsSubmitting} onClick={onDismissActionItems}>
+                  却下する
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -191,7 +224,7 @@ type ChatTurn = { kind: "user" | "ai" | "note"; text: string };
 // yield/proposal/consultの機械可読ブロックはExecution State側で構造化表示するので、
 // チャット吹き出しでは自然文の説明部分だけを見せて二重表示を避ける。
 function stripStructuredBlocks(text: string): string {
-  return text.replace(/```(?:yield|proposal|consult)\s*\n?[\s\S]*?```/g, "").trim();
+  return text.replace(/```(?:yield|proposal|consult|action_items)\s*\n?[\s\S]*?```/g, "").trim();
 }
 
 function buildChatTurns(log: LogLine[]): ChatTurn[] {
