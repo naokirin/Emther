@@ -6,6 +6,7 @@ import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { useIssues, useRuns } from "@/lib/hooks";
+import { charterFilledCount } from "@/lib/types";
 
 // Issue一覧画面。起票は一般的なIssue管理サービスと同様、一覧上の「＋ 新しいIssue」ボタンから
 // ダイアログを開いて行う（画面遷移しない）。Issueを選ぶと/issues/[id]の詳細画面に遷移する。
@@ -17,6 +18,9 @@ export default function IssuesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
   const [issueRunId, setIssueRunId] = useState("");
+  const [issueWhy, setIssueWhy] = useState("");
+  const [issueWhat, setIssueWhat] = useState("");
+  const [issueHow, setIssueHow] = useState("");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
 
@@ -31,12 +35,21 @@ export default function IssuesPage() {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: issueTitle, agentRunId: issueRunId || undefined }),
+        body: JSON.stringify({
+          title: issueTitle,
+          agentRunId: issueRunId || undefined,
+          why: issueWhy,
+          what: issueWhat,
+          how: issueHow,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Issueの起票に失敗しました");
       setIssueTitle("");
       setIssueRunId("");
+      setIssueWhy("");
+      setIssueWhat("");
+      setIssueHow("");
       setDialogOpen(false);
       router.push(`/issues/${data.issue.id}`);
     } catch (err) {
@@ -77,10 +90,14 @@ export default function IssuesPage() {
         {issues.map((issue) => {
           const linkedRun = runs.find((r) => r.id === issue.agentRunId);
           const doneCount = issue.actionItems.filter((a) => a.done).length;
+          const charterCount = charterFilledCount(issue.charter);
           return (
             <button key={issue.id} className={styles.runItem} onClick={() => router.push(`/issues/${issue.id}`)}>
               <div>
                 <strong>{issue.title}</strong> {linkedRun && <StatusBadge status={linkedRun.status} />}
+                <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
+                  {charterCount === 3 ? "✅" : "❓"} Why/What/How: {charterCount}/3
+                </span>
               </div>
               <div className={styles.runItemTask}>
                 Action Items: {doneCount}/{issue.actionItems.length}
@@ -135,6 +152,23 @@ export default function IssuesPage() {
                 ))}
               </select>
             </div>
+
+            <p className={styles.subtitle} style={{ margin: "8px 0" }}>
+              Why/What/Howは分かっている範囲でOK。分からなければ空欄のまま起票し、詳細画面で明らかにしてから計画・実行してください。
+            </p>
+            <div className={styles.field}>
+              <label>Why（このIssueが生む価値・誰のためか・なぜ今か）</label>
+              <textarea rows={2} value={issueWhy} onChange={(e) => setIssueWhy(e.target.value)} placeholder="例: Aさんの離脱リスクを下げ、決済基盤の開発速度を維持するため。今対応しないと来期のリリースに響く。" />
+            </div>
+            <div className={styles.field}>
+              <label>What（何を・どこまで・どのくらい・完了の定義）</label>
+              <textarea rows={2} value={issueWhat} onChange={(e) => setIssueWhat(e.target.value)} placeholder="例: Bチームからの割り込みタスクを整理し、Aさんが週3日以上リファクタリングに専念できる状態にする。完了条件: ○○。" />
+            </div>
+            <div className={styles.field}>
+              <label>How（どのように実現するか・前提や制約）</label>
+              <textarea rows={2} value={issueHow} onChange={(e) => setIssueHow(e.target.value)} placeholder="例: 割り込みタスクの受け入れ基準を定めてBチームと合意する。予算・人員の追加は無い前提。" />
+            </div>
+
             {issueError && <p className={styles.errorText}>{issueError}</p>}
             <button className={styles.primaryBtn} type="submit" disabled={issueSubmitting || !issueTitle.trim()}>
               Issueを起票
