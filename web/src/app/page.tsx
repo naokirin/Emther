@@ -538,7 +538,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className={styles.layout}>
+          <div className={styles.dashColumns}>
             <div className={styles.panel}>
               <h2>Quick Journal (Hybrid Data Ingestion)</h2>
               <form onSubmit={handleJournalSubmit}>

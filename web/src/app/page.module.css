@@ -23,23 +23,31 @@
 .tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
   margin: 0 0 20px;
 }
 
 .tabBtn {
   border: none;
   background: none;
-  padding: 10px 16px;
+  border-radius: 8px;
+  padding: 8px 16px;
   font-size: 14px;
   cursor: pointer;
   color: var(--text-muted);
-  border-bottom: 2px solid transparent;
 }
 
-.tabBtnActive {
+.tabBtn:hover {
+  background: var(--gray-bg);
+}
+
+.tabBtnActive,
+.tabBtnActive:hover {
   color: var(--blue);
-  border-bottom-color: var(--blue);
+  background: var(--blue-bg);
   font-weight: 600;
 }
 
@@ -49,9 +57,24 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+.dashColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 860px) {
+  .layout,
+  .dashColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .panel {
@@ -118,6 +141,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 .runItem {
