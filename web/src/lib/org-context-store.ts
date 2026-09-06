@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import { normalizeTeamName } from "@/lib/types";
 
 // docs 3.1「厳格に分離されたナレッジモデル」のCore Contextに相当する最小実装。
 // v5設計書はツリー型ディレクトリ+構造化フォーマットを想定しているが、MVPでは
 // 「チーム名 + メンバー一覧」だけを持つ。メンバー名はJournalのpeople配列と
 // 同じ表記（例: "Aさん"）で登録する前提（表記ゆれの吸収はスコープ外）。
+// チーム名に`/`を含めると組織階層を表現できる（docs/memo.md TODO対応、
+// 詳細は`@/lib/types`の`teamPathSegments`を参照）。保存時に`normalizeTeamName`で
+// 区切り前後の空白を除いた正規形にし、表記ゆれ（"A / B" と "A/B"）を吸収する。
 
 export type Team = {
   id: string;
@@ -43,7 +47,7 @@ export function addTeam(name: string, members: string[]): Team {
   const now = Date.now();
   const team: Team = {
     id: randomUUID(),
-    name: name.trim(),
+    name: normalizeTeamName(name),
     members: members.map((m) => m.trim()).filter(Boolean),
     archived: false,
     createdAt: now,
@@ -57,7 +61,7 @@ export function addTeam(name: string, members: string[]): Team {
 export function updateTeam(id: string, patch: { name?: string; members?: string[] }): Team | undefined {
   const team = getTeam(id);
   if (!team) return undefined;
-  if (patch.name !== undefined) team.name = patch.name.trim();
+  if (patch.name !== undefined) team.name = normalizeTeamName(patch.name);
   if (patch.members !== undefined) team.members = patch.members.map((m) => m.trim()).filter(Boolean);
   team.updatedAt = Date.now();
   persist();

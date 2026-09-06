@@ -23,6 +23,7 @@
 - Issueのアーカイブ（`docs/memo.md`のTODO対応） — `/issues`は既定でアーカイブ済みを隠し、チェックボックスで表示切替。詳細画面からアーカイブ/解除できる
 - チームの編集・アーカイブ（`docs/memo.md`のTODO対応） — `/org`からチーム名・メンバーを編集可能に。アーカイブ済みチームはTeam VitalsとAgent Runtimeへの注入対象から除外される
 - チーム／メンバーに関連するIssue・Journalの表示（`docs/memo.md`のTODO対応） — `/org`のチーム詳細に、名前一致による関連Issue一覧と、Issue化されていないJournal（EMの所感メモ）を表示
+- チームの組織階層（`docs/memo.md`のTODO対応） — チーム名を`"Engineering / Team A"`のように`/`区切りにすると、`/org`のツリーがネストしたフォルダとして表示される
 
 ## できること
 
@@ -168,6 +169,16 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - IssueとTeam、JournalとTeamの間に明示的な紐付けは持たせず、**チームのメンバー名がテキストに含まれるか**という簡易な一致で関連付けている（`agent-runtime.ts`の各`buildXxxContextBlock`と同じ簡略化）。関連Issueはタイトル・Why/What/Howにメンバー名を含むもの、関連Journalは`people`配列にメンバー名を含むもの（直近10件）。
 - `/org`でチームを選択すると、Members_Profileの下に「関連Issue」（クリックで`/issues/[id]`へ遷移、アーカイブ済み・charter充足バッジ付き）と「関連Journal（Issue化されていない特性・所感）」（本文・緊急度・感情・タグ）を表示する。「Issueではない特性や問題」＝まだIssue化されていない揺らぎのログとして、Journalをそのまま見せている。
 - 実機検証: メンバー名を含むチーム・Issue・Journalエントリを作成し、`/api/issues`・`/api/journal`から取得したデータに対してこのフィルタ条件（タイトル文字列一致・`people`配列一致）が実際にマッチすることをAPIレスポンス上で確認。ブラウザでのクリック操作自体は今回も未検証（Claude in Chrome未接続のため）。
+
+### チームの組織階層（`/`区切り）
+
+`docs/memo.md`のTODO「チームの組織階層を入力できるようにする（チーム名で `/` をつけると組織階層をつけられるようにする。`/` の前後の空白は名前として無視するようにする）」への対応。独立した親子フィールドは持たせず、**チーム名自体を`/`区切りのパスとして解釈する**軽量な設計にしている。
+
+- `web/src/lib/types.ts`に`teamPathSegments`（`"Engineering / Team A"` → `["Engineering", "Team A"]`、区切り前後の空白は無視）、`normalizeTeamName`（保存用の正規形、区切りは`/`）、`teamDisplayName`（表示用、`" / "`区切り）を追加。純粋関数なのでクライアント（`/org`）・サーバー（`org-context-store.ts`, `agent-runtime.ts`, `vitals.ts`）の両方から利用できる。
+- `addTeam`/`updateTeam`は保存時に`normalizeTeamName`を通すため、`"Engineering / Team A"`と`"Engineering/Team A"`は同じチーム名として保存される。`/`だけ・空白だけなど正規化すると空になる名前は`POST /api/teams`・`PATCH /api/teams/[id]`の両方で400エラーとして拒否する。
+- `/org`のTeamsツリーは、共通の先頭セグメントを持つチームを再帰的にネストしたフォルダとして表示する（`TeamTreeView`）。パスの末尾に一致するチームだけがクリック可能な葉ノードで、途中のセグメントは選択できないフォルダ見出しとして表示する。
+- Agent Runtimeへの注入（`buildOrgContextBlock`）とTeam Vitals（`teamName`）は`teamDisplayName`で`" / "`区切りの読みやすい形に統一。
+- 実機検証: `"Engineering / Team A"`と`"Engineering/Team B"`を作成したところ、両方とも正規化されて`/api/teams`上は`"Engineering/Team A"`のような`/`区切りの正規形で保存されることを確認。`/api/vitals`と、その2チーム名に一切触れないAgent Runのタスク（「登録チーム名を一言で列挙して」）の両方で`"Engineering / Team A"`のように読みやすい形で表示・回答されることを確認。`"   /   "`のような名前はAPIレベルで400エラーになることを確認。
 
 ### 永続化
 
