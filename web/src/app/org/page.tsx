@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { useOrgStrategy, useTeams } from "@/lib/hooks";
-import type { OrgStrategy, Team } from "@/lib/types";
+import { useIssues, useJournal, useOrgStrategy, useTeams } from "@/lib/hooks";
+import { URGENCY_LABEL, charterFilledCount, type OrgStrategy, type Team } from "@/lib/types";
 
 type Selection = { kind: "team"; id: string } | { kind: "strategy" } | null;
 
 export default function OrgContextPage() {
   const { teams, refreshTeams } = useTeams();
   const { strategy, refreshStrategy } = useOrgStrategy();
+  const { issues } = useIssues();
+  const { journalEntries } = useJournal();
 
   const [teamName, setTeamName] = useState("");
   const [teamMembers, setTeamMembers] = useState("");
@@ -20,6 +23,24 @@ export default function OrgContextPage() {
 
   const selectedTeam = selection?.kind === "team" ? teams.find((t) => t.id === selection.id) ?? null : null;
   const visibleTeams = teams.filter((t) => showArchivedTeams || !t.archived);
+
+  // docs/memo.md TODO「チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、
+  // Organization Context から確認できるようにする」への対応。Issue-Team間、Journal-Team間の
+  // 明示的な紐付けは存在しないため、チームのメンバー名がテキストに含まれるかで簡易的に関連付けている
+  // （agent-runtime.tsの各buildXxxContextBlockと同じ、名前の文字列一致という簡略化）。
+  // 「Issueではない特性や問題」＝Issue化されていない揺らぎのログとしてJournalエントリを見せる。
+  const relatedIssues = selectedTeam
+    ? issues.filter((issue) => {
+        const haystack = `${issue.title} ${issue.charter.why} ${issue.charter.what} ${issue.charter.how}`;
+        return selectedTeam.members.some((m) => haystack.includes(m));
+      })
+    : [];
+  const relatedJournal = selectedTeam
+    ? journalEntries
+        .filter((e) => e.people.some((p) => selectedTeam.members.includes(p)))
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 10)
+    : [];
 
   // チーム編集フォームのドラフト。ツリーでチームをクリックした瞬間（selectTeam）にだけ
   // 実データで初期化する（Strategyと同じ理由で、継続的な同期は行わない）。
@@ -284,6 +305,54 @@ export default function OrgContextPage() {
                 ))}
               </div>
             </div>
+
+            <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>関連Issue</h3>
+            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+              メンバー名がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
+            </p>
+            {relatedIssues.length === 0 ? (
+              <p className={styles.subtitle}>関連するIssueは見つかりませんでした。</p>
+            ) : (
+              <div className={styles.runList} style={{ maxHeight: "none", marginBottom: 12 }}>
+                {relatedIssues.map((issue) => (
+                  <Link key={issue.id} href={`/issues/${issue.id}`} className={styles.runItem} style={{ display: "block" }}>
+                    <div>
+                      <strong>{issue.title}</strong>
+                      {issue.archived && (
+                        <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                          🗄 アーカイブ済み
+                        </span>
+                      )}
+                      <span
+                        className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}
+                        style={{ marginLeft: 6 }}
+                      >
+                        Why/What/How: {charterFilledCount(issue.charter)}/3
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>関連Journal（Issue化されていない特性・所感）</h3>
+            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+              Issueほど明確な課題ではないが、EMがメモしたメンバーの様子（直近10件）です。
+            </p>
+            {relatedJournal.length === 0 ? (
+              <p className={styles.subtitle}>関連するJournalは見つかりませんでした。</p>
+            ) : (
+              <ul style={{ listStyle: "none" }}>
+                {relatedJournal.map((entry) => (
+                  <li key={entry.id} className={styles.field} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 13 }}>{entry.rawText}</div>
+                    <div className={styles.subtitle}>
+                      {URGENCY_LABEL[entry.urgency]} / 感情: {entry.sentiment} / タグ: {entry.tags.join(", ") || "なし"}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
       </div>
