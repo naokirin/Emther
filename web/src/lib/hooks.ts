@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
-import type { Issue, JournalEntry, OrgStrategy, OrgVitals, RulesAndConstraints, Team } from "@/lib/types";
+import type { Issue, JournalEntry, KnowledgeEvent, OrgStrategy, OrgVitals, RulesAndConstraints, Team } from "@/lib/types";
 
 // Dashboard / Issues一覧 / Issue詳細 / Organization Contextの各画面で共通して使う
 // ポーリング付きデータ取得フック。画面（ルート）が分かれてもデータ取得ロジックを
 // 重複させないための共通化。
 
-function usePolling<T>(url: string, fallback: T, intervalMs: number) {
+// enabled=falseの間はfetch自体を一切行わない（例: 対象IDがまだ確定していない画面で、
+// 空文字列URLへfetchし続けるような無駄なポーリングを避けるため）。
+function usePolling<T>(url: string, fallback: T, intervalMs: number, enabled = true) {
   const [data, setData] = useState<T>(fallback);
   // 初回フェッチが完了したかどうか。fallbackはまだ「サーバーの実データ」ではないため、
   // 「一度だけ実データで編集ドラフトを初期化したい」ような画面（例: /settings）が
@@ -19,6 +21,7 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number) {
   // useEffect内のpollとは別実装だが、意図的に重複させている
   // （effect本体からsetStateを直接/間接に呼ぶ形にしないため）。
   const refresh = useCallback(async () => {
+    if (!enabled) return null;
     try {
       const res = await fetch(url);
       const json = await res.json();
@@ -28,9 +31,10 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number) {
     } catch {
       return null;
     }
-  }, [url]);
+  }, [url, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     async function poll() {
@@ -52,7 +56,7 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [url, intervalMs]);
+  }, [url, intervalMs, enabled]);
 
   return { data, setData, loaded, refresh };
 }
@@ -136,4 +140,12 @@ export function useIssue(id: string, intervalMs = 2000) {
     intervalMs,
   );
   return { issue: data.issue, setIssue: (issue: Issue | null) => setData({ issue }), refreshIssue: refresh };
+}
+
+// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する。
+// entityIdが未確定（null）の間はfetchしない。
+export function useEntityHistory(entityType: "issue" | "team", entityId: string | null, intervalMs = 5000) {
+  const url = `/api/knowledge/events?entityType=${entityType}&entityId=${entityId ?? ""}`;
+  const { data, refresh } = usePolling<{ events: KnowledgeEvent[] }>(url, { events: [] }, intervalMs, entityId !== null);
+  return { history: data.events, refreshHistory: refresh };
 }

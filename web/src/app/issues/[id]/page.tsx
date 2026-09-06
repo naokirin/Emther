@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
-import { useIssue, useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { useEntityHistory, useIssue, useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
 import { charterFilledCount, isRunStale } from "@/lib/types";
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { issue, refreshIssue } = useIssue(id);
+  const { history } = useEntityHistory("issue", id);
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
   const { rules } = useSettingsRules();
@@ -359,6 +360,21 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={charterSaving} onClick={handleSaveCharter}>
           {charterSaving ? "保存中…" : "Why/What/How・タグを保存"}
         </button>
+
+        {history.length > 0 && (
+          <details style={{ marginTop: 14 }}>
+            <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+              変更履歴（{history.length}件）
+            </summary>
+            <ul style={{ listStyle: "none", marginTop: 8 }}>
+              {history.map((h) => (
+                <li key={h.id} style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                  {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
 
       <div className={styles.issueColumns}>

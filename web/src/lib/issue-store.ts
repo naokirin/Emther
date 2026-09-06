@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import { recordChangeEvent } from "@/lib/knowledge-store";
 
 // docs 3.7「双方向のIssueトラッキング基盤」の最小実装。
 // v5設計書はIssueが独自の実行計画・ロードマップを持つ想定だが、MVPでは
@@ -118,6 +119,7 @@ export function createIssue(
   };
   issues.push(issue);
   persist();
+  recordChangeEvent("issue", issue.id, `Issueを起票: 「${issue.title}」${parentId ? "（サブIssue）" : ""}`);
   return issue;
 }
 
@@ -155,19 +157,33 @@ export function createParentIssue(childId: string, title: string, charter?: Part
   child.parentId = parent.id;
   child.updatedAt = now;
   persist();
+  recordChangeEvent("issue", parent.id, `Issueを起票: 「${parent.title}」（「${child.title}」の上位Issueとして）`);
+  recordChangeEvent("issue", child.id, `上位Issue「${parent.title}」の下に再編されました`);
   return parent;
 }
+
+const CHARTER_FIELD_LABEL: Record<keyof IssueCharter, string> = { why: "Why", what: "What", how: "How" };
 
 export function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>): Issue | undefined {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
-  issue.charter = {
+  const next: IssueCharter = {
     why: patch.why !== undefined ? patch.why.trim() : issue.charter.why,
     what: patch.what !== undefined ? patch.what.trim() : issue.charter.what,
     how: patch.how !== undefined ? patch.how.trim() : issue.charter.how,
   };
+  // 実際に値が変わったフィールドだけを変更履歴に残す（無変化の保存操作でノイズを増やさない）。
+  const changedFields = (Object.keys(next) as (keyof IssueCharter)[]).filter((k) => next[k] !== issue.charter[k]);
+  issue.charter = next;
   issue.updatedAt = Date.now();
   persist();
+  if (changedFields.length > 0) {
+    recordChangeEvent(
+      "issue",
+      issue.id,
+      `${changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・")}を更新しました`,
+    );
+  }
   return issue;
 }
 
@@ -179,6 +195,7 @@ export function addActionItem(issueId: string, text: string): Issue | undefined 
   issue.actionItems.push({ id: randomUUID(), text: trimmed, done: false });
   issue.updatedAt = Date.now();
   persist();
+  recordChangeEvent("issue", issue.id, `Action Itemを追加: 「${trimmed}」`);
   return issue;
 }
 
@@ -190,6 +207,7 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
   item.done = !item.done;
   issue.updatedAt = Date.now();
   persist();
+  recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を${item.done ? "完了" : "未完了"}にしました`);
   return issue;
 }
 
@@ -200,17 +218,22 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
 export function setIssueArchived(issueId: string, archived: boolean): Issue | undefined {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
+  if (issue.archived === archived) return issue;
   issue.archived = archived;
   issue.updatedAt = Date.now();
   persist();
+  recordChangeEvent("issue", issue.id, archived ? "アーカイブしました" : "アーカイブを解除しました");
   return issue;
 }
 
 export function setIssueTags(issueId: string, tags: string[]): Issue | undefined {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
-  issue.tags = normalizeTags(tags);
+  const next = normalizeTags(tags);
+  if (next.join(",") === issue.tags.join(",")) return issue;
+  issue.tags = next;
   issue.updatedAt = Date.now();
   persist();
+  recordChangeEvent("issue", issue.id, `タグを更新しました: ${next.join(", ") || "(なし)"}`, next);
   return issue;
 }

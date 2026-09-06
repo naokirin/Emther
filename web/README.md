@@ -29,7 +29,8 @@
 - ワイヤーフレームのスタイルテーマ適用（`docs/memo.md`のTODO対応） — Agent Fleetのカードを状態色で塗る「信号機」表示に変更（他の見た目は既に一致していたため未変更）
 - Dashboard「次にすべきこと」パネル（`docs/memo.md`のTODO対応） — Yield待ち・エラー・Issue charter未整理・Team Vitals不調を1箇所に集約し、クリックで詳細へ遷移できるようにした
 - Agent Runの無応答検知（`docs/memo.md`のTODO対応） — 「動いていると思ったら止まっていた」を防ぐため、応答なしの表示警告＋一定時間超過後の自己修復（子プロセスの強制終了）を追加
-- 永続化データモデルの再設計（`docs/memo.md`のTODO対応） — Journal/Agent Runの実行ログをSQLite（`node:sqlite`）へ移行し、イベントソーシング＋バイテンポラル＋ファクト/解釈分離のKnowledgeEventモデルを導入。Agent Runtimeへの注入もTTLで重み付けするよう変更
+- 永続化データモデルの再設計 Phase 1（`docs/memo.md`のTODO対応） — Journal/Agent Runの実行ログをSQLite（`node:sqlite`）へ移行し、イベントソーシング＋バイテンポラル＋ファクト/解釈分離のKnowledgeEventモデルを導入。Agent Runtimeへの注入もTTLで重み付けするよう変更
+- 永続化データモデルの再設計 Phase 2（`docs/memo.md`のTODO対応） — Issue/Teamの変更（charter更新・タグ・Action Item・アーカイブ・メンバー変更等）をKnowledgeEventとして記録し、Issue詳細・チーム詳細から変更履歴を確認できるようにした
 
 ## できること
 
@@ -243,7 +244,7 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - `.data/people-directory.json`には実名⇔`PERSON_n`の対応表が保存される。これはローカルディスク上のファイルであり、外部LLMには一切送信されないので、memo.mdが要求する「ローカルのみが読める場所」という条件は保ったままである。
 - `.data/`は`.gitignore`済み（ジャーナルの生テキストや実名を含みうるため、コミット対象にしない）。
 
-### 永続化データモデルの再設計（H: イベントソーシング＋バイテンポラル、SQLite移行）
+### 永続化データモデルの再設計 Phase 1（イベントソーシング＋バイテンポラル、SQLite移行）
 
 `docs/memo.md`のTODO（優先度再検討の議論より、「H」として着手）。単調に増え続けるデータ（Journal、Agent Runの実行ログ）を、書き込みのたびにファイル全体を書き直すJSON配列でずっと持ち続けるのは半年〜1年単位の運用で破綻すると判断し、以下の設計に更新した。
 
@@ -257,6 +258,16 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - **副次的に発見・修正したバグ**: `people-directory.ts`の`unmaskNames()`が、ID文字列の前方一致衝突（例: `"PERSON_1"`が`"PERSON_11"`の文字列としてのprefixになる）を考慮しておらず、登録人数が増えると表示名が破損するケースがあった（`maskNames()`側は名前の長さ降順で既に対策済みだったが、逆方向の`unmaskNames()`には同じ対策が無かった）。ID文字列の長さ降順で処理するよう修正。
 - **既知の制約**: 移行前の`.data/journal.json`・`.data/agent-runs.json`（現在は未使用）は新スキーマへ自動移行していない。実運用データがまだ無い開発段階であるため許容している判断で、実データが乗った後に同様の変更をする場合は移行スクリプトが必要になる。
 - 実機検証: Journal投稿→SQLiteへの書き込み・`listJournalEntries()`での読み出しを確認。Agent Runをcreate→yield→decide（`--resume`）→idleまでの一連のライフサイクルと、Lead Agentからの相談（consult）による専門エージェントrunの生成の両方がSQLite永続化で正しく機能することを確認。長期プロファイル（「Zさんはリーダー志向が強く...」）とJournalファクト（「Zさんが最近元気がなさそうだった...」）をそれぞれ登録した上で、どちらにも一切触れないタスクをAgent Runで実行したところ、Lead Agentが両方を区別して引用し、People Agentへの相談でも「恒久的な志向性」と「一時的な状態」を区別して扱う応答を確認（ファクトと解釈の分離が実際に効いている証拠）。`journalFactTtlDays`を一時的に`0`に設定してから新しいJournalファクトを投稿したところ、そのファクトだけがAgent Runtimeへの注入から除外され、既存の（TTL90日の）ファクトと長期プロファイルは注入され続けることを確認（TTLによる重み付けが実際に効いている証拠）。`next build`を開発サーバー起動中に実行してもロックエラーが起きないことを確認。
+
+### 永続化データモデルの再設計 Phase 2（Issue/Teamの変更履歴のイベント化）
+
+Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変更の監査証跡としても使う。「現在状態」（`issues.json`/`teams.json`）はこれまで通りだが、その変更のたびに`entityType: "issue"|"team"`のKnowledgeEvent（`kind: "fact", context: "official"`、TTLなし＝恒久的な監査証跡）を追記する。
+
+- `web/src/lib/knowledge-store.ts`に`entityId`列を追加（Issue/TeamのIDで1件を特定するため。人物についてのイベントは引き続き`people`配列で管理し、両者は直交する）。既存DBへは`ALTER TABLE`で追加する。`next build`のページデータ収集は複数ワーカー（別プロセス）が並行して同じ`.data/app.db`をマイグレーションしようとするため、`ALTER TABLE`が「duplicate column name」で失敗する競合が実際に発生した——事前のカラム存在チェックにはTOCTOUの隙が残るため、ALTER自体をtry/catchして「既に存在する」エラーを無視する形にして冪等性を確保した。
+- `recordChangeEvent(entityType, entityId, text, tags?)`という薄いヘルパーを追加し、`issue-store.ts`（起票、Why/What/How更新、タグ更新、Action Itemの追加・完了切替、アーカイブ、親子再編）と`org-context-store.ts`（作成、名前・メンバー変更、アーカイブ、削除）の各更新関数から呼ぶ。値が実際に変わった場合のみ記録し（無変化の保存操作や既にアーカイブ済みへの再アーカイブ等はイベントを増やさない）、charter更新は変更されたフィールド名だけを、チーム更新は変更前後の値を含めて記録する。
+- `GET /api/knowledge/events?entityType=issue|team&entityId=...`で履歴を取得できる。Issue詳細ページとOrganization Contextのチーム詳細に「変更履歴（N件）」という折りたたみセクションを追加した。
+- チームを削除してもイベント自体は残る（実体が無くなった後も監査証跡として参照できる、イベントソーシングの前提通り）。
+- 実機検証: Issueを起票→Why更新＋タグ更新→Action Item追加→アーカイブの一連の操作で、`GET /api/knowledge/events`から5件の履歴（起票・タグ更新・Why更新・Action Item追加・アーカイブ）が正しい順序で取得できることを確認。同じ値でのタグ更新・既にアーカイブ済みへの再アーカイブでは履歴が増えない（no-opガードが機能している）ことも確認。チームでも作成→メンバー変更→アーカイブ→削除の履歴が正しく記録され、削除後も履歴が参照可能なことを確認。`next build`を`.next`キャッシュ削除・DBファイル削除の両方の状態から複数回実行し、マイグレーションの競合が再発しないことを確認。
 
 ## 実行方法
 
@@ -273,7 +284,7 @@ npm run dev
 
 ## 既知のスコープ外（今後の拡張ポイント）
 
-- Journal・Agent Runの実行ログはSQLite（イベントソーシング＋バイテンポラル）へ移行済みだが、Teams/Issues/Org Strategy/SettingsはフラットJSONのまま（規模・更新頻度が小さいため意図的に据え置き）。Issue/Teamの変更履歴自体をイベント化する（Phase 2）は未着手。複数プロセス/ワーカー間の整合性は引き続き想定していない（単一ローカルユーザー前提）。
+- Journal・Agent Runの実行ログ・Issue/Teamの変更履歴はSQLite（イベントソーシング＋バイテンポラル）で管理しているが、Teams/Issues/Org Strategy/Settingsの「現在状態」自体はフラットJSONのまま（規模・更新頻度が小さいため意図的に据え置き）。複数プロセス/ワーカー間の整合性は引き続き想定していない（単一ローカルユーザー前提）。
 - 過去のJournal・Agent実行の内容に対する意味的な検索（ベクトル検索、Phase 3）は未実装。現在の「関連情報の抽出」は全て名前の文字列一致（TTLでの絞り込みは追加した）に留まる。ローカル完結（`@huggingface/transformers`での埋め込み生成＋ブルートフォースのコサイン類似度）で実装する方針は合意済み。
 - 現在はポーリング（1.5秒間隔）でActivity Streamを更新している。SSE/WebSocketへの置き換えは今後の課題。
 - エージェントはツール利用を無効化（`--tools ""`）した「テキスト推論のみ」の存在として動作する。Organization Context（チーム名簿）・Issue charter（Why/What/How）・関連するJournalエントリは注入しているが、いずれも「今回登場した名前」ベースの単純な文字列一致で選んでいるだけで、意味的な関連度判定はしていない。

@@ -22,6 +22,20 @@ export function getDb(): DatabaseSync {
   return db;
 }
 
+// `next build`はページデータ収集を複数ワーカー（別プロセス）で並行実行し、それぞれが
+// このファイルを独立にimportして`getDb()`を呼ぶため、複数プロセスがほぼ同時に
+// 同じ`.data/app.db`へマイグレーションを試みることがある。事前にcolumnExists()で
+// 存在確認しても、確認後・ALTER実行前に別プロセスが追加してしまうTOCTOUの余地が残るため、
+// ALTER TABLE自体をtry/catchし「既に存在する」エラーは無視することで冪等にする。
+function addColumnIfMissing(database: DatabaseSync, table: string, column: string, type: string): void {
+  try {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type};`);
+  } catch (err) {
+    const message = (err as Error).message ?? "";
+    if (!message.includes("duplicate column name")) throw err;
+  }
+}
+
 function migrate(database: DatabaseSync): void {
   // kind: 'fact'（起きた出来事そのもの） | 'interpretation'（そこから導いた長期的な解釈）
   // context: 'official' | 'observation' | 'casual' | 'complaint' | 'profile'
@@ -51,6 +65,13 @@ function migrate(database: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_knowledge_events_entity_type ON knowledge_events(entity_type);
     CREATE INDEX IF NOT EXISTS idx_knowledge_events_kind ON knowledge_events(kind);
   `);
+
+  // docs/memo.md「H: Phase 2」対応。人物についてのイベント（peopleで名前を持つ）だけでなく、
+  // Issue/Teamの変更履歴（entityType: "issue"|"team"）も同じテーブルで管理するため、
+  // 対象を一意に指すentity_idを追加する。CREATE TABLE IF NOT EXISTSは既存テーブルには
+  // 列を足さないため、既存DBに対しては明示的にALTER TABLEする（無ければ追加、あれば何もしない）。
+  addColumnIfMissing(database, "knowledge_events", "entity_id", "TEXT");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_knowledge_events_entity_id ON knowledge_events(entity_id);");
 
   // Agent Runは「run単位のメタデータ（低頻度更新）」と「ログ行（高頻度追記）」を分けることで、
   // 従来のように標準出力1行ごとに全run・全ログを含むJSONファイル全体を書き直す必要をなくす。
