@@ -11,8 +11,18 @@
 - ローカルファイルへの簡易永続化 — `.data/*.json`。プロセス再起動でデータが消える問題を解消
 - **3.5 構造化された提案** — yieldしない完了時も「結論/参照ファクト/判断ロジック/棄却した代替案」を必ず構造化させる
 - **3.3 階層型マルチエージェント（最小版）** — Lead Agentが専門エージェントに実際に相談し、その回答を踏まえて結論を出す
+- UI再構成 — `docs/first_implession/em_ui_wireframe_v5.html` に合わせて、Dashboard / Issue Workspace / Organization Contextのタブ切り替え画面に再編
 
 ## できること
+
+### 画面構成
+
+`docs/first_implession/em_ui_wireframe_v5.html` のワイヤーフレームに合わせて、単一の縦長ページだったものをタブ切り替え式の3画面に再編した。
+
+- **Dashboard** — Agent Fleetステータス（信号機）、Team Vitals、Quick Journal、タスク起票フォーム＋実行中Run一覧（Inbox）。Inboxのrunをクリックすると自動でIssue Workspaceタブへ切り替わる。
+- **Issue Workspace** — Issue起票フォーム、Issue一覧、「Issue未起票のAgent Run」一覧（左）と、選択したIssue/RunのAction Items・Yield判断・壁打ちチャット（右）。IssueとAgent Runの選択は排他（片方を選ぶともう片方は解除）。
+- **Organization Context** — チーム追加フォームとチームのツリー表示（左）、選択したチームのメンバー一覧・削除操作（右）。ワイヤーフレームのようなファイル単位のツリー編集ではなく、チーム単位の一覧に簡略化している。
+- 実機検証: 3タブの表示切り替え、既存データ（永続化されたTeam Persist・Issue）が新しいレイアウトでも正しく表示されることを確認済み。ただしこのセッションではブラウザ拡張（Claude in Chrome）が未接続のため、クリック操作そのものの対話的な目視確認はできていない（APIレスポンスとSSR出力の確認、コードレビューでの担保に留まる）。
 
 ### Agent Runtime
 
