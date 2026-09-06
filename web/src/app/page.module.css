@@ -167,6 +167,23 @@
   box-shadow: 0 0 0 1px var(--blue) inset;
 }
 
+/* 「次にすべきこと」パネル（Dashboard）: 深刻度を左のアクセントで一目で区別する。 */
+.nextActionsPanel {
+  margin-bottom: 16px;
+}
+
+.runItem.nextActionUrgent {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  border-left: 4px solid var(--red-border);
+}
+
+.runItem.nextActionWarn {
+  background: var(--yellow-bg);
+  border-color: var(--yellow-border);
+  border-left: 4px solid var(--yellow-border);
+}
+
 .runItemTask {
   color: var(--text-muted);
   margin-top: 2px;

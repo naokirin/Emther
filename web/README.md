@@ -27,6 +27,7 @@
 - Issueのタグ付け（`docs/memo.md`のTODO対応） — Issueにカンマ区切りのタグを付与でき、一覧・詳細に表示。Agent Runtimeへも「絶対の前提」として注入される
 - リストのフィルタ・ページネーション（`docs/memo.md`のTODO対応） — Issue一覧のタグ/charter未整理フィルタ、DashboardのInbox状態フィルタ、共通の`usePagination`によるページ送り
 - ワイヤーフレームのスタイルテーマ適用（`docs/memo.md`のTODO対応） — Agent Fleetのカードを状態色で塗る「信号機」表示に変更（他の見た目は既に一致していたため未変更）
+- Dashboard「次にすべきこと」パネル（`docs/memo.md`のTODO対応） — Yield待ち・エラー・Issue charter未整理・Team Vitals不調を1箇所に集約し、クリックで詳細へ遷移できるようにした
 
 ## できること
 
@@ -210,6 +211,19 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - DashboardのAgent Fleet行を、アイコン+エージェント名（太字）／状態ラベル（小さめ、カード地色を継承）という、ワイヤーフレームと同じ2行構成に変更。
 - 実機検証: `computeFleetStatus`が返す状態に応じて`fleetBadge`へ正しいクラス（例: 直近runが`yield`のPeople Agentには`fleetBadge yield`）が付与されるロジックをAPIレスポンス側のstatusと突き合わせて確認、コンパイル後のCSSに`.fleetBadge.active/.yield/.idle/.error`の各ルールが生成されていることを確認。ブラウザでの実際の色の見た目自体は今回も未検証（Claude in Chrome未接続のため）。
 - 他の主要な見た目（タグ・チャット吹き出し・Yieldブロック・Option選択・ボタン形状など）は既存の実装がワイヤーフレームの配色・形状と既に一致していることを再確認済みで、変更していない。
+
+### Dashboard「次にすべきこと」パネル
+
+`docs/memo.md`のTODO「ダッシュボードで『人間のEMが次になにをするべきか？』がすぐに分かり、詳細に遷移できる状態にする」への対応。既存の4つのシグナル（Yield待ち・エラー・Issue charter未整理・Team Vitals不調）はそれぞれ別々の場所（Inbox、Issue一覧、Team Vitals）に散らばっており、EMが「今何をすべきか」を把握するには複数箇所を見て回る必要があった。
+
+- Dashboard最上部（Agent Fleetより上）に新しいパネルを追加し、以下を集約して表示する。優先度は**urgent（赤）→warn（黄）**の順。
+  - `status === "yield"` のAgent Run（判断待ち、urgent）
+  - `status === "error"` のAgent Run（urgent）
+  - トップレベル・未アーカイブでWhy/What/Howが3/3未満のIssue（`issueNeedsCharter`、warn）
+  - Team Vitalsが`bad`（urgent）または`warn`（warn）のチーム、および1on1 Coverageが`bad`/`warn`の場合
+- 各項目はクリックすると該当の詳細画面へ直接遷移する（Agent Run→紐づくIssue詳細または新規Issue化、Issue charter→Issue詳細、Team Vitals→Organization Context）。「対応不要」の場合は✅の空メッセージを表示し、0件を「評価不能」側へ寄せない（他の三値表示と同じ考え方）。
+- 最大6件まで表示し、超過分は「他X件」という件数だけ示す（一覧としての網羅性はIssue一覧・Organization Context側に譲り、このパネルは「今すぐ見るべき上位」に絞ったトリアージ用途に限定している）。
+- 実機検証: 開発中に自然に発生していたYield 2件・Error 1件・Why/What/How未整理Issue 24件・1on1 Coverage `bad`のデータに対し、`/api/agents`・`/api/issues`・`/api/vitals`から集計した件数・優先度と、`nextActions`のロジック（urgent 4件・warn 24件、6件表示+他22件）が一致することを手計算で確認。コンパイル後のCSSに`.runItem.nextActionUrgent`/`.nextActionWarn`が生成されていることも確認。ブラウザでのクリック遷移自体は今回も未検証（Claude in Chrome未接続のため）。
 
 ### 永続化
 

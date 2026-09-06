@@ -6,10 +6,23 @@ import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useJournal, useRuns, useVitals } from "@/lib/hooks";
-import { AGENT_OPTIONS, URGENCY_LABEL } from "@/lib/types";
+import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, type Issue } from "@/lib/types";
 
 const JOURNAL_PAGE_SIZE = 5;
 const INBOX_PAGE_SIZE = 5;
+const NEXT_ACTIONS_LIMIT = 6;
+
+// docs/memo.md TODO「ダッシュボードで『人間のEMが次になにをするべきか？』がすぐに分かり、
+// 詳細に遷移できる状態にする」への対応。Yield/Error/Issue charter未整理/Team Vitals不調という
+// 既存の4つのシグナルを、EMが今すぐ対応すべき順（urgent→warn）に束ねて1箇所に見せる。
+// 「対応不要」も明示できるよう、0件のときは空のリストにする（評価不能に寄せず、単に「無い」と示す）。
+type NextAction = {
+  id: string;
+  severity: "urgent" | "warn";
+  icon: string;
+  text: string;
+  onSelect: () => void;
+};
 
 // docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunの状態を代表値として見せる。
 // そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
@@ -18,6 +31,10 @@ function computeFleetStatus(agentName: string, runs: AgentRun[]): AgentStatus {
   if (relevant.length === 0) return "idle";
   const latest = relevant.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
   return latest.status;
+}
+
+function issueNeedsCharter(issue: Issue): boolean {
+  return !issue.parentId && !issue.archived && charterFilledCount(issue.charter) < 3;
 }
 
 export default function DashboardPage() {
@@ -111,8 +128,96 @@ export default function DashboardPage() {
     }
   }
 
+  const nextActions: NextAction[] = [];
+
+  for (const run of runs) {
+    if (run.status === "yield") {
+      nextActions.push({
+        id: `yield-${run.id}`,
+        severity: "urgent",
+        icon: "🟡",
+        text: `${run.agentName}が判断待ちです: ${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
+        onSelect: () => goToRunIssue(run),
+      });
+    } else if (run.status === "error") {
+      nextActions.push({
+        id: `error-${run.id}`,
+        severity: "urgent",
+        icon: "🔴",
+        text: `${run.agentName}でエラーが発生しました: ${run.task.slice(0, 44)}`,
+        onSelect: () => goToRunIssue(run),
+      });
+    }
+  }
+
+  for (const issue of issues) {
+    if (!issueNeedsCharter(issue)) continue;
+    nextActions.push({
+      id: `charter-${issue.id}`,
+      severity: "warn",
+      icon: "❓",
+      text: `Issue「${issue.title}」のWhy/What/Howが${charterFilledCount(issue.charter)}/3しか整理されていません`,
+      onSelect: () => router.push(`/issues/${issue.id}`),
+    });
+  }
+
+  for (const v of vitals.teams) {
+    if (v.status === "bad" || v.status === "warn") {
+      nextActions.push({
+        id: `vital-${v.teamId}`,
+        severity: v.status === "bad" ? "urgent" : "warn",
+        icon: v.status === "bad" ? "🔴" : "🟡",
+        text: `${v.teamName}のチーム状態: ${v.label}`,
+        onSelect: () => router.push("/org"),
+      });
+    }
+  }
+
+  if (vitals.oneOnOneCoverage.status === "bad" || vitals.oneOnOneCoverage.status === "warn") {
+    nextActions.push({
+      id: "coverage",
+      severity: vitals.oneOnOneCoverage.status === "bad" ? "urgent" : "warn",
+      icon: vitals.oneOnOneCoverage.status === "bad" ? "🔴" : "🟡",
+      text: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件です`,
+      onSelect: () => router.push("/org"),
+    });
+  }
+
+  nextActions.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "urgent" ? -1 : 1));
+
   return (
     <div className={styles.screen}>
+      <div className={`${styles.panel} ${styles.nextActionsPanel}`}>
+        <h2>次にすべきこと</h2>
+        <p className={styles.subtitle}>
+          判断待ち・エラー・未整理のIssue・要注意のチーム状態をまとめています。クリックで詳細に移動できます。
+        </p>
+        {nextActions.length === 0 ? (
+          <p className={styles.subtitle}>✅ 特に対応が必要な項目はありません。</p>
+        ) : (
+          <>
+            <div className={styles.runList} style={{ maxHeight: "none" }}>
+              {nextActions.slice(0, NEXT_ACTIONS_LIMIT).map((a) => (
+                <button
+                  key={a.id}
+                  className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                  onClick={a.onSelect}
+                >
+                  <div>
+                    {a.icon} {a.text}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {nextActions.length > NEXT_ACTIONS_LIMIT && (
+              <p className={styles.subtitle} style={{ marginTop: 8 }}>
+                他{nextActions.length - NEXT_ACTIONS_LIMIT}件（Issue一覧・Organization Contextから確認できます）
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
       <div className={styles.fleetRow}>
         {AGENT_OPTIONS.map((name) => {
           const status = computeFleetStatus(name, runs);
