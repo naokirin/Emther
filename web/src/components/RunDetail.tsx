@@ -61,62 +61,29 @@ export function StatusBadge({ status }: { status: AgentStatus }) {
   );
 }
 
-function logLineClass(line: LogLine): string {
-  if (line.channel === "meta") return styles.meta;
-  if (line.channel === "agent") return styles.agent;
-  if (line.text.startsWith("[YIELD]")) return styles.systemYield;
-  if (line.text.includes("エラー")) return styles.systemWarn;
-  return styles.system;
-}
-
-// Agent Runtimeの詳細表示（Activity Stream + Yield選択 + チャット）。
-// Issue Workspace（Issueに紐づいたrunの表示）とAgent Runtimeパネルの両方から共用する。
-export function RunDetail({
+// docs/first_implession/em_ui_wireframe_v5.html の Issue Workspace「Execution State」に対応。
+// Context（このrunが何のタスクか）＋ Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）＋
+// 通常完了時のProposalを表示する。Action Itemsは呼び出し側（Issueがある場合のみ）で追加する。
+export function ExecutionState({
   run,
-  message,
-  setMessage,
+  selectedOptionId,
+  onSelectOption,
+  onConfirmOption,
+  onFocusChat,
   deciding,
-  onDecide,
 }: {
   run: AgentRun;
-  message: string;
-  setMessage: (value: string) => void;
+  selectedOptionId: string | null;
+  onSelectOption: (id: string) => void;
+  onConfirmOption: () => void;
+  onFocusChat: () => void;
   deciding: boolean;
-  onDecide: (text: string) => void;
 }) {
-  const terminalRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [run.log.length]);
-
   return (
     <>
-      <div className={styles.detailHeader}>
-        <div>
-          <h2 style={{ marginBottom: 4 }}>{run.agentName}</h2>
-          <div className={styles.detailTask}>{run.task}</div>
-        </div>
-        <StatusBadge status={run.status} />
-      </div>
-
-      <div className={styles.terminal} ref={terminalRef}>
-        {run.log.map((line, i) => (
-          <div key={i} className={`${styles.logLine} ${logLineClass(line)}`}>
-            {line.channel === "agent" ? (
-              <>
-                <span className={styles.agentPrefix}>[{run.agentName}] </span>
-                {line.text}
-              </>
-            ) : (
-              line.text
-            )}
-          </div>
-        ))}
-        {run.status === "active" && <div className={styles.logLine}>{">_ …"}</div>}
-      </div>
+      <p className={styles.contextText}>
+        <strong>Context:</strong> {run.task}
+      </p>
 
       {run.status === "yield" && run.yieldRequest && (
         <div className={styles.yieldBlock}>
@@ -124,22 +91,30 @@ export function RunDetail({
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>{run.yieldRequest.reason}</p>
 
           {run.yieldRequest.options.map((opt) => (
-            <div className={styles.option} key={opt.id}>
+            <div
+              key={opt.id}
+              className={`${styles.option} ${selectedOptionId === opt.id ? styles.optionSelected : ""}`}
+              onClick={() => onSelectOption(opt.id)}
+              role="radio"
+              aria-checked={selectedOptionId === opt.id}
+              tabIndex={0}
+            >
               <strong>
-                Option {opt.id}: {opt.label}
+                {selectedOptionId === opt.id ? "◉" : "○"} Option {opt.id}: {opt.label}
               </strong>
               {opt.detail && <div>{opt.detail}</div>}
               {opt.risk && <div style={{ color: "var(--text-muted)", fontSize: 11 }}>※Risk: {opt.risk}</div>}
-              <br />
-              <button
-                className={styles.optionBtn}
-                disabled={deciding}
-                onClick={() => onDecide(`Option ${opt.id}（${opt.label}）を採用します。この方針で進めてください。`)}
-              >
-                このOptionを選択してStateを更新
-              </button>
             </div>
           ))}
+
+          <div className={styles.yieldActions}>
+            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={!selectedOptionId || deciding} onClick={onConfirmOption}>
+              選択してStateを更新
+            </button>
+            <button className={styles.btnOutline} onClick={onFocusChat}>
+              別の案をチャットで壁打ち
+            </button>
+          </div>
         </div>
       )}
 
@@ -176,9 +151,87 @@ export function RunDetail({
         </div>
       )}
 
+      {run.status === "active" && <p className={styles.subtitle}>エージェントが検討中です…</p>}
+      {run.status === "error" && <p className={styles.errorText}>エラーで終了しました。右のログを確認してください。</p>}
+    </>
+  );
+}
+
+type ChatTurn = { kind: "user" | "ai" | "note"; text: string };
+
+// docs 3.5のExplainability方針（何も隠さない）は保ちつつ、ワイヤーフレームの
+// 「Copilot Workspace」が意図する対話的な見た目に寄せる。タスク受理／EMからの入力は
+// ユーザー発言、agentチャンネルはAIの発言として吹き出し表示し、それ以外の
+// system/metaログ（起動・匿名化・完了通知等）は小さな注記として発言の間に薄く表示する。
+// yield/proposal/consultの機械可読ブロックはExecution State側で構造化表示するので、
+// チャット吹き出しでは自然文の説明部分だけを見せて二重表示を避ける。
+function stripStructuredBlocks(text: string): string {
+  return text.replace(/```(?:yield|proposal|consult)\s*\n?[\s\S]*?```/g, "").trim();
+}
+
+function buildChatTurns(log: LogLine[]): ChatTurn[] {
+  return log.flatMap((line): ChatTurn[] => {
+    if (line.channel === "agent") {
+      const text = stripStructuredBlocks(line.text);
+      return text ? [{ kind: "ai", text }] : [];
+    }
+    if (line.channel === "meta" && line.text.startsWith("タスクを受理: ")) {
+      return [{ kind: "user", text: line.text.replace(/^タスクを受理: /, "") }];
+    }
+    if (line.channel === "meta" && line.text.startsWith("EMからの入力: ")) {
+      return [{ kind: "user", text: line.text.replace(/^EMからの入力: /, "") }];
+    }
+    return [{ kind: "note", text: line.text }];
+  });
+}
+
+// docs/first_implession/em_ui_wireframe_v5.html の「Copilot Workspace (Interactive)」に対応。
+export function CopilotChat({
+  run,
+  message,
+  setMessage,
+  deciding,
+  onDecide,
+  inputId,
+}: {
+  run: AgentRun;
+  message: string;
+  setMessage: (value: string) => void;
+  deciding: boolean;
+  onDecide: (text: string) => void;
+  inputId?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const turns = buildChatTurns(run.log);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [run.log.length]);
+
+  return (
+    <>
+      <div className={styles.chatScroll} ref={scrollRef}>
+        {turns.map((turn, i) =>
+          turn.kind === "note" ? (
+            <div key={i} className={styles.chatNote}>
+              {turn.text}
+            </div>
+          ) : (
+            <div key={i} className={`${styles.chatBubble} ${turn.kind === "user" ? styles.chatBubbleUser : styles.chatBubbleAi}`}>
+              {turn.kind === "ai" && <strong className={styles.chatBubbleSender}>[{run.agentName}]</strong>}
+              {turn.text}
+            </div>
+          ),
+        )}
+        {run.status === "active" && <div className={styles.chatNote}>&gt;_ 応答を待っています…</div>}
+      </div>
+
       {run.status !== "active" && (
         <div className={styles.chatRow}>
           <input
+            id={inputId}
             type="text"
             placeholder={run.status === "yield" ? "別の案をチャットで壁打ち…" : "追加で相談する…"}
             value={message}

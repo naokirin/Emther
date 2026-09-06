@@ -31,6 +31,7 @@
 }
 
 .tabBtn {
+  display: inline-block;
   border: none;
   background: none;
   border-radius: 8px;
@@ -285,6 +286,17 @@
   padding: 10px;
   margin: 8px 0;
   font-size: 13px;
+  cursor: pointer;
+}
+
+.option:hover {
+  border-color: var(--blue);
+}
+
+.optionSelected {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue) inset;
+  background: var(--blue-bg);
 }
 
 .option .risk {
@@ -293,15 +305,15 @@
   margin-top: 4px;
 }
 
-.optionBtn {
-  border: 1px solid var(--blue);
-  background: #fff;
-  color: var(--blue);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  margin-top: 6px;
+.yieldActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.contextText {
+  font-size: 13px;
+  margin-bottom: 4px;
 }
 
 .chatRow {
@@ -569,5 +581,122 @@
   border-radius: 6px;
   padding: 6px 12px;
   font-size: 12px;
+  cursor: pointer;
+}
+
+/* ---------- Issue Workspace: 2カラム(Execution State / Copilot Workspace) ---------- */
+.issueColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .issueColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.issueTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.issueTitleRow h1 {
+  font-size: 18px;
+  margin: 0 0 6px 0;
+}
+
+/* ---------- Copilot Workspace（チャット吹き出し） ---------- */
+.chatScroll {
+  min-height: 220px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.chatBubble {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+  max-width: 90%;
+}
+
+.chatBubbleUser {
+  background: var(--gray-bg);
+  margin-left: auto;
+}
+
+.chatBubbleAi {
+  background: var(--blue-bg);
+  margin-right: auto;
+}
+
+.chatBubbleSender {
+  display: block;
+  font-size: 11px;
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+
+.chatNote {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 6px 0;
+}
+
+/* ---------- Modal ---------- */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 25, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.modalBox {
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 18px 20px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.modalClose {
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px 6px;
+}
+
+/* ---------- Back link ---------- */
+.backLink {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--blue);
+  margin-bottom: 14px;
   cursor: pointer;
 }

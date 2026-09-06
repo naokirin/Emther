@@ -11,18 +11,22 @@
 - ローカルファイルへの簡易永続化 — `.data/*.json`。プロセス再起動でデータが消える問題を解消
 - **3.5 構造化された提案** — yieldしない完了時も「結論/参照ファクト/判断ロジック/棄却した代替案」を必ず構造化させる
 - **3.3 階層型マルチエージェント（最小版）** — Lead Agentが専門エージェントに実際に相談し、その回答を踏まえて結論を出す
-- UI再構成 — `docs/first_implession/em_ui_wireframe_v5.html` に合わせて、Dashboard / Issue Workspace / Organization Contextのタブ切り替え画面に再編
+- UI再構成 — `docs/first_implession/em_ui_wireframe_v5.html` に合わせて、Dashboard / Issue一覧 / Issue詳細 / Organization Contextを実URLの別画面に再編
+- Issue詳細のワイヤーフレーム準拠デザイン — 大見出し＋Context＋Yieldのラジオ選択＋チャットバブル形式のCopilot Workspaceに再設計
+- Issue管理を一般的なIssue管理サービス同様に分離 — Issue一覧(`/issues`)とIssue詳細(`/issues/[id]`)を別画面にし、起票は一覧画面のダイアログから行う方式に変更
 
 ## できること
 
 ### 画面構成
 
-`docs/first_implession/em_ui_wireframe_v5.html` のワイヤーフレームに合わせて、単一の縦長ページだったものをタブ切り替え式の3画面に再編した。
+`docs/first_implession/em_ui_wireframe_v5.html` のワイヤーフレームに合わせて、単一の縦長ページだったものを実ルーティングの4画面に再編した（タブのクリックで表示を切り替えるだけの単一ページではなく、それぞれが固有のURLを持つ）。
 
-- **Dashboard** — Agent Fleetステータス（信号機）、Team Vitals、Quick Journal、タスク起票フォーム＋実行中Run一覧（Inbox）。Inboxのrunをクリックすると自動でIssue Workspaceタブへ切り替わる。
-- **Issue Workspace** — Issue起票フォーム、Issue一覧、「Issue未起票のAgent Run」一覧（左）と、選択したIssue/RunのAction Items・Yield判断・壁打ちチャット（右）。IssueとAgent Runの選択は排他（片方を選ぶともう片方は解除）。
-- **Organization Context** — チーム追加フォームとチームのツリー表示（左）、選択したチームのメンバー一覧・削除操作（右）。ワイヤーフレームのようなファイル単位のツリー編集ではなく、チーム単位の一覧に簡略化している。
-- 実機検証: 3タブの表示切り替え、既存データ（永続化されたTeam Persist・Issue）が新しいレイアウトでも正しく表示されることを確認済み。ただしこのセッションではブラウザ拡張（Claude in Chrome）が未接続のため、クリック操作そのものの対話的な目視確認はできていない（APIレスポンスとSSR出力の確認、コードレビューでの担保に留まる）。
+- **`/`（Dashboard）** — Agent Fleetステータス（信号機）、Team Vitals、Quick Journal、タスク起票フォーム＋実行中Run一覧（Inbox）。Inboxのrunをクリックすると、未起票なら自動でIssue化してから`/issues/[id]`へ遷移する。
+- **`/issues`（Issue一覧）** — Issue一覧、「Issue未起票のAgent Run」一覧。「＋ 新しいIssue」ボタンでダイアログ（モーダル）を開いて起票する（画面遷移しない）。行をクリックすると`/issues/[id]`へ遷移する。
+- **`/issues/[id]`（Issue詳細）** — 選択したIssueのAction Items・Yield判断・壁打ちチャット。上部に「← Issue一覧に戻る」リンクを常設。
+- **`/org`（Organization Context）** — チーム追加フォームとチームのツリー表示（左）、選択したチームのメンバー一覧・削除操作（右）。ワイヤーフレームのようなファイル単位のツリー編集ではなく、チーム単位の一覧に簡略化している。
+- 画面間で共有するデータ取得（`useRuns`/`useIssues`/`useTeams`/`useVitals`/`useJournal`/`useIssue`）は`web/src/lib/hooks.ts`にポーリング付きフックとして共通化。共有する型定義は`web/src/lib/types.ts`にまとめている。
+- 実機検証: 4画面すべてが実URLで200を返すこと、Issueを作成して`/issues/[id]`のSSR出力に反映されること、Dashboard→Issue一覧→Issue詳細のAPIチェーン（起動→Issue化→詳細取得）が一致することを確認済み。ただしこのセッションではブラウザ拡張（Claude in Chrome）が未接続のため、クリック操作そのものの対話的な目視確認はできていない（クライアント側フェッチのため、SSR直後のHTMLには読み込み中の状態しか出ない点も含め、APIレスポンスとコードレビューでの担保に留まる）。
 
 ### Agent Runtime
 
@@ -74,14 +78,27 @@ docs 3.3「リードエージェント/専門エージェント」の最小実�
 - 判定式や閾値（14日、2件、平均センチメント±0.34/0.2、30日、80%/40%）はすべて暫定値。Organization Contextの`Rules_and_Constraints`側で調整可能にする、というv5設計書3.1.1の想定はまだ実装していない（今はソースコード直書き）。
 - 実機検証: チーム未登録→全体が評価不能。メンバー登録直後（Journal無し）→そのチームは評価不能。ネガティブなJournalを2件投稿→「要注意」に切り替わることを確認。1on1タグ付きJournalで1/2メンバーのみ言及→Coverageが「やや注意」域になることを確認。
 
-### Issue Workspace（最小版）
+### Issue Workspace（最小版・ワイヤーフレーム準拠デザイン）
 
 docs 3.7/3.8で想定するIssue Workspaceの最小実装。ただしYieldと壁打ちチャットの実体は独自実装せず、**既存のAgent Runにそのまま委譲**している——Issue自体が持つのはタイトルとAction Itemsチェックリストだけ。
 
 - `web/src/lib/issue-store.ts` — Issue（title, agentRunId?, actionItems）のCRUD。`agentRunId`は任意で、「EMが直接起票（AI runと無関係）」と「既存のAgent Run（AIのYieldを含む）をIssue化」の両方に対応する（docs 3.7の「双方向性」）。
-- `web/src/components/RunDetail.tsx` — Agent Runtimeパネルの詳細表示（Activity Stream / Yield選択 / チャット）を切り出した共通コンポーネント。Agent RuntimeパネルとIssue詳細の両方から使う。
-- Agent Runtimeパネルの各runに「📌 このRunをIssueにする」ボタンがあり、押すとそのrunに紐づいたIssueが作られてIssueタブへ切り替わる。Issue側は既存のrunと同じ`/api/agents/[id]/decide`を叩くので、Yield→再開のロジックは重複させていない。
-- 実機検証: 単独Issueの作成・Action Item追加・完了チェックのトグル、および実際のAgent Run（Tech Agentがyieldに到達したもの）へのIssue紐付けを確認済み。
+- Agent Runの各runに「📌 このRunをIssueにする」ボタンがあり、押すとそのrunに紐づいたIssueが作られる。Issue側は既存のrunと同じ`/api/agents/[id]/decide`を叩くので、Yield→再開のロジックは重複させていない。
+
+**ワイヤーフレームとの差分と対応方針**（`docs/first_implession/em_ui_wireframe_v5.html`のIssue Workspaceと比較して洗い出したもの）:
+
+| ワイヤーフレームの要素 | 旧実装 | 対応 |
+| --- | --- | --- |
+| Issue番号+タイトルの大見出し、ステータスバッジ | 小さな`<h2>` | `.issueTitleRow`に`<h1>`＋StatusBadgeで再現 |
+| `Context:` 要約パラグラフ | 無し | run.taskをContextとして表示 |
+| Yieldのオプションをラジオ的に選択→共通の「選択してStateを更新」「別の案をチャットで壁打ち」ボタン | Optionごとに個別の即時実行ボタン | ラジオ風カード選択＋共通の確定/壁打ちボタンに変更（`selectedOptionId`を親で保持） |
+| Copilot Workspaceがチャット吹き出し形式 | ターミナル風の生ログ（Activity Stream的な見た目） | `run.log`をuser/ai/noteに分類して吹き出し表示するチャットビューに変更。yield/proposal/consultの機械可読ブロックは二重表示を避けるため吹き出しから除去（Execution State側にだけ構造化表示） |
+| Execution State（Yield＋Action Items）とCopilot Workspaceの2カラム | 単一カラムに全部縦積み | `.issueColumns`で2カラム化（860px以下は1カラムにフォールバック） |
+| Issueの一覧・Issue未起票Runの一覧 | — | **ワイヤーフレームには無いが、複数Issueを扱う実運用上必要**と判断。当初は詳細画面のサイドバーに同居させていたが、後の指示で一般的なIssue管理サービス同様に**`/issues`（一覧・起票ダイアログ）と`/issues/[id]`（詳細）を別画面に分離**した |
+
+- `web/src/components/RunDetail.tsx` を `ExecutionState`（Context/Yield選択/Proposal）と`CopilotChat`（チャット吹き出し＋入力欄）の2コンポーネントに分割。Issue詳細画面の2カラムはこの2つを並べるだけで構成している。
+- Issueの起票は`/issues`の「＋ 新しいIssue」ボタンから開くモーダルダイアログ（`web/src/components/Modal.tsx`）で行う。作成後は自動でその`/issues/[id]`へ遷移する。
+- 実機検証: 単独Issueの作成・Action Item追加・完了チェックのトグル、実際のAgent Run（Tech Agentがyieldに到達したもの）へのIssue紐付け、Yieldオプションの選択→確定メッセージ送信→再開までを確認済み。チャット吹き出しからのyieldブロック除去は、実際に取得したエージェント出力に対して正規表現の単体動作を確認済み。ただしクリック操作の目視確認はブラウザ拡張未接続のため未実施。
 
 ### 永続化
 
