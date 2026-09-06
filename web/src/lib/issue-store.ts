@@ -35,6 +35,7 @@ export type Issue = {
   charter: IssueCharter;
   actionItems: ActionItem[];
   parentId?: string;
+  archived: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -48,6 +49,7 @@ function emptyCharter(): IssueCharter {
 const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
   ...issue,
   charter: issue.charter ?? emptyCharter(),
+  archived: issue.archived ?? false,
 }));
 
 function persist(): void {
@@ -95,6 +97,7 @@ export function createIssue(title: string, agentRunId?: string, charter?: Partia
     },
     actionItems: [],
     parentId,
+    archived: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -128,6 +131,7 @@ export function createParentIssue(childId: string, title: string, charter?: Part
       how: charter?.how?.trim() ?? "",
     },
     actionItems: [],
+    archived: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -168,6 +172,19 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
   const item = issue.actionItems.find((a) => a.id === itemId);
   if (!item) return undefined;
   item.done = !item.done;
+  issue.updatedAt = Date.now();
+  persist();
+  return issue;
+}
+
+// docs/memo.md TODO「Issueのアーカイブなどができないのでできるようにする」への対応。
+// 親子関係のカスケードは行わない（親をアーカイブしても子は独立してアーカイブ状態を持つ）。
+// これは複雑さを避けるための意図的な簡略化で、一覧側は既定でトップレベルの
+// 未アーカイブIssueのみを表示し、EMが明示的にトグルした場合のみアーカイブ済みも表示する。
+export function setIssueArchived(issueId: string, archived: boolean): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  issue.archived = archived;
   issue.updatedAt = Date.now();
   persist();
   return issue;
