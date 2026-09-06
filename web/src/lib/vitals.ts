@@ -1,6 +1,7 @@
 import { listActiveTeams, type Team } from "@/lib/org-context-store";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
+import { teamDisplayName } from "@/lib/types";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
 // 重要: データが足りない場合に「良好」や「要注意」へ寄せず、必ず"unknown"として
@@ -42,7 +43,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   if (team.members.length === 0) {
     return {
       teamId: team.id,
-      teamName: team.name,
+      teamName: teamDisplayName(team.name),
       status: "unknown",
       label: "評価不能",
       reason: "メンバーが登録されていません。Organization Contextでメンバーを追加してください。",
@@ -56,10 +57,10 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   if (relevant.length < rules.minEntriesForJudgement) {
     return {
       teamId: team.id,
-      teamName: team.name,
+      teamName: teamDisplayName(team.name),
       status: "unknown",
       label: "評価不能",
-      reason: `直近${rules.teamWindowDays}日間に${team.name}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
+      reason: `直近${rules.teamWindowDays}日間に${teamDisplayName(team.name)}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
     };
   }
 
@@ -82,7 +83,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
 
   return {
     teamId: team.id,
-    teamName: team.name,
+    teamName: teamDisplayName(team.name),
     status,
     label,
     reason: `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,

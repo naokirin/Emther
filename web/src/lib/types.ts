@@ -20,6 +20,30 @@ export type Team = {
   updatedAt: number;
 };
 
+// docs/memo.md TODO「チームの組織階層を入力できるようにする（チーム名で `/` をつけると
+// 組織階層をつけられるようにする）」への対応。独立した親子フィールドは持たせず、
+// チーム名自体を`/`区切りのパスとして解釈する軽量な設計にしている
+// （例: "Engineering / Team A" → ["Engineering", "Team A"]）。
+// `/`の前後の空白は名前の一部とみなさない。
+export function teamPathSegments(name: string): string[] {
+  return name
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// 保存・比較用の正規化名（区切りは"/"、前後の余分な空白を除去）。
+export function normalizeTeamName(name: string): string {
+  const segments = teamPathSegments(name);
+  return segments.length > 0 ? segments.join("/") : name.trim();
+}
+
+// 表示用（パンくず風に" / "区切りで見せる）。
+export function teamDisplayName(name: string): string {
+  const segments = teamPathSegments(name);
+  return segments.length > 0 ? segments.join(" / ") : name;
+}
+
 export type OrgStrategy = {
   mission: string;
   vision: string;

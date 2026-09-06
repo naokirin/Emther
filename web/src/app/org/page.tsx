@@ -4,9 +4,78 @@ import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { useIssues, useJournal, useOrgStrategy, useTeams } from "@/lib/hooks";
-import { URGENCY_LABEL, charterFilledCount, type OrgStrategy, type Team } from "@/lib/types";
+import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type OrgStrategy, type Team } from "@/lib/types";
 
 type Selection = { kind: "team"; id: string } | { kind: "strategy" } | null;
+
+// docs/memo.md TODO「チームの組織階層を入力できるようにする」への対応。
+// チーム名の"/"区切り（例: "Engineering/Team A"）をパスとして解釈し、
+// 共通のセグメントを持つチームをネストしたフォルダとして表示するためのツリー構造。
+type TeamTreeNode = {
+  segment: string;
+  team?: Team;
+  children: TeamTreeNode[];
+};
+
+function buildTeamTree(teams: Team[]): TeamTreeNode[] {
+  const root: TeamTreeNode[] = [];
+  for (const team of teams) {
+    let level = root;
+    let node: TeamTreeNode | undefined;
+    for (const segment of teamPathSegments(team.name)) {
+      node = level.find((n) => n.segment === segment);
+      if (!node) {
+        node = { segment, children: [] };
+        level.push(node);
+      }
+      level = node.children;
+    }
+    if (node) node.team = team;
+  }
+  const sortTree = (nodes: TeamTreeNode[]) => {
+    nodes.sort((a, b) => a.segment.localeCompare(b.segment, "ja"));
+    for (const n of nodes) sortTree(n.children);
+  };
+  sortTree(root);
+  return root;
+}
+
+function TeamTreeView({
+  nodes,
+  depth,
+  selection,
+  onSelect,
+}: {
+  nodes: TeamTreeNode[];
+  depth: number;
+  selection: Selection;
+  onSelect: (team: Team) => void;
+}) {
+  return (
+    <>
+      {nodes.map((node) => (
+        <div key={`${depth}-${node.segment}`}>
+          {node.team ? (
+            <div
+              className={`${styles.treeFile} ${
+                selection?.kind === "team" && selection.id === node.team.id ? styles.treeFileSelected : ""
+              }`}
+              style={{ paddingLeft: 20 + depth * 14, opacity: node.team.archived ? 0.6 : 1 }}
+              onClick={() => onSelect(node.team!)}
+            >
+              📁 {node.segment}（{node.team.members.length}名）{node.team.archived && " 🗄"}
+            </div>
+          ) : (
+            <div className={styles.treeFolder} style={{ paddingLeft: depth * 14, marginTop: depth === 0 ? 10 : 2 }}>
+              📁 {node.segment}
+            </div>
+          )}
+          {node.children.length > 0 && <TeamTreeView nodes={node.children} depth={depth + 1} selection={selection} onSelect={onSelect} />}
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function OrgContextPage() {
   const { teams, refreshTeams } = useTeams();
@@ -23,6 +92,7 @@ export default function OrgContextPage() {
 
   const selectedTeam = selection?.kind === "team" ? teams.find((t) => t.id === selection.id) ?? null : null;
   const visibleTeams = teams.filter((t) => showArchivedTeams || !t.archived);
+  const teamTree = buildTeamTree(visibleTeams);
 
   // docs/memo.md TODO「チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、
   // Organization Context から確認できるようにする」への対応。Issue-Team間、Journal-Team間の
@@ -160,11 +230,14 @@ export default function OrgContextPage() {
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel}>
         <h2>Context Directory</h2>
-        <p className={styles.subtitle}>チーム構成はAgent Runtimeへ絶対の前提として注入され、Team Vitalsの算出にも使われます。</p>
+        <p className={styles.subtitle}>
+          チーム構成はAgent Runtimeへ絶対の前提として注入され、Team Vitalsの算出にも使われます。チーム名に「/」を入れると組織階層を表現できます（例:
+          「Engineering / Team A」）。
+        </p>
         <form onSubmit={handleAddTeam} style={{ marginTop: 10 }}>
           <div className={styles.field}>
             <label>チーム名</label>
-            <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="例: Team A" />
+            <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="例: Engineering / Team A" />
           </div>
           <div className={styles.field}>
             <label>メンバー（カンマ区切り）</label>
@@ -196,16 +269,7 @@ export default function OrgContextPage() {
             アーカイブ済みも表示する
           </label>
           {visibleTeams.length === 0 && <p className={styles.subtitle}>まだチームが登録されていません。</p>}
-          {visibleTeams.map((t) => (
-            <div
-              key={t.id}
-              className={`${styles.treeFile} ${selection?.kind === "team" && selection.id === t.id ? styles.treeFileSelected : ""}`}
-              style={t.archived ? { opacity: 0.6 } : undefined}
-              onClick={() => selectTeam(t)}
-            >
-              📁 {t.name}（{t.members.length}名）{t.archived && " 🗄"}
-            </div>
-          ))}
+          <TeamTreeView nodes={teamTree} depth={0} selection={selection} onSelect={selectTeam} />
         </div>
       </div>
 

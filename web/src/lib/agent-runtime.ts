@@ -6,6 +6,7 @@ import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import { teamDisplayName } from "@/lib/types";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
 
@@ -111,7 +112,7 @@ function buildOrgContextBlock(): string {
     }
   }
 
-  const lines = teams.map((t) => `- ${t.name}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
+  const lines = teams.map((t) => `- ${teamDisplayName(t.name)}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
   const block = ["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n");
   return maskNames(block);
 }
