@@ -59,6 +59,7 @@ export type Issue = {
   agentRunId?: string;
   charter: IssueCharter;
   actionItems: ActionItem[];
+  parentId?: string;
   createdAt: number;
   updatedAt: number;
 };

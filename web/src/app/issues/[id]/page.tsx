@@ -2,15 +2,86 @@
 
 import { use, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
-import { useIssue, useRuns } from "@/lib/hooks";
+import { Modal } from "@/components/Modal";
+import { useIssue, useIssues, useRuns } from "@/lib/hooks";
 import { charterFilledCount } from "@/lib/types";
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { issue, refreshIssue } = useIssue(id);
+  const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
+
+  // 親子関係は1階層のみ。子（parentIdあり）は自分の子を持てないので
+  // 「サブIssueを追加」は表示せず、「上位Issueを作る」も既に親を持つなら表示しない。
+  const parentIssue = issue?.parentId ? issues.find((i) => i.id === issue.parentId) ?? null : null;
+  const childIssues = issue ? issues.filter((i) => i.parentId === issue.id) : [];
+
+  const [hierarchyDialog, setHierarchyDialog] = useState<"child" | "parent" | null>(null);
+  const [hTitle, setHTitle] = useState("");
+  const [hWhy, setHWhy] = useState("");
+  const [hWhat, setHWhat] = useState("");
+  const [hHow, setHHow] = useState("");
+  const [hSubmitting, setHSubmitting] = useState(false);
+  const [hError, setHError] = useState<string | null>(null);
+
+  function closeHierarchyDialog() {
+    setHierarchyDialog(null);
+    setHTitle("");
+    setHWhy("");
+    setHWhat("");
+    setHHow("");
+    setHError(null);
+  }
+
+  async function handleCreateChild(e: React.FormEvent) {
+    e.preventDefault();
+    if (!issue || !hTitle.trim()) return;
+    setHSubmitting(true);
+    setHError(null);
+    try {
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: hTitle, why: hWhy, what: hWhat, how: hHow, parentId: issue.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "サブIssueの作成に失敗しました");
+      closeHierarchyDialog();
+      router.push(`/issues/${data.issue.id}`);
+    } catch (err) {
+      setHError((err as Error).message);
+    } finally {
+      setHSubmitting(false);
+    }
+  }
+
+  async function handleCreateParent(e: React.FormEvent) {
+    e.preventDefault();
+    if (!issue || !hTitle.trim()) return;
+    setHSubmitting(true);
+    setHError(null);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/parent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: hTitle, why: hWhy, what: hWhat, how: hHow }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "上位Issueの作成に失敗しました");
+      closeHierarchyDialog();
+      await refreshIssues();
+      router.push(`/issues/${data.issue.id}`);
+    } catch (err) {
+      setHError((err as Error).message);
+    } finally {
+      setHSubmitting(false);
+    }
+  }
 
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -129,6 +200,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         ← Issue一覧に戻る
       </Link>
 
+      {parentIssue && (
+        <Link href={`/issues/${parentIssue.id}`} className={styles.backLink} style={{ display: "block" }}>
+          ⬆ 上位Issue: {parentIssue.title}
+        </Link>
+      )}
+
       <div className={styles.issueTitleRow}>
         <div>
           <h1>{issue.title}</h1>
@@ -137,6 +214,50 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {decideError && <p className={styles.errorText}>{decideError}</p>}
+
+      {!issue.parentId && (
+        <div className={`${styles.panel} ${styles.charterSection}`}>
+          <div className={styles.detailHeader}>
+            <h2 style={{ margin: 0 }}>サブIssue（分解した子Issue）</h2>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className={styles.btnOutline} onClick={() => setHierarchyDialog("child")}>
+                ＋ サブIssueを追加
+              </button>
+              {childIssues.length === 0 && (
+                <button className={styles.btnOutline} onClick={() => setHierarchyDialog("parent")}>
+                  ⬆ 上位Issueを作る
+                </button>
+              )}
+            </div>
+          </div>
+          <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+            複雑な階層を避けるため、親子関係は1階層まで（サブIssueがさらに自分の子を持つことはできません）。
+          </p>
+          {childIssues.length === 0 ? (
+            <p className={styles.subtitle}>まだサブIssueはありません。</p>
+          ) : (
+            <div className={styles.runList} style={{ maxHeight: "none" }}>
+              {childIssues.map((child) => {
+                const childRun = runs.find((r) => r.id === child.agentRunId);
+                const childCharter = charterFilledCount(child.charter);
+                return (
+                  <button key={child.id} className={styles.runItem} onClick={() => router.push(`/issues/${child.id}`)}>
+                    <div>
+                      <strong>{child.title}</strong> {childRun && <StatusBadge status={childRun.status} />}
+                      <span className={childCharter === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
+                        {childCharter === 3 ? "✅" : "❓"} {childCharter}/3
+                      </span>
+                    </div>
+                    <div className={styles.runItemTask}>
+                      Action Items: {child.actionItems.filter((a) => a.done).length}/{child.actionItems.length}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className={`${styles.panel} ${styles.charterSection}`} key={issue.id}>
         <h2>Why / What / How</h2>
@@ -241,6 +362,36 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
       </div>
+
+      {hierarchyDialog && (
+        <Modal
+          title={hierarchyDialog === "child" ? "サブIssueを追加" : "上位Issueを作る"}
+          onClose={closeHierarchyDialog}
+        >
+          <form onSubmit={hierarchyDialog === "child" ? handleCreateChild : handleCreateParent}>
+            <div className={styles.field}>
+              <label>タイトル</label>
+              <input type="text" autoFocus value={hTitle} onChange={(e) => setHTitle(e.target.value)} placeholder="例: 割り込みタスクの受け入れ基準を定める" />
+            </div>
+            <div className={styles.field}>
+              <label>Why（生む価値・誰のため・なぜ今か）</label>
+              <textarea rows={2} value={hWhy} onChange={(e) => setHWhy(e.target.value)} />
+            </div>
+            <div className={styles.field}>
+              <label>What（何を・どこまで・どのくらい・完了の定義）</label>
+              <textarea rows={2} value={hWhat} onChange={(e) => setHWhat(e.target.value)} />
+            </div>
+            <div className={styles.field}>
+              <label>How（どのように実現するか・前提や制約）</label>
+              <textarea rows={2} value={hHow} onChange={(e) => setHHow(e.target.value)} />
+            </div>
+            {hError && <p className={styles.errorText}>{hError}</p>}
+            <button className={styles.primaryBtn} type="submit" disabled={hSubmitting || !hTitle.trim()}>
+              {hierarchyDialog === "child" ? "サブIssueを作成" : "上位Issueを作成"}
+            </button>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

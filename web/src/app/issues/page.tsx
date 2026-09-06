@@ -25,6 +25,9 @@ export default function IssuesPage() {
   const [issueError, setIssueError] = useState<string | null>(null);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
+  // 子Issue（parentIdあり）は親の詳細画面（サブIssue欄）で見る形にし、
+  // 一覧が親子入り混じって煩雑にならないようトップレベルだけを表示する。
+  const topLevelIssues = issues.filter((i) => !i.parentId);
 
   async function handleCreateIssue(e: React.FormEvent) {
     e.preventDefault();
@@ -86,11 +89,12 @@ export default function IssuesPage() {
       </div>
 
       <div className={styles.runList} style={{ maxHeight: "none" }}>
-        {issues.length === 0 && <p className={styles.subtitle}>Issueはまだありません。</p>}
-        {issues.map((issue) => {
+        {topLevelIssues.length === 0 && <p className={styles.subtitle}>Issueはまだありません。</p>}
+        {topLevelIssues.map((issue) => {
           const linkedRun = runs.find((r) => r.id === issue.agentRunId);
           const doneCount = issue.actionItems.filter((a) => a.done).length;
           const charterCount = charterFilledCount(issue.charter);
+          const childCount = issues.filter((i) => i.parentId === issue.id).length;
           return (
             <button key={issue.id} className={styles.runItem} onClick={() => router.push(`/issues/${issue.id}`)}>
               <div>
@@ -98,6 +102,11 @@ export default function IssuesPage() {
                 <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
                   {charterCount === 3 ? "✅" : "❓"} Why/What/How: {charterCount}/3
                 </span>
+                {childCount > 0 && (
+                  <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                    🧩 子Issue: {childCount}件
+                  </span>
+                )}
               </div>
               <div className={styles.runItemTask}>
                 Action Items: {doneCount}/{issue.actionItems.length}

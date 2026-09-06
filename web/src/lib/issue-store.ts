@@ -25,12 +25,16 @@ export type IssueCharter = {
   how: string;
 };
 
+// 親子関係は1階層のみ（孫Issue禁止）。docs 3.8「動的Issue実行管理」のズームイン/アウトの
+// 最小実装で、複雑さを避けるため「親（トップレベル）」と「子（サブIssue）」の2種類しか無く、
+// 子が自分の子（＝孫）を持つことは許可しない。
 export type Issue = {
   id: string;
   title: string;
   agentRunId?: string;
   charter: IssueCharter;
   actionItems: ActionItem[];
+  parentId?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -58,7 +62,21 @@ export function getIssue(id: string): Issue | undefined {
   return issues.find((i) => i.id === id);
 }
 
-export function createIssue(title: string, agentRunId?: string, charter?: Partial<IssueCharter>): Issue {
+export function listChildIssues(parentId: string): Issue[] {
+  return issues.filter((i) => i.parentId === parentId).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function createIssue(title: string, agentRunId?: string, charter?: Partial<IssueCharter>, parentId?: string): Issue {
+  if (parentId) {
+    const parent = getIssue(parentId);
+    if (!parent) {
+      throw new Error("親Issueが見つかりません");
+    }
+    if (parent.parentId) {
+      throw new Error("この親Issue自体が子Issueのため、これ以上下に分解できません（親子関係は1階層まで）");
+    }
+  }
+
   const now = Date.now();
   const issue: Issue = {
     id: randomUUID(),
@@ -70,12 +88,48 @@ export function createIssue(title: string, agentRunId?: string, charter?: Partia
       how: charter?.how?.trim() ?? "",
     },
     actionItems: [],
+    parentId,
     createdAt: now,
     updatedAt: now,
   };
   issues.push(issue);
   persist();
   return issue;
+}
+
+// 既存のIssueの「上位」に新しいIssueを作り、既存のIssueをその子として付け替える
+// （＝ズームアウト。大きな課題として括り直す）。既存のIssueが既に子（親を持つ）か、
+// 既に自分の子を持っている場合は2階層を超えてしまうため拒否する。
+export function createParentIssue(childId: string, title: string, charter?: Partial<IssueCharter>): Issue {
+  const child = getIssue(childId);
+  if (!child) {
+    throw new Error("対象のIssueが見つかりません");
+  }
+  if (child.parentId) {
+    throw new Error("このIssueは既に子Issueのため、さらに上位Issueを作ることはできません（親子関係は1階層まで）");
+  }
+  if (issues.some((i) => i.parentId === childId)) {
+    throw new Error("このIssueには既に子Issueがあるため、上位Issueを作ると2階層を超えてしまいます");
+  }
+
+  const now = Date.now();
+  const parent: Issue = {
+    id: randomUUID(),
+    title: title.trim(),
+    charter: {
+      why: charter?.why?.trim() ?? "",
+      what: charter?.what?.trim() ?? "",
+      how: charter?.how?.trim() ?? "",
+    },
+    actionItems: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  issues.push(parent);
+  child.parentId = parent.id;
+  child.updatedAt = now;
+  persist();
+  return parent;
 }
 
 export function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>): Issue | undefined {
