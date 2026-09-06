@@ -121,6 +121,7 @@ export function useSettingsRules(intervalMs = 8000) {
       coverageWarnRatio: 0.4,
       agentStaleAfterSeconds: 120,
       agentKillAfterSeconds: 600,
+      journalFactTtlDays: 90,
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

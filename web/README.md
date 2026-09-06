@@ -29,6 +29,7 @@
 - ワイヤーフレームのスタイルテーマ適用（`docs/memo.md`のTODO対応） — Agent Fleetのカードを状態色で塗る「信号機」表示に変更（他の見た目は既に一致していたため未変更）
 - Dashboard「次にすべきこと」パネル（`docs/memo.md`のTODO対応） — Yield待ち・エラー・Issue charter未整理・Team Vitals不調を1箇所に集約し、クリックで詳細へ遷移できるようにした
 - Agent Runの無応答検知（`docs/memo.md`のTODO対応） — 「動いていると思ったら止まっていた」を防ぐため、応答なしの表示警告＋一定時間超過後の自己修復（子プロセスの強制終了）を追加
+- 永続化データモデルの再設計（`docs/memo.md`のTODO対応） — Journal/Agent Runの実行ログをSQLite（`node:sqlite`）へ移行し、イベントソーシング＋バイテンポラル＋ファクト/解釈分離のKnowledgeEventモデルを導入。Agent Runtimeへの注入もTTLで重み付けするよう変更
 
 ## できること
 
@@ -238,11 +239,24 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 
 ### 永続化
 
-- `web/src/lib/persistence.ts` の`loadJSON`/`saveJSON`で、各ストア（journal, teams, issues, agent-runs, people-directory）が`.data/*.json`へ読み書きする。複数ワーカーや同時書き込みは想定しない、シングルプロセス前提の最小実装。
-- 起動時に`.data/agent-runs.json`から復元する際、`status: "active"`のままのrunは実体の子プロセスがもう存在しないため、自動的に`error`へ変換する（安全側に倒す設計）。それ以外（yield/idle/error）はログ・yield内容・`sessionId`ごとそのまま復元されるため、再起動後も`--resume`は機能する。
+- 小さく低頻度更新なストア（teams, issues, org-strategy, settings-rules, people-directory）は引き続き`web/src/lib/persistence.ts`の`loadJSON`/`saveJSON`で`.data/*.json`へベタ書きする。複数ワーカーや同時書き込みは想定しない、シングルプロセス前提の最小実装。
 - `.data/people-directory.json`には実名⇔`PERSON_n`の対応表が保存される。これはローカルディスク上のファイルであり、外部LLMには一切送信されないので、memo.mdが要求する「ローカルのみが読める場所」という条件は保ったままである。
-- 実機検証: チーム・Issue作成→サーバー再起動→両方とも復元されることを確認。Agent Runを起動して`active`のままサーバーを強制終了→再起動後に`error`＋説明ログへ変換されることを確認。
 - `.data/`は`.gitignore`済み（ジャーナルの生テキストや実名を含みうるため、コミット対象にしない）。
+
+### 永続化データモデルの再設計（H: イベントソーシング＋バイテンポラル、SQLite移行）
+
+`docs/memo.md`のTODO（優先度再検討の議論より、「H」として着手）。単調に増え続けるデータ（Journal、Agent Runの実行ログ）を、書き込みのたびにファイル全体を書き直すJSON配列でずっと持ち続けるのは半年〜1年単位の運用で破綻すると判断し、以下の設計に更新した。
+
+- **ストレージ**: Node 22+に組み込まれている`node:sqlite`（`DatabaseSync`）を採用。追加npm依存はゼロ。単一ローカルユーザー・単一プロセス前提で、数百万レコード規模に達するには何年もかかる想定のため、分散DBや専用サーバープロセスは導入しない（`web/src/lib/db.ts`）。`.data/app.db`（WAL）に、`agent_runs`/`agent_run_logs`と`knowledge_events`の3テーブルを持つ。
+- **ファクトと解釈の分離＋バイテンポラル**: `web/src/lib/knowledge-store.ts`に`KnowledgeEvent`を新設。`kind: "fact"`（起きた出来事そのもの、例:「Aさんが『辞めたい』と言った」）と`kind: "interpretation"`（そこから導いた長期的な解釈、例:「Aさんはリーダー志向がある」）を明確に分け、`occurredAt`（実世界でその内容が真だった時点）と`recordedAt`（システムが記録した時点）の2軸を持つ。`context`（official/observation/casual/complaint/profile）と`ttlDays`（現在の判断にどれだけの期間重みを持たせるか、未指定＝長期有効）も全イベントに付与する。**イベントは削除しない**——TTLは「重み」の話であり「履歴からの消去」の話ではない。
+- **Journalの統合**: `journal-store.ts`は`journal.json`という別ファイルを持たず、Journal投稿はそのまま`kind: "fact", entityType: "journal"`のKnowledgeEventとしてSQLiteに記録される（二重管理をしない）。`JournalEntry`型・`listJournalEntries()`/`addJournalEntry()`のシグネチャは変更していないため、UI・Agent Runtime側は無改修。TTLは`Settings`の`journalFactTtlDays`（既定90日）から適用される。
+- **長期プロファイルの記録口**: `POST /api/knowledge/interpretations`（`{person, text}`）で「Aさんはリーダー志向がある」のような長期的な解釈を記録できる。Dashboard Quick Journalパネル下部に専用の小さな入力欄を追加した（Journalとは別枠、TTLなし）。
+- **Agent Runtimeへの反映**: `buildJournalContextBlock`を「長期的なプロファイル・解釈（TTLなし）」と「直近の一時的な状況（Journal、有効期限内のみ）」の2ブロックに分けて注入するよう変更（`listActiveFactsForPerson`/`listInterpretationsForPerson`）。TTLを過ぎたファクトは注入されない（履歴としてはSQLiteに残り続ける）。
+- **Agent Runの永続化最適化**: 以前は標準出力1行ごと（`appendLog`呼び出しごと）に全run・全ログを含む`agent-runs.json`全体を書き直していた。SQLiteでは`agent_runs`（runメタデータ）と`agent_run_logs`（ログ行）を分離し、1回の更新につき対象run 1件・ログ1行だけを書き込む。呼び出し側（`runClaudeTurn`/`handleStreamEvent`/`handleConsult`等）はメモリ上の`AgentRun`オブジェクトをこれまで通り操作するだけで、変更は永続化層のみに閉じている。
+- **ビルド時のロック競合対策**: `next build`のページデータ収集は動的ルートであってもモジュール評価のため`db.ts`をimportし、開発サーバーが同じ`.data/app.db`を開いたままの状態と鉢合わせして`database is locked`になることがあったため、`PRAGMA busy_timeout`を設定して一時的な競合はリトライで解決するようにした。
+- **副次的に発見・修正したバグ**: `people-directory.ts`の`unmaskNames()`が、ID文字列の前方一致衝突（例: `"PERSON_1"`が`"PERSON_11"`の文字列としてのprefixになる）を考慮しておらず、登録人数が増えると表示名が破損するケースがあった（`maskNames()`側は名前の長さ降順で既に対策済みだったが、逆方向の`unmaskNames()`には同じ対策が無かった）。ID文字列の長さ降順で処理するよう修正。
+- **既知の制約**: 移行前の`.data/journal.json`・`.data/agent-runs.json`（現在は未使用）は新スキーマへ自動移行していない。実運用データがまだ無い開発段階であるため許容している判断で、実データが乗った後に同様の変更をする場合は移行スクリプトが必要になる。
+- 実機検証: Journal投稿→SQLiteへの書き込み・`listJournalEntries()`での読み出しを確認。Agent Runをcreate→yield→decide（`--resume`）→idleまでの一連のライフサイクルと、Lead Agentからの相談（consult）による専門エージェントrunの生成の両方がSQLite永続化で正しく機能することを確認。長期プロファイル（「Zさんはリーダー志向が強く...」）とJournalファクト（「Zさんが最近元気がなさそうだった...」）をそれぞれ登録した上で、どちらにも一切触れないタスクをAgent Runで実行したところ、Lead Agentが両方を区別して引用し、People Agentへの相談でも「恒久的な志向性」と「一時的な状態」を区別して扱う応答を確認（ファクトと解釈の分離が実際に効いている証拠）。`journalFactTtlDays`を一時的に`0`に設定してから新しいJournalファクトを投稿したところ、そのファクトだけがAgent Runtimeへの注入から除外され、既存の（TTL90日の）ファクトと長期プロファイルは注入され続けることを確認（TTLによる重み付けが実際に効いている証拠）。`next build`を開発サーバー起動中に実行してもロックエラーが起きないことを確認。
 
 ## 実行方法
 
@@ -259,7 +273,8 @@ npm run dev
 
 ## 既知のスコープ外（今後の拡張ポイント）
 
-- 永続化は`.data/*.json`へのベタ書きのみ。Core Context DB/Daily Logs DBが想定するようなイベントソーシングや構造化スキーマ、複数プロセス/ワーカー間の整合性は無い。
+- Journal・Agent Runの実行ログはSQLite（イベントソーシング＋バイテンポラル）へ移行済みだが、Teams/Issues/Org Strategy/SettingsはフラットJSONのまま（規模・更新頻度が小さいため意図的に据え置き）。Issue/Teamの変更履歴自体をイベント化する（Phase 2）は未着手。複数プロセス/ワーカー間の整合性は引き続き想定していない（単一ローカルユーザー前提）。
+- 過去のJournal・Agent実行の内容に対する意味的な検索（ベクトル検索、Phase 3）は未実装。現在の「関連情報の抽出」は全て名前の文字列一致（TTLでの絞り込みは追加した）に留まる。ローカル完結（`@huggingface/transformers`での埋め込み生成＋ブルートフォースのコサイン類似度）で実装する方針は合意済み。
 - 現在はポーリング（1.5秒間隔）でActivity Streamを更新している。SSE/WebSocketへの置き換えは今後の課題。
 - エージェントはツール利用を無効化（`--tools ""`）した「テキスト推論のみ」の存在として動作する。Organization Context（チーム名簿）・Issue charter（Why/What/How）・関連するJournalエントリは注入しているが、いずれも「今回登場した名前」ベースの単純な文字列一致で選んでいるだけで、意味的な関連度判定はしていない。
 - Quick Journalのサニタイズ（マスキング、docs 3.2）は未実装。生のメモがそのまま画面にも表示される（推論自体はローカル完結になったが、表示上のマスキングは別課題として残っている）。
