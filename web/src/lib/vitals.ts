@@ -1,4 +1,4 @@
-import { listTeams, type Team } from "@/lib/org-context-store";
+import { getRulesAndConstraints, listTeams, type Team } from "@/lib/org-context-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
@@ -27,12 +27,6 @@ export type OrgVitals = {
   oneOnOneCoverage: CoverageVital;
 };
 
-// 判定に使う簡易パラメータ。実データが増えるまでの暫定値であり、
-// 将来的にはOrganization ContextのRules_and_Constraints側で調整可能にする想定（docs 3.1.1）。
-const TEAM_WINDOW_DAYS = 14;
-const MIN_ENTRIES_FOR_JUDGEMENT = 2;
-const COVERAGE_WINDOW_DAYS = 30;
-
 function withinDays(ts: number, days: number): boolean {
   return Date.now() - ts <= days * 24 * 60 * 60 * 1000;
 }
@@ -43,7 +37,7 @@ function sentimentScore(s: JournalEntry["sentiment"]): number {
   return 0;
 }
 
-function computeTeamVital(team: Team, entries: JournalEntry[]): TeamVital {
+function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType<typeof getRulesAndConstraints>): TeamVital {
   if (team.members.length === 0) {
     return {
       teamId: team.id,
@@ -55,16 +49,16 @@ function computeTeamVital(team: Team, entries: JournalEntry[]): TeamVital {
   }
 
   const relevant = entries.filter(
-    (e) => withinDays(e.createdAt, TEAM_WINDOW_DAYS) && e.people.some((p) => team.members.includes(p)),
+    (e) => withinDays(e.createdAt, rules.teamWindowDays) && e.people.some((p) => team.members.includes(p)),
   );
 
-  if (relevant.length < MIN_ENTRIES_FOR_JUDGEMENT) {
+  if (relevant.length < rules.minEntriesForJudgement) {
     return {
       teamId: team.id,
       teamName: team.name,
       status: "unknown",
       label: "評価不能",
-      reason: `直近${TEAM_WINDOW_DAYS}日間に${team.name}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
+      reason: `直近${rules.teamWindowDays}日間に${team.name}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
     };
   }
 
@@ -74,10 +68,10 @@ function computeTeamVital(team: Team, entries: JournalEntry[]): TeamVital {
 
   let status: VitalStatus;
   let label: string;
-  if (avg <= -0.34) {
+  if (avg <= rules.teamBadSentimentMax) {
     status = "bad";
     label = "要注意";
-  } else if (avg < 0.2) {
+  } else if (avg < rules.teamWarnSentimentMax) {
     status = "warn";
     label = "やや注意";
   } else {
@@ -90,11 +84,15 @@ function computeTeamVital(team: Team, entries: JournalEntry[]): TeamVital {
     teamName: team.name,
     status,
     label,
-    reason: `直近${TEAM_WINDOW_DAYS}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
+    reason: `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
   };
 }
 
-function computeCoverageVital(teams: Team[], entries: JournalEntry[]): CoverageVital {
+function computeCoverageVital(
+  teams: Team[],
+  entries: JournalEntry[],
+  rules: ReturnType<typeof getRulesAndConstraints>,
+): CoverageVital {
   const allMembers = Array.from(new Set(teams.flatMap((t) => t.members)));
   if (allMembers.length === 0) {
     return {
@@ -107,7 +105,7 @@ function computeCoverageVital(teams: Team[], entries: JournalEntry[]): CoverageV
 
   const covered = new Set<string>();
   for (const e of entries) {
-    if (!withinDays(e.createdAt, COVERAGE_WINDOW_DAYS)) continue;
+    if (!withinDays(e.createdAt, rules.coverageWindowDays)) continue;
     const is1on1 = e.tags.some((t) => t.includes("1on1") || t.includes("1 on 1") || t.includes("１on１"));
     if (!is1on1) continue;
     for (const p of e.people) {
@@ -118,21 +116,23 @@ function computeCoverageVital(teams: Team[], entries: JournalEntry[]): CoverageV
   const total = allMembers.length;
   const coveredCount = covered.size;
   const ratio = coveredCount / total;
-  const status: VitalStatus = ratio >= 0.8 ? "good" : ratio >= 0.4 ? "warn" : "bad";
+  const status: VitalStatus =
+    ratio >= rules.coverageGoodRatio ? "good" : ratio >= rules.coverageWarnRatio ? "warn" : "bad";
 
   return {
     status,
     covered: coveredCount,
     total,
-    reason: `直近${COVERAGE_WINDOW_DAYS}日間に#1on1系タグの付いたジャーナルで言及されたメンバー数 / 登録メンバー総数。`,
+    reason: `直近${rules.coverageWindowDays}日間に#1on1系タグの付いたジャーナルで言及されたメンバー数 / 登録メンバー総数。`,
   };
 }
 
 export function computeOrgVitals(): OrgVitals {
   const teams = listTeams();
   const entries = listJournalEntries();
+  const rules = getRulesAndConstraints();
   return {
-    teams: teams.map((t) => computeTeamVital(t, entries)),
-    oneOnOneCoverage: computeCoverageVital(teams, entries),
+    teams: teams.map((t) => computeTeamVital(t, entries, rules)),
+    oneOnOneCoverage: computeCoverageVital(teams, entries, rules),
   };
 }
