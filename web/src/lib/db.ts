@@ -96,7 +96,14 @@ function migrate(database: DatabaseSync): void {
       consulted_by TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_agent_runs_updated_at ON agent_runs(updated_at);
+  `);
 
+  // docs/memo.md「Claude Codeが使えない場合はagy経由でフォールバックする」対応。
+  // agyの会話継続（--conversation <id>）はclaudeのsession_idとは別のID空間なので、
+  // 同じrunでも「claudeのsessionId」と「agyの会話id」を別々のカラムで持つ。
+  addColumnIfMissing(database, "agent_runs", "agy_conversation_id", "TEXT");
+
+  database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       run_id TEXT NOT NULL,

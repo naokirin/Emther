@@ -27,9 +27,10 @@ export type RulesAndConstraints = {
   journalFactTtlDays: number;
   // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」への対応。
   // ここに含まれるエージェント名（AGENT_OPTIONSの値）だけが、claude CLIの実行失敗・
-  // 予算/レート制限時にgemini CLIへのフォールバックを試みる。既定は空（全エージェント
-  // フォールバック無効）——挙動が変わるフォールバックはEMの明示的な opt-in を必須にする。
-  geminiFallbackAgents: string[];
+  // 予算/レート制限時に`agy`（複数モデルに対応したCLI。Geminiモデルを指定して呼び出す）
+  // へのフォールバックを試みる。既定は空（全エージェントフォールバック無効）——
+  // 挙動が変わるフォールバックはEMの明示的な opt-in を必須にする。
+  agyFallbackAgents: string[];
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -43,7 +44,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
-  geminiFallbackAgents: [],
+  agyFallbackAgents: [],
 };
 
 let rules: RulesAndConstraints = {

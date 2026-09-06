@@ -55,6 +55,9 @@ export type AgentRun = {
   task: string;
   status: AgentStatus;
   sessionId?: string;
+  // docs/memo.md「Claude Codeが使えない場合はagy経由でフォールバックする」対応。
+  // agyの会話継続（--conversation）はclaudeのsessionIdとは別のID空間なので分けて持つ。
+  agyConversationId?: string;
   log: LogLine[];
   yieldRequest?: YieldRequest;
   proposal?: Proposal;
@@ -85,6 +88,7 @@ type AgentRunRow = {
   task: string;
   status: string;
   session_id: string | null;
+  agy_conversation_id: string | null;
   yield_request_json: string | null;
   proposal_json: string | null;
   total_cost_usd: number;
@@ -110,11 +114,12 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, yield_request_json, proposal_json, total_cost_usd, created_at, updated_at, consulted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, yield_request_json, proposal_json, total_cost_usd, created_at, updated_at, consulted_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
+         agy_conversation_id = excluded.agy_conversation_id,
          yield_request_json = excluded.yield_request_json,
          proposal_json = excluded.proposal_json,
          total_cost_usd = excluded.total_cost_usd,
@@ -126,6 +131,7 @@ function persistRunMeta(run: AgentRun): void {
       run.task,
       run.status,
       run.sessionId ?? null,
+      run.agyConversationId ?? null,
       run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
       run.proposal ? JSON.stringify(run.proposal) : null,
       run.totalCostUsd,
@@ -161,6 +167,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       task: row.task,
       status: row.status as AgentStatus,
       sessionId: row.session_id ?? undefined,
+      agyConversationId: row.agy_conversation_id ?? undefined,
       log: logsByRun.get(row.id) ?? [],
       yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
       proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
@@ -225,6 +232,12 @@ function ensureWatchdogStarted(): void {
 ensureWatchdogStarted();
 
 const PER_TURN_BUDGET_USD = "0.5";
+
+// agy（複数モデル対応CLI）経由でのGeminiフォールバックに使うモデル。agyのモデル一覧は
+// バージョン付きの名前（例: gemini-3.6-flash-medium）でしか指定できず、汎用エイリアスは
+// 無いことを実機で確認済み。将来モデルが更新されたら定数を差し替える想定
+// （local-model.tsのMODEL_ID/MODEL_DTYPEと同じ考え方）。
+const AGY_GEMINI_MODEL = "gemini-3.6-flash-medium";
 
 // docs 3.1「動的ロード」の簡略版: 本来は対象Issueに関連する部分だけを動的にロードすべきだが、
 // MVPではチーム数が少ない前提でOrganization Context（チーム名簿）全体を常に注入する。
@@ -579,10 +592,10 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
   }
 }
 
-// AGENT_OPTIONSのうち、Settingsで明示的にGemini CLIフォールバックを有効化した
+// AGENT_OPTIONSのうち、Settingsで明示的にagy（Gemini）フォールバックを有効化した
 // エージェント種別だけがフォールバック対象になる（既定は全エージェントOFF）。
-function isGeminiFallbackEnabled(agentName: string): boolean {
-  return getRulesAndConstraints().geminiFallbackAgents.includes(agentName);
+function isAgyFallbackEnabled(agentName: string): boolean {
+  return getRulesAndConstraints().agyFallbackAgents.includes(agentName);
 }
 
 async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true): Promise<void> {
@@ -602,11 +615,11 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
   // claude CLIの実行失敗・予算/レート制限のいずれでも（run.statusが"error"になっていれば）
   // トリガーとする。フォールバックはこのエージェント種別で明示的に有効化されている場合のみ。
-  // Gemini CLIはセッション継続を持たないため、このターン単体（直前までの会話履歴なし）での
-  // 再試行になる——複数ターンの壁打ち途中で失敗した場合は文脈が失われる点は既知の制約。
-  if (claudeFailed && isGeminiFallbackEnabled(run.agentName)) {
-    appendLog(run, "system", "⚠️ claude CLIが利用できなかったため、Gemini CLIにこのターンをフォールバックします。");
-    await runGeminiCliAttempt(run, prompt, systemPrompt, allowConsult);
+  // agyは`--conversation`で会話継続できるため、run.agyConversationIdがあればそのまま
+  // 引き継げる（claudeのsessionIdとは別のID空間で管理している）。
+  if (claudeFailed && isAgyFallbackEnabled(run.agentName)) {
+    appendLog(run, "system", "⚠️ claude CLIが利用できなかったため、agy経由でGeminiモデルにこのターンをフォールバックします。");
+    await runAgyCliAttempt(run, prompt, systemPrompt, allowConsult);
   }
 
   if (run.pendingConsult) {
@@ -697,33 +710,92 @@ function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
   });
 }
 
-// Gemini CLIでの単発フォールバック実行。stream-json形式（Claudeと同じ選択肢名だが
-// 実際のイベント構造は未検証のため使わない）ではなく、確実に扱える`-o text`の
-// プレーンテキスト出力を丸ごと最終応答として扱う。`--approval-mode plan`で
-// 読み取り専用（ツールによる変更を行わない）にし、claudeの`--tools ""`と同等の
-// 安全性を保つ。--append-system-prompt相当のフラグが無いため、システムプロンプトを
-// プロンプト本文の先頭に連結して渡す。
-function runGeminiCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
+// agy経由でのGeminiフォールバック実行。agyのstream-json出力はclaudeと同じ選択肢名を
+// 持つが、実際のイベント構造は別物（{"event": "result", "result": {"status", "response",
+// "conversation_id", ...}}等）であることを実機で確認済み。会話継続はagyの
+// `--conversation <id>`（claudeの--resumeと違い実際のUUID指定に対応）を使い、
+// run.agyConversationIdに保存して次回以降のフォールバックで引き継ぐ。
+// 明示的なツール無効化フラグは無いが、非対話（-p）実行中のツール承認はヘッドレスでは
+// 自動拒否される（実機で確認済み）ため、claudeの`--tools ""`ほど厳格ではないものの
+// 実質的にツールが実行されることはない。--append-system-prompt相当のフラグも無いため、
+// システムプロンプトをプロンプト本文の先頭に連結して渡す。
+function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
-    const args = ["-p", combinedPrompt, "-o", "text", "--approval-mode", "plan"];
+    const args = ["-p", combinedPrompt, "--model", AGY_GEMINI_MODEL, "--output-format", "stream-json"];
+    if (run.agyConversationId) {
+      args.push("--conversation", run.agyConversationId);
+    }
 
-    appendLog(run, "meta", "Gemini CLIでこのターンを実行しています…");
+    appendLog(run, "meta", run.agyConversationId ? "agy（Gemini）で会話を再開しています…" : "agy（Gemini）でこのターンを実行しています…");
 
     let child;
     try {
-      child = spawn("gemini", args, { stdio: ["ignore", "pipe", "pipe"] });
+      child = spawn("agy", args, { stdio: ["ignore", "pipe", "pipe"] });
     } catch (err) {
       run.status = "error";
-      appendLog(run, "system", `Gemini CLI起動エラー: ${(err as Error).message}`);
+      appendLog(run, "system", `agy起動エラー: ${(err as Error).message}`);
       resolve();
       return;
     }
     liveProcesses.set(run.id, child);
 
-    let stdout = "";
+    let sawResult = false;
+
+    function handleAgyLine(line: string) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let event: any;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        appendLog(run, "system", line);
+        return;
+      }
+
+      if (event.event === "step_update") {
+        const step = event.step_update;
+        if (step?.step_type === "tool" && step?.state === "ERROR") {
+          appendLog(run, "system", `[agy] ツール呼び出しが拒否されました: ${step.tool_name ?? "unknown"}`);
+        }
+        return;
+      }
+
+      if (event.event === "result") {
+        sawResult = true;
+        const result = event.result ?? {};
+        if (typeof result.conversation_id === "string" && result.conversation_id) {
+          run.agyConversationId = result.conversation_id;
+        }
+        if (result.status !== "SUCCESS") {
+          run.status = "error";
+          appendLog(run, "system", `agy（Gemini）も失敗しました: ${result.error ?? "(no message)"}`);
+          return;
+        }
+        const text = typeof result.response === "string" ? result.response.trim() : "";
+        if (!text) {
+          run.status = "error";
+          appendLog(
+            run,
+            "system",
+            "agy（Gemini）が空の応答を返しました（ツール呼び出しが拒否され、テキストでの結論に至らなかった可能性があります）。",
+          );
+          return;
+        }
+        const unmasked = unmaskNames(text);
+        appendLog(run, "agent", unmasked);
+        applyAssistantResultText(run, unmasked, allowConsult);
+      }
+    }
+
+    let buffer = "";
     child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
+      buffer += chunk.toString("utf8");
+      let idx: number;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.trim()) handleAgyLine(line);
+      }
     });
 
     let stderr = "";
@@ -733,27 +805,22 @@ function runGeminiCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
 
     child.on("close", (code) => {
       liveProcesses.delete(run.id);
-      const text = stdout.trim();
-      if (code !== 0 || !text) {
+      if (buffer.trim()) handleAgyLine(buffer.trim());
+      if (!sawResult) {
         run.status = "error";
         appendLog(
           run,
           "system",
-          `Gemini CLIも失敗しました (exit code: ${code})${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
+          `agyも結果を返さずに終了しました (exit code: ${code})${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
         );
-        resolve();
-        return;
       }
-      const unmasked = unmaskNames(text);
-      appendLog(run, "agent", unmasked);
-      applyAssistantResultText(run, unmasked, allowConsult);
       resolve();
     });
 
     child.on("error", (err) => {
       liveProcesses.delete(run.id);
       run.status = "error";
-      appendLog(run, "system", `Gemini CLI起動エラー: ${err.message}`);
+      appendLog(run, "system", `agy起動エラー: ${err.message}`);
       resolve();
     });
   });
