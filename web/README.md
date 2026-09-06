@@ -24,6 +24,7 @@
 - チームの編集・アーカイブ（`docs/memo.md`のTODO対応） — `/org`からチーム名・メンバーを編集可能に。アーカイブ済みチームはTeam VitalsとAgent Runtimeへの注入対象から除外される
 - チーム／メンバーに関連するIssue・Journalの表示（`docs/memo.md`のTODO対応） — `/org`のチーム詳細に、名前一致による関連Issue一覧と、Issue化されていないJournal（EMの所感メモ）を表示
 - チームの組織階層（`docs/memo.md`のTODO対応） — チーム名を`"Engineering / Team A"`のように`/`区切りにすると、`/org`のツリーがネストしたフォルダとして表示される
+- Issueのタグ付け（`docs/memo.md`のTODO対応） — Issueにカンマ区切りのタグを付与でき、一覧・詳細に表示。Agent Runtimeへも「絶対の前提」として注入される
 
 ## できること
 
@@ -179,6 +180,15 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - `/org`のTeamsツリーは、共通の先頭セグメントを持つチームを再帰的にネストしたフォルダとして表示する（`TeamTreeView`）。パスの末尾に一致するチームだけがクリック可能な葉ノードで、途中のセグメントは選択できないフォルダ見出しとして表示する。
 - Agent Runtimeへの注入（`buildOrgContextBlock`）とTeam Vitals（`teamName`）は`teamDisplayName`で`" / "`区切りの読みやすい形に統一。
 - 実機検証: `"Engineering / Team A"`と`"Engineering/Team B"`を作成したところ、両方とも正規化されて`/api/teams`上は`"Engineering/Team A"`のような`/`区切りの正規形で保存されることを確認。`/api/vitals`と、その2チーム名に一切触れないAgent Runのタスク（「登録チーム名を一言で列挙して」）の両方で`"Engineering / Team A"`のように読みやすい形で表示・回答されることを確認。`"   /   "`のような名前はAPIレベルで400エラーになることを確認。
+
+### Issueのタグ付け
+
+`docs/memo.md`のTODO「Issue にカテゴリ・タグ付けをしたい」への対応。
+
+- `Issue.tags: string[]` を追加（`web/src/lib/issue-store.ts`の`setIssueTags`、Journalのtagsと同じくtrim・空文字除去・重複除去を行う`normalizeTags`を適用）。`POST /api/issues`の起票時、`PATCH /api/issues/[id]`の更新時の両方でタグを指定できる。
+- Issue一覧の起票ダイアログとIssue詳細のWhy/What/How欄にタグ入力（カンマ区切り）を追加。一覧・詳細ともにタグは`#タグ名`のチップ（`tagTopic`スタイル、Journal本文中のトピックタグと同じ見た目）で表示する。フィルタ機能自体は`docs/memo.md`の別TODO「リストのフィルタ機能の拡充」で扱う予定のため、今回は表示・編集のみ。
+- `buildIssueContextBlock`（`agent-runtime.ts`）はWhy/What/Howが全て空でも**タグが1件以上あれば**Issueコンテキストを注入するよう条件を修正し、タグ一覧も「絶対の前提」として渡す。
+- 実機検証: charterを空のままタグ`["秘密タグXYZ99"]`だけを設定したIssueに紐づくAgent Runへ、タグに一切触れない質問（「このタスクに紐づくIssueに設定されているタグを教えてください」）を送ったところ、正しく「秘密タグXYZ99」と回答し、proposalのfactsにもタグが引用されることを確認。
 
 ### 永続化
 

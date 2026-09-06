@@ -36,6 +36,7 @@ export type Issue = {
   actionItems: ActionItem[];
   parentId?: string;
   archived: boolean;
+  tags: string[];
   createdAt: number;
   updatedAt: number;
 };
@@ -44,12 +45,19 @@ function emptyCharter(): IssueCharter {
   return { why: "", what: "", how: "" };
 }
 
-// 永続化ファイルに旧バージョン（charterフィールド追加前）のIssueが残っていても
+// docs/memo.md TODO「Issueにカテゴリ・タグ付けをしたい」への対応。Journalのtagsと同じ
+// 表記ゆれ吸収（trim・空文字除去・重複除去）をここでも行う。
+function normalizeTags(tags: string[]): string[] {
+  return Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)));
+}
+
+// 永続化ファイルに旧バージョン（charter/tagsフィールド追加前）のIssueが残っていても
 // 壊れないよう、読み込み時に補完する。
 const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
   ...issue,
   charter: issue.charter ?? emptyCharter(),
   archived: issue.archived ?? false,
+  tags: issue.tags ?? [],
 }));
 
 function persist(): void {
@@ -74,7 +82,13 @@ export function listChildIssues(parentId: string): Issue[] {
   return issues.filter((i) => i.parentId === parentId).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function createIssue(title: string, agentRunId?: string, charter?: Partial<IssueCharter>, parentId?: string): Issue {
+export function createIssue(
+  title: string,
+  agentRunId?: string,
+  charter?: Partial<IssueCharter>,
+  parentId?: string,
+  tags?: string[],
+): Issue {
   if (parentId) {
     const parent = getIssue(parentId);
     if (!parent) {
@@ -98,6 +112,7 @@ export function createIssue(title: string, agentRunId?: string, charter?: Partia
     actionItems: [],
     parentId,
     archived: false,
+    tags: normalizeTags(tags ?? []),
     createdAt: now,
     updatedAt: now,
   };
@@ -132,6 +147,7 @@ export function createParentIssue(childId: string, title: string, charter?: Part
     },
     actionItems: [],
     archived: false,
+    tags: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -185,6 +201,15 @@ export function setIssueArchived(issueId: string, archived: boolean): Issue | un
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   issue.archived = archived;
+  issue.updatedAt = Date.now();
+  persist();
+  return issue;
+}
+
+export function setIssueTags(issueId: string, tags: string[]): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  issue.tags = normalizeTags(tags);
   issue.updatedAt = Date.now();
   persist();
   return issue;

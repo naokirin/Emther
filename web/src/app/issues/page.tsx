@@ -21,6 +21,7 @@ export default function IssuesPage() {
   const [issueWhy, setIssueWhy] = useState("");
   const [issueWhat, setIssueWhat] = useState("");
   const [issueHow, setIssueHow] = useState("");
+  const [issueTags, setIssueTags] = useState("");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -47,6 +48,7 @@ export default function IssuesPage() {
           why: issueWhy,
           what: issueWhat,
           how: issueHow,
+          tags: issueTags.split(",").map((t) => t.trim()).filter(Boolean),
         }),
       });
       const data = await res.json();
@@ -56,6 +58,7 @@ export default function IssuesPage() {
       setIssueWhy("");
       setIssueWhat("");
       setIssueHow("");
+      setIssueTags("");
       setDialogOpen(false);
       router.push(`/issues/${data.issue.id}`);
     } catch (err) {
@@ -126,6 +129,15 @@ export default function IssuesPage() {
                   </span>
                 )}
               </div>
+              {issue.tags.length > 0 && (
+                <div className={styles.tagRow}>
+                  {issue.tags.map((tag) => (
+                    <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className={styles.runItemTask}>
                 Action Items: {doneCount}/{issue.actionItems.length}
               </div>
@@ -194,6 +206,15 @@ export default function IssuesPage() {
             <div className={styles.field}>
               <label>How（どのように実現するか・前提や制約）</label>
               <textarea rows={2} value={issueHow} onChange={(e) => setIssueHow(e.target.value)} placeholder="例: 割り込みタスクの受け入れ基準を定めてBチームと合意する。予算・人員の追加は無い前提。" />
+            </div>
+            <div className={styles.field}>
+              <label>タグ（カンマ区切り、任意）</label>
+              <input
+                type="text"
+                value={issueTags}
+                onChange={(e) => setIssueTags(e.target.value)}
+                placeholder="例: バグ, リファクタリング, オンボーディング"
+              />
             </div>
 
             {issueError && <p className={styles.errorText}>{issueError}</p>}

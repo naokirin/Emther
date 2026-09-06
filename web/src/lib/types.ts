@@ -104,6 +104,7 @@ export type Issue = {
   actionItems: ActionItem[];
   parentId?: string;
   archived: boolean;
+  tags: string[];
   createdAt: number;
   updatedAt: number;
 };

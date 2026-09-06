@@ -94,6 +94,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const whyRef = useRef<HTMLTextAreaElement | null>(null);
   const whatRef = useRef<HTMLTextAreaElement | null>(null);
   const howRef = useRef<HTMLTextAreaElement | null>(null);
+  const tagsRef = useRef<HTMLInputElement | null>(null);
 
   async function handleSaveCharter() {
     if (!issue) return;
@@ -107,6 +108,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           why: whyRef.current?.value ?? "",
           what: whatRef.current?.value ?? "",
           how: howRef.current?.value ?? "",
+          tags: (tagsRef.current?.value ?? "").split(",").map((t) => t.trim()).filter(Boolean),
         }),
       });
       if (!res.ok) {
@@ -336,9 +338,22 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             placeholder="未整理（クリックして記入）"
           />
         </div>
+        <div className={styles.field}>
+          <label>タグ（カンマ区切り）</label>
+          <input type="text" ref={tagsRef} defaultValue={issue.tags.join(", ")} placeholder="例: バグ, リファクタリング, オンボーディング" />
+        </div>
+        {issue.tags.length > 0 && (
+          <div className={styles.tagRow} style={{ marginBottom: 10 }}>
+            {issue.tags.map((tag) => (
+              <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
         {charterError && <p className={styles.errorText}>{charterError}</p>}
         <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={charterSaving} onClick={handleSaveCharter}>
-          {charterSaving ? "保存中…" : "Why/What/Howを保存"}
+          {charterSaving ? "保存中…" : "Why/What/How・タグを保存"}
         </button>
       </div>
 
