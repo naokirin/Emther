@@ -1,5 +1,18 @@
 // 複数ページ（Dashboard / Issues / Issue詳細 / Organization Context）から共有する型定義。
 
+// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を画面表示するための
+// クライアント向け型。サーバー側の実体（@/lib/knowledge-store）とは意図的に型を分離している
+// （TeamやIssue等、他の型とも同じ既存の慣習に合わせている）。
+export type KnowledgeEvent = {
+  id: string;
+  kind: "fact" | "interpretation";
+  context: "official" | "observation" | "casual" | "complaint" | "profile";
+  text: string;
+  tags: string[];
+  occurredAt: number;
+  recordedAt: number;
+};
+
 export type JournalEntry = {
   id: string;
   rawText: string;

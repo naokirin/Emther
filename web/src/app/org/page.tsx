@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { useIssues, useJournal, useOrgStrategy, useTeams } from "@/lib/hooks";
+import { useEntityHistory, useIssues, useJournal, useOrgStrategy, useTeams } from "@/lib/hooks";
 import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type OrgStrategy, type Team } from "@/lib/types";
 
 type Selection = { kind: "team"; id: string } | { kind: "strategy" } | null;
@@ -93,6 +93,7 @@ export default function OrgContextPage() {
   const selectedTeam = selection?.kind === "team" ? teams.find((t) => t.id === selection.id) ?? null : null;
   const visibleTeams = teams.filter((t) => showArchivedTeams || !t.archived);
   const teamTree = buildTeamTree(visibleTeams);
+  const { history: teamHistory } = useEntityHistory("team", selectedTeam?.id ?? null);
 
   // docs/memo.md TODO「チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、
   // Organization Context から確認できるようにする」への対応。Issue-Team間、Journal-Team間の
@@ -416,6 +417,21 @@ export default function OrgContextPage() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {teamHistory.length > 0 && (
+              <details style={{ marginTop: 20 }}>
+                <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+                  変更履歴（{teamHistory.length}件）
+                </summary>
+                <ul style={{ listStyle: "none", marginTop: 8 }}>
+                  {teamHistory.map((h) => (
+                    <li key={h.id} style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                      {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
           </>
         )}

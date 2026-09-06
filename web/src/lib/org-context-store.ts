@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import { recordChangeEvent } from "@/lib/knowledge-store";
 import { normalizeTeamName } from "@/lib/types";
 
 // docs 3.1「厳格に分離されたナレッジモデル」のCore Contextに相当する最小実装。
@@ -55,33 +56,53 @@ export function addTeam(name: string, members: string[]): Team {
   };
   teams.push(team);
   persist();
+  recordChangeEvent("team", team.id, `チームを作成: 「${team.name}」`);
   return team;
 }
 
 export function updateTeam(id: string, patch: { name?: string; members?: string[] }): Team | undefined {
   const team = getTeam(id);
   if (!team) return undefined;
-  if (patch.name !== undefined) team.name = normalizeTeamName(patch.name);
-  if (patch.members !== undefined) team.members = patch.members.map((m) => m.trim()).filter(Boolean);
+  const changes: string[] = [];
+  if (patch.name !== undefined) {
+    const nextName = normalizeTeamName(patch.name);
+    if (nextName !== team.name) {
+      changes.push(`名前: 「${team.name}」→「${nextName}」`);
+      team.name = nextName;
+    }
+  }
+  if (patch.members !== undefined) {
+    const nextMembers = patch.members.map((m) => m.trim()).filter(Boolean);
+    if (nextMembers.join(",") !== team.members.join(",")) {
+      changes.push(`メンバー: 「${team.members.join(", ") || "(なし)"}」→「${nextMembers.join(", ") || "(なし)"}」`);
+      team.members = nextMembers;
+    }
+  }
+  if (changes.length === 0) return team;
   team.updatedAt = Date.now();
   persist();
+  recordChangeEvent("team", team.id, changes.join(" / "));
   return team;
 }
 
 export function setTeamArchived(id: string, archived: boolean): Team | undefined {
   const team = getTeam(id);
   if (!team) return undefined;
+  if (team.archived === archived) return team;
   team.archived = archived;
   team.updatedAt = Date.now();
   persist();
+  recordChangeEvent("team", team.id, archived ? "アーカイブしました" : "アーカイブを解除しました");
   return team;
 }
 
 export function removeTeam(id: string): boolean {
   const idx = teams.findIndex((t) => t.id === id);
   if (idx === -1) return false;
+  const team = teams[idx];
   teams.splice(idx, 1);
   persist();
+  recordChangeEvent("team", team.id, `チームを削除しました: 「${team.name}」`);
   return true;
 }
 

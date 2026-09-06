@@ -23,6 +23,10 @@ export type KnowledgeEvent = {
   kind: KnowledgeKind;
   context: KnowledgeContext;
   entityType: KnowledgeEntityType;
+  // Issue/Teamの変更履歴（Phase 2）のように、特定の1エンティティ（issueId/teamId）を
+  // 一意に指す必要がある場合に使う。人物についてのイベント（peopleで名前を持つ）とは
+  // 直交する概念なので、両方が同時に埋まることもある（例: 「issueにAさんの名前が言及された」）。
+  entityId?: string;
   people: string[];
   text: string;
   tags: string[];
@@ -46,6 +50,7 @@ type Row = {
   kind: string;
   context: string;
   entity_type: string;
+  entity_id: string | null;
   people_json: string;
   text: string;
   tags_json: string;
@@ -65,6 +70,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     kind: row.kind as KnowledgeKind,
     context: row.context as KnowledgeContext,
     entityType: row.entity_type as KnowledgeEntityType,
+    entityId: row.entity_id ?? undefined,
     people: JSON.parse(row.people_json),
     text: row.text,
     tags: JSON.parse(row.tags_json),
@@ -88,14 +94,15 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, kind, context, entity_type, entity_id, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       event.id,
       event.kind,
       event.context,
       event.entityType,
+      event.entityId ?? null,
       JSON.stringify(event.people),
       event.text,
       JSON.stringify(event.tags),
@@ -146,4 +153,25 @@ export function listActiveFactsForPerson(name: string, limit = 5): KnowledgeEven
 // 特定の人物に関する長期的な解釈（プロファイル）。TTLの概念上、基本的に常に有効。
 export function listInterpretationsForPerson(name: string): KnowledgeEvent[] {
   return listEvents({ kind: "interpretation" }).filter((e) => e.people.includes(name));
+}
+
+// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴を1つのentityId単位で取得する。
+export function listEventsForEntity(entityType: KnowledgeEntityType, entityId: string): KnowledgeEvent[] {
+  return listEvents({ entityType }).filter((e) => e.entityId === entityId);
+}
+
+// Issue/Teamの変更履歴（Phase 2）記録用の薄いヘルパー。変更は「起きた出来事そのもの」
+// なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"で固定する。
+// 変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
+export function recordChangeEvent(entityType: "issue" | "team", entityId: string, text: string, tags: string[] = []): void {
+  recordEvent({
+    kind: "fact",
+    context: "official",
+    entityType,
+    entityId,
+    people: [],
+    text,
+    tags,
+    occurredAt: Date.now(),
+  });
 }
