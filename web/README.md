@@ -348,6 +348,17 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 - **方針**: この状況を特別扱いせず、通常のAgent Run失敗と同じ扱いにする（`run.status = "error"`）。ただし「何が拒否されたか」（`tool_name`）は`system`ログに残し、EMが原因を確認できるようにしてある（`runAgyCliAttempt`内、`[agy] ツール呼び出しが拒否されました: ...`）。エラーは既存の無応答検知・Dashboard「次にすべきこと」パネルにそのまま乗るため、追加の通知経路は設けていない。
 - 自動リトライは行わない。ツール呼び出しを試みたこと自体が「ツールを使わずテキスト推論のみで答える」というシステムプロンプトからの逸脱の兆候であり、機械的に再試行しても同じ結果になる可能性が高いと判断。人間が同じ内容で再試行するか、タスク内容を見直すかを選べるよう、次項の「再試行ボタン」で対応する。
 
+### Cursor CLIフォールバック
+
+`docs/memo.md`のTODO「サポートするAIエージェントCLIにCursor CLIを追加する」への対応。claude→agyの順で試してもなお失敗している場合に限り、最後に`cursor-agent`（Cursor CLI）へフォールバックする3段構成にした。
+
+- 実機で確認した`cursor-agent`の重要な仕様: `--print`（非対話）モードは既定で「書き込み・シェル実行を含む全ツールにアクセスできる」（`--help`に明記）。これはclaudeの`--tools ""`やagyのヘッドレス自動拒否より大幅に緩い。回避策として`--mode ask`（読み取り専用のQ&Aモード）を使うと、実機検証でシェル実行・ファイル書き込みは明確に拒否されることを確認した。ただし**`--mode ask`でもGlob/Read等の読み取り専用ツールは承認なしで自動実行してしまう**ことも実機で確認した（例: 指示していないのに`ls`相当のディレクトリ一覧を自発的に取得した）。
+- この読み取りツールの自動実行を無害化するため、`--workspace <path>`で空の専用ディレクトリ（`.data/cursor-sandbox/`、起動時に自動作成）に限定して実行している。実機検証で、この設定下では`cwd`がその専用ディレクトリになり、`Glob`で見えるファイルが0件（＝このアプリのソースや`.data/app.db`などは一切見えない）ことを確認した。`--trust`も併用し、ワークスペース信頼の対話プロンプトが出ないようにしている。
+- `/settings`に「Cursor CLIフォールバック」セクションを追加（`cursorFallbackAgents: string[]`、既定は全エージェントOFF）。モデルは`gpt-5.2`固定（`cursor-agent models`で確認できる一覧はバージョン付きの名前のみ）。
+- `agent-runtime.ts`の`runClaudeTurn`は「claude失敗→（agy有効なら）agyへフォールバック→それでも`run.status`が`"error"`のまま（かつCursorが有効）ならcursor-agentへフォールバック」という順で試す3段構成にした。`cursor-agent`のstream-json出力（`type: "assistant"/"result"`等）はclaudeの`handleStreamEvent`とほぼ同じ形だが、`session_id`はclaude用の`run.sessionId`とは別のID空間（`run.cursorSessionId`、`agent_runs.cursor_session_id`列で永続化）なので専用のパーサー（`runCursorCliAttempt`）を実装した。会話継続は`--resume <session_id>`に対応している（claudeの`--resume`と同じ形式）。
+- 実機検証: `PER_TURN_BUDGET_USD`を一時的に極小値にしてclaudeを実際に失敗させ、`cursorFallbackAgents`に対象エージェントを追加した状態で、claude失敗→（agy未設定なので）スキップ→cursor-agentへフォールバック→実際のGPT-5応答（proposal形式に正しく従った回答）で`idle`まで完了することを確認。続けて`decideRun`で追加メッセージを送り、`cursorSessionId`を使った会話再開で、**直前のターンでのみ与えられた情報（最初の指示文言）を正しく参照した応答**が返ることを確認した（agyと同じ水準の会話継続検証）。設定・予算を既定値に戻した後、通常のタスク（claudeのみ）が従来通り正常完了する（リファクタによる回帰が無い）ことも確認した。
+- 既知の制約: budget上限（`--max-budget-usd`相当）は`cursor-agent`側に見当たらず未設定（agyと同じ既知のギャップ）。`usage`にコスト（USD）フィールドが無いため、cursor-agentフォールバックでの実行は`run.totalCostUsd`に加算されない（agyフォールバックも同様）。
+
 ## 実行方法
 
 ```bash
@@ -373,4 +384,4 @@ npm run dev
 - Team Vitalsの判定閾値はOrganization Context（`/org`のStrategyノード）からEMが調整できるようになった。ただし「今期目標 15/33」のようなOKR進捗バイタルは未実装（進捗率だけでは良悪判定できない＝評価不能にすべきケースだと考えており、期限に対する期待値をどう持つかを未決定のまま保留している）。OKR自体は自由記述テキストとしてAgent Runtimeへ注入されるのみで、進捗の構造化・バイタル化はしていない。
 - Issueの親子分解（1階層）はEMが手動で行うだけで、AIが「このIssueは大きすぎるので分解しては」と提案することはない。AIによる自動ドラフトIssue（異常検知経由の起票）も未実装。今のIssueはEMが手動で作る（既存Agent Runへの紐付けを含む）だけ。
 - 階層型マルチエージェントは「Lead Agentが1ターンにつき1つの専門エージェントに1回だけ相談できる」という最小限のもの。専門エージェント同士の相談、複数エージェントへの並行相談、相談の連鎖（相談された専門エージェントがさらに別の専門エージェントに相談する等）はできない。
-- Gemini CLI（agy経由）フォールバックは成功パス・会話継続とも実機検証済みだが、予算上限（`--max-budget-usd`相当）はagy側に設定していない。使用モデル（`gemini-3.6-flash-medium`固定）もEMが`/settings`から選べるようにはなっていない。
+- Gemini CLI（agy経由）・Cursor CLI（cursor-agent経由）フォールバックはいずれも成功パス・会話継続とも実機検証済みだが、予算上限（`--max-budget-usd`相当）はどちらのCLI側にも設定していない。使用モデル（`gemini-3.6-flash-medium`・`gpt-5.2`固定）もEMが`/settings`から選べるようにはなっていない。claude→agy→cursorの3段フォールバックは順序固定で、EMが優先順位を入れ替えることはできない。

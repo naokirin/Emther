@@ -103,6 +103,11 @@ function migrate(database: DatabaseSync): void {
   // 同じrunでも「claudeのsessionId」と「agyの会話id」を別々のカラムで持つ。
   addColumnIfMissing(database, "agent_runs", "agy_conversation_id", "TEXT");
 
+  // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
+  // cursor-agentの会話継続（--resume <session_id>）もclaudeのsessionId・agyの
+  // conversation_idとは別のID空間なので、専用のカラムで持つ。
+  addColumnIfMissing(database, "agent_runs", "cursor_session_id", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

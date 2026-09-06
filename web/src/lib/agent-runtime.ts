@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { dataFilePath } from "@/lib/persistence";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
@@ -58,6 +60,9 @@ export type AgentRun = {
   // docs/memo.md「Claude Codeが使えない場合はagy経由でフォールバックする」対応。
   // agyの会話継続（--conversation）はclaudeのsessionIdとは別のID空間なので分けて持つ。
   agyConversationId?: string;
+  // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
+  // cursor-agentの会話継続（--resume）もclaude/agyとは別のID空間なので分けて持つ。
+  cursorSessionId?: string;
   log: LogLine[];
   yieldRequest?: YieldRequest;
   proposal?: Proposal;
@@ -89,6 +94,7 @@ type AgentRunRow = {
   status: string;
   session_id: string | null;
   agy_conversation_id: string | null;
+  cursor_session_id: string | null;
   yield_request_json: string | null;
   proposal_json: string | null;
   total_cost_usd: number;
@@ -114,12 +120,13 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, yield_request_json, proposal_json, total_cost_usd, created_at, updated_at, consulted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, total_cost_usd, created_at, updated_at, consulted_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
          agy_conversation_id = excluded.agy_conversation_id,
+         cursor_session_id = excluded.cursor_session_id,
          yield_request_json = excluded.yield_request_json,
          proposal_json = excluded.proposal_json,
          total_cost_usd = excluded.total_cost_usd,
@@ -132,6 +139,7 @@ function persistRunMeta(run: AgentRun): void {
       run.status,
       run.sessionId ?? null,
       run.agyConversationId ?? null,
+      run.cursorSessionId ?? null,
       run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
       run.proposal ? JSON.stringify(run.proposal) : null,
       run.totalCostUsd,
@@ -168,6 +176,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       status: row.status as AgentStatus,
       sessionId: row.session_id ?? undefined,
       agyConversationId: row.agy_conversation_id ?? undefined,
+      cursorSessionId: row.cursor_session_id ?? undefined,
       log: logsByRun.get(row.id) ?? [],
       yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
       proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
@@ -238,6 +247,16 @@ const PER_TURN_BUDGET_USD = "0.5";
 // 無いことを実機で確認済み。将来モデルが更新されたら定数を差し替える想定
 // （local-model.tsのMODEL_ID/MODEL_DTYPEと同じ考え方）。
 const AGY_GEMINI_MODEL = "gemini-3.6-flash-medium";
+
+// docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
+// cursor-agentも複数モデルに対応するマルチモデルCLIで、汎用モデル名（コーディング特化で
+// ない一般的なモデル）として"gpt-5.2"を使う。`--mode ask`は実機確認済みで
+// 書き込み・シェル実行を拒否する（安全側）が、Glob/Read等の読み取り専用ツールは
+// 承認無しで実行してしまうため、`--workspace`で空の専用ディレクトリに限定し、
+// 万一読み取りツールが呼ばれてもこのアプリのソース・`.data`が見えないようにする。
+const CURSOR_MODEL = "gpt-5.2";
+const CURSOR_WORKSPACE_DIR = dataFilePath("cursor-sandbox");
+mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 
 // docs 3.1「動的ロード」の簡略版: 本来は対象Issueに関連する部分だけを動的にロードすべきだが、
 // MVPではチーム数が少ない前提でOrganization Context（チーム名簿）全体を常に注入する。
@@ -598,6 +617,10 @@ function isAgyFallbackEnabled(agentName: string): boolean {
   return getRulesAndConstraints().agyFallbackAgents.includes(agentName);
 }
 
+function isCursorFallbackEnabled(agentName: string): boolean {
+  return getRulesAndConstraints().cursorFallbackAgents.includes(agentName);
+}
+
 async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true): Promise<void> {
   // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
   // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
@@ -620,6 +643,14 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   if (claudeFailed && isAgyFallbackEnabled(run.agentName)) {
     appendLog(run, "system", "⚠️ claude CLIが利用できなかったため、agy経由でGeminiモデルにこのターンをフォールバックします。");
     await runAgyCliAttempt(run, prompt, systemPrompt, allowConsult);
+  }
+
+  // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
+  // claude→agyの順で試した結果、依然として"error"のまま（agyが未有効 or agyも失敗）で、
+  // かつこのエージェント種別でCursorフォールバックが有効な場合のみ、最後にcursor-agentを試す。
+  if ((run.status as AgentStatus) === "error" && isCursorFallbackEnabled(run.agentName)) {
+    appendLog(run, "system", "⚠️ 他のCLIも利用できなかったため、Cursor CLI経由でこのターンをフォールバックします。");
+    await runCursorCliAttempt(run, prompt, systemPrompt, allowConsult);
   }
 
   if (run.pendingConsult) {
@@ -821,6 +852,131 @@ function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, a
       liveProcesses.delete(run.id);
       run.status = "error";
       appendLog(run, "system", `agy起動エラー: ${err.message}`);
+      resolve();
+    });
+  });
+}
+
+// cursor-agent（Cursor CLI）経由でのフォールバック実行。`--output-format stream-json`の
+// イベント構造はclaudeの`handleStreamEvent`とほぼ同じ形（type: "assistant"/"result"等）だが、
+// session_idはclaude用のrun.sessionIdとは別のID空間なので、handleStreamEventは再利用せず
+// 専用のパーサーを実装し、run.cursorSessionIdに保存する。
+// 安全面: `--mode ask`は書き込み・シェル実行を拒否することを実機確認済みだが、
+// Glob/Read等の読み取り専用ツールは承認無しで実行してしまうことも確認したため、
+// `--workspace`で空の専用ディレクトリ（CURSOR_WORKSPACE_DIR）に限定し、
+// 万一読み取りツールが呼ばれてもこのアプリのソース・`.data`が見えないようにしている。
+// `--append-system-prompt`相当のフラグも無いため、システムプロンプトをプロンプト本文の
+// 先頭に連結して渡す。
+function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
+    const args = [
+      "--print",
+      "--mode",
+      "ask",
+      "--trust",
+      "--workspace",
+      CURSOR_WORKSPACE_DIR,
+      "--output-format",
+      "stream-json",
+      "--model",
+      CURSOR_MODEL,
+    ];
+    if (run.cursorSessionId) {
+      args.push("--resume", run.cursorSessionId);
+    }
+    args.push(combinedPrompt);
+
+    appendLog(run, "meta", run.cursorSessionId ? "Cursor CLIで会話を再開しています…" : "Cursor CLIでこのターンを実行しています…");
+
+    let child;
+    try {
+      child = spawn("cursor-agent", args, { stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err) {
+      run.status = "error";
+      appendLog(run, "system", `Cursor CLI起動エラー: ${(err as Error).message}`);
+      resolve();
+      return;
+    }
+    liveProcesses.set(run.id, child);
+
+    let sawResult = false;
+
+    function handleCursorLine(line: string) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let event: any;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        appendLog(run, "system", line);
+        return;
+      }
+
+      if (event.type === "assistant") {
+        const content = event.message?.content ?? [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const block of content as any[]) {
+          if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
+            appendLog(run, "agent", unmaskNames(block.text.trim()));
+          }
+        }
+        return;
+      }
+
+      if (event.type === "result") {
+        sawResult = true;
+        if (typeof event.session_id === "string" && event.session_id) {
+          run.cursorSessionId = event.session_id;
+        }
+        if (event.is_error) {
+          run.status = "error";
+          appendLog(run, "system", `Cursor CLIも失敗しました: ${unmaskNames(typeof event.result === "string" ? event.result : "(no message)")}`);
+          return;
+        }
+        const text = typeof event.result === "string" ? event.result.trim() : "";
+        if (!text) {
+          run.status = "error";
+          appendLog(run, "system", "Cursor CLIが空の応答を返しました。");
+          return;
+        }
+        applyAssistantResultText(run, unmaskNames(text), allowConsult);
+      }
+    }
+
+    let buffer = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      buffer += chunk.toString("utf8");
+      let idx: number;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.trim()) handleCursorLine(line);
+      }
+    });
+
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    child.on("close", (code) => {
+      liveProcesses.delete(run.id);
+      if (buffer.trim()) handleCursorLine(buffer.trim());
+      if (!sawResult) {
+        run.status = "error";
+        appendLog(
+          run,
+          "system",
+          `Cursor CLIも結果を返さずに終了しました (exit code: ${code})${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
+        );
+      }
+      resolve();
+    });
+
+    child.on("error", (err) => {
+      liveProcesses.delete(run.id);
+      run.status = "error";
+      appendLog(run, "system", `Cursor CLI起動エラー: ${err.message}`);
       resolve();
     });
   });

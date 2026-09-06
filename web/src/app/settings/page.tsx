@@ -169,6 +169,30 @@ export default function SettingsPage() {
             {name}
           </label>
         ))}
+
+        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Cursor CLIフォールバック</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          claude→agyの順で試してもなお失敗した場合、ここでONにしたエージェント種別に限り、`cursor-agent`（Cursor
+          CLI）経由でモデル（gpt-5.2）へフォールバックします。既定は全エージェントOFF。読み取り専用ツールを勝手に実行しないよう、
+          このアプリのソース・データが見えない専用の空ディレクトリをワークスペースに指定して実行します。会話継続（`--resume`）にも対応しています。
+        </p>
+        {AGENT_OPTIONS.map((name) => (
+          <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+            <input
+              type="checkbox"
+              checked={draft.cursorFallbackAgents.includes(name)}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  cursorFallbackAgents: e.target.checked
+                    ? [...draft.cursorFallbackAgents, name]
+                    : draft.cursorFallbackAgents.filter((n) => n !== name),
+                })
+              }
+            />
+            {name}
+          </label>
+        ))}
       </div>
     </div>
   );
