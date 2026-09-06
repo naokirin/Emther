@@ -359,6 +359,25 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 - 実機検証: `PER_TURN_BUDGET_USD`を一時的に極小値にしてclaudeを実際に失敗させ、`cursorFallbackAgents`に対象エージェントを追加した状態で、claude失敗→（agy未設定なので）スキップ→cursor-agentへフォールバック→実際のGPT-5応答（proposal形式に正しく従った回答）で`idle`まで完了することを確認。続けて`decideRun`で追加メッセージを送り、`cursorSessionId`を使った会話再開で、**直前のターンでのみ与えられた情報（最初の指示文言）を正しく参照した応答**が返ることを確認した（agyと同じ水準の会話継続検証）。設定・予算を既定値に戻した後、通常のタスク（claudeのみ）が従来通り正常完了する（リファクタによる回帰が無い）ことも確認した。
 - 既知の制約: budget上限（`--max-budget-usd`相当）は`cursor-agent`側に見当たらず未設定（agyと同じ既知のギャップ）。`usage`にコスト（USD）フィールドが無いため、cursor-agentフォールバックでの実行は`run.totalCostUsd`に加算されない（agyフォールバックも同様）。
 
+### AIエージェントの自動起動（イベント駆動・バッチ駆動）とAI異常検知経由のドラフトIssue起票
+
+`docs/first_implession/em_v5.md` 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」と3.7「AIによる異常検知（ドラフトIssue）」への対応。既存実装は人間駆動のみだったため、他の2種類のトリガーを追加した。あわせて、3.7が求める「AIによる異常検知経由のドラフトIssue起票」も、新しいAgent Run種別（`origin`）とDashboardの可視化だけで実現し、Issue作成ロジック自体は既存の「Inboxのrunをクリック→未起票ならその場でIssue化」の仕組みをそのまま再利用した。
+
+- `AgentRun`に`origin: "manual" | "auto-anomaly" | "auto-summary"`と`reviewed: boolean`を追加（`agent_runs`テーブルへの新規カラム）。`origin`が`"manual"`以外のrunは、EMが内容を確認する（Issue化する、または明示的に却下する）までは`reviewed: false`のままになる。
+- **イベント駆動**: `journal-store.ts`の`addJournalEntry`で、Journalの緊急度が`high`と判定された時点で、Settings（`autoAnomalyDetectionEnabled`、既定OFF）が有効なら`startRun("Lead Agent", ..., "auto-anomaly")`を自動実行する。プロンプトには「Issue化すべきか判断し、必要ならその旨をproposalの結論に含める」よう指示するだけで、Issueを直接作成する新規ロジックは書いていない。
+- **バッチ駆動**: 既存のwatchdog（`checkStaleRuns`と同じ30秒間隔）に相乗りする形で`checkMorningSummary`を追加。Settings（`autoMorningSummaryEnabled`・`autoMorningSummaryHour`、既定OFF/7時）が有効で、サーバーのローカル時刻が指定時刻を過ぎ、かつ当日まだ生成していなければ、「朝のサマリー」タスクで`startRun("Lead Agent", ..., "auto-summary")`を1日1回だけ実行する（`lastAutoMorningSummaryDate`をメモリ上で追跡。サーバー再起動をまたぐ厳密性は無い簡略化）。
+- Dashboardの「次にすべきこと」は、`origin !== "manual" && !reviewed`のrunを、status（yield/error/idleいずれでも）に関わらず🤖アイコンで表示し続ける。クリック先は既存の`goToRunIssue`（即Issue化）ではなく`/chat?runId=...`へ変更し、EMが中身を確認してから「📌 Issueにする」（`POST /api/issues`にagentRunIdを渡すと、その中で自動的に`reviewed: true`になる）か「却下する（対応不要）」（`POST /api/agents/[id]/review`）を選べるようにした（Human-in-the-Loopを維持——AIが直接Issueを作ることはない）。
+- 実機検証: `autoAnomalyDetectionEnabled`を有効化し、緊急度highと判定される内容（「本番環境で重大な障害が発生し、顧客に影響が出ている」）のJournalを投稿したところ、実際にLead Agentのrunが自動起動され、「Issue化して追跡することを検討すべき」という結論に到達することを確認。`POST /api/issues`でIssue化すると、そのrunの`reviewed`が実際に`true`へ切り替わることを確認。`autoMorningSummaryEnabled`を有効化し、閾値時刻をサーバー時刻以下に設定したところ、次のwatchdog tick（30秒以内）で朝のサマリーrunが自動起動されること、その後複数回tickが経過しても同日中は再起動されない（重複防止）ことを確認。
+
+### 壁打ちチャットのAI提案によるAction Itemsの動的追加
+
+`docs/first_implession/em_v5.md` 3.8「壁打ちによるState更新: AIからのサジェストによってIssueの状態（タスクリストやロードマップ）を直接・動的に上書きできる仕組み」への対応。既存実装ではAction Itemsは常にEMが手動で追加するのみだった。
+
+- Issueに紐づくタスクに限り、`buildSystemPrompt`が「proposalの結論を踏まえて次にやるべき具体的な作業があれば`action_items`ブロックで提案してよい」という指示を追加する（Issue未紐付けのタスク、たとえば`/chat`の相談には付与しない）。
+- `extractActionItems`（既存の`extractYield`/`extractProposal`と同じ、壊れた形式は「提案なし」として無視するだけの壊れにくいパース）で抽出した提案は`run.suggestedActionItems`に保持し、`agent_runs`テーブルへ`suggested_action_items_json`として永続化する。
+- `ExecutionState`のproposal表示ブロック内に「💡 AIが提案するAction Items」として一覧表示し、「採用してAction Itemsに追加」（提案の全項目を実際に`POST /api/issues/[id]/action-items`で追加してから提案を消す）と「却下する」（`POST /api/agents/[id]/action-items/dismiss`で提案だけを消す）の2ボタンを設置。EMが明示的に選ぶまでIssueのAction Items自体は変化しない（Human-in-the-Loopを維持）。
+- 実機検証: Issueに紐づくrunへ「次にやるべき作業をAction Itemsとして提案して」と追加メッセージを送ったところ、Issueの文脈（DBバックアップ失敗の障害対応）に沿った具体的な3項目が`suggestedActionItems`として返ることを確認。そのうち2項目を実際に「採用」相当のAPI呼び出し（`POST .../action-items`→`POST .../action-items/dismiss`）で処理し、Issueの`actionItems`に実際に追加されること、かつ処理後は`suggestedActionItems`が`null`に戻ること（＝同じ提案が表示され続けない）を確認した。
+
 ## 実行方法
 
 ```bash
@@ -382,6 +401,10 @@ npm run dev
 - ローカルモデルの初回ロードは重み（0.5B・q4で数百MB）のダウンロード＋ONNX Runtime初期化を含み、リクエストが数十秒ブロックする。2回目以降はプロセス内キャッシュにより数秒程度。
 - Organization Contextはチーム名簿＋MVV/OKR（自由記述テキスト）を持つが、v5設計書が想定するツリー型ディレクトリ・チームごとのMVV・JSON/YAMLファイル群は未実装（フラットな構造化データに簡略化）。Team Vitalsの閾値（Rules_and_Constraints）は「アプリの設定値」として`/settings`画面に分離して持つ。
 - Team Vitalsの判定閾値はOrganization Context（`/org`のStrategyノード）からEMが調整できるようになった。ただし「今期目標 15/33」のようなOKR進捗バイタルは未実装（進捗率だけでは良悪判定できない＝評価不能にすべきケースだと考えており、期限に対する期待値をどう持つかを未決定のまま保留している）。OKR自体は自由記述テキストとしてAgent Runtimeへ注入されるのみで、進捗の構造化・バイタル化はしていない。
-- Issueの親子分解（1階層）はEMが手動で行うだけで、AIが「このIssueは大きすぎるので分解しては」と提案することはない。AIによる自動ドラフトIssue（異常検知経由の起票）も未実装。今のIssueはEMが手動で作る（既存Agent Runへの紐付けを含む）だけ。
+- Issueの親子分解（1階層）はEMが手動で行うだけで、AIが「このIssueは大きすぎるので分解しては」と提案することはない。
+- AIによる異常検知経由のドラフトIssue起票・自動起動（イベント駆動・バッチ駆動）は実装済みだが、イベント駆動のトリガー条件は「Journalの緊急度がhigh」のみ（v5設計書が例示する「特定タグの追加」による判定はしていない）。バッチ駆動（朝のサマリー）はサーバー再起動をまたいだ厳密な実行保証が無い（インメモリで最終実行日を追跡しているだけ）。
+- AIが提案するAction Items（壁打ちチャットからのState更新）は、提案された項目を「全件まとめて採用」または「全件却下」の二択のみで、個別に取捨選択するUIは無い。
+- Dashboardには全エージェント横断の常設Agent Activity Streamパネルは無い（ワイヤーフレームの右ペイン相当）。個別のrunのログはIssue詳細・`/chat`に入って初めて見られる。
+- Organization Contextの動的ロード（Agent Runtimeへの注入）は、対象Issueに関連するチームだけに絞らず、常に全チームを無条件で注入している（Journal・Issue charterの注入は名前一致でスコープを絞っているが、チーム名簿はスコープを絞っていない）。
 - 階層型マルチエージェントは「Lead Agentが1ターンにつき1つの専門エージェントに1回だけ相談できる」という最小限のもの。専門エージェント同士の相談、複数エージェントへの並行相談、相談の連鎖（相談された専門エージェントがさらに別の専門エージェントに相談する等）はできない。
 - Gemini CLI（agy経由）・Cursor CLI（cursor-agent経由）フォールバックはいずれも成功パス・会話継続とも実機検証済みだが、予算上限（`--max-budget-usd`相当）はどちらのCLI側にも設定していない。使用モデル（`gemini-3.6-flash-medium`・`gpt-5.2`固定）もEMが`/settings`から選べるようにはなっていない。claude→agy→cursorの3段フォールバックは順序固定で、EMが優先順位を入れ替えることはできない。

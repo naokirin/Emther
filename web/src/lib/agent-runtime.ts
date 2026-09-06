@@ -66,6 +66,9 @@ export type AgentRun = {
   log: LogLine[];
   yieldRequest?: YieldRequest;
   proposal?: Proposal;
+  // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの
+  // 下書き。EMが個別に「採用」するまでIssue.actionItemsには反映されない。
+  suggestedActionItems?: string[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -76,6 +79,13 @@ export type AgentRun = {
   // 外部からは基本的に参照しない。
   consultedBy?: string;
   pendingConsult?: ConsultRequest;
+  // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
+  // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はJournalの高緊急度
+  // エントリをきっかけにした自動分析、"auto-summary"は朝のバッチサマリー。
+  // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
+  // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
+  origin: "manual" | "auto-anomaly" | "auto-summary";
+  reviewed: boolean;
 };
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
@@ -97,10 +107,13 @@ type AgentRunRow = {
   cursor_session_id: string | null;
   yield_request_json: string | null;
   proposal_json: string | null;
+  suggested_action_items_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
   consulted_by: string | null;
+  origin: string;
+  reviewed: number;
 };
 
 type AgentRunLogRow = {
@@ -120,8 +133,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, total_cost_usd, created_at, updated_at, consulted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -129,8 +142,10 @@ function persistRunMeta(run: AgentRun): void {
          cursor_session_id = excluded.cursor_session_id,
          yield_request_json = excluded.yield_request_json,
          proposal_json = excluded.proposal_json,
+         suggested_action_items_json = excluded.suggested_action_items_json,
          total_cost_usd = excluded.total_cost_usd,
-         updated_at = excluded.updated_at`,
+         updated_at = excluded.updated_at,
+         reviewed = excluded.reviewed`,
     )
     .run(
       run.id,
@@ -142,10 +157,13 @@ function persistRunMeta(run: AgentRun): void {
       run.cursorSessionId ?? null,
       run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
       run.proposal ? JSON.stringify(run.proposal) : null,
+      run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
       run.consultedBy ?? null,
+      run.origin,
+      run.reviewed ? 1 : 0,
     );
 }
 
@@ -180,10 +198,13 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       log: logsByRun.get(row.id) ?? [],
       yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
       proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
+      suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       consultedBy: row.consulted_by ?? undefined,
+      origin: (row.origin as AgentRun["origin"]) ?? "manual",
+      reviewed: !!row.reviewed,
     };
     if (run.status === "active") {
       const line: LogLine = { ts: Date.now(), channel: "system", text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" };
@@ -232,11 +253,39 @@ function checkStaleRuns(): void {
   }
 }
 
+// docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
+// 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
+// サーバー再起動をまたぐ厳密な保証はしない（＝再起動直後は当日分が未生成になり得る）が、
+// 単一ローカルユーザー・常時起動のプロセス前提のMVPでは許容できる簡略化と判断。
+let lastAutoMorningSummaryDate: string | null = null;
+
+function todayDateString(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function checkMorningSummary(): void {
+  const { autoMorningSummaryEnabled, autoMorningSummaryHour } = getRulesAndConstraints();
+  if (!autoMorningSummaryEnabled) return;
+  const now = new Date();
+  if (now.getHours() < autoMorningSummaryHour) return;
+  const today = todayDateString(now);
+  if (lastAutoMorningSummaryDate === today) return;
+  lastAutoMorningSummaryDate = today;
+  startRun(
+    "Lead Agent",
+    "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・Why/What/Howが未整理のIssueなど、今日EMがまず確認すべきことを簡潔に整理してください。",
+    "auto-summary",
+  );
+}
+
 let watchdogStarted = false;
 function ensureWatchdogStarted(): void {
   if (watchdogStarted) return;
   watchdogStarted = true;
-  setInterval(checkStaleRuns, WATCHDOG_INTERVAL_MS);
+  setInterval(() => {
+    checkStaleRuns();
+    checkMorningSummary();
+  }, WATCHDOG_INTERVAL_MS);
 }
 ensureWatchdogStarted();
 
@@ -397,6 +446,21 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
         ]
       : [];
 
+  // docs/first_implession 3.8「壁打ちによるState更新: AIからのサジェストによってIssueの
+  // 状態（タスクリスト）を直接・動的に上書きできる仕組み」対応。Issueに紐づくタスクの場合
+  // だけ、Action Itemsの下書きを提案できるようにする。EMが「採用」を押すまでは
+  // 提案のままで、Action Items自体は書き換わらない（Human-in-the-Loopを維持）。
+  const actionItemsRule =
+    runId && getIssueByRunId(runId)
+      ? [
+          "- このタスクはIssueに紐づいています。結論を踏まえて次にやるべき具体的な作業（Action Item）があれば、proposalブロックの直後に以下の形式でaction_itemsブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと）。",
+          "```action_items",
+          '["具体的な作業1", "具体的な作業2"]',
+          "```",
+          "",
+        ]
+      : [];
+
   const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
     "与えられたタスクの文脈だけを判断材料とし、実際の外部システムやファイルには一切アクセスできません（ツールは無効化されています）。",
@@ -415,6 +479,7 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
+    ...actionItemsRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき",
@@ -478,6 +543,24 @@ function extractProposal(resultText: string): Proposal | undefined {
     }
   } catch {
     // 不正なproposalブロックは構造化なしとして扱う
+  }
+  return undefined;
+}
+
+// docs/first_implession 3.8対応。AIが提案するAction Itemsの下書き。EMが個別に採用する
+// までIssue.actionItemsへは反映しない（extractYield/extractProposalと同じ壊れにくい
+// パースの考え方: 不正な形式は「提案なし」として扱うだけで、proposal自体は無効にしない）。
+function extractActionItems(resultText: string): string[] | undefined {
+  const match = resultText.match(/```action_items\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (Array.isArray(parsed)) {
+      const items = parsed.filter((i: unknown): i is string => typeof i === "string" && i.trim().length > 0);
+      return items.length > 0 ? items : undefined;
+    }
+  } catch {
+    // 不正なaction_itemsブロックは「提案なし」として扱う
   }
   return undefined;
 }
@@ -598,16 +681,21 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.status = "yield";
     run.yieldRequest = yieldRequest;
     run.proposal = undefined;
+    run.suggestedActionItems = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
+    run.suggestedActionItems = run.proposal ? extractActionItems(resultText) : undefined;
     appendLog(
       run,
       "system",
       run.proposal ? "タスクが完了しました（人間の入力は不要です）。" : "タスクが完了しました（proposal形式には従いませんでした）。",
     );
+    if (run.suggestedActionItems) {
+      appendLog(run, "system", `[Action Items提案] ${run.suggestedActionItems.length}件`);
+    }
   }
 }
 
@@ -997,6 +1085,8 @@ async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promis
     createdAt: Date.now(),
     updatedAt: Date.now(),
     consultedBy: leadRun.id,
+    origin: leadRun.origin,
+    reviewed: leadRun.reviewed,
   };
   runs.set(specialistRun.id, specialistRun);
   appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${consult.question}`);
@@ -1027,7 +1117,7 @@ export function getRun(id: string): AgentRun | undefined {
   return runs.get(id);
 }
 
-export function startRun(agentName: string, task: string): AgentRun {
+export function startRun(agentName: string, task: string, origin: AgentRun["origin"] = "manual"): AgentRun {
   const run: AgentRun = {
     id: randomUUID(),
     agentName,
@@ -1037,9 +1127,17 @@ export function startRun(agentName: string, task: string): AgentRun {
     totalCostUsd: 0,
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    origin,
+    reviewed: origin === "manual",
   };
   runs.set(run.id, run);
-  appendLog(run, "meta", `タスクを受理: ${task}`);
+  appendLog(
+    run,
+    "meta",
+    origin === "manual"
+      ? `タスクを受理: ${task}`
+      : `AIによる自動起動（${origin === "auto-anomaly" ? "異常検知" : "朝のサマリー"}）: ${task}`,
+  );
   void runClaudeTurn(run, task);
   return run;
 }
@@ -1052,5 +1150,26 @@ export function decideRun(id: string, message: string): AgentRun | undefined {
   }
   appendLog(run, "meta", `EMからの入力: ${message}`);
   void runClaudeTurn(run, message);
+  return run;
+}
+
+// docs/first_implession 3.6対応。AI主導（origin !== "manual"）で起動されたrunをEMが
+// 開いた・Issue化した際に「確認済み」にする。手動起動のrunは常にreviewed=trueのため無害。
+export function markRunReviewed(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run || run.reviewed) return run;
+  run.reviewed = true;
+  persistRunMeta(run);
+  return run;
+}
+
+// docs/first_implession 3.8対応。AIが提案したAction Itemsを、EMが採用した後（実際の
+// 追加は呼び出し側がIssueのaction-items APIを個別に叩く）または却下した後に、
+// 提案自体をrunから消す（採用・却下いずれの場合も、同じ提案が表示され続けないように）。
+export function clearSuggestedActionItems(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.suggestedActionItems = undefined;
+  persistRunMeta(run);
   return run;
 }

@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
 import { isRunStale } from "@/lib/types";
+
+const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
+  manual: "",
+  "auto-anomaly": "異常検知",
+  "auto-summary": "朝のサマリー",
+};
 
 // docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、
 // 質問ができるチャットを用意する」への対応。特定のIssueに紐付けないLead Agentのrunを
@@ -13,8 +20,18 @@ import { isRunStale } from "@/lib/types";
 // 既存のExecutionState/CopilotChat UIをそのまま流用する。
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageInner />
+    </Suspense>
+  );
+}
+
+function ChatPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { runs, refreshRuns } = useRuns();
-  const { issues } = useIssues();
+  const { issues, refreshIssues } = useIssues();
   const { rules } = useSettingsRules();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
@@ -25,7 +42,15 @@ export default function ChatPage() {
     .filter((r) => r.agentName === "Lead Agent" && !issues.some((i) => i.agentRunId === r.id))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 
+  // docs/first_implession 3.6/3.7対応。Dashboardの「次にすべきこと」からAI自動起動runへ
+  // ?runId=で直接遷移できるようにする（最初のポーリング結果が届いた時点で一度だけ選択する）。
+  const [seededFromQuery, setSeededFromQuery] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const queryRunId = searchParams.get("runId");
+  if (queryRunId && !seededFromQuery && runs.length > 0) {
+    setSeededFromQuery(true);
+    setSelectedId(queryRunId);
+  }
   const selectedRun: AgentRun | null = selectedId ? chatRuns.find((r) => r.id === selectedId) ?? null : null;
 
   const [task, setTask] = useState("");
@@ -36,6 +61,45 @@ export default function ChatPage() {
   const [message, setMessage] = useState("");
   const [deciding, setDeciding] = useState(false);
   const [decideError, setDecideError] = useState<string | null>(null);
+
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  async function handlePromoteToIssue() {
+    if (!selectedRun) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: selectedRun.task.slice(0, 60), agentRunId: selectedRun.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Issue化に失敗しました");
+      await refreshIssues();
+      router.push(`/issues/${data.issue.id}`);
+    } catch (err) {
+      setReviewError((err as Error).message);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
+  async function handleDismiss() {
+    if (!selectedRun) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/review`, { method: "POST" });
+      if (!res.ok) throw new Error("却下の記録に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setReviewError((err as Error).message);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
 
   async function handleStartNew(e: React.FormEvent) {
     e.preventDefault();
@@ -117,6 +181,7 @@ export default function ChatPage() {
             >
               <div style={{ marginBottom: 4 }}>
                 <StatusBadge status={r.status} stale={staleRunIds.has(r.id)} />
+                {r.origin !== "manual" && !r.reviewed && <span style={{ marginLeft: 6 }}>🤖 未確認</span>}
               </div>
               <div>{r.task.slice(0, 50)}</div>
             </button>
@@ -128,6 +193,23 @@ export default function ChatPage() {
         {selectedRun ? (
           <>
             <h2>Lead Agentへの相談</h2>
+            {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
+              <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
+                <strong>🤖 AIが自動起動したRunです（{ORIGIN_LABEL[selectedRun.origin]}）</strong>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+                  内容を確認し、追跡すべきならIssue化、不要なら却下してください。EMが確認するまでここに残り続けます。
+                </p>
+                <div className={styles.yieldActions}>
+                  <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={reviewSubmitting} onClick={handlePromoteToIssue}>
+                    📌 Issueにする
+                  </button>
+                  <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={handleDismiss}>
+                    却下する（対応不要）
+                  </button>
+                </div>
+                {reviewError && <p className={styles.errorText}>{reviewError}</p>}
+              </div>
+            )}
             <ExecutionState
               run={selectedRun}
               selectedOptionId={selectedOptionId}

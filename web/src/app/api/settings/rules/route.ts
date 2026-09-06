@@ -9,6 +9,10 @@ function num(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function bool(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
   const patch = {
@@ -28,6 +32,9 @@ export async function PATCH(request: Request) {
     cursorFallbackAgents: Array.isArray(body?.cursorFallbackAgents)
       ? body.cursorFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
       : undefined,
+    autoAnomalyDetectionEnabled: bool(body?.autoAnomalyDetectionEnabled),
+    autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
+    autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);

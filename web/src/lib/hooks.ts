@@ -128,6 +128,9 @@ export function useSettingsRules(intervalMs = 8000) {
       journalFactTtlDays: 90,
       agyFallbackAgents: [],
       cursorFallbackAgents: [],
+      autoAnomalyDetectionEnabled: false,
+      autoMorningSummaryEnabled: false,
+      autoMorningSummaryHour: 7,
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

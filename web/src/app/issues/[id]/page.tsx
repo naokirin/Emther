@@ -197,6 +197,40 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  const [actionItemsSubmitting, setActionItemsSubmitting] = useState(false);
+
+  // docs/first_implession 3.8対応。AIが提案したAction Itemsを、実際にIssue.actionItemsへ
+  // 追加するかどうかはEMが選ぶ（採用/却下いずれの場合も提案自体はrunから消し、
+  // 同じ提案が表示され続けないようにする）。
+  async function handleAdoptSuggestedActionItems(items: string[]) {
+    if (!issue || !linkedRun) return;
+    setActionItemsSubmitting(true);
+    try {
+      for (const text of items) {
+        await fetch(`/api/issues/${issue.id}/action-items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+      }
+      await fetch(`/api/agents/${linkedRun.id}/action-items/dismiss`, { method: "POST" });
+      await Promise.all([refreshIssue(), refreshRuns()]);
+    } finally {
+      setActionItemsSubmitting(false);
+    }
+  }
+
+  async function handleDismissSuggestedActionItems() {
+    if (!linkedRun) return;
+    setActionItemsSubmitting(true);
+    try {
+      await fetch(`/api/agents/${linkedRun.id}/action-items/dismiss`, { method: "POST" });
+      await refreshRuns();
+    } finally {
+      setActionItemsSubmitting(false);
+    }
+  }
+
   async function handleToggleActionItem(itemId: string) {
     if (!issue) return;
     try {
@@ -390,6 +424,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               deciding={deciding}
               stale={staleRunIds.has(linkedRun.id)}
               onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
+              onAdoptActionItems={handleAdoptSuggestedActionItems}
+              onDismissActionItems={handleDismissSuggestedActionItems}
+              actionItemsSubmitting={actionItemsSubmitting}
             />
           ) : (
             <p className={styles.subtitle}>Agent Runが紐づいていません。Dashboardでタスクを起票するか、Issue一覧から紐づけてください。</p>

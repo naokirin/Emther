@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createIssue, listIssues } from "@/lib/issue-store";
+import { markRunReviewed } from "@/lib/agent-runtime";
 
 export async function GET() {
   return NextResponse.json({ issues: listIssues() });
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       parentId,
       tags,
     );
+    if (agentRunId) markRunReviewed(agentRunId);
     return NextResponse.json({ issue }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });

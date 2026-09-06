@@ -77,6 +77,9 @@ export type RulesAndConstraints = {
   journalFactTtlDays: number;
   agyFallbackAgents: string[];
   cursorFallbackAgents: string[];
+  autoAnomalyDetectionEnabled: boolean;
+  autoMorningSummaryEnabled: boolean;
+  autoMorningSummaryHour: number;
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
