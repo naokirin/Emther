@@ -75,7 +75,7 @@ export type RulesAndConstraints = {
   agentStaleAfterSeconds: number;
   agentKillAfterSeconds: number;
   journalFactTtlDays: number;
-  geminiFallbackAgents: string[];
+  agyFallbackAgents: string[];
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。

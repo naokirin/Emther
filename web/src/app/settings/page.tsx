@@ -146,23 +146,23 @@ export default function SettingsPage() {
           />
         </div>
 
-        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Gemini CLIフォールバック</h3>
+        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-          claude CLIの実行が失敗した場合（起動失敗・予算/レート制限超過など）、ここでONにしたエージェント種別に限り
-          gemini CLIでその1ターンを再試行します。既定は全エージェントOFF（明示的にONにしたものだけ対象）。gemini
-          CLIはセッション継続（壁打ちの複数ターン）を未サポートのため、単発のタスク実行時のみ有効です。
+          claude CLIの実行が失敗した場合（起動失敗・予算/レート制限超過など）、ここでONにしたエージェント種別に限り、
+          `agy`（複数モデル対応CLI）経由でGeminiモデルへフォールバックします。既定は全エージェントOFF（明示的にONにしたものだけ対象）。
+          agyは会話継続（`--conversation`）に対応しているため、フォールバック後も壁打ちの複数ターンを続けられます。
         </p>
         {AGENT_OPTIONS.map((name) => (
           <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
             <input
               type="checkbox"
-              checked={draft.geminiFallbackAgents.includes(name)}
+              checked={draft.agyFallbackAgents.includes(name)}
               onChange={(e) =>
                 setDraft({
                   ...draft,
-                  geminiFallbackAgents: e.target.checked
-                    ? [...draft.geminiFallbackAgents, name]
-                    : draft.geminiFallbackAgents.filter((n) => n !== name),
+                  agyFallbackAgents: e.target.checked
+                    ? [...draft.agyFallbackAgents, name]
+                    : draft.agyFallbackAgents.filter((n) => n !== name),
                 })
               }
             />

@@ -18,4 +18,4 @@
 * 永続化データモデルの再設計 Phase 1（イベントソーシング＋バイテンポラル＋ファクト/解釈分離のKnowledgeEventモデルを導入し、Journal・Agent Runの実行ログをSQLiteへ移行。TTLによる重み付けをAgent Runtimeへの注入に反映）
 * 永続化データモデルの再設計 Phase 2（Issue/Teamの変更履歴もKnowledgeEventとしてイベント化する）
 * 永続化データモデルの再設計 Phase 3（ローカル完結のベクトル検索。埋め込みはtransformers.jsでローカル生成し、ブルートフォースのコサイン類似度検索を実装。副次的にmaskNames/unmaskNamesの自己破壊バグも修正）
-* Claude Code が使えない場合に、Gemini CLI を使うようにする（Settingsでエージェント種別ごとにON/OFF可能。トリガーは実行失敗・予算/レート制限の両方。※実際のGemini応答成功パスはこのサンドボックスでは未検証、セッション継続も未対応）
+* Claude Code が使えない場合に、Gemini CLI を使うようにする（Settingsでエージェント種別ごとにON/OFF可能。トリガーは実行失敗・予算/レート制限の両方。実装は生の`gemini` CLIではなく`agy`経由に変更——実際のGemini応答成功・複数ターンの会話継続まで実機で検証済み）

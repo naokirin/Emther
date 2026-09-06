@@ -22,8 +22,8 @@ export async function PATCH(request: Request) {
     agentStaleAfterSeconds: num(body?.agentStaleAfterSeconds),
     agentKillAfterSeconds: num(body?.agentKillAfterSeconds),
     journalFactTtlDays: num(body?.journalFactTtlDays),
-    geminiFallbackAgents: Array.isArray(body?.geminiFallbackAgents)
-      ? body.geminiFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
+    agyFallbackAgents: Array.isArray(body?.agyFallbackAgents)
+      ? body.agyFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
       : undefined,
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
