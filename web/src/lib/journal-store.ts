@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { registerName } from "@/lib/people-directory";
 import { recordEvent, listEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
+import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
@@ -117,6 +118,17 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
   }
 
   const now = Date.now();
+
+  // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
+  // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
+  // あくまで補助的な機能であり、Journal記録という主目的をブロックすべきではない。
+  let embedding: number[] | undefined;
+  try {
+    embedding = await embedText(rawText);
+  } catch {
+    embedding = undefined;
+  }
+
   // 「一時的な感情・発言」というJournalの性質上、既定ではkind:"fact"・
   // ttlDaysをSettings（journalFactTtlDays）から適用する。公式方針や長期プロファイルの
   // ように「常に有効」な情報を記録したい場合はrecordEvent()を別途直接使う想定
@@ -134,6 +146,7 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     occurredAt: now,
     id: randomUUID(),
     ttlDays: getRulesAndConstraints().journalFactTtlDays,
+    embedding,
   });
 
   return eventToJournalEntry(event);

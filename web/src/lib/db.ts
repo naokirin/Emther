@@ -73,6 +73,12 @@ function migrate(database: DatabaseSync): void {
   addColumnIfMissing(database, "knowledge_events", "entity_id", "TEXT");
   database.exec("CREATE INDEX IF NOT EXISTS idx_knowledge_events_entity_id ON knowledge_events(entity_id);");
 
+  // docs/memo.md「H: Phase 3」対応。意味的な類似度検索用の埋め込みベクトル（JSON配列として
+  // 保存）。この規模（単一ローカルユーザー）ではブルートフォースのコサイン類似度計算で
+  // 十分高速なため、専用のベクトルインデックス拡張は導入しない。埋め込みが無いイベント
+  // （Issue/Teamの変更履歴等）はNULLのままでよい。
+  addColumnIfMissing(database, "knowledge_events", "embedding_json", "TEXT");
+
   // Agent Runは「run単位のメタデータ（低頻度更新）」と「ログ行（高頻度追記）」を分けることで、
   // 従来のように標準出力1行ごとに全run・全ログを含むJSONファイル全体を書き直す必要をなくす。
   database.exec(`
