@@ -150,11 +150,16 @@
 .runItem {
   text-align: left;
   border: 1px solid var(--border);
-  background: var(--gray-bg);
+  background: var(--panel);
   border-radius: 8px;
   padding: 8px 10px;
   cursor: pointer;
   font-size: 12px;
+  box-shadow: 0 1px 2px rgba(15, 18, 25, 0.04);
+}
+
+.runItem:hover {
+  border-color: var(--blue);
 }
 
 .runItem.selected {
