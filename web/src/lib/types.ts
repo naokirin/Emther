@@ -15,7 +15,9 @@ export type Team = {
   id: string;
   name: string;
   members: string[];
+  archived: boolean;
   createdAt: number;
+  updatedAt: number;
 };
 
 export type OrgStrategy = {

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
-import { getOrgStrategy, listTeams } from "@/lib/org-context-store";
+import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
 import { loadJSON, saveJSON } from "@/lib/persistence";
@@ -102,7 +102,7 @@ function buildStrategyBlock(): string {
 }
 
 function buildOrgContextBlock(): string {
-  const teams = listTeams();
+  const teams = listActiveTeams();
   if (teams.length === 0) return "";
 
   for (const team of teams) {
