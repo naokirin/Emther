@@ -52,7 +52,14 @@ export const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls
   error: { icon: "🔴", label: "Error", cls: styles.error },
 };
 
-export function StatusBadge({ status }: { status: AgentStatus }) {
+// staleは「statusが"active"のままログ更新が長時間無い」ことをクライアント側で判定した結果
+// （@/lib/typesのisRunStale）。実際にkillされたか否かに関わらず、EMには早く気づいてほしいので
+// 実データ（status）を書き換えるのではなく、表示だけをTeam Vitalsの「評価不能」と同じ
+// 破線スタイルでオーバーライドする。
+export function StatusBadge({ status, stale }: { status: AgentStatus; stale?: boolean }) {
+  if (stale && status === "active") {
+    return <span className={`${styles.badge} ${styles.stale}`}>❔ 応答なし（無応答）</span>;
+  }
   const meta = STATUS_META[status];
   return (
     <span className={`${styles.badge} ${meta.cls}`}>
@@ -71,6 +78,7 @@ export function ExecutionState({
   onConfirmOption,
   onFocusChat,
   deciding,
+  stale,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -78,6 +86,7 @@ export function ExecutionState({
   onConfirmOption: () => void;
   onFocusChat: () => void;
   deciding: boolean;
+  stale?: boolean;
 }) {
   return (
     <>
@@ -151,7 +160,12 @@ export function ExecutionState({
         </div>
       )}
 
-      {run.status === "active" && <p className={styles.subtitle}>エージェントが検討中です…</p>}
+      {run.status === "active" && stale && (
+        <p className={styles.errorText}>
+          ❔ 応答なし: しばらくログが更新されていません。動いているように見えて実際は止まっている可能性があります。
+        </p>
+      )}
+      {run.status === "active" && !stale && <p className={styles.subtitle}>エージェントが検討中です…</p>}
       {run.status === "error" && <p className={styles.errorText}>エラーで終了しました。右のログを確認してください。</p>}
     </>
   );

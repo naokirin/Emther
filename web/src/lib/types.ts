@@ -59,7 +59,17 @@ export type RulesAndConstraints = {
   coverageWindowDays: number;
   coverageGoodRatio: number;
   coverageWarnRatio: number;
+  agentStaleAfterSeconds: number;
+  agentKillAfterSeconds: number;
 };
+
+// docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
+// statusが"active"のままログ更新（updatedAt）が閾値以上無ければ「応答なし」とみなす。
+// 実際にkillするかどうかの判断はサーバー側（agent-runtime.tsのwatchdog）の責務で、
+// これはあくまで表示用の軽量な判定（Team Vitalsの「評価不能」判定と同じ考え方）。
+export function isRunStale(status: string, updatedAt: number, staleAfterSeconds: number): boolean {
+  return status === "active" && Date.now() - updatedAt > staleAfterSeconds * 1000;
+}
 
 export type VitalStatus = "good" | "warn" | "bad" | "unknown";
 

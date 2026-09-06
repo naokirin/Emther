@@ -28,6 +28,7 @@
 - リストのフィルタ・ページネーション（`docs/memo.md`のTODO対応） — Issue一覧のタグ/charter未整理フィルタ、DashboardのInbox状態フィルタ、共通の`usePagination`によるページ送り
 - ワイヤーフレームのスタイルテーマ適用（`docs/memo.md`のTODO対応） — Agent Fleetのカードを状態色で塗る「信号機」表示に変更（他の見た目は既に一致していたため未変更）
 - Dashboard「次にすべきこと」パネル（`docs/memo.md`のTODO対応） — Yield待ち・エラー・Issue charter未整理・Team Vitals不調を1箇所に集約し、クリックで詳細へ遷移できるようにした
+- Agent Runの無応答検知（`docs/memo.md`のTODO対応） — 「動いていると思ったら止まっていた」を防ぐため、応答なしの表示警告＋一定時間超過後の自己修復（子プロセスの強制終了）を追加
 
 ## できること
 
@@ -217,6 +218,7 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 `docs/memo.md`のTODO「ダッシュボードで『人間のEMが次になにをするべきか？』がすぐに分かり、詳細に遷移できる状態にする」への対応。既存の4つのシグナル（Yield待ち・エラー・Issue charter未整理・Team Vitals不調）はそれぞれ別々の場所（Inbox、Issue一覧、Team Vitals）に散らばっており、EMが「今何をすべきか」を把握するには複数箇所を見て回る必要があった。
 
 - Dashboard最上部（Agent Fleetより上）に新しいパネルを追加し、以下を集約して表示する。優先度は**urgent（赤）→warn（黄）**の順。
+  - Agent Runが「応答なし」（後述の無応答検知、urgent。最優先）
   - `status === "yield"` のAgent Run（判断待ち、urgent）
   - `status === "error"` のAgent Run（urgent）
   - トップレベル・未アーカイブでWhy/What/Howが3/3未満のIssue（`issueNeedsCharter`、warn）
@@ -224,6 +226,15 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - 各項目はクリックすると該当の詳細画面へ直接遷移する（Agent Run→紐づくIssue詳細または新規Issue化、Issue charter→Issue詳細、Team Vitals→Organization Context）。「対応不要」の場合は✅の空メッセージを表示し、0件を「評価不能」側へ寄せない（他の三値表示と同じ考え方）。
 - 最大6件まで表示し、超過分は「他X件」という件数だけ示す（一覧としての網羅性はIssue一覧・Organization Context側に譲り、このパネルは「今すぐ見るべき上位」に絞ったトリアージ用途に限定している）。
 - 実機検証: 開発中に自然に発生していたYield 2件・Error 1件・Why/What/How未整理Issue 24件・1on1 Coverage `bad`のデータに対し、`/api/agents`・`/api/issues`・`/api/vitals`から集計した件数・優先度と、`nextActions`のロジック（urgent 4件・warn 24件、6件表示+他22件）が一致することを手計算で確認。コンパイル後のCSSに`.runItem.nextActionUrgent`/`.nextActionWarn`が生成されていることも確認。ブラウザでのクリック遷移自体は今回も未検証（Claude in Chrome未接続のため）。
+
+### Agent Runの無応答検知（「動いていると思ったら止まっていた」対策）
+
+`docs/memo.md`のTODO「動いていると思ったら止まっていた、を防ぐ」への対応。従来は`claude` CLIの子プロセスがハングして標準出力が止まっても、runは`status: "active"`（🟢）のまま何も変化せず、EMが気づく手段が無かった。この問題を「表示上の早期警告」と「実プロセスの自己修復」の2段構えで解決する。
+
+- **設定**（`/settings`）に2つの閾値を追加。`agentStaleAfterSeconds`（既定120秒）: この秒数statusが`active`のままログ更新（`updatedAt`）が無ければ、まだ実プロセスは生かしたまま「応答なし」として警告表示する。`agentKillAfterSeconds`（既定600秒）: この秒数を超えたら、ハングした子プロセスとみなして実際に`kill()`し、既存の`child.on("close")`ハンドラに任せて`status: "error"`へ確定させる（二重に状態を書き換えない）。
+- `web/src/lib/agent-runtime.ts`に子プロセスを`run.id`で引ける`liveProcesses`マップと、30秒間隔のwatchdog（`checkStaleRuns`）を追加。相談（consult）で生成される専門エージェントのrunも同じ`runClaudeTurn`を通るため、自動的に監視対象になる。
+- 表示側は`isRunStale()`（`@/lib/types`、純粋関数）で「`active`のままN秒ログ更新が無い」かどうかを判定し、Team Vitalsの「評価不能」と同じ破線ストライプの見た目（❔ 応答なし）でオーバーライドする。**実データ（status）は書き換えず、あくまで表示のオーバーレイ**という点はTeam Vitalsと同じ設計思想。適用箇所: Dashboard（Agent Fleetカード、次にすべきことパネル、Inbox一覧）、Issue一覧、Issue詳細（タイトル横のバッジ、サブIssue一覧、Execution State）。
+- 実機検証: `agentStaleAfterSeconds`/`agentKillAfterSeconds`を両方1秒に設定した状態でAgent Runを起動したところ、約4秒後にログへ`⚠️ 1秒間ログの更新が無いため、応答なしとみなして強制終了します。`→`プロセスが結果を返さずに終了しました (exit code: 143)`と記録され、`status`が`error`に確定することを確認（watchdogが実際に子プロセスをkillし、既存のclose処理へ正しく引き継がれている証拠）。閾値を既定値に戻した後、通常のタスクが誤って強制終了されず`idle`まで正常完了することも確認済み。
 
 ### 永続化
 

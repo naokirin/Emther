@@ -111,6 +111,27 @@ export default function SettingsPage() {
             onChange={(e) => setDraft({ ...draft, coverageWarnRatio: Number(e.target.value) })}
           />
         </div>
+
+        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          「動いていると思ったら止まっていた」を防ぐための閾値です。statusが稼働中のままログ更新が無い時間で判定します。
+        </p>
+        <div className={styles.field}>
+          <label>この秒数、ログ更新が無ければ「応答なし」と表示する</label>
+          <input
+            type="number"
+            value={draft.agentStaleAfterSeconds}
+            onChange={(e) => setDraft({ ...draft, agentStaleAfterSeconds: Number(e.target.value) })}
+          />
+        </div>
+        <div className={styles.field}>
+          <label>この秒数を超えたらハングした子プロセスとみなし、強制終了してErrorに確定する</label>
+          <input
+            type="number"
+            value={draft.agentKillAfterSeconds}
+            onChange={(e) => setDraft({ ...draft, agentKillAfterSeconds: Number(e.target.value) })}
+          />
+        </div>
       </div>
     </div>
   );
