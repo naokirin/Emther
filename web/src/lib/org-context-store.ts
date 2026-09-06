@@ -10,10 +10,16 @@ export type Team = {
   id: string;
   name: string;
   members: string[];
+  archived: boolean;
   createdAt: number;
+  updatedAt: number;
 };
 
-const teams: Team[] = loadJSON<Team[]>("teams.json", []);
+const teams: Team[] = loadJSON<Team[]>("teams.json", []).map((team) => ({
+  ...team,
+  archived: team.archived ?? false,
+  updatedAt: team.updatedAt ?? team.createdAt,
+}));
 
 function persist(): void {
   saveJSON("teams.json", teams);
@@ -23,14 +29,46 @@ export function listTeams(): Team[] {
   return teams;
 }
 
+// vitals算出とAgent Runtimeへの「絶対の前提」注入では、アーカイブ済みチームは
+// 既に活動していないチームとして除外する（docs/memo.md「チームの編集・アーカイブ」対応）。
+export function listActiveTeams(): Team[] {
+  return teams.filter((t) => !t.archived);
+}
+
+export function getTeam(id: string): Team | undefined {
+  return teams.find((t) => t.id === id);
+}
+
 export function addTeam(name: string, members: string[]): Team {
+  const now = Date.now();
   const team: Team = {
     id: randomUUID(),
     name: name.trim(),
     members: members.map((m) => m.trim()).filter(Boolean),
-    createdAt: Date.now(),
+    archived: false,
+    createdAt: now,
+    updatedAt: now,
   };
   teams.push(team);
+  persist();
+  return team;
+}
+
+export function updateTeam(id: string, patch: { name?: string; members?: string[] }): Team | undefined {
+  const team = getTeam(id);
+  if (!team) return undefined;
+  if (patch.name !== undefined) team.name = patch.name.trim();
+  if (patch.members !== undefined) team.members = patch.members.map((m) => m.trim()).filter(Boolean);
+  team.updatedAt = Date.now();
+  persist();
+  return team;
+}
+
+export function setTeamArchived(id: string, archived: boolean): Team | undefined {
+  const team = getTeam(id);
+  if (!team) return undefined;
+  team.archived = archived;
+  team.updatedAt = Date.now();
   persist();
   return team;
 }

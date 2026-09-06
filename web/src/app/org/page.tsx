@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useOrgStrategy, useTeams } from "@/lib/hooks";
-import type { OrgStrategy } from "@/lib/types";
+import type { OrgStrategy, Team } from "@/lib/types";
 
 type Selection = { kind: "team"; id: string } | { kind: "strategy" } | null;
 
@@ -16,8 +16,61 @@ export default function OrgContextPage() {
   const [teamSubmitting, setTeamSubmitting] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
+  const [showArchivedTeams, setShowArchivedTeams] = useState(false);
 
   const selectedTeam = selection?.kind === "team" ? teams.find((t) => t.id === selection.id) ?? null : null;
+  const visibleTeams = teams.filter((t) => showArchivedTeams || !t.archived);
+
+  // チーム編集フォームのドラフト。ツリーでチームをクリックした瞬間（selectTeam）にだけ
+  // 実データで初期化する（Strategyと同じ理由で、継続的な同期は行わない）。
+  const [editName, setEditName] = useState("");
+  const [editMembers, setEditMembers] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
+
+  function selectTeam(team: Team) {
+    setEditName(team.name);
+    setEditMembers(team.members.join(", "));
+    setEditError(null);
+    setSelection({ kind: "team", id: team.id });
+  }
+
+  async function handleSaveTeam() {
+    if (!selectedTeam) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const members = editMembers.split(",").map((m) => m.trim()).filter(Boolean);
+      const res = await fetch(`/api/teams/${selectedTeam.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName, members }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      await refreshTeams();
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleToggleTeamArchived() {
+    if (!selectedTeam) return;
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/teams/${selectedTeam.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: !selectedTeam.archived }),
+      });
+      if (res.ok) await refreshTeams();
+    } finally {
+      setArchiving(false);
+    }
+  }
 
   const [strategyDraft, setStrategyDraft] = useState<OrgStrategy>(strategy);
   const [strategySaving, setStrategySaving] = useState(false);
@@ -63,7 +116,7 @@ export default function OrgContextPage() {
       if (!res.ok) throw new Error(data.error ?? "チームの追加に失敗しました");
       setTeamName("");
       setTeamMembers("");
-      setSelection({ kind: "team", id: data.team.id });
+      selectTeam(data.team);
       await refreshTeams();
     } catch (err) {
       setTeamError((err as Error).message);
@@ -117,14 +170,19 @@ export default function OrgContextPage() {
           </div>
 
           <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Teams（組織体制）</div>
-          {teams.length === 0 && <p className={styles.subtitle}>まだチームが登録されていません。</p>}
-          {teams.map((t) => (
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", margin: "4px 0" }}>
+            <input type="checkbox" checked={showArchivedTeams} onChange={(e) => setShowArchivedTeams(e.target.checked)} />
+            アーカイブ済みも表示する
+          </label>
+          {visibleTeams.length === 0 && <p className={styles.subtitle}>まだチームが登録されていません。</p>}
+          {visibleTeams.map((t) => (
             <div
               key={t.id}
               className={`${styles.treeFile} ${selection?.kind === "team" && selection.id === t.id ? styles.treeFileSelected : ""}`}
-              onClick={() => setSelection({ kind: "team", id: t.id })}
+              style={t.archived ? { opacity: 0.6 } : undefined}
+              onClick={() => selectTeam(t)}
             >
-              📁 {t.name}（{t.members.length}名）
+              📁 {t.name}（{t.members.length}名）{t.archived && " 🗄"}
             </div>
           ))}
         </div>
@@ -183,12 +241,40 @@ export default function OrgContextPage() {
           <>
             <div className={styles.editorPath}>
               <code>/Teams/{selectedTeam.name}</code>
-              <button className={styles.btnOutline} onClick={() => handleRemoveTeam(selectedTeam.id)}>
-                このチームを削除
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className={styles.btnOutline} onClick={handleToggleTeamArchived} disabled={archiving}>
+                  {selectedTeam.archived ? "アーカイブを解除" : "アーカイブする"}
+                </button>
+                <button className={styles.btnOutline} onClick={() => handleRemoveTeam(selectedTeam.id)}>
+                  このチームを削除
+                </button>
+              </div>
+            </div>
+            {selectedTeam.archived && (
+              <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+                🗄 このチームはアーカイブ済みです。Team VitalsおよびAgent Runtimeへの注入対象からは除外されます。
+              </p>
+            )}
+            <div className={styles.field}>
+              <label>チーム名</label>
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
             <div className={styles.field}>
-              <label>Members_Profile</label>
+              <label>メンバー（カンマ区切り）</label>
+              <input
+                type="text"
+                value={editMembers}
+                onChange={(e) => setEditMembers(e.target.value)}
+                placeholder="例: Aさん, Bさん ※Journalのpeopleと同じ表記で"
+              />
+            </div>
+            {editError && <p className={styles.errorText}>{editError}</p>}
+            <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTeam} disabled={editSaving || !editName.trim()}>
+              {editSaving ? "保存中…" : "保存"}
+            </button>
+
+            <div className={styles.field} style={{ marginTop: 16 }}>
+              <label>Members_Profile（保存済みの状態）</label>
               <div className={styles.tagRow} style={{ marginTop: 6 }}>
                 {selectedTeam.members.length === 0 && <span className={styles.subtitle}>メンバー未登録</span>}
                 {selectedTeam.members.map((m) => (

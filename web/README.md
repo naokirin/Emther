@@ -21,6 +21,7 @@
 - 動的ロードの完成 — Organization Context（チーム名簿・MVV/OKR）、Issue charter、関連Journalエントリの3系統をAgent Runtimeの`--append-system-prompt`へ実際に注入し、それぞれ「そこにしかない事実」を実際に思い出せることを確認済み
 - Settings画面の新設 — Team Vitalsの判定閾値（Rules_and_Constraints）を、組織のMVVのような「不動の前提」とは別の「アプリの設定値」として`/org`から`/settings`へ分離
 - Issueのアーカイブ（`docs/memo.md`のTODO対応） — `/issues`は既定でアーカイブ済みを隠し、チェックボックスで表示切替。詳細画面からアーカイブ/解除できる
+- チームの編集・アーカイブ（`docs/memo.md`のTODO対応） — `/org`からチーム名・メンバーを編集可能に。アーカイブ済みチームはTeam VitalsとAgent Runtimeへの注入対象から除外される
 
 ## できること
 
@@ -149,6 +150,15 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - Issue一覧（`/issues`）はトップレベルの未アーカイブIssueのみを既定表示し、「アーカイブ済みも表示する」チェックボックスで一時的に表示を切り替えられる（アーカイブ件数を横に表示）。表示中のアーカイブ済みIssueは行を薄く表示し、🗄バッジを付ける。
 - Issue詳細ページには「アーカイブする/アーカイブを解除」ボタンを設置。子Issue一覧の各行にも同様の🗄バッジを表示する（こちらは常時表示、親Issueの詳細内という狭い文脈なので絞り込みはしない）。
 - 実機検証: `POST /api/issues/[id]/archive`をbodyなし→`archived:true`、`{archived:false}`指定→`archived:false`と、両方のAPI呼び出しパターンで状態が正しく切り替わることを確認。
+
+### チームの編集・アーカイブ
+
+`docs/memo.md`のTODO「チームの編集・アーカイブができるようにする」への対応。以前はチーム名・メンバーを一度登録すると削除以外の変更手段が無かった。
+
+- `Team`に`archived: boolean`と`updatedAt`を追加。`PATCH /api/teams/[id]`でチーム名・メンバーを編集でき、`POST /api/teams/[id]/archive`でアーカイブ/解除できる（Issueのアーカイブと同じくbodyなしでトグル、`{archived: bool}`で明示指定も可）。
+- `listActiveTeams()`（`org-context-store.ts`）を新設し、**アーカイブ済みチームはTeam Vitalsの算出とAgent Runtimeへの「絶対の前提」注入の両方から除外**する。`listTeams()`は引き続き全件返す（`/org`側の表示切替のため）。
+- `/org`画面: Teamsツリーに「アーカイブ済みも表示する」チェックボックスを追加（既定は非表示）。チームを選択すると、名前・メンバーを直接編集できるフォームと「アーカイブする/アーカイブを解除」ボタンが表示される（削除ボタンはそのまま残す）。
+- 実機検証: チームを新規作成→`PATCH`で名前・メンバーを変更→`POST .../archive`でアーカイブしたところ、`/api/vitals`からそのチームが消え、かつそのチーム名に一切触れないAgent Runのタスク（「現在登録されているすべてのチーム名を一言で列挙してください」）に対して、アーカイブ済みチームを含まず未アーカイブのチームのみが列挙されることを確認（除外が実際に効いている証拠）。
 
 ### 永続化
 

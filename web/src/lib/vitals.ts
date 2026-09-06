@@ -1,4 +1,4 @@
-import { listTeams, type Team } from "@/lib/org-context-store";
+import { listActiveTeams, type Team } from "@/lib/org-context-store";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
 
@@ -129,7 +129,7 @@ function computeCoverageVital(
 }
 
 export function computeOrgVitals(): OrgVitals {
-  const teams = listTeams();
+  const teams = listActiveTeams();
   const entries = listJournalEntries();
   const rules = getRulesAndConstraints();
   return {
