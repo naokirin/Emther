@@ -62,6 +62,12 @@ export function getIssue(id: string): Issue | undefined {
   return issues.find((i) => i.id === id);
 }
 
+// docs 3.1「動的ロード」: そのAgent Runが紐づくIssueのWhy/What/Howを
+// エージェントへの前提として注入するために使う（agent-runtime.ts）。
+export function getIssueByRunId(agentRunId: string): Issue | undefined {
+  return issues.find((i) => i.agentRunId === agentRunId);
+}
+
 export function listChildIssues(parentId: string): Issue[] {
   return issues.filter((i) => i.parentId === parentId).sort((a, b) => b.updatedAt - a.updatedAt);
 }

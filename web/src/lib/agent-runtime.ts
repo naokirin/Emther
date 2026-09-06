@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { listTeams } from "@/lib/org-context-store";
+import { getIssueByRunId } from "@/lib/issue-store";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
@@ -100,7 +101,25 @@ function buildOrgContextBlock(): string {
   return maskNames(block);
 }
 
-function buildSystemPrompt(agentName: string, allowConsult: boolean): string {
+// docs 3.1「動的ロード」: そのrunがIssueに紐づいている場合、Issueのタイトルと
+// charter（Why/What/How）を「絶対の前提」としてエージェントに渡す。docs/first_implession
+// のIssue Workspaceが目指していた「壁打ちがIssueの文脈を踏まえる」ことの実体化。
+// charterが3項目とも空（未整理）のIssueなら、渡す情報が無いのでブロック自体を省略する
+// （空の前提を渡して混乱させないため）。
+function buildIssueContextBlock(runId: string): string {
+  const issue = getIssueByRunId(runId);
+  if (!issue) return "";
+  const { why, what, how } = issue.charter;
+  if (!why && !what && !how) return "";
+
+  const lines = ["このタスクが紐づくIssueの前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
+  if (why) lines.push(`Why（生む価値・誰のため・なぜ今か）: ${why}`);
+  if (what) lines.push(`What（何を・どこまで・どのくらい・完了の定義）: ${what}`);
+  if (how) lines.push(`How（どのように実現するか・前提や制約）: ${how}`);
+  return maskNames(lines.join("\n"));
+}
+
+function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: string): string {
   const consultRule =
     agentName === "Lead Agent" && allowConsult
       ? [
@@ -149,8 +168,9 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean): string {
     '情報が単に不足しているだけで具体的な選択肢を提示できない場合は "options": [] としてください。',
   ].join("\n");
 
+  const issueContext = runId ? buildIssueContextBlock(runId) : "";
   const orgContext = buildOrgContextBlock();
-  return orgContext ? `${base}\n\n${orgContext}` : base;
+  return [base, issueContext, orgContext].filter(Boolean).join("\n\n");
 }
 
 function extractYield(resultText: string): YieldRequest | undefined {
@@ -340,7 +360,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
       "--max-budget-usd",
       PER_TURN_BUDGET_USD,
       "--append-system-prompt",
-      buildSystemPrompt(run.agentName, allowConsult),
+      buildSystemPrompt(run.agentName, allowConsult, run.id),
     ];
     if (run.sessionId) {
       args.push("--resume", run.sessionId);
