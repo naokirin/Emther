@@ -46,14 +46,26 @@ export type ActionItem = {
   done: boolean;
 };
 
+// Issueの計画・実行前に明らかにしておくべき3要素。各項目は空文字列（＝未整理）を許容する。
+export type IssueCharter = {
+  why: string;
+  what: string;
+  how: string;
+};
+
 export type Issue = {
   id: string;
   title: string;
   agentRunId?: string;
+  charter: IssueCharter;
   actionItems: ActionItem[];
   createdAt: number;
   updatedAt: number;
 };
+
+export function charterFilledCount(charter: IssueCharter): number {
+  return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
+}
 
 export const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent"];
 

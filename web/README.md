@@ -14,6 +14,8 @@
 - UI再構成 — `docs/first_implession/em_ui_wireframe_v5.html` に合わせて、Dashboard / Issue一覧 / Issue詳細 / Organization Contextを実URLの別画面に再編
 - Issue詳細のワイヤーフレーム準拠デザイン — 大見出し＋Context＋Yieldのラジオ選択＋チャットバブル形式のCopilot Workspaceに再設計
 - Issue管理を一般的なIssue管理サービス同様に分離 — Issue一覧(`/issues`)とIssue詳細(`/issues/[id]`)を別画面にし、起票は一覧画面のダイアログから行う方式に変更
+- Issue charter（Why/What/How） — Issueの計画・実行前に明らかにすべき3要素をデータモデルに追加し、未整理な項目を隠さず表示する
+- UIバグ修正 — `.field`内の`<input>`に幅指定が漏れており、Issue起票ダイアログのタイトル欄などが小さいデフォルト表示になっていた問題を修正
 
 ## できること
 
@@ -80,9 +82,9 @@ docs 3.3「リードエージェント/専門エージェント」の最小実�
 
 ### Issue Workspace（最小版・ワイヤーフレーム準拠デザイン）
 
-docs 3.7/3.8で想定するIssue Workspaceの最小実装。ただしYieldと壁打ちチャットの実体は独自実装せず、**既存のAgent Runにそのまま委譲**している——Issue自体が持つのはタイトルとAction Itemsチェックリストだけ。
+docs 3.7/3.8で想定するIssue Workspaceの最小実装。ただしYieldと壁打ちチャットの実体は独自実装せず、**既存のAgent Runにそのまま委譲**している——Issue自体が持つのはタイトル・Why/What/How・Action Itemsチェックリストだけ。
 
-- `web/src/lib/issue-store.ts` — Issue（title, agentRunId?, actionItems）のCRUD。`agentRunId`は任意で、「EMが直接起票（AI runと無関係）」と「既存のAgent Run（AIのYieldを含む）をIssue化」の両方に対応する（docs 3.7の「双方向性」）。
+- `web/src/lib/issue-store.ts` — Issue（title, agentRunId?, charter, actionItems）のCRUD。`agentRunId`は任意で、「EMが直接起票（AI runと無関係）」と「既存のAgent Run（AIのYieldを含む）をIssue化」の両方に対応する（docs 3.7の「双方向性」）。
 - Agent Runの各runに「📌 このRunをIssueにする」ボタンがあり、押すとそのrunに紐づいたIssueが作られる。Issue側は既存のrunと同じ`/api/agents/[id]/decide`を叩くので、Yield→再開のロジックは重複させていない。
 
 **ワイヤーフレームとの差分と対応方針**（`docs/first_implession/em_ui_wireframe_v5.html`のIssue Workspaceと比較して洗い出したもの）:
@@ -99,6 +101,20 @@ docs 3.7/3.8で想定するIssue Workspaceの最小実装。ただしYieldと壁
 - `web/src/components/RunDetail.tsx` を `ExecutionState`（Context/Yield選択/Proposal）と`CopilotChat`（チャット吹き出し＋入力欄）の2コンポーネントに分割。Issue詳細画面の2カラムはこの2つを並べるだけで構成している。
 - Issueの起票は`/issues`の「＋ 新しいIssue」ボタンから開くモーダルダイアログ（`web/src/components/Modal.tsx`）で行う。作成後は自動でその`/issues/[id]`へ遷移する。
 - 実機検証: 単独Issueの作成・Action Item追加・完了チェックのトグル、実際のAgent Run（Tech Agentがyieldに到達したもの）へのIssue紐付け、Yieldオプションの選択→確定メッセージ送信→再開までを確認済み。チャット吹き出しからのyieldブロック除去は、実際に取得したエージェント出力に対して正規表現の単体動作を確認済み。ただしクリック操作の目視確認はブラウザ拡張未接続のため未実施。
+
+### Issue Charter（Why/What/How）
+
+Issueは重要な意思決定の単位であり、計画・実行の前に「Why（生む価値・誰のため・なぜ今か）」「What（何を・どこまで・どのくらい・完了の定義）」「How（どのように・なぜその方法か・前提と制約）」を明らかにしておくべき、という指摘に対応したもの。
+
+- `Issue.charter = { why, what, how }` を`web/src/lib/issue-store.ts`に追加。各項目は空文字列（＝未整理）を許容する——**Team Vitalsの「評価不能」と同じ考え方**で、分からないことを分からないまま隠さず明示する。既存の永続化データ（charterフィールドが無い旧Issue）は読み込み時に自動的に空のcharterで補完する。
+- `PATCH /api/issues/[id]` を新設し、Why/What/Howを個別または一括で更新できるようにした（title等は今のところ対象外）。
+- Issue起票ダイアログ（`/issues`）にWhy/What/Howの入力欄（任意）を追加。「分かっている場合は事前に、分からなければ空欄のまま起票し、詳細画面で明らかにしてから計画・実行する」という運用を想定している。
+- Issue一覧の各行に「✅/❓ Why/What/How: n/3」の整理状況バッジを表示。Issue詳細画面では、未整理の項目を点線枠で視覚的に強調し、3項目揃っていない場合は警告バナーを表示する（ただしYieldの選択やAgent Runの起動自体をブロックはしない——Agent Runを使ってWhy/What/How自体を明らかにするという使い方を妨げないため）。
+- 実機検証: charter付きIssueの作成、既存Issueへの`PATCH`による部分更新（howだけの更新でwhy/whatが保持されること）、旧形式Issueの自動マイグレーションをAPI経由で確認済み。
+
+### UIバグ修正: `.field`内の`<input>`サイズ
+
+`page.module.css`の`.field select, .field textarea`ルールに`.field input`が含まれておらず、`<input type="text">`がブラウザの素の小さい表示になっていた（Issue起票ダイアログの「タイトル」、Organization Contextの「チーム名」「メンバー」など）。`.field input`を追加して他のフォーム部品と統一したスタイルになるよう修正した。
 
 ### 永続化
 

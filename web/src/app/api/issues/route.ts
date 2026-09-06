@@ -14,6 +14,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
   }
 
-  const issue = createIssue(title, agentRunId);
+  const issue = createIssue(title, agentRunId, {
+    why: typeof body?.why === "string" ? body.why : undefined,
+    what: typeof body?.what === "string" ? body.what : undefined,
+    how: typeof body?.how === "string" ? body.how : undefined,
+  });
   return NextResponse.json({ issue }, { status: 201 });
 }
