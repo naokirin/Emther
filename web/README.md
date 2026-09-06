@@ -22,6 +22,7 @@
 - Settings画面の新設 — Team Vitalsの判定閾値（Rules_and_Constraints）を、組織のMVVのような「不動の前提」とは別の「アプリの設定値」として`/org`から`/settings`へ分離
 - Issueのアーカイブ（`docs/memo.md`のTODO対応） — `/issues`は既定でアーカイブ済みを隠し、チェックボックスで表示切替。詳細画面からアーカイブ/解除できる
 - チームの編集・アーカイブ（`docs/memo.md`のTODO対応） — `/org`からチーム名・メンバーを編集可能に。アーカイブ済みチームはTeam VitalsとAgent Runtimeへの注入対象から除外される
+- チーム／メンバーに関連するIssue・Journalの表示（`docs/memo.md`のTODO対応） — `/org`のチーム詳細に、名前一致による関連Issue一覧と、Issue化されていないJournal（EMの所感メモ）を表示
 
 ## できること
 
@@ -159,6 +160,14 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 - `listActiveTeams()`（`org-context-store.ts`）を新設し、**アーカイブ済みチームはTeam Vitalsの算出とAgent Runtimeへの「絶対の前提」注入の両方から除外**する。`listTeams()`は引き続き全件返す（`/org`側の表示切替のため）。
 - `/org`画面: Teamsツリーに「アーカイブ済みも表示する」チェックボックスを追加（既定は非表示）。チームを選択すると、名前・メンバーを直接編集できるフォームと「アーカイブする/アーカイブを解除」ボタンが表示される（削除ボタンはそのまま残す）。
 - 実機検証: チームを新規作成→`PATCH`で名前・メンバーを変更→`POST .../archive`でアーカイブしたところ、`/api/vitals`からそのチームが消え、かつそのチーム名に一切触れないAgent Runのタスク（「現在登録されているすべてのチーム名を一言で列挙してください」）に対して、アーカイブ済みチームを含まず未アーカイブのチームのみが列挙されることを確認（除外が実際に効いている証拠）。
+
+### チーム／メンバーに関連するIssue・Journalの表示
+
+`docs/memo.md`のTODO「チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、Organization Context から確認できるようにする」への対応。
+
+- IssueとTeam、JournalとTeamの間に明示的な紐付けは持たせず、**チームのメンバー名がテキストに含まれるか**という簡易な一致で関連付けている（`agent-runtime.ts`の各`buildXxxContextBlock`と同じ簡略化）。関連Issueはタイトル・Why/What/Howにメンバー名を含むもの、関連Journalは`people`配列にメンバー名を含むもの（直近10件）。
+- `/org`でチームを選択すると、Members_Profileの下に「関連Issue」（クリックで`/issues/[id]`へ遷移、アーカイブ済み・charter充足バッジ付き）と「関連Journal（Issue化されていない特性・所感）」（本文・緊急度・感情・タグ）を表示する。「Issueではない特性や問題」＝まだIssue化されていない揺らぎのログとして、Journalをそのまま見せている。
+- 実機検証: メンバー名を含むチーム・Issue・Journalエントリを作成し、`/api/issues`・`/api/journal`から取得したデータに対してこのフィルタ条件（タイトル文字列一致・`people`配列一致）が実際にマッチすることをAPIレスポンス上で確認。ブラウザでのクリック操作自体は今回も未検証（Claude in Chrome未接続のため）。
 
 ### 永続化
 
