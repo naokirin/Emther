@@ -132,6 +132,19 @@ export default function SettingsPage() {
             onChange={(e) => setDraft({ ...draft, agentKillAfterSeconds: Number(e.target.value) })}
           />
         </div>
+
+        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Journalファクトの有効期間（TTL）</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          一時的な発言・感情（ファクト）は、この日数を過ぎるとAgent Runtimeへの注入対象から外れます（履歴としては残り、削除はされません）。長期的な解釈・プロファイルにはTTLはありません。
+        </p>
+        <div className={styles.field}>
+          <label>Journalファクトの有効日数</label>
+          <input
+            type="number"
+            value={draft.journalFactTtlDays}
+            onChange={(e) => setDraft({ ...draft, journalFactTtlDays: Number(e.target.value) })}
+          />
+        </div>
       </div>
     </div>
   );

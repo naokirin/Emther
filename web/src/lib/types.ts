@@ -61,6 +61,7 @@ export type RulesAndConstraints = {
   coverageWarnRatio: number;
   agentStaleAfterSeconds: number;
   agentKillAfterSeconds: number;
+  journalFactTtlDays: number;
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。

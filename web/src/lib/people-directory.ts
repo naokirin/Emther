@@ -56,11 +56,17 @@ export function maskNames(text: string): string {
   return masked;
 }
 
+// IDは"PERSON_1", "PERSON_2", ..., "PERSON_10", "PERSON_11"のように採番されるため、
+// 短いID（例: "PERSON_1"）は長いID（例: "PERSON_11"）の文字列としてのprefixになる。
+// 登録順（Mapの挿入順）にそのまま置換すると、"PERSON_1"が先に処理された場合
+// "PERSON_11"の一部が誤って"PERSON_1"扱いで置換されてしまう（maskNamesが名前の長さで
+// ソートしているのと同じ理由）。ID文字列の長さ降順で処理し、この衝突を防ぐ。
 export function unmaskNames(text: string): string {
   if (idToName.size === 0) return text;
+  const ids = [...idToName.keys()].sort((a, b) => b.length - a.length);
   let unmasked = text;
-  for (const [id, name] of idToName) {
-    unmasked = unmasked.split(id).join(name);
+  for (const id of ids) {
+    unmasked = unmasked.split(id).join(idToName.get(id)!);
   }
   return unmasked;
 }

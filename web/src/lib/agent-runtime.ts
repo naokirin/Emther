@@ -4,8 +4,8 @@ import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
-import { listJournalEntries } from "@/lib/journal-store";
-import { loadJSON, saveJSON } from "@/lib/persistence";
+import { listActiveFactsForPerson, listInterpretationsForPerson } from "@/lib/knowledge-store";
+import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { teamDisplayName } from "@/lib/types";
 
@@ -69,19 +69,117 @@ export type AgentRun = {
   pendingConsult?: ConsultRequest;
 };
 
-// `.data/agent-runs.json`への簡易永続化。Core Context DB / Daily Logs DBとしての
-// 本格実装は今後の課題（README参照）。再起動時に残っていた"active"は、実体の
-// 子プロセスがもう存在しないため、安全側に倒して"error"へ変換する。
-const persistedRuns = loadJSON<AgentRun[]>("agent-runs.json", []).map((r) =>
-  r.status === "active"
-    ? { ...r, status: "error" as const, log: [...r.log, { ts: Date.now(), channel: "system" as const, text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" }] }
-    : r,
-);
-const runs = new Map<string, AgentRun>(persistedRuns.map((r) => [r.id, r]));
+// docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
+// 全run・全ログを含む配列をベタ書きしており、標準出力1行ごと（appendLog呼び出しごと）に
+// ファイル全体を書き直していた。半年〜1年単位で運用するとrunとログ行が単調増加するため、
+// SQLite（agent_runs=runメタデータの低頻度更新、agent_run_logs=ログ行の高頻度追記）に分離し、
+// 1回の更新につき対象run 1件・ログ1行だけを書き込むようにする。
+// メモリ上の`AgentRun`（log配列を含む可変オブジェクト）はこれまで通り「作業中の実体」として
+// 扱い続け、SQLiteへの書き込みはその都度の永続化先を切り替えただけ——呼び出し側の
+// runClaudeTurn/handleStreamEvent等は一切変更していない。
 
-function persistRuns(): void {
-  saveJSON("agent-runs.json", Array.from(runs.values()));
+type AgentRunRow = {
+  id: string;
+  agent_name: string;
+  task: string;
+  status: string;
+  session_id: string | null;
+  yield_request_json: string | null;
+  proposal_json: string | null;
+  total_cost_usd: number;
+  created_at: number;
+  updated_at: number;
+  consulted_by: string | null;
+};
+
+type AgentRunLogRow = {
+  run_id: string;
+  ts: number;
+  channel: string;
+  text: string;
+};
+
+function insertRunLog(runId: string, line: LogLine): void {
+  getDb()
+    .prepare("INSERT INTO agent_run_logs (run_id, ts, channel, text) VALUES (?, ?, ?, ?)")
+    .run(runId, line.ts, line.channel, line.text);
 }
+
+function persistRunMeta(run: AgentRun): void {
+  getDb()
+    .prepare(
+      `INSERT INTO agent_runs
+        (id, agent_name, task, status, session_id, yield_request_json, proposal_json, total_cost_usd, created_at, updated_at, consulted_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         status = excluded.status,
+         session_id = excluded.session_id,
+         yield_request_json = excluded.yield_request_json,
+         proposal_json = excluded.proposal_json,
+         total_cost_usd = excluded.total_cost_usd,
+         updated_at = excluded.updated_at`,
+    )
+    .run(
+      run.id,
+      run.agentName,
+      run.task,
+      run.status,
+      run.sessionId ?? null,
+      run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
+      run.proposal ? JSON.stringify(run.proposal) : null,
+      run.totalCostUsd,
+      run.createdAt,
+      run.updatedAt,
+      run.consultedBy ?? null,
+    );
+}
+
+// 起動時にSQLiteからrunメタデータ＋ログを読み込み、メモリ上のMapを組み立てる。
+// 再起動時に残っていた"active"は、実体の子プロセスがもう存在しないため、
+// 安全側に倒して"error"へ変換し、即座に永続化する（従来はappendLog等をトリガーに
+// 遅れて反映されていたが、SQLiteでは対象行のみの更新なのでコストなく即時反映できる）。
+function loadRunsFromDb(): Map<string, AgentRun> {
+  const db = getDb();
+  const runRows = db.prepare("SELECT * FROM agent_runs").all() as unknown as AgentRunRow[];
+  const logRows = db
+    .prepare("SELECT run_id, ts, channel, text FROM agent_run_logs ORDER BY id ASC")
+    .all() as unknown as AgentRunLogRow[];
+
+  const logsByRun = new Map<string, LogLine[]>();
+  for (const row of logRows) {
+    const list = logsByRun.get(row.run_id) ?? [];
+    list.push({ ts: row.ts, channel: row.channel as LogLine["channel"], text: row.text });
+    logsByRun.set(row.run_id, list);
+  }
+
+  const map = new Map<string, AgentRun>();
+  for (const row of runRows) {
+    let run: AgentRun = {
+      id: row.id,
+      agentName: row.agent_name,
+      task: row.task,
+      status: row.status as AgentStatus,
+      sessionId: row.session_id ?? undefined,
+      log: logsByRun.get(row.id) ?? [],
+      yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
+      proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
+      totalCostUsd: row.total_cost_usd,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      consultedBy: row.consulted_by ?? undefined,
+    };
+    if (run.status === "active") {
+      const line: LogLine = { ts: Date.now(), channel: "system", text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" };
+      run = { ...run, status: "error", updatedAt: line.ts, log: [...run.log, line] };
+      insertRunLog(run.id, line);
+      persistRunMeta(run);
+    }
+    map.set(run.id, run);
+  }
+  return map;
+}
+
+const runs = loadRunsFromDb();
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応の実体。
 // 生きている子プロセスをrun.idで引けるようにしておき、watchdog（下記）がハングした
@@ -184,21 +282,39 @@ function buildIssueContextBlock(runId: string): string {
 // その人に関する直近のJournalエントリを参考情報として渡す。全Journalを渡すと
 // ノイズが増え推論がブレるため、「今回の話題に出てきた人」だけに絞るのが「動的」の要点。
 // 実名でのマッチングが必要なため、maskNamesで置換する前のテキストに対して行うこと。
+// docs/memo.md「H: 永続化データモデルの設計」対応。「ファクト（一時的な出来事・発言）」と
+// 「解釈（長期的なプロファイル）」を分けて注入する。ファクトはTTLを過ぎたものを除外し
+// （listActiveFactsForPerson）、解釈は基本的に常に有効（listInterpretationsForPerson）。
+// この2つを別々のラベルでプロンプトに渡すことで、エージェントが「一時的な感情」と
+// 「長期的な傾向」を混同しないようにする。
 function buildJournalContextBlock(rawText: string): string {
   const mentioned = listPeople().filter((p) => rawText.includes(p.name));
   if (mentioned.length === 0) return "";
 
-  const entries = listJournalEntries();
-  const lines: string[] = [];
+  const factLines: string[] = [];
+  const interpretationLines: string[] = [];
   for (const person of mentioned) {
-    const related = entries.filter((e) => e.people.includes(person.name)).slice(0, 5);
-    for (const e of related) {
-      lines.push(`- [${person.name}] ${e.rawText}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency} / 感情: ${e.sentiment}）`);
+    for (const e of listActiveFactsForPerson(person.name, 5)) {
+      factLines.push(`- [${person.name}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
+    }
+    for (const e of listInterpretationsForPerson(person.name)) {
+      interpretationLines.push(`- [${person.name}] ${e.text}`);
     }
   }
-  if (lines.length === 0) return "";
+  if (factLines.length === 0 && interpretationLines.length === 0) return "";
 
-  return maskNames(["関連する直近のJournal（EMの一言メモ、参考情報として扱うこと）:", ...lines].join("\n"));
+  const blocks: string[] = [];
+  if (interpretationLines.length > 0) {
+    blocks.push(
+      ["長期的なプロファイル・解釈（TTLなし、訂正されるまで有効。一時的な感情と混同しないこと）:", ...interpretationLines].join("\n"),
+    );
+  }
+  if (factLines.length > 0) {
+    blocks.push(
+      ["直近の一時的な状況（Journal、有効期限内のもののみ。あくまで参考情報として扱うこと）:", ...factLines].join("\n"),
+    );
+  }
+  return maskNames(blocks.join("\n\n"));
 }
 
 function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: string, journalContext?: string): string {
@@ -316,9 +432,11 @@ function extractConsult(resultText: string): ConsultRequest | undefined {
 }
 
 function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
-  run.log.push({ ts: Date.now(), channel, text });
-  run.updatedAt = Date.now();
-  persistRuns();
+  const line: LogLine = { ts: Date.now(), channel, text };
+  run.log.push(line);
+  run.updatedAt = line.ts;
+  insertRunLog(run.id, line);
+  persistRunMeta(run);
 }
 
 // docs/memo.md の匿名化方式: クラウド(claude -p)に送る前に、テキスト中の人物名を

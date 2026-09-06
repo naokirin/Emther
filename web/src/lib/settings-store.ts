@@ -20,6 +20,11 @@ export type RulesAndConstraints = {
   // 上記よりさらに長くログ更新が無い場合は、ハングした子プロセスとみなして
   // 実際にkillし、"error"へ確定させる（ゾンビプロセス化を防ぐ自己修復）。
   agentKillAfterSeconds: number;
+  // docs/memo.md「H: 永続化データモデルの設計」対応。Journalの投稿はkind:"fact"の
+  // KnowledgeEventとして記録されるが、一時的な感情・発言は時間とともに現在の判断への
+  // 重みを失わせるべき（ファクトと解釈の分離）。この日数を過ぎたJournalファクトは
+  // Agent Runtimeへの注入対象から外れる（削除はされない、履歴としては残る）。
+  journalFactTtlDays: number;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -32,6 +37,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   coverageWarnRatio: 0.4,
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
+  journalFactTtlDays: 90,
 };
 
 let rules: RulesAndConstraints = {

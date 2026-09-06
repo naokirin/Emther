@@ -31,3 +31,10 @@ export function saveJSON(filename: string, data: unknown): void {
     // 永続化の失敗でアプリの動作自体は止めない（ベストエフォート）
   }
 }
+
+// SQLite（`@/lib/db`）等、loadJSON/saveJSONを使わない永続化先が`.data/`配下に
+// ファイルを置きたい場合のためのパス解決ヘルパー。
+export function dataFilePath(filename: string): string {
+  ensureDir();
+  return join(DATA_DIR, filename);
+}

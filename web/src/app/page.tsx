@@ -61,6 +61,38 @@ export default function DashboardPage() {
   const [journalSubmitting, setJournalSubmitting] = useState(false);
   const [journalError, setJournalError] = useState<string | null>(null);
 
+  // docs/memo.md「H: 永続化データモデルの設計」対応。Quick Journal（一時的なfact）とは
+  // 別に、長期的な解釈（interpretation、TTLなし）を記録する口。「Aさんはリーダー志向がある」
+  // のような、一時的な感情と混同すべきでない長期プロファイルはこちらに書く。
+  const [profilePerson, setProfilePerson] = useState("");
+  const [profileText, setProfileText] = useState("");
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  async function handleProfileSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!profilePerson.trim() || !profileText.trim()) return;
+    setProfileSubmitting(true);
+    setProfileError(null);
+    setProfileSaved(false);
+    try {
+      const res = await fetch("/api/knowledge/interpretations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ person: profilePerson, text: profileText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
+      setProfileText("");
+      setProfileSaved(true);
+    } catch (err) {
+      setProfileError((err as Error).message);
+    } finally {
+      setProfileSubmitting(false);
+    }
+  }
+
   const [openVitalId, setOpenVitalId] = useState<string | null>(null);
 
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
@@ -353,6 +385,39 @@ export default function DashboardPage() {
             rangeEnd={journalPagination.rangeEnd}
             onChange={journalPagination.setPage}
           />
+
+          <h3 style={{ fontSize: 13, marginTop: 18, marginBottom: 4 }}>長期プロファイル（TTLなし）</h3>
+          <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+            「Aさんはリーダー志向がある」のような、一時的な感情と混同すべきでない長期的な解釈をここに記録します。Quick
+            Journalとは別に保存され、期限切れになりません。
+          </p>
+          <form onSubmit={handleProfileSubmit}>
+            <div className={styles.journalInputRow}>
+              <input
+                type="text"
+                value={profilePerson}
+                onChange={(e) => setProfilePerson(e.target.value)}
+                placeholder="対象（例: Aさん）"
+                style={{ maxWidth: 140 }}
+              />
+              <input
+                type="text"
+                value={profileText}
+                onChange={(e) => setProfileText(e.target.value)}
+                placeholder="例: Aさんはリーダー志向がある"
+              />
+              <button
+                className={styles.primaryBtn}
+                style={{ width: "auto" }}
+                type="submit"
+                disabled={profileSubmitting || !profilePerson.trim() || !profileText.trim()}
+              >
+                {profileSubmitting ? "記録中…" : "記録"}
+              </button>
+            </div>
+          </form>
+          {profileError && <p className={styles.errorText}>{profileError}</p>}
+          {profileSaved && <p className={styles.subtitle}>✅ 長期プロファイルとして記録しました。</p>}
         </div>
 
         <div className={styles.panel}>
