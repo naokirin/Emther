@@ -25,6 +25,7 @@
 - チーム／メンバーに関連するIssue・Journalの表示（`docs/memo.md`のTODO対応） — `/org`のチーム詳細に、名前一致による関連Issue一覧と、Issue化されていないJournal（EMの所感メモ）を表示
 - チームの組織階層（`docs/memo.md`のTODO対応） — チーム名を`"Engineering / Team A"`のように`/`区切りにすると、`/org`のツリーがネストしたフォルダとして表示される
 - Issueのタグ付け（`docs/memo.md`のTODO対応） — Issueにカンマ区切りのタグを付与でき、一覧・詳細に表示。Agent Runtimeへも「絶対の前提」として注入される
+- リストのフィルタ・ページネーション（`docs/memo.md`のTODO対応） — Issue一覧のタグ/charter未整理フィルタ、DashboardのInbox状態フィルタ、共通の`usePagination`によるページ送り
 
 ## できること
 
@@ -186,9 +187,19 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 `docs/memo.md`のTODO「Issue にカテゴリ・タグ付けをしたい」への対応。
 
 - `Issue.tags: string[]` を追加（`web/src/lib/issue-store.ts`の`setIssueTags`、Journalのtagsと同じくtrim・空文字除去・重複除去を行う`normalizeTags`を適用）。`POST /api/issues`の起票時、`PATCH /api/issues/[id]`の更新時の両方でタグを指定できる。
-- Issue一覧の起票ダイアログとIssue詳細のWhy/What/How欄にタグ入力（カンマ区切り）を追加。一覧・詳細ともにタグは`#タグ名`のチップ（`tagTopic`スタイル、Journal本文中のトピックタグと同じ見た目）で表示する。フィルタ機能自体は`docs/memo.md`の別TODO「リストのフィルタ機能の拡充」で扱う予定のため、今回は表示・編集のみ。
+- Issue一覧の起票ダイアログとIssue詳細のWhy/What/How欄にタグ入力（カンマ区切り）を追加。一覧・詳細ともにタグは`#タグ名`のチップ（`tagTopic`スタイル、Journal本文中のトピックタグと同じ見た目）で表示する。
 - `buildIssueContextBlock`（`agent-runtime.ts`）はWhy/What/Howが全て空でも**タグが1件以上あれば**Issueコンテキストを注入するよう条件を修正し、タグ一覧も「絶対の前提」として渡す。
 - 実機検証: charterを空のままタグ`["秘密タグXYZ99"]`だけを設定したIssueに紐づくAgent Runへ、タグに一切触れない質問（「このタスクに紐づくIssueに設定されているタグを教えてください」）を送ったところ、正しく「秘密タグXYZ99」と回答し、proposalのfactsにもタグが引用されることを確認。
+
+### リストのフィルタ・ページネーション
+
+`docs/memo.md`のTODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
+
+- `web/src/components/Pagination.tsx` — `usePagination(items, pageSize)`（現在ページのスライス・総ページ数・件数レンジを計算するだけの汎用フック。フィルタ自体は各画面側でitems配列を絞り込んでから渡す）と、その結果を表示する`PaginationControls`（前へ/次へ＋件数表示）を追加。フィルタで件数が減ってページが範囲外になっても、内部stateを書き換えずに表示側で最終ページへ丸める。
+- Issue一覧（`/issues`）: 「アーカイブ済みも表示する」に加えて、「タグで絞り込み」（登録済みタグのプルダウン）と「Why/What/How未整理のみ」チェックボックスを追加。Issue一覧・Issue未起票のAgent Run一覧の両方に8件/5件単位でページネーションを適用。
+- Dashboard: Quick Journalのエントリ一覧（5件単位）とInboxのAgent Run一覧（状態（Active/Yield/Idle/Error）での絞り込み＋5件単位のページネーション）に適用。
+- ページネーションのコントロールは、スクロール領域（`.runList`のmax-height）の**外側**に配置し、ページを切り替えても常に見える位置にしている。
+- 実機検証: タグ`検証用ページネーション`を持つIssueを12件作成し、`/api/issues`で実際に12件（うち`tags`に指定タグを含む）が存在することを確認。フィルタ・ページ送り自体はクライアント側の純粋なJS計算（`usePagination`）であり、型チェック・lint・ビルドは通過。ブラウザでのページ送りクリック操作自体は今回も未検証（Claude in Chrome未接続のため）。
 
 ### 永続化
 

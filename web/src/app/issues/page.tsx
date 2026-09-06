@@ -5,8 +5,12 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
+import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useRuns } from "@/lib/hooks";
 import { charterFilledCount } from "@/lib/types";
+
+const ISSUES_PAGE_SIZE = 8;
+const RUNS_PAGE_SIZE = 5;
 
 // Issue一覧画面。起票は一般的なIssue管理サービスと同様、一覧上の「＋ 新しいIssue」ボタンから
 // ダイアログを開いて行う（画面遷移しない）。Issueを選ぶと/issues/[id]の詳細画面に遷移する。
@@ -25,6 +29,8 @@ export default function IssuesPage() {
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [tagFilter, setTagFilter] = useState("");
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
   // 子Issue（parentIdあり）は親の詳細画面（サブIssue欄）で見る形にし、
@@ -32,6 +38,16 @@ export default function IssuesPage() {
   // アーカイブ済みは既定で隠す（docs/memo.md TODO対応）。EMが明示的にトグルした場合のみ表示する。
   const topLevelIssues = issues.filter((i) => !i.parentId && (showArchived || !i.archived));
   const archivedCount = issues.filter((i) => !i.parentId && i.archived).length;
+
+  // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
+  const allTags = Array.from(new Set(topLevelIssues.flatMap((i) => i.tags))).sort((a, b) => a.localeCompare(b, "ja"));
+  const filteredIssues = topLevelIssues.filter((i) => {
+    if (tagFilter && !i.tags.includes(tagFilter)) return false;
+    if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
+    return true;
+  });
+  const issuesPagination = usePagination(filteredIssues, ISSUES_PAGE_SIZE);
+  const runsPagination = usePagination(unlinkedRuns, RUNS_PAGE_SIZE);
 
   async function handleCreateIssue(e: React.FormEvent) {
     e.preventDefault();
@@ -94,14 +110,31 @@ export default function IssuesPage() {
         </button>
       </div>
 
-      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", margin: "8px 0" }}>
-        <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-        アーカイブ済みも表示する（{archivedCount}件）
-      </label>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          アーカイブ済みも表示する（{archivedCount}件）
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
+          Why/What/How未整理のみ
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          タグで絞り込み:
+          <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
+            <option value="">すべて</option>
+            {allTags.map((tag) => (
+              <option key={tag} value={tag}>
+                #{tag}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div className={styles.runList} style={{ maxHeight: "none" }}>
-        {topLevelIssues.length === 0 && <p className={styles.subtitle}>Issueはまだありません。</p>}
-        {topLevelIssues.map((issue) => {
+        {filteredIssues.length === 0 && <p className={styles.subtitle}>条件に一致するIssueはありません。</p>}
+        {issuesPagination.pageItems.map((issue) => {
           const linkedRun = runs.find((r) => r.id === issue.agentRunId);
           const doneCount = issue.actionItems.filter((a) => a.done).length;
           const charterCount = charterFilledCount(issue.charter);
@@ -145,6 +178,14 @@ export default function IssuesPage() {
           );
         })}
       </div>
+      <PaginationControls
+        page={issuesPagination.page}
+        totalPages={issuesPagination.totalPages}
+        total={issuesPagination.total}
+        rangeStart={issuesPagination.rangeStart}
+        rangeEnd={issuesPagination.rangeEnd}
+        onChange={issuesPagination.setPage}
+      />
 
       <h3 style={{ fontSize: 12, color: "var(--text-muted)", margin: "20px 0 6px" }}>Issue未起票のAgent Run</h3>
       <p className={styles.subtitle} style={{ marginBottom: 10 }}>
@@ -152,7 +193,7 @@ export default function IssuesPage() {
       </p>
       <div className={styles.runList} style={{ maxHeight: "none" }}>
         {unlinkedRuns.length === 0 && <p className={styles.subtitle}>すべてのRunがIssueに紐づいています。</p>}
-        {unlinkedRuns.map((run) => (
+        {runsPagination.pageItems.map((run) => (
           <button key={run.id} className={styles.runItem} onClick={() => handlePromoteRun(run)}>
             <div>
               <strong>{run.agentName}</strong> <StatusBadge status={run.status} />
@@ -166,6 +207,14 @@ export default function IssuesPage() {
           </button>
         ))}
       </div>
+      <PaginationControls
+        page={runsPagination.page}
+        totalPages={runsPagination.totalPages}
+        total={runsPagination.total}
+        rangeStart={runsPagination.rangeStart}
+        rangeEnd={runsPagination.rangeEnd}
+        onChange={runsPagination.setPage}
+      />
 
       {dialogOpen && (
         <Modal title="新しいIssueを起票" onClose={() => setDialogOpen(false)}>

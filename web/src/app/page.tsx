@@ -4,8 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
+import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useJournal, useRuns, useVitals } from "@/lib/hooks";
 import { AGENT_OPTIONS, URGENCY_LABEL } from "@/lib/types";
+
+const JOURNAL_PAGE_SIZE = 5;
+const INBOX_PAGE_SIZE = 5;
 
 // docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunの状態を代表値として見せる。
 // そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
@@ -33,6 +37,12 @@ export default function DashboardPage() {
   const [journalError, setJournalError] = useState<string | null>(null);
 
   const [openVitalId, setOpenVitalId] = useState<string | null>(null);
+
+  // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
+  const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
+  const filteredRuns = statusFilter ? runs.filter((r) => r.status === statusFilter) : runs;
+  const journalPagination = usePagination(journalEntries, JOURNAL_PAGE_SIZE);
+  const inboxPagination = usePagination(filteredRuns, INBOX_PAGE_SIZE);
 
   async function handleJournalSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -183,7 +193,7 @@ export default function DashboardPage() {
           {journalError && <p className={styles.errorText}>{journalError}</p>}
 
           {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
-          {journalEntries.map((entry) => (
+          {journalPagination.pageItems.map((entry) => (
             <div key={entry.id} className={styles.journalEntry}>
               <div>{entry.rawText}</div>
               <div className={styles.tagRow}>
@@ -206,6 +216,14 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
+          <PaginationControls
+            page={journalPagination.page}
+            totalPages={journalPagination.totalPages}
+            total={journalPagination.total}
+            rangeStart={journalPagination.rangeStart}
+            rangeEnd={journalPagination.rangeEnd}
+            onChange={journalPagination.setPage}
+          />
         </div>
 
         <div className={styles.panel}>
@@ -236,9 +254,20 @@ export default function DashboardPage() {
           </form>
           {error && <p className={styles.errorText}>{error}</p>}
 
-          <div className={styles.runList} style={{ marginTop: 12 }}>
-            {runs.length === 0 && <p className={styles.subtitle}>実行中のエージェントはまだありません。</p>}
-            {runs.map((run) => (
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
+            状態で絞り込み:
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AgentStatus | "")}>
+              <option value="">すべて</option>
+              <option value="active">🔵 Active</option>
+              <option value="yield">🟡 Yield</option>
+              <option value="idle">⚪️ Idle</option>
+              <option value="error">🔴 Error</option>
+            </select>
+          </label>
+
+          <div className={styles.runList} style={{ marginTop: 8 }}>
+            {filteredRuns.length === 0 && <p className={styles.subtitle}>条件に一致するエージェントはありません。</p>}
+            {inboxPagination.pageItems.map((run) => (
               <button key={run.id} className={styles.runItem} onClick={() => goToRunIssue(run)}>
                 <div>
                   <strong>{run.agentName}</strong> <StatusBadge status={run.status} />
@@ -252,6 +281,14 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+          <PaginationControls
+            page={inboxPagination.page}
+            totalPages={inboxPagination.totalPages}
+            total={inboxPagination.total}
+            rangeStart={inboxPagination.rangeStart}
+            rangeEnd={inboxPagination.rangeEnd}
+            onChange={inboxPagination.setPage}
+          />
         </div>
       </div>
     </div>
