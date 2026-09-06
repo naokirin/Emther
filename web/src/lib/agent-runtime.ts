@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { listTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
+import { listJournalEntries } from "@/lib/journal-store";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
@@ -119,7 +120,29 @@ function buildIssueContextBlock(runId: string): string {
   return maskNames(lines.join("\n"));
 }
 
-function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: string): string {
+// docs 3.1「動的ロード」: タスク/EMの発言に登場する人物（people-directoryに登録済み＝
+// 過去にJournalで言及されたか、Org Contextのメンバーとして登録された人）について、
+// その人に関する直近のJournalエントリを参考情報として渡す。全Journalを渡すと
+// ノイズが増え推論がブレるため、「今回の話題に出てきた人」だけに絞るのが「動的」の要点。
+// 実名でのマッチングが必要なため、maskNamesで置換する前のテキストに対して行うこと。
+function buildJournalContextBlock(rawText: string): string {
+  const mentioned = listPeople().filter((p) => rawText.includes(p.name));
+  if (mentioned.length === 0) return "";
+
+  const entries = listJournalEntries();
+  const lines: string[] = [];
+  for (const person of mentioned) {
+    const related = entries.filter((e) => e.people.includes(person.name)).slice(0, 5);
+    for (const e of related) {
+      lines.push(`- [${person.name}] ${e.rawText}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency} / 感情: ${e.sentiment}）`);
+    }
+  }
+  if (lines.length === 0) return "";
+
+  return maskNames(["関連する直近のJournal（EMの一言メモ、参考情報として扱うこと）:", ...lines].join("\n"));
+}
+
+function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: string, journalContext?: string): string {
   const consultRule =
     agentName === "Lead Agent" && allowConsult
       ? [
@@ -170,7 +193,7 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
 
   const issueContext = runId ? buildIssueContextBlock(runId) : "";
   const orgContext = buildOrgContextBlock();
-  return [base, issueContext, orgContext].filter(Boolean).join("\n\n");
+  return [base, issueContext, journalContext, orgContext].filter(Boolean).join("\n\n");
 }
 
 function extractYield(resultText: string): YieldRequest | undefined {
@@ -346,6 +369,8 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   run.status = "active";
   run.pendingConsult = undefined;
 
+  // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
+  const journalContext = buildJournalContextBlock(rawPrompt);
   const prompt = await sanitizeForCloud(run, rawPrompt);
 
   await new Promise<void>((resolve) => {
@@ -360,7 +385,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
       "--max-budget-usd",
       PER_TURN_BUDGET_USD,
       "--append-system-prompt",
-      buildSystemPrompt(run.agentName, allowConsult, run.id),
+      buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext),
     ];
     if (run.sessionId) {
       args.push("--resume", run.sessionId);
