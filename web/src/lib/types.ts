@@ -18,6 +18,23 @@ export type Team = {
   createdAt: number;
 };
 
+export type OrgStrategy = {
+  mission: string;
+  vision: string;
+  values: string;
+  okr: string;
+};
+
+export type RulesAndConstraints = {
+  teamWindowDays: number;
+  minEntriesForJudgement: number;
+  teamBadSentimentMax: number;
+  teamWarnSentimentMax: number;
+  coverageWindowDays: number;
+  coverageGoodRatio: number;
+  coverageWarnRatio: number;
+};
+
 export type VitalStatus = "good" | "warn" | "bad" | "unknown";
 
 export type TeamVital = {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
-import type { Issue, JournalEntry, OrgVitals, Team } from "@/lib/types";
+import type { Issue, JournalEntry, OrgStrategy, OrgVitals, RulesAndConstraints, Team } from "@/lib/types";
 
 // Dashboard / Issues一覧 / Issue詳細 / Organization Contextの各画面で共通して使う
 // ポーリング付きデータ取得フック。画面（ルート）が分かれてもデータ取得ロジックを
@@ -93,6 +93,28 @@ export function useVitals(intervalMs = 5000) {
   const fallback: OrgVitals = { teams: [], oneOnOneCoverage: { status: "unknown", covered: 0, total: 0, reason: "" } };
   const { data, refresh } = usePolling<OrgVitals>("/api/vitals", fallback, intervalMs);
   return { vitals: data, refreshVitals: refresh };
+}
+
+export function useOrgStrategy(intervalMs = 8000) {
+  const fallback: { strategy: OrgStrategy } = { strategy: { mission: "", vision: "", values: "", okr: "" } };
+  const { data, refresh } = usePolling<{ strategy: OrgStrategy }>("/api/org/strategy", fallback, intervalMs);
+  return { strategy: data.strategy, refreshStrategy: refresh };
+}
+
+export function useRulesAndConstraints(intervalMs = 8000) {
+  const fallback: { rules: RulesAndConstraints } = {
+    rules: {
+      teamWindowDays: 14,
+      minEntriesForJudgement: 2,
+      teamBadSentimentMax: -0.34,
+      teamWarnSentimentMax: 0.2,
+      coverageWindowDays: 30,
+      coverageGoodRatio: 0.8,
+      coverageWarnRatio: 0.4,
+    },
+  };
+  const { data, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/org/rules", fallback, intervalMs);
+  return { rules: data.rules, refreshRules: refresh };
 }
 
 // 単一Issue詳細ページ用。Issue一覧のポーリングとは別に、そのIssue1件だけを取得する。

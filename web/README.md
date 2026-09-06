@@ -5,7 +5,7 @@
 - **3.4 CLIサブプロセス実行エンジン** と **3.6 Yield（一時停止）設計**（Agent Runtime）
 - **3.2 ハイブリッド・データ収集**（Quick Journal — 軽量モデルによる自動タグ付け）
 - 人物名の匿名化（`docs/memo.md`） — クラウドLLMに送る前に実名をIDへ置換し、表示時のみ実名に戻す
-- **3.1 Core Context（最小版）** と **3.1.1 Team Vitals** — チーム・メンバー登録と、Journal実データに基づく三値ステータス算出
+- **3.1 Core Context** と **3.1.1 Team Vitals** — チーム・メンバー登録、MVV/OKR（Strategy）、Rules_and_Constraints（Team Vitalsの調整可能な閾値）、Journal実データに基づく三値ステータス算出
 - Agent Fleetステータス表示 — エージェント種別ごとの直近の稼働状況を信号機で表示
 - **3.7 双方向Issueトラッキング（最小版）** — Issue Workspace
 - ローカルファイルへの簡易永続化 — `.data/*.json`。プロセス再起動でデータが消える問題を解消
@@ -17,6 +17,7 @@
 - Issue charter（Why/What/How） — Issueの計画・実行前に明らかにすべき3要素をデータモデルに追加し、未整理な項目を隠さず表示する
 - UIバグ修正 — `.field`内の`<input>`に幅指定が漏れており、Issue起票ダイアログのタイトル欄などが小さいデフォルト表示になっていた問題を修正
 - **3.8 動的Issue実行管理（分解の最小版）** — Issueの親子関係（1階層のみ、孫は禁止）。サブIssueへの分解と、既存Issueの上位Issue作成の両方に対応
+- 動的ロードの完成 — Organization Context（チーム名簿・MVV/OKR）、Issue charter、関連Journalエントリの3系統をAgent Runtimeの`--append-system-prompt`へ実際に注入し、それぞれ「そこにしかない事実」を実際に思い出せることを確認済み
 
 ## できること
 
@@ -27,7 +28,7 @@
 - **`/`（Dashboard）** — Agent Fleetステータス（信号機）、Team Vitals、Quick Journal、タスク起票フォーム＋実行中Run一覧（Inbox）。Inboxのrunをクリックすると、未起票なら自動でIssue化してから`/issues/[id]`へ遷移する。
 - **`/issues`（Issue一覧）** — Issue一覧、「Issue未起票のAgent Run」一覧。「＋ 新しいIssue」ボタンでダイアログ（モーダル）を開いて起票する（画面遷移しない）。行をクリックすると`/issues/[id]`へ遷移する。
 - **`/issues/[id]`（Issue詳細）** — 選択したIssueのAction Items・Yield判断・壁打ちチャット。上部に「← Issue一覧に戻る」リンクを常設。
-- **`/org`（Organization Context）** — チーム追加フォームとチームのツリー表示（左）、選択したチームのメンバー一覧・削除操作（右）。ワイヤーフレームのようなファイル単位のツリー編集ではなく、チーム単位の一覧に簡略化している。
+- **`/org`（Organization Context）** — 左のツリーは「Strategy」（MVV/OKR/Rules_and_Constraints）と「Teams」（チーム追加フォーム＋チーム一覧）の2系統。Strategyを選ぶとMission/Vision/Values/OKRと、Team Vitalsの判定閾値を編集できる。チームを選ぶとメンバー一覧・削除操作を表示する。ワイヤーフレームのようなファイル単位のツリー編集ではなく、この2系統に簡略化している。
 - 画面間で共有するデータ取得（`useRuns`/`useIssues`/`useTeams`/`useVitals`/`useJournal`/`useIssue`）は`web/src/lib/hooks.ts`にポーリング付きフックとして共通化。共有する型定義は`web/src/lib/types.ts`にまとめている。
 - 実機検証: 4画面すべてが実URLで200を返すこと、Issueを作成して`/issues/[id]`のSSR出力に反映されること、Dashboard→Issue一覧→Issue詳細のAPIチェーン（起動→Issue化→詳細取得）が一致することを確認済み。ただしこのセッションではブラウザ拡張（Claude in Chrome）が未接続のため、クリック操作そのものの対話的な目視確認はできていない（クライアント側フェッチのため、SSR直後のHTMLには読み込み中の状態しか出ない点も含め、APIレスポンスとコードレビューでの担保に留まる）。
 
@@ -78,10 +79,12 @@ docs 3.3「リードエージェント/専門エージェント」の最小実�
 
 ワイヤーフレーム（`docs/first_implession/em_ui_wireframe_v5.html`）で示した「良好／要注意／評価不能」の三値ステータスを、モックではなく実データから算出するようにしたもの。
 
-- `web/src/lib/org-context-store.ts` — Core Contextの最小実装。チーム名とメンバー一覧だけを持つ（v5設計書が想定するツリー構造・構造化フォーマットは未実装）。メンバー名はJournalの`people`と同じ表記で登録する必要がある（表記ゆれ吸収なし）。
-- `web/src/lib/vitals.ts` — チームごとに、直近14日以内でそのメンバーが`people`に含まれるJournalエントリを集計し、平均センチメントから「安定／やや注意／要注意」を判定する。**該当エントリが2件未満の場合は必ず「評価不能」を返す**（三値であることが最初の要件だったため、ここが最重要ロジック）。1on1 Coverageは、直近30日以内で`#1on1`系タグの付いたエントリに登場したメンバー数 ÷ 登録メンバー総数で算出する。
-- 判定式や閾値（14日、2件、平均センチメント±0.34/0.2、30日、80%/40%）はすべて暫定値。Organization Contextの`Rules_and_Constraints`側で調整可能にする、というv5設計書3.1.1の想定はまだ実装していない（今はソースコード直書き）。
-- 実機検証: チーム未登録→全体が評価不能。メンバー登録直後（Journal無し）→そのチームは評価不能。ネガティブなJournalを2件投稿→「要注意」に切り替わることを確認。1on1タグ付きJournalで1/2メンバーのみ言及→Coverageが「やや注意」域になることを確認。
+- `web/src/lib/org-context-store.ts` — Core Contextの実装。チーム名とメンバー一覧に加え、`Strategy/`ディレクトリ相当の**MVV（Mission/Vision/Values）とOKR**（`OrgStrategy`、組織全体で1レコード、各項目は空文字列＝未設定を許容）と、**Rules_and_Constraints**（`RulesAndConstraints`、Team Vitalsの判定閾値）を持つ。v5設計書が想定するツリー型ディレクトリ・JSON/YAMLファイル群までは実装せず、フラットな構造化データに簡略化している。メンバー名はJournalの`people`と同じ表記で登録する必要がある（表記ゆれ吸収なし）。
+- `web/src/lib/vitals.ts` — チームごとに、直近N日以内でそのメンバーが`people`に含まれるJournalエントリを集計し、平均センチメントから「安定／やや注意／要注意」を判定する。**該当エントリが閾値件数未満の場合は必ず「評価不能」を返す**（三値であることが最初の要件だったため、ここが最重要ロジック）。1on1 Coverageは、直近N日以内で`#1on1`系タグの付いたエントリに登場したメンバー数 ÷ 登録メンバー総数で算出する。
+- 判定式や閾値（参照期間・最低件数・センチメント境界・カバー率境界）は、以前はソースコード直書きの暫定値だったが、`getRulesAndConstraints()`経由で`org-context-store.ts`の`RulesAndConstraints`から読むように変更した（v5設計書3.1.1「判定閾値はCore Context（Rules_and_Constraints）側で定義」に対応）。デフォルト値は従来と同じ（14日、2件、±0.34/0.2、30日、80%/40%）。
+- `/org`画面の「Strategy」ノードからMission/Vision/Values/OKRと、上記の閾値を直接編集できる（`PATCH /api/org/strategy`, `PATCH /api/org/rules`）。
+- MVV/OKRはAgent Runtimeの`buildStrategyBlock()`から、Issueに依らず毎ターン「絶対の前提」として注入される（`agent-runtime.ts`）。
+- 実機検証: チーム未登録→全体が評価不能。メンバー登録直後（Journal無し）→そのチームは評価不能。`minEntriesForJudgement`を1に変更すると、Journal1件のみのチームが「評価不能」から「安定」に切り替わり、2に戻すと再び「評価不能」に戻ることを確認（閾値がRules_and_Constraints経由で実際に効いている証拠）。また`/api/org/strategy`にMission/OKRを設定した状態で、それらに一切触れないタスク（「今期の組織のOKRとMissionを教えてください」）をAgent Runで実行したところ、設定した文言をそのまま回答・proposalに引用したことを確認（Strategy注入の実機検証）。
 
 ### Issue Workspace（最小版・ワイヤーフレーム準拠デザイン）
 
@@ -160,7 +163,7 @@ npm run dev
 - エージェントはツール利用を無効化（`--tools ""`）した「テキスト推論のみ」の存在として動作する。Organization Context（チーム名簿）・Issue charter（Why/What/How）・関連するJournalエントリは注入しているが、いずれも「今回登場した名前」ベースの単純な文字列一致で選んでいるだけで、意味的な関連度判定はしていない。
 - Quick Journalのサニタイズ（マスキング、docs 3.2）は未実装。生のメモがそのまま画面にも表示される（推論自体はローカル完結になったが、表示上のマスキングは別課題として残っている）。
 - ローカルモデルの初回ロードは重み（0.5B・q4で数百MB）のダウンロード＋ONNX Runtime初期化を含み、リクエストが数十秒ブロックする。2回目以降はプロセス内キャッシュにより数秒程度。
-- Organization Contextはチーム名簿のみで、v5設計書が想定するツリー構造・MVV/OKR/Rules_and_Constraintsなどの構造化コンテンツは未実装。
-- Team Vitalsの判定閾値はソースコード直書きの暫定値で、EMが調整するUIは無い。「今期目標 15/33」のようなOKR進捗バイタルも未実装（進捗率だけでは良悪判定できない＝評価不能にすべきケースだと考えており、期限に対する期待値をどう持つかを未決定のまま保留している）。
+- Organization Contextはチーム名簿＋MVV/OKR（自由記述テキスト）＋Rules_and_Constraints（Team Vitalsの閾値）を持つが、v5設計書が想定するツリー型ディレクトリ・チームごとのMVV・JSON/YAMLファイル群は未実装（フラットな構造化データに簡略化）。
+- Team Vitalsの判定閾値はOrganization Context（`/org`のStrategyノード）からEMが調整できるようになった。ただし「今期目標 15/33」のようなOKR進捗バイタルは未実装（進捗率だけでは良悪判定できない＝評価不能にすべきケースだと考えており、期限に対する期待値をどう持つかを未決定のまま保留している）。OKR自体は自由記述テキストとしてAgent Runtimeへ注入されるのみで、進捗の構造化・バイタル化はしていない。
 - Issueの親子分解（1階層）はEMが手動で行うだけで、AIが「このIssueは大きすぎるので分解しては」と提案することはない。AIによる自動ドラフトIssue（異常検知経由の起票）も未実装。今のIssueはEMが手動で作る（既存Agent Runへの紐付けを含む）だけ。
 - 階層型マルチエージェントは「Lead Agentが1ターンにつき1つの専門エージェントに1回だけ相談できる」という最小限のもの。専門エージェント同士の相談、複数エージェントへの並行相談、相談の連鎖（相談された専門エージェントがさらに別の専門エージェントに相談する等）はできない。

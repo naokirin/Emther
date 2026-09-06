@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
-import { listTeams } from "@/lib/org-context-store";
+import { getOrgStrategy, listTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
 import { loadJSON, saveJSON } from "@/lib/persistence";
@@ -87,6 +87,20 @@ const PER_TURN_BUDGET_USD = "0.5";
 // MVPではチーム数が少ない前提でOrganization Context（チーム名簿）全体を常に注入する。
 // メンバー名はここで初めて登場する可能性があるため、注入前に必ずpeople-directoryへ登録し、
 // 実名のままクラウドに出さないようmaskNamesを通す（他の経路と同じ匿名化ルール）。
+// docs 3.1「Core Context」の`Strategy/`ディレクトリ相当。MVV/OKRは組織全体で
+// 1つの静的な前提であり、Issueに紐づくかどうかに関わらず常に「絶対の前提」として注入する
+// （動的ロード対象はIssue charterとJournalのみ）。未設定の項目は行ごと省略する。
+function buildStrategyBlock(): string {
+  const strategy = getOrgStrategy();
+  const lines: string[] = [];
+  if (strategy.mission) lines.push(`Mission: ${strategy.mission}`);
+  if (strategy.vision) lines.push(`Vision: ${strategy.vision}`);
+  if (strategy.values) lines.push(`Values: ${strategy.values}`);
+  if (strategy.okr) lines.push(`OKR: ${strategy.okr}`);
+  if (lines.length === 0) return "";
+  return maskNames(["組織のMVV/OKR（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n"));
+}
+
 function buildOrgContextBlock(): string {
   const teams = listTeams();
   if (teams.length === 0) return "";
@@ -193,7 +207,8 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
 
   const issueContext = runId ? buildIssueContextBlock(runId) : "";
   const orgContext = buildOrgContextBlock();
-  return [base, issueContext, journalContext, orgContext].filter(Boolean).join("\n\n");
+  const strategyContext = buildStrategyBlock();
+  return [base, issueContext, journalContext, orgContext, strategyContext].filter(Boolean).join("\n\n");
 }
 
 function extractYield(resultText: string): YieldRequest | undefined {
