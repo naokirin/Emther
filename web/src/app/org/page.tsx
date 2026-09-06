@@ -2,15 +2,14 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import { useOrgStrategy, useRulesAndConstraints, useTeams } from "@/lib/hooks";
-import type { OrgStrategy, RulesAndConstraints } from "@/lib/types";
+import { useOrgStrategy, useTeams } from "@/lib/hooks";
+import type { OrgStrategy } from "@/lib/types";
 
 type Selection = { kind: "team"; id: string } | { kind: "strategy" } | null;
 
 export default function OrgContextPage() {
   const { teams, refreshTeams } = useTeams();
   const { strategy, refreshStrategy } = useOrgStrategy();
-  const { rules, refreshRules } = useRulesAndConstraints();
 
   const [teamName, setTeamName] = useState("");
   const [teamMembers, setTeamMembers] = useState("");
@@ -23,15 +22,11 @@ export default function OrgContextPage() {
   const [strategyDraft, setStrategyDraft] = useState<OrgStrategy>(strategy);
   const [strategySaving, setStrategySaving] = useState(false);
 
-  const [rulesDraft, setRulesDraft] = useState<RulesAndConstraints>(rules);
-  const [rulesSaving, setRulesSaving] = useState(false);
-
-  // ポーリングで取得したstrategy/rulesは、Strategyノードをクリックした瞬間にだけ
+  // ポーリングで取得したstrategyは、Strategyノードをクリックした瞬間にだけ
   // 編集用ドラフトへコピーする（effectで継続的に同期すると、EMが編集中の内容を
   // 次のポーリングが上書きしてしまうため）。
   function selectStrategy() {
     setStrategyDraft(strategy);
-    setRulesDraft(rules);
     setSelection({ kind: "strategy" });
   }
 
@@ -46,20 +41,6 @@ export default function OrgContextPage() {
       await refreshStrategy();
     } finally {
       setStrategySaving(false);
-    }
-  }
-
-  async function handleSaveRules() {
-    setRulesSaving(true);
-    try {
-      await fetch("/api/org/rules", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(rulesDraft),
-      });
-      await refreshRules();
-    } finally {
-      setRulesSaving(false);
     }
   }
 
@@ -127,7 +108,7 @@ export default function OrgContextPage() {
         {teamError && <p className={styles.errorText}>{teamError}</p>}
 
         <div className={styles.tree} style={{ marginTop: 14 }}>
-          <div className={styles.treeFolder}>📁 Strategy（MVV / OKR / Rules）</div>
+          <div className={styles.treeFolder}>📁 Strategy（MVV / OKR）</div>
           <div
             className={`${styles.treeFile} ${selection?.kind === "strategy" ? styles.treeFileSelected : ""}`}
             onClick={selectStrategy}
@@ -193,74 +174,6 @@ export default function OrgContextPage() {
                 rows={3}
                 value={strategyDraft.okr}
                 onChange={(e) => setStrategyDraft({ ...strategyDraft, okr: e.target.value })}
-              />
-            </div>
-
-            <div className={styles.editorPath} style={{ marginTop: 18 }}>
-              <code>/Rules_and_Constraints</code>
-              <button className={styles.primaryBtn} onClick={handleSaveRules} disabled={rulesSaving}>
-                {rulesSaving ? "保存中…" : "保存"}
-              </button>
-            </div>
-            <p className={styles.subtitle}>Team Vitalsの判定に使う閾値・データ欠如とみなす期間です。</p>
-            <div className={styles.field}>
-              <label>Team Vital: 判定に使う参照期間（日）</label>
-              <input
-                type="number"
-                value={rulesDraft.teamWindowDays}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, teamWindowDays: Number(e.target.value) })}
-              />
-            </div>
-            <div className={styles.field}>
-              <label>Team Vital: 判定に最低限必要なジャーナル件数（未満は評価不能）</label>
-              <input
-                type="number"
-                value={rulesDraft.minEntriesForJudgement}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, minEntriesForJudgement: Number(e.target.value) })}
-              />
-            </div>
-            <div className={styles.field}>
-              <label>Team Vital: 「要注意」と判定する感情スコア平均の閾値（以下でbad）</label>
-              <input
-                type="number"
-                step="0.01"
-                value={rulesDraft.teamBadSentimentMax}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, teamBadSentimentMax: Number(e.target.value) })}
-              />
-            </div>
-            <div className={styles.field}>
-              <label>Team Vital: 「やや注意」と判定する感情スコア平均の閾値（未満でwarn）</label>
-              <input
-                type="number"
-                step="0.01"
-                value={rulesDraft.teamWarnSentimentMax}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, teamWarnSentimentMax: Number(e.target.value) })}
-              />
-            </div>
-            <div className={styles.field}>
-              <label>1on1 Coverage: 判定に使う参照期間（日）</label>
-              <input
-                type="number"
-                value={rulesDraft.coverageWindowDays}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, coverageWindowDays: Number(e.target.value) })}
-              />
-            </div>
-            <div className={styles.field}>
-              <label>1on1 Coverage: 「良好」と判定するカバー率（以上でgood）</label>
-              <input
-                type="number"
-                step="0.01"
-                value={rulesDraft.coverageGoodRatio}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, coverageGoodRatio: Number(e.target.value) })}
-              />
-            </div>
-            <div className={styles.field}>
-              <label>1on1 Coverage: 「要注意」と判定するカバー率（以上でwarn、未満でbad）</label>
-              <input
-                type="number"
-                step="0.01"
-                value={rulesDraft.coverageWarnRatio}
-                onChange={(e) => setRulesDraft({ ...rulesDraft, coverageWarnRatio: Number(e.target.value) })}
               />
             </div>
           </>

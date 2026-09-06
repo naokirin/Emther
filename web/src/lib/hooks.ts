@@ -10,6 +10,10 @@ import type { Issue, JournalEntry, OrgStrategy, OrgVitals, RulesAndConstraints, 
 
 function usePolling<T>(url: string, fallback: T, intervalMs: number) {
   const [data, setData] = useState<T>(fallback);
+  // 初回フェッチが完了したかどうか。fallbackはまだ「サーバーの実データ」ではないため、
+  // 「一度だけ実データで編集ドラフトを初期化したい」ような画面（例: /settings）が
+  // fallbackを実データと誤認しないように区別できるようにする。
+  const [loaded, setLoaded] = useState(false);
 
   // 外部（イベントハンドラ）から呼んで即座に再取得＋反映するための関数。
   // useEffect内のpollとは別実装だが、意図的に重複させている
@@ -19,6 +23,7 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number) {
       const res = await fetch(url);
       const json = await res.json();
       setData(json);
+      setLoaded(true);
       return json;
     } catch {
       return null;
@@ -32,7 +37,10 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number) {
       try {
         const res = await fetch(url);
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          setData(json);
+          setLoaded(true);
+        }
       } catch {
         // ポーリング失敗は静かに無視し、次回のポーリングに任せる
       }
@@ -46,7 +54,7 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number) {
     };
   }, [url, intervalMs]);
 
-  return { data, setData, refresh };
+  return { data, setData, loaded, refresh };
 }
 
 export function useRuns(intervalMs = 1500) {
@@ -101,7 +109,7 @@ export function useOrgStrategy(intervalMs = 8000) {
   return { strategy: data.strategy, refreshStrategy: refresh };
 }
 
-export function useRulesAndConstraints(intervalMs = 8000) {
+export function useSettingsRules(intervalMs = 8000) {
   const fallback: { rules: RulesAndConstraints } = {
     rules: {
       teamWindowDays: 14,
@@ -113,8 +121,8 @@ export function useRulesAndConstraints(intervalMs = 8000) {
       coverageWarnRatio: 0.4,
     },
   };
-  const { data, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/org/rules", fallback, intervalMs);
-  return { rules: data.rules, refreshRules: refresh };
+  const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);
+  return { rules: data.rules, rulesLoaded: loaded, refreshRules: refresh };
 }
 
 // 単一Issue詳細ページ用。Issue一覧のポーリングとは別に、そのIssue1件だけを取得する。
