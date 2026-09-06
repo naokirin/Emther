@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordEvent, listEvents, listInterpretationsForPerson } from "@/lib/knowledge-store";
+import { embedText } from "@/lib/embeddings";
 import { registerName } from "@/lib/people-directory";
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。「Aさんはリーダー志向がある」のような
@@ -23,6 +24,12 @@ export async function POST(request: Request) {
   }
 
   registerName(person);
+  let embedding: number[] | undefined;
+  try {
+    embedding = await embedText(text);
+  } catch {
+    embedding = undefined;
+  }
   const event = recordEvent({
     kind: "interpretation",
     context: "profile",
@@ -31,6 +38,7 @@ export async function POST(request: Request) {
     text,
     tags,
     occurredAt: Date.now(),
+    embedding,
   });
   return NextResponse.json({ interpretation: event }, { status: 201 });
 }

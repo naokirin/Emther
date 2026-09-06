@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db";
+import { cosineSimilarity } from "@/lib/embeddings";
 
 // docs/memo.md「H: 永続化データモデルの設計」の中核。ユーザー方針:
 // 「組織・人・システムは時系列で一貫せず、方針転換・一時的感情・環境変化を多く受ける前提で
@@ -38,6 +39,9 @@ export type KnowledgeEvent = {
   ttlDays?: number;
   supersedes?: string;
   sourceJournalId?: string;
+  // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用。@/lib/embeddingsで生成した
+  // 埋め込みベクトル。Issue/Teamの変更履歴等、意味的検索の対象外のイベントには付与しない。
+  embedding?: number[];
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt"> & {
@@ -62,6 +66,7 @@ type Row = {
   ttl_days: number | null;
   supersedes: string | null;
   source_journal_id: string | null;
+  embedding_json: string | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -82,6 +87,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     ttlDays: row.ttl_days ?? undefined,
     supersedes: row.supersedes ?? undefined,
     sourceJournalId: row.source_journal_id ?? undefined,
+    embedding: row.embedding_json ? JSON.parse(row.embedding_json) : undefined,
   };
 }
 
@@ -94,8 +100,8 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, entity_id, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, kind, context, entity_type, entity_id, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       event.id,
@@ -114,6 +120,7 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
       event.ttlDays ?? null,
       event.supersedes ?? null,
       event.sourceJournalId ?? null,
+      event.embedding ? JSON.stringify(event.embedding) : null,
     );
   return event;
 }
@@ -174,4 +181,22 @@ export function recordChangeEvent(entityType: "issue" | "team", entityId: string
     tags,
     occurredAt: Date.now(),
   });
+}
+
+// docs/memo.md「H: Phase 3」ローカル完結の意味的検索。埋め込みを持つイベントに限定して
+// ブルートフォースでコサイン類似度を計算し、上位を返す。単一ローカルユーザー規模
+// （数百万件に達するには何年もかかる想定）ではこれで十分高速なため、専用のベクトル
+// インデックス（sqlite-vec等）は導入しない。TTL切れのfactは除外する（意味的に近くても、
+// 現在の判断への重みを失った一時的な情報を混ぜないため）。
+export function searchSimilarEvents(
+  queryEmbedding: number[],
+  opts?: { kind?: KnowledgeKind; limit?: number; excludeExpired?: boolean },
+): Array<KnowledgeEvent & { similarity: number }> {
+  const limit = opts?.limit ?? 5;
+  const candidates = listEvents({ kind: opts?.kind }).filter((e) => e.embedding !== undefined);
+  const scored = candidates
+    .filter((e) => !(opts?.excludeExpired ?? true) || !isEventExpired(e))
+    .map((e) => ({ ...e, similarity: cosineSimilarity(queryEmbedding, e.embedding!) }))
+    .sort((a, b) => b.similarity - a.similarity);
+  return scored.slice(0, limit);
 }

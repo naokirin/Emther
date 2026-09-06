@@ -42,33 +42,36 @@ export function registerName(name: string): string {
   return id;
 }
 
-// 既知の名前を出現順（長い名前から）でIDに置換する。
-// 例: "Aさん" と "A" を両方登録していても、先に長い方を置換することで部分一致による
-// 意図しない置換（"A"が別の単語の一部に一致する等）の影響を減らす。
-export function maskNames(text: string): string {
-  if (nameToId.size === 0) return text;
-  const names = [...nameToId.keys()].sort((a, b) => b.length - a.length);
-  let masked = text;
-  for (const name of names) {
-    if (!name) continue;
-    masked = masked.split(name).join(nameToId.get(name)!);
-  }
-  return masked;
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// IDは"PERSON_1", "PERSON_2", ..., "PERSON_10", "PERSON_11"のように採番されるため、
-// 短いID（例: "PERSON_1"）は長いID（例: "PERSON_11"）の文字列としてのprefixになる。
-// 登録順（Mapの挿入順）にそのまま置換すると、"PERSON_1"が先に処理された場合
-// "PERSON_11"の一部が誤って"PERSON_1"扱いで置換されてしまう（maskNamesが名前の長さで
-// ソートしているのと同じ理由）。ID文字列の長さ降順で処理し、この衝突を防ぐ。
+// 複数の置換対象を「元のテキストに対する1回のスキャン」で同時に置換するための
+// ヘルパー。逐次split/joinで置換していく方式だと、後段の置換対象が直前までに
+// 挿入済みの置換後文字列（例: "PERSON_1"）の内部に部分一致してしまい、自己破壊的に
+// 壊れることがある——実際に、1文字だけの誤登録名（ローカルモデルの抽出ミスによる
+// "P" 等）が既に挿入済みの"PERSON_10"のような文字列の内部の"P"に一致し、
+// 二重に置換されて文字列が破損する不具合が実機で発生した。String.replace()の
+// コールバックは元の文字列上の一致箇所に対してのみ呼ばれ、置換後の文字列を
+// 再スキャンしないため、この自己破壊が起きない。
+function replaceAllAtOnce(text: string, mapping: Map<string, string>): string {
+  const keys = [...mapping.keys()].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (keys.length === 0) return text;
+  const pattern = new RegExp(keys.map(escapeRegExp).join("|"), "g");
+  return text.replace(pattern, (match) => mapping.get(match) ?? match);
+}
+
+// 名前をIDに置換する。同じ長さ・重なり合う候補がある場合は長い名前を優先する
+// （例: "Aさん"と"A"を両方登録していても、"Aさん"が先に一致する）。
+export function maskNames(text: string): string {
+  return replaceAllAtOnce(text, nameToId);
+}
+
+// IDを実名に戻す。IDは"PERSON_1", "PERSON_10", "PERSON_11"のように採番されるため、
+// 短いID文字列は長いIDの文字列としてのprefixになりうるが、1回のスキャンで
+// 最長一致を優先するため、この衝突も発生しない。
 export function unmaskNames(text: string): string {
-  if (idToName.size === 0) return text;
-  const ids = [...idToName.keys()].sort((a, b) => b.length - a.length);
-  let unmasked = text;
-  for (const id of ids) {
-    unmasked = unmasked.split(id).join(idToName.get(id)!);
-  }
-  return unmasked;
+  return replaceAllAtOnce(text, idToName);
 }
 
 export function listPeople(): PersonRecord[] {

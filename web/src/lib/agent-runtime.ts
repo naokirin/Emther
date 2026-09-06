@@ -4,7 +4,8 @@ import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
-import { listActiveFactsForPerson, listInterpretationsForPerson } from "@/lib/knowledge-store";
+import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
+import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { teamDisplayName } from "@/lib/types";
@@ -287,21 +288,46 @@ function buildIssueContextBlock(runId: string): string {
 // （listActiveFactsForPerson）、解釈は基本的に常に有効（listInterpretationsForPerson）。
 // この2つを別々のラベルでプロンプトに渡すことで、エージェントが「一時的な感情」と
 // 「長期的な傾向」を混同しないようにする。
-function buildJournalContextBlock(rawText: string): string {
+// docs/memo.md「H: Phase 3」ローカル完結のベクトル検索。名前の完全一致では拾えない
+// 「意味的に関連しそうな過去の情報」（例: 具体的な名前を出さずに「最近チームの士気は？」と
+// 聞かれた場合等）を補う。名前一致より確度が低いため、別ラベル・低い信頼度の書き方で
+// 提示し、類似度が低いものは足切りする（無関係な情報を紛れ込ませないため）。
+const SEMANTIC_SIMILARITY_THRESHOLD = 0.4;
+
+async function buildJournalContextBlock(rawText: string): Promise<string> {
   const mentioned = listPeople().filter((p) => rawText.includes(p.name));
-  if (mentioned.length === 0) return "";
 
   const factLines: string[] = [];
   const interpretationLines: string[] = [];
+  const seenIds = new Set<string>();
   for (const person of mentioned) {
     for (const e of listActiveFactsForPerson(person.name, 5)) {
+      seenIds.add(e.id);
       factLines.push(`- [${person.name}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
     }
     for (const e of listInterpretationsForPerson(person.name)) {
+      seenIds.add(e.id);
       interpretationLines.push(`- [${person.name}] ${e.text}`);
     }
   }
-  if (factLines.length === 0 && interpretationLines.length === 0) return "";
+
+  const semanticLines: string[] = [];
+  try {
+    const queryEmbedding = await embedText(rawText);
+    const similarFacts = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: 3 });
+    const similarInterpretations = searchSimilarEvents(queryEmbedding, { kind: "interpretation", limit: 3 });
+    const describe = (e: KnowledgeEvent & { similarity: number }) =>
+      `- ${e.text}${e.people.length > 0 ? `（${e.people.join(", ")}）` : ""}（類似度: ${e.similarity.toFixed(2)}）`;
+    for (const e of [...similarFacts, ...similarInterpretations]) {
+      if (seenIds.has(e.id) || e.similarity < SEMANTIC_SIMILARITY_THRESHOLD) continue;
+      seenIds.add(e.id);
+      semanticLines.push(describe(e));
+    }
+  } catch {
+    // 埋め込み生成に失敗しても、名前一致の結果だけで動的ロード自体は継続する。
+  }
+
+  if (factLines.length === 0 && interpretationLines.length === 0 && semanticLines.length === 0) return "";
 
   const blocks: string[] = [];
   if (interpretationLines.length > 0) {
@@ -312,6 +338,14 @@ function buildJournalContextBlock(rawText: string): string {
   if (factLines.length > 0) {
     blocks.push(
       ["直近の一時的な状況（Journal、有効期限内のもののみ。あくまで参考情報として扱うこと）:", ...factLines].join("\n"),
+    );
+  }
+  if (semanticLines.length > 0) {
+    blocks.push(
+      [
+        "意味的に関連する可能性のある過去の情報（ベクトル検索による推測、名前の完全一致ではないため確度は低い。参考程度に留めること）:",
+        ...semanticLines,
+      ].join("\n"),
     );
   }
   return maskNames(blocks.join("\n\n"));
@@ -548,7 +582,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   run.pendingConsult = undefined;
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
-  const journalContext = buildJournalContextBlock(rawPrompt);
+  const journalContext = await buildJournalContextBlock(rawPrompt);
   const prompt = await sanitizeForCloud(run, rawPrompt);
 
   await new Promise<void>((resolve) => {
