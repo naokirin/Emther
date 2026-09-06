@@ -38,6 +38,35 @@ function issueNeedsCharter(issue: Issue): boolean {
   return !issue.parentId && !issue.archived && charterFilledCount(issue.charter) < 3;
 }
 
+// docs/memo.md TODO「人間EMからのインプットパターン（始業時・随時・終業時など）を設計して
+// ダッシュボードに組み込む」対応。docs/first_impressionが想定する朝/日中/終業時の3フェーズを、
+// 新しいデータモデルは増やさず、現在時刻に応じた案内文（軽量なバナー）としてのみ表現する。
+// 時刻はクライアント（EMのブラウザ）のローカル時刻を使う。
+type DayPhase = "morning" | "midday" | "evening";
+
+function getDayPhase(hour: number): DayPhase {
+  if (hour < 11) return "morning";
+  if (hour < 17) return "midday";
+  return "evening";
+}
+
+const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; cta?: string }> = {
+  morning: {
+    icon: "🌅",
+    text: "朝のチェック: 夜間に止まっていたRunがないか、上の「次にすべきこと」とAgent Fleetの状態を確認しましょう。",
+  },
+  midday: {
+    icon: "🕐",
+    text: "随時: 気になる出来事があれば、その場でQuick Journalに記録しておくと後で役立ちます。",
+    cta: "Quick Journalへ",
+  },
+  evening: {
+    icon: "🌆",
+    text: "終業前の振り返り: 今日あった出来事をQuick Journalにまとめて記録しておきましょう。",
+    cta: "Quick Journalへ",
+  },
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const { runs, refreshRuns } = useRuns();
@@ -69,6 +98,57 @@ export default function DashboardPage() {
   const [profileSubmitting, setProfileSubmitting] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
+
+  // docs/memo.md TODO「人から『〇〇の指示があった』などをもとにその人の志向性、認知傾向、
+  // パーソナリティを整理する」対応。新規の推論ロジックは作らず、People Agentに
+  // 「この人物についてこれまでのファクトから傾向を整理して」という通常のタスクを投げるだけ。
+  // タスク文に対象者の名前が含まれることで、既存のbuildJournalContextBlock（完全一致＋
+  // 意味的検索）がその人物のファクト・既存の解釈を自動的に注入してくれる。
+  // 結果はあくまで下書きとして長期プロファイルの入力欄に流し込み、EMが確認・編集して
+  // 「記録」を押すまでは保存しない（＝観測事実からの推測であることを常に人が確認する）。
+  const [draftRunId, setDraftRunId] = useState<string | null>(null);
+  const [consumedDraftRunId, setConsumedDraftRunId] = useState<string | null>(null);
+  const [draftStarting, setDraftStarting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const draftRun = draftRunId ? runs.find((r) => r.id === draftRunId) ?? null : null;
+  if (draftRun && draftRunId && draftRunId !== consumedDraftRunId && draftRun.status !== "active") {
+    setConsumedDraftRunId(draftRunId);
+    if (draftRun.status === "idle") {
+      setProfileText(draftRun.proposal?.conclusion ?? "");
+    } else {
+      setDraftError(
+        draftRun.status === "yield"
+          ? "AIから追加の確認が必要という応答がありました。「何でも相談」から続きを確認してください。"
+          : "下書きの生成中にエラーが発生しました。「何でも相談」からログを確認してください。",
+      );
+    }
+  }
+
+  async function handleDraftProfile() {
+    if (!profilePerson.trim()) return;
+    setDraftStarting(true);
+    setDraftError(null);
+    try {
+      const res = await fetch("/api/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentName: "People Agent",
+          task: `${profilePerson}について、これまで観測されたJournalのファクト・既存の解釈をもとに、志向性・認知傾向・パーソナリティの傾向を2〜3文程度で整理してください。断定は避け、あくまで観測された事実からの推測であることを明記してください。`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "下書きの生成に失敗しました");
+      setDraftRunId(data.run.id);
+      setConsumedDraftRunId(null);
+      await refreshRuns();
+    } catch (err) {
+      setDraftError((err as Error).message);
+    } finally {
+      setDraftStarting(false);
+    }
+  }
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -234,8 +314,31 @@ export default function DashboardPage() {
 
   nextActions.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "urgent" ? -1 : 1));
 
+  const dayPhase = getDayPhase(new Date().getHours());
+  const guidance = DAY_PHASE_GUIDANCE[dayPhase];
+
+  function focusJournalInput() {
+    const el = document.getElementById("quick-journal-input");
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    (el as HTMLInputElement | null)?.focus();
+  }
+
   return (
     <div className={styles.screen}>
+      <div
+        className={styles.panel}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 16px" }}
+      >
+        <span style={{ fontSize: 13 }}>
+          {guidance.icon} {guidance.text}
+        </span>
+        {guidance.cta && (
+          <button className={styles.btnOutline} style={{ flexShrink: 0 }} onClick={focusJournalInput}>
+            {guidance.cta}
+          </button>
+        )}
+      </div>
+
       <div className={`${styles.panel} ${styles.nextActionsPanel}`}>
         <h2>次にすべきこと</h2>
         <p className={styles.subtitle}>
@@ -338,6 +441,7 @@ export default function DashboardPage() {
           <form onSubmit={handleJournalSubmit}>
             <div className={styles.journalInputRow}>
               <input
+                id="quick-journal-input"
                 type="text"
                 value={journalText}
                 onChange={(e) => setJournalText(e.target.value)}
@@ -418,6 +522,20 @@ export default function DashboardPage() {
           </form>
           {profileError && <p className={styles.errorText}>{profileError}</p>}
           {profileSaved && <p className={styles.subtitle}>✅ 長期プロファイルとして記録しました。</p>}
+
+          <button
+            type="button"
+            className={styles.btnOutline}
+            style={{ marginTop: 8 }}
+            onClick={handleDraftProfile}
+            disabled={draftStarting || !profilePerson.trim() || draftRun?.status === "active"}
+          >
+            {draftStarting || draftRun?.status === "active" ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
+          </button>
+          <p className={styles.subtitle} style={{ marginTop: 4 }}>
+            対象欄の人物名をもとに、これまでのJournalファクトからPeople Agentが下書きを作成し、上のテキスト欄に反映します（あくまで下書き。保存するかはEMが判断し「記録」を押してください）。
+          </p>
+          {draftError && <p className={styles.errorText}>{draftError}</p>}
         </div>
 
         <div className={styles.panel}>

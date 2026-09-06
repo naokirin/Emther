@@ -389,6 +389,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               onFocusChat={handleFocusChat}
               deciding={deciding}
               stale={staleRunIds.has(linkedRun.id)}
+              onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
             />
           ) : (
             <p className={styles.subtitle}>Agent Runが紐づいていません。Dashboardでタスクを起票するか、Issue一覧から紐づけてください。</p>
