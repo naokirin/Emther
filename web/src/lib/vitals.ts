@@ -1,4 +1,5 @@
-import { getRulesAndConstraints, listTeams, type Team } from "@/lib/org-context-store";
+import { listTeams, type Team } from "@/lib/org-context-store";
+import { getRulesAndConstraints } from "@/lib/settings-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。

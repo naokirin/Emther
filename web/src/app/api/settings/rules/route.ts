@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRulesAndConstraints, updateRulesAndConstraints } from "@/lib/org-context-store";
+import { getRulesAndConstraints, updateRulesAndConstraints } from "@/lib/settings-store";
 
 export async function GET() {
   return NextResponse.json({ rules: getRulesAndConstraints() });

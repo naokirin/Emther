@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/issues", label: "Issue Workspace" },
   { href: "/org", label: "Organization Context" },
+  { href: "/settings", label: "Settings" },
 ];
 
 // Issue一覧・Issue詳細・Dashboard・Organization Contextは実URLを持つ別画面にしているため、
