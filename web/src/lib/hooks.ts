@@ -126,6 +126,7 @@ export function useSettingsRules(intervalMs = 8000) {
       agentStaleAfterSeconds: 120,
       agentKillAfterSeconds: 600,
       journalFactTtlDays: 90,
+      geminiFallbackAgents: [],
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

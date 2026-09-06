@@ -25,6 +25,11 @@ export type RulesAndConstraints = {
   // 重みを失わせるべき（ファクトと解釈の分離）。この日数を過ぎたJournalファクトは
   // Agent Runtimeへの注入対象から外れる（削除はされない、履歴としては残る）。
   journalFactTtlDays: number;
+  // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」への対応。
+  // ここに含まれるエージェント名（AGENT_OPTIONSの値）だけが、claude CLIの実行失敗・
+  // 予算/レート制限時にgemini CLIへのフォールバックを試みる。既定は空（全エージェント
+  // フォールバック無効）——挙動が変わるフォールバックはEMの明示的な opt-in を必須にする。
+  geminiFallbackAgents: string[];
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -38,6 +43,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
+  geminiFallbackAgents: [],
 };
 
 let rules: RulesAndConstraints = {

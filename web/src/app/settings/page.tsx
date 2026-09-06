@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useSettingsRules } from "@/lib/hooks";
-import type { RulesAndConstraints } from "@/lib/types";
+import { AGENT_OPTIONS, type RulesAndConstraints } from "@/lib/types";
 
 // Rules_and_Constraints（Team Vitalsの判定閾値）はOrganization Context（組織のMVVや
 // 体制などの「不動の前提」）とは性質が異なり、アプリの挙動を調整する設定値なので、
@@ -145,6 +145,30 @@ export default function SettingsPage() {
             onChange={(e) => setDraft({ ...draft, journalFactTtlDays: Number(e.target.value) })}
           />
         </div>
+
+        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Gemini CLIフォールバック</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          claude CLIの実行が失敗した場合（起動失敗・予算/レート制限超過など）、ここでONにしたエージェント種別に限り
+          gemini CLIでその1ターンを再試行します。既定は全エージェントOFF（明示的にONにしたものだけ対象）。gemini
+          CLIはセッション継続（壁打ちの複数ターン）を未サポートのため、単発のタスク実行時のみ有効です。
+        </p>
+        {AGENT_OPTIONS.map((name) => (
+          <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+            <input
+              type="checkbox"
+              checked={draft.geminiFallbackAgents.includes(name)}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  geminiFallbackAgents: e.target.checked
+                    ? [...draft.geminiFallbackAgents, name]
+                    : draft.geminiFallbackAgents.filter((n) => n !== name),
+                })
+              }
+            />
+            {name}
+          </label>
+        ))}
       </div>
     </div>
   );

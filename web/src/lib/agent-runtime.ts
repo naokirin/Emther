@@ -539,39 +539,50 @@ function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
         run.yieldRequest = undefined;
         appendLog(run, "system", `エラーで終了しました: ${unmaskNames(event.result ?? "(no message)")}`);
       } else {
-        const resultText = unmaskNames(typeof event.result === "string" ? event.result : "");
-        const consultRequest =
-          run.agentName === "Lead Agent" && allowConsult ? extractConsult(resultText) : undefined;
-
-        if (consultRequest) {
-          // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
-          run.pendingConsult = consultRequest;
-          appendLog(run, "system", `[相談] ${consultRequest.agent}に質問: ${consultRequest.question}`);
-          break;
-        }
-
-        const yieldRequest = extractYield(resultText);
-        if (yieldRequest) {
-          run.status = "yield";
-          run.yieldRequest = yieldRequest;
-          run.proposal = undefined;
-          appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
-        } else {
-          run.status = "idle";
-          run.yieldRequest = undefined;
-          run.proposal = extractProposal(resultText);
-          appendLog(
-            run,
-            "system",
-            run.proposal ? "タスクが完了しました（人間の入力は不要です）。" : "タスクが完了しました（proposal形式には従いませんでした）。",
-          );
-        }
+        applyAssistantResultText(run, unmaskNames(typeof event.result === "string" ? event.result : ""), allowConsult);
       }
       break;
     }
     default:
       break;
   }
+}
+
+// docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
+// claude/geminiどちらの結果テキストからも、consult/yield/proposalの抽出とrun状態の
+// 確定を同じロジックで行うための共通処理（元は"result"ケースに直書きしていたもの）。
+// 呼び出し側は既にunmaskNames()済みのテキストを渡すこと。
+function applyAssistantResultText(run: AgentRun, resultText: string, allowConsult: boolean): void {
+  const consultRequest = run.agentName === "Lead Agent" && allowConsult ? extractConsult(resultText) : undefined;
+  if (consultRequest) {
+    // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
+    run.pendingConsult = consultRequest;
+    appendLog(run, "system", `[相談] ${consultRequest.agent}に質問: ${consultRequest.question}`);
+    return;
+  }
+
+  const yieldRequest = extractYield(resultText);
+  if (yieldRequest) {
+    run.status = "yield";
+    run.yieldRequest = yieldRequest;
+    run.proposal = undefined;
+    appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
+  } else {
+    run.status = "idle";
+    run.yieldRequest = undefined;
+    run.proposal = extractProposal(resultText);
+    appendLog(
+      run,
+      "system",
+      run.proposal ? "タスクが完了しました（人間の入力は不要です）。" : "タスクが完了しました（proposal形式には従いませんでした）。",
+    );
+  }
+}
+
+// AGENT_OPTIONSのうち、Settingsで明示的にGemini CLIフォールバックを有効化した
+// エージェント種別だけがフォールバック対象になる（既定は全エージェントOFF）。
+function isGeminiFallbackEnabled(agentName: string): boolean {
+  return getRulesAndConstraints().geminiFallbackAgents.includes(agentName);
 }
 
 async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true): Promise<void> {
@@ -584,8 +595,31 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   const journalContext = await buildJournalContextBlock(rawPrompt);
   const prompt = await sanitizeForCloud(run, rawPrompt);
+  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext);
 
-  await new Promise<void>((resolve) => {
+  const claudeFailed = await runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult);
+
+  // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
+  // claude CLIの実行失敗・予算/レート制限のいずれでも（run.statusが"error"になっていれば）
+  // トリガーとする。フォールバックはこのエージェント種別で明示的に有効化されている場合のみ。
+  // Gemini CLIはセッション継続を持たないため、このターン単体（直前までの会話履歴なし）での
+  // 再試行になる——複数ターンの壁打ち途中で失敗した場合は文脈が失われる点は既知の制約。
+  if (claudeFailed && isGeminiFallbackEnabled(run.agentName)) {
+    appendLog(run, "system", "⚠️ claude CLIが利用できなかったため、Gemini CLIにこのターンをフォールバックします。");
+    await runGeminiCliAttempt(run, prompt, systemPrompt, allowConsult);
+  }
+
+  if (run.pendingConsult) {
+    const consult = run.pendingConsult;
+    run.pendingConsult = undefined;
+    await handleConsult(run, consult);
+  }
+}
+
+// 戻り値はこの試行が失敗した（run.statusが"error"で終わった）かどうか。
+// 相談待ち（pendingConsult）は失敗ではない。
+function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
     const args = [
       "-p",
       prompt,
@@ -597,7 +631,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
       "--max-budget-usd",
       PER_TURN_BUDGET_USD,
       "--append-system-prompt",
-      buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext),
+      systemPrompt,
     ];
     if (run.sessionId) {
       args.push("--resume", run.sessionId);
@@ -611,7 +645,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
     } catch (err) {
       run.status = "error";
       appendLog(run, "system", `起動エラー: ${(err as Error).message}`);
-      resolve();
+      resolve(true);
       return;
     }
     liveProcesses.set(run.id, child);
@@ -651,22 +685,78 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
         run.status = "error";
         appendLog(run, "system", `プロセスが結果を返さずに終了しました (exit code: ${code})`);
       }
-      resolve();
+      resolve(run.status === "error");
     });
 
     child.on("error", (err) => {
       liveProcesses.delete(run.id);
       run.status = "error";
       appendLog(run, "system", `起動エラー: ${err.message}`);
+      resolve(true);
+    });
+  });
+}
+
+// Gemini CLIでの単発フォールバック実行。stream-json形式（Claudeと同じ選択肢名だが
+// 実際のイベント構造は未検証のため使わない）ではなく、確実に扱える`-o text`の
+// プレーンテキスト出力を丸ごと最終応答として扱う。`--approval-mode plan`で
+// 読み取り専用（ツールによる変更を行わない）にし、claudeの`--tools ""`と同等の
+// 安全性を保つ。--append-system-prompt相当のフラグが無いため、システムプロンプトを
+// プロンプト本文の先頭に連結して渡す。
+function runGeminiCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
+    const args = ["-p", combinedPrompt, "-o", "text", "--approval-mode", "plan"];
+
+    appendLog(run, "meta", "Gemini CLIでこのターンを実行しています…");
+
+    let child;
+    try {
+      child = spawn("gemini", args, { stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err) {
+      run.status = "error";
+      appendLog(run, "system", `Gemini CLI起動エラー: ${(err as Error).message}`);
+      resolve();
+      return;
+    }
+    liveProcesses.set(run.id, child);
+
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    child.on("close", (code) => {
+      liveProcesses.delete(run.id);
+      const text = stdout.trim();
+      if (code !== 0 || !text) {
+        run.status = "error";
+        appendLog(
+          run,
+          "system",
+          `Gemini CLIも失敗しました (exit code: ${code})${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
+        );
+        resolve();
+        return;
+      }
+      const unmasked = unmaskNames(text);
+      appendLog(run, "agent", unmasked);
+      applyAssistantResultText(run, unmasked, allowConsult);
+      resolve();
+    });
+
+    child.on("error", (err) => {
+      liveProcesses.delete(run.id);
+      run.status = "error";
+      appendLog(run, "system", `Gemini CLI起動エラー: ${err.message}`);
       resolve();
     });
   });
-
-  if (run.pendingConsult) {
-    const consult = run.pendingConsult;
-    run.pendingConsult = undefined;
-    await handleConsult(run, consult);
-  }
 }
 
 // docs 3.3「階層型マルチエージェント」: Lead Agentからの相談を実際に専門エージェントへ
