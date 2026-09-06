@@ -79,6 +79,7 @@ export function ExecutionState({
   onFocusChat,
   deciding,
   stale,
+  onRetry,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -87,6 +88,7 @@ export function ExecutionState({
   onFocusChat: () => void;
   deciding: boolean;
   stale?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <>
@@ -166,7 +168,16 @@ export function ExecutionState({
         </p>
       )}
       {run.status === "active" && !stale && <p className={styles.subtitle}>エージェントが検討中です…</p>}
-      {run.status === "error" && <p className={styles.errorText}>エラーで終了しました。右のログを確認してください。</p>}
+      {run.status === "error" && (
+        <div>
+          <p className={styles.errorText}>エラーで終了しました。右のログを確認してください。</p>
+          {onRetry && (
+            <button className={styles.btnOutline} disabled={deciding} onClick={onRetry}>
+              {deciding ? "再試行中…" : "🔁 同じ内容で再試行する"}
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

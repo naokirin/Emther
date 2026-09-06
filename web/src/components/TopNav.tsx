@@ -6,6 +6,7 @@ import styles from "@/app/page.module.css";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
+  { href: "/chat", label: "何でも相談" },
   { href: "/issues", label: "Issue Workspace" },
   { href: "/org", label: "Organization Context" },
   { href: "/settings", label: "Settings" },

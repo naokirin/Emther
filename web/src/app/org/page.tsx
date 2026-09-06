@@ -87,6 +87,10 @@ export default function OrgContextPage() {
   const [teamMembers, setTeamMembers] = useState("");
   const [teamSubmitting, setTeamSubmitting] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkResult, setBulkResult] = useState<{ created: number; skipped: string[] } | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [showArchivedTeams, setShowArchivedTeams] = useState(false);
 
@@ -217,6 +221,30 @@ export default function OrgContextPage() {
     }
   }
 
+  async function handleBulkAddTeams(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bulkText.trim()) return;
+    setBulkSubmitting(true);
+    setBulkError(null);
+    setBulkResult(null);
+    try {
+      const res = await fetch("/api/teams/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: bulkText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "一括登録に失敗しました");
+      setBulkText("");
+      setBulkResult({ created: data.teams.length, skipped: data.skipped });
+      await refreshTeams();
+    } catch (err) {
+      setBulkError((err as Error).message);
+    } finally {
+      setBulkSubmitting(false);
+    }
+  }
+
   async function handleRemoveTeam(id: string) {
     try {
       await fetch(`/api/teams/${id}`, { method: "DELETE" });
@@ -254,6 +282,32 @@ export default function OrgContextPage() {
           </button>
         </form>
         {teamError && <p className={styles.errorText}>{teamError}</p>}
+
+        <details style={{ marginTop: 10 }}>
+          <summary style={{ cursor: "pointer", fontSize: 13 }}>複数チームを一括登録（初回投入用）</summary>
+          <form onSubmit={handleBulkAddTeams} style={{ marginTop: 8 }}>
+            <div className={styles.field}>
+              <label>1行1チーム、「チーム名: メンバー1, メンバー2」の形式で貼り付け</label>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                rows={5}
+                placeholder={"例:\nEngineering / Team A: Aさん, Bさん\nEngineering / Team B: Cさん\nDesign: Dさん, Eさん"}
+                style={{ width: "100%", fontFamily: "inherit", fontSize: 13 }}
+              />
+            </div>
+            <button className={styles.primaryBtn} type="submit" disabled={bulkSubmitting || !bulkText.trim()}>
+              {bulkSubmitting ? "登録中…" : "一括登録"}
+            </button>
+          </form>
+          {bulkError && <p className={styles.errorText}>{bulkError}</p>}
+          {bulkResult && (
+            <p className={styles.subtitle} style={{ marginTop: 6 }}>
+              {bulkResult.created}件のチームを作成しました。
+              {bulkResult.skipped.length > 0 && `（形式不正で${bulkResult.skipped.length}行をスキップ: ${bulkResult.skipped.join(" / ")}）`}
+            </p>
+          )}
+        </details>
 
         <div className={styles.tree} style={{ marginTop: 14 }}>
           <div className={styles.treeFolder}>📁 Strategy（MVV / OKR）</div>
