@@ -77,6 +77,7 @@ export type Issue = {
   charter: IssueCharter;
   actionItems: ActionItem[];
   parentId?: string;
+  archived: boolean;
   createdAt: number;
   updatedAt: number;
 };

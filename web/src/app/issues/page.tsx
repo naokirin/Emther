@@ -23,11 +23,14 @@ export default function IssuesPage() {
   const [issueHow, setIssueHow] = useState("");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
   // 子Issue（parentIdあり）は親の詳細画面（サブIssue欄）で見る形にし、
   // 一覧が親子入り混じって煩雑にならないようトップレベルだけを表示する。
-  const topLevelIssues = issues.filter((i) => !i.parentId);
+  // アーカイブ済みは既定で隠す（docs/memo.md TODO対応）。EMが明示的にトグルした場合のみ表示する。
+  const topLevelIssues = issues.filter((i) => !i.parentId && (showArchived || !i.archived));
+  const archivedCount = issues.filter((i) => !i.parentId && i.archived).length;
 
   async function handleCreateIssue(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +91,11 @@ export default function IssuesPage() {
         </button>
       </div>
 
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", margin: "8px 0" }}>
+        <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+        アーカイブ済みも表示する（{archivedCount}件）
+      </label>
+
       <div className={styles.runList} style={{ maxHeight: "none" }}>
         {topLevelIssues.length === 0 && <p className={styles.subtitle}>Issueはまだありません。</p>}
         {topLevelIssues.map((issue) => {
@@ -96,9 +104,19 @@ export default function IssuesPage() {
           const charterCount = charterFilledCount(issue.charter);
           const childCount = issues.filter((i) => i.parentId === issue.id).length;
           return (
-            <button key={issue.id} className={styles.runItem} onClick={() => router.push(`/issues/${issue.id}`)}>
+            <button
+              key={issue.id}
+              className={styles.runItem}
+              style={issue.archived ? { opacity: 0.6 } : undefined}
+              onClick={() => router.push(`/issues/${issue.id}`)}
+            >
               <div>
                 <strong>{issue.title}</strong> {linkedRun && <StatusBadge status={linkedRun.status} />}
+                {issue.archived && (
+                  <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                    🗄 アーカイブ済み
+                  </span>
+                )}
                 <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
                   {charterCount === 3 ? "✅" : "❓"} Why/What/How: {charterCount}/3
                 </span>

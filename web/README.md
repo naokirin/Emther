@@ -19,6 +19,8 @@
 - UIバグ修正 — `.field`内の`<input>`に幅指定が漏れており、Issue起票ダイアログのタイトル欄などが小さいデフォルト表示になっていた問題を修正
 - **3.8 動的Issue実行管理（分解の最小版）** — Issueの親子関係（1階層のみ、孫は禁止）。サブIssueへの分解と、既存Issueの上位Issue作成の両方に対応
 - 動的ロードの完成 — Organization Context（チーム名簿・MVV/OKR）、Issue charter、関連Journalエントリの3系統をAgent Runtimeの`--append-system-prompt`へ実際に注入し、それぞれ「そこにしかない事実」を実際に思い出せることを確認済み
+- Settings画面の新設 — Team Vitalsの判定閾値（Rules_and_Constraints）を、組織のMVVのような「不動の前提」とは別の「アプリの設定値」として`/org`から`/settings`へ分離
+- Issueのアーカイブ（`docs/memo.md`のTODO対応） — `/issues`は既定でアーカイブ済みを隠し、チェックボックスで表示切替。詳細画面からアーカイブ/解除できる
 
 ## できること
 
@@ -137,6 +139,16 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
   - 親になりうるIssue（子を持たない）は「＋ サブIssueを追加」ボタンで分解できる。既に子を持つIssueにはこのボタンだけ残り、子Issue自身（parentIdあり）にはサブIssueセクション自体を表示しない（＝孫は作れない）。
   - まだ親子どちらでもないIssueには「⬆ 上位Issueを作る」ボタンも表示し、後から大きな課題として括り直せるようにしている（子を持つと同時に消える）。
 - 実機検証: 親→子の作成、子への孫作成の拒否、子を持つIssueへの上位Issue作成の拒否、単独Issueへの上位Issue作成成功（元Issueが正しく`parentId`を持つこと）をすべてAPI経由で確認済み。
+
+### Issueのアーカイブ
+
+`docs/memo.md`のTODO「Issueのアーカイブなどができないのでできるようにする」への対応。
+
+- `Issue.archived: boolean` を追加（`web/src/lib/issue-store.ts`の`setIssueArchived`）。`POST /api/issues/[id]/archive`にbodyで`{ archived: true/false }`を渡すか、bodyなしで現在値をトグルする。
+- 親子関係のカスケードは行わない意図的な簡略化——親をアーカイブしても子は独立してアーカイブ状態を持つ。
+- Issue一覧（`/issues`）はトップレベルの未アーカイブIssueのみを既定表示し、「アーカイブ済みも表示する」チェックボックスで一時的に表示を切り替えられる（アーカイブ件数を横に表示）。表示中のアーカイブ済みIssueは行を薄く表示し、🗄バッジを付ける。
+- Issue詳細ページには「アーカイブする/アーカイブを解除」ボタンを設置。子Issue一覧の各行にも同様の🗄バッジを表示する（こちらは常時表示、親Issueの詳細内という狭い文脈なので絞り込みはしない）。
+- 実機検証: `POST /api/issues/[id]/archive`をbodyなし→`archived:true`、`{archived:false}`指定→`archived:false`と、両方のAPI呼び出しパターンで状態が正しく切り替わることを確認。
 
 ### 永続化
 

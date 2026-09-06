@@ -121,6 +121,23 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  const [archiving, setArchiving] = useState(false);
+
+  async function handleToggleArchived() {
+    if (!issue) return;
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: !issue.archived }),
+      });
+      if (res.ok) await refreshIssue();
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   const linkedRun: AgentRun | null = issue ? runs.find((r) => r.id === issue.agentRunId) ?? null : null;
 
   async function sendDecision(text: string) {
@@ -210,7 +227,15 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         <div>
           <h1>{issue.title}</h1>
           {linkedRun && <StatusBadge status={linkedRun.status} />}
+          {issue.archived && (
+            <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+              🗄 アーカイブ済み
+            </span>
+          )}
         </div>
+        <button className={styles.btnOutline} onClick={handleToggleArchived} disabled={archiving}>
+          {issue.archived ? "アーカイブを解除" : "アーカイブする"}
+        </button>
       </div>
 
       {decideError && <p className={styles.errorText}>{decideError}</p>}
@@ -241,9 +266,19 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 const childRun = runs.find((r) => r.id === child.agentRunId);
                 const childCharter = charterFilledCount(child.charter);
                 return (
-                  <button key={child.id} className={styles.runItem} onClick={() => router.push(`/issues/${child.id}`)}>
+                  <button
+                    key={child.id}
+                    className={styles.runItem}
+                    style={child.archived ? { opacity: 0.6 } : undefined}
+                    onClick={() => router.push(`/issues/${child.id}`)}
+                  >
                     <div>
                       <strong>{child.title}</strong> {childRun && <StatusBadge status={childRun.status} />}
+                      {child.archived && (
+                        <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                          🗄 アーカイブ済み
+                        </span>
+                      )}
                       <span className={childCharter === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
                         {childCharter === 3 ? "✅" : "❓"} {childCharter}/3
                       </span>
