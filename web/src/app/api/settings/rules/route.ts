@@ -25,6 +25,9 @@ export async function PATCH(request: Request) {
     agyFallbackAgents: Array.isArray(body?.agyFallbackAgents)
       ? body.agyFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
       : undefined,
+    cursorFallbackAgents: Array.isArray(body?.cursorFallbackAgents)
+      ? body.cursorFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
+      : undefined,
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);

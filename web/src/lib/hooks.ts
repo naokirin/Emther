@@ -127,6 +127,7 @@ export function useSettingsRules(intervalMs = 8000) {
       agentKillAfterSeconds: 600,
       journalFactTtlDays: 90,
       agyFallbackAgents: [],
+      cursorFallbackAgents: [],
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

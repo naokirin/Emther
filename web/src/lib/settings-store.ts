@@ -31,6 +31,11 @@ export type RulesAndConstraints = {
   // へのフォールバックを試みる。既定は空（全エージェントフォールバック無効）——
   // 挙動が変わるフォールバックはEMの明示的な opt-in を必須にする。
   agyFallbackAgents: string[];
+  // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
+  // claude→agyの順で試して依然として失敗している場合に限り、ここに含まれる
+  // エージェント名だけがCursor CLI（cursor-agent）へのフォールバックを試みる。
+  // 既定は空（全エージェントフォールバック無効）。
+  cursorFallbackAgents: string[];
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -45,6 +50,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
   agyFallbackAgents: [],
+  cursorFallbackAgents: [],
 };
 
 let rules: RulesAndConstraints = {
