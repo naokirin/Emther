@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useIssues, useJournal, useRuns, useVitals } from "@/lib/hooks";
-import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, type Issue } from "@/lib/types";
+import { useIssues, useJournal, useRuns, useSettingsRules, useVitals } from "@/lib/hooks";
+import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, isRunStale, type Issue } from "@/lib/types";
 
 const JOURNAL_PAGE_SIZE = 5;
 const INBOX_PAGE_SIZE = 5;
@@ -24,14 +24,15 @@ type NextAction = {
   onSelect: () => void;
 };
 
-// docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunの状態を代表値として見せる。
+// docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunを代表値として見せる。
 // そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
-function computeFleetStatus(agentName: string, runs: AgentRun[]): AgentStatus {
+function latestRunForAgent(agentName: string, runs: AgentRun[]): AgentRun | undefined {
   const relevant = runs.filter((r) => r.agentName === agentName);
-  if (relevant.length === 0) return "idle";
-  const latest = relevant.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
-  return latest.status;
+  if (relevant.length === 0) return undefined;
+  return relevant.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
 }
+
+const STALE_META = { icon: "❔", label: "応答なし（無応答）", cls: styles.stale };
 
 function issueNeedsCharter(issue: Issue): boolean {
   return !issue.parentId && !issue.archived && charterFilledCount(issue.charter) < 3;
@@ -43,6 +44,13 @@ export default function DashboardPage() {
   const { issues } = useIssues();
   const { vitals } = useVitals();
   const { journalEntries, setJournalEntries } = useJournal();
+  const { rules } = useSettingsRules();
+
+  // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
+  // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する。
+  const staleRunIds = new Set(
+    runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
+  );
 
   const [agentName, setAgentName] = useState(AGENT_OPTIONS[0]);
   const [task, setTask] = useState("");
@@ -131,7 +139,16 @@ export default function DashboardPage() {
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
-    if (run.status === "yield") {
+    if (staleRunIds.has(run.id)) {
+      const minutes = Math.round((Date.now() - run.updatedAt) / 60000);
+      nextActions.push({
+        id: `stale-${run.id}`,
+        severity: "urgent",
+        icon: "❔",
+        text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
+        onSelect: () => goToRunIssue(run),
+      });
+    } else if (run.status === "yield") {
       nextActions.push({
         id: `yield-${run.id}`,
         severity: "urgent",
@@ -220,8 +237,9 @@ export default function DashboardPage() {
 
       <div className={styles.fleetRow}>
         {AGENT_OPTIONS.map((name) => {
-          const status = computeFleetStatus(name, runs);
-          const meta = STATUS_META[status];
+          const latest = latestRunForAgent(name, runs);
+          const stale = latest ? staleRunIds.has(latest.id) : false;
+          const meta = stale ? STALE_META : STATUS_META[latest?.status ?? "idle"];
           return (
             <div key={name} className={`${styles.fleetBadge} ${meta.cls}`}>
               <strong>
@@ -381,7 +399,7 @@ export default function DashboardPage() {
             {inboxPagination.pageItems.map((run) => (
               <button key={run.id} className={styles.runItem} onClick={() => goToRunIssue(run)}>
                 <div>
-                  <strong>{run.agentName}</strong> <StatusBadge status={run.status} />
+                  <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
                   {run.consultedBy && (
                     <span className={styles.subtitle} style={{ marginLeft: 6 }}>
                       🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談

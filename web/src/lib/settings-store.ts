@@ -13,6 +13,13 @@ export type RulesAndConstraints = {
   coverageWindowDays: number;
   coverageGoodRatio: number;
   coverageWarnRatio: number;
+  // 「動いていると思ったら止まっていた」を防ぐための閾値（docs/memo.md TODO対応）。
+  // statusが"active"のままログ更新（updatedAt）がこの秒数以上無い場合は「応答なし」と
+  // みなしてEMに警告表示する（実プロセスは殺さない、あくまでシグナル）。
+  agentStaleAfterSeconds: number;
+  // 上記よりさらに長くログ更新が無い場合は、ハングした子プロセスとみなして
+  // 実際にkillし、"error"へ確定させる（ゾンビプロセス化を防ぐ自己修復）。
+  agentKillAfterSeconds: number;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -23,6 +30,8 @@ const DEFAULT_RULES: RulesAndConstraints = {
   coverageWindowDays: 30,
   coverageGoodRatio: 0.8,
   coverageWarnRatio: 0.4,
+  agentStaleAfterSeconds: 120,
+  agentKillAfterSeconds: 600,
 };
 
 let rules: RulesAndConstraints = {

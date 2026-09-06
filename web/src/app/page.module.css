@@ -227,6 +227,20 @@
   border-color: var(--red-border);
 }
 
+/* 「動いていると思ったら止まっていた」対策の表示。Team Vitalsの評価不能（.vital-unknown）と
+   同じ破線ストライプ言語を使い、「本当は不明である」ことを他の状態と混同させないようにする。 */
+.badge.stale {
+  background: repeating-linear-gradient(135deg, #f7f7f8, #f7f7f8 6px, #eef0f2 6px, #eef0f2 12px);
+  border: 1.5px dashed var(--gray-border);
+  color: var(--gray-fg);
+}
+
+.fleetBadge.stale {
+  background: repeating-linear-gradient(135deg, #f7f7f8, #f7f7f8 6px, #eef0f2 6px, #eef0f2 12px);
+  border: 1.5px dashed var(--gray-border);
+  color: var(--gray-fg);
+}
+
 .detailHeader {
   display: flex;
   justify-content: space-between;

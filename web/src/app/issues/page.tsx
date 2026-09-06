@@ -6,8 +6,8 @@ import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useIssues, useRuns } from "@/lib/hooks";
-import { charterFilledCount } from "@/lib/types";
+import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { charterFilledCount, isRunStale } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
 const RUNS_PAGE_SIZE = 5;
@@ -18,6 +18,10 @@ export default function IssuesPage() {
   const router = useRouter();
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
+  const { rules } = useSettingsRules();
+  const staleRunIds = new Set(
+    runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
+  );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
@@ -147,7 +151,8 @@ export default function IssuesPage() {
               onClick={() => router.push(`/issues/${issue.id}`)}
             >
               <div>
-                <strong>{issue.title}</strong> {linkedRun && <StatusBadge status={linkedRun.status} />}
+                <strong>{issue.title}</strong>{" "}
+                {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
                 {issue.archived && (
                   <span className={styles.subtitle} style={{ marginLeft: 6 }}>
                     🗄 アーカイブ済み
@@ -196,7 +201,7 @@ export default function IssuesPage() {
         {runsPagination.pageItems.map((run) => (
           <button key={run.id} className={styles.runItem} onClick={() => handlePromoteRun(run)}>
             <div>
-              <strong>{run.agentName}</strong> <StatusBadge status={run.status} />
+              <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
               {run.consultedBy && (
                 <span className={styles.subtitle} style={{ marginLeft: 6 }}>
                   🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談

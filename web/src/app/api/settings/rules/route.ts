@@ -19,6 +19,8 @@ export async function PATCH(request: Request) {
     coverageWindowDays: num(body?.coverageWindowDays),
     coverageGoodRatio: num(body?.coverageGoodRatio),
     coverageWarnRatio: num(body?.coverageWarnRatio),
+    agentStaleAfterSeconds: num(body?.agentStaleAfterSeconds),
+    agentKillAfterSeconds: num(body?.agentKillAfterSeconds),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);

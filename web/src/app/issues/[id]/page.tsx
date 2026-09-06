@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
-import { useIssue, useIssues, useRuns } from "@/lib/hooks";
-import { charterFilledCount } from "@/lib/types";
+import { useIssue, useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { charterFilledCount, isRunStale } from "@/lib/types";
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -15,6 +15,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const { issue, refreshIssue } = useIssue(id);
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
+  const { rules } = useSettingsRules();
+  const staleRunIds = new Set(
+    runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
+  );
 
   // 親子関係は1階層のみ。子（parentIdあり）は自分の子を持てないので
   // 「サブIssueを追加」は表示せず、「上位Issueを作る」も既に親を持つなら表示しない。
@@ -228,7 +232,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       <div className={styles.issueTitleRow}>
         <div>
           <h1>{issue.title}</h1>
-          {linkedRun && <StatusBadge status={linkedRun.status} />}
+          {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
           {issue.archived && (
             <span className={styles.subtitle} style={{ marginLeft: 6 }}>
               🗄 アーカイブ済み
@@ -275,7 +279,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                     onClick={() => router.push(`/issues/${child.id}`)}
                   >
                     <div>
-                      <strong>{child.title}</strong> {childRun && <StatusBadge status={childRun.status} />}
+                      <strong>{child.title}</strong> {childRun && <StatusBadge status={childRun.status} stale={staleRunIds.has(childRun.id)} />}
                       {child.archived && (
                         <span className={styles.subtitle} style={{ marginLeft: 6 }}>
                           🗄 アーカイブ済み
@@ -368,6 +372,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               onConfirmOption={handleConfirmOption}
               onFocusChat={handleFocusChat}
               deciding={deciding}
+              stale={staleRunIds.has(linkedRun.id)}
             />
           ) : (
             <p className={styles.subtitle}>Agent Runが紐づいていません。Dashboardでタスクを起票するか、Issue一覧から紐づけてください。</p>

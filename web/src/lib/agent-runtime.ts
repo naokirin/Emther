@@ -6,6 +6,7 @@ import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import { getRulesAndConstraints } from "@/lib/settings-store";
 import { teamDisplayName } from "@/lib/types";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
@@ -81,6 +82,48 @@ const runs = new Map<string, AgentRun>(persistedRuns.map((r) => [r.id, r]));
 function persistRuns(): void {
   saveJSON("agent-runs.json", Array.from(runs.values()));
 }
+
+// docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応の実体。
+// 生きている子プロセスをrun.idで引けるようにしておき、watchdog（下記）がハングした
+// プロセスを実際にkillできるようにする。プロセス自体はメモリ上にしか存在しないため
+// 永続化しない（サーバー再起動時は上のpersistedRuns変換で"error"に倒される）。
+const liveProcesses = new Map<string, ReturnType<typeof spawn>>();
+
+// "active"のままログ更新（updatedAt）が長時間無いrunを見つけ、ハングした子プロセスとして
+// 強制終了する自己修復の仕組み。「応答なしの表示」自体はクライアント側でisRunStale()を使い
+// 実プロセスをkillせずに警告するが、それよりさらに長い時間放置されたものはゾンビプロセス化を
+// 防ぐためここで実際に終了させる。killしても状態遷移は既存のchild.on("close")に任せる
+// （二重に状態を書き換えず、実際にプロセスが終了したタイミングで確定させるため）。
+const WATCHDOG_INTERVAL_MS = 30_000;
+
+function checkStaleRuns(): void {
+  const { agentKillAfterSeconds } = getRulesAndConstraints();
+  const thresholdMs = agentKillAfterSeconds * 1000;
+  const now = Date.now();
+  for (const run of runs.values()) {
+    if (run.status !== "active") continue;
+    if (now - run.updatedAt <= thresholdMs) continue;
+
+    const child = liveProcesses.get(run.id);
+    if (child) {
+      appendLog(run, "system", `⚠️ ${agentKillAfterSeconds}秒間ログの更新が無いため、応答なしとみなして強制終了します。`);
+      child.kill();
+      liveProcesses.delete(run.id);
+    } else {
+      // 子プロセスの参照を追跡できていないのに"active"のまま止まっている異常系への保険。
+      run.status = "error";
+      appendLog(run, "system", `⚠️ ${agentKillAfterSeconds}秒間ログの更新が無く、実行中のプロセスも追跡できないため、エラー扱いにしました。`);
+    }
+  }
+}
+
+let watchdogStarted = false;
+function ensureWatchdogStarted(): void {
+  if (watchdogStarted) return;
+  watchdogStarted = true;
+  setInterval(checkStaleRuns, WATCHDOG_INTERVAL_MS);
+}
+ensureWatchdogStarted();
 
 const PER_TURN_BUDGET_USD = "0.5";
 
@@ -419,6 +462,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
       resolve();
       return;
     }
+    liveProcesses.set(run.id, child);
 
     let buffer = "";
 
@@ -443,6 +487,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
     });
 
     child.on("close", (code) => {
+      liveProcesses.delete(run.id);
       if (buffer.trim()) {
         try {
           handleStreamEvent(run, JSON.parse(buffer), allowConsult);
@@ -458,6 +503,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
     });
 
     child.on("error", (err) => {
+      liveProcesses.delete(run.id);
       run.status = "error";
       appendLog(run, "system", `起動エラー: ${err.message}`);
       resolve();
