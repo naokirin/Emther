@@ -15,6 +15,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
   }
 
+  const tags = Array.isArray(body?.tags)
+    ? body.tags.filter((t: unknown): t is string => typeof t === "string")
+    : undefined;
+
   try {
     const issue = createIssue(
       title,
@@ -25,6 +29,7 @@ export async function POST(request: Request) {
         how: typeof body?.how === "string" ? body.how : undefined,
       },
       parentId,
+      tags,
     );
     return NextResponse.json({ issue }, { status: 201 });
   } catch (err) {

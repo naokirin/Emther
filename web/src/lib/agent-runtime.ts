@@ -126,12 +126,13 @@ function buildIssueContextBlock(runId: string): string {
   const issue = getIssueByRunId(runId);
   if (!issue) return "";
   const { why, what, how } = issue.charter;
-  if (!why && !what && !how) return "";
+  if (!why && !what && !how && issue.tags.length === 0) return "";
 
   const lines = ["このタスクが紐づくIssueの前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
   if (why) lines.push(`Why（生む価値・誰のため・なぜ今か）: ${why}`);
   if (what) lines.push(`What（何を・どこまで・どのくらい・完了の定義）: ${what}`);
   if (how) lines.push(`How（どのように実現するか・前提や制約）: ${how}`);
+  if (issue.tags.length > 0) lines.push(`タグ: ${issue.tags.join(", ")}`);
   return maskNames(lines.join("\n"));
 }
 
