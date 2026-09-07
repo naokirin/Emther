@@ -4,11 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
+import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useIssues, useJournal, useObjectives, useOrgStrategy, useRuns, useSettingsRules, useTeams, useVitals } from "@/lib/hooks";
-import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, isRunStale, type Issue, type JournalEntry } from "@/lib/types";
+import {
+  useIssues,
+  useJournal,
+  useJournalEditing,
+  useObjectives,
+  useOrgStrategy,
+  useRuns,
+  useSettingsRules,
+  useTeams,
+  useVitals,
+} from "@/lib/hooks";
+import { AGENT_OPTIONS, charterFilledCount, isRunStale, type Issue } from "@/lib/types";
 
-const JOURNAL_PAGE_SIZE = 5;
+const JOURNAL_DASHBOARD_LIMIT = 5;
 const INBOX_PAGE_SIZE = 5;
 const NEXT_ACTIONS_LIMIT = 6;
 // docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
@@ -113,50 +124,8 @@ export default function DashboardPage() {
 
   // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
   // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [editTags, setEditTags] = useState("");
-  const [editPeople, setEditPeople] = useState("");
-  const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
-  const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-
-  function startEditingJournalEntry(entry: JournalEntry) {
-    setEditingEntryId(entry.id);
-    setEditTags(entry.tags.join(", "));
-    setEditPeople(entry.people.join(", "));
-    setEditUrgency(entry.urgency);
-    setEditError(null);
-  }
-
-  function cancelEditingJournalEntry() {
-    setEditingEntryId(null);
-  }
-
-  async function handleConfirmJournalEdit(entryId: string) {
-    setEditSubmitting(true);
-    setEditError(null);
-    try {
-      const res = await fetch(`/api/journal/${entryId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
-          people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
-          urgency: editUrgency,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
-      // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
-      // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。
-      setJournalEntries(journalEntries.map((e) => (e.id === entryId ? data.entry : e)));
-      setEditingEntryId(null);
-    } catch (err) {
-      setEditError((err as Error).message);
-    } finally {
-      setEditSubmitting(false);
-    }
-  }
+  // ロジック自体はJournal一覧画面（/journal）と共有するため@/lib/hooksに切り出してある。
+  const journalEditing = useJournalEditing(journalEntries, setJournalEntries);
 
   // docs/memo.md「H: 永続化データモデルの設計」対応。Quick Journal（一時的なfact）とは
   // 別に、長期的な解釈（interpretation、TTLなし）を記録する口。「Aさんはリーダー志向がある」
@@ -246,7 +215,10 @@ export default function DashboardPage() {
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
   const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
   const filteredRuns = statusFilter ? runs.filter((r) => r.status === statusFilter) : runs;
-  const journalPagination = usePagination(journalEntries, JOURNAL_PAGE_SIZE);
+  // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
+  // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
+  // 直近5件だけを見せ、全件の検索・絞り込みは/journalに委ねる。
+  const recentJournalEntries = journalEntries.slice(0, JOURNAL_DASHBOARD_LIMIT);
   const inboxPagination = usePagination(filteredRuns, INBOX_PAGE_SIZE);
 
   async function handleJournalSubmit(e: React.FormEvent) {
@@ -266,7 +238,7 @@ export default function DashboardPage() {
       setJournalText("");
       // docs/memo.md「C. Journalセンシング→行動」対応。「AI抽出のまま組織の事実になる」ことを
       // 避けるため、Submit直後は必ず校正できる編集モードで開始する。
-      startEditingJournalEntry(data.entry);
+      journalEditing.startEditing(data.entry);
     } catch (err) {
       setJournalError((err as Error).message);
     } finally {
@@ -660,7 +632,12 @@ export default function DashboardPage() {
 
       <div className={styles.dashColumns}>
         <div className={styles.panel}>
-          <h2>Quick Journal (Hybrid Data Ingestion)</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ margin: 0 }}>Quick Journal (Hybrid Data Ingestion)</h2>
+            <button className={styles.btnOutline} onClick={() => router.push("/journal")}>
+              すべて見る・検索する →
+            </button>
+          </div>
           <form onSubmit={handleJournalSubmit}>
             <div className={styles.journalInputRow}>
               <input
@@ -681,84 +658,33 @@ export default function DashboardPage() {
           {journalError && <p className={styles.errorText}>{journalError}</p>}
 
           {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
-          {journalPagination.pageItems.map((entry) =>
-            editingEntryId === entry.id ? (
-              <div key={entry.id} className={styles.journalEntry}>
-                <div>{entry.rawText}</div>
-                <div className={styles.field} style={{ marginTop: 8 }}>
-                  <label>人物（カンマ区切り）</label>
-                  <input type="text" value={editPeople} onChange={(e) => setEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
-                </div>
-                <div className={styles.field}>
-                  <label>タグ（カンマ区切り）</label>
-                  <input type="text" value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="例: 1on1, 技術的負債" />
-                </div>
-                <div className={styles.field}>
-                  <label>Urgency</label>
-                  <select value={editUrgency} onChange={(e) => setEditUrgency(e.target.value as JournalEntry["urgency"])}>
-                    <option value="low">Low</option>
-                    <option value="mid">Mid</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    className={styles.primaryBtn}
-                    style={{ width: "auto" }}
-                    disabled={editSubmitting}
-                    onClick={() => handleConfirmJournalEdit(entry.id)}
-                  >
-                    {editSubmitting ? "確定中…" : "この内容で確定"}
-                  </button>
-                  <button className={styles.btnOutline} disabled={editSubmitting} onClick={cancelEditingJournalEntry}>
-                    キャンセル
-                  </button>
-                </div>
-                {editError && <p className={styles.errorText}>{editError}</p>}
-              </div>
-            ) : (
-              <div key={entry.id} className={styles.journalEntry}>
-                <div>{entry.rawText}</div>
-                <div className={styles.tagRow}>
-                  {entry.people.map((p) => (
-                    <button
-                      key={p}
-                      className={`${styles.tag} ${styles.tagPerson} ${styles.tagBtn}`}
-                      onClick={() => router.push(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
-                    >
-                      @{p}
-                    </button>
-                  ))}
-                  {entry.tags.map((t) => (
-                    <button
-                      key={t}
-                      className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-                      onClick={() => router.push(`/issues?tag=${encodeURIComponent(t)}`)}
-                    >
-                      #{t}
-                    </button>
-                  ))}
-                  {entry.sentiment !== "neutral" && (
-                    <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-                      #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-                    </span>
-                  )}
-                  <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
-                  <button className={styles.detailToggle} onClick={() => startEditingJournalEntry(entry)}>
-                    編集
-                  </button>
-                </div>
-              </div>
-            ),
+          {recentJournalEntries.map((entry) => (
+            <JournalEntryCard
+              key={entry.id}
+              entry={entry}
+              editing={journalEditing.editingEntryId === entry.id}
+              editTags={journalEditing.editTags}
+              editPeople={journalEditing.editPeople}
+              editUrgency={journalEditing.editUrgency}
+              editSubmitting={journalEditing.editSubmitting}
+              editError={journalEditing.editError}
+              onChangeEditTags={journalEditing.setEditTags}
+              onChangeEditPeople={journalEditing.setEditPeople}
+              onChangeEditUrgency={journalEditing.setEditUrgency}
+              onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
+              onCancelEdit={journalEditing.cancelEditing}
+              onStartEdit={() => journalEditing.startEditing(entry)}
+            />
+          ))}
+          {journalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
+            <p className={styles.subtitle} style={{ marginTop: -4, marginBottom: 12 }}>
+              他{journalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
+              <button className={styles.detailToggle} onClick={() => router.push("/journal")}>
+                Journal一覧
+              </button>
+              から確認できます。
+            </p>
           )}
-          <PaginationControls
-            page={journalPagination.page}
-            totalPages={journalPagination.totalPages}
-            total={journalPagination.total}
-            rangeStart={journalPagination.rangeStart}
-            rangeEnd={journalPagination.rangeEnd}
-            onChange={journalPagination.setPage}
-          />
 
           <h3 style={{ fontSize: 13, marginTop: 18, marginBottom: 4 }}>長期プロファイル（TTLなし）</h3>
           <p className={styles.subtitle} style={{ marginBottom: 8 }}>

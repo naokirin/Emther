@@ -319,3 +319,68 @@ export const TIMELINE_ENTITY_TYPE_LABEL: Record<TimelineEntityType, string> = {
   journal: "Journal",
   person: "Person",
 };
+
+// docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする
+// 機能を追加する」対応。サーバー側の実体（@/lib/report-store）とは意図的に型を分離している
+// （他のストアと同じ既存の慣習に合わせている）。
+export type ReportPeriodType = "week" | "month";
+
+export const REPORT_PERIOD_LABEL: Record<ReportPeriodType, string> = { week: "週次", month: "月次" };
+
+export type ReportJournalStats = {
+  total: number;
+  byUrgency: { low: number; mid: number; high: number };
+  bySentiment: { positive: number; negative: number; neutral: number };
+  topTags: { tag: string; count: number }[];
+  notableEntries: { id: string; summary: string; urgency: string; sentiment: string; occurredAt: number }[];
+};
+
+export type ReportIssueStats = {
+  createdCount: number;
+  archivedCount: number;
+  openIncompleteCount: number;
+  createdTitles: { id: string; title: string }[];
+  archivedTitles: { id: string; title: string }[];
+};
+
+export type ReportEventStats = {
+  total: number;
+  byEntityType: Partial<Record<TimelineEntityType, number>>;
+};
+
+export type ReportStats = {
+  journal: ReportJournalStats;
+  issues: ReportIssueStats;
+  events: ReportEventStats;
+};
+
+export type Report = {
+  id: string;
+  periodType: ReportPeriodType;
+  periodStart: number;
+  periodEnd: number;
+  generatedAt: number;
+  stats: ReportStats;
+  note: string;
+};
+
+// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
+// 入力・改善方針機能を作る」対応。
+export type EmCheckin = {
+  id: string;
+  mood: number;
+  energy: number;
+  stress: number;
+  note: string;
+  createdAt: number;
+};
+
+export type EmReflection = {
+  id: string;
+  periodStart: number;
+  periodEnd: number;
+  keep: string;
+  problem: string;
+  tryNext: string;
+  createdAt: number;
+};

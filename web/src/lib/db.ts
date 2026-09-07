@@ -133,4 +133,23 @@ function migrate(database: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_agent_run_logs_run_id ON agent_run_logs(run_id);
   `);
+
+  // docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする
+  // 機能を追加する。レポートを一過性とせず、蓄積して過去のものも参照できるようにする」対応。
+  // 生成のたびにその場で再計算するだけの画面にはせず、生成結果（stats_json）自体を
+  // スナップショットとして保存する。Issueのアーカイブ等、後から状態が変わるデータを
+  // 元に算出しているため、「生成した時点でEMに何が見えていたか」を再計算せず保持することを
+  // 優先している。noteはEMが後から追記できる所感欄（生成後に育つ唯一のフィールド）。
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      period_type TEXT NOT NULL,
+      period_start INTEGER NOT NULL,
+      period_end INTEGER NOT NULL,
+      generated_at INTEGER NOT NULL,
+      stats_json TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_period_end ON reports(period_end);
+  `);
 }

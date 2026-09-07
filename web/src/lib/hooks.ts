@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
 import type {
+  EmCheckin,
+  EmReflection,
   Issue,
   IssueImpact,
   JournalEntry,
@@ -12,6 +14,8 @@ import type {
   OrgVitals,
   PersonProfile,
   PersonSummary,
+  Report,
+  ReportPeriodType,
   RulesAndConstraints,
   Team,
   TimelineEntry,
@@ -102,6 +106,71 @@ export function useJournal(intervalMs = 5000) {
     journalEntries: data.entries,
     setJournalEntries: (entries: JournalEntry[]) => setData({ entries }),
     refreshJournal: refresh,
+  };
+}
+
+// docs/memo.md「C. Journalセンシング→行動」対応のその場編集ロジックを、Dashboardと
+// Journal一覧（TODO「Quick Journalをリスト確認・検索できる画面を追加する」）の両方で
+// 共有するための共通フック。同時に編集できるのは呼び出し側の画面ごとに1件のみ。
+export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntries: (entries: JournalEntry[]) => void) {
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editTags, setEditTags] = useState("");
+  const [editPeople, setEditPeople] = useState("");
+  const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function startEditing(entry: JournalEntry) {
+    setEditingEntryId(entry.id);
+    setEditTags(entry.tags.join(", "));
+    setEditPeople(entry.people.join(", "));
+    setEditUrgency(entry.urgency);
+    setEditError(null);
+  }
+
+  function cancelEditing() {
+    setEditingEntryId(null);
+  }
+
+  async function confirmEdit(entryId: string) {
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/journal/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+          people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
+          urgency: editUrgency,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
+      // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。
+      setJournalEntries(journalEntries.map((e) => (e.id === entryId ? data.entry : e)));
+      setEditingEntryId(null);
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  return {
+    editingEntryId,
+    editTags,
+    setEditTags,
+    editPeople,
+    setEditPeople,
+    editUrgency,
+    setEditUrgency,
+    editSubmitting,
+    editError,
+    startEditing,
+    cancelEditing,
+    confirmEdit,
   };
 }
 
@@ -199,4 +268,30 @@ export function useEntityHistory(entityType: "issue" | "team" | "org", entityId:
   const url = `/api/knowledge/events?entityType=${entityType}&entityId=${entityId ?? ""}`;
   const { data, refresh } = usePolling<{ events: KnowledgeEvent[] }>(url, { events: [] }, intervalMs, entityId !== null);
   return { history: data.events, refreshHistory: refresh };
+}
+
+// docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする」対応。
+export function useReports(periodType: ReportPeriodType | "" = "", intervalMs = 15000) {
+  const url = periodType ? `/api/reports?periodType=${periodType}` : "/api/reports";
+  const { data, setData, refresh } = usePolling<{ reports: Report[] }>(url, { reports: [] }, intervalMs);
+  return { reports: data.reports, setReports: (reports: Report[]) => setData({ reports }), refreshReports: refresh };
+}
+
+// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る」対応。
+export function useEmCheckins(intervalMs = 15000) {
+  const { data, setData, refresh } = usePolling<{ checkins: EmCheckin[] }>("/api/em-self/checkins", { checkins: [] }, intervalMs);
+  return { checkins: data.checkins, setCheckins: (checkins: EmCheckin[]) => setData({ checkins }), refreshCheckins: refresh };
+}
+
+export function useEmReflections(intervalMs = 15000) {
+  const { data, setData, refresh } = usePolling<{ reflections: EmReflection[] }>(
+    "/api/em-self/reflections",
+    { reflections: [] },
+    intervalMs,
+  );
+  return {
+    reflections: data.reflections,
+    setReflections: (reflections: EmReflection[]) => setData({ reflections }),
+    refreshReflections: refresh,
+  };
 }
