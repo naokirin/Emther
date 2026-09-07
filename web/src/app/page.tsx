@@ -471,14 +471,17 @@ export default function DashboardPage() {
       // 起動しないため、校正されないまま放置されると誰にも気づかれない恐れがある。
       // 未確認のままのhighエントリは、様子見にできる「観測不足」ではなく「判断待ち」
       // （校正するかどうかを決める）として明示的に残す。
+      // 改修依頼「/journalへ放り込むだけで、その先どうすればいいか分からない」対応。
+      // /journal?focus=<id>で該当エントリのページへ直接移動し、編集モードまで自動的に
+      // 開く（EMは内容を確認して「この内容で確定」を押すだけで完結する）。
       nextActions.push({
         id: `journal-unconfirmed-${entry.id}`,
         severity: "urgent",
         lane: "decision",
         icon: "📝",
         kindLabel: "Journal未確認",
-        text: `緊急度highのまま未確認です: ${(entry.summary || entry.rawText).slice(0, 40)}`,
-        onSelect: () => router.push("/journal"),
+        text: `内容を確認して確定してください（緊急度high・未確認）: ${(entry.summary || entry.rawText).slice(0, 36)}`,
+        onSelect: () => router.push(`/journal?focus=${entry.id}`),
       });
     }
   }
@@ -1074,13 +1077,18 @@ export default function DashboardPage() {
               editDate={journalEditing.editDate}
               editSubmitting={journalEditing.editSubmitting}
               editError={journalEditing.editError}
+              resolutionNoteDraft={journalEditing.resolutionNoteDraft}
               onChangeEditTags={journalEditing.setEditTags}
               onChangeEditPeople={journalEditing.setEditPeople}
               onChangeEditUrgency={journalEditing.setEditUrgency}
               onChangeEditDate={journalEditing.setEditDate}
+              onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}
               onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
               onCancelEdit={journalEditing.cancelEditing}
               onStartEdit={() => journalEditing.startEditing(entry)}
+              onResolveWithNote={() => journalEditing.resolveWithNote(entry.id)}
+              onResolveWithNewIssue={() => journalEditing.resolveWithNewIssue(entry)}
+              onClearResolution={() => journalEditing.clearResolution(entry.id)}
             />
           ))}
           {journalEntries.length > JOURNAL_DASHBOARD_LIMIT && (

@@ -19,6 +19,25 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
     }
   }
 
+  // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない」
+  // 対応。未指定（キー自体が無い）=変更しない、null=解除、文字列=設定、の3値。
+  const resolvedIssueId =
+    body?.resolvedIssueId === undefined
+      ? undefined
+      : body.resolvedIssueId === null
+        ? null
+        : typeof body.resolvedIssueId === "string"
+          ? body.resolvedIssueId
+          : undefined;
+  const resolutionNote =
+    body?.resolutionNote === undefined
+      ? undefined
+      : body.resolutionNote === null
+        ? null
+        : typeof body.resolutionNote === "string"
+          ? body.resolutionNote
+          : undefined;
+
   const entry = await updateJournalEntry(id, {
     tags: Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined,
     people: Array.isArray(body?.people)
@@ -26,6 +45,8 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
       : undefined,
     urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
     occurredAt,
+    resolvedIssueId,
+    resolutionNote,
   });
   if (!entry) {
     return NextResponse.json({ error: "not found" }, { status: 404 });

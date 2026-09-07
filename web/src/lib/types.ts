@@ -24,6 +24,11 @@ export type JournalEntry = {
   createdAt: number;
   // docs/em_human_story_and_ux.md P1-9対応。EMが一度でも校正（確認）操作を通したかどうか。
   confirmed: boolean;
+  // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは書き換えず、「今どこで管理
+  // されているか」を別軸で持たせる。
+  resolvedIssueId?: string;
+  resolvedIssueTitle?: string;
+  resolutionNote?: string;
 };
 
 // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。

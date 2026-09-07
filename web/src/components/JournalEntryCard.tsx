@@ -32,13 +32,18 @@ export function JournalEntryCard({
   editDate,
   editSubmitting,
   editError,
+  resolutionNoteDraft,
   onChangeEditTags,
   onChangeEditPeople,
   onChangeEditUrgency,
   onChangeEditDate,
+  onChangeResolutionNoteDraft,
   onConfirmEdit,
   onCancelEdit,
   onStartEdit,
+  onResolveWithNote,
+  onResolveWithNewIssue,
+  onClearResolution,
 }: {
   entry: JournalEntry;
   editing: boolean;
@@ -48,15 +53,26 @@ export function JournalEntryCard({
   editDate: string;
   editSubmitting: boolean;
   editError: string | null;
+  resolutionNoteDraft: string;
   onChangeEditTags: (value: string) => void;
   onChangeEditPeople: (value: string) => void;
   onChangeEditUrgency: (value: JournalEntry["urgency"]) => void;
   onChangeEditDate: (value: string) => void;
+  onChangeResolutionNoteDraft: (value: string) => void;
   onConfirmEdit: () => void;
   onCancelEdit: () => void;
   onStartEdit: () => void;
+  onResolveWithNote: () => void;
+  onResolveWithNewIssue: () => Promise<string | undefined>;
+  onClearResolution: () => void;
 }) {
   const router = useRouter();
+  const isResolved = !!(entry.resolvedIssueId || entry.resolutionNote);
+
+  async function handleCreateIssue() {
+    const issueId = await onResolveWithNewIssue();
+    if (issueId) router.push(`/issues/${issueId}`);
+  }
 
   if (editing) {
     return (
@@ -98,6 +114,55 @@ export function JournalEntryCard({
             キャンセル
           </button>
         </div>
+
+        {/* docs/em_human_story_and_ux.md 改修依頼対応。Urgencyは起きた出来事自体の
+            深刻さの記録として書き換えず、「今どこで管理されているか」を別途記録できる
+            ようにする。 */}
+        <div className={styles.field} style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+          <span className={styles.fieldCaption}>解決 / 追跡</span>
+          {isResolved ? (
+            <div>
+              <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
+                {entry.resolvedIssueId
+                  ? `✅ Issue「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です。`
+                  : `✅ メモを残して解決済みにしています: ${entry.resolutionNote}`}
+              </p>
+              <div style={{ display: "flex", gap: 6 }}>
+                {entry.resolvedIssueId && (
+                  <button className={styles.btnOutline} onClick={() => router.push(`/issues/${entry.resolvedIssueId}`)}>
+                    Issueを開く
+                  </button>
+                )}
+                <button className={styles.btnOutline} disabled={editSubmitting} onClick={onClearResolution}>
+                  解決を取り消す
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
+                Urgencyは記録のまま変えず、別枠でこの件をどう扱っているかを残せます。
+              </p>
+              <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCreateIssue} style={{ marginBottom: 8 }}>
+                Issueを起票してこの件を追跡する
+              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="text"
+                  aria-label="解決メモ"
+                  value={resolutionNoteDraft}
+                  onChange={(e) => onChangeResolutionNoteDraft(e.target.value)}
+                  placeholder="例: 本人と話して解消済み"
+                  style={{ flex: 1 }}
+                />
+                <button className={styles.btnOutline} disabled={editSubmitting} onClick={onResolveWithNote}>
+                  メモを残して解決にする
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {editError && (
           <p className={styles.errorText} role="alert">
             {editError}
@@ -138,6 +203,23 @@ export function JournalEntryCard({
           </span>
         )}
         <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
+        {/* docs/em_human_story_and_ux.md 改修依頼対応。urgencyは記録のまま変えないため、
+            「今どこで管理されているか」をurgencyバッジとは別に見せる。 */}
+        {entry.resolvedIssueId ? (
+          <button
+            className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn}`}
+            title={`Issue「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
+            onClick={() => router.push(`/issues/${entry.resolvedIssueId}`)}
+          >
+            ✅ Issueで追跡中
+          </button>
+        ) : (
+          entry.resolutionNote && (
+            <span className={`${styles.tag} ${styles.tagPos}`} title={entry.resolutionNote}>
+              ✅ 対応済み
+            </span>
+          )
+        )}
         {!entry.confirmed && (
           <span
             className={styles.subtitle}

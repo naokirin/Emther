@@ -124,12 +124,18 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // docs/em_human_story_and_ux.md 改修依頼「urgency:highのまま解決済みにできない」対応。
+  // Issueの起票・メモでの解決も、通常の確定と同じくその時点のtags/people/urgency/日付の
+  // 編集内容を一緒に反映する（別のフォームとして分離すると二度手間になるため）。
+  const [resolutionNoteDraft, setResolutionNoteDraft] = useState("");
+
   function startEditing(entry: JournalEntry) {
     setEditingEntryId(entry.id);
     setEditTags(entry.tags.join(", "));
     setEditPeople(entry.people.join(", "));
     setEditUrgency(entry.urgency);
     setEditDate(timestampToDateInputValue(entry.createdAt));
+    setResolutionNoteDraft(entry.resolutionNote ?? "");
     setEditError(null);
   }
 
@@ -137,31 +143,91 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     setEditingEntryId(null);
   }
 
-  async function confirmEdit(entryId: string) {
+  function currentEditPatch() {
+    return {
+      tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+      people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
+      urgency: editUrgency,
+      occurredAtDate: editDate || undefined,
+    };
+  }
+
+  async function patchEntry(entryId: string, extra: Record<string, unknown> = {}) {
     setEditSubmitting(true);
     setEditError(null);
     try {
       const res = await fetch(`/api/journal/${entryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
-          people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
-          urgency: editUrgency,
-          occurredAtDate: editDate || undefined,
-        }),
+        body: JSON.stringify({ ...currentEditPatch(), ...extra }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
       // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。
       setJournalEntries(journalEntries.map((e) => (e.id === entryId ? data.entry : e)));
-      setEditingEntryId(null);
+      return data.entry as JournalEntry;
     } catch (err) {
       setEditError((err as Error).message);
+      return undefined;
     } finally {
       setEditSubmitting(false);
     }
+  }
+
+  async function confirmEdit(entryId: string) {
+    const entry = await patchEntry(entryId);
+    if (entry) setEditingEntryId(null);
+  }
+
+  // 「メモを残して解決にする」: Issue化するほどではないが、この件はもう追いかけなくてよい、
+  // という判断をJournal自体に記録する。urgencyは書き換えない（起きた出来事の深刻さの記録は
+  // そのまま残す）。
+  async function resolveWithNote(entryId: string) {
+    const note = resolutionNoteDraft.trim();
+    if (!note) {
+      setEditError("解決メモを入力してください");
+      return;
+    }
+    const entry = await patchEntry(entryId, { resolutionNote: note });
+    if (entry) setEditingEntryId(null);
+  }
+
+  // 「Issueを起票してこの件を追跡する」: 新規Issueを作成し、そのIssueへ紐付ける。
+  // 既存のPOST /api/issuesを1回叩くだけで、新しい起票経路は増やさない。作成後の
+  // Why/What/Howの深掘りはIssue Workspace側で行う想定のため、ここでは呼び出し元が
+  // 新しいIssueのidへ遷移できるよう返す。
+  async function resolveWithNewIssue(entry: JournalEntry): Promise<string | undefined> {
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const issueRes = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: (entry.summary || entry.rawText).slice(0, 60),
+          why: entry.rawText,
+          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+        }),
+      });
+      const issueData = await issueRes.json();
+      if (!issueRes.ok) throw new Error(issueData.error ?? "Issueの起票に失敗しました");
+
+      const updated = await patchEntry(entry.id, { resolvedIssueId: issueData.issue.id });
+      if (!updated) return undefined;
+      setEditingEntryId(null);
+      return issueData.issue.id as string;
+    } catch (err) {
+      setEditError((err as Error).message);
+      return undefined;
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  // 解決状態の取り消し（誤ってIssue化/メモした場合の巻き戻し）。
+  async function clearResolution(entryId: string) {
+    await patchEntry(entryId, { resolvedIssueId: null, resolutionNote: null });
   }
 
   return {
@@ -179,6 +245,11 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     startEditing,
     cancelEditing,
     confirmEdit,
+    resolutionNoteDraft,
+    setResolutionNoteDraft,
+    resolveWithNote,
+    resolveWithNewIssue,
+    clearResolution,
   };
 }
 

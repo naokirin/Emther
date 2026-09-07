@@ -79,6 +79,16 @@ function migrate(database: DatabaseSync): void {
   // （Issue/Teamの変更履歴等）はNULLのままでよい。
   addColumnIfMissing(database, "knowledge_events", "embedding_json", "TEXT");
 
+  // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない
+  // （Issueを立てても表示上ずっと未対応に見える）」対応。urgencyは「起きた出来事自体の
+  // 深刻さ」を表す記録であり、後から書き換えるべきではないため、別軸として「この件は
+  // 今どこで管理されているか」を持たせる。resolved_issue_idはIssue化した場合の紐付け、
+  // resolution_noteはIssue化せずメモだけで解決とする場合の自由記述（他の自由記述と同じく
+  // 保存前にmaskForStorageを通す）。他のJournal編集項目と同様、supersedesチェーンで
+  // 引き継がれる。
+  addColumnIfMissing(database, "knowledge_events", "resolved_issue_id", "TEXT");
+  addColumnIfMissing(database, "knowledge_events", "resolution_note", "TEXT");
+
   // Agent Runは「run単位のメタデータ（低頻度更新）」と「ログ行（高頻度追記）」を分けることで、
   // 従来のように標準出力1行ごとに全run・全ログを含むJSONファイル全体を書き直す必要をなくす。
   database.exec(`
