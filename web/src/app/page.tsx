@@ -940,7 +940,7 @@ export default function DashboardPage() {
 
       <div className={styles.dashColumns}>
         <div className={styles.panel}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className={styles.detailHeader} style={{ alignItems: "center" }}>
             <h2 style={{ margin: 0 }}>
               メモする{" "}
               <span

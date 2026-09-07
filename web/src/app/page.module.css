@@ -532,8 +532,11 @@
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 10px;
-  /* docs/dashboard_ui_readability.md U1-1対応。本文として読ませる部分は14pxへ広げる。 */
-  font-size: 0.875rem;
+  /* docs/dashboard_ui_readability.md U1-1対応。本文として読ませる部分は1rem（16px）へ。
+     タグ（0.75rem・下記.tag）とのサイズ差をはっきり付け、本文とラベルの区切りを
+     フォントサイズだけに頼らせない（WCAG px→rem対応でタグ側の最小サイズを11pxから
+     12pxへ引き上げた結果、差が縮まって区切りが分かりにくくなっていた分の補正）。 */
+  font-size: 1rem;
 }
 
 .tagRow {
@@ -547,6 +550,8 @@
 .tag {
   display: inline-block;
   font-size: 0.75rem;
+  /* 本文との区切りをサイズだけに頼らないよう、太さでも「ラベル」であることを示す。 */
+  font-weight: 600;
   padding: 2px 9px;
   border-radius: 12px;
 }
