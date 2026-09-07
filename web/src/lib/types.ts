@@ -377,12 +377,14 @@ export type EmCheckin = {
   createdAt: number;
 };
 
-export type EmReflection = {
+// 改修依頼「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
+// 仕組みに」対応。1件＝Keep/Problem/Tryのいずれか1つの気づきメモ。週単位の集計は
+// 表示側（growth/page.tsx）でcreatedAtからグルーピングする。
+export type ReflectionNoteType = "keep" | "problem" | "try";
+
+export type EmReflectionNote = {
   id: string;
-  periodStart: number;
-  periodEnd: number;
-  keep: string;
-  problem: string;
-  tryNext: string;
+  type: ReflectionNoteType;
+  text: string;
   createdAt: number;
 };

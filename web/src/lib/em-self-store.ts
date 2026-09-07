@@ -19,25 +19,30 @@ export type EmCheckin = {
   createdAt: number;
 };
 
-export type EmReflection = {
+// 改修依頼「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
+// 仕組みに」対応。以前はKeep/Problem/Tryを3つとも一度に書いて「週の振り返り」を
+// 1件記録する形だった（＝週次でまとめて時間を取る前提）が、スキマ時間に1つずつ
+// 気づきをメモしておき、週単位はあくまで「後から眺める集計軸」にする方が書く負担が
+// 小さい。そのため「1回の投稿＝1件のKeep/Problem/Tryメモ」というイベント単位の
+// モデルに変更し、週ごとのグルーピングは表示側（growth/page.tsx）で行う。
+export type ReflectionNoteType = "keep" | "problem" | "try";
+
+export type EmReflectionNote = {
   id: string;
-  periodStart: number;
-  periodEnd: number;
-  keep: string;
-  problem: string;
-  tryNext: string;
+  type: ReflectionNoteType;
+  text: string;
   createdAt: number;
 };
 
 const checkins: EmCheckin[] = loadJSON<EmCheckin[]>("em-checkins.json", []);
-const reflections: EmReflection[] = loadJSON<EmReflection[]>("em-reflections.json", []);
+const reflectionNotes: EmReflectionNote[] = loadJSON<EmReflectionNote[]>("em-reflection-notes.json", []);
 
 function persistCheckins(): void {
   saveJSON("em-checkins.json", checkins);
 }
 
-function persistReflections(): void {
-  saveJSON("em-reflections.json", reflections);
+function persistReflectionNotes(): void {
+  saveJSON("em-reflection-notes.json", reflectionNotes);
 }
 
 function clampScale(v: number): number {
@@ -51,13 +56,8 @@ export function toCheckinView(c: EmCheckin): EmCheckin {
   return { ...c, note: unmaskNames(c.note) };
 }
 
-export function toReflectionView(r: EmReflection): EmReflection {
-  return {
-    ...r,
-    keep: unmaskNames(r.keep),
-    problem: unmaskNames(r.problem),
-    tryNext: unmaskNames(r.tryNext),
-  };
+export function toReflectionNoteView(n: EmReflectionNote): EmReflectionNote {
+  return { ...n, text: unmaskNames(n.text) };
 }
 
 export function listCheckins(): EmCheckin[] {
@@ -78,27 +78,18 @@ export async function addCheckin(input: { mood: number; energy: number; stress: 
   return checkin;
 }
 
-export function listReflections(): EmReflection[] {
-  return [...reflections].sort((a, b) => b.periodEnd - a.periodEnd);
+export function listReflectionNotes(): EmReflectionNote[] {
+  return [...reflectionNotes].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function addReflection(input: {
-  periodStart: number;
-  periodEnd: number;
-  keep: string;
-  problem: string;
-  tryNext: string;
-}): Promise<EmReflection> {
-  const reflection: EmReflection = {
+export async function addReflectionNote(input: { type: ReflectionNoteType; text: string }): Promise<EmReflectionNote> {
+  const note: EmReflectionNote = {
     id: randomUUID(),
-    periodStart: input.periodStart,
-    periodEnd: input.periodEnd,
-    keep: input.keep.trim() ? await maskForStorage(input.keep.trim()) : "",
-    problem: input.problem.trim() ? await maskForStorage(input.problem.trim()) : "",
-    tryNext: input.tryNext.trim() ? await maskForStorage(input.tryNext.trim()) : "",
+    type: input.type,
+    text: await maskForStorage(input.text.trim()),
     createdAt: Date.now(),
   };
-  reflections.push(reflection);
-  persistReflections();
-  return reflection;
+  reflectionNotes.push(note);
+  persistReflectionNotes();
+  return note;
 }

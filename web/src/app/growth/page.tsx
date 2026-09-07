@@ -3,11 +3,19 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useEmCheckins, useEmReflections } from "@/lib/hooks";
+import { useEmCheckins, useReflectionNotes } from "@/lib/hooks";
+import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
 
 const SCALE_OPTIONS = [1, 2, 3, 4, 5];
 const CHECKIN_PAGE_SIZE = 10;
-const REFLECTION_PAGE_SIZE = 5;
+const WEEK_GROUP_PAGE_SIZE = 4;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const NOTE_TYPE_LABEL: Record<ReflectionNoteType, string> = {
+  keep: "👍 Keep（続けたいこと）",
+  problem: "⚠️ Problem（気になること）",
+  try: "🔧 Try（次にやってみたいこと）",
+};
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -18,13 +26,45 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
 
+// 改修依頼「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
+// 仕組みに」対応。週の起点を月曜0時にそろえ、その週に書かれたメモをまとめて1つの
+// グループとして表示する（週次で「ガッツリ書く」のではなく、後から眺めるための集計軸）。
+function startOfWeek(ts: number): number {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diffToMonday);
+  return d.getTime();
+}
+
+type WeekGroup = {
+  weekStart: number;
+  weekEnd: number;
+  notesByType: Record<ReflectionNoteType, EmReflectionNote[]>;
+};
+
+function groupNotesByWeek(notes: EmReflectionNote[]): WeekGroup[] {
+  const groups = new Map<number, WeekGroup>();
+  for (const note of notes) {
+    const weekStart = startOfWeek(note.createdAt);
+    let group = groups.get(weekStart);
+    if (!group) {
+      group = { weekStart, weekEnd: weekStart + 6 * DAY_MS, notesByType: { keep: [], problem: [], try: [] } };
+      groups.set(weekStart, group);
+    }
+    group.notesByType[note.type].push(note);
+  }
+  return [...groups.values()].sort((a, b) => b.weekStart - a.weekStart);
+}
+
 // docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
 // 入力・改善方針機能を作る」対応。Team Vitalsは「感覚」で埋めず観測から機械的に算出する方針だが、
 // これはEM自身についての自己申告であり、本人の申告そのものが根拠になるため、良好/要注意といった
 // アルゴリズム判定は行わず、数値と履歴をそのまま見せる。
 export default function GrowthPage() {
   const { checkins, setCheckins } = useEmCheckins();
-  const { reflections, setReflections } = useEmReflections();
+  const { notes, setNotes } = useReflectionNotes();
 
   const [mood, setMood] = useState(3);
   const [energy, setEnergy] = useState(3);
@@ -33,20 +73,20 @@ export default function GrowthPage() {
   const [checkinSubmitting, setCheckinSubmitting] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
 
-  const [keep, setKeep] = useState("");
-  const [problem, setProblem] = useState("");
-  const [tryNext, setTryNext] = useState("");
-  const [reflectionSubmitting, setReflectionSubmitting] = useState(false);
-  const [reflectionError, setReflectionError] = useState<string | null>(null);
+  const [noteType, setNoteType] = useState<ReflectionNoteType>("keep");
+  const [noteText, setNoteText] = useState("");
+  const [noteSubmitting, setNoteSubmitting] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
-  const latestReflection = reflections[0];
+  const latestTryNote = notes.find((n) => n.type === "try");
   const recentCheckins = checkins.slice(0, 7);
   const avgMood = average(recentCheckins.map((c) => c.mood));
   const avgEnergy = average(recentCheckins.map((c) => c.energy));
   const avgStress = average(recentCheckins.map((c) => c.stress));
 
   const checkinPagination = usePagination(checkins, CHECKIN_PAGE_SIZE);
-  const reflectionPagination = usePagination(reflections, REFLECTION_PAGE_SIZE);
+  const weekGroups = groupNotesByWeek(notes);
+  const weekGroupPagination = usePagination(weekGroups, WEEK_GROUP_PAGE_SIZE);
 
   async function handleCheckinSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,48 +109,44 @@ export default function GrowthPage() {
     }
   }
 
-  async function handleReflectionSubmit(e: React.FormEvent) {
+  // 改修依頼対応。1回の送信＝1件のメモ。typeは直前の選択を保ったままにする
+  // （同じ種類のメモを立て続けに書きたい場面が多いため、毎回選び直させない）。
+  async function handleNoteSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!keep.trim() && !problem.trim() && !tryNext.trim()) return;
-    setReflectionSubmitting(true);
-    setReflectionError(null);
+    if (!noteText.trim()) return;
+    setNoteSubmitting(true);
+    setNoteError(null);
     try {
-      const periodEnd = Date.now();
-      const periodStart = periodEnd - 7 * 24 * 60 * 60 * 1000;
-      const res = await fetch("/api/em-self/reflections", {
+      const res = await fetch("/api/em-self/reflection-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodStart, periodEnd, keep, problem, tryNext }),
+        body: JSON.stringify({ type: noteType, text: noteText }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
-      setReflections([data.reflection, ...reflections]);
-      setKeep("");
-      setProblem("");
-      setTryNext("");
+      setNotes([data.note, ...notes]);
+      setNoteText("");
     } catch (err) {
-      setReflectionError((err as Error).message);
+      setNoteError((err as Error).message);
     } finally {
-      setReflectionSubmitting(false);
+      setNoteSubmitting(false);
     }
   }
 
   return (
     <div className={styles.screen}>
       <p className={styles.subtitle} style={{ margin: "-8px 0 12px" }}>
-        🗓 週次の儀式でOK。毎日のチェックインは必須ではありません。
+        🗓 チェックインは週次の儀式でOK。毎日は必須ではありません。下の気づきメモはその逆で、思いついたスキマ時間にひとことずつどうぞ。
       </p>
       <div className={styles.panel}>
         <h2>現在の改善方針</h2>
-        {latestReflection && latestReflection.tryNext ? (
+        {latestTryNote ? (
           <>
-            <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "4px 0" }}>{latestReflection.tryNext}</p>
-            <p className={styles.subtitle}>
-              {formatDate(latestReflection.periodStart)} 〜 {formatDate(latestReflection.periodEnd)} の振り返り（Try）より
-            </p>
+            <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "4px 0" }}>{latestTryNote.text}</p>
+            <p className={styles.subtitle}>{formatDate(latestTryNote.createdAt)}のTryメモより</p>
           </>
         ) : (
-          <p className={styles.subtitle}>まだ振り返りが記録されていません。下のフォームから今週の振り返りを記録してみましょう。</p>
+          <p className={styles.subtitle}>まだTryメモが記録されていません。気づいた時に下のフォームからメモしておきましょう。</p>
         )}
       </div>
 
@@ -122,44 +158,56 @@ export default function GrowthPage() {
           </p>
           <form onSubmit={handleCheckinSubmit}>
             <div className={styles.field}>
-              <label>気分（1: 悪い 〜 5: 良い）
-              <select value={mood} onChange={(e) => setMood(Number(e.target.value))}>
-                {SCALE_OPTIONS.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select></label>
+              <label>
+                気分（1: 悪い 〜 5: 良い）
+                <select value={mood} onChange={(e) => setMood(Number(e.target.value))}>
+                  {SCALE_OPTIONS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className={styles.field}>
-              <label>エネルギー（1: 低い 〜 5: 高い）
-              <select value={energy} onChange={(e) => setEnergy(Number(e.target.value))}>
-                {SCALE_OPTIONS.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select></label>
+              <label>
+                エネルギー（1: 低い 〜 5: 高い）
+                <select value={energy} onChange={(e) => setEnergy(Number(e.target.value))}>
+                  {SCALE_OPTIONS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className={styles.field}>
-              <label>ストレス（1: 低い 〜 5: 高い）
-              <select value={stress} onChange={(e) => setStress(Number(e.target.value))}>
-                {SCALE_OPTIONS.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select></label>
+              <label>
+                ストレス（1: 低い 〜 5: 高い）
+                <select value={stress} onChange={(e) => setStress(Number(e.target.value))}>
+                  {SCALE_OPTIONS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className={styles.field}>
-              <label>メモ（任意）
-              <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例: 大きめの障害対応が続いて疲労気味" /></label>
+              <label>
+                メモ（任意）
+                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例: 大きめの障害対応が続いて疲労気味" />
+              </label>
             </div>
             <button className={styles.primaryBtn} type="submit" disabled={checkinSubmitting}>
               {checkinSubmitting ? "記録中…" : "記録する"}
             </button>
           </form>
-          {checkinError && <p className={styles.errorText} role="alert">{checkinError}</p>}
+          {checkinError && (
+            <p className={styles.errorText} role="alert">
+              {checkinError}
+            </p>
+          )}
 
           {recentCheckins.length > 0 && (
             <p className={styles.subtitle} style={{ marginTop: 10 }}>
@@ -192,75 +240,71 @@ export default function GrowthPage() {
         </div>
 
         <div className={styles.panel}>
-          <h2>週次振り返り（KPT）</h2>
+          <h2>振り返り（Keep / Problem / Try）</h2>
           <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            Keep（続けたいこと）・Problem（課題）・Try（次の改善方針）で振り返りを記録します。直近7日間を対象期間として保存されます。
+            思いついた時にひとことメモしておけば、週ごとに自動でまとまります。「今週の振り返り」をまとめて書く必要はありません。
           </p>
-          <form onSubmit={handleReflectionSubmit}>
+          <form onSubmit={handleNoteSubmit}>
             <div className={styles.field}>
-              <label>Keep（続けたいこと・うまくいったこと）
-              <textarea rows={2} value={keep} onChange={(e) => setKeep(e.target.value)} placeholder="例: 週次の1on1を全員分実施できた" /></label>
+              <label>
+                種類
+                <select value={noteType} onChange={(e) => setNoteType(e.target.value as ReflectionNoteType)}>
+                  <option value="keep">{NOTE_TYPE_LABEL.keep}</option>
+                  <option value="problem">{NOTE_TYPE_LABEL.problem}</option>
+                  <option value="try">{NOTE_TYPE_LABEL.try}</option>
+                </select>
+              </label>
             </div>
-            <div className={styles.field}>
-              <label>Problem（課題・気になったこと）
-              <textarea
-                rows={2}
-                value={problem}
-                onChange={(e) => setProblem(e.target.value)}
-                placeholder="例: 割り込み対応が多く、計画的な仕事に時間を割けなかった"
-              /></label>
+            <div className={styles.journalInputRow}>
+              <input
+                type="text"
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="例: 割り込み対応が多くて計画的な仕事に時間を割けなかった"
+              />
+              <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={noteSubmitting || !noteText.trim()}>
+                {noteSubmitting ? "記録中…" : "記録する"}
+              </button>
             </div>
-            <div className={styles.field}>
-              <label>Try（次の改善方針）
-              <textarea
-                rows={2}
-                value={tryNext}
-                onChange={(e) => setTryNext(e.target.value)}
-                placeholder="例: 割り込み対応の受付時間を決めて、それ以外は集中時間にする"
-              /></label>
-            </div>
-            <button
-              className={styles.primaryBtn}
-              type="submit"
-              disabled={reflectionSubmitting || (!keep.trim() && !problem.trim() && !tryNext.trim())}
-            >
-              {reflectionSubmitting ? "記録中…" : "この内容で記録"}
-            </button>
           </form>
-          {reflectionError && <p className={styles.errorText} role="alert">{reflectionError}</p>}
+          {noteError && (
+            <p className={styles.errorText} role="alert">
+              {noteError}
+            </p>
+          )}
 
           <div className={styles.runList} style={{ marginTop: 12 }}>
-            {reflections.length === 0 && <p className={styles.subtitle}>まだ振り返りがありません。</p>}
-            {reflectionPagination.pageItems.map((r) => (
-              <div key={r.id} className={styles.journalEntry}>
+            {weekGroups.length === 0 && <p className={styles.subtitle}>まだ気づきメモがありません。</p>}
+            {weekGroupPagination.pageItems.map((g) => (
+              <div key={g.weekStart} className={styles.journalEntry}>
                 <div className={styles.subtitle}>
-                  {formatDate(r.periodStart)} 〜 {formatDate(r.periodEnd)}
+                  {formatDate(g.weekStart)} 〜 {formatDate(g.weekEnd)}
                 </div>
-                {r.keep && (
-                  <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>
-                    <strong>Keep:</strong> {r.keep}
-                  </div>
-                )}
-                {r.problem && (
-                  <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>
-                    <strong>Problem:</strong> {r.problem}
-                  </div>
-                )}
-                {r.tryNext && (
-                  <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>
-                    <strong>Try:</strong> {r.tryNext}
-                  </div>
+                {(["keep", "problem", "try"] as const).map(
+                  (type) =>
+                    g.notesByType[type].length > 0 && (
+                      <div key={type} style={{ marginTop: 6 }}>
+                        <strong style={{ fontSize: "0.8125rem" }}>{NOTE_TYPE_LABEL[type]}</strong>
+                        <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
+                          {g.notesByType[type].map((n) => (
+                            <li key={n.id} style={{ fontSize: "0.8125rem" }}>
+                              {n.text}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ),
                 )}
               </div>
             ))}
           </div>
           <PaginationControls
-            page={reflectionPagination.page}
-            totalPages={reflectionPagination.totalPages}
-            total={reflectionPagination.total}
-            rangeStart={reflectionPagination.rangeStart}
-            rangeEnd={reflectionPagination.rangeEnd}
-            onChange={reflectionPagination.setPage}
+            page={weekGroupPagination.page}
+            totalPages={weekGroupPagination.totalPages}
+            total={weekGroupPagination.total}
+            rangeStart={weekGroupPagination.rangeStart}
+            rangeEnd={weekGroupPagination.rangeEnd}
+            onChange={weekGroupPagination.setPage}
           />
         </div>
       </div>
