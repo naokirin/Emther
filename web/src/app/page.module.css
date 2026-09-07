@@ -594,7 +594,7 @@
   display: inline-block;
   /* 本文（.journalEntry, 1rem）よりほんの少し小さくする程度に留める。区切りの主役は
      色・枠線・太さで、サイズ差は補助的な合図にする（大きく離しすぎない）。 */
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   /* WCAG 2.2 2.5.8 Target Size対応。クリック可能な@人物・#トピックタグ（.tagBtn）が
      24x24px未満にならないよう、上下の余白を確保する。 */
