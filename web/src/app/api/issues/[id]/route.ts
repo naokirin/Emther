@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getIssue, setIssueKeyResult, setIssueTags, setIssueTeam, toIssueView, updateIssueCharter } from "@/lib/issue-store";
+import { getIssue, setIssueKeyResult, setIssueTags, setIssueTeam, setIssueTitle, toIssueView, updateIssueCharter } from "@/lib/issue-store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]">) {
   const { id } = await ctx.params;
@@ -14,6 +14,11 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
 
+  // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
+  if (typeof body?.title === "string" && !body.title.trim()) {
+    return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
+  }
+
   let issue = await updateIssueCharter(id, {
     why: typeof body?.why === "string" ? body.why : undefined,
     what: typeof body?.what === "string" ? body.what : undefined,
@@ -21,6 +26,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   });
   if (!issue) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  if (typeof body?.title === "string" && body.title.trim()) {
+    issue = (await setIssueTitle(id, body.title)) ?? issue;
   }
   if (Array.isArray(body?.tags)) {
     const tags = body.tags.filter((t: unknown): t is string => typeof t === "string");

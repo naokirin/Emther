@@ -1071,6 +1071,7 @@ export default function DashboardPage() {
               key={entry.id}
               entry={entry}
               editing={journalEditing.editingEntryId === entry.id}
+              editRawText={journalEditing.editRawText}
               editTags={journalEditing.editTags}
               editPeople={journalEditing.editPeople}
               editUrgency={journalEditing.editUrgency}
@@ -1078,6 +1079,7 @@ export default function DashboardPage() {
               editSubmitting={journalEditing.editSubmitting}
               editError={journalEditing.editError}
               resolutionNoteDraft={journalEditing.resolutionNoteDraft}
+              onChangeEditRawText={journalEditing.setEditRawText}
               onChangeEditTags={journalEditing.setEditTags}
               onChangeEditPeople={journalEditing.setEditPeople}
               onChangeEditUrgency={journalEditing.setEditUrgency}

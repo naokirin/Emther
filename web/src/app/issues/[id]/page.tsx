@@ -103,6 +103,14 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const [logSubmitting, setLogSubmitting] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
 
+  // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
+  // titleEditingはEMのクリックで開始する（issueの非同期取得を待つ必要はなく、編集ボタン
+  // 自体issueが揃ってから初めて描画されるため、レンダー中の同期は不要）。
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [titleSaving, setTitleSaving] = useState(false);
+  const [titleError, setTitleError] = useState<string | null>(null);
+
   const [charterSaving, setCharterSaving] = useState(false);
   const [charterError, setCharterError] = useState<string | null>(null);
   const whyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -168,6 +176,42 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     const next = current.includes(label) ? current.filter((t) => t !== label) : [...current, label];
     tagsRef.current.value = next.join(", ");
     setTagsSnapshot(next);
+  }
+
+  function startEditingTitle() {
+    if (!issue) return;
+    setTitleDraft(issue.title);
+    setTitleError(null);
+    setTitleEditing(true);
+  }
+
+  async function handleSaveTitle() {
+    if (!issue) return;
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      setTitleError("タイトルは必須です");
+      return;
+    }
+    setTitleSaving(true);
+    setTitleError(null);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "保存に失敗しました");
+      }
+      await refreshIssue();
+      await refreshIssues();
+      setTitleEditing(false);
+    } catch (err) {
+      setTitleError((err as Error).message);
+    } finally {
+      setTitleSaving(false);
+    }
   }
 
   async function handleSaveCharter() {
@@ -391,13 +435,48 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       )}
 
       <div className={styles.issueTitleRow}>
-        <div>
-          <h2>{issue.title}</h2>
-          {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
-          {issue.archived && (
-            <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-              🗄 アーカイブ済み
-            </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {titleEditing ? (
+            <div className={styles.field} style={{ maxWidth: 480 }}>
+              <input
+                type="text"
+                aria-label="タイトル"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                disabled={titleSaving}
+                autoFocus
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={titleSaving} onClick={handleSaveTitle}>
+                  {titleSaving ? "保存中…" : "保存"}
+                </button>
+                <button className={styles.btnOutline} disabled={titleSaving} onClick={() => setTitleEditing(false)}>
+                  キャンセル
+                </button>
+              </div>
+              {titleError && (
+                <p className={styles.errorText} role="alert">
+                  {titleError}
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <h2 style={{ display: "inline" }}>{issue.title}</h2>{" "}
+              <button
+                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                onClick={startEditingTitle}
+              >
+                編集
+              </button>
+              <br />
+              {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
+              {issue.archived && (
+                <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                  🗄 アーカイブ済み
+                </span>
+              )}
+            </>
           )}
         </div>
         <button className={styles.btnOutline} onClick={handleToggleArchived} disabled={archiving}>

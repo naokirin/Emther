@@ -269,6 +269,7 @@ export function listJournalEntries(): JournalEntry[] {
 export async function updateJournalEntry(
   id: string,
   patch: {
+    rawText?: string;
     tags?: string[];
     people?: string[];
     urgency?: Urgency;
@@ -299,13 +300,28 @@ export async function updateJournalEntry(
         : undefined
       : original.resolutionNote;
 
+  // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
+  // 記録時の言い間違い等の訂正用であり、tags/people/urgency/summaryの再抽出は行わない
+  // （EMが必要なら別途手動で合わせて調整する）。新しい文面から新規の人物名が出てくる
+  // 可能性があるため、初回記録時と同じくmaskForStorage（NER検出＋マスク）を通す。
+  const rawTextInput = patch.rawText?.trim();
+  const text = rawTextInput !== undefined ? await maskForStorage(rawTextInput) : original.text;
+  let embedding = original.embedding;
+  if (rawTextInput !== undefined) {
+    try {
+      embedding = await embedText(rawTextInput);
+    } catch {
+      embedding = undefined;
+    }
+  }
+
   const event = recordEvent({
     kind: original.kind,
     context: original.context,
     entityType: original.entityType,
     entityId: original.entityId,
     people,
-    text: original.text,
+    text,
     tags,
     urgency,
     sentiment: original.sentiment,
@@ -314,7 +330,7 @@ export async function updateJournalEntry(
     ttlDays: original.ttlDays,
     supersedes: id,
     sourceJournalId: original.sourceJournalId,
-    embedding: original.embedding,
+    embedding,
     resolvedIssueId,
     resolutionNote,
   });

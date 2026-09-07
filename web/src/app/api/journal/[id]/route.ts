@@ -19,6 +19,12 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
     }
   }
 
+  // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
+  // 記録時の言い間違い等の訂正用。空文字での更新はPOST同様に拒否する。
+  if (typeof body?.rawText === "string" && !body.rawText.trim()) {
+    return NextResponse.json({ error: "rawTextは空にできません" }, { status: 400 });
+  }
+
   // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない」
   // 対応。未指定（キー自体が無い）=変更しない、null=解除、文字列=設定、の3値。
   const resolvedIssueId =
@@ -39,6 +45,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
           : undefined;
 
   const entry = await updateJournalEntry(id, {
+    rawText: typeof body?.rawText === "string" && body.rawText.trim() ? body.rawText : undefined,
     tags: Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined,
     people: Array.isArray(body?.people)
       ? body.people.filter((p: unknown): p is string => typeof p === "string")
