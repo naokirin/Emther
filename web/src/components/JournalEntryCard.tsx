@@ -265,8 +265,18 @@ export function JournalEntryCard({
   }
 
   return (
-    <div className={styles.journalEntry}>
-      <div>{entry.rawText}</div>
+    <div className={`${styles.journalEntry} ${isResolved ? styles.journalEntryResolved : ""}`}>
+      <div>
+        {/* 改修依頼「対応済みラベルを本文前につけることでより『対応済み』がわかりやすい
+            ようにする」対応。tagRow内の✅チップ（Issueへのリンク・メモの詳細）とは別に、
+            本文を読み始める前に一目で分かるよう先頭に軽量なラベルを添える。 */}
+        {isResolved && (
+          <span className={`${styles.tag} ${styles.tagPos}`} style={{ marginRight: 6 }}>
+            対応済み
+          </span>
+        )}
+        {entry.rawText}
+      </div>
       <div className={styles.tagRow}>
         <span className={styles.subtitle} title="出来事の発生日">
           🗓 {formatEntryDate(entry.createdAt)}
