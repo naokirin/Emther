@@ -1139,3 +1139,23 @@
   border: 1.5px dashed var(--gray-border);
   background: repeating-linear-gradient(135deg, #22252e, #22252e 6px, #2a2e3a 6px, #2a2e3a 12px);
 }
+
+/* 改修依頼「ローカルAIの処理を非同期化し、対象のアイテム部分にスピナーだけ表示する」対応。
+   処理中であることだけを示す最小限のインジケーター。 */
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue-text);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -18,7 +18,7 @@ import {
   useTeams,
   useVitals,
 } from "@/lib/hooks";
-import { AGENT_OPTIONS, charterFilledCount, isRunStale, type Issue } from "@/lib/types";
+import { AGENT_OPTIONS, charterFilledCount, isRunStale, type Issue, type JournalEntry } from "@/lib/types";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
 const INBOX_PAGE_SIZE = 5;
@@ -55,6 +55,19 @@ type NextAction = {
   kindLabel: string;
   text: string;
   onSelect: () => void;
+};
+
+// 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
+// スピナーだけ表示する」対応。POST /api/journal・/api/journal/bulkはローカルモデルの
+// 抽出処理を含み数十秒かかることがあるため、Submitボタンでブロックせず、その場に
+// 「処理中」のプレースホルダーを1件だけ出して裏で処理する。journalEntries（ポーリングで
+// 上書きされうる）とは別のstateで持ち、失敗時は元の入力内容を保持したまま再試行できる
+// ようにする。
+type PendingJournalDraft = {
+  tempId: string;
+  label: string;
+  error?: string;
+  retry?: () => void;
 };
 
 // docs/em_human_story_and_ux.md P0-3対応。「様子見」に決めたまま長期間放置されている
@@ -117,7 +130,6 @@ export default function DashboardPage() {
   // レンダー内で複数回Date.now()を呼ぶと呼ぶたびに結果がずれるため、このレンダーでの
   // 「現在時刻」として1回だけ取得し使い回す（経過時間の表示用途であり、他のポーリングで
   // どのみち定期的に再レンダーされるため、1回の取得で十分）。
-  // eslint-disable-next-line react-hooks/purity -- 表示用の経過時間計算にのみ使う
   const now = Date.now();
   const { runs, refreshRuns } = useRuns();
   const { issues } = useIssues();
@@ -143,7 +155,6 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [journalText, setJournalText] = useState("");
-  const [journalSubmitting, setJournalSubmitting] = useState(false);
   const [journalError, setJournalError] = useState<string | null>(null);
   // 改修依頼「まとめて記録する仕組み」対応。既定は空（＝今日）。EMが「これは今日の話
   // ではない」と分かっているときだけ明示的に開いて指定する（低頻度の操作を毎回の
@@ -152,9 +163,12 @@ export default function DashboardPage() {
   const [journalDateOpen, setJournalDateOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState("");
-  const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkResultMessage, setBulkResultMessage] = useState<string | null>(null);
+  // 改修依頼「ローカルAIの処理を非同期化する」対応。Submit/まとめて記録するの実処理は
+  // どちらもこのリストに「処理中」の1件を積んでから裏で走らせる（下記handleJournalSubmit/
+  // handleBulkSubmit参照）。
+  const [pendingJournalDrafts, setPendingJournalDrafts] = useState<PendingJournalDraft[]>([]);
 
   // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
   // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
@@ -266,64 +280,97 @@ export default function DashboardPage() {
   const recentJournalEntries = journalEntries.slice(0, JOURNAL_DASHBOARD_LIMIT);
   const inboxPagination = usePagination(filteredRuns, INBOX_PAGE_SIZE);
 
-  async function handleJournalSubmit(e: React.FormEvent) {
+  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化する」対応。POST /api/journalは
+  // ローカルモデルでの抽出（数十秒かかることがある）を含むため、fetchの完了をSubmitボタンで
+  // 待たせない。入力欄は即座にクリアして次の入力を続けられるようにし、処理中は
+  // pendingJournalDraftsに積んだプレースホルダー（スピナー表示）だけで進行を示す。
+  // 完了後は「AI抽出のまま組織の事実になる」ことを避けるため校正を促したいところだが、
+  // Submitからかなり時間が経ってからEMの意図しないタイミングで編集モードを強制的に
+  // 開くと混乱を招くため、自動では開かない（🤖未確認バッジ・Journal未確認キューに委ねる）。
+  function submitJournalDraft(text: string, occurredAtDate: string | undefined) {
+    const tempId = crypto.randomUUID();
+    const draft: PendingJournalDraft = { tempId, label: text };
+    setPendingJournalDrafts((prev) => [draft, ...prev]);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/journal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, occurredAtDate }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "タグ付けに失敗しました");
+        setJournalEntries((prev) => [data.entry, ...prev]);
+        setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+      } catch (err) {
+        setPendingJournalDrafts((prev) =>
+          prev.map((d) =>
+            d.tempId === tempId
+              ? { ...d, error: (err as Error).message, retry: () => submitJournalDraft(text, occurredAtDate) }
+              : d,
+          ),
+        );
+      }
+    })();
+  }
+
+  function handleJournalSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!journalText.trim()) return;
-    setJournalSubmitting(true);
+    const text = journalText.trim();
+    if (!text) return;
+    submitJournalDraft(text, journalDate || undefined);
+    setJournalText("");
+    setJournalDate("");
+    setJournalDateOpen(false);
     setJournalError(null);
-    try {
-      const res = await fetch("/api/journal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: journalText, occurredAtDate: journalDate || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "タグ付けに失敗しました");
-      setJournalEntries([data.entry, ...journalEntries]);
-      setJournalText("");
-      setJournalDate("");
-      setJournalDateOpen(false);
-      // docs/memo.md「C. Journalセンシング→行動」対応。「AI抽出のまま組織の事実になる」ことを
-      // 避けるため、Submit直後は必ず校正できる編集モードで開始する。
-      journalEditing.startEditing(data.entry);
-    } catch (err) {
-      setJournalError((err as Error).message);
-    } finally {
-      setJournalSubmitting(false);
-    }
   }
 
   // 改修依頼「まとめて記録する仕組み」対応。EMが忙しくて後からまとめて書く場合に、
   // 1件ずつSubmitさせる負担を無くす。まとめ投入した時刻を全件の発生日にはしない
   // （危険）——サーバー側で行ごとに解決した「出来事があった日」をそのまま使う。
   // 結果は他の未確認エントリと同じくJournal一覧にそのまま並び、個別に校正できる。
-  async function handleBulkSubmit(e: React.FormEvent) {
+  // 改修依頼「ローカルAIの処理を非同期化する」対応。行数分ローカルモデルを繰り返し
+  // 呼ぶため単発Submitより時間がかかりやすく、同じくブロックしない非同期処理にする。
+  function submitBulkDraft(text: string) {
+    const tempId = crypto.randomUUID();
+    const lineCount = text.split("\n").map((l) => l.trim()).filter(Boolean).length;
+    const draft: PendingJournalDraft = { tempId, label: `まとめて記録中…（${lineCount}行）` };
+    setPendingJournalDrafts((prev) => [draft, ...prev]);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/journal/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "まとめ記録に失敗しました");
+        const newEntries = data.entries as JournalEntry[];
+        setJournalEntries((prev) => [...newEntries, ...prev]);
+        setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+        setBulkResultMessage(
+          `${newEntries.length}件を記録しました（いずれも未確認）。内容と発生日を確認してください。${
+            data.skippedLines > 0 ? ` ※${data.skippedLines}行は上限を超えたため処理していません。` : ""
+          }`,
+        );
+      } catch (err) {
+        setPendingJournalDrafts((prev) =>
+          prev.map((d) => (d.tempId === tempId ? { ...d, error: (err as Error).message, retry: () => submitBulkDraft(text) } : d)),
+        );
+      }
+    })();
+  }
+
+  function handleBulkSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!bulkText.trim()) return;
-    setBulkSubmitting(true);
+    const text = bulkText.trim();
+    if (!text) return;
     setBulkError(null);
     setBulkResultMessage(null);
-    try {
-      const res = await fetch("/api/journal/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: bulkText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "まとめ記録に失敗しました");
-      const newEntries = data.entries as typeof journalEntries;
-      setJournalEntries([...newEntries, ...journalEntries]);
-      setBulkText("");
-      setBulkResultMessage(
-        `${newEntries.length}件を記録しました（いずれも未確認）。内容と発生日を確認してください。${
-          data.skippedLines > 0 ? ` ※${data.skippedLines}行は上限を超えたため処理していません。` : ""
-        }`,
-      );
-    } catch (err) {
-      setBulkError((err as Error).message);
-    } finally {
-      setBulkSubmitting(false);
-    }
+    submitBulkDraft(text);
+    setBulkText("");
   }
 
   async function handleStart(e: React.FormEvent) {
@@ -986,8 +1033,8 @@ export default function DashboardPage() {
                 onChange={(e) => setJournalText(e.target.value)}
                 placeholder="例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
               />
-              <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={journalSubmitting || !journalText.trim()}>
-                {journalSubmitting ? "タグ付け中…" : "Submit"}
+              <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={!journalText.trim()}>
+                Submit
               </button>
             </div>
             {/* 改修依頼「通常投入でも日付レベルの訂正を検討」対応。既定は今日のまま・
@@ -1051,9 +1098,9 @@ export default function DashboardPage() {
                   className={styles.primaryBtn}
                   style={{ width: "auto", marginTop: 8 }}
                   type="submit"
-                  disabled={bulkSubmitting || !bulkText.trim()}
+                  disabled={!bulkText.trim()}
                 >
-                  {bulkSubmitting ? "処理中…（行数分の時間がかかります）" : "まとめて記録する"}
+                  まとめて記録する
                 </button>
                 {bulkError && <p className={styles.errorText} role="alert">{bulkError}</p>}
                 {bulkResultMessage && (
@@ -1065,7 +1112,35 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
+          {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
+            <p className={styles.subtitle}>まだジャーナルはありません。</p>
+          )}
+          {pendingJournalDrafts.map((draft) => (
+            <div key={draft.tempId} className={styles.journalEntry}>
+              <div>{draft.label}</div>
+              {draft.error ? (
+                <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                  <span className={styles.errorText} role="alert">
+                    ⚠️ {draft.error}
+                  </span>
+                  <button className={styles.btnOutline} onClick={draft.retry}>
+                    再試行
+                  </button>
+                  <button
+                    className={styles.btnOutline}
+                    onClick={() => setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== draft.tempId))}
+                  >
+                    取り消す
+                  </button>
+                </div>
+              ) : (
+                <p className={styles.subtitle} style={{ marginTop: 4 }} role="status">
+                  <span className={styles.spinner} aria-hidden="true" />
+                  ローカルAIでタグ付け中…
+                </p>
+              )}
+            </div>
+          ))}
           {recentJournalEntries.map((entry) => (
             <JournalEntryCard
               key={entry.id}
@@ -1079,6 +1154,9 @@ export default function DashboardPage() {
               editSubmitting={journalEditing.editSubmitting}
               editError={journalEditing.editError}
               resolutionNoteDraft={journalEditing.resolutionNoteDraft}
+              pending={journalEditing.isEntryPending(entry.id)}
+              pendingError={journalEditing.pendingEntryErrors[entry.id]}
+              onDismissPendingError={() => journalEditing.dismissPendingError(entry.id)}
               onChangeEditRawText={journalEditing.setEditRawText}
               onChangeEditTags={journalEditing.setEditTags}
               onChangeEditPeople={journalEditing.setEditPeople}

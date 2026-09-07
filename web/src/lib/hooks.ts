@@ -105,7 +105,12 @@ export function useJournal(intervalMs = 5000) {
   );
   return {
     journalEntries: data.entries,
-    setJournalEntries: (entries: JournalEntry[]) => setData({ entries }),
+    // 改修依頼「ローカルAIの処理を非同期化する」対応。Submit後、ローカルモデルの処理完了を
+    // 待つ間もポーリングが走り続けるため、結果を反映する時点でのjournalEntriesは
+    // レンダー時にクロージャで捕まえた古い配列になりうる。関数形式の更新も受け付けられる
+    // ようにし、常に最新のstateを起点に反映できるようにする。
+    setJournalEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) =>
+      setData((prev) => ({ entries: typeof entries === "function" ? entries(prev.entries) : entries })),
     refreshJournal: refresh,
   };
 }
@@ -113,10 +118,17 @@ export function useJournal(intervalMs = 5000) {
 // docs/memo.md「C. Journalセンシング→行動」対応のその場編集ロジックを、Dashboardと
 // Journal一覧（TODO「Quick Journalをリスト確認・検索できる画面を追加する」）の両方で
 // 共有するための共通フック。同時に編集できるのは呼び出し側の画面ごとに1件のみ。
-export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntries: (entries: JournalEntry[]) => void) {
+export function useJournalEditing(
+  journalEntries: JournalEntry[],
+  setJournalEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) => void,
+) {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
   const [editRawText, setEditRawText] = useState("");
+  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化する」対応。本文が実際に
+  // 触られた場合だけPATCHにrawTextを含める（毎回含めると、触っていなくても
+  // maskForStorage（ローカルNER）が走り、tags/urgency等だけの軽い確定まで重くなってしまう）。
+  const [rawTextTouched, setRawTextTouched] = useState(false);
   const [editTags, setEditTags] = useState("");
   const [editPeople, setEditPeople] = useState("");
   const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
@@ -131,15 +143,44 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
   // 編集内容を一緒に反映する（別のフォームとして分離すると二度手間になるため）。
   const [resolutionNoteDraft, setResolutionNoteDraft] = useState("");
 
+  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
+  // スピナーだけ表示する」対応。resolutionNote／rawTextを伴う更新はmaskForStorage
+  // （ローカルNER）を通るため数十秒かかることがある。編集フォームでその完了を
+  // 待たせず、対象のエントリ自体に「処理中」を示す（他のエントリの編集・閲覧は
+  // その間もそのまま行える）。entryIdごとに管理するので、複数件を並行して
+  // バックグラウンド処理してもよい。
+  const [pendingEntryIds, setPendingEntryIds] = useState<Set<string>>(new Set());
+  const [pendingEntryErrors, setPendingEntryErrors] = useState<Record<string, { message: string; retry: () => void }>>(
+    {},
+  );
+
+  function isEntryPending(entryId: string): boolean {
+    // 編集フォームを開いたまま行うclearResolutionのように、フォームを閉じずに
+    // 待つ操作もあるため、そのエントリを現在編集中の間はスピナーカードにはしない
+    // （フォーム内のeditSubmittingがその間の状態を示す）。
+    return pendingEntryIds.has(entryId) && editingEntryId !== entryId;
+  }
+
+  function dismissPendingError(entryId: string) {
+    setPendingEntryErrors((prev) => {
+      if (!(entryId in prev)) return prev;
+      const next = { ...prev };
+      delete next[entryId];
+      return next;
+    });
+  }
+
   function startEditing(entry: JournalEntry) {
     setEditingEntryId(entry.id);
     setEditRawText(entry.rawText);
+    setRawTextTouched(false);
     setEditTags(entry.tags.join(", "));
     setEditPeople(entry.people.join(", "));
     setEditUrgency(entry.urgency);
     setEditDate(timestampToDateInputValue(entry.createdAt));
     setResolutionNoteDraft(entry.resolutionNote ?? "");
     setEditError(null);
+    dismissPendingError(entry.id);
   }
 
   function cancelEditing() {
@@ -148,7 +189,7 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
 
   function currentEditPatch() {
     return {
-      rawText: editRawText.trim() || undefined,
+      rawText: rawTextTouched ? editRawText.trim() || undefined : undefined,
       tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
       people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
       urgency: editUrgency,
@@ -156,51 +197,75 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     };
   }
 
-  async function patchEntry(entryId: string, extra: Record<string, unknown> = {}) {
-    setEditSubmitting(true);
-    setEditError(null);
+  // 実際のfetch＋state反映部分。entryIdの「処理中」フラグの出し入れとエラー記録を
+  // ここに一本化する。呼び出し側（confirmEdit等）は、編集フォームを閉じてから
+  // このawaitを待たずに呼ぶ（＝非ブロッキング）か、フォームを開いたまま
+  // awaitするか（clearResolutionのように速い操作向け）を選べる。
+  async function sendJournalPatch(
+    entryId: string,
+    body: Record<string, unknown>,
+    retry: () => void,
+  ): Promise<JournalEntry | undefined> {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
     try {
       const res = await fetch(`/api/journal/${entryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...currentEditPatch(), ...extra }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
-      // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。
-      setJournalEntries(journalEntries.map((e) => (e.id === entryId ? data.entry : e)));
+      // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。関数形式の
+      // 更新を使い、待っている間にポーリングで変わった最新の配列を起点にする。
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry : e)));
       return data.entry as JournalEntry;
     } catch (err) {
-      setEditError((err as Error).message);
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
       return undefined;
     } finally {
-      setEditSubmitting(false);
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
     }
   }
 
-  async function confirmEdit(entryId: string) {
-    const entry = await patchEntry(entryId);
-    if (entry) setEditingEntryId(null);
+  // tags/people/urgency/日付（必要なら本文）の確定。本文を触っていなければ
+  // maskForStorageは走らないため通常は一瞬で終わるが、本文を編集した場合は
+  // 他の更新と同じく時間がかかりうるので、待たずに編集フォームを閉じる。
+  function confirmEdit(entryId: string) {
+    const body = currentEditPatch();
+    setEditingEntryId(null);
+    const retry = () => {
+      void sendJournalPatch(entryId, body, retry);
+    };
+    void sendJournalPatch(entryId, body, retry);
   }
 
   // 「メモを残して解決にする」: Issue化するほどではないが、この件はもう追いかけなくてよい、
   // という判断をJournal自体に記録する。urgencyは書き換えない（起きた出来事の深刻さの記録は
-  // そのまま残す）。
-  async function resolveWithNote(entryId: string) {
+  // そのまま残す）。resolutionNoteはmaskForStorageを通るため時間がかかりうる。
+  function resolveWithNote(entryId: string) {
     const note = resolutionNoteDraft.trim();
     if (!note) {
       setEditError("解決メモを入力してください");
       return;
     }
-    const entry = await patchEntry(entryId, { resolutionNote: note });
-    if (entry) setEditingEntryId(null);
+    const body = { ...currentEditPatch(), resolutionNote: note };
+    setEditingEntryId(null);
+    const retry = () => {
+      void sendJournalPatch(entryId, body, retry);
+    };
+    void sendJournalPatch(entryId, body, retry);
   }
 
   // 「Issueを起票してこの件を追跡する」: 新規Issueを作成し、そのIssueへ紐付ける。
-  // 既存のPOST /api/issuesを1回叩くだけで、新しい起票経路は増やさない。作成後の
-  // Why/What/Howの深掘りはIssue Workspace側で行う想定のため、ここでは呼び出し元が
-  // 新しいIssueのidへ遷移できるよう返す。
+  // 既存のPOST /api/issuesを1回叩くだけで、新しい起票経路は増やさない。Issue作成後
+  // すぐそのIssueへ遷移する既存の挙動を保つため（できたばかりの空のIssueに移動する
+  // という一連の操作として）、こちらは他の解決アクションと違いawaitしたまま完了を待つ。
   async function resolveWithNewIssue(entry: JournalEntry): Promise<string | undefined> {
     setEditSubmitting(true);
     setEditError(null);
@@ -217,8 +282,19 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
       const issueData = await issueRes.json();
       if (!issueRes.ok) throw new Error(issueData.error ?? "Issueの起票に失敗しました");
 
-      const updated = await patchEntry(entry.id, { resolvedIssueId: issueData.issue.id });
-      if (!updated) return undefined;
+      // 意図的にsendJournalPatchは使わない。Issueは既に作成済みのため、この後の
+      // 紐付け保存が失敗した場合の「再試行」はIssue作成をやり直さず紐付けだけ
+      // やり直す必要があり、sendJournalPatch共通のretry（新規Issueをまた作ってしまう）
+      // とは意味が異なる。ここは既存どおりeditError/editSubmittingで扱い、
+      // フォームを開いたまま結果を待つ。
+      const res = await fetch(`/api/journal/${entry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...currentEditPatch(), resolvedIssueId: issueData.issue.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Issueへの紐付けに失敗しました（Issue自体は作成されています）");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? data.entry : e)));
       setEditingEntryId(null);
       return issueData.issue.id as string;
     } catch (err) {
@@ -229,15 +305,37 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     }
   }
 
-  // 解決状態の取り消し（誤ってIssue化/メモした場合の巻き戻し）。
+  // 解決状態の取り消し（誤ってIssue化/メモした場合の巻き戻し）。編集フォームを
+  // 閉じない操作であり、resolutionNote/rawTextを含まないため通常は速い。意図的に
+  // sendJournalPatchは使わず、フォームを開いたままeditErrorでエラーを出す
+  // （resolveWithNewIssueと同じ理由——編集中の他の入力を巻き込んでエラーカードに
+  // 差し替えたくない）。
   async function clearResolution(entryId: string) {
-    await patchEntry(entryId, { resolvedIssueId: null, resolutionNote: null });
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/journal/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...currentEditPatch(), resolvedIssueId: null, resolutionNote: null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry : e)));
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setEditSubmitting(false);
+    }
   }
 
   return {
     editingEntryId,
     editRawText,
-    setEditRawText,
+    setEditRawText: (value: string) => {
+      setEditRawText(value);
+      setRawTextTouched(true);
+    },
     editTags,
     setEditTags,
     editPeople,
@@ -256,6 +354,9 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     resolveWithNote,
     resolveWithNewIssue,
     clearResolution,
+    isEntryPending,
+    pendingEntryErrors,
+    dismissPendingError,
   };
 }
 

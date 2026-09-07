@@ -186,6 +186,9 @@ function JournalListPageInner() {
                 editSubmitting={editing.editSubmitting}
                 editError={editing.editError}
                 resolutionNoteDraft={editing.resolutionNoteDraft}
+                pending={editing.isEntryPending(entry.id)}
+                pendingError={editing.pendingEntryErrors[entry.id]}
+                onDismissPendingError={() => editing.dismissPendingError(entry.id)}
                 onChangeEditRawText={editing.setEditRawText}
                 onChangeEditTags={editing.setEditTags}
                 onChangeEditPeople={editing.setEditPeople}
