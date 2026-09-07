@@ -549,8 +549,9 @@
 
 .tag {
   display: inline-block;
-  font-size: 0.75rem;
-  /* 本文との区切りをサイズだけに頼らないよう、太さでも「ラベル」であることを示す。 */
+  /* 本文（.journalEntry, 1rem）よりほんの少し小さくする程度に留める。区切りの主役は
+     色・枠線・太さで、サイズ差は補助的な合図にする（大きく離しすぎない）。 */
+  font-size: 0.875rem;
   font-weight: 600;
   padding: 2px 9px;
   border-radius: 12px;
