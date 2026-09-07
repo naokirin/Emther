@@ -120,6 +120,11 @@ function migrate(database: DatabaseSync): void {
   // 1bitしか持たず、「様子見」と「却下」を区別できなかったため、別カラムで判定を分ける。
   addColumnIfMissing(database, "agent_runs", "triage_status", "TEXT");
 
+  // docs/em_human_story_and_ux.md P0-3「様子見にウォッチリスト＋期限／再浮上」対応。
+  // 「様子見」に決めた時刻を持たせ、一定期間たっても放置されている項目を
+  // 「次にすべきこと」へ再浮上させられるようにする。
+  addColumnIfMissing(database, "agent_runs", "triage_at", "INTEGER");
+
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案の下書き。
   addColumnIfMissing(database, "agent_runs", "suggested_sub_issues_json", "TEXT");
 

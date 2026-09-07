@@ -35,14 +35,30 @@ const ACTIVITY_STREAM_LIMIT = 30;
 // 「対応不要」も明示できるよう、0件のときは空のリストにする（評価不能に寄せず、単に「無い」と示す）。
 // docs/memo.md「A. Inboxを組織リスクのトリアージにする」対応。種別が視覚的に埋もれないよう、
 // severity/iconとは別に「これは何のカードか」を示す短いラベルを持たせる。
+// docs/em_human_story_and_ux.md P0-1対応。「次にすべきこと」を単一リストのままにせず、
+// 性質の異なる3つのレーンに分ける。判断待ち＝EMの決断がボトルネックになっているもの、
+// 観測不足＝まだ決断材料が足りず観測を増やすべきもの、整備＝緊急ではないが整えたいもの。
+type Lane = "decision" | "observation" | "maintenance";
+
+const LANE_META: Record<Lane, { label: string; hint: string }> = {
+  decision: { label: "判断待ち", hint: "EMが今すぐ決めれば前に進むもの" },
+  observation: { label: "観測不足", hint: "決断の前に事実を集めたいもの" },
+  maintenance: { label: "整備", hint: "急ぎではないが整えたいもの" },
+};
+
 type NextAction = {
   id: string;
   severity: "urgent" | "warn";
+  lane: Lane;
   icon: string;
   kindLabel: string;
   text: string;
   onSelect: () => void;
 };
+
+// docs/em_human_story_and_ux.md P0-3対応。「様子見」に決めたまま長期間放置されている
+// 項目は、判断待ちレーンへ再浮上させる。
+const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 // docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
 function runKindLabel(run: AgentRun): string {
@@ -81,22 +97,27 @@ function getDayPhase(hour: number): DayPhase {
 const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; cta?: string }> = {
   morning: {
     icon: "🌅",
-    text: "朝のチェック: 夜間に止まっていたRunがないか、上の「次にすべきこと」とAgent Fleetの状態を確認しましょう。モヤモヤは「何でも相談」、決まった介入はIssue Workspaceで。",
+    text: "朝のチェック: 下の判断待ちから片づけましょう。",
   },
   midday: {
     icon: "🕐",
-    text: "随時: 気になる出来事があれば、その場でQuick Journalに記録しておくと後で役立ちます。",
-    cta: "Quick Journalへ",
+    text: "気になる出来事は、その場でメモしておくと後で役立ちます。",
+    cta: "メモする",
   },
   evening: {
     icon: "🌆",
-    text: "終業前の振り返り: 今日あった出来事をQuick Journalにまとめて記録しておきましょう。",
-    cta: "Quick Journalへ",
+    text: "終業前に、今日の出来事をメモにまとめておきましょう。",
+    cta: "メモする",
   },
 };
 
 export default function DashboardPage() {
   const router = useRouter();
+  // レンダー内で複数回Date.now()を呼ぶと呼ぶたびに結果がずれるため、このレンダーでの
+  // 「現在時刻」として1回だけ取得し使い回す（経過時間の表示用途であり、他のポーリングで
+  // どのみち定期的に再レンダーされるため、1回の取得で十分）。
+  // eslint-disable-next-line react-hooks/purity -- 表示用の経過時間計算にのみ使う
+  const now = Date.now();
   const { runs, refreshRuns } = useRuns();
   const { issues } = useIssues();
   const { vitals } = useVitals();
@@ -212,6 +233,14 @@ export default function DashboardPage() {
 
   const [openVitalId, setOpenVitalId] = useState<string | null>(null);
 
+  // docs/em_human_story_and_ux.md P0-1対応。既定は「判断待ち」だけを見せ、他レーンは
+  // タブで切り替える（3種類を同じリストに混在させない）。
+  const [laneFilter, setLaneFilter] = useState<Lane>("decision");
+  // docs/dashboard_ui_readability.md U0-2対応。Fleet/Activity Streamは副次情報として
+  // 既定で折りたたみ、朝の視線が「次にすべきこと」から逸れないようにする。
+  const [fleetOpen, setFleetOpen] = useState(false);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
+
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
   const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
   const filteredRuns = statusFilter ? runs.filter((r) => r.status === statusFilter) : runs;
@@ -261,7 +290,15 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error(data.error ?? "起動に失敗しました");
       setTask("");
       await refreshRuns();
-      await goToRunIssue(data.run);
+      // docs/em_human_story_and_ux.md P0-2対応。Lead Agentは「何でも相談」の相手なので、
+      // 起票フォームから始めた場合も即Issue化はせず、まず相談画面に着地させる
+      // （Issue化・様子見・却下はそちら側で明示的に選べる）。専門エージェントは
+      // 「決まった介入」を前提に既存どおり即Issue化する。
+      if (agentName === "Lead Agent") {
+        router.push(`/chat?runId=${data.run.id}`);
+      } else {
+        await goToRunIssue(data.run);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -269,9 +306,9 @@ export default function DashboardPage() {
     }
   }
 
-  // Inboxのrunをクリックしたら、既にIssue化されていればそのIssueへ、
-  // まだならその場でIssue化してから遷移する（Issue Workspaceは「Issueの詳細」を
-  // 表示する画面として一本化しているため）。
+  // 既にIssue化されていればそのIssueへ、まだならその場でIssue化してから遷移する
+  // （Issue Workspaceは「Issueの詳細」を表示する画面として一本化しているため）。
+  // 明示的な「Issueにする」操作からのみ呼ぶこと（P0-2: 即Issue化を既定にしない）。
   async function goToRunIssue(run: AgentRun) {
     const existing = issues.find((i) => i.agentRunId === run.id);
     if (existing) {
@@ -291,6 +328,18 @@ export default function DashboardPage() {
     }
   }
 
+  // docs/em_human_story_and_ux.md P0-2対応。Inbox行クリックの既定を「相談」優先にする。
+  // Lead Agentでまだ何にも紐付いていないrunは/chatへ（そこで「Issueにする/様子見/却下」を
+  // 選べる）。専門エージェントや、既にIssue化済みのrunはこれまで通り。
+  function handleInboxRunClick(run: AgentRun) {
+    const existing = issues.find((i) => i.agentRunId === run.id);
+    if (!existing && run.agentName === "Lead Agent") {
+      router.push(`/chat?runId=${run.id}`);
+      return;
+    }
+    goToRunIssue(run);
+  }
+
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
@@ -304,10 +353,11 @@ export default function DashboardPage() {
     const onSelectAuto = () => router.push(`/chat?runId=${run.id}`);
 
     if (staleRunIds.has(run.id)) {
-      const minutes = Math.round((Date.now() - run.updatedAt) / 60000);
+      const minutes = Math.round((now - run.updatedAt) / 60000);
       nextActions.push({
         id: `stale-${run.id}`,
         severity: "urgent",
+        lane: "decision",
         icon: "❔",
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
@@ -317,6 +367,7 @@ export default function DashboardPage() {
       nextActions.push({
         id: `yield-${run.id}`,
         severity: "urgent",
+        lane: "decision",
         icon: "🟡",
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "Yield",
         text: `${isUnreviewedAuto ? `${autoLabel}: ` : `${run.agentName}が判断待ちです: `}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
@@ -326,6 +377,7 @@ export default function DashboardPage() {
       nextActions.push({
         id: `error-${run.id}`,
         severity: "urgent",
+        lane: "decision",
         icon: "🔴",
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${isUnreviewedAuto ? `${autoLabel}（エラー）: ` : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
@@ -337,6 +389,7 @@ export default function DashboardPage() {
       nextActions.push({
         id: `auto-${run.id}`,
         severity: "warn",
+        lane: "decision",
         icon: "🤖",
         kindLabel: runKindLabel(run),
         text: run.proposal?.conclusion ? run.proposal.conclusion.slice(0, 60) : `${autoLabel}: ${run.task.slice(0, 44)}`,
@@ -347,10 +400,11 @@ export default function DashboardPage() {
 
   for (const entry of journalEntries) {
     if (entry.urgency !== "mid" || entry.sentiment !== "negative") continue;
-    if (Date.now() - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
+    if (now - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
     nextActions.push({
       id: `journal-${entry.id}`,
       severity: "warn",
+      lane: "observation",
       icon: "📝",
       kindLabel: "要注目Journal",
       text: (entry.summary || entry.rawText).slice(0, 44),
@@ -363,6 +417,7 @@ export default function DashboardPage() {
     nextActions.push({
       id: `charter-${issue.id}`,
       severity: "warn",
+      lane: "maintenance",
       icon: "❓",
       kindLabel: "Issue未整理",
       text: `Issue「${issue.title}」のWhy/What/Howが${charterFilledCount(issue.charter)}/3しか整理されていません`,
@@ -375,6 +430,7 @@ export default function DashboardPage() {
       nextActions.push({
         id: `vital-${v.teamId}`,
         severity: v.status === "bad" ? "urgent" : "warn",
+        lane: "decision",
         icon: v.status === "bad" ? "🔴" : "🟡",
         kindLabel: "チームリスク",
         text: `${v.teamName}のチーム状態: ${v.label}`,
@@ -385,6 +441,7 @@ export default function DashboardPage() {
       nextActions.push({
         id: `vital-unknown-${v.teamId}`,
         severity: "warn",
+        lane: "observation",
         icon: "⚪️",
         kindLabel: "評価不能",
         text: `${v.teamName}は評価不能（情報不足）— 観測を増やす`,
@@ -397,6 +454,7 @@ export default function DashboardPage() {
     nextActions.push({
       id: "coverage",
       severity: vitals.oneOnOneCoverage.status === "bad" ? "urgent" : "warn",
+      lane: "observation",
       icon: vitals.oneOnOneCoverage.status === "bad" ? "🔴" : "🟡",
       kindLabel: "1on1不足",
       text: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件です`,
@@ -404,7 +462,29 @@ export default function DashboardPage() {
     });
   }
 
+  // docs/em_human_story_and_ux.md P0-3対応。「様子見」のまま一定期間が過ぎたrunは
+  // 判断待ちレーンへ再浮上させ、「様子見＝忘れられる」にしない。期限内のものは
+  // watchingItemsとして別途一覧できるようにする（新画面は増やさない）。
+  const watchingItems = runs.filter((r) => r.triageStatus === "watching");
+  for (const run of watchingItems) {
+    const watchedAt = run.triageAt ?? run.updatedAt;
+    if (now - watchedAt <= WATCH_RESURFACE_AFTER_MS) continue;
+    const days = Math.round((now - watchedAt) / (24 * 60 * 60 * 1000));
+    nextActions.push({
+      id: `watch-expired-${run.id}`,
+      severity: "warn",
+      lane: "decision",
+      icon: "👀",
+      kindLabel: "様子見の期限切れ",
+      text: `${days}日前から様子見のままです。再度判断してください: ${run.task.slice(0, 40)}`,
+      onSelect: () => router.push(`/chat?runId=${run.id}`),
+    });
+  }
+
   nextActions.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "urgent" ? -1 : 1));
+
+  const laneCounts: Record<Lane, number> = { decision: 0, observation: 0, maintenance: 0 };
+  for (const a of nextActions) laneCounts[a.lane]++;
 
   // docs/memo.md「E. 横断Activity Stream」（TODO「Dashboardに全エージェント横断のAgent
   // Activity Streamパネルを追加する」に対応）。新基盤（SSE等）は導入せず、既存runs[].logを
@@ -432,7 +512,7 @@ export default function DashboardPage() {
     .sort((a, b) => b.ts - a.ts)
     .slice(0, ACTIVITY_STREAM_LIMIT);
 
-  const dayPhase = getDayPhase(new Date().getHours());
+  const dayPhase = getDayPhase(new Date(now).getHours());
   const guidance = DAY_PHASE_GUIDANCE[dayPhase];
 
   function focusJournalInput() {
@@ -457,6 +537,27 @@ export default function DashboardPage() {
   if (teams.length === 0) setupGaps.push(`Team ${teams.length}件`);
   if (objectives.length === 0) setupGaps.push(`Objective ${objectives.length}件`);
 
+  // docs/dashboard_ui_readability.md U0-2対応。Fleetは既定で折りたたむため、
+  // 折りたたんだままでも状態が一目で分かるよう、状態アイコンだけの1行サマリーを作る。
+  const fleetStatuses = AGENT_OPTIONS.map((name) => {
+    const latest = latestRunForAgent(name, runs);
+    const stale = latest ? staleRunIds.has(latest.id) : false;
+    const meta = stale ? STALE_META : STATUS_META[latest?.status ?? "idle"];
+    return { name, meta };
+  });
+  const fleetSummary = fleetStatuses.map((f) => f.meta.icon).join(" ");
+
+  // docs/em_human_story_and_ux.md P0-5対応。先頭を「今日の組織の問い」1文へ圧縮する。
+  const laneActionsForFilter = nextActions.filter((a) => a.lane === laneFilter);
+  const visibleActions = laneActionsForFilter.slice(0, NEXT_ACTIONS_LIMIT);
+  // 1文中の各件数はクリックでそのレーンに絞り込めるようにする（見るだけで押せない
+  // 数字にしない。クリック先を探させないための対応）。
+  const headlineSegments: { lane: Lane; label: string }[] = [
+    { lane: "decision", label: `判断待ち${laneCounts.decision}件` },
+    { lane: "observation", label: `観測不足${laneCounts.observation}件` },
+    { lane: "maintenance", label: `整備${laneCounts.maintenance}件` },
+  ];
+
   return (
     <div className={styles.screen}>
       {setupGaps.length > 0 && (
@@ -472,9 +573,7 @@ export default function DashboardPage() {
             border: "1px solid var(--yellow-border)",
           }}
         >
-          <span style={{ fontSize: 13 }}>
-            ⚙️ 初回セットアップ: {setupGaps.join("・")} → Organization Contextで登録すると、Agent Runtimeの前提が充実します
-          </span>
+          <span style={{ fontSize: 13 }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
           <button className={styles.btnOutline} style={{ flexShrink: 0 }} onClick={() => router.push("/org")}>
             Organization Contextへ
           </button>
@@ -483,9 +582,9 @@ export default function DashboardPage() {
 
       <div
         className={styles.panel}
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 16px" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 16px" }}
       >
-        <span style={{ fontSize: 13 }}>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
           {guidance.icon} {guidance.text}
         </span>
         {guidance.cta && (
@@ -495,17 +594,47 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className={`${styles.panel} ${styles.nextActionsPanel}`}>
-        <h2>次にすべきこと</h2>
-        <p className={styles.subtitle}>
-          判断待ち・エラー・未整理のIssue・要注意のチーム状態をまとめています。クリックで詳細に移動できます。
-        </p>
-        {nextActions.length === 0 ? (
-          <p className={styles.subtitle}>✅ 特に対応が必要な項目はありません。</p>
+      {/* docs/em_human_story_and_ux.md P0-5 / docs/dashboard_ui_readability.md U0-1対応。
+          先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
+          最初にトリアージへ着地させる。 */}
+      <div className={`${styles.panel} ${styles.nextActionsPanel} ${styles.heroPanel}`}>
+        <h1 className={styles.heroHeadline}>
+          {nextActions.length === 0 ? (
+            "✅ 今日、判断待ちの組織課題はありません。"
+          ) : (
+            <>
+              🧭 今日:{" "}
+              {headlineSegments.map((s, i) => (
+                <span key={s.lane}>
+                  {i > 0 && "・"}
+                  <button type="button" className={styles.heroHeadlineLink} onClick={() => setLaneFilter(s.lane)}>
+                    {s.label}
+                  </button>
+                </span>
+              ))}
+            </>
+          )}
+        </h1>
+
+        <div className={styles.tabs} style={{ margin: "10px 0" }}>
+          {(Object.keys(LANE_META) as Lane[]).map((lane) => (
+            <button
+              key={lane}
+              className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""}`}
+              onClick={() => setLaneFilter(lane)}
+              title={LANE_META[lane].hint}
+            >
+              {LANE_META[lane].label}（{laneCounts[lane]}）
+            </button>
+          ))}
+        </div>
+
+        {visibleActions.length === 0 ? (
+          <p className={styles.subtitle}>✅ このレーンに対応が必要な項目はありません。</p>
         ) : (
           <>
             <div className={styles.runList} style={{ maxHeight: "none" }}>
-              {nextActions.slice(0, NEXT_ACTIONS_LIMIT).map((a) => (
+              {visibleActions.map((a) => (
                 <button
                   key={a.id}
                   className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
@@ -518,52 +647,78 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            {nextActions.length > NEXT_ACTIONS_LIMIT && (
+            {laneActionsForFilter.length > NEXT_ACTIONS_LIMIT && (
               <p className={styles.subtitle} style={{ marginTop: 8 }}>
-                他{nextActions.length - NEXT_ACTIONS_LIMIT}件（Issue一覧・Organization Contextから確認できます）
+                このレーンに他{laneActionsForFilter.length - NEXT_ACTIONS_LIMIT}件（Issue一覧・Organization Contextから確認できます）
               </p>
             )}
           </>
         )}
-      </div>
 
-      <div className={styles.fleetRow}>
-        {AGENT_OPTIONS.map((name) => {
-          const latest = latestRunForAgent(name, runs);
-          const stale = latest ? staleRunIds.has(latest.id) : false;
-          const meta = stale ? STALE_META : STATUS_META[latest?.status ?? "idle"];
-          return (
-            <div key={name} className={`${styles.fleetBadge} ${meta.cls}`}>
-              <strong>
-                {meta.icon} {name}
-              </strong>
-              <span className={styles.fleetName}>{meta.label}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className={styles.panel}>
-        <h2>Agent Activity Stream</h2>
-        <p className={styles.subtitle}>全エージェント横断の直近ログです（最新が上）。クリックで詳細（紐付くIssueまたは相談）に移動できます。</p>
-        {activityLines.length === 0 ? (
-          <p className={styles.subtitle}>まだアクティビティはありません。</p>
-        ) : (
-          <div className={styles.activityStream}>
-            {activityLines.map((a) => (
-              <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={a.text}>
-                [{a.agentLabel}] {a.icon} {a.text}
-              </button>
-            ))}
+        {watchingItems.length > 0 && (
+          <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+            <button className={styles.detailToggle} onClick={() => setWatchlistOpen(!watchlistOpen)}>
+              👀 様子見中（{watchingItems.length}件）{watchlistOpen ? "を隠す" : "を見る"}
+            </button>
+            {watchlistOpen && (
+              <div className={styles.runList} style={{ marginTop: 8 }}>
+                {watchingItems.map((run) => {
+                  const days = Math.round((now - (run.triageAt ?? run.updatedAt)) / (24 * 60 * 60 * 1000));
+                  return (
+                    <button key={run.id} className={styles.runItem} onClick={() => router.push(`/chat?runId=${run.id}`)}>
+                      <div className={styles.runItemTask}>
+                        {days === 0 ? "今日から様子見: " : `${days}日前から様子見: `}
+                        {run.task.slice(0, 50)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        )}
+      </div>
+
+      {/* docs/dashboard_ui_readability.md U0-2対応。Fleet/Activityは副次情報として折りたたむ。
+          畳んだままでも状態アイコンの1行サマリーで様子が分かるようにする。 */}
+      <div className={styles.panel}>
+        <button className={styles.detailToggle} onClick={() => setFleetOpen(!fleetOpen)}>
+          エージェントの状態・直近の動き　{fleetSummary} {fleetOpen ? "を閉じる ▲" : "を見る ▼"}
+        </button>
+        {fleetOpen && (
+          <>
+            <div className={styles.fleetRow} style={{ marginTop: 12 }}>
+              {fleetStatuses.map(({ name, meta }) => (
+                <div key={name} className={`${styles.fleetBadge} ${meta.cls}`}>
+                  <strong>
+                    {meta.icon} {name}
+                  </strong>
+                  <span className={styles.fleetName}>{meta.label}</span>
+                </div>
+              ))}
+            </div>
+            {activityLines.length === 0 ? (
+              <p className={styles.subtitle} style={{ marginTop: 12 }}>
+                まだ直近の動きはありません。
+              </p>
+            ) : (
+              <div className={styles.activityStream} style={{ marginTop: 12 }}>
+                {activityLines.map((a) => (
+                  <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={a.text}>
+                    [{a.agentLabel}] {a.icon} {a.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
       <div className={`${styles.panel} ${styles.vitalsPanel}`}>
         <div className={styles.vitalsHead}>
           <div>
-            <h2>Team Vitals（チーム健全性）</h2>
-            <p className={styles.subtitle}>直近のJournalから算出。判断材料が足りない場合は「評価不能」として表示します。</p>
+            <h2>チームの状態</h2>
+            <p className={styles.subtitle}>情報が足りない場合は「評価不能」と表示します。</p>
           </div>
           <div className={styles.vitalsLegend}>
             <span>🟢 安定</span>
@@ -633,9 +788,18 @@ export default function DashboardPage() {
       <div className={styles.dashColumns}>
         <div className={styles.panel}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ margin: 0 }}>Quick Journal (Hybrid Data Ingestion)</h2>
+            <h2 style={{ margin: 0 }}>
+              メモする{" "}
+              <span
+                className={styles.subtitle}
+                style={{ fontWeight: 400, cursor: "help" }}
+                title="入力後、完全ローカルの軽量モデル（Qwen2.5-0.5B、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。"
+              >
+                ⓘ
+              </span>
+            </h2>
             <button className={styles.btnOutline} onClick={() => router.push("/journal")}>
-              すべて見る・検索する →
+              すべて見る →
             </button>
           </div>
           <form onSubmit={handleJournalSubmit}>
@@ -652,9 +816,6 @@ export default function DashboardPage() {
               </button>
             </div>
           </form>
-          <p className={styles.subtitle} style={{ margin: "6px 0 12px" }}>
-            ※入力後、完全ローカルの軽量モデル（Qwen2.5-0.5B, 外部送信なし）が自動でタグ・人物・緊急度・感情を抽出します。
-          </p>
           {journalError && <p className={styles.errorText}>{journalError}</p>}
 
           {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
@@ -686,11 +847,12 @@ export default function DashboardPage() {
             </p>
           )}
 
-          <h3 style={{ fontSize: 13, marginTop: 18, marginBottom: 4 }}>長期プロファイル（TTLなし）</h3>
-          <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-            「Aさんはリーダー志向がある」のような、一時的な感情と混同すべきでない長期的な解釈をここに記録します。Quick
-            Journalとは別に保存され、期限切れになりません。
-          </p>
+          <h3
+            style={{ fontSize: 13, marginTop: 18, marginBottom: 4, cursor: "help" }}
+            title="「Aさんはリーダー志向がある」のような長期的な解釈を、Quick Journalとは別に期限切れなく記録します。"
+          >
+            長期プロファイル ⓘ
+          </h3>
           <form onSubmit={handleProfileSubmit}>
             <div className={styles.journalInputRow}>
               <input
@@ -728,14 +890,14 @@ export default function DashboardPage() {
           >
             {draftStarting || draftRun?.status === "active" ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
           </button>
-          <p className={styles.subtitle} style={{ marginTop: 4 }}>
-            対象欄の人物名をもとに、これまでのJournalファクトからPeople Agentが下書きを作成し、上のテキスト欄に反映します（あくまで下書き。保存するかはEMが判断し「記録」を押してください）。
+          <p className={styles.subtitle} style={{ marginTop: 4 }} title="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。">
+            ⓘ あくまで下書きです。「記録」を押すまで保存されません。
           </p>
           {draftError && <p className={styles.errorText}>{draftError}</p>}
         </div>
 
         <div className={styles.panel}>
-          <h2>Inbox（タスクを起票 / 稼働中のエージェント）</h2>
+          <h2>相談・起動</h2>
           <form onSubmit={handleStart}>
             <div className={styles.field}>
               <label>エージェント</label>
@@ -775,20 +937,37 @@ export default function DashboardPage() {
 
           <div className={styles.runList} style={{ marginTop: 8 }}>
             {filteredRuns.length === 0 && <p className={styles.subtitle}>条件に一致するエージェントはありません。</p>}
-            {inboxPagination.pageItems.map((run) => (
-              <button key={run.id} className={styles.runItem} onClick={() => goToRunIssue(run)}>
-                <div>
-                  <span className={styles.badge} style={{ marginRight: 6 }}>{runKindLabel(run)}</span>
-                  <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
-                  {run.consultedBy && (
-                    <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                      🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
-                    </span>
-                  )}
+            {inboxPagination.pageItems.map((run) => {
+              const linked = issues.some((i) => i.agentRunId === run.id);
+              return (
+                <div key={run.id} className={styles.runItem} style={{ cursor: "pointer" }} onClick={() => handleInboxRunClick(run)}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div>
+                      <span className={styles.badge} style={{ marginRight: 6 }}>{runKindLabel(run)}</span>
+                      <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
+                      {run.consultedBy && (
+                        <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                          🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
+                        </span>
+                      )}
+                    </div>
+                    {!linked && run.agentName === "Lead Agent" && (
+                      <button
+                        className={styles.btnOutline}
+                        style={{ flexShrink: 0 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToRunIssue(run);
+                        }}
+                      >
+                        📌 Issueにする
+                      </button>
+                    )}
+                  </div>
+                  <div className={styles.runItemTask}>{run.task}</div>
                 </div>
-                <div className={styles.runItemTask}>{run.task}</div>
-              </button>
-            ))}
+              );
+            })}
           </div>
           <PaginationControls
             page={inboxPagination.page}

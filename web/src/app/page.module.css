@@ -86,7 +86,7 @@
 }
 
 .panel h2 {
-  font-size: 14px;
+  font-size: 15px;
   margin: 0 0 10px 0;
 }
 
@@ -204,6 +204,38 @@
 /* 「次にすべきこと」パネル（Dashboard）: 深刻度を左のアクセントで一目で区別する。 */
 .nextActionsPanel {
   margin-bottom: 16px;
+}
+
+/* docs/dashboard_ui_readability.md U0-1 / U1-3対応。Dashboard先頭の主パネルだけを
+   視覚的に「主」にする（背景・枠を強め、見出しを大きくする）。他のパネルは既定の
+   .panelのまま据え置き、相対的に「副」に見えるようにする。 */
+.heroPanel {
+  border-width: 2px;
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+
+.heroHeadline {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* 見出し内の件数もクリックでレーン絞り込みに飛べるようにする（見るだけの数字にしない）。 */
+.heroHeadlineLink {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.heroHeadlineLink:hover {
+  color: var(--foreground);
 }
 
 .runItem.nextActionUrgent {
