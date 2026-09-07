@@ -423,6 +423,7 @@
 }
 
 .journalEntry {
+  background: var(--gray-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;

@@ -6,10 +6,13 @@ import styles from "@/app/page.module.css";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
+  { href: "/journal", label: "Journal" },
   { href: "/chat", label: "何でも相談" },
   { href: "/issues", label: "Issue Workspace" },
   { href: "/people", label: "People" },
   { href: "/timeline", label: "Timeline" },
+  { href: "/reports", label: "Reports" },
+  { href: "/growth", label: "EMの成長" },
   { href: "/org", label: "Organization Context" },
   { href: "/settings", label: "Settings" },
 ];
