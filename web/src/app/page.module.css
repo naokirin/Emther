@@ -554,26 +554,34 @@
   font-weight: 600;
   padding: 2px 9px;
   border-radius: 12px;
+  border: 1px solid transparent;
 }
 
+/* 人物・トピックタグは、#ネガティブ等（tagPos/tagNeg）と違って背景がジャーナルカードの
+   地色（--gray-bg）にごく近い薄い色だったため、枠線を追加し彩度も上げて「地の色に
+   埋もれて見えるだけの文字」ではなく明確なラベル片として見えるようにする。 */
 .tagPerson {
-  background: #eef1ff;
-  color: #3b4bcc;
+  background: #dde3ff;
+  color: #3547c9;
+  border-color: #b7c2f7;
 }
 
 .tagTopic {
-  background: #eef6ff;
-  color: #1b6fc9;
+  background: #d8ecff;
+  color: #0f5f9e;
+  border-color: #aed7f7;
 }
 
 .tagPos {
   background: var(--green-bg);
   color: var(--green-fg);
+  border-color: var(--green-border);
 }
 
 .tagNeg {
   background: var(--red-bg);
   color: var(--red-fg);
+  border-color: var(--red-border);
 }
 
 .tagBtn {
