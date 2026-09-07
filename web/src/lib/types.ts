@@ -298,3 +298,24 @@ export type PersonProfile = PersonSummary & {
 // docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
 export type ImpactWindow = { total: number; positive: number; negative: number };
 export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow };
+
+// docs/memo.md「N. 時系列変化をEMが読む物語に」対応。
+export type TimelineEntityType = "journal" | "person" | "team" | "issue" | "org";
+
+export type TimelineEntry = {
+  id: string;
+  entityType: TimelineEntityType;
+  entityId?: string;
+  entityLabel?: string;
+  href?: string;
+  text: string;
+  occurredAt: number;
+};
+
+export const TIMELINE_ENTITY_TYPE_LABEL: Record<TimelineEntityType, string> = {
+  issue: "Issue",
+  team: "Team",
+  org: "Objective",
+  journal: "Journal",
+  person: "Person",
+};

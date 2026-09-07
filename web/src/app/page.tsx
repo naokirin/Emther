@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useIssues, useJournal, useRuns, useSettingsRules, useVitals } from "@/lib/hooks";
+import { useIssues, useJournal, useObjectives, useOrgStrategy, useRuns, useSettingsRules, useTeams, useVitals } from "@/lib/hooks";
 import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, isRunStale, type Issue, type JournalEntry } from "@/lib/types";
 
 const JOURNAL_PAGE_SIZE = 5;
@@ -91,6 +91,10 @@ export default function DashboardPage() {
   const { vitals } = useVitals();
   const { journalEntries, setJournalEntries } = useJournal();
   const { rules } = useSettingsRules();
+  // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。
+  const { strategy } = useOrgStrategy();
+  const { teams } = useTeams();
+  const { objectives } = useObjectives();
 
   // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
   // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する。
@@ -472,8 +476,39 @@ export default function DashboardPage() {
     focusJournalInput();
   }
 
+  // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
+  // 走らないよう、MVV/Team/Objectiveが揃うまでセットアップ導線を出す。新規ウィザード画面は
+  // 増やさず、既存の/orgへの案内に留める（EMが明示的に消せるものではなく、実際に揃うと
+  // 自然に消える）。
+  const setupGaps: string[] = [];
+  if (!strategy.mission && !strategy.vision && !strategy.values) setupGaps.push("MVV未設定");
+  if (teams.length === 0) setupGaps.push(`Team ${teams.length}件`);
+  if (objectives.length === 0) setupGaps.push(`Objective ${objectives.length}件`);
+
   return (
     <div className={styles.screen}>
+      {setupGaps.length > 0 && (
+        <div
+          className={styles.panel}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "10px 16px",
+            background: "var(--yellow-bg)",
+            border: "1px solid var(--yellow-border)",
+          }}
+        >
+          <span style={{ fontSize: 13 }}>
+            ⚙️ 初回セットアップ: {setupGaps.join("・")} → Organization Contextで登録すると、Agent Runtimeの前提が充実します
+          </span>
+          <button className={styles.btnOutline} style={{ flexShrink: 0 }} onClick={() => router.push("/org")}>
+            Organization Contextへ
+          </button>
+        </div>
+      )}
+
       <div
         className={styles.panel}
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 16px" }}
