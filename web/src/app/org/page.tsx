@@ -394,7 +394,7 @@ export default function OrgContextPage() {
         {teamError && <p className={styles.errorText}>{teamError}</p>}
 
         <details style={{ marginTop: 10 }}>
-          <summary style={{ cursor: "pointer", fontSize: 13 }}>複数チームを一括登録（初回投入用）</summary>
+          <summary style={{ cursor: "pointer", fontSize: "0.8125rem" }}>複数チームを一括登録（初回投入用）</summary>
           <form onSubmit={handleBulkAddTeams} style={{ marginTop: 8 }}>
             <div className={styles.field}>
               <label>1行1チーム、「チーム名: メンバー1, メンバー2」の形式で貼り付け</label>
@@ -403,7 +403,7 @@ export default function OrgContextPage() {
                 onChange={(e) => setBulkText(e.target.value)}
                 rows={5}
                 placeholder={"例:\nEngineering / Team A: Aさん, Bさん\nEngineering / Team B: Cさん\nDesign: Dさん, Eさん"}
-                style={{ width: "100%", fontFamily: "inherit", fontSize: 13 }}
+                style={{ width: "100%", fontFamily: "inherit", fontSize: "0.8125rem" }}
               />
             </div>
             <button className={styles.primaryBtn} type="submit" disabled={bulkSubmitting || !bulkText.trim()}>
@@ -435,7 +435,7 @@ export default function OrgContextPage() {
               value={newObjectiveTitle}
               onChange={(e) => setNewObjectiveTitle(e.target.value)}
               placeholder="新しいObjective"
-              style={{ fontSize: 12 }}
+              style={{ fontSize: "0.75rem" }}
             />
             <button className={styles.btnOutline} type="submit" disabled={objectiveSubmitting || !newObjectiveTitle.trim()}>
               追加
@@ -454,7 +454,7 @@ export default function OrgContextPage() {
           ))}
 
           <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Teams（組織体制）</div>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", margin: "4px 0" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0" }}>
             <input type="checkbox" checked={showArchivedTeams} onChange={(e) => setShowArchivedTeams(e.target.checked)} />
             アーカイブ済みも表示する
           </label>
@@ -531,7 +531,7 @@ export default function OrgContextPage() {
             </div>
             {objectiveEditError && <p className={styles.errorText}>{objectiveEditError}</p>}
 
-            <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: 13 }}>Key Results</h3>
+            <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
             {selectedObjective.keyResults.length === 0 && <p className={styles.subtitle}>まだKey Resultがありません。</p>}
             <ul style={{ listStyle: "none", marginBottom: 10 }}>
               {selectedObjective.keyResults.map((kr) => {
@@ -539,7 +539,7 @@ export default function OrgContextPage() {
                 return (
                   <li key={kr.id} className={styles.field} style={{ marginBottom: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 13 }}>{kr.title}</span>
+                      <span style={{ fontSize: "0.8125rem" }}>{kr.title}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                         <span className={styles.subtitle}>
                           {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
@@ -567,12 +567,12 @@ export default function OrgContextPage() {
 
             {objectiveHistory.length > 0 && (
               <details style={{ marginTop: 20 }}>
-                <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+                <summary style={{ cursor: "pointer", fontSize: "0.75rem", color: "var(--text-muted)" }}>
                   変更履歴（{objectiveHistory.length}件）
                 </summary>
                 <ul style={{ listStyle: "none", marginTop: 8 }}>
                   {objectiveHistory.map((h) => (
-                    <li key={h.id} style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                    <li key={h.id} style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>
                       {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
                     </li>
                   ))}
@@ -641,7 +641,7 @@ export default function OrgContextPage() {
               </div>
             </div>
 
-            <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>関連Issue</h3>
+            <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue</h3>
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
               メンバー名がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
             </p>
@@ -670,7 +670,7 @@ export default function OrgContextPage() {
               </div>
             )}
 
-            <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>関連Journal（Issue化されていない特性・所感）</h3>
+            <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Journal（Issue化されていない特性・所感）</h3>
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
               Issueほど明確な課題ではないが、EMがメモしたメンバーの様子（直近10件）です。
             </p>
@@ -680,7 +680,7 @@ export default function OrgContextPage() {
               <ul style={{ listStyle: "none" }}>
                 {relatedJournal.map((entry) => (
                   <li key={entry.id} className={styles.field} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 13 }}>{entry.rawText}</div>
+                    <div style={{ fontSize: "0.8125rem" }}>{entry.rawText}</div>
                     <div className={styles.subtitle}>
                       {URGENCY_LABEL[entry.urgency]} / 感情: {entry.sentiment} / タグ: {entry.tags.join(", ") || "なし"}
                     </div>
@@ -691,12 +691,12 @@ export default function OrgContextPage() {
 
             {teamHistory.length > 0 && (
               <details style={{ marginTop: 20 }}>
-                <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+                <summary style={{ cursor: "pointer", fontSize: "0.75rem", color: "var(--text-muted)" }}>
                   変更履歴（{teamHistory.length}件）
                 </summary>
                 <ul style={{ listStyle: "none", marginTop: 8 }}>
                   {teamHistory.map((h) => (
-                    <li key={h.id} style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                    <li key={h.id} style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>
                       {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
                     </li>
                   ))}

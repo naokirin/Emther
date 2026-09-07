@@ -104,7 +104,7 @@ export default function GrowthPage() {
         <h2>現在の改善方針</h2>
         {latestReflection && latestReflection.tryNext ? (
           <>
-            <p style={{ fontSize: 14, fontWeight: 600, margin: "4px 0" }}>{latestReflection.tryNext}</p>
+            <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "4px 0" }}>{latestReflection.tryNext}</p>
             <p className={styles.subtitle}>
               {formatDate(latestReflection.periodStart)} 〜 {formatDate(latestReflection.periodEnd)} の振り返り（Try）より
             </p>
@@ -171,13 +171,13 @@ export default function GrowthPage() {
             {checkins.length === 0 && <p className={styles.subtitle}>まだ記録がありません。</p>}
             {checkinPagination.pageItems.map((c) => (
               <div key={c.id} className={styles.journalEntry}>
-                <div style={{ display: "flex", gap: 10, fontSize: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 10, fontSize: "0.75rem", flexWrap: "wrap" }}>
                   <span>気分 {c.mood}</span>
                   <span>エネルギー {c.energy}</span>
                   <span>ストレス {c.stress}</span>
                   <span className={styles.subtitle}>{formatDate(c.createdAt)}</span>
                 </div>
-                {c.note && <div style={{ marginTop: 4, fontSize: 13 }}>{c.note}</div>}
+                {c.note && <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>{c.note}</div>}
               </div>
             ))}
           </div>
@@ -237,17 +237,17 @@ export default function GrowthPage() {
                   {formatDate(r.periodStart)} 〜 {formatDate(r.periodEnd)}
                 </div>
                 {r.keep && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                  <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>
                     <strong>Keep:</strong> {r.keep}
                   </div>
                 )}
                 {r.problem && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                  <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>
                     <strong>Problem:</strong> {r.problem}
                   </div>
                 )}
                 {r.tryNext && (
-                  <div style={{ marginTop: 4, fontSize: 13 }}>
+                  <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>
                     <strong>Try:</strong> {r.tryNext}
                   </div>
                 )}

@@ -76,7 +76,7 @@ export default function JournalListPage() {
           <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例: リファクタリング" />
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
             期間:
             <select value={periodDays} onChange={(e) => setPeriodDays(e.target.value)}>
               {PERIOD_OPTIONS.map((o) => (
@@ -86,7 +86,7 @@ export default function JournalListPage() {
               ))}
             </select>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
             人物:
             <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)}>
               <option value="">すべて</option>
@@ -97,7 +97,7 @@ export default function JournalListPage() {
               ))}
             </select>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
             タグ:
             <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
               <option value="">すべて</option>
@@ -108,7 +108,7 @@ export default function JournalListPage() {
               ))}
             </select>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
             Urgency:
             <select value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value as JournalEntry["urgency"] | "")}>
               <option value="">すべて</option>
@@ -117,7 +117,7 @@ export default function JournalListPage() {
               <option value="high">High</option>
             </select>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
             感情:
             <select value={sentimentFilter} onChange={(e) => setSentimentFilter(e.target.value as JournalEntry["sentiment"] | "")}>
               <option value="">すべて</option>

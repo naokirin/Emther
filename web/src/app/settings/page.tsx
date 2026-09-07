@@ -112,7 +112,7 @@ export default function SettingsPage() {
           />
         </div>
 
-        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           「動いていると思ったら止まっていた」を防ぐための閾値です。statusが稼働中のままログ更新が無い時間で判定します。
         </p>
@@ -133,7 +133,7 @@ export default function SettingsPage() {
           />
         </div>
 
-        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Journalファクトの有効期間（TTL）</h3>
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Journalファクトの有効期間（TTL）</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           一時的な発言・感情（ファクト）は、この日数を過ぎるとAgent Runtimeへの注入対象から外れます（履歴としては残り、削除はされません）。長期的な解釈・プロファイルにはTTLはありません。
         </p>
@@ -146,14 +146,14 @@ export default function SettingsPage() {
           />
         </div>
 
-        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           claude CLIの実行が失敗した場合（起動失敗・予算/レート制限超過など）、ここでONにしたエージェント種別に限り、
           `agy`（複数モデル対応CLI）経由でGeminiモデルへフォールバックします。既定は全エージェントOFF（明示的にONにしたものだけ対象）。
           agyは会話継続（`--conversation`）に対応しているため、フォールバック後も壁打ちの複数ターンを続けられます。
         </p>
         {AGENT_OPTIONS.map((name) => (
-          <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+          <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
             <input
               type="checkbox"
               checked={draft.agyFallbackAgents.includes(name)}
@@ -170,14 +170,14 @@ export default function SettingsPage() {
           </label>
         ))}
 
-        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>Cursor CLIフォールバック</h3>
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Cursor CLIフォールバック</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           claude→agyの順で試してもなお失敗した場合、ここでONにしたエージェント種別に限り、`cursor-agent`（Cursor
           CLI）経由でモデル（gpt-5.2）へフォールバックします。既定は全エージェントOFF。読み取り専用ツールを勝手に実行しないよう、
           このアプリのソース・データが見えない専用の空ディレクトリをワークスペースに指定して実行します。会話継続（`--resume`）にも対応しています。
         </p>
         {AGENT_OPTIONS.map((name) => (
-          <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+          <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
             <input
               type="checkbox"
               checked={draft.cursorFallbackAgents.includes(name)}
@@ -194,12 +194,12 @@ export default function SettingsPage() {
           </label>
         ))}
 
-        <h3 style={{ fontSize: 13, marginTop: 20, marginBottom: 4 }}>AIエージェントの自動起動（イベント駆動・バッチ駆動）</h3>
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>AIエージェントの自動起動（イベント駆動・バッチ駆動）</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           既定はどちらもOFFです。ONにすると、EMが何も指示していなくてもLead Agentが自動的に起動しコストが発生します（Human-in-the-Loopの原則上、既定を勝手に有効化することはしません）。
           自動起動されたRunはDashboardの「次にすべきこと」に🤖マーク付きで表示され、EMが内容を確認する（または却下する）までそこに残り続けます。
         </p>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
           <input
             type="checkbox"
             checked={draft.autoAnomalyDetectionEnabled}
@@ -207,7 +207,7 @@ export default function SettingsPage() {
           />
           Journalに緊急度highのエントリが追加されたら、Lead Agentが自動で分析しIssue化すべきか判断する
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 6 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
           <input
             type="checkbox"
             checked={draft.autoMorningSummaryEnabled}

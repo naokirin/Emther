@@ -575,12 +575,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
         {history.length > 0 && (
           <details style={{ marginTop: 14 }}>
-            <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+            <summary style={{ cursor: "pointer", fontSize: "0.75rem", color: "var(--text-muted)" }}>
               変更履歴（{history.length}件）
             </summary>
             <ul style={{ listStyle: "none", marginTop: 8 }}>
               {history.map((h) => (
-                <li key={h.id} style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                <li key={h.id} style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>
                   {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
                 </li>
               ))}
@@ -620,7 +620,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           {issue.actionItems.length === 0 && <p className={styles.subtitle}>まだありません。</p>}
           <ul style={{ listStyle: "none", marginBottom: 10 }}>
             {issue.actionItems.map((item) => (
-              <li key={item.id} style={{ fontSize: 13, marginBottom: 6 }}>
+              <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 6 }}>
                 <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
                   <input type="checkbox" checked={item.done} onChange={() => handleToggleActionItem(item.id)} />
                   <span style={{ textDecoration: item.done ? "line-through" : "none", color: item.done ? "var(--text-muted)" : "inherit" }}>

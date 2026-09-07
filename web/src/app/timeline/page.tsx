@@ -39,7 +39,7 @@ export default function TimelinePage() {
         ) : (
           groups.map((group) => (
             <div key={group.date} style={{ marginTop: 18 }}>
-              <h3 style={{ fontSize: 13, marginBottom: 6 }}>{group.date}</h3>
+              <h3 style={{ fontSize: "0.8125rem", marginBottom: 6 }}>{group.date}</h3>
               <ul style={{ listStyle: "none" }}>
                 {group.items.map((entry) => (
                   <li key={entry.id} className={styles.field} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
@@ -56,7 +56,7 @@ export default function TimelinePage() {
                         {new Date(entry.occurredAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    <div style={{ fontSize: 13, marginTop: 4 }}>{entry.text}</div>
+                    <div style={{ fontSize: "0.8125rem", marginTop: 4 }}>{entry.text}</div>
                   </li>
                 ))}
               </ul>

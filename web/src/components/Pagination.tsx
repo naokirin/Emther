@@ -44,7 +44,7 @@ export function PaginationControls({
 }) {
   if (total === 0 || totalPages <= 1) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, fontSize: 12, color: "var(--text-muted)" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, fontSize: "0.75rem", color: "var(--text-muted)" }}>
       <button className={styles.btnOutline} disabled={page <= 1} onClick={() => onChange(page - 1)}>
         ← 前へ
       </button>

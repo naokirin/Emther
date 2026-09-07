@@ -38,28 +38,28 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
           {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
         </p>
 
-        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>長期プロファイル（解釈、TTLなし）</h3>
+        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
         {person.interpretations.length === 0 ? (
           <p className={styles.subtitle}>まだ記録がありません。Dashboardの長期プロファイルから記録できます。</p>
         ) : (
           <ul style={{ listStyle: "none", marginBottom: 10 }}>
             {person.interpretations.map((i) => (
               <li key={i.id} className={styles.field} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13 }}>{i.text}</div>
+                <div style={{ fontSize: "0.8125rem" }}>{i.text}</div>
                 <div className={styles.subtitle}>{new Date(i.occurredAt).toLocaleString("ja-JP")}</div>
               </li>
             ))}
           </ul>
         )}
 
-        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>直近のJournal（一時的な状況、有効期限内のもののみ）</h3>
+        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>直近のJournal（一時的な状況、有効期限内のもののみ）</h3>
         {person.facts.length === 0 ? (
           <p className={styles.subtitle}>関連するJournalはありません。</p>
         ) : (
           <ul style={{ listStyle: "none", marginBottom: 10 }}>
             {person.facts.map((f) => (
               <li key={f.id} className={styles.field} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13 }}>{f.text}</div>
+                <div style={{ fontSize: "0.8125rem" }}>{f.text}</div>
                 <div className={styles.tagRow} style={{ marginTop: 4 }}>
                   {f.tags.map((t) => (
                     <span key={t} className={`${styles.tag} ${styles.tagTopic}`}>
@@ -79,7 +79,7 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
           </ul>
         )}
 
-        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: 13 }}>関連Issue</h3>
+        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           名前がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
         </p>

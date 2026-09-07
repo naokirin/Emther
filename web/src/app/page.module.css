@@ -10,13 +10,13 @@
 }
 
 .title {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin: 0 0 4px 0;
 }
 
 .subtitle {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0;
 }
 
@@ -36,7 +36,7 @@
   background: none;
   border-radius: 8px;
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: 0.875rem;
   cursor: pointer;
   color: var(--text-muted);
 }
@@ -113,7 +113,7 @@
 }
 
 .sideNavHint {
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   padding: 0 10px 6px;
   cursor: help;
@@ -123,7 +123,7 @@
   display: block;
   padding: 8px 10px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   text-decoration: none;
 }
@@ -177,7 +177,7 @@
 }
 
 .panel h2 {
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin: 0 0 10px 0;
 }
 
@@ -187,7 +187,7 @@
 
 .field label {
   display: block;
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
@@ -199,7 +199,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-family: inherit;
 }
 
@@ -213,7 +213,7 @@
   border: none;
   border-radius: 6px;
   padding: 9px 16px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   width: 100%;
 }
@@ -225,7 +225,7 @@
 
 .errorText {
   color: var(--red-fg);
-  font-size: 12px;
+  font-size: 0.75rem;
   margin-top: 8px;
 }
 
@@ -246,7 +246,7 @@
   height: 180px;
   overflow-y: auto;
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: 0.75rem;
   background: var(--code-bg, #0f172a0d);
   border-radius: 8px;
   padding: 8px;
@@ -281,7 +281,7 @@
   cursor: pointer;
   /* docs/dashboard_ui_readability.md U1-1対応。リスト行は「全部同じ小ささ」から
      一段引き上げる（11〜12px一色だった帯を広げる）。 */
-  font-size: 13px;
+  font-size: 0.8125rem;
   box-shadow: 0 1px 2px rgba(15, 18, 25, 0.04);
 }
 
@@ -304,7 +304,7 @@
 }
 
 .heroHeadline {
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 700;
   margin: 0;
 }
@@ -334,7 +334,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 600;
   padding: 3px 9px;
   border-radius: 999px;
@@ -388,7 +388,7 @@
 }
 
 .detailTask {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -399,7 +399,7 @@
   border-radius: 8px;
   padding: 12px 14px;
   font-family: "SF Mono", Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.7;
   min-height: 260px;
   max-height: 420px;
@@ -460,7 +460,7 @@
   border-radius: 6px;
   padding: 10px;
   margin: 8px 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
 }
 
@@ -476,7 +476,7 @@
 
 .option .risk {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
   margin-top: 4px;
 }
 
@@ -487,7 +487,7 @@
 }
 
 .contextText {
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-bottom: 4px;
 }
 
@@ -502,12 +502,12 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .emptyState {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 40px 0;
   text-align: center;
 }
@@ -523,7 +523,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .journalEntry {
@@ -533,7 +533,7 @@
   padding: 10px 12px;
   margin-bottom: 10px;
   /* docs/dashboard_ui_readability.md U1-1対応。本文として読ませる部分は14pxへ広げる。 */
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .tagRow {
@@ -546,7 +546,7 @@
 
 .tag {
   display: inline-block;
-  font-size: 11px;
+  font-size: 0.75rem;
   padding: 2px 9px;
   border-radius: 12px;
 }
@@ -579,7 +579,7 @@
 
 .typeChip {
   display: inline-block;
-  font-size: 11px;
+  font-size: 0.75rem;
   padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -595,7 +595,7 @@
 }
 
 .urgencyLabel {
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 700;
   margin-left: 2px;
 }
@@ -629,7 +629,7 @@
   flex-direction: column;
   gap: 4px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* ワイヤーフレームのAgent Fleet（信号機表示）に合わせ、カード全体を状態色で塗る。
@@ -659,7 +659,7 @@
 }
 
 .fleetName {
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 400;
   color: inherit;
   opacity: 0.85;
@@ -675,7 +675,7 @@
 }
 
 .vitalsLegend {
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -698,13 +698,13 @@
 }
 
 .vitalLabel {
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
 
 .vitalValue {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -746,7 +746,7 @@
 
 .detailToggle {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 0.75rem;
   border: none;
   background: none;
   color: var(--blue);
@@ -756,7 +756,7 @@
 
 .vitalDetail {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 0.75rem;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -766,7 +766,7 @@
 
 /* ---------- Organization Context (tree + editor) ---------- */
 .tree {
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 2;
 }
 
@@ -798,7 +798,7 @@
 }
 
 .editorPath code {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .editorPath .primaryBtn {
@@ -811,7 +811,7 @@
   background: #fff;
   border-radius: 6px;
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
@@ -838,7 +838,7 @@
 }
 
 .issueTitleRow h1 {
-  font-size: 18px;
+  font-size: 1.125rem;
   margin: 0 0 6px 0;
 }
 
@@ -853,7 +853,7 @@
 .chatBubble {
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-bottom: 10px;
   white-space: pre-wrap;
   max-width: 90%;
@@ -871,13 +871,13 @@
 
 .chatBubbleSender {
   display: block;
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--blue);
   margin-bottom: 4px;
 }
 
 .chatNote {
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--text-muted);
   text-align: center;
   margin: 6px 0;
@@ -916,7 +916,7 @@
 .modalClose {
   border: none;
   background: none;
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
   color: var(--text-muted);
@@ -926,7 +926,7 @@
 /* ---------- Back link ---------- */
 .backLink {
   display: inline-block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--blue);
   margin-bottom: 14px;
   cursor: pointer;
@@ -935,7 +935,7 @@
 /* ---------- Issue Charter (Why/What/How) ---------- */
 .charterBadgeReady {
   display: inline-block;
-  font-size: 11px;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 12px;
   background: var(--green-bg);
@@ -944,7 +944,7 @@
 
 .charterBadgeWarn {
   display: inline-block;
-  font-size: 11px;
+  font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 12px;
   background: var(--yellow-bg);
@@ -960,7 +960,7 @@
   border: 1px solid var(--yellow-border);
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--yellow-fg);
   margin-bottom: 12px;
 }
@@ -971,7 +971,7 @@
 
 .charterField label {
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   margin-bottom: 4px;
 }
@@ -981,7 +981,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-family: inherit;
   resize: vertical;
 }

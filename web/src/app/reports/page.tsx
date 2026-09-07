@@ -56,7 +56,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
       </p>
 
       {expanded && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, fontSize: 12 }}>
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, fontSize: "0.75rem" }}>
           <div>
             <strong>Quick Journal</strong>
             <div className={styles.subtitle}>
@@ -185,7 +185,7 @@ export default function ReportsPage() {
         {generateError && <p className={styles.errorText}>{generateError}</p>}
       </div>
 
-      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 10 }}>
         種別で絞り込み:
         <select value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value as ReportPeriodType | "")}>
           <option value="">すべて</option>
