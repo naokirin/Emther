@@ -158,8 +158,12 @@ export function computeOrgVitals(): OrgVitals {
 // 作らず、computeTeamVitalと同じ「直近teamWindowDays日間のJournal」という考え方を、
 // 「アーカイブ前のteamWindowDays日間」と「アーカイブ後のteamWindowDays日間」の
 // 2つの窓に分けて適用するだけ。
+// docs/em_human_story_and_ux.md P2-15「介入効果の『進行中』版」対応。以前はアーカイブ後
+// にしか意味を持たなかったが、EMが「今進めている介入が観測できているか」を完了を待たずに
+// 確認できるよう、未アーカイブでもbefore窓（介入開始前）と「介入開始〜現在」窓の比較を返す
+// ようにした（inProgressで呼び出し側が見出し・文言を出し分ける）。
 export type ImpactWindow = { total: number; positive: number; negative: number };
-export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow };
+export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };
 
 function summarizeWindow(entries: JournalEntry[]): ImpactWindow {
   return {
@@ -169,10 +173,10 @@ function summarizeWindow(entries: JournalEntry[]): ImpactWindow {
   };
 }
 
-// アーカイブされておらず、チームに紐づいていないIssueには「介入の前後比較」という
-// 概念自体が成立しないため、その場合はundefinedを返す（呼び出し側はCTAを出し分ける）。
+// チームに紐づいていないIssueには「介入の前後比較」という概念自体が成立しないため、
+// その場合はundefinedを返す（呼び出し側はCTAを出し分ける）。
 export function computeIssueImpact(issue: Issue): IssueImpact | undefined {
-  if (!issue.archived || !issue.archivedAt || !issue.teamId) return undefined;
+  if (!issue.teamId) return undefined;
   const team = getTeam(issue.teamId);
   if (!team || team.members.length === 0) return undefined;
 
@@ -182,11 +186,14 @@ export function computeIssueImpact(issue: Issue): IssueImpact | undefined {
   const relevant = entries.filter((e) => e.people.some((p) => team.members.includes(p)));
 
   const beforeEntries = relevant.filter((e) => e.createdAt >= issue.createdAt - windowMs && e.createdAt < issue.createdAt);
-  const afterEntries = relevant.filter((e) => e.createdAt >= issue.archivedAt! && e.createdAt < issue.archivedAt! + windowMs);
 
-  return {
-    windowDays: rules.teamWindowDays,
-    before: summarizeWindow(beforeEntries),
-    after: summarizeWindow(afterEntries),
-  };
+  if (issue.archived && issue.archivedAt) {
+    const afterEntries = relevant.filter((e) => e.createdAt >= issue.archivedAt! && e.createdAt < issue.archivedAt! + windowMs);
+    return { windowDays: rules.teamWindowDays, before: summarizeWindow(beforeEntries), after: summarizeWindow(afterEntries), inProgress: false };
+  }
+
+  // 進行中: 「アーカイブ後の固定windowDays日間」がまだ存在しないため、代わりに
+  // 「介入開始（Issue作成）〜現在」を観測窓とする（完了を待たずに観測不足に気づけるように）。
+  const sinceStartEntries = relevant.filter((e) => e.createdAt >= issue.createdAt && e.createdAt <= Date.now());
+  return { windowDays: rules.teamWindowDays, before: summarizeWindow(beforeEntries), after: summarizeWindow(sinceStartEntries), inProgress: true };
 }

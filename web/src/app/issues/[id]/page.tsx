@@ -20,7 +20,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const { teams } = useTeams();
   // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssueでのみ
   // 意味を持つため、その場合だけポーリングする。
-  const { impact } = useIssueImpact(id, !!(issue?.archived && issue?.teamId));
+  const { impact } = useIssueImpact(id, !!issue?.teamId);
   const { rules } = useSettingsRules();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
@@ -456,24 +456,28 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
-      {issue.archived && issue.teamId && (
+      {issue.teamId && (
         <div className={styles.panel}>
-          <h2>介入の効果（{teams.find((t) => t.id === issue.teamId)?.name ?? "関連チーム"}）</h2>
+          <h2>介入の効果（{teams.find((t) => t.id === issue.teamId)?.name ?? "関連チーム"}）{impact?.inProgress && "・進行中"}</h2>
           <p className={styles.subtitle}>
-            「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueのアーカイブ前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。
+            {impact?.inProgress
+              ? // docs/em_human_story_and_ux.md P2-15対応。完了（アーカイブ）を待たずに、
+                // 「介入を始めてから、そもそも観測できているか」を確認できるようにする。
+                "「感覚」ではなく観測に基づいて判断できるよう、このIssueの介入開始前とその後（現在まで）でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。アーカイブ前の暫定値です。"
+              : "「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueのアーカイブ前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。"}
           </p>
           {!impact ? (
             <p className={styles.subtitle}>読み込み中…</p>
           ) : (
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <div className={styles.vitalCard} style={{ minWidth: 220 }}>
-                <div className={styles.vitalLabel}>アーカイブ前 直近{impact.windowDays}日間</div>
+                <div className={styles.vitalLabel}>{impact.inProgress ? "介入開始前" : "アーカイブ前"} 直近{impact.windowDays}日間</div>
                 <div className={styles.vitalValue}>
                   Journal {impact.before.total}件（🙂{impact.before.positive} 🙁{impact.before.negative}）
                 </div>
               </div>
               <div className={styles.vitalCard} style={{ minWidth: 220 }}>
-                <div className={styles.vitalLabel}>アーカイブ後 直近{impact.windowDays}日間</div>
+                <div className={styles.vitalLabel}>{impact.inProgress ? "介入開始〜現在" : `アーカイブ後 直近${impact.windowDays}日間`}</div>
                 <div className={styles.vitalValue}>
                   Journal {impact.after.total}件（🙂{impact.after.positive} 🙁{impact.after.negative}）
                 </div>
@@ -482,7 +486,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           )}
           {impact && impact.after.total === 0 && (
             <p className={styles.subtitle} style={{ marginTop: 8 }}>
-              アーカイブ後まだ観測期間が経過していない、またはJournalの記録がありません。しばらく経ってから確認してください。
+              {impact.inProgress
+                ? "介入開始後、このチームに関するJournalの記録がまだありません。効果測定のためにも、関連するJournalを記録してください。"
+                : "アーカイブ後まだ観測期間が経過していない、またはJournalの記録がありません。しばらく経ってから確認してください。"}
             </p>
           )}
         </div>

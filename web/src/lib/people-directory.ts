@@ -18,6 +18,8 @@
 
 import { loadSecureJSON, saveSecureJSON } from "@/lib/persistence";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
+import { listTeams } from "@/lib/org-context-store";
+import { teamPathSegments } from "@/lib/types";
 
 type PersistedState = {
   entries: [string, string][]; // [name, id][]
@@ -85,6 +87,22 @@ export function listPeople(): PersonRecord[] {
   return [...nameToId.entries()].map(([name, id]) => ({ id, name }));
 }
 
+// docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
+// フィルタでは防ぎきれない誤登録が必ず残る前提の「最後の安全弁」として、EMが
+// People画面から誤登録エントリを直接削除できるようにする。関連するJournal fact等
+// （knowledge-store側にPERSON_n ID付きで残る）はここでは削除しない——誤登録エントリは
+// 実際のJournal記録を伴わないケースがほとんどであり、対応表からの削除だけで
+// 「以後そのIDは実名に戻らない・以後NERで再度この名前が出れば新しいIDが振られる」
+// という実用上十分な復旧になる。
+export function deletePerson(id: string): boolean {
+  const name = idToName.get(id);
+  if (name === undefined) return false;
+  idToName.delete(id);
+  nameToId.delete(name);
+  persist();
+  return true;
+}
+
 // registerNameと違い、未登録の名前に対して新規IDを発行しない（副作用のない参照専用）。
 // 読み取り専用API（例: 人物名でのフィルタ検索）が、未知の名前を渡されただけで
 // people-directoryに新規登録してしまう事故を防ぐ。
@@ -125,6 +143,68 @@ const NAME_EXTRACTION_SYSTEM_PROMPT = [
   "敬称はそのまま残すこと（例: Aさん）。人物が見当たらなければ空配列にすること。",
 ].join("\n");
 
+// docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
+// 実機で確認された誤登録事例（NPS・1on1・KPT・割り込み・Issue・Option A/Option B・
+// Team・既存チーム名「検証チーム」丸ごと等）を踏まえた、抽出後の機械的フィルタ。
+// 完全な言語判定はしない（判定自体が新たな誤検出源になりうる）。ここを抜けた
+// 候補だけがregisterNameへ渡り、それでも漏れたものはPeople画面のdeletePersonを
+// 最後の安全弁とする二段構え。
+const MIN_NAME_LENGTH = 2;
+const MAX_NAME_LENGTH = 20; // 「壁打ちメッセージまるごと」のような文全体の誤登録を弾く上限
+
+const RESERVED_TERMS = new Set(
+  [
+    // agent-runtime.tsのシステムプロンプトに常時登場するテンプレート語（実機確認済みの衝突）
+    "issue",
+    "issues",
+    "option",
+    "option a",
+    "option b",
+    "team",
+    "teams",
+    "objective",
+    "objectives",
+    "key result",
+    "key results",
+    "action item",
+    "action items",
+    // 自由記述（Journal・KPT等）で人物名と誤認識された一般語（実機確認済み）
+    "nps",
+    "1on1",
+    "kpt",
+    "keep",
+    "problem",
+    "try",
+    "pr",
+    "割り込み",
+  ].map((s) => s.toLowerCase()),
+);
+
+function isAsciiOnly(s: string): boolean {
+  return /^[\x00-\x7F]*$/.test(s);
+}
+
+function collidesWithExistingTeamName(candidate: string): boolean {
+  try {
+    return listTeams().some((t) => t.name === candidate || teamPathSegments(t.name).includes(candidate));
+  } catch {
+    // org-context-store側の読み込みに失敗しても、チーム名衝突チェックはあくまで
+    // 追加の安全網の一つ。ここで例外を投げてNER登録全体を止めるのは本末転倒なので、
+    // 「衝突なし」として扱い他のフィルタ・以後のdeletePersonに委ねる。
+    return false;
+  }
+}
+
+// NER抽出候補が「明らかに人物名ではない」場合にfalseを返す。
+function isPlausiblePersonName(candidate: string): boolean {
+  const trimmed = candidate.trim();
+  if (trimmed.length < MIN_NAME_LENGTH || trimmed.length > MAX_NAME_LENGTH) return false;
+  if (RESERVED_TERMS.has(trimmed.toLowerCase())) return false;
+  if (isAsciiOnly(trimmed)) return false; // 記号・英数字のみの候補（NPS, 1on1等）を除外
+  if (collidesWithExistingTeamName(trimmed)) return false;
+  return true;
+}
+
 async function detectAndRegisterNames(text: string): Promise<void> {
   try {
     const content = await runLocalChat(
@@ -143,7 +223,7 @@ async function detectAndRegisterNames(text: string): Promise<void> {
     const parsed = JSON.parse(jsonText);
     if (Array.isArray(parsed.people)) {
       for (const p of parsed.people) {
-        if (typeof p === "string" && p.trim()) registerName(p);
+        if (typeof p === "string" && isPlausiblePersonName(p)) registerName(p);
       }
     }
   } catch {
