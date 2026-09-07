@@ -23,6 +23,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ja" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
+        {/* WCAG 2.2 2.4.1 Bypass Blocks対応。キーボード利用者がグローバルメニュー
+            （7項目）＋サイドメニューを毎回タブ移動せずに本文へ飛べるようにする。
+            通常は視覚的に隠し、フォーカス時だけ表示する。 */}
+        <a href="#main-content" className={styles.skipLink}>
+          本文へスキップ
+        </a>
         <div className={styles.page}>
           <div className={styles.header}>
             <h1 className={styles.title}>EM Support System</h1>
@@ -32,7 +38,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </div>
           <TopNav />
           <StoryBanner />
-          <AppShell>{children}</AppShell>
+          {/* tabIndex={-1}: スキップリンクの遷移先としてプログラム的にフォーカスできる
+              ようにする（アンカージャンプだけでは次のTabがbody先頭に戻ってしまうため）。 */}
+          <main id="main-content" tabIndex={-1}>
+            <AppShell>{children}</AppShell>
+          </main>
         </div>
       </body>
     </html>

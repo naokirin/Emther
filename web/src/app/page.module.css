@@ -5,6 +5,26 @@
   width: 100%;
 }
 
+/* WCAG 2.2 2.4.1 Bypass Blocks対応。キーボードでTabした時だけ画面に現れ、
+   グローバルメニュー＋サイドメニューを毎回通らずに本文へ飛べるようにする。 */
+.skipLink {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 1000;
+  background: var(--blue);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 0 0 6px 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: top 0.1s ease-in;
+}
+
+.skipLink:focus {
+  top: 0;
+}
+
 .header {
   margin-bottom: 12px;
 }
@@ -195,7 +215,14 @@
 .field select,
 .field textarea,
 .field input {
+  display: block;
   width: 100%;
+  /* WCAG 1.3.1/4.1.2対応でlabelがinput/select/textareaを直接包む構造にした
+     （<label htmlFor>ではなく暗黙の関連付け）。以前はlabelのmargin-bottomが
+     「ラベル文字とコントロールの間」の余白だったが、包んだことでlabelのmargin-bottomは
+     「コントロールの後ろ」に付く余白に変わってしまうため、ここにmargin-topを足して
+     文字とコントロールの間の余白を復元する。 */
+  margin-top: 0.25rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
@@ -556,7 +583,9 @@
      色・枠線・太さで、サイズ差は補助的な合図にする（大きく離しすぎない）。 */
   font-size: 0.875rem;
   font-weight: 600;
-  padding: 2px 9px;
+  /* WCAG 2.2 2.5.8 Target Size対応。クリック可能な@人物・#トピックタグ（.tagBtn）が
+     24x24px未満にならないよう、上下の余白を確保する。 */
+  padding: 5px 9px;
   border-radius: 12px;
   border: 1px solid transparent;
 }
@@ -599,7 +628,8 @@
 
 .typeChip {
   display: inline-block;
-  padding: 4px 10px;
+  /* WCAG 2.2 2.5.8 Target Size対応。24x24px未満にならないよう上下の余白を確保する。 */
+  padding: 6px 10px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--panel-bg, #fff);

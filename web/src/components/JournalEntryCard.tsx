@@ -61,24 +61,32 @@ export function JournalEntryCard({
       <div className={styles.journalEntry}>
         <div>{entry.rawText}</div>
         <div className={styles.field} style={{ marginTop: 8 }}>
-          <label>発生日（時刻は不要）</label>
-          <input type="date" value={editDate} onChange={(e) => onChangeEditDate(e.target.value)} style={{ maxWidth: 160 }} />
+          <label>
+            発生日（時刻は不要）
+            <input type="date" value={editDate} onChange={(e) => onChangeEditDate(e.target.value)} style={{ maxWidth: 160 }} />
+          </label>
         </div>
         <div className={styles.field}>
-          <label>人物（カンマ区切り）</label>
-          <input type="text" value={editPeople} onChange={(e) => onChangeEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
+          <label>
+            人物（カンマ区切り）
+            <input type="text" value={editPeople} onChange={(e) => onChangeEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
+          </label>
         </div>
         <div className={styles.field}>
-          <label>タグ（カンマ区切り）</label>
-          <input type="text" value={editTags} onChange={(e) => onChangeEditTags(e.target.value)} placeholder="例: 1on1, 技術的負債" />
+          <label>
+            タグ（カンマ区切り）
+            <input type="text" value={editTags} onChange={(e) => onChangeEditTags(e.target.value)} placeholder="例: 1on1, 技術的負債" />
+          </label>
         </div>
         <div className={styles.field}>
-          <label>Urgency</label>
-          <select value={editUrgency} onChange={(e) => onChangeEditUrgency(e.target.value as JournalEntry["urgency"])}>
-            <option value="low">Low</option>
-            <option value="mid">Mid</option>
-            <option value="high">High</option>
-          </select>
+          <label>
+            Urgency
+            <select value={editUrgency} onChange={(e) => onChangeEditUrgency(e.target.value as JournalEntry["urgency"])}>
+              <option value="low">Low</option>
+              <option value="mid">Mid</option>
+              <option value="high">High</option>
+            </select>
+          </label>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={onConfirmEdit}>
@@ -88,7 +96,7 @@ export function JournalEntryCard({
             キャンセル
           </button>
         </div>
-        {editError && <p className={styles.errorText}>{editError}</p>}
+        {editError && <p className={styles.errorText} role="alert">{editError}</p>}
       </div>
     );
   }

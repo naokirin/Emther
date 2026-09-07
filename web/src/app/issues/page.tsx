@@ -315,17 +315,17 @@ function IssuesPageInner() {
         <Modal title="新しいIssueを起票" onClose={() => setDialogOpen(false)}>
           <form onSubmit={handleCreateIssue}>
             <div className={styles.field}>
-              <label>タイトル</label>
+              <label>タイトル
               <input
                 type="text"
                 autoFocus
                 value={issueTitle}
                 onChange={(e) => setIssueTitle(e.target.value)}
                 placeholder="例: Aさんのリファクタリング停滞"
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>関連づけるAgent Run（任意）</label>
+              <label>関連づけるAgent Run（任意）
               <select value={issueRunId} onChange={(e) => setIssueRunId(e.target.value)}>
                 <option value="">なし</option>
                 {runs.map((r) => (
@@ -333,11 +333,11 @@ function IssuesPageInner() {
                     [{r.agentName}] {r.task.slice(0, 30)}
                   </option>
                 ))}
-              </select>
+              </select></label>
             </div>
 
             <div className={styles.field}>
-              <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）</label>
+              <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
               <select value={issueTeamId} onChange={(e) => setIssueTeamId(e.target.value)}>
                 <option value="">なし</option>
                 {teams
@@ -347,11 +347,11 @@ function IssuesPageInner() {
                       {t.name}
                     </option>
                   ))}
-              </select>
+              </select></label>
             </div>
 
             <div className={styles.field}>
-              <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）</label>
+              <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
               <select value={issueKeyResultId} onChange={(e) => setIssueKeyResultId(e.target.value)}>
                 <option value="">なし</option>
                 {objectives.map((o) =>
@@ -361,7 +361,7 @@ function IssuesPageInner() {
                     </option>
                   )),
                 )}
-              </select>
+              </select></label>
             </div>
 
             <div className={styles.field}>
@@ -383,43 +383,43 @@ function IssuesPageInner() {
               Why/What/Howは分かっている範囲でOK。分からなければ空欄のまま起票し、詳細画面で明らかにしてから計画・実行してください。
             </p>
             <div className={styles.field}>
-              <label>Why（このIssueが生む価値・誰のためか・なぜ今か）</label>
+              <label>Why（このIssueが生む価値・誰のためか・なぜ今か）
               <textarea
                 rows={2}
                 value={issueWhy}
                 onChange={(e) => setIssueWhy(e.target.value)}
                 placeholder={activeType?.why ?? "例: Aさんの離脱リスクを下げ、決済基盤の開発速度を維持するため。今対応しないと来期のリリースに響く。"}
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>What（何を・どこまで・どのくらい・完了の定義）</label>
+              <label>What（何を・どこまで・どのくらい・完了の定義）
               <textarea
                 rows={2}
                 value={issueWhat}
                 onChange={(e) => setIssueWhat(e.target.value)}
                 placeholder={activeType?.what ?? "例: Bチームからの割り込みタスクを整理し、Aさんが週3日以上リファクタリングに専念できる状態にする。完了条件: ○○。"}
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>How（どのように実現するか・前提や制約）</label>
+              <label>How（どのように実現するか・前提や制約）
               <textarea
                 rows={2}
                 value={issueHow}
                 onChange={(e) => setIssueHow(e.target.value)}
                 placeholder={activeType?.how ?? "例: 割り込みタスクの受け入れ基準を定めてBチームと合意する。予算・人員の追加は無い前提。"}
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>タグ（カンマ区切り、任意）</label>
+              <label>タグ（カンマ区切り、任意）
               <input
                 type="text"
                 value={issueTags}
                 onChange={(e) => setIssueTags(e.target.value)}
                 placeholder="例: バグ, リファクタリング, オンボーディング"
-              />
+              /></label>
             </div>
 
-            {issueError && <p className={styles.errorText}>{issueError}</p>}
+            {issueError && <p className={styles.errorText} role="alert">{issueError}</p>}
             <button className={styles.primaryBtn} type="submit" disabled={issueSubmitting || !issueTitle.trim()}>
               Issueを起票
             </button>

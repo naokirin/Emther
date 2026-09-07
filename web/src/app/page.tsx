@@ -991,7 +991,7 @@ export default function DashboardPage() {
               </button>
             )}
           </form>
-          {journalError && <p className={styles.errorText}>{journalError}</p>}
+          {journalError && <p className={styles.errorText} role="alert">{journalError}</p>}
 
           <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
             <button className={styles.detailToggle} onClick={() => setBulkOpen(!bulkOpen)}>
@@ -1026,8 +1026,12 @@ export default function DashboardPage() {
                 >
                   {bulkSubmitting ? "処理中…（行数分の時間がかかります）" : "まとめて記録する"}
                 </button>
-                {bulkError && <p className={styles.errorText}>{bulkError}</p>}
-                {bulkResultMessage && <p className={styles.subtitle} style={{ marginTop: 6 }}>✅ {bulkResultMessage}</p>}
+                {bulkError && <p className={styles.errorText} role="alert">{bulkError}</p>}
+                {bulkResultMessage && (
+                  <p className={styles.subtitle} style={{ marginTop: 6 }} role="status">
+                    ✅ {bulkResultMessage}
+                  </p>
+                )}
               </form>
             )}
           </div>
@@ -1097,8 +1101,12 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 </form>
-                {profileError && <p className={styles.errorText}>{profileError}</p>}
-                {profileSaved && <p className={styles.subtitle}>✅ 長期プロファイルとして記録しました。</p>}
+                {profileError && <p className={styles.errorText} role="alert">{profileError}</p>}
+                {profileSaved && (
+                  <p className={styles.subtitle} role="status">
+                    ✅ 長期プロファイルとして記録しました。
+                  </p>
+                )}
 
                 <button
                   type="button"
@@ -1116,7 +1124,7 @@ export default function DashboardPage() {
                 >
                   ⓘ あくまで下書きです。「記録」を押すまで保存されません。
                 </p>
-                {draftError && <p className={styles.errorText}>{draftError}</p>}
+                {draftError && <p className={styles.errorText} role="alert">{draftError}</p>}
               </>
             )}
           </div>
@@ -1126,29 +1134,29 @@ export default function DashboardPage() {
           <h2>相談・起動</h2>
           <form onSubmit={handleStart}>
             <div className={styles.field}>
-              <label>エージェント</label>
+              <label>エージェント
               <select value={agentName} onChange={(e) => setAgentName(e.target.value)}>
                 {AGENT_OPTIONS.map((name) => (
                   <option key={name} value={name}>
                     {name}
                   </option>
                 ))}
-              </select>
+              </select></label>
             </div>
             <div className={styles.field}>
-              <label>タスク内容</label>
+              <label>タスク内容
               <textarea
                 rows={3}
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
                 placeholder="例: Aさんのリファクタリングが停滞している。Bチームの割り込みタスクが原因らしい。対応方針を検討して。"
-              />
+              /></label>
             </div>
             <button className={styles.primaryBtn} type="submit" disabled={starting || !task.trim()}>
               {starting ? "起動中…" : "エージェントを起動"}
             </button>
           </form>
-          {error && <p className={styles.errorText}>{error}</p>}
+          {error && <p className={styles.errorText} role="alert">{error}</p>}
 
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 12 }}>
             状態で絞り込み:

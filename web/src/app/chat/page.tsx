@@ -230,7 +230,7 @@ function ChatPageInner() {
                   却下する（対応不要）
                 </button>
               </div>
-              {reviewError && <p className={styles.errorText}>{reviewError}</p>}
+              {reviewError && <p className={styles.errorText} role="alert">{reviewError}</p>}
             </div>
             <ExecutionState
               run={selectedRun}
@@ -244,7 +244,7 @@ function ChatPageInner() {
             />
             <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />
             <CopilotChat run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="chat-page-input" />
-            {decideError && <p className={styles.errorText}>{decideError}</p>}
+            {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
           </>
         ) : (
           <>
@@ -254,19 +254,19 @@ function ChatPageInner() {
             </p>
             <form onSubmit={handleStartNew}>
               <div className={styles.field}>
-                <label>相談したいこと</label>
+                <label>相談したいこと
                 <textarea
                   value={task}
                   onChange={(e) => setTask(e.target.value)}
                   rows={3}
                   placeholder="例: 最近チーム全体の元気度が心配。何を確認すればいい？"
-                />
+                /></label>
               </div>
               <button className={styles.primaryBtn} type="submit" disabled={starting || !task.trim()}>
                 {starting ? "開始中…" : "相談を始める"}
               </button>
             </form>
-            {startError && <p className={styles.errorText}>{startError}</p>}
+            {startError && <p className={styles.errorText} role="alert">{startError}</p>}
           </>
         )}
       </div>

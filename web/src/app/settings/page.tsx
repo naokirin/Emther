@@ -52,64 +52,64 @@ export default function SettingsPage() {
           こちらはアプリの動作を調整する設定値です。
         </p>
         <div className={styles.field}>
-          <label>Team Vital: 判定に使う参照期間（日）</label>
+          <label>Team Vital: 判定に使う参照期間（日）
           <input
             type="number"
             value={draft.teamWindowDays}
             onChange={(e) => setDraft({ ...draft, teamWindowDays: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>Team Vital: 判定に最低限必要なジャーナル件数（未満は評価不能）</label>
+          <label>Team Vital: 判定に最低限必要なジャーナル件数（未満は評価不能）
           <input
             type="number"
             value={draft.minEntriesForJudgement}
             onChange={(e) => setDraft({ ...draft, minEntriesForJudgement: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>Team Vital: 「要注意」と判定する感情スコア平均の閾値（以下でbad）</label>
+          <label>Team Vital: 「要注意」と判定する感情スコア平均の閾値（以下でbad）
           <input
             type="number"
             step="0.01"
             value={draft.teamBadSentimentMax}
             onChange={(e) => setDraft({ ...draft, teamBadSentimentMax: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>Team Vital: 「やや注意」と判定する感情スコア平均の閾値（未満でwarn）</label>
+          <label>Team Vital: 「やや注意」と判定する感情スコア平均の閾値（未満でwarn）
           <input
             type="number"
             step="0.01"
             value={draft.teamWarnSentimentMax}
             onChange={(e) => setDraft({ ...draft, teamWarnSentimentMax: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>1on1 Coverage: 判定に使う参照期間（日）</label>
+          <label>1on1 Coverage: 判定に使う参照期間（日）
           <input
             type="number"
             value={draft.coverageWindowDays}
             onChange={(e) => setDraft({ ...draft, coverageWindowDays: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>1on1 Coverage: 「良好」と判定するカバー率（以上でgood）</label>
+          <label>1on1 Coverage: 「良好」と判定するカバー率（以上でgood）
           <input
             type="number"
             step="0.01"
             value={draft.coverageGoodRatio}
             onChange={(e) => setDraft({ ...draft, coverageGoodRatio: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>1on1 Coverage: 「要注意」と判定するカバー率（以上でwarn、未満でbad）</label>
+          <label>1on1 Coverage: 「要注意」と判定するカバー率（以上でwarn、未満でbad）
           <input
             type="number"
             step="0.01"
             value={draft.coverageWarnRatio}
             onChange={(e) => setDraft({ ...draft, coverageWarnRatio: Number(e.target.value) })}
-          />
+          /></label>
         </div>
 
         <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
@@ -117,20 +117,20 @@ export default function SettingsPage() {
           「動いていると思ったら止まっていた」を防ぐための閾値です。statusが稼働中のままログ更新が無い時間で判定します。
         </p>
         <div className={styles.field}>
-          <label>この秒数、ログ更新が無ければ「応答なし」と表示する</label>
+          <label>この秒数、ログ更新が無ければ「応答なし」と表示する
           <input
             type="number"
             value={draft.agentStaleAfterSeconds}
             onChange={(e) => setDraft({ ...draft, agentStaleAfterSeconds: Number(e.target.value) })}
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>この秒数を超えたらハングした子プロセスとみなし、強制終了してErrorに確定する</label>
+          <label>この秒数を超えたらハングした子プロセスとみなし、強制終了してErrorに確定する
           <input
             type="number"
             value={draft.agentKillAfterSeconds}
             onChange={(e) => setDraft({ ...draft, agentKillAfterSeconds: Number(e.target.value) })}
-          />
+          /></label>
         </div>
 
         <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Journalファクトの有効期間（TTL）</h3>
@@ -138,12 +138,12 @@ export default function SettingsPage() {
           一時的な発言・感情（ファクト）は、この日数を過ぎるとAgent Runtimeへの注入対象から外れます（履歴としては残り、削除はされません）。長期的な解釈・プロファイルにはTTLはありません。
         </p>
         <div className={styles.field}>
-          <label>Journalファクトの有効日数</label>
+          <label>Journalファクトの有効日数
           <input
             type="number"
             value={draft.journalFactTtlDays}
             onChange={(e) => setDraft({ ...draft, journalFactTtlDays: Number(e.target.value) })}
-          />
+          /></label>
         </div>
 
         <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
@@ -216,14 +216,14 @@ export default function SettingsPage() {
           毎朝、指定時刻以降に自動で「朝のサマリー」をLead Agentに作成させる
         </label>
         <div className={styles.field} style={{ maxWidth: 160 }}>
-          <label>朝のサマリーを生成する時刻（サーバーのローカル時刻、0〜23時）</label>
+          <label>朝のサマリーを生成する時刻（サーバーのローカル時刻、0〜23時）
           <input
             type="number"
             min={0}
             max={23}
             value={draft.autoMorningSummaryHour}
             onChange={(e) => setDraft({ ...draft, autoMorningSummaryHour: Number(e.target.value) })}
-          />
+          /></label>
         </div>
       </div>
     </div>

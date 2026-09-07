@@ -232,14 +232,14 @@ export function ExecutionState({
       )}
 
       {run.status === "active" && stale && (
-        <p className={styles.errorText}>
+        <p className={styles.errorText} role="alert">
           ❔ 応答なし: しばらくログが更新されていません。動いているように見えて実際は止まっている可能性があります。
         </p>
       )}
       {run.status === "active" && !stale && <p className={styles.subtitle}>エージェントが検討中です…</p>}
       {run.status === "error" && (
         <div>
-          <p className={styles.errorText}>エラーで終了しました。右のログを確認してください。</p>
+          <p className={styles.errorText} role="alert">エラーで終了しました。右のログを確認してください。</p>
           {onRetry && (
             <button className={styles.btnOutline} disabled={deciding} onClick={onRetry}>
               {deciding ? "再試行中…" : "🔁 同じ内容で再試行する"}
