@@ -535,8 +535,8 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           </select></label>
         </div>
         <div className={styles.field}>
-          <label>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>
+          <div role="group" aria-label="介入の型（複数選択可）" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {INTERVENTION_TYPES.map((t) => (
               <button
                 key={t.label}

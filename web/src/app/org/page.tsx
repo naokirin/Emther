@@ -630,7 +630,7 @@ export default function OrgContextPage() {
             </button>
 
             <div className={styles.field} style={{ marginTop: 16 }}>
-              <label>Members_Profile（保存済みの状態。クリックでPeopleへ）</label>
+              <span className={styles.fieldCaption}>Members_Profile（保存済みの状態。クリックでPeopleへ）</span>
               <div className={styles.tagRow} style={{ marginTop: 6 }}>
                 {selectedTeam.members.length === 0 && <span className={styles.subtitle}>メンバー未登録</span>}
                 {selectedTeam.members.map((m) => (
