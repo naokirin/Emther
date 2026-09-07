@@ -351,6 +351,11 @@ export default function DashboardPage() {
     const isUnreviewedAuto = run.origin !== "manual" && !run.reviewed;
     const autoLabel = run.origin === "auto-anomaly" ? "AIが異常を検知" : "朝のサマリー";
     const onSelectAuto = () => router.push(`/chat?runId=${run.id}`);
+    // docs/em_human_story_and_ux.md P0-2対応（修正）。自動検知drafts（isUnreviewedAuto）だけ
+    // でなく、まだIssueに紐付いていないLead Agent run全般（手動で始めた「何でも相談」が
+    // Yield/エラー/無応答になっている場合を含む）も、クリックしたらgoToRunIssueで即Issue化
+    // せず/chatへ寄せる。Lead Agentは「相談」の相手であり、決まった介入ではないため。
+    const isLeadUnlinked = run.agentName === "Lead Agent" && !issues.some((i) => i.agentRunId === run.id);
 
     if (staleRunIds.has(run.id)) {
       const minutes = Math.round((now - run.updatedAt) / 60000);
@@ -361,7 +366,7 @@ export default function DashboardPage() {
         icon: "❔",
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
-        onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
+        onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
       });
     } else if (run.status === "yield") {
       nextActions.push({
@@ -371,7 +376,7 @@ export default function DashboardPage() {
         icon: "🟡",
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "Yield",
         text: `${isUnreviewedAuto ? `${autoLabel}: ` : `${run.agentName}が判断待ちです: `}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
-        onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
+        onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
       });
     } else if (run.status === "error") {
       nextActions.push({
@@ -381,7 +386,7 @@ export default function DashboardPage() {
         icon: "🔴",
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${isUnreviewedAuto ? `${autoLabel}（エラー）: ` : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
-        onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
+        onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
       });
     } else if (isUnreviewedAuto && run.status === "idle") {
       // docs/memo.md「A」対応。異常検知ドラフトはtaskの要約より、Lead Agentが出した
