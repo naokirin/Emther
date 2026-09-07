@@ -78,6 +78,74 @@
   }
 }
 
+/* ---------- Side navigation（グローバルメニュー配下のグループ内メニュー） ---------- */
+/* 改修依頼「グローバルメニュー＋サイドメニューのグルーピング」対応。複数画面を持つ
+   グループ（介入／振り返り）でだけ、TopNav（グループ単位）の下にこのサイドメニューを
+   出し、グループ内の画面を選ばせる。 */
+.appBody {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.sideNav {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 16px;
+}
+
+.sideNavHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 10px 6px;
+  cursor: help;
+}
+
+.sideNavItem {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.sideNavItem:hover {
+  background: var(--gray-bg);
+}
+
+.sideNavItemActive,
+.sideNavItemActive:hover {
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.appContent {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 860px) {
+  .appBody {
+    flex-direction: column;
+  }
+
+  .sideNav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+    width: 100%;
+  }
+
+  .sideNavHint {
+    display: none;
+  }
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
