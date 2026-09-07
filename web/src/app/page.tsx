@@ -601,13 +601,11 @@ export default function DashboardPage() {
   // docs/em_human_story_and_ux.md P0-5対応。先頭を「今日の組織の問い」1文へ圧縮する。
   const laneActionsForFilter = nextActions.filter((a) => a.lane === laneFilter);
   const visibleActions = laneActionsForFilter.slice(0, NEXT_ACTIONS_LIMIT);
-  // 1文中の各件数はクリックでそのレーンに絞り込めるようにする（見るだけで押せない
-  // 数字にしない。クリック先を探させないための対応）。
-  const headlineSegments: { lane: Lane; label: string }[] = [
-    { lane: "decision", label: `判断待ち${laneCounts.decision}件` },
-    { lane: "observation", label: `観測不足${laneCounts.observation}件` },
-    { lane: "maintenance", label: `整備${laneCounts.maintenance}件` },
-  ];
+  // 絞り込みは下のタブだけで行う（見出し内の件数はクリックできない、ただの要約）。
+  const headline =
+    nextActions.length === 0
+      ? "✅ 今日、判断待ちの組織課題はありません。"
+      : `🧭 今日: 判断待ち${laneCounts.decision}件・観測不足${laneCounts.observation}件・整備${laneCounts.maintenance}件`;
 
   return (
     <div className={styles.screen}>
@@ -649,23 +647,7 @@ export default function DashboardPage() {
           先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
           最初にトリアージへ着地させる。 */}
       <div className={`${styles.panel} ${styles.nextActionsPanel} ${styles.heroPanel}`}>
-        <h1 className={styles.heroHeadline}>
-          {nextActions.length === 0 ? (
-            "✅ 今日、判断待ちの組織課題はありません。"
-          ) : (
-            <>
-              🧭 今日:{" "}
-              {headlineSegments.map((s, i) => (
-                <span key={s.lane}>
-                  {i > 0 && "・"}
-                  <button type="button" className={styles.heroHeadlineLink} onClick={() => setLaneFilter(s.lane)}>
-                    {s.label}
-                  </button>
-                </span>
-              ))}
-            </>
-          )}
-        </h1>
+        <h1 className={styles.heroHeadline}>{headline}</h1>
 
         <div className={styles.tabs} style={{ margin: "10px 0" }}>
           {(Object.keys(LANE_META) as Lane[]).map((lane) => (

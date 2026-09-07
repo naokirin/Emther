@@ -221,23 +221,6 @@
   margin: 0;
 }
 
-/* 見出し内の件数もクリックでレーン絞り込みに飛べるようにする（見るだけの数字にしない）。 */
-.heroHeadlineLink {
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-weight: 700;
-  color: var(--blue);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.heroHeadlineLink:hover {
-  color: var(--foreground);
-}
-
 .runItem.nextActionUrgent {
   background: var(--red-bg);
   border-color: var(--red-border);
