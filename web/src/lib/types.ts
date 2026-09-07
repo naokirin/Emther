@@ -22,6 +22,8 @@ export type JournalEntry = {
   sentiment: "positive" | "negative" | "neutral";
   summary: string;
   createdAt: number;
+  // docs/em_human_story_and_ux.md P1-9対応。EMが一度でも校正（確認）操作を通したかどうか。
+  confirmed: boolean;
 };
 
 // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。

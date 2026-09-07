@@ -30,6 +30,9 @@ export type JournalEntry = {
   sentiment: Sentiment;
   summary: string;
   createdAt: number;
+  // docs/em_human_story_and_ux.md P1-9対応。EMが一度でも校正（確認）操作を通したかどうか。
+  // supersedesが無い＝記録直後のローカルモデル抽出そのまま、という目印になる。
+  confirmed: boolean;
 };
 
 // 個人情報の分離（ユーザー指摘対応）: KnowledgeEventのtext/summary/peopleはPERSON_n ID
@@ -45,6 +48,7 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     sentiment: (e.sentiment as Sentiment) ?? "neutral",
     summary: e.summary ?? "",
     createdAt: e.occurredAt,
+    confirmed: e.supersedes !== undefined,
   };
 }
 
@@ -180,27 +184,12 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     embedding,
   });
 
-  // docs/first_implession 3.6/3.7対応: 「イベント駆動」トリガー＋「AIによる異常検知経由の
-  // ドラフトIssue起票」。緊急度highのJournalが登録された時に限り、Lead Agentへ自動で
-  // 分析タスクを投げる。Issueを直接作成はせず、通常のAgent Runとして起動するだけ——
-  // 既存の「📌 このRunをIssueにする」導線をEMが使うかどうかで、起票の最終判断は
-  // 必ず人間に残す（業務要求7 Human-in-the-Loop）。既定はOFF（EMの明示opt-inが必要）。
-  if (event.urgency === "high" && getRulesAndConstraints().autoAnomalyDetectionEnabled) {
-    void startRun(
-      "Lead Agent",
-      [
-        "Journalに緊急度highのエントリが追加されました。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
-        "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
-        "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
-        "",
-        `対象のJournalエントリ: "${rawText}"`,
-      ].join("\n"),
-      "auto-anomaly",
-    ).catch(() => {
-      // 自動分析の起動失敗でJournal記録自体は失敗させない（あくまで補助機能）。
-    });
-  }
-
+  // docs/em_human_story_and_ux.md P1-9対応（旧実装からの変更）。以前はここ（登録直後、
+  // ローカルモデルの生の抽出結果に対して）で自動検知を起動していたが、ローカルモデルの
+  // 精度限界でurgency抽出を誤ると、EMが校正する前に「偽の緊急事態」としてクラウドの
+  // Lead Agentが起動してしまう問題があった（docs/em_human_story_and_ux.md
+  // 「(10) ローカルNER誤検出」とは別の、抽出精度そのものの問題）。そのため自動検知の
+  // トリガーはupdateJournalEntry（EMが確認・校正した後）側に移し、ここでは記録のみ行う。
   return eventToJournalEntry(event);
 }
 
@@ -244,6 +233,26 @@ export async function updateJournalEntry(
     sourceJournalId: original.sourceJournalId,
     embedding: original.embedding,
   });
+
+  // docs/em_human_story_and_ux.md P1-9対応。自動検知は「EMが確認・校正した後」にだけ
+  // 起動する。original.supersedes===undefinedは「まだ一度も確認されていない、記録直後の
+  // 生の抽出結果」であることの目印（校正済みの版をさらに直すような後続の編集では
+  // 再度起動しない）。
+  if (urgency === "high" && original.supersedes === undefined && getRulesAndConstraints().autoAnomalyDetectionEnabled) {
+    void startRun(
+      "Lead Agent",
+      [
+        "Journalに緊急度highのエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+        "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
+        "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
+        "",
+        `対象のJournalエントリ: "${original.text}"`,
+      ].join("\n"),
+      "auto-anomaly",
+    ).catch(() => {
+      // 自動分析の起動失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
+    });
+  }
 
   return eventToJournalEntry(event);
 }
