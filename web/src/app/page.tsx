@@ -404,17 +404,32 @@ export default function DashboardPage() {
   }
 
   for (const entry of journalEntries) {
-    if (entry.urgency !== "mid" || entry.sentiment !== "negative") continue;
     if (now - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
-    nextActions.push({
-      id: `journal-${entry.id}`,
-      severity: "warn",
-      lane: "observation",
-      icon: "📝",
-      kindLabel: "要注目Journal",
-      text: (entry.summary || entry.rawText).slice(0, 44),
-      onSelect: () => router.push(`/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}`),
-    });
+    if (entry.urgency === "mid" && entry.sentiment === "negative") {
+      nextActions.push({
+        id: `journal-${entry.id}`,
+        severity: "warn",
+        lane: "observation",
+        icon: "📝",
+        kindLabel: "要注目Journal",
+        text: (entry.summary || entry.rawText).slice(0, 44),
+        onSelect: () => router.push(`/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}`),
+      });
+    } else if (entry.urgency === "high" && !entry.confirmed) {
+      // docs/em_human_story_and_ux.md P1-9対応。緊急度highの自動検知はEMの校正後にしか
+      // 起動しないため、校正されないまま放置されると誰にも気づかれない恐れがある。
+      // 未確認のままのhighエントリは、様子見にできる「観測不足」ではなく「判断待ち」
+      // （校正するかどうかを決める）として明示的に残す。
+      nextActions.push({
+        id: `journal-unconfirmed-${entry.id}`,
+        severity: "urgent",
+        lane: "decision",
+        icon: "📝",
+        kindLabel: "Journal未確認",
+        text: `緊急度highのまま未確認です: ${(entry.summary || entry.rawText).slice(0, 40)}`,
+        onSelect: () => router.push("/journal"),
+      });
+    }
   }
 
   for (const issue of issues) {
@@ -463,7 +478,11 @@ export default function DashboardPage() {
       icon: vitals.oneOnOneCoverage.status === "bad" ? "🔴" : "🟡",
       kindLabel: "1on1不足",
       text: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件です`,
-      onSelect: () => router.push("/org"),
+      // docs/em_human_story_and_ux.md P1-8対応。「評価不能・1on1不足」は体制変更ではなく
+      // 観測を増やす行動（Quick Journal）に一本化する。体制そのものを見直したい場合は
+      // Team Vitalsパネル側から/orgへ行ける。
+      onSelect: () =>
+        prefillJournal(vitals.oneOnOneCoverage.uncoveredMembers[0] ? `#1on1 @${vitals.oneOnOneCoverage.uncoveredMembers[0]} ` : ""),
     });
   }
 

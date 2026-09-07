@@ -100,6 +100,14 @@ export function JournalEntryCard({
           </span>
         )}
         <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
+        {!entry.confirmed && (
+          <span
+            className={styles.subtitle}
+            title="AIの自動抽出のままです。内容が正しければ「編集」→「この内容で確定」で確認してください。"
+          >
+            🤖 未確認
+          </span>
+        )}
         <button className={styles.detailToggle} onClick={onStartEdit}>
           編集
         </button>
