@@ -115,6 +115,8 @@ export function useJournal(intervalMs = 5000) {
 // 共有するための共通フック。同時に編集できるのは呼び出し側の画面ごとに1件のみ。
 export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntries: (entries: JournalEntry[]) => void) {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
+  const [editRawText, setEditRawText] = useState("");
   const [editTags, setEditTags] = useState("");
   const [editPeople, setEditPeople] = useState("");
   const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
@@ -131,6 +133,7 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
 
   function startEditing(entry: JournalEntry) {
     setEditingEntryId(entry.id);
+    setEditRawText(entry.rawText);
     setEditTags(entry.tags.join(", "));
     setEditPeople(entry.people.join(", "));
     setEditUrgency(entry.urgency);
@@ -145,6 +148,7 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
 
   function currentEditPatch() {
     return {
+      rawText: editRawText.trim() || undefined,
       tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
       people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
       urgency: editUrgency,
@@ -232,6 +236,8 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
 
   return {
     editingEntryId,
+    editRawText,
+    setEditRawText,
     editTags,
     setEditTags,
     editPeople,

@@ -178,6 +178,7 @@ function JournalListPageInner() {
               <JournalEntryCard
                 entry={entry}
                 editing={editing.editingEntryId === entry.id}
+                editRawText={editing.editRawText}
                 editTags={editing.editTags}
                 editPeople={editing.editPeople}
                 editUrgency={editing.editUrgency}
@@ -185,6 +186,7 @@ function JournalListPageInner() {
                 editSubmitting={editing.editSubmitting}
                 editError={editing.editError}
                 resolutionNoteDraft={editing.resolutionNoteDraft}
+                onChangeEditRawText={editing.setEditRawText}
                 onChangeEditTags={editing.setEditTags}
                 onChangeEditPeople={editing.setEditPeople}
                 onChangeEditUrgency={editing.setEditUrgency}

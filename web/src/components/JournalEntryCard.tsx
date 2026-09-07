@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { URGENCY_LABEL, type JournalEntry } from "@/lib/types";
@@ -26,6 +27,7 @@ function formatEntryDate(ts: number): string {
 export function JournalEntryCard({
   entry,
   editing,
+  editRawText,
   editTags,
   editPeople,
   editUrgency,
@@ -33,6 +35,7 @@ export function JournalEntryCard({
   editSubmitting,
   editError,
   resolutionNoteDraft,
+  onChangeEditRawText,
   onChangeEditTags,
   onChangeEditPeople,
   onChangeEditUrgency,
@@ -47,6 +50,7 @@ export function JournalEntryCard({
 }: {
   entry: JournalEntry;
   editing: boolean;
+  editRawText: string;
   editTags: string;
   editPeople: string;
   editUrgency: JournalEntry["urgency"];
@@ -54,6 +58,7 @@ export function JournalEntryCard({
   editSubmitting: boolean;
   editError: string | null;
   resolutionNoteDraft: string;
+  onChangeEditRawText: (value: string) => void;
   onChangeEditTags: (value: string) => void;
   onChangeEditPeople: (value: string) => void;
   onChangeEditUrgency: (value: JournalEntry["urgency"]) => void;
@@ -68,16 +73,60 @@ export function JournalEntryCard({
 }) {
   const router = useRouter();
   const isResolved = !!(entry.resolvedIssueId || entry.resolutionNote);
+  // docs/em_human_story_and_ux.md 改修依頼「本文編集は他の編集項目より頻度が低いので、
+  // 編集を押したときだけ編集モードに入るようにする」対応。tags/people/urgency/日付は
+  // 編集モードに入ると常に触れるが、本文はIssueのタイトル編集と同じくボタンで
+  // 明示的に開始する（うっかり本文を書き換えてしまう事故も減らせる）。
+  const [rawTextRevealed, setRawTextRevealed] = useState(false);
 
   async function handleCreateIssue() {
     const issueId = await onResolveWithNewIssue();
-    if (issueId) router.push(`/issues/${issueId}`);
+    if (issueId) {
+      setRawTextRevealed(false);
+      router.push(`/issues/${issueId}`);
+    }
+  }
+
+  function handleResolveWithNote() {
+    setRawTextRevealed(false);
+    onResolveWithNote();
+  }
+
+  function handleCancel() {
+    setRawTextRevealed(false);
+    onCancelEdit();
+  }
+
+  function handleConfirm() {
+    setRawTextRevealed(false);
+    onConfirmEdit();
   }
 
   if (editing) {
     return (
       <div className={styles.journalEntry}>
-        <div>{entry.rawText}</div>
+        {rawTextRevealed ? (
+          <div className={styles.field}>
+            <label>
+              本文
+              <textarea
+                value={editRawText}
+                onChange={(e) => onChangeEditRawText(e.target.value)}
+                rows={3}
+              />
+            </label>
+          </div>
+        ) : (
+          <div>
+            {entry.rawText}{" "}
+            <button
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              onClick={() => setRawTextRevealed(true)}
+            >
+              本文を編集
+            </button>
+          </div>
+        )}
         <div className={styles.field} style={{ marginTop: 8 }}>
           <label>
             発生日（時刻は不要）
@@ -107,10 +156,10 @@ export function JournalEntryCard({
           </label>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={onConfirmEdit}>
+          <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={handleConfirm}>
             {editSubmitting ? "確定中…" : "この内容で確定"}
           </button>
-          <button className={styles.btnOutline} disabled={editSubmitting} onClick={onCancelEdit}>
+          <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCancel}>
             キャンセル
           </button>
         </div>
@@ -155,7 +204,7 @@ export function JournalEntryCard({
                   placeholder="例: 本人と話して解消済み"
                   style={{ flex: 1 }}
                 />
-                <button className={styles.btnOutline} disabled={editSubmitting} onClick={onResolveWithNote}>
+                <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleResolveWithNote}>
                   メモを残して解決にする
                 </button>
               </div>

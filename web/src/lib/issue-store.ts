@@ -242,6 +242,24 @@ export async function updateIssueCharter(issueId: string, patch: Partial<IssueCh
   return issue;
 }
 
+// docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
+// 起票後に文脈が変わった・言葉を整えたい場合の訂正用。空文字は拒否する（Issueのタイトルは
+// 一覧・Timeline・関連Issue表示等、常に何らかの見出しとして参照されるため）。
+export async function setIssueTitle(issueId: string, title: string): Promise<Issue | undefined> {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("titleは必須です");
+  const masked = await maskForStorage(trimmed);
+  if (masked === issue.title) return issue;
+  const previousTitle = issue.title;
+  issue.title = masked;
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `タイトルを変更しました:「${previousTitle}」→「${masked}」`);
+  return issue;
+}
+
 export async function addActionItem(issueId: string, text: string): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
