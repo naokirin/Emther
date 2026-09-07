@@ -2,7 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
-import type { Issue, JournalEntry, KnowledgeEvent, OrgStrategy, OrgVitals, RulesAndConstraints, Team } from "@/lib/types";
+import type {
+  Issue,
+  IssueImpact,
+  JournalEntry,
+  KnowledgeEvent,
+  ObjectiveWithProgress,
+  OrgStrategy,
+  OrgVitals,
+  PersonProfile,
+  PersonSummary,
+  RulesAndConstraints,
+  Team,
+} from "@/lib/types";
 
 // Dashboard / Issues一覧 / Issue詳細 / Organization Contextの各画面で共通して使う
 // ポーリング付きデータ取得フック。画面（ルート）が分かれてもデータ取得ロジックを
@@ -111,9 +123,15 @@ export function useVitals(intervalMs = 5000) {
 }
 
 export function useOrgStrategy(intervalMs = 8000) {
-  const fallback: { strategy: OrgStrategy } = { strategy: { mission: "", vision: "", values: "", okr: "" } };
+  const fallback: { strategy: OrgStrategy } = { strategy: { mission: "", vision: "", values: "" } };
   const { data, refresh } = usePolling<{ strategy: OrgStrategy }>("/api/org/strategy", fallback, intervalMs);
   return { strategy: data.strategy, refreshStrategy: refresh };
+}
+
+// docs/memo.md「H. 戦略→Issue→結果の一本線」対応。
+export function useObjectives(intervalMs = 5000) {
+  const { data, refresh } = usePolling<{ objectives: ObjectiveWithProgress[] }>("/api/org/objectives", { objectives: [] }, intervalMs);
+  return { objectives: data.objectives, refreshObjectives: refresh };
 }
 
 export function useSettingsRules(intervalMs = 8000) {
@@ -141,6 +159,24 @@ export function useSettingsRules(intervalMs = 8000) {
 }
 
 // 単一Issue詳細ページ用。Issue一覧のポーリングとは別に、そのIssue1件だけを取得する。
+// docs/memo.md「J. Peopleを第一級ハブに」対応。
+export function usePeople(intervalMs = 5000) {
+  const { data, refresh } = usePolling<{ people: PersonSummary[] }>("/api/people", { people: [] }, intervalMs);
+  return { people: data.people, refreshPeople: refresh };
+}
+
+export function usePersonProfile(id: string, intervalMs = 5000) {
+  const { data, refresh } = usePolling<{ person: PersonProfile | null }>(`/api/people/${id}`, { person: null }, intervalMs);
+  return { person: data.person, refreshPerson: refresh };
+}
+
+// docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssue
+// でのみ意味を持つため、呼び出し側がenabledで制御する（無駄なポーリングを避ける）。
+export function useIssueImpact(id: string, enabled: boolean, intervalMs = 10000) {
+  const { data, refresh } = usePolling<{ impact: IssueImpact | null }>(`/api/issues/${id}/impact`, { impact: null }, intervalMs, enabled);
+  return { impact: data.impact, refreshImpact: refresh };
+}
+
 export function useIssue(id: string, intervalMs = 2000) {
   const { data, setData, refresh } = usePolling<{ issue: Issue | null }>(
     `/api/issues/${id}`,
@@ -152,7 +188,7 @@ export function useIssue(id: string, intervalMs = 2000) {
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する。
 // entityIdが未確定（null）の間はfetchしない。
-export function useEntityHistory(entityType: "issue" | "team", entityId: string | null, intervalMs = 5000) {
+export function useEntityHistory(entityType: "issue" | "team" | "org", entityId: string | null, intervalMs = 5000) {
   const url = `/api/knowledge/events?entityType=${entityType}&entityId=${entityId ?? ""}`;
   const { data, refresh } = usePolling<{ events: KnowledgeEvent[] }>(url, { events: [] }, intervalMs, entityId !== null);
   return { history: data.events, refreshHistory: refresh };

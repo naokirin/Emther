@@ -1,7 +1,8 @@
-import { listActiveTeams, type Team } from "@/lib/org-context-store";
+import { getTeam, listActiveTeams, type Team } from "@/lib/org-context-store";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
 import { teamDisplayName } from "@/lib/types";
+import type { Issue } from "@/lib/issue-store";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
 // 重要: データが足りない場合に「良好」や「要注意」へ寄せず、必ず"unknown"として
@@ -148,5 +149,44 @@ export function computeOrgVitals(): OrgVitals {
   return {
     teams: teams.map((t) => computeTeamVital(t, entries, rules)),
     oneOnOneCoverage: computeCoverageVital(teams, entries, rules),
+  };
+}
+
+// docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
+// 「感覚」ではなく観測（Journalのsentiment集計）に基づいて、介入（チームに紐づくIssueの
+// アーカイブ）の前後でチームの状態がどう変化したかを見せる。新しいVitalsのロジックは
+// 作らず、computeTeamVitalと同じ「直近teamWindowDays日間のJournal」という考え方を、
+// 「アーカイブ前のteamWindowDays日間」と「アーカイブ後のteamWindowDays日間」の
+// 2つの窓に分けて適用するだけ。
+export type ImpactWindow = { total: number; positive: number; negative: number };
+export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow };
+
+function summarizeWindow(entries: JournalEntry[]): ImpactWindow {
+  return {
+    total: entries.length,
+    positive: entries.filter((e) => e.sentiment === "positive").length,
+    negative: entries.filter((e) => e.sentiment === "negative").length,
+  };
+}
+
+// アーカイブされておらず、チームに紐づいていないIssueには「介入の前後比較」という
+// 概念自体が成立しないため、その場合はundefinedを返す（呼び出し側はCTAを出し分ける）。
+export function computeIssueImpact(issue: Issue): IssueImpact | undefined {
+  if (!issue.archived || !issue.archivedAt || !issue.teamId) return undefined;
+  const team = getTeam(issue.teamId);
+  if (!team || team.members.length === 0) return undefined;
+
+  const rules = getRulesAndConstraints();
+  const windowMs = rules.teamWindowDays * 24 * 60 * 60 * 1000;
+  const entries = listJournalEntries();
+  const relevant = entries.filter((e) => e.people.some((p) => team.members.includes(p)));
+
+  const beforeEntries = relevant.filter((e) => e.createdAt >= issue.createdAt - windowMs && e.createdAt < issue.createdAt);
+  const afterEntries = relevant.filter((e) => e.createdAt >= issue.archivedAt! && e.createdAt < issue.archivedAt! + windowMs);
+
+  return {
+    windowDays: rules.teamWindowDays,
+    before: summarizeWindow(beforeEntries),
+    after: summarizeWindow(afterEntries),
   };
 }

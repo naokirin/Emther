@@ -43,7 +43,17 @@ export type Issue = {
   actionItems: ActionItem[];
   parentId?: string;
   archived: boolean;
+  // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻
+  // （unarchiveするとundefinedに戻す）。介入前後比較の起点として使う。
+  archivedAt?: number;
   tags: string[];
+  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKeyResultに
+  // 貢献するかの紐付け（任意）。IDのみ保持し、実体（Objective/KeyResult）は
+  // org-context-store.ts側にある。
+  keyResultId?: string;
+  // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
+  // 紐付け（任意）。
+  teamId?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -114,6 +124,8 @@ export async function createIssue(
   charter?: Partial<IssueCharter>,
   parentId?: string,
   tags?: string[],
+  keyResultId?: string,
+  teamId?: string,
 ): Promise<Issue> {
   if (parentId) {
     const parent = getIssue(parentId);
@@ -139,6 +151,8 @@ export async function createIssue(
     parentId,
     archived: false,
     tags: normalizeTags(tags ?? []),
+    keyResultId,
+    teamId,
     createdAt: now,
     updatedAt: now,
   };
@@ -246,9 +260,41 @@ export function setIssueArchived(issueId: string, archived: boolean): Issue | un
   if (!issue) return undefined;
   if (issue.archived === archived) return issue;
   issue.archived = archived;
+  // docs/memo.md「L. 介入の閉ループ」対応。updatedAtは他の編集でも動くため、
+  // 「いつアーカイブされたか」を正確に知るための専用フィールドを持つ
+  // （介入の前後比較の起点として使う）。
+  issue.archivedAt = archived ? Date.now() : undefined;
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, archived ? "アーカイブしました" : "アーカイブを解除しました");
+  return issue;
+}
+
+// docs/memo.md「H. 戦略→Issue→結果の一本線」対応。keyResultIdはIDそのもの（自由記述では
+// ない）なのでmaskForStorageは不要——agentRunId/parentIdと同じ扱い。
+export function setIssueKeyResult(issueId: string, keyResultId: string | null): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const next = keyResultId ?? undefined;
+  if ((issue.keyResultId ?? null) === (next ?? null)) return issue;
+  issue.keyResultId = next;
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, next ? "Key Resultに紐付けました" : "Key Resultの紐付けを解除しました");
+  return issue;
+}
+
+// docs/memo.md「I. チーム単位の憲法」対応。teamIdはIDそのものなのでmaskForStorageは不要
+// （agentRunId/parentId/keyResultIdと同じ扱い）。
+export function setIssueTeam(issueId: string, teamId: string | null): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const next = teamId ?? undefined;
+  if ((issue.teamId ?? null) === (next ?? null)) return issue;
+  issue.teamId = next;
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, next ? "チームに紐付けました" : "チームの紐付けを解除しました");
   return issue;
 }
 

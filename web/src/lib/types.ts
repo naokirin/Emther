@@ -24,10 +24,17 @@ export type JournalEntry = {
   createdAt: number;
 };
 
+// docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。
+export type TeamCharter = {
+  mission: string;
+  constraints: string;
+};
+
 export type Team = {
   id: string;
   name: string;
   members: string[];
+  charter: TeamCharter;
   archived: boolean;
   createdAt: number;
   updatedAt: number;
@@ -61,7 +68,33 @@ export type OrgStrategy = {
   mission: string;
   vision: string;
   values: string;
-  okr: string;
+};
+
+// docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述1本の`okr`文字列だった
+// OKRを、Objective（目標）ごとにKeyResult（主要な結果）を持つ最小構造に置き換える。
+// 進捗は手動入力ではなく、KeyResultへ紐付いたIssueの完了（archived）数から機械的に出す
+// （Team Vitalsと同じ「観測から出す」考え方）。
+export type KeyResult = {
+  id: string;
+  title: string;
+};
+
+export type Objective = {
+  id: string;
+  title: string;
+  keyResults: KeyResult[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type KeyResultProgress = {
+  keyResultId: string;
+  total: number;
+  done: number;
+};
+
+export type ObjectiveWithProgress = Objective & {
+  progress: KeyResultProgress[];
 };
 
 export type RulesAndConstraints = {
@@ -135,7 +168,16 @@ export type Issue = {
   actionItems: ActionItem[];
   parentId?: string;
   archived: boolean;
+  // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻。
+  archivedAt?: number;
   tags: string[];
+  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKeyResultに
+  // 貢献するかの紐付け（任意）。
+  keyResultId?: string;
+  // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
+  // 紐付け（任意）。Agent Runtimeへの動的ロードで、そのチームのMission/制約だけを
+  // 絶対の前提として注入するために使う。
+  teamId?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -217,3 +259,42 @@ export const URGENCY_LABEL: Record<JournalEntry["urgency"], string> = {
   mid: "Urgency: Mid",
   high: "Urgency: High",
 };
+
+// docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
+// 既存のpeople-directory／Journal fact・解釈／チーム所属／関連Issueを人物軸で束ねた
+// 集約ビュー（@/lib/people-hub.tsのサーバー側の型と対応）。
+export type PersonTrend = { positive: number; negative: number; neutral: number };
+
+export type PersonSummary = {
+  id: string;
+  name: string;
+  teamNames: string[];
+  trend: PersonTrend;
+  factCount: number;
+};
+
+export type PersonFact = {
+  id: string;
+  text: string;
+  tags: string[];
+  sentiment?: "positive" | "negative" | "neutral";
+  urgency?: "low" | "mid" | "high";
+  occurredAt: number;
+};
+
+export type PersonRelatedIssue = {
+  id: string;
+  title: string;
+  archived: boolean;
+  charter: IssueCharter;
+};
+
+export type PersonProfile = PersonSummary & {
+  facts: PersonFact[];
+  interpretations: { id: string; text: string; occurredAt: number }[];
+  relatedIssues: PersonRelatedIssue[];
+};
+
+// docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
+export type ImpactWindow = { total: number; positive: number; negative: number };
+export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow };

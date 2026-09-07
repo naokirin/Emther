@@ -40,6 +40,7 @@ export type AgentRun = {
   yieldRequest?: { reason: string; options: YieldOption[] };
   proposal?: Proposal;
   suggestedActionItems?: string[];
+  suggestedSubIssues?: string[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -87,6 +88,9 @@ export function ExecutionState({
   onAdoptActionItems,
   onDismissActionItems,
   actionItemsSubmitting,
+  onAdoptSubIssues,
+  onDismissSubIssues,
+  subIssuesSubmitting,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -99,6 +103,9 @@ export function ExecutionState({
   onAdoptActionItems?: (items: string[]) => void;
   onDismissActionItems?: () => void;
   actionItemsSubmitting?: boolean;
+  onAdoptSubIssues?: (items: string[]) => void;
+  onDismissSubIssues?: () => void;
+  subIssuesSubmitting?: boolean;
 }) {
   return (
     <>
@@ -188,6 +195,33 @@ export function ExecutionState({
                   採用してAction Itemsに追加
                 </button>
                 <button className={styles.btnOutline} disabled={actionItemsSubmitting} onClick={onDismissActionItems}>
+                  却下する
+                </button>
+              </div>
+            </div>
+          )}
+
+          {run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
+            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
+              <strong>🔭 AIが提案する分解案（サブIssue）</strong>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+                このIssueが抽象的なため、具体的な子Issueへの分解を提案しています。採用すると実際にサブIssueが作成されます。
+              </p>
+              <ul style={{ margin: "6px 0 8px 18px", fontSize: 12 }}>
+                {run.suggestedSubIssues.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+              <div className={styles.yieldActions}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={subIssuesSubmitting}
+                  onClick={() => onAdoptSubIssues?.(run.suggestedSubIssues ?? [])}
+                >
+                  採用してサブIssueを作成
+                </button>
+                <button className={styles.btnOutline} disabled={subIssuesSubmitting} onClick={onDismissSubIssues}>
                   却下する
                 </button>
               </div>
