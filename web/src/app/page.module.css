@@ -423,17 +423,14 @@
 
 /* docs/dashboard_ui_readability.md U3-3対応。色塗りの既定を弱める。全面tintは
    本当に緊急な項目（urgent）だけに残し、警告（warn）は枠・左アクセントのみにする——
-   常時オンの色が並ぶと「今ここ」の合図が埋もれるため。表形式（.table）の行に対して、
-   左端セルへの太い左ボーダーで「行アクセント」を表現する。 */
-.nextActionUrgentRow td {
+   常時オンの色が並ぶと「今ここ」の合図が埋もれるため。 */
+.runItem.nextActionUrgent {
   background: var(--red-bg);
-}
-
-.nextActionUrgentRow td:first-child {
+  border-color: var(--red-border);
   border-left: 4px solid var(--red-border);
 }
 
-.nextActionWarnRow td:first-child {
+.runItem.nextActionWarn {
   border-left: 4px solid var(--yellow-border);
 }
 

@@ -133,39 +133,26 @@ export default function JournalListPage() {
         {filtered.length === 0 ? (
           <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
         ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>発生日</th>
-                  <th>内容</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagination.pageItems.map((entry) => (
-                  <JournalEntryCard
-                    key={entry.id}
-                    entry={entry}
-                    editing={editing.editingEntryId === entry.id}
-                    editTags={editing.editTags}
-                    editPeople={editing.editPeople}
-                    editUrgency={editing.editUrgency}
-                    editDate={editing.editDate}
-                    editSubmitting={editing.editSubmitting}
-                    editError={editing.editError}
-                    onChangeEditTags={editing.setEditTags}
-                    onChangeEditPeople={editing.setEditPeople}
-                    onChangeEditUrgency={editing.setEditUrgency}
-                    onChangeEditDate={editing.setEditDate}
-                    onConfirmEdit={() => editing.confirmEdit(entry.id)}
-                    onCancelEdit={editing.cancelEditing}
-                    onStartEdit={() => editing.startEditing(entry)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          pagination.pageItems.map((entry) => (
+            <JournalEntryCard
+              key={entry.id}
+              entry={entry}
+              editing={editing.editingEntryId === entry.id}
+              editTags={editing.editTags}
+              editPeople={editing.editPeople}
+              editUrgency={editing.editUrgency}
+              editDate={editing.editDate}
+              editSubmitting={editing.editSubmitting}
+              editError={editing.editError}
+              onChangeEditTags={editing.setEditTags}
+              onChangeEditPeople={editing.setEditPeople}
+              onChangeEditUrgency={editing.setEditUrgency}
+              onChangeEditDate={editing.setEditDate}
+              onConfirmEdit={() => editing.confirmEdit(entry.id)}
+              onCancelEdit={editing.cancelEditing}
+              onStartEdit={() => editing.startEditing(entry)}
+            />
+          ))
         )}
         <PaginationControls
           page={pagination.page}
