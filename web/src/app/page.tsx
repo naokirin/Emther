@@ -481,10 +481,37 @@ export default function DashboardPage() {
     });
   }
 
+  // docs/em_human_story_and_ux.md P0-4対応。並列consult(M)や自動検知の連続起動で、AIの
+  // 未確認ドラフトが一度に大量発生すると、本当の判断待ち（Yield/エラー/無応答）が
+  // 埋もれる。同種のドラフトが閾値を超えたら個別表示をやめ、1件のまとめ表示にする
+  // （クリック先は相談履歴一覧。個別に見たい場合はそちらから辿れる）。
+  const AUTO_DRAFT_BUNDLE_THRESHOLD = 3;
+  const autoDraftIds = new Set(nextActions.filter((a) => a.id.startsWith("auto-")).map((a) => a.id));
+  if (autoDraftIds.size > AUTO_DRAFT_BUNDLE_THRESHOLD) {
+    for (let i = nextActions.length - 1; i >= 0; i--) {
+      if (autoDraftIds.has(nextActions[i].id)) nextActions.splice(i, 1);
+    }
+    nextActions.push({
+      id: "auto-bundle",
+      severity: "warn",
+      lane: "decision",
+      icon: "🤖",
+      kindLabel: "自動起動まとめ",
+      text: `AIの自動起動ドラフトが${autoDraftIds.size}件たまっています。相談履歴からまとめて確認してください`,
+      onSelect: () => router.push("/chat"),
+    });
+  }
+
   nextActions.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "urgent" ? -1 : 1));
 
   const laneCounts: Record<Lane, number> = { decision: 0, observation: 0, maintenance: 0 };
   for (const a of nextActions) laneCounts[a.lane]++;
+
+  // docs/em_human_story_and_ux.md P0-4対応。「1日の上限感」をUIで示す（ハード制限はせず、
+  // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）。
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const autoRunsToday = runs.filter((r) => r.origin !== "manual" && r.createdAt >= todayStart.getTime()).length;
 
   // docs/memo.md「E. 横断Activity Stream」（TODO「Dashboardに全エージェント横断のAgent
   // Activity Streamパネルを追加する」に対応）。新基盤（SSE等）は導入せず、既存runs[].logを
@@ -628,6 +655,15 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
+
+        {autoRunsToday > 0 && (
+          <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
+            🤖 本日のAI自動起動: {autoRunsToday}件
+            <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => router.push("/settings")}>
+              頻度を調整
+            </button>
+          </p>
+        )}
 
         {visibleActions.length === 0 ? (
           <p className={styles.subtitle}>✅ このレーンに対応が必要な項目はありません。</p>

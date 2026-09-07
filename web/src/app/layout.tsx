@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import styles from "./page.module.css";
-import { TopNav } from "@/components/TopNav";
+import { StoryBanner, TopNav } from "@/components/TopNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <p className={styles.subtitle}>Manager&apos;s Cockpit — Daily Triage &amp; Agent Oversight</p>
           </div>
           <TopNav />
+          <StoryBanner />
           {children}
         </div>
       </body>
