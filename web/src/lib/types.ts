@@ -98,6 +98,7 @@ export type TeamVital = {
   status: VitalStatus;
   label: string;
   reason: string;
+  members: string[];
 };
 
 export type CoverageVital = {
@@ -105,6 +106,7 @@ export type CoverageVital = {
   covered: number;
   total: number;
   reason: string;
+  uncoveredMembers: string[];
 };
 
 export type OrgVitals = {
@@ -142,7 +144,66 @@ export function charterFilledCount(charter: IssueCharter): number {
   return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
 }
 
-export const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent"];
+// docs/memo.md「F. Product Agentの追加」対応。People(人)/Process(組織運営)/Tech(実装)の
+// 3象限に、Product(顧客価値・優先順位・ロードマップ)を足して4象限を埋める。
+export const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent", "Product Agent"];
+
+// docs/memo.md「G. Issueに『介入の型』を足す」対応。実装タスク箱ではなく「仕組み・人・組織への
+// 介入」へIssueの切り口を寄せるためのプリセット。保存先は既存のtags（新規フィールドは増やさない）で、
+// why/what/howはあくまでプレースホルダー（初期文面のヒント）として使い、EMが実際に入力した内容は
+// 上書きしない。
+export type InterventionType = { label: string; why: string; what: string; how: string };
+
+export const INTERVENTION_TYPES: InterventionType[] = [
+  {
+    label: "役割明確化",
+    why: "誰が何に責任を持つか曖昧で、手戻り／待ちが発生している",
+    what: "各役割の責任範囲と意思決定権限を明文化し、関係者間で合意する",
+    how: "現状のタスク分担を棚卸しし、責任者不在の領域を洗い出してオーナーを割り当てる",
+  },
+  {
+    label: "意思決定プロセス",
+    why: "決まる場所が無く、現場が止まったりエスカレーションが遅れる",
+    what: "何を誰がどの場で決めるかのプロセスを定義し、関係者に周知する",
+    how: "現状の意思決定の流れを可視化し、詰まっているポイントに承認者・会議体を設ける",
+  },
+  {
+    label: "依存関係の切り方",
+    why: "チーム間の依存が強く、片方の遅延がもう片方をブロックしている",
+    what: "依存関係を整理し、疎結合にできる境界（インターフェース・契約）を定義する",
+    how: "依存元・依存先のタスクを洗い出し、非同期化やインターフェース固定で結合度を下げる",
+  },
+  {
+    label: "1on1設計",
+    why: "1on1の頻度・目的が曖昧で、メンバーの状態変化を拾えていない",
+    what: "対象メンバーとの1on1の頻度・アジェンダ・記録方法を決める",
+    how: "カレンダーに定例枠を確保し、Quick Journalへの記録をセットで運用する",
+  },
+  {
+    label: "プロセス変更",
+    why: "既存のプロセスがチームの実態に合わず、無駄な手戻りや待ちが生まれている",
+    what: "どのプロセスをどう変えるか、変更後の運用ルールを定義する",
+    how: "現状のプロセスの課題を洗い出し、小さく試して効果を見ながら本格導入する",
+  },
+  {
+    label: "優先順位／スコープ",
+    why: "何を優先すべきかの基準が無く、並行タスクで摩耗が起きている",
+    what: "優先順位の基準とスコープの境界を明確にし、関係者と合意する",
+    how: "影響度・緊急度などの基準を決め、バックログを並べ替えて共有する",
+  },
+  {
+    label: "心理的安全性",
+    why: "発言や失敗の共有がしづらい空気があり、問題の発見・共有が遅れている",
+    what: "チームが安心して意見や懸念を言える状態を作る",
+    how: "1on1やチームふりかえりで小さな懸念から拾い、対応した結果を可視化する",
+  },
+  {
+    label: "採用・オンボーディング",
+    why: "採用基準やオンボーディングの流れが定まっておらず、立ち上がりが遅い",
+    what: "採用基準とオンボーディングの流れ・完了条件を明確にする",
+    how: "必要スキル・カルチャーフィットの基準を整理し、最初の30/60/90日の計画を作る",
+  },
+];
 
 export const VITAL_ICON: Record<VitalStatus, string> = {
   good: "🟢",

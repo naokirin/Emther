@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
-import { charterFilledCount, isRunStale } from "@/lib/types";
+import { INTERVENTION_TYPES, charterFilledCount, isRunStale } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
 const RUNS_PAGE_SIZE = 5;
@@ -15,7 +15,18 @@ const RUNS_PAGE_SIZE = 5;
 // Issue一覧画面。起票は一般的なIssue管理サービスと同様、一覧上の「＋ 新しいIssue」ボタンから
 // ダイアログを開いて行う（画面遷移しない）。Issueを選ぶと/issues/[id]の詳細画面に遷移する。
 export default function IssuesPage() {
+  return (
+    <Suspense fallback={null}>
+      <IssuesPageInner />
+    </Suspense>
+  );
+}
+
+function IssuesPageInner() {
   const router = useRouter();
+  // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの#タグクリックから
+  // `/issues?tag=...`で直接この一覧のタグフィルタを開けるようにする。
+  const searchParams = useSearchParams();
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
   const { rules } = useSettingsRules();
@@ -30,10 +41,11 @@ export default function IssuesPage() {
   const [issueWhat, setIssueWhat] = useState("");
   const [issueHow, setIssueHow] = useState("");
   const [issueTags, setIssueTags] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [tagFilter, setTagFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
@@ -52,6 +64,18 @@ export default function IssuesPage() {
   });
   const issuesPagination = usePagination(filteredIssues, ISSUES_PAGE_SIZE);
   const runsPagination = usePagination(unlinkedRuns, RUNS_PAGE_SIZE);
+
+  // docs/memo.md「G. Issueに『介入の型』を足す」対応。型は既存tagsへそのまま追加/削除するだけで、
+  // 新規フィールドは持たない。最後に選んだ型のwhy/what/howをプレースホルダーとして見せる
+  // （実際に入力された値は上書きしない）。
+  function toggleInterventionType(label: string) {
+    setSelectedTypes((prev) => (prev.includes(label) ? prev.filter((t) => t !== label) : [...prev, label]));
+    const current = issueTags.split(",").map((t) => t.trim()).filter(Boolean);
+    const next = current.includes(label) ? current.filter((t) => t !== label) : [...current, label];
+    setIssueTags(next.join(", "));
+  }
+  const activeType =
+    selectedTypes.length > 0 ? INTERVENTION_TYPES.find((t) => t.label === selectedTypes[selectedTypes.length - 1]) : undefined;
 
   async function handleCreateIssue(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +103,7 @@ export default function IssuesPage() {
       setIssueWhat("");
       setIssueHow("");
       setIssueTags("");
+      setSelectedTypes([]);
       setDialogOpen(false);
       router.push(`/issues/${data.issue.id}`);
     } catch (err) {
@@ -246,20 +271,50 @@ export default function IssuesPage() {
               </select>
             </div>
 
+            <div className={styles.field}>
+              <label>介入の型（任意・複数可。実装タスクではなく仕組み・人・組織への介入の切り口）</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {INTERVENTION_TYPES.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    className={`${styles.typeChip} ${selectedTypes.includes(t.label) ? styles.typeChipSelected : ""}`}
+                    onClick={() => toggleInterventionType(t.label)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className={styles.subtitle} style={{ margin: "8px 0" }}>
               Why/What/Howは分かっている範囲でOK。分からなければ空欄のまま起票し、詳細画面で明らかにしてから計画・実行してください。
             </p>
             <div className={styles.field}>
               <label>Why（このIssueが生む価値・誰のためか・なぜ今か）</label>
-              <textarea rows={2} value={issueWhy} onChange={(e) => setIssueWhy(e.target.value)} placeholder="例: Aさんの離脱リスクを下げ、決済基盤の開発速度を維持するため。今対応しないと来期のリリースに響く。" />
+              <textarea
+                rows={2}
+                value={issueWhy}
+                onChange={(e) => setIssueWhy(e.target.value)}
+                placeholder={activeType?.why ?? "例: Aさんの離脱リスクを下げ、決済基盤の開発速度を維持するため。今対応しないと来期のリリースに響く。"}
+              />
             </div>
             <div className={styles.field}>
               <label>What（何を・どこまで・どのくらい・完了の定義）</label>
-              <textarea rows={2} value={issueWhat} onChange={(e) => setIssueWhat(e.target.value)} placeholder="例: Bチームからの割り込みタスクを整理し、Aさんが週3日以上リファクタリングに専念できる状態にする。完了条件: ○○。" />
+              <textarea
+                rows={2}
+                value={issueWhat}
+                onChange={(e) => setIssueWhat(e.target.value)}
+                placeholder={activeType?.what ?? "例: Bチームからの割り込みタスクを整理し、Aさんが週3日以上リファクタリングに専念できる状態にする。完了条件: ○○。"}
+              />
             </div>
             <div className={styles.field}>
               <label>How（どのように実現するか・前提や制約）</label>
-              <textarea rows={2} value={issueHow} onChange={(e) => setIssueHow(e.target.value)} placeholder="例: 割り込みタスクの受け入れ基準を定めてBチームと合意する。予算・人員の追加は無い前提。" />
+              <textarea
+                rows={2}
+                value={issueHow}
+                onChange={(e) => setIssueHow(e.target.value)}
+                placeholder={activeType?.how ?? "例: 割り込みタスクの受け入れ基準を定めてBチームと合意する。予算・人員の追加は無い前提。"}
+              />
             </div>
             <div className={styles.field}>
               <label>タグ（カンマ区切り、任意）</label>

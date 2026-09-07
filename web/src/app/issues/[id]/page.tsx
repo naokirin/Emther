@@ -7,7 +7,7 @@ import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { useEntityHistory, useIssue, useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
-import { charterFilledCount, isRunStale } from "@/lib/types";
+import { INTERVENTION_TYPES, charterFilledCount, isRunStale } from "@/lib/types";
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -100,6 +100,25 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const whatRef = useRef<HTMLTextAreaElement | null>(null);
   const howRef = useRef<HTMLTextAreaElement | null>(null);
   const tagsRef = useRef<HTMLInputElement | null>(null);
+  // docs/memo.md「G. Issueに『介入の型』を足す」対応。tagsRefは非制御入力なので、
+  // チップのハイライト表示だけをこのstateで追従させる（保存時はtagsRef.current.valueを読む）。
+  // issueは非同期取得のため初回レンダー時点ではundefined——データが揃ったタイミングを
+  // レンダー中に検知して同期する（useEffectは使わない。以降のポーリング更新では
+  // 上書きしないので、編集中の選択状態を壊さない）。
+  const [tagsSnapshot, setTagsSnapshot] = useState<string[]>([]);
+  const [syncedIssueId, setSyncedIssueId] = useState<string | null>(null);
+  if (issue && issue.id !== syncedIssueId) {
+    setSyncedIssueId(issue.id);
+    setTagsSnapshot(issue.tags);
+  }
+
+  function toggleInterventionType(label: string) {
+    if (!tagsRef.current) return;
+    const current = tagsRef.current.value.split(",").map((t) => t.trim()).filter(Boolean);
+    const next = current.includes(label) ? current.filter((t) => t !== label) : [...current, label];
+    tagsRef.current.value = next.join(", ");
+    setTagsSnapshot(next);
+  }
 
   async function handleSaveCharter() {
     if (!issue) return;
@@ -378,8 +397,29 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           />
         </div>
         <div className={styles.field}>
+          <label>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {INTERVENTION_TYPES.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                className={`${styles.typeChip} ${tagsSnapshot.includes(t.label) ? styles.typeChipSelected : ""}`}
+                onClick={() => toggleInterventionType(t.label)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.field}>
           <label>タグ（カンマ区切り）</label>
-          <input type="text" ref={tagsRef} defaultValue={issue.tags.join(", ")} placeholder="例: バグ, リファクタリング, オンボーディング" />
+          <input
+            type="text"
+            ref={tagsRef}
+            defaultValue={issue.tags.join(", ")}
+            onChange={(e) => setTagsSnapshot(e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+            placeholder="例: バグ, リファクタリング, オンボーディング"
+          />
         </div>
         {issue.tags.length > 0 && (
           <div className={styles.tagRow} style={{ marginBottom: 10 }}>
@@ -429,7 +469,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               actionItemsSubmitting={actionItemsSubmitting}
             />
           ) : (
-            <p className={styles.subtitle}>Agent Runが紐づいていません。Dashboardでタスクを起票するか、Issue一覧から紐づけてください。</p>
+            <p className={styles.subtitle}>
+              Agent Runが紐づいていません。Dashboardでタスクを起票するか、Issue一覧から紐づけてください。横断相談から続けたい場合は
+              <Link href="/chat"> 「何でも相談」</Link> へ。
+            </p>
           )}
 
           <h2 style={{ marginTop: 16 }}>Action Items (Draft)</h2>
@@ -465,7 +508,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         <div className={styles.panel}>
           <h2>Copilot Workspace (Interactive)</h2>
           {linkedRun ? (
-            <CopilotChat run={linkedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="issue-chat-input" />
+            <>
+              <p className={styles.subtitle} style={{ marginBottom: 8 }}>この Issue の壁打ちはここで行います。</p>
+              <CopilotChat run={linkedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="issue-chat-input" />
+            </>
           ) : (
             <p className={styles.subtitle}>Agent Runが無いため会話はありません。</p>
           )}

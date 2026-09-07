@@ -15,6 +15,10 @@ export type TeamVital = {
   status: VitalStatus;
   label: string;
   reason: string;
+  // docs/memo.md「D. 評価不能→観測アクション」対応。評価不能な時にEMが誰の1on1を
+  // 記録すればよいか具体的に示せるよう、チームメンバー（PERSON_n IDのまま）を持たせる。
+  // 実名への変換はAPIルート側（unmaskNames）で行う。
+  members: string[];
 };
 
 export type CoverageVital = {
@@ -22,6 +26,9 @@ export type CoverageVital = {
   covered: number;
   total: number;
   reason: string;
+  // docs/memo.md「D」対応。reasonの自由文からのパースは脆いため、1on1が未実施の
+  // メンバー（PERSON_n ID）を構造化フィールドとして持たせる。
+  uncoveredMembers: string[];
 };
 
 export type OrgVitals = {
@@ -47,6 +54,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
       status: "unknown",
       label: "評価不能",
       reason: "メンバーが登録されていません。Organization Contextでメンバーを追加してください。",
+      members: team.members,
     };
   }
 
@@ -61,6 +69,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
       status: "unknown",
       label: "評価不能",
       reason: `直近${rules.teamWindowDays}日間に${teamDisplayName(team.name)}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
+      members: team.members,
     };
   }
 
@@ -87,6 +96,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
     status,
     label,
     reason: `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
+    members: team.members,
   };
 }
 
@@ -102,6 +112,7 @@ function computeCoverageVital(
       covered: 0,
       total: 0,
       reason: "チーム・メンバーが登録されていないため算出できません。",
+      uncoveredMembers: [],
     };
   }
 
@@ -126,6 +137,7 @@ function computeCoverageVital(
     covered: coveredCount,
     total,
     reason: `直近${rules.coverageWindowDays}日間に#1on1系タグの付いたジャーナルで言及されたメンバー数 / 登録メンバー総数。`,
+    uncoveredMembers: allMembers.filter((m) => !covered.has(m)),
   };
 }
 

@@ -13,6 +13,11 @@ const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   "auto-summary": "朝のサマリー",
 };
 
+const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {
+  watching: "👀 様子見",
+  dismissed: "却下",
+};
+
 // docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、
 // 質問ができるチャットを用意する」への対応。特定のIssueに紐付けないLead Agentのrunを
 // この画面専用の「相談」として扱う（Issue化されていないLead Agent runがそれに相当する）。
@@ -53,7 +58,9 @@ function ChatPageInner() {
   }
   const selectedRun: AgentRun | null = selectedId ? chatRuns.find((r) => r.id === selectedId) ?? null : null;
 
-  const [task, setTask] = useState("");
+  // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
+  // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
+  const [task, setTask] = useState(searchParams.get("prefill") ?? "");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -86,13 +93,17 @@ function ChatPageInner() {
     }
   }
 
-  async function handleDismiss() {
+  async function handleTriage(status: "watching" | "dismissed") {
     if (!selectedRun) return;
     setReviewSubmitting(true);
     setReviewError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/review`, { method: "POST" });
-      if (!res.ok) throw new Error("却下の記録に失敗しました");
+      const res = await fetch(`/api/agents/${selectedRun.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triageStatus: status }),
+      });
+      if (!res.ok) throw new Error("記録に失敗しました");
       await refreshRuns();
     } catch (err) {
       setReviewError((err as Error).message);
@@ -182,6 +193,7 @@ function ChatPageInner() {
               <div style={{ marginBottom: 4 }}>
                 <StatusBadge status={r.status} stale={staleRunIds.has(r.id)} />
                 {r.origin !== "manual" && !r.reviewed && <span style={{ marginLeft: 6 }}>🤖 未確認</span>}
+                {r.triageStatus && <span style={{ marginLeft: 6 }}>{TRIAGE_LABEL[r.triageStatus]}</span>}
               </div>
               <div>{r.task.slice(0, 50)}</div>
             </button>
@@ -193,23 +205,33 @@ function ChatPageInner() {
         {selectedRun ? (
           <>
             <h2>Lead Agentへの相談</h2>
-            {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
-              <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
-                <strong>🤖 AIが自動起動したRunです（{ORIGIN_LABEL[selectedRun.origin]}）</strong>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
-                  内容を確認し、追跡すべきならIssue化、不要なら却下してください。EMが確認するまでここに残り続けます。
+            <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
+              {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
+                <>
+                  <strong>🤖 AIが自動起動したRunです（{ORIGIN_LABEL[selectedRun.origin]}）</strong>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+                    内容を確認し、追跡すべきならIssue化、様子を見るなら様子見、不要なら却下してください。EMが選ぶまでここに残り続けます。
+                  </p>
+                </>
+              )}
+              {selectedRun.triageStatus && (
+                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  現在のステータス: {TRIAGE_LABEL[selectedRun.triageStatus]}（ボタンでいつでも変更できます）
                 </p>
-                <div className={styles.yieldActions}>
-                  <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={reviewSubmitting} onClick={handlePromoteToIssue}>
-                    📌 Issueにする
-                  </button>
-                  <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={handleDismiss}>
-                    却下する（対応不要）
-                  </button>
-                </div>
-                {reviewError && <p className={styles.errorText}>{reviewError}</p>}
+              )}
+              <div className={styles.yieldActions}>
+                <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={reviewSubmitting} onClick={handlePromoteToIssue}>
+                  📌 Issueにする
+                </button>
+                <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
+                  👀 様子見
+                </button>
+                <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
+                  却下する（対応不要）
+                </button>
               </div>
-            )}
+              {reviewError && <p className={styles.errorText}>{reviewError}</p>}
+            </div>
             <ExecutionState
               run={selectedRun}
               selectedOptionId={selectedOptionId}
@@ -228,7 +250,7 @@ function ChatPageInner() {
           <>
             <h2>何でも相談</h2>
             <p className={styles.subtitle}>
-              特定のIssueに紐付けず、これまで収集されたJournal・組織情報を踏まえてLead Agentに相談できます。会話の途中でIssue化したい場合は、Issue一覧から個別に紐づけてください。
+              まだIssueにしないモヤモヤ・仮説検証はここ。特定のIssueに紐付けず、これまで収集されたJournal・組織情報を踏まえてLead Agentに相談できます。追跡・計画が必要になったら会話画面の「Issueにする」で昇格できます。実行中の介入の壁打ちはIssue Workspaceで行ってください。
             </p>
             <form onSubmit={handleStartNew}>
               <div className={styles.field}>

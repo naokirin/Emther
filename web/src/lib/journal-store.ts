@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
-import { recordEvent, listEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
+import { recordEvent, listEvents, getEventById, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { startRun } from "@/lib/agent-runtime";
@@ -205,5 +205,45 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
 }
 
 export function listJournalEntries(): JournalEntry[] {
-  return listEvents({ entityType: "journal", kind: "fact" }).map(eventToJournalEntry);
+  const events = listEvents({ entityType: "journal", kind: "fact" });
+  // docs/memo.md「C」対応。イベントは不変のまま、supersedesで置き換えられた（＝EMが
+  // 修正した）版だけを一覧から除外する。履歴自体はSQLiteに残り続ける（削除しない）。
+  const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
+  return events.filter((e) => !supersededIds.has(e.id)).map(eventToJournalEntry);
+}
+
+// docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、
+// EMがtags/people/urgencyをその場で校正できないと「AI抽出のまま組織の事実になる」ことに
+// なってしまう。イベントソーシングの不変性は保ったまま、新しいfactイベントを
+// supersedesで繋いで記録することで「修正」を表現する（元イベントは削除・上書きしない）。
+export async function updateJournalEntry(
+  id: string,
+  patch: { tags?: string[]; people?: string[]; urgency?: Urgency },
+): Promise<JournalEntry | undefined> {
+  const original = getEventById(id);
+  if (!original || original.entityType !== "journal") return undefined;
+
+  const people = patch.people !== undefined ? patch.people.map((p) => registerName(p)) : original.people;
+  const tags = patch.tags !== undefined ? patch.tags.map((t) => maskNames(t)) : original.tags;
+  const urgency = patch.urgency !== undefined && isUrgency(patch.urgency) ? patch.urgency : original.urgency ?? "mid";
+
+  const event = recordEvent({
+    kind: original.kind,
+    context: original.context,
+    entityType: original.entityType,
+    entityId: original.entityId,
+    people,
+    text: original.text,
+    tags,
+    urgency,
+    sentiment: original.sentiment,
+    summary: original.summary,
+    occurredAt: original.occurredAt,
+    ttlDays: original.ttlDays,
+    supersedes: id,
+    sourceJournalId: original.sourceJournalId,
+    embedding: original.embedding,
+  });
+
+  return eventToJournalEntry(event);
 }
