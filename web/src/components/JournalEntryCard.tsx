@@ -35,6 +35,8 @@ export function JournalEntryCard({
   editSubmitting,
   editError,
   resolutionNoteDraft,
+  pending,
+  pendingError,
   onChangeEditRawText,
   onChangeEditTags,
   onChangeEditPeople,
@@ -47,6 +49,7 @@ export function JournalEntryCard({
   onResolveWithNote,
   onResolveWithNewIssue,
   onClearResolution,
+  onDismissPendingError,
 }: {
   entry: JournalEntry;
   editing: boolean;
@@ -58,6 +61,11 @@ export function JournalEntryCard({
   editSubmitting: boolean;
   editError: string | null;
   resolutionNoteDraft: string;
+  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
+  // スピナーだけ表示する」対応。pending中はこのエントリの編集フォームを閉じたまま
+  // バックグラウンドで更新中であることだけを示す（他のエントリの編集は妨げない）。
+  pending: boolean;
+  pendingError?: { message: string; retry: () => void };
   onChangeEditRawText: (value: string) => void;
   onChangeEditTags: (value: string) => void;
   onChangeEditPeople: (value: string) => void;
@@ -70,6 +78,7 @@ export function JournalEntryCard({
   onResolveWithNote: () => void;
   onResolveWithNewIssue: () => Promise<string | undefined>;
   onClearResolution: () => void;
+  onDismissPendingError: () => void;
 }) {
   const router = useRouter();
   const isResolved = !!(entry.resolvedIssueId || entry.resolutionNote);
@@ -100,6 +109,40 @@ export function JournalEntryCard({
   function handleConfirm() {
     setRawTextRevealed(false);
     onConfirmEdit();
+  }
+
+  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
+  // スピナーだけ表示する」対応。エラーは編集フォームを閉じたあとに届くことがあるため、
+  // editingとは独立してこのエントリ自体に出す（再試行すれば元の内容のまま送り直せる）。
+  if (pendingError) {
+    return (
+      <div className={styles.journalEntry}>
+        <div>{entry.rawText}</div>
+        <div className={styles.tagRow} style={{ marginTop: 4 }}>
+          <span className={styles.errorText} role="alert">
+            ⚠️ 更新に失敗しました: {pendingError.message}
+          </span>
+          <button className={styles.btnOutline} onClick={pendingError.retry}>
+            再試行
+          </button>
+          <button className={styles.btnOutline} onClick={onDismissPendingError}>
+            閉じる
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pending) {
+    return (
+      <div className={styles.journalEntry}>
+        <div>{entry.rawText}</div>
+        <p className={styles.subtitle} style={{ marginTop: 4 }} role="status">
+          <span className={styles.spinner} aria-hidden="true" />
+          更新中…
+        </p>
+      </div>
+    );
   }
 
   if (editing) {
