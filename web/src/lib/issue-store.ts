@@ -21,6 +21,17 @@ export type ActionItem = {
   done: boolean;
 };
 
+// ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
+// Action Items（やる/やった）とは別に、進行中に思いついた時点でひとこと書き足すだけの
+// 自由記述ログ。構造化フォーム（考えたこと欄／アクション欄／結果欄を分ける）にすると
+// 記入の手間が増えて使われなくなるため、Quick Journal・EM自身のKeep/Problem/Tryと同じ
+// 低摩擦な追記ログにする（種別を分けず、EMが自由に書く）。
+export type IssueLogEntry = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+
 // Issueは重要な意思決定の単位であり、計画・実行の前に
 // 「Why（生む価値・誰のため・なぜ今か）」「What（何を・どこまで・どのくらい・完了の定義）」
 // 「How（どのように・なぜその方法か・前提と制約）」を明らかにしておくべき、という要求に対応。
@@ -41,6 +52,7 @@ export type Issue = {
   agentRunId?: string;
   charter: IssueCharter;
   actionItems: ActionItem[];
+  logEntries: IssueLogEntry[];
   parentId?: string;
   archived: boolean;
   // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻
@@ -77,6 +89,7 @@ const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
   charter: issue.charter ?? emptyCharter(),
   archived: issue.archived ?? false,
   tags: issue.tags ?? [],
+  logEntries: issue.logEntries ?? [],
 }));
 
 function persist(): void {
@@ -96,6 +109,7 @@ export function toIssueView(issue: Issue): Issue {
       how: unmaskNames(issue.charter.how),
     },
     actionItems: issue.actionItems.map((a) => ({ ...a, text: unmaskNames(a.text) })),
+    logEntries: issue.logEntries.map((l) => ({ ...l, text: unmaskNames(l.text) })),
     tags: issue.tags.map(unmaskNames),
   };
 }
@@ -148,6 +162,7 @@ export async function createIssue(
       how: charter?.how ? await maskForStorage(charter.how.trim()) : "",
     },
     actionItems: [],
+    logEntries: [],
     parentId,
     archived: false,
     tags: normalizeTags(tags ?? []),
@@ -187,6 +202,7 @@ export async function createParentIssue(childId: string, title: string, charter?
       how: charter?.how ? await maskForStorage(charter.how.trim()) : "",
     },
     actionItems: [],
+    logEntries: [],
     archived: false,
     tags: [],
     createdAt: now,
@@ -236,6 +252,23 @@ export async function addActionItem(issueId: string, text: string): Promise<Issu
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `Action Itemを追加: 「${masked}」`);
+  return issue;
+}
+
+// ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
+// addActionItemと同じ最小限の作りだが、done等の状態を持たない単純な追記のみ（種別を
+// 分けない自由記述のため、後から編集・削除もしない——イベントソーシング的な記録として
+// 積み上げるだけにする）。recordChangeEventも呼ぶため、Timelineにも自然に現れる。
+export async function addLogEntry(issueId: string, text: string): Promise<Issue | undefined> {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const trimmed = text.trim();
+  if (!trimmed) return issue;
+  const masked = await maskForStorage(trimmed);
+  issue.logEntries.push({ id: randomUUID(), text: masked, createdAt: Date.now() });
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `経過ログを追加: 「${masked}」`);
   return issue;
 }
 

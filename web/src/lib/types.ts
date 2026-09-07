@@ -155,6 +155,14 @@ export type ActionItem = {
   done: boolean;
 };
 
+// ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
+// 進行中に思いついた時点でひとこと書き足すだけの自由記述ログ（種別を分けない）。
+export type IssueLogEntry = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+
 // Issueの計画・実行前に明らかにしておくべき3要素。各項目は空文字列（＝未整理）を許容する。
 export type IssueCharter = {
   why: string;
@@ -168,6 +176,7 @@ export type Issue = {
   agentRunId?: string;
   charter: IssueCharter;
   actionItems: ActionItem[];
+  logEntries: IssueLogEntry[];
   parentId?: string;
   archived: boolean;
   // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻。

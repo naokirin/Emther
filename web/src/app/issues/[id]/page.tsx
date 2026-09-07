@@ -98,6 +98,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const [deciding, setDeciding] = useState(false);
   const [decideError, setDecideError] = useState<string | null>(null);
   const [actionItemText, setActionItemText] = useState("");
+  // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
+  const [logText, setLogText] = useState("");
+  const [logSubmitting, setLogSubmitting] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
 
   const [charterSaving, setCharterSaving] = useState(false);
   const [charterError, setCharterError] = useState<string | null>(null);
@@ -262,6 +266,29 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
+  // Action Itemsと同じ「1件ずつ即追記」の作りだが、done等の状態は持たない自由記述ログ。
+  async function handleAddLogEntry() {
+    if (!issue || !logText.trim()) return;
+    setLogSubmitting(true);
+    setLogError(null);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/log`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: logText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
+      setLogText("");
+      await refreshIssue();
+    } catch (err) {
+      setLogError((err as Error).message);
+    } finally {
+      setLogSubmitting(false);
+    }
+  }
+
   const [actionItemsSubmitting, setActionItemsSubmitting] = useState(false);
 
   // docs/first_implession 3.8対応。AIが提案したAction Itemsを、実際にIssue.actionItemsへ
@@ -379,6 +406,55 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
+
+      {/* ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」
+          対応。Action Items（やる/やった）とは別に、進行中いつでも書き足せる自由記述の
+          経過ログ。種別（考えたこと／アクション／結果）は分けず、EMが自由に書く。 */}
+      <div className={styles.panel}>
+        <h2>経過ログ</h2>
+        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+          考えたこと・取ったアクション・分かった結果を、思いついた時にひとことずつ書き足してください。まとめて振り返る必要はありません。
+        </p>
+        <div className={styles.journalInputRow}>
+          <input
+            type="text"
+            value={logText}
+            onChange={(e) => setLogText(e.target.value)}
+            placeholder="例: Bチームと調整し、割り込み受付時間を14〜15時に限定することで合意"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddLogEntry();
+            }}
+          />
+          <button
+            className={styles.primaryBtn}
+            style={{ width: "auto" }}
+            type="button"
+            disabled={logSubmitting || !logText.trim()}
+            onClick={handleAddLogEntry}
+          >
+            {logSubmitting ? "記録中…" : "記録"}
+          </button>
+        </div>
+        {logError && (
+          <p className={styles.errorText} role="alert">
+            {logError}
+          </p>
+        )}
+        {issue.logEntries.length === 0 ? (
+          <p className={styles.subtitle} style={{ marginTop: 10 }}>
+            まだ記録がありません。
+          </p>
+        ) : (
+          <ul style={{ listStyle: "none", marginTop: 10 }}>
+            {[...issue.logEntries].reverse().map((entry) => (
+              <li key={entry.id} className={styles.field} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: "0.8125rem" }}>{entry.text}</div>
+                <div className={styles.subtitle}>{new Date(entry.createdAt).toLocaleString("ja-JP")}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {issue.archived && issue.teamId && (
         <div className={styles.panel}>
