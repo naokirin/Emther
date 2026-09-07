@@ -265,7 +265,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: inherit;
-  font: inherit;
+  /* font-family: inherit;（buttonの既定UIフォントを避ける）にしないと、font:のショート
+     ハンドはfont-size/font-weightも一括で上書きしてしまう（.tag/.tagBtnで実際に踏んだ
+     不具合と同じ原因）。ここは競合する明示指定が無いため実害は無いが、念のため統一する。 */
+  font-family: inherit;
 }
 
 .activityLine:hover {
@@ -588,18 +591,23 @@
 .tagBtn {
   border: none;
   cursor: pointer;
-  font: inherit;
+  /* font: inheritだと.tagのfont-size/font-weightごと打ち消してしまい、@人物・#トピックの
+     クリック可能なタグだけ本文と同じ大きさ・太さのボタン既定フォントに戻ってしまう
+     （ユーザー指摘で発覚）。font-familyだけをボタンの既定UIフォントから引き剥がす。 */
+  font-family: inherit;
 }
 
 .typeChip {
   display: inline-block;
-  font-size: 0.75rem;
   padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--panel-bg, #fff);
   cursor: pointer;
-  font: inherit;
+  /* font: inheritを先のfont-sizeの後に置くと、ショートハンドがfont-sizeごと
+     打ち消してしまう（.tagBtnで実際に踏んだ不具合と同じ原因）。font-familyだけにする。 */
+  font-family: inherit;
+  font-size: 0.75rem;
 }
 
 .typeChipSelected {
