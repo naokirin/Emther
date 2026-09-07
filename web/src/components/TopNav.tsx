@@ -10,6 +10,12 @@ import styles from "@/app/page.module.css";
 // 介入／振り返り）でグルーピングする。グローバルメニューはグループ単位（7個）だけを
 // 見せ、複数画面を持つグループだけサイドメニューでその中の画面を選ばせる2階層構成にする。
 // 新しいURLは増やさず、既存の10画面をグルーピングし直すだけ。
+//
+// 改修依頼「グローバルナビのラベルを『画面で何をするか』が分かる語に揃える」対応。
+// 上記の物語語（起点／感知／介入／憲法）はメタファーが強く画面の中身が伝わりにくいため、
+// タブの主ラベル（label）は実務語（今日／現場メモ／課題／方針・目標）に変え、物語語は
+// hint（📍バナー・サイド見出しのツールチップ）側にのみ短く残す。相談／振り返り／設定は
+// 元から実務語だったため据え置き。
 type NavItem = { href: string; label: string };
 type StoryGroup = {
   key: string;
@@ -19,35 +25,40 @@ type StoryGroup = {
 };
 
 const STORY_GROUPS: StoryGroup[] = [
-  { key: "dashboard", label: "起点", hint: "組織の状態を掴み、今日の判断を選ぶ", items: [{ href: "/", label: "Dashboard" }] },
-  { key: "sensing", label: "感知", hint: "現場の出来事を事実として残す", items: [{ href: "/journal", label: "Journal" }] },
-  { key: "consult", label: "相談", hint: "モヤモヤを壁打ちし、追跡するか決める", items: [{ href: "/chat", label: "何でも相談" }] },
+  { key: "dashboard", label: "今日", hint: "組織の状態を掴み、今日向き合う判断を選ぶ", items: [{ href: "/", label: "今日" }] },
+  {
+    key: "sensing",
+    label: "現場メモ",
+    hint: "現場の出来事を事実として残す・校正する",
+    items: [{ href: "/journal", label: "現場メモ" }],
+  },
+  { key: "consult", label: "相談", hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める", items: [{ href: "/chat", label: "何でも相談" }] },
   {
     key: "intervention",
-    label: "介入",
-    hint: "人・仕組み・優先順位を動かし、結果を見る",
+    label: "課題",
+    hint: "組織課題を計画・実行し、介入として人・仕組みの変化を見る",
     items: [
-      { href: "/issues", label: "Issue Workspace" },
-      { href: "/people", label: "People" },
+      { href: "/issues", label: "課題一覧" },
+      { href: "/people", label: "人" },
     ],
   },
   {
     key: "constitution",
-    label: "憲法",
-    hint: "MVV・体制・目標という前提を決める",
-    items: [{ href: "/org", label: "Organization Context" }],
+    label: "方針・目標",
+    hint: "組織の憲法＝MVV・体制・制約・目標という前提を置く",
+    items: [{ href: "/org", label: "方針・目標" }],
   },
   {
     key: "reflection",
-    label: "振り返り（週次でよい）",
-    hint: "組織と自分の変化を読む",
+    label: "振り返り",
+    hint: "組織と自分の変化を読む（週次でよい・毎日必須ではない）",
     items: [
-      { href: "/timeline", label: "Timeline" },
-      { href: "/reports", label: "Reports" },
+      { href: "/timeline", label: "タイムライン" },
+      { href: "/reports", label: "レポート" },
       { href: "/growth", label: "EMの成長" },
     ],
   },
-  { key: "settings", label: "設定", hint: "しきい値・自動起動の挙動を調整する", items: [{ href: "/settings", label: "Settings" }] },
+  { key: "settings", label: "設定", hint: "しきい値・自動起動の挙動を調整する", items: [{ href: "/settings", label: "設定" }] },
 ];
 
 function isItemActive(href: string, pathname: string): boolean {
