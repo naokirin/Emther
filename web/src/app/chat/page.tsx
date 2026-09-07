@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
+import { CopilotChat, ExecutionState, StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
 import { isRunStale } from "@/lib/types";
 
@@ -80,7 +80,7 @@ function ChatPageInner() {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: selectedRun.task.slice(0, 60), agentRunId: selectedRun.id }),
+        body: JSON.stringify({ title: runFallbackTitle(selectedRun).slice(0, 60), agentRunId: selectedRun.id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Issue化に失敗しました");

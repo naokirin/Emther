@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
+import { STATUS_META, StatusBadge, runFallbackTitle, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import {
@@ -370,7 +370,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: run.task.slice(0, 60), agentRunId: run.id }),
+        body: JSON.stringify({ title: runFallbackTitle(run).slice(0, 60), agentRunId: run.id }),
       });
       const data = await res.json();
       if (res.ok) router.push(`/issues/${data.issue.id}`);

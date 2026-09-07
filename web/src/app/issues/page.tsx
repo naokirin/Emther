@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { StatusBadge, type AgentRun } from "@/components/RunDetail";
+import { StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
@@ -65,6 +65,7 @@ function IssuesPageInner() {
   const [showArchived, setShowArchived] = useState(false);
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
   // 子Issue（parentIdあり）は親の詳細画面（サブIssue欄）で見る形にし、
@@ -145,20 +146,27 @@ function IssuesPageInner() {
     }
   }
 
+  // ユーザー指摘対応。Lead Agentは「何でも相談」の相手であり、Dashboard側（P0-2対応）と
+  // 同じく即Issue化はせず/chatへ寄せる。決まった介入である専門エージェントのrunだけ
+  // ここから直接Issue化する。
   async function handlePromoteRun(run: AgentRun) {
+    if (run.agentName === "Lead Agent") {
+      router.push(`/chat?runId=${run.id}`);
+      return;
+    }
+    setPromoteError(null);
     try {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: run.task.slice(0, 60), agentRunId: run.id }),
+        body: JSON.stringify({ title: runFallbackTitle(run).slice(0, 60), agentRunId: run.id }),
       });
       const data = await res.json();
-      if (res.ok) {
-        await Promise.all([refreshIssues(), refreshRuns()]);
-        router.push(`/issues/${data.issue.id}`);
-      }
-    } catch {
-      // 失敗時は一覧に留まる
+      if (!res.ok) throw new Error(data.error ?? "Issue化に失敗しました");
+      await Promise.all([refreshIssues(), refreshRuns()]);
+      router.push(`/issues/${data.issue.id}`);
+    } catch (err) {
+      setPromoteError((err as Error).message);
     }
   }
 
@@ -302,8 +310,14 @@ function IssuesPageInner() {
       <div className={styles.panel}>
         <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>Issue未起票のAgent Run</h3>
         <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-          ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。クリックするとその場でIssue化して詳細画面へ移動する。
+          ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。Lead
+          Agentは「何でも相談」に、専門エージェントはクリックするとその場でIssue化して詳細画面へ移動する。
         </p>
+        {promoteError && (
+          <p className={styles.errorText} role="alert">
+            {promoteError}
+          </p>
+        )}
         <div className={styles.runList} style={{ maxHeight: "none" }}>
           {unlinkedRuns.length === 0 && <p className={styles.subtitle}>すべてのRunがIssueに紐づいています。</p>}
           {runsPagination.pageItems.map((run) => (
@@ -316,7 +330,7 @@ function IssuesPageInner() {
                   </span>
                 )}
               </div>
-              <div className={styles.runItemTask}>{run.task}</div>
+              <div className={styles.runItemTask}>{runFallbackTitle(run)}</div>
             </button>
           ))}
         </div>
