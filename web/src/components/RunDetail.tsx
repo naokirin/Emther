@@ -51,6 +51,21 @@ export type AgentRun = {
   triageAt?: number;
 };
 
+// ユーザー指摘対応: run.taskが空文字のrun（何らかの理由でtask保存に失敗した壊れたデータ）を
+// そのままIssueタイトルにすると、サーバー側の「titleは必須です」検証で400になり、EMが
+// クリックしても何も起きない（エラーがUIに出ない）まま詰む。run.task以外にも意味のある
+// テキスト（Yieldの理由・最初のログ行）があればそれを使い、それも無ければ最低限
+// エージェント名だけのタイトルにフォールバックし、Issue化自体は必ず成功させる。
+export function runFallbackTitle(run: AgentRun): string {
+  const task = run.task.trim();
+  if (task) return task;
+  const yieldReason = run.yieldRequest?.reason.trim();
+  if (yieldReason) return yieldReason;
+  const firstLogLine = run.log.find((l) => l.channel !== "system")?.text.trim();
+  if (firstLogLine) return firstLogLine;
+  return `${run.agentName}のRun（内容未記録）`;
+}
+
 export const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls: string }> = {
   active: { icon: "🟢", label: "Active", cls: styles.active },
   yield: { icon: "🟡", label: "Yield / Waiting", cls: styles.yield },
