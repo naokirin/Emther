@@ -22,20 +22,34 @@ export default function PeoplePage() {
         {sorted.length === 0 ? (
           <p className={styles.subtitle}>まだ誰も登録されていません。Quick Journalに記録するかチームにメンバーを追加すると、ここに表示されます。</p>
         ) : (
-          <div className={styles.runList} style={{ maxHeight: "none" }}>
-            {sorted.map((p) => (
-              <Link key={p.id} href={`/people/${p.id}`} className={styles.runItem} style={{ display: "block" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <strong>{p.name}</strong>
-                  <span className={styles.subtitle}>
-                    {p.trend.positive > 0 && `🙂${p.trend.positive} `}
-                    {p.trend.negative > 0 && `🙁${p.trend.negative} `}
-                    Journal {p.factCount}件
-                  </span>
-                </div>
-                <div className={styles.subtitle}>{p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}</div>
-              </Link>
-            ))}
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>名前</th>
+                  <th>所属</th>
+                  <th>傾向</th>
+                  <th>Journal件数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <Link href={`/people/${p.id}`} className={styles.tableRowLink}>
+                        {p.name}
+                      </Link>
+                    </td>
+                    <td className={styles.tableMuted}>{p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}</td>
+                    <td className={styles.tableMuted}>
+                      {p.trend.positive > 0 && `🙂${p.trend.positive} `}
+                      {p.trend.negative > 0 && `🙁${p.trend.negative}`}
+                    </td>
+                    <td>{p.factCount}件</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

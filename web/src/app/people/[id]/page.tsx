@@ -42,41 +42,66 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
         {person.interpretations.length === 0 ? (
           <p className={styles.subtitle}>まだ記録がありません。Dashboardの長期プロファイルから記録できます。</p>
         ) : (
-          <ul style={{ listStyle: "none", marginBottom: 10 }}>
-            {person.interpretations.map((i) => (
-              <li key={i.id} className={styles.field} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: "0.8125rem" }}>{i.text}</div>
-                <div className={styles.subtitle}>{new Date(i.occurredAt).toLocaleString("ja-JP")}</div>
-              </li>
-            ))}
-          </ul>
+          <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>内容</th>
+                  <th>記録日時</th>
+                </tr>
+              </thead>
+              <tbody>
+                {person.interpretations.map((i) => (
+                  <tr key={i.id}>
+                    <td>{i.text}</td>
+                    <td className={styles.tableMuted}>{new Date(i.occurredAt).toLocaleString("ja-JP")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>直近のJournal（一時的な状況、有効期限内のもののみ）</h3>
         {person.facts.length === 0 ? (
           <p className={styles.subtitle}>関連するJournalはありません。</p>
         ) : (
-          <ul style={{ listStyle: "none", marginBottom: 10 }}>
-            {person.facts.map((f) => (
-              <li key={f.id} className={styles.field} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: "0.8125rem" }}>{f.text}</div>
-                <div className={styles.tagRow} style={{ marginTop: 4 }}>
-                  {f.tags.map((t) => (
-                    <span key={t} className={`${styles.tag} ${styles.tagTopic}`}>
-                      #{t}
-                    </span>
-                  ))}
-                  {f.sentiment && f.sentiment !== "neutral" && (
-                    <span className={`${styles.tag} ${f.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-                      #{f.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-                    </span>
-                  )}
-                  {f.urgency && <span className={`${styles.urgencyLabel} ${styles[`urgency${f.urgency}`]}`}>{URGENCY_LABEL[f.urgency]}</span>}
-                </div>
-                <div className={styles.subtitle}>{new Date(f.occurredAt).toLocaleString("ja-JP")}</div>
-              </li>
-            ))}
-          </ul>
+          <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>内容</th>
+                  <th>タグ / 緊急度</th>
+                  <th>発生日時</th>
+                </tr>
+              </thead>
+              <tbody>
+                {person.facts.map((f) => (
+                  <tr key={f.id}>
+                    <td>{f.text}</td>
+                    <td>
+                      <div className={styles.tagRow}>
+                        {f.tags.map((t) => (
+                          <span key={t} className={`${styles.tag} ${styles.tagTopic}`}>
+                            #{t}
+                          </span>
+                        ))}
+                        {f.sentiment && f.sentiment !== "neutral" && (
+                          <span className={`${styles.tag} ${f.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
+                            #{f.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
+                          </span>
+                        )}
+                        {f.urgency && (
+                          <span className={`${styles.urgencyLabel} ${styles[`urgency${f.urgency}`]}`}>{URGENCY_LABEL[f.urgency]}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className={styles.tableMuted}>{new Date(f.occurredAt).toLocaleString("ja-JP")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue</h3>
@@ -86,25 +111,32 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
         {person.relatedIssues.length === 0 ? (
           <p className={styles.subtitle}>関連するIssueは見つかりませんでした。</p>
         ) : (
-          <div className={styles.runList} style={{ maxHeight: "none" }}>
-            {person.relatedIssues.map((issue) => (
-              <Link key={issue.id} href={`/issues/${issue.id}`} className={styles.runItem} style={{ display: "block" }}>
-                <div>
-                  <strong>{issue.title}</strong>
-                  {issue.archived && (
-                    <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                      🗄 アーカイブ済み
-                    </span>
-                  )}
-                  <span
-                    className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}
-                    style={{ marginLeft: 6 }}
-                  >
-                    Why/What/How: {charterFilledCount(issue.charter)}/3
-                  </span>
-                </div>
-              </Link>
-            ))}
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>タイトル</th>
+                  <th>Why/What/How</th>
+                </tr>
+              </thead>
+              <tbody>
+                {person.relatedIssues.map((issue) => (
+                  <tr key={issue.id}>
+                    <td>
+                      <Link href={`/issues/${issue.id}`} className={styles.tableRowLink}>
+                        {issue.title}
+                      </Link>
+                      {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
+                    </td>
+                    <td>
+                      <span className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
+                        {charterFilledCount(issue.charter)}/3
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

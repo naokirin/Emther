@@ -786,19 +786,29 @@ export default function DashboardPage() {
           <p className={styles.subtitle}>✅ このレーンに対応が必要な項目はありません。</p>
         ) : (
           <>
-            <div className={styles.runList} style={{ maxHeight: "none" }}>
-              {visibleActions.map((a) => (
-                <button
-                  key={a.id}
-                  className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                  onClick={a.onSelect}
-                >
-                  {/* docs/dashboard_ui_readability.md U3-1対応。絵文字とバッジを両立させず、
-                      種別（バッジ）＋本文の2層にする。 */}
-                  <span className={styles.badge}>{a.kindLabel}</span>
-                  <div className={styles.runItemTask}>{a.text}</div>
-                </button>
-              ))}
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>種別</th>
+                    <th>内容</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleActions.map((a) => (
+                    <tr key={a.id} className={a.severity === "urgent" ? styles.nextActionUrgentRow : styles.nextActionWarnRow}>
+                      <td>
+                        <span className={styles.badge}>{a.kindLabel}</span>
+                      </td>
+                      <td>
+                        <button className={styles.tableRowLink} onClick={a.onSelect}>
+                          {a.text}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             {laneActionsForFilter.length > NEXT_ACTIONS_LIMIT && (
               <p className={styles.subtitle} style={{ marginTop: 8 }}>
@@ -814,18 +824,30 @@ export default function DashboardPage() {
               👀 様子見中（{watchingItems.length}件）{watchlistOpen ? "を隠す" : "を見る"}
             </button>
             {watchlistOpen && (
-              <div className={styles.runList} style={{ marginTop: 8 }}>
-                {watchingItems.map((run) => {
-                  const days = Math.round((now - (run.triageAt ?? run.updatedAt)) / (24 * 60 * 60 * 1000));
-                  return (
-                    <button key={run.id} className={styles.runItem} onClick={() => router.push(`/chat?runId=${run.id}`)}>
-                      <div className={styles.runItemTask}>
-                        {days === 0 ? "今日から様子見: " : `${days}日前から様子見: `}
-                        {run.task.slice(0, 50)}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className={styles.tableWrap} style={{ marginTop: 8 }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>経過</th>
+                      <th>内容</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {watchingItems.map((run) => {
+                      const days = Math.round((now - (run.triageAt ?? run.updatedAt)) / (24 * 60 * 60 * 1000));
+                      return (
+                        <tr key={run.id}>
+                          <td className={styles.tableMuted}>{days === 0 ? "今日から" : `${days}日前から`}</td>
+                          <td>
+                            <button className={styles.tableRowLink} onClick={() => router.push(`/chat?runId=${run.id}`)}>
+                              {run.task.slice(0, 50)}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -1049,27 +1071,43 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
-          {recentJournalEntries.map((entry) => (
-            <JournalEntryCard
-              key={entry.id}
-              entry={entry}
-              editing={journalEditing.editingEntryId === entry.id}
-              editTags={journalEditing.editTags}
-              editPeople={journalEditing.editPeople}
-              editUrgency={journalEditing.editUrgency}
-              editDate={journalEditing.editDate}
-              editSubmitting={journalEditing.editSubmitting}
-              editError={journalEditing.editError}
-              onChangeEditTags={journalEditing.setEditTags}
-              onChangeEditPeople={journalEditing.setEditPeople}
-              onChangeEditUrgency={journalEditing.setEditUrgency}
-              onChangeEditDate={journalEditing.setEditDate}
-              onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
-              onCancelEdit={journalEditing.cancelEditing}
-              onStartEdit={() => journalEditing.startEditing(entry)}
-            />
-          ))}
+          {journalEntries.length === 0 && !journalSubmitting ? (
+            <p className={styles.subtitle}>まだジャーナルはありません。</p>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>発生日</th>
+                    <th>内容</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentJournalEntries.map((entry) => (
+                    <JournalEntryCard
+                      key={entry.id}
+                      entry={entry}
+                      editing={journalEditing.editingEntryId === entry.id}
+                      editTags={journalEditing.editTags}
+                      editPeople={journalEditing.editPeople}
+                      editUrgency={journalEditing.editUrgency}
+                      editDate={journalEditing.editDate}
+                      editSubmitting={journalEditing.editSubmitting}
+                      editError={journalEditing.editError}
+                      onChangeEditTags={journalEditing.setEditTags}
+                      onChangeEditPeople={journalEditing.setEditPeople}
+                      onChangeEditUrgency={journalEditing.setEditUrgency}
+                      onChangeEditDate={journalEditing.setEditDate}
+                      onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
+                      onCancelEdit={journalEditing.cancelEditing}
+                      onStartEdit={() => journalEditing.startEditing(entry)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {journalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
             <p className={styles.subtitle} style={{ marginTop: -4, marginBottom: 12 }}>
               他{journalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
@@ -1182,39 +1220,56 @@ export default function DashboardPage() {
             </select>
           </label>
 
-          <div className={styles.runList} style={{ marginTop: 8 }}>
-            {filteredRuns.length === 0 && <p className={styles.subtitle}>条件に一致するエージェントはありません。</p>}
-            {inboxPagination.pageItems.map((run) => {
-              const linked = issues.some((i) => i.agentRunId === run.id);
-              return (
-                <div key={run.id} className={styles.runItem} style={{ cursor: "pointer" }} onClick={() => handleInboxRunClick(run)}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <div>
-                      <span className={styles.badge} style={{ marginRight: 6 }}>{runKindLabel(run)}</span>
-                      <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
-                      {run.consultedBy && (
-                        <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                          🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
-                        </span>
-                      )}
-                    </div>
-                    {!linked && run.agentName === "Lead Agent" && (
-                      <button
-                        className={styles.btnOutline}
-                        style={{ flexShrink: 0 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          goToRunIssue(run);
-                        }}
-                      >
-                        📌 Issueにする
-                      </button>
-                    )}
-                  </div>
-                  <div className={styles.runItemTask}>{run.task}</div>
-                </div>
-              );
-            })}
+          <div className={styles.tableWrap} style={{ marginTop: 8 }}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>種別</th>
+                  <th>エージェント / タスク</th>
+                  <th>状態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRuns.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className={styles.tableEmpty}>
+                      条件に一致するエージェントはありません。
+                    </td>
+                  </tr>
+                )}
+                {inboxPagination.pageItems.map((run) => {
+                  const linked = issues.some((i) => i.agentRunId === run.id);
+                  return (
+                    <tr key={run.id}>
+                      <td>
+                        <span className={styles.badge}>{runKindLabel(run)}</span>
+                      </td>
+                      <td>
+                        <button className={styles.tableRowLink} onClick={() => handleInboxRunClick(run)}>
+                          {run.agentName}: {run.task}
+                        </button>
+                        {run.consultedBy && (
+                          <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
+                            🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
+                      </td>
+                      <td>
+                        {!linked && run.agentName === "Lead Agent" && (
+                          <button className={styles.btnOutline} onClick={() => goToRunIssue(run)}>
+                            📌 Issueにする
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
           <PaginationControls
             page={inboxPagination.page}

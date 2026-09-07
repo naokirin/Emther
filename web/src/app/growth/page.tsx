@@ -215,20 +215,36 @@ export default function GrowthPage() {
             </p>
           )}
 
-          <div className={styles.runList} style={{ marginTop: 12 }}>
-            {checkins.length === 0 && <p className={styles.subtitle}>まだ記録がありません。</p>}
-            {checkinPagination.pageItems.map((c) => (
-              <div key={c.id} className={styles.journalEntry}>
-                <div style={{ display: "flex", gap: 10, fontSize: "0.75rem", flexWrap: "wrap" }}>
-                  <span>気分 {c.mood}</span>
-                  <span>エネルギー {c.energy}</span>
-                  <span>ストレス {c.stress}</span>
-                  <span className={styles.subtitle}>{formatDate(c.createdAt)}</span>
-                </div>
-                {c.note && <div style={{ marginTop: 4, fontSize: "0.8125rem" }}>{c.note}</div>}
-              </div>
-            ))}
-          </div>
+          {checkins.length === 0 ? (
+            <p className={styles.subtitle} style={{ marginTop: 12 }}>
+              まだ記録がありません。
+            </p>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>日付</th>
+                    <th>気分</th>
+                    <th>エネルギー</th>
+                    <th>ストレス</th>
+                    <th>メモ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {checkinPagination.pageItems.map((c) => (
+                    <tr key={c.id}>
+                      <td className={styles.tableMuted}>{formatDate(c.createdAt)}</td>
+                      <td>{c.mood}</td>
+                      <td>{c.energy}</td>
+                      <td>{c.stress}</td>
+                      <td>{c.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <PaginationControls
             page={checkinPagination.page}
             totalPages={checkinPagination.totalPages}
@@ -273,31 +289,44 @@ export default function GrowthPage() {
             </p>
           )}
 
-          <div className={styles.runList} style={{ marginTop: 12 }}>
-            {weekGroups.length === 0 && <p className={styles.subtitle}>まだ気づきメモがありません。</p>}
-            {weekGroupPagination.pageItems.map((g) => (
-              <div key={g.weekStart} className={styles.journalEntry}>
-                <div className={styles.subtitle}>
-                  {formatDate(g.weekStart)} 〜 {formatDate(g.weekEnd)}
-                </div>
-                {(["keep", "problem", "try"] as const).map(
-                  (type) =>
-                    g.notesByType[type].length > 0 && (
-                      <div key={type} style={{ marginTop: 6 }}>
-                        <strong style={{ fontSize: "0.8125rem" }}>{NOTE_TYPE_LABEL[type]}</strong>
-                        <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
-                          {g.notesByType[type].map((n) => (
-                            <li key={n.id} style={{ fontSize: "0.8125rem" }}>
-                              {n.text}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ),
-                )}
-              </div>
-            ))}
-          </div>
+          {weekGroups.length === 0 ? (
+            <p className={styles.subtitle} style={{ marginTop: 12 }}>
+              まだ気づきメモがありません。
+            </p>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>週</th>
+                    <th>{NOTE_TYPE_LABEL.keep}</th>
+                    <th>{NOTE_TYPE_LABEL.problem}</th>
+                    <th>{NOTE_TYPE_LABEL.try}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weekGroupPagination.pageItems.map((g) => (
+                    <tr key={g.weekStart}>
+                      <td className={styles.tableMuted} style={{ whiteSpace: "nowrap" }}>
+                        {formatDate(g.weekStart)} 〜 {formatDate(g.weekEnd)}
+                      </td>
+                      {(["keep", "problem", "try"] as const).map((type) => (
+                        <td key={type}>
+                          {g.notesByType[type].length > 0 && (
+                            <ul style={{ margin: 0, paddingLeft: 16 }}>
+                              {g.notesByType[type].map((n) => (
+                                <li key={n.id}>{n.text}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <PaginationControls
             page={weekGroupPagination.page}
             totalPages={weekGroupPagination.totalPages}

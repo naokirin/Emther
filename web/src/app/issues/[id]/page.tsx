@@ -433,34 +433,43 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           {childIssues.length === 0 ? (
             <p className={styles.subtitle}>まだサブIssueはありません。</p>
           ) : (
-            <div className={styles.runList} style={{ maxHeight: "none" }}>
-              {childIssues.map((child) => {
-                const childRun = runs.find((r) => r.id === child.agentRunId);
-                const childCharter = charterFilledCount(child.charter);
-                return (
-                  <button
-                    key={child.id}
-                    className={styles.runItem}
-                    style={child.archived ? { opacity: 0.6 } : undefined}
-                    onClick={() => router.push(`/issues/${child.id}`)}
-                  >
-                    <div>
-                      <strong>{child.title}</strong> {childRun && <StatusBadge status={childRun.status} stale={staleRunIds.has(childRun.id)} />}
-                      {child.archived && (
-                        <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                          🗄 アーカイブ済み
-                        </span>
-                      )}
-                      <span className={childCharter === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
-                        {childCharter === 3 ? "✅" : "❓"} {childCharter}/3
-                      </span>
-                    </div>
-                    <div className={styles.runItemTask}>
-                      Action Items: {child.actionItems.filter((a) => a.done).length}/{child.actionItems.length}
-                    </div>
-                  </button>
-                );
-              })}
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>タイトル</th>
+                    <th>Why/What/How</th>
+                    <th>Action Items</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {childIssues.map((child) => {
+                    const childRun = runs.find((r) => r.id === child.agentRunId);
+                    const childCharter = charterFilledCount(child.charter);
+                    return (
+                      <tr key={child.id} style={child.archived ? { opacity: 0.6 } : undefined}>
+                        <td>
+                          <button className={styles.tableRowLink} onClick={() => router.push(`/issues/${child.id}`)}>
+                            {child.title}
+                          </button>
+                          <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {childRun && <StatusBadge status={childRun.status} stale={staleRunIds.has(childRun.id)} />}
+                            {child.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={childCharter === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
+                            {childCharter === 3 ? "✅" : "❓"} {childCharter}/3
+                          </span>
+                        </td>
+                        <td>
+                          {child.actionItems.filter((a) => a.done).length}/{child.actionItems.length}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

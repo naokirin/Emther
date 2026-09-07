@@ -532,27 +532,39 @@ export default function OrgContextPage() {
             {objectiveEditError && <p className={styles.errorText} role="alert">{objectiveEditError}</p>}
 
             <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
-            {selectedObjective.keyResults.length === 0 && <p className={styles.subtitle}>まだKey Resultがありません。</p>}
-            <ul style={{ listStyle: "none", marginBottom: 10 }}>
-              {selectedObjective.keyResults.map((kr) => {
-                const progress = selectedObjective.progress.find((p) => p.keyResultId === kr.id);
-                return (
-                  <li key={kr.id} className={styles.field} style={{ marginBottom: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: "0.8125rem" }}>{kr.title}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                        <span className={styles.subtitle}>
-                          {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
-                        </span>
-                        <button className={styles.btnOutline} onClick={() => handleRemoveKeyResult(kr.id)}>
-                          削除
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            {selectedObjective.keyResults.length === 0 ? (
+              <p className={styles.subtitle}>まだKey Resultがありません。</p>
+            ) : (
+              <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Key Result</th>
+                      <th>進捗</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedObjective.keyResults.map((kr) => {
+                      const progress = selectedObjective.progress.find((p) => p.keyResultId === kr.id);
+                      return (
+                        <tr key={kr.id}>
+                          <td>{kr.title}</td>
+                          <td className={styles.tableMuted}>
+                            {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
+                          </td>
+                          <td>
+                            <button className={styles.btnOutline} onClick={() => handleRemoveKeyResult(kr.id)}>
+                              削除
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <form onSubmit={handleAddKeyResult} style={{ display: "flex", gap: 6 }}>
               <input
                 type="text"
@@ -648,25 +660,32 @@ export default function OrgContextPage() {
             {relatedIssues.length === 0 ? (
               <p className={styles.subtitle}>関連するIssueは見つかりませんでした。</p>
             ) : (
-              <div className={styles.runList} style={{ maxHeight: "none", marginBottom: 12 }}>
-                {relatedIssues.map((issue) => (
-                  <Link key={issue.id} href={`/issues/${issue.id}`} className={styles.runItem} style={{ display: "block" }}>
-                    <div>
-                      <strong>{issue.title}</strong>
-                      {issue.archived && (
-                        <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                          🗄 アーカイブ済み
-                        </span>
-                      )}
-                      <span
-                        className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}
-                        style={{ marginLeft: 6 }}
-                      >
-                        Why/What/How: {charterFilledCount(issue.charter)}/3
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+              <div className={styles.tableWrap} style={{ marginBottom: 12 }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>タイトル</th>
+                      <th>Why/What/How</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {relatedIssues.map((issue) => (
+                      <tr key={issue.id}>
+                        <td>
+                          <Link href={`/issues/${issue.id}`} className={styles.tableRowLink}>
+                            {issue.title}
+                          </Link>
+                          {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
+                        </td>
+                        <td>
+                          <span className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
+                            {charterFilledCount(issue.charter)}/3
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
@@ -677,16 +696,28 @@ export default function OrgContextPage() {
             {relatedJournal.length === 0 ? (
               <p className={styles.subtitle}>関連するJournalは見つかりませんでした。</p>
             ) : (
-              <ul style={{ listStyle: "none" }}>
-                {relatedJournal.map((entry) => (
-                  <li key={entry.id} className={styles.field} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: "0.8125rem" }}>{entry.rawText}</div>
-                    <div className={styles.subtitle}>
-                      {URGENCY_LABEL[entry.urgency]} / 感情: {entry.sentiment} / タグ: {entry.tags.join(", ") || "なし"}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>内容</th>
+                      <th>緊急度 / 感情</th>
+                      <th>タグ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {relatedJournal.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{entry.rawText}</td>
+                        <td className={styles.tableMuted}>
+                          {URGENCY_LABEL[entry.urgency]} / {entry.sentiment}
+                        </td>
+                        <td className={styles.tableMuted}>{entry.tags.join(", ") || "なし"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
 
             {teamHistory.length > 0 && (
