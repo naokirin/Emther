@@ -192,6 +192,16 @@ export function listEventsForEntity(entityType: KnowledgeEntityType, entityId: s
   return listEvents({ entityType }).filter((e) => e.entityId === entityId);
 }
 
+// docs/memo.md「N. 時系列変化をEMが読む物語に」対応。特定のentityに絞らず、
+// Issue/Team/Objectiveの変更（recordChangeEventで記録されるkind:"fact" context:"official"）
+// を横断的に新しい順で返す。Journal（context:"observation"）は含めない
+// （「組織の状態がどう変わったか」の物語であり、日々の所感・出来事のログとは別軸）。
+export function listRecentChangeEvents(limit = 100): KnowledgeEvent[] {
+  return listEvents({ kind: "fact" })
+    .filter((e) => e.context === "official")
+    .slice(0, limit);
+}
+
 // Issue/Teamの変更履歴（Phase 2）記録用の薄いヘルパー。変更は「起きた出来事そのもの」
 // なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"で固定する。
 // 変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。

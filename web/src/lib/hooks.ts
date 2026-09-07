@@ -14,6 +14,7 @@ import type {
   PersonSummary,
   RulesAndConstraints,
   Team,
+  TimelineEntry,
 } from "@/lib/types";
 
 // Dashboard / Issues一覧 / Issue詳細 / Organization Contextの各画面で共通して使う
@@ -159,6 +160,12 @@ export function useSettingsRules(intervalMs = 8000) {
 }
 
 // 単一Issue詳細ページ用。Issue一覧のポーリングとは別に、そのIssue1件だけを取得する。
+// docs/memo.md「N. 時系列変化をEMが読む物語に」対応。
+export function useTimeline(intervalMs = 10000) {
+  const { data, refresh } = usePolling<{ entries: TimelineEntry[] }>("/api/timeline", { entries: [] }, intervalMs);
+  return { entries: data.entries, refreshTimeline: refresh };
+}
+
 // docs/memo.md「J. Peopleを第一級ハブに」対応。
 export function usePeople(intervalMs = 5000) {
   const { data, refresh } = usePolling<{ people: PersonSummary[] }>("/api/people", { people: [] }, intervalMs);
