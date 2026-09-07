@@ -365,7 +365,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
       <div className={styles.issueTitleRow}>
         <div>
-          <h1>{issue.title}</h1>
+          <h2>{issue.title}</h2>
           {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
           {issue.archived && (
             <span className={styles.subtitle} style={{ marginLeft: 6 }}>

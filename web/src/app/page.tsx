@@ -750,7 +750,7 @@ export default function DashboardPage() {
           先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
           最初にトリアージへ着地させる。 */}
       <div className={`${styles.panel} ${styles.heroPanel}`}>
-        <h1 className={styles.heroHeadline}>{headline}</h1>
+        <h2 className={styles.heroHeadline}>{headline}</h2>
 
         <div className={styles.tabs} style={{ margin: "10px 0" }}>
           {(Object.keys(LANE_META) as Lane[]).map((lane) => (

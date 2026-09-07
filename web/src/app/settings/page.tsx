@@ -41,6 +41,9 @@ export default function SettingsPage() {
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel} style={{ gridColumn: "1 / -1" }}>
+        {/* WCAG 2.4.6/1.3.1対応。以前はh1（layout.tsx側）から直接h3へ飛んでいた
+            （見出しレベルの飛び越し）。ページの主見出しとしてh2を挟む。 */}
+        <h2>Settings</h2>
         <div className={styles.editorPath}>
           <code>/Settings/Rules_and_Constraints</code>
           <button className={styles.primaryBtn} onClick={handleSave} disabled={saving || !seeded}>
