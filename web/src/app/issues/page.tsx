@@ -164,182 +164,171 @@ function IssuesPageInner() {
 
   return (
     <div className={styles.screen}>
-      <div className={styles.detailHeader}>
-        <div>
-          <h2 style={{ margin: 0 }}>進行中の介入ポートフォリオ</h2>
-          <p className={styles.subtitle} style={{ marginTop: 4 }}>
-            実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。
-          </p>
+      {/* 改修依頼「セクションの区切りがわかりにくい」対応。ページ全体がフラットな
+          .screenの直下に並んでいたため、表形式化でセクション同士が地続きに見えて
+          いた。2つのセクションをそれぞれ.panelで囲み、カードとして区切る。 */}
+      <div className={styles.panel}>
+        <div className={styles.detailHeader}>
+          <div>
+            <h2 style={{ margin: 0 }}>進行中の介入ポートフォリオ</h2>
+            <p className={styles.subtitle} style={{ marginTop: 4 }}>
+              実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。
+            </p>
+          </div>
+          <button className={styles.primaryBtn} style={{ width: "auto", flexShrink: 0 }} onClick={() => setDialogOpen(true)}>
+            ＋ 新しいIssue
+          </button>
         </div>
-        <button className={styles.primaryBtn} style={{ width: "auto", flexShrink: 0 }} onClick={() => setDialogOpen(true)}>
-          ＋ 新しいIssue
-        </button>
-      </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-          アーカイブ済みも表示する（{archivedCount}件）
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-          <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
-          Why/What/How未整理のみ
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-          タグで絞り込み:
-          <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
-            <option value="">すべて</option>
-            {allTags.map((tag) => (
-              <option key={tag} value={tag}>
-                #{tag}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            アーカイブ済みも表示する（{archivedCount}件）
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
+            Why/What/How未整理のみ
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            タグで絞り込み:
+            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
+              <option value="">すべて</option>
+              {allTags.map((tag) => (
+                <option key={tag} value={tag}>
+                  #{tag}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>タイトル</th>
-              <th>型・関連</th>
-              <th>Why/What/How</th>
-              <th>Action Items</th>
-              <th>最終判断</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredIssues.length === 0 && (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
               <tr>
-                <td colSpan={5} className={styles.tableEmpty}>
-                  条件に一致するIssueはありません。
-                </td>
+                <th>タイトル</th>
+                <th>型・関連</th>
+                <th>Why/What/How</th>
+                <th>Action Items</th>
+                <th>最終判断</th>
               </tr>
-            )}
-            {issuesPagination.pageItems.map((issue) => {
-              const linkedRun = runs.find((r) => r.id === issue.agentRunId);
-              const doneCount = issue.actionItems.filter((a) => a.done).length;
-              const charterCount = charterFilledCount(issue.charter);
-              const childCount = issues.filter((i) => i.parentId === issue.id).length;
-              const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
-              const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
-              const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
-              const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
-              return (
-                <tr key={issue.id} style={issue.archived ? { opacity: 0.6 } : undefined}>
-                  <td>
-                    <button className={styles.tableRowLink} onClick={() => router.push(`/issues/${issue.id}`)}>
-                      {issue.title}
-                    </button>
-                    <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
-                      {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
-                      {childCount > 0 && <span className={styles.tableMuted}>🧩 子Issue: {childCount}件</span>}
-                    </div>
-                    {topicTags.length > 0 && (
-                      <div className={styles.tagRow} style={{ marginTop: 4 }}>
-                        {topicTags.map((tag) => (
-                          <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKRを一覧の時点で
-                      見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}
-                  <td>
-                    {interventionTypes.map((t) => (
-                      <div key={t} style={{ marginBottom: 4 }}>
-                        <span className={`${styles.tag} ${styles.tagPerson}`}>🎯 {t}</span>
-                      </div>
-                    ))}
-                    {teamName && (
-                      <div className={styles.tableMuted} title="関連チーム">
-                        👥 {teamName}
-                      </div>
-                    )}
-                    {krLabel && (
-                      <div className={styles.tableMuted} title="紐付いているKey Result">
-                        📈 {krLabel}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
-                      {charterCount === 3 ? "✅" : "❓"} {charterCount}/3
-                    </span>
-                  </td>
-                  <td>
-                    {doneCount}/{issue.actionItems.length}
-                  </td>
-                  <td className={styles.tableMuted} title="最終更新日">
-                    {formatRelativeDays(issue.updatedAt, now)}
+            </thead>
+            <tbody>
+              {filteredIssues.length === 0 && (
+                <tr>
+                  <td colSpan={5} className={styles.tableEmpty}>
+                    条件に一致するIssueはありません。
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+              {issuesPagination.pageItems.map((issue) => {
+                const linkedRun = runs.find((r) => r.id === issue.agentRunId);
+                const doneCount = issue.actionItems.filter((a) => a.done).length;
+                const charterCount = charterFilledCount(issue.charter);
+                const childCount = issues.filter((i) => i.parentId === issue.id).length;
+                const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
+                const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
+                const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
+                const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
+                return (
+                  <tr key={issue.id} style={issue.archived ? { opacity: 0.6 } : undefined}>
+                    <td>
+                      <button className={styles.tableRowLink} onClick={() => router.push(`/issues/${issue.id}`)}>
+                        {issue.title}
+                      </button>
+                      <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
+                        {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
+                        {childCount > 0 && <span className={styles.tableMuted}>🧩 子Issue: {childCount}件</span>}
+                      </div>
+                      {topicTags.length > 0 && (
+                        <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                          {topicTags.map((tag) => (
+                            <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKRを一覧の時点で
+                        見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}
+                    <td>
+                      {interventionTypes.map((t) => (
+                        <div key={t} style={{ marginBottom: 4 }}>
+                          <span className={`${styles.tag} ${styles.tagPerson}`}>🎯 {t}</span>
+                        </div>
+                      ))}
+                      {teamName && (
+                        <div className={styles.tableMuted} title="関連チーム">
+                          👥 {teamName}
+                        </div>
+                      )}
+                      {krLabel && (
+                        <div className={styles.tableMuted} title="紐付いているKey Result">
+                          📈 {krLabel}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
+                        {charterCount === 3 ? "✅" : "❓"} {charterCount}/3
+                      </span>
+                    </td>
+                    <td>
+                      {doneCount}/{issue.actionItems.length}
+                    </td>
+                    <td className={styles.tableMuted} title="最終更新日">
+                      {formatRelativeDays(issue.updatedAt, now)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <PaginationControls
+          page={issuesPagination.page}
+          totalPages={issuesPagination.totalPages}
+          total={issuesPagination.total}
+          rangeStart={issuesPagination.rangeStart}
+          rangeEnd={issuesPagination.rangeEnd}
+          onChange={issuesPagination.setPage}
+        />
       </div>
-      <PaginationControls
-        page={issuesPagination.page}
-        totalPages={issuesPagination.totalPages}
-        total={issuesPagination.total}
-        rangeStart={issuesPagination.rangeStart}
-        rangeEnd={issuesPagination.rangeEnd}
-        onChange={issuesPagination.setPage}
-      />
 
-      <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "20px 0 6px" }}>Issue未起票のAgent Run</h3>
-      <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-        ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。クリックするとその場でIssue化して詳細画面へ移動する。
-      </p>
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>エージェント / タスク</th>
-              <th>状態</th>
-            </tr>
-          </thead>
-          <tbody>
-            {unlinkedRuns.length === 0 && (
-              <tr>
-                <td colSpan={2} className={styles.tableEmpty}>
-                  すべてのRunがIssueに紐づいています。
-                </td>
-              </tr>
-            )}
-            {runsPagination.pageItems.map((run) => (
-              <tr key={run.id}>
-                <td>
-                  <button className={styles.tableRowLink} onClick={() => handlePromoteRun(run)}>
-                    {run.agentName}: {run.task}
-                  </button>
-                  {run.consultedBy && (
-                    <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
-                      🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* 改修依頼対応。この一覧はエージェント名＋タスク要約だけで情報量が少なく、
+          カラムに分けるほどの構造が無いため表形式には戻さずカードのままにする。 */}
+      <div className={styles.panel}>
+        <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>Issue未起票のAgent Run</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+          ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。クリックするとその場でIssue化して詳細画面へ移動する。
+        </p>
+        <div className={styles.runList} style={{ maxHeight: "none" }}>
+          {unlinkedRuns.length === 0 && <p className={styles.subtitle}>すべてのRunがIssueに紐づいています。</p>}
+          {runsPagination.pageItems.map((run) => (
+            <button key={run.id} className={styles.runItem} onClick={() => handlePromoteRun(run)}>
+              <div>
+                <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
+                {run.consultedBy && (
+                  <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                    🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
+                  </span>
+                )}
+              </div>
+              <div className={styles.runItemTask}>{run.task}</div>
+            </button>
+          ))}
+        </div>
+        <PaginationControls
+          page={runsPagination.page}
+          totalPages={runsPagination.totalPages}
+          total={runsPagination.total}
+          rangeStart={runsPagination.rangeStart}
+          rangeEnd={runsPagination.rangeEnd}
+          onChange={runsPagination.setPage}
+        />
       </div>
-      <PaginationControls
-        page={runsPagination.page}
-        totalPages={runsPagination.totalPages}
-        total={runsPagination.total}
-        rangeStart={runsPagination.rangeStart}
-        rangeEnd={runsPagination.rangeEnd}
-        onChange={runsPagination.setPage}
-      />
 
       {dialogOpen && (
         <Modal title="新しいIssueを起票" onClose={() => setDialogOpen(false)}>

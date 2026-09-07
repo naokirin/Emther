@@ -786,29 +786,20 @@ export default function DashboardPage() {
           <p className={styles.subtitle}>✅ このレーンに対応が必要な項目はありません。</p>
         ) : (
           <>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>種別</th>
-                    <th>内容</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleActions.map((a) => (
-                    <tr key={a.id} className={a.severity === "urgent" ? styles.nextActionUrgentRow : styles.nextActionWarnRow}>
-                      <td>
-                        <span className={styles.badge}>{a.kindLabel}</span>
-                      </td>
-                      <td>
-                        <button className={styles.tableRowLink} onClick={a.onSelect}>
-                          {a.text}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* 改修依頼「表形式を戻してほしい」対応。ここは判断1件ずつを個別に読んで
+                クリックする場面で、カラム分けよりも「1件＝1カード」の一覧性が重要
+                なため、表形式ではなくボタン（カード）の並びに戻す。 */}
+            <div className={styles.runList} style={{ maxHeight: "none" }}>
+              {visibleActions.map((a) => (
+                <button
+                  key={a.id}
+                  className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                  onClick={a.onSelect}
+                >
+                  <span className={styles.badge}>{a.kindLabel}</span>
+                  <div className={styles.runItemTask}>{a.text}</div>
+                </button>
+              ))}
             </div>
             {laneActionsForFilter.length > NEXT_ACTIONS_LIMIT && (
               <p className={styles.subtitle} style={{ marginTop: 8 }}>
@@ -1071,43 +1062,27 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {journalEntries.length === 0 && !journalSubmitting ? (
-            <p className={styles.subtitle}>まだジャーナルはありません。</p>
-          ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>発生日</th>
-                    <th>内容</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentJournalEntries.map((entry) => (
-                    <JournalEntryCard
-                      key={entry.id}
-                      entry={entry}
-                      editing={journalEditing.editingEntryId === entry.id}
-                      editTags={journalEditing.editTags}
-                      editPeople={journalEditing.editPeople}
-                      editUrgency={journalEditing.editUrgency}
-                      editDate={journalEditing.editDate}
-                      editSubmitting={journalEditing.editSubmitting}
-                      editError={journalEditing.editError}
-                      onChangeEditTags={journalEditing.setEditTags}
-                      onChangeEditPeople={journalEditing.setEditPeople}
-                      onChangeEditUrgency={journalEditing.setEditUrgency}
-                      onChangeEditDate={journalEditing.setEditDate}
-                      onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
-                      onCancelEdit={journalEditing.cancelEditing}
-                      onStartEdit={() => journalEditing.startEditing(entry)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
+          {recentJournalEntries.map((entry) => (
+            <JournalEntryCard
+              key={entry.id}
+              entry={entry}
+              editing={journalEditing.editingEntryId === entry.id}
+              editTags={journalEditing.editTags}
+              editPeople={journalEditing.editPeople}
+              editUrgency={journalEditing.editUrgency}
+              editDate={journalEditing.editDate}
+              editSubmitting={journalEditing.editSubmitting}
+              editError={journalEditing.editError}
+              onChangeEditTags={journalEditing.setEditTags}
+              onChangeEditPeople={journalEditing.setEditPeople}
+              onChangeEditUrgency={journalEditing.setEditUrgency}
+              onChangeEditDate={journalEditing.setEditDate}
+              onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
+              onCancelEdit={journalEditing.cancelEditing}
+              onStartEdit={() => journalEditing.startEditing(entry)}
+            />
+          ))}
           {journalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
             <p className={styles.subtitle} style={{ marginTop: -4, marginBottom: 12 }}>
               他{journalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
