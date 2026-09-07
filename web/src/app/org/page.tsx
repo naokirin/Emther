@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { useEntityHistory, useIssues, useJournal, useOrgStrategy, useTeams } from "@/lib/hooks";
-import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type OrgStrategy, type Team } from "@/lib/types";
+import { useEntityHistory, useIssues, useJournal, useObjectives, useOrgStrategy, useTeams } from "@/lib/hooks";
+import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type ObjectiveWithProgress, type OrgStrategy, type Team } from "@/lib/types";
 
-type Selection = { kind: "team"; id: string } | { kind: "strategy" } | null;
+type Selection = { kind: "team"; id: string } | { kind: "strategy" } | { kind: "objective"; id: string } | null;
 
 // docs/memo.md TODO「チームの組織階層を入力できるようにする」への対応。
 // チーム名の"/"区切り（例: "Engineering/Team A"）をパスとして解釈し、
@@ -82,6 +82,7 @@ export default function OrgContextPage() {
   const { strategy, refreshStrategy } = useOrgStrategy();
   const { issues } = useIssues();
   const { journalEntries } = useJournal();
+  const { objectives, refreshObjectives } = useObjectives();
 
   const [teamName, setTeamName] = useState("");
   const [teamMembers, setTeamMembers] = useState("");
@@ -121,6 +122,9 @@ export default function OrgContextPage() {
   // 実データで初期化する（Strategyと同じ理由で、継続的な同期は行わない）。
   const [editName, setEditName] = useState("");
   const [editMembers, setEditMembers] = useState("");
+  // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。
+  const [editMission, setEditMission] = useState("");
+  const [editConstraints, setEditConstraints] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
@@ -128,6 +132,8 @@ export default function OrgContextPage() {
   function selectTeam(team: Team) {
     setEditName(team.name);
     setEditMembers(team.members.join(", "));
+    setEditMission(team.charter.mission);
+    setEditConstraints(team.charter.constraints);
     setEditError(null);
     setSelection({ kind: "team", id: team.id });
   }
@@ -141,7 +147,7 @@ export default function OrgContextPage() {
       const res = await fetch(`/api/teams/${selectedTeam.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, members }),
+        body: JSON.stringify({ name: editName, members, mission: editMission, constraints: editConstraints }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
@@ -255,6 +261,110 @@ export default function OrgContextPage() {
     }
   }
 
+  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。Objective/KeyResultの管理。
+  // Team/Strategyと同じ「ツリーを選んだ瞬間だけドラフトへコピー」方式にする。
+  const selectedObjective = selection?.kind === "objective" ? objectives.find((o) => o.id === selection.id) ?? null : null;
+  const { history: objectiveHistory } = useEntityHistory("org", selectedObjective?.id ?? null);
+
+  const [newObjectiveTitle, setNewObjectiveTitle] = useState("");
+  const [objectiveSubmitting, setObjectiveSubmitting] = useState(false);
+  const [objectiveError, setObjectiveError] = useState<string | null>(null);
+
+  const [editObjectiveTitle, setEditObjectiveTitle] = useState("");
+  const [objectiveSaving, setObjectiveSaving] = useState(false);
+  const [objectiveEditError, setObjectiveEditError] = useState<string | null>(null);
+  const [newKeyResultTitle, setNewKeyResultTitle] = useState("");
+  const [krSubmitting, setKrSubmitting] = useState(false);
+
+  function selectObjective(o: ObjectiveWithProgress) {
+    setEditObjectiveTitle(o.title);
+    setObjectiveEditError(null);
+    setNewKeyResultTitle("");
+    setSelection({ kind: "objective", id: o.id });
+  }
+
+  async function handleAddObjective(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newObjectiveTitle.trim()) return;
+    setObjectiveSubmitting(true);
+    setObjectiveError(null);
+    try {
+      const res = await fetch("/api/org/objectives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newObjectiveTitle }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Objectiveの追加に失敗しました");
+      setNewObjectiveTitle("");
+      await refreshObjectives();
+      selectObjective({ ...data.objective, progress: [] });
+    } catch (err) {
+      setObjectiveError((err as Error).message);
+    } finally {
+      setObjectiveSubmitting(false);
+    }
+  }
+
+  async function handleSaveObjectiveTitle() {
+    if (!selectedObjective || !editObjectiveTitle.trim()) return;
+    setObjectiveSaving(true);
+    setObjectiveEditError(null);
+    try {
+      const res = await fetch(`/api/org/objectives/${selectedObjective.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editObjectiveTitle }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      await refreshObjectives();
+    } catch (err) {
+      setObjectiveEditError((err as Error).message);
+    } finally {
+      setObjectiveSaving(false);
+    }
+  }
+
+  async function handleRemoveObjective(id: string) {
+    try {
+      await fetch(`/api/org/objectives/${id}`, { method: "DELETE" });
+      if (selection?.kind === "objective" && selection.id === id) setSelection(null);
+      await refreshObjectives();
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  async function handleAddKeyResult(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedObjective || !newKeyResultTitle.trim()) return;
+    setKrSubmitting(true);
+    try {
+      const res = await fetch(`/api/org/objectives/${selectedObjective.id}/key-results`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newKeyResultTitle }),
+      });
+      if (res.ok) {
+        setNewKeyResultTitle("");
+        await refreshObjectives();
+      }
+    } finally {
+      setKrSubmitting(false);
+    }
+  }
+
+  async function handleRemoveKeyResult(keyResultId: string) {
+    if (!selectedObjective) return;
+    try {
+      await fetch(`/api/org/objectives/${selectedObjective.id}/key-results/${keyResultId}`, { method: "DELETE" });
+      await refreshObjectives();
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel}>
@@ -310,13 +420,38 @@ export default function OrgContextPage() {
         </details>
 
         <div className={styles.tree} style={{ marginTop: 14 }}>
-          <div className={styles.treeFolder}>📁 Strategy（MVV / OKR）</div>
+          <div className={styles.treeFolder}>📁 Strategy（MVV）</div>
           <div
             className={`${styles.treeFile} ${selection?.kind === "strategy" ? styles.treeFileSelected : ""}`}
             onClick={selectStrategy}
           >
             📄 Strategy
           </div>
+
+          <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Objectives（OKR）</div>
+          <form onSubmit={handleAddObjective} style={{ display: "flex", gap: 6, margin: "4px 0" }}>
+            <input
+              type="text"
+              value={newObjectiveTitle}
+              onChange={(e) => setNewObjectiveTitle(e.target.value)}
+              placeholder="新しいObjective"
+              style={{ fontSize: 12 }}
+            />
+            <button className={styles.btnOutline} type="submit" disabled={objectiveSubmitting || !newObjectiveTitle.trim()}>
+              追加
+            </button>
+          </form>
+          {objectiveError && <p className={styles.errorText}>{objectiveError}</p>}
+          {objectives.length === 0 && <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>}
+          {objectives.map((o) => (
+            <div
+              key={o.id}
+              className={`${styles.treeFile} ${selection?.kind === "objective" && selection.id === o.id ? styles.treeFileSelected : ""}`}
+              onClick={() => selectObjective(o)}
+            >
+              📄 {o.title}（KR {o.keyResults.length}件）
+            </div>
+          ))}
 
           <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Teams（組織体制）</div>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", margin: "4px 0" }}>
@@ -329,7 +464,7 @@ export default function OrgContextPage() {
       </div>
 
       <div className={styles.panel}>
-        {!selection && <p className={styles.emptyState}>左のツリーからStrategyまたはチームを選択してください。</p>}
+        {!selection && <p className={styles.emptyState}>左のツリーからStrategy・Objective・チームのいずれかを選択してください。</p>}
 
         {selection?.kind === "strategy" && (
           <>
@@ -340,7 +475,7 @@ export default function OrgContextPage() {
               </button>
             </div>
             <p className={styles.subtitle}>
-              組織全体のMVVとOKRはIssueに依らず常にAgent Runtimeへ絶対の前提として注入されます。未入力の項目は注入されません。
+              組織全体のMVVはIssueに依らず常にAgent Runtimeへ絶対の前提として注入されます。未入力の項目は注入されません。OKRは左の「Objectives」で管理します。
             </p>
             <div className={styles.field}>
               <label>Mission（生む価値・存在意義）</label>
@@ -366,14 +501,84 @@ export default function OrgContextPage() {
                 onChange={(e) => setStrategyDraft({ ...strategyDraft, values: e.target.value })}
               />
             </div>
-            <div className={styles.field}>
-              <label>OKR（今期の目標と主要な結果）</label>
-              <textarea
-                rows={3}
-                value={strategyDraft.okr}
-                onChange={(e) => setStrategyDraft({ ...strategyDraft, okr: e.target.value })}
-              />
+          </>
+        )}
+
+        {selectedObjective && (
+          <>
+            <div className={styles.editorPath}>
+              <code>/Objectives/{selectedObjective.title}</code>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  onClick={handleSaveObjectiveTitle}
+                  disabled={objectiveSaving || !editObjectiveTitle.trim()}
+                >
+                  {objectiveSaving ? "保存中…" : "保存"}
+                </button>
+                <button className={styles.btnOutline} onClick={() => handleRemoveObjective(selectedObjective.id)}>
+                  このObjectiveを削除
+                </button>
+              </div>
             </div>
+            <p className={styles.subtitle}>
+              KeyResultへ紐付けたIssueの完了（アーカイブ）件数から進捗を自動算出します（手動での進捗入力はありません）。
+            </p>
+            <div className={styles.field}>
+              <label>Objective（目標）</label>
+              <input type="text" value={editObjectiveTitle} onChange={(e) => setEditObjectiveTitle(e.target.value)} />
+            </div>
+            {objectiveEditError && <p className={styles.errorText}>{objectiveEditError}</p>}
+
+            <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: 13 }}>Key Results</h3>
+            {selectedObjective.keyResults.length === 0 && <p className={styles.subtitle}>まだKey Resultがありません。</p>}
+            <ul style={{ listStyle: "none", marginBottom: 10 }}>
+              {selectedObjective.keyResults.map((kr) => {
+                const progress = selectedObjective.progress.find((p) => p.keyResultId === kr.id);
+                return (
+                  <li key={kr.id} className={styles.field} style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13 }}>{kr.title}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        <span className={styles.subtitle}>
+                          {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
+                        </span>
+                        <button className={styles.btnOutline} onClick={() => handleRemoveKeyResult(kr.id)}>
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <form onSubmit={handleAddKeyResult} style={{ display: "flex", gap: 6 }}>
+              <input
+                type="text"
+                value={newKeyResultTitle}
+                onChange={(e) => setNewKeyResultTitle(e.target.value)}
+                placeholder="新しいKey Result"
+              />
+              <button className={styles.btnOutline} type="submit" disabled={krSubmitting || !newKeyResultTitle.trim()}>
+                追加
+              </button>
+            </form>
+
+            {objectiveHistory.length > 0 && (
+              <details style={{ marginTop: 20 }}>
+                <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+                  変更履歴（{objectiveHistory.length}件）
+                </summary>
+                <ul style={{ listStyle: "none", marginTop: 8 }}>
+                  {objectiveHistory.map((h) => (
+                    <li key={h.id} style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                      {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </>
         )}
 
@@ -408,19 +613,30 @@ export default function OrgContextPage() {
                 placeholder="例: Aさん, Bさん ※Journalのpeopleと同じ表記で"
               />
             </div>
+            <div className={styles.field}>
+              <label>Mission（このチームは何のためにあるか）</label>
+              <textarea rows={2} value={editMission} onChange={(e) => setEditMission(e.target.value)} />
+            </div>
+            <div className={styles.field}>
+              <label>制約（意思決定・実行にあたって前提とすべきこと）</label>
+              <textarea rows={2} value={editConstraints} onChange={(e) => setEditConstraints(e.target.value)} />
+            </div>
+            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+              このチームに紐付いたIssueのAgent Runにだけ、絶対の前提として注入されます（他チームへは注入されません）。
+            </p>
             {editError && <p className={styles.errorText}>{editError}</p>}
             <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTeam} disabled={editSaving || !editName.trim()}>
               {editSaving ? "保存中…" : "保存"}
             </button>
 
             <div className={styles.field} style={{ marginTop: 16 }}>
-              <label>Members_Profile（保存済みの状態）</label>
+              <label>Members_Profile（保存済みの状態。クリックでPeopleへ）</label>
               <div className={styles.tagRow} style={{ marginTop: 6 }}>
                 {selectedTeam.members.length === 0 && <span className={styles.subtitle}>メンバー未登録</span>}
                 {selectedTeam.members.map((m) => (
-                  <span key={m} className={`${styles.tag} ${styles.tagPerson}`}>
+                  <Link key={m} href={`/people/${encodeURIComponent(m)}`} className={`${styles.tag} ${styles.tagPerson}`}>
                     @{m}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>

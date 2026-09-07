@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dataFilePath } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
-import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
+import { getOrgStrategy, getTeam, listActiveTeams, listObjectives } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
@@ -37,8 +37,13 @@ export type Proposal = {
   rejectedAlternatives: RejectedAlternative[];
 };
 
+// docs/memo.md「M. AIエージェント“チーム”の本格協働」対応。以前は専門エージェント
+// 1体のみに相談できたが（agent: string）、複数の専門エージェントへ同時に（並行して）
+// 相談し、それぞれの回答を踏まえて結論を出せるようにする（agents: string[]）。
+// 連鎖相談（専門エージェントがさらに別の専門エージェントに相談する）は無限ループ
+// リスクがあるため引き続き禁止（specialistRunはallowConsult=falseで起動する）。
 export type ConsultRequest = {
-  agent: string;
+  agents: string[];
   question: string;
 };
 
@@ -69,6 +74,10 @@ export type AgentRun = {
   // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの
   // 下書き。EMが個別に「採用」するまでIssue.actionItemsには反映されない。
   suggestedActionItems?: string[];
+  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルIssueが
+  // 抽象的すぎると判断した場合にAIが提案する、具体的な子Issue案の下書き。EMが個別に
+  // 「採用」するまで実際のサブIssueは作られない（action_itemsと同じHuman-in-the-Loop）。
+  suggestedSubIssues?: string[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -112,6 +121,7 @@ type AgentRunRow = {
   yield_request_json: string | null;
   proposal_json: string | null;
   suggested_action_items_json: string | null;
+  suggested_sub_issues_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -138,8 +148,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -148,6 +158,7 @@ function persistRunMeta(run: AgentRun): void {
          yield_request_json = excluded.yield_request_json,
          proposal_json = excluded.proposal_json,
          suggested_action_items_json = excluded.suggested_action_items_json,
+         suggested_sub_issues_json = excluded.suggested_sub_issues_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -164,6 +175,7 @@ function persistRunMeta(run: AgentRun): void {
       run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
       run.proposal ? JSON.stringify(run.proposal) : null,
       run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
+      run.suggestedSubIssues ? JSON.stringify(run.suggestedSubIssues) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -206,6 +218,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
       proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
       suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
+      suggestedSubIssues: row.suggested_sub_issues_json ? JSON.parse(row.suggested_sub_issues_json) : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -335,9 +348,24 @@ function buildStrategyBlock(): string {
   if (strategy.mission) lines.push(`Mission: ${strategy.mission}`);
   if (strategy.vision) lines.push(`Vision: ${strategy.vision}`);
   if (strategy.values) lines.push(`Values: ${strategy.values}`);
-  if (strategy.okr) lines.push(`OKR: ${strategy.okr}`);
   if (lines.length === 0) return "";
-  return ["組織のMVV/OKR（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
+  return ["組織のMVV（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
+}
+
+// docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述のOKRだった部分を、
+// Objective/KeyResultの構造化データから組み立てる。進捗（何件完了か）はEMが画面で見る
+// ものであり、エージェントへの前提としては「今期何を目指し、何が主要な結果か」という
+// 構造だけで十分なため、ここでは件数計算はしない。
+function buildObjectivesBlock(): string {
+  const objectives = listObjectives();
+  if (objectives.length === 0) return "";
+  const lines = objectives.map((o) => {
+    const krs = o.keyResults.length > 0 ? o.keyResults.map((k) => `KR: ${k.title}`).join(" / ") : "(Key Result未設定)";
+    return `- ${o.title} — ${krs}`;
+  });
+  return ["組織の今期Objective/Key Results（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join(
+    "\n",
+  );
 }
 
 // 同様にorg-context-store.tsはmembersをPERSON_n IDで保持しているため、registerName/
@@ -368,6 +396,25 @@ function buildIssueContextBlock(runId: string): string {
   if (what) lines.push(`What（何を・どこまで・どのくらい・完了の定義）: ${what}`);
   if (how) lines.push(`How（どのように実現するか・前提や制約）: ${how}`);
   if (issue.tags.length > 0) lines.push(`タグ: ${issue.tags.join(", ")}`);
+  return lines.join("\n");
+}
+
+// docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。buildOrgContextBlockが
+// 全チームの名簿を常時注入するのに対し、こちらは「そのIssueが紐づくチーム」1つだけの
+// Mission/制約を動的にロードする（docs/memo.md TODO「Organization Contextの動的ロードを
+// 対象Issueに関連するチームのみに絞る」に対応する部分）。Mission/制約が両方未設定なら
+// 渡す情報が無いのでブロック自体を省略する。
+function buildTeamCharterBlock(runId: string): string {
+  const issue = getIssueByRunId(runId);
+  if (!issue?.teamId) return "";
+  const team = getTeam(issue.teamId);
+  if (!team) return "";
+  const { mission, constraints } = team.charter;
+  if (!mission && !constraints) return "";
+
+  const lines = [`このタスクが紐づくチームの前提（${teamDisplayName(team.name)}、絶対の前提として扱うこと）:`];
+  if (mission) lines.push(`Mission: ${mission}`);
+  if (constraints) lines.push(`制約: ${constraints}`);
   return lines.join("\n");
 }
 
@@ -452,12 +499,12 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
   const consultRule =
     agentName === "Lead Agent" && allowConsult
       ? [
-          "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent / Product Agent）のうち1つに、1ターンにつき1回だけ相談できます。",
-          "  自分の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません）。",
+          "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent / Product Agent）のうち1つ以上に、1ターンにつき1回だけ相談できます。複数の専門性にまたがる論点なら、複数の専門エージェントに同時に（並行して）相談し、それぞれの回答を踏まえて結論を出してください。",
+          "  自分（たち）の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません。各エージェントには同じquestionが送られます）。",
           "  ```consult",
-          '  { "agent": "People Agent", "question": "相談したい内容を1つの質問文で" }',
+          '  { "agents": ["People Agent", "Tech Agent"], "question": "相談したい内容を1つの質問文で" }',
           "  ```",
-          '  agentは "People Agent" / "Process Agent" / "Tech Agent" / "Product Agent" のいずれか1つのみ指定できます。',
+          '  agentsには "People Agent" / "Process Agent" / "Tech Agent" / "Product Agent" のうち1つ以上を、本当に必要な専門性だけに絞って指定してください（無関係なエージェントを含めるとコストが無駄に増えます）。',
           "",
         ]
       : [];
@@ -472,6 +519,22 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
           "- このタスクはIssueに紐づいています。結論を踏まえて次にやるべき具体的な作業（Action Item）があれば、proposalブロックの直後に以下の形式でaction_itemsブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと）。",
           "```action_items",
           '["具体的な作業1", "具体的な作業2"]',
+          "```",
+          "",
+        ]
+      : [];
+
+  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルのIssue
+  // （子Issueは1階層制限のため、さらに分解できない）に紐づく場合だけ、抽象的すぎる
+  // 課題を具体的な子Issue案に分解する提案を許可する。action_itemsと同じく、EMが
+  // 「採用」を押すまで実際のサブIssueは作られない（Human-in-the-Loopを維持）。
+  const linkedIssueForSubIssues = runId ? getIssueByRunId(runId) : undefined;
+  const subIssuesRule =
+    linkedIssueForSubIssues && !linkedIssueForSubIssues.parentId
+      ? [
+          "- このタスクが紐づくIssueが抽象的で、複数の具体的な子Issueに分解した方が計画・実行しやすいと判断した場合は、proposal/action_itemsブロックに続けて以下の形式でsub_issuesブロックを追加してください（分解の必要が無ければ省略して構いません。yieldする場合は出力しないこと）。",
+          "```sub_issues",
+          '["具体的な子Issue案1", "具体的な子Issue案2"]',
           "```",
           "",
         ]
@@ -496,6 +559,7 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
     ...actionItemsRule,
+    ...subIssuesRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき",
@@ -514,9 +578,13 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
   ].join("\n");
 
   const issueContext = runId ? buildIssueContextBlock(runId) : "";
+  const teamCharterContext = runId ? buildTeamCharterBlock(runId) : "";
   const orgContext = buildOrgContextBlock();
   const strategyContext = buildStrategyBlock();
-  return [base, issueContext, journalContext, orgContext, strategyContext].filter(Boolean).join("\n\n");
+  const objectivesContext = buildObjectivesBlock();
+  return [base, issueContext, teamCharterContext, journalContext, orgContext, strategyContext, objectivesContext]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function extractYield(resultText: string): YieldRequest | undefined {
@@ -581,14 +649,36 @@ function extractActionItems(resultText: string): string[] | undefined {
   return undefined;
 }
 
-// docs 3.3「階層型マルチエージェント」: Lead Agentが専門エージェントに相談したい場合の合図。
+// docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案。
+// extractActionItemsと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
+function extractSubIssues(resultText: string): string[] | undefined {
+  const match = resultText.match(/```sub_issues\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (Array.isArray(parsed)) {
+      const items = parsed.filter((i: unknown): i is string => typeof i === "string" && i.trim().length > 0);
+      return items.length > 0 ? items : undefined;
+    }
+  } catch {
+    // 不正なsub_issuesブロックは「提案なし」として扱う
+  }
+  return undefined;
+}
+
+// docs 3.3「階層型マルチエージェント」/ docs/memo.md「M」: Lead Agentが1体以上の
+// 専門エージェントに並行相談したい場合の合図。agentsは重複除去し、SPECIALIST_AGENTSに
+// 含まれない値・空配列は不正なブロックとして扱う（相談なしにフォールバック）。
 function extractConsult(resultText: string): ConsultRequest | undefined {
   const match = resultText.match(/```consult\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
     const parsed = JSON.parse(match[1].trim());
-    if (parsed && typeof parsed.agent === "string" && typeof parsed.question === "string" && SPECIALIST_AGENTS.includes(parsed.agent)) {
-      return { agent: parsed.agent, question: parsed.question };
+    if (!parsed || typeof parsed.question !== "string") return undefined;
+    const rawAgents: unknown[] = Array.isArray(parsed.agents) ? parsed.agents : typeof parsed.agent === "string" ? [parsed.agent] : [];
+    const agents = Array.from(new Set(rawAgents.filter((a): a is string => typeof a === "string" && SPECIALIST_AGENTS.includes(a))));
+    if (agents.length > 0) {
+      return { agents, question: parsed.question };
     }
   } catch {
     // 不正なconsultブロックは相談なしとして扱う
@@ -661,7 +751,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
   if (consultRequest) {
     // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
     run.pendingConsult = consultRequest;
-    appendLog(run, "system", `[相談] ${consultRequest.agent}に質問: ${consultRequest.question}`);
+    appendLog(run, "system", `[相談] ${consultRequest.agents.join("・")}に質問: ${consultRequest.question}`);
     return;
   }
 
@@ -671,12 +761,14 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.yieldRequest = yieldRequest;
     run.proposal = undefined;
     run.suggestedActionItems = undefined;
+    run.suggestedSubIssues = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
     run.suggestedActionItems = run.proposal ? extractActionItems(resultText) : undefined;
+    run.suggestedSubIssues = run.proposal ? extractSubIssues(resultText) : undefined;
     appendLog(
       run,
       "system",
@@ -684,6 +776,9 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     );
     if (run.suggestedActionItems) {
       appendLog(run, "system", `[Action Items提案] ${run.suggestedActionItems.length}件`);
+    }
+    if (run.suggestedSubIssues) {
+      appendLog(run, "system", `[サブIssue分解案] ${run.suggestedSubIssues.length}件`);
     }
   }
 }
@@ -1099,43 +1194,55 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
   });
 }
 
-// docs 3.3「階層型マルチエージェント」: Lead Agentからの相談を実際に専門エージェントへ
-// 委譲し、その回答をLead Agent自身の会話（--resumeで同一セッション）に返して
-// 最終的な結論を出させる。相談は1ターンにつき1回だけ（フォローアップ呼び出しは
-// allowConsult=falseにして再帰的な相談連鎖を禁止する）。
+// docs 3.3「階層型マルチエージェント」/ docs/memo.md「M. AIエージェント“チーム”の
+// 本格協働」: Lead Agentからの相談を1体以上の専門エージェントへ並行して委譲し、
+// 全員の回答をLead Agent自身の会話（--resumeで同一セッション）に返して最終的な結論を
+// 出させる。相談は1ターンにつき1回だけ（フォローアップ呼び出しはallowConsult=falseに
+// して再帰的な相談連鎖を禁止する——専門エージェント同士が孫相談することは無い）。
 async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promise<void> {
-  const specialistRun: AgentRun = {
-    id: randomUUID(),
-    agentName: consult.agent,
-    task: consult.question,
-    status: "active",
-    log: [],
-    totalCostUsd: 0,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    consultedBy: leadRun.id,
-    origin: leadRun.origin,
-    reviewed: leadRun.reviewed,
-  };
-  runs.set(specialistRun.id, specialistRun);
-  // consult.questionはLead Agentの応答（クラウド由来、既にPERSON_n IDでマスク済み）から
-  // 抽出したものなので、実名を含まない。そのままprecomputedPromptとしても渡し、
-  // 既にマスク済みのテキストに対して再度ローカルNERを走らせない（無駄かつ誤検出のリスク）。
-  appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${consult.question}`);
+  const specialistRuns = consult.agents.map((agentName) => {
+    const specialistRun: AgentRun = {
+      id: randomUUID(),
+      agentName,
+      task: consult.question,
+      status: "active",
+      log: [],
+      totalCostUsd: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      consultedBy: leadRun.id,
+      origin: leadRun.origin,
+      reviewed: leadRun.reviewed,
+    };
+    runs.set(specialistRun.id, specialistRun);
+    // consult.questionはLead Agentの応答（クラウド由来、既にPERSON_n IDでマスク済み）から
+    // 抽出したものなので、実名を含まない。そのままprecomputedPromptとしても渡し、
+    // 既にマスク済みのテキストに対して再度ローカルNERを走らせない（無駄かつ誤検出のリスク）。
+    appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${consult.question}`);
+    return specialistRun;
+  });
 
-  await runClaudeTurn(specialistRun, consult.question, false, consult.question);
+  // 複数の専門エージェントへの相談は並行実行する（Fleet/Activity Streamにも
+  // 同時にactiveな複数のエージェントとして自然に反映される）。
+  await Promise.all(specialistRuns.map((r) => runClaudeTurn(r, consult.question, false, consult.question)));
 
-  const lastAgentLine = [...specialistRun.log].reverse().find((l) => l.channel === "agent");
-  const answerText = lastAgentLine?.text ?? "(専門エージェントから回答を取得できませんでした)";
+  const answers = specialistRuns.map((r) => {
+    const lastAgentLine = [...r.log].reverse().find((l) => l.channel === "agent");
+    return { agentName: r.agentName, answerText: lastAgentLine?.text ?? "(専門エージェントから回答を取得できませんでした)" };
+  });
 
-  appendLog(leadRun, "agent", `[${consult.agent}からの回答]\n${answerText}`);
+  for (const { agentName, answerText } of answers) {
+    appendLog(leadRun, "agent", `[${agentName}からの回答]\n${answerText}`);
+  }
 
   const followUp = [
-    `${consult.agent}に相談した結果は以下の通りです。`,
+    `${consult.agents.join("・")}に相談した結果は以下の通りです。`,
     "",
-    answerText,
+    ...answers.map(({ agentName, answerText }) => `【${agentName}】\n${answerText}`),
     "",
-    "これを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。",
+    consult.agents.length > 1
+      ? "これらを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。回答の間で見解が割れている場合は、判断ロジックの中でどちらを重視したか・なぜかを明記してください。"
+      : "これを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。",
   ].join("\n");
 
   // followUpもanswerText（クラウド由来・マスク済み）から組み立てただけなので実名を含まない。
@@ -1173,6 +1280,7 @@ export function toRunView(run: AgentRun): AgentRun {
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
+    suggestedSubIssues: run.suggestedSubIssues?.map(unmaskNames),
   };
 }
 
@@ -1256,6 +1364,16 @@ export function clearSuggestedActionItems(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
   run.suggestedActionItems = undefined;
+  persistRunMeta(run);
+  return run;
+}
+
+// docs/memo.md「K」対応。AIが提案した子Issue分解案を、EMが採用した後（実際の作成は
+// 呼び出し側が/api/issuesを個別に叩く）または却下した後に、提案自体をrunから消す。
+export function clearSuggestedSubIssues(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.suggestedSubIssues = undefined;
   persistRunMeta(run);
   return run;
 }

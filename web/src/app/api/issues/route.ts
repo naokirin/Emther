@@ -19,6 +19,8 @@ export async function POST(request: Request) {
   const tags = Array.isArray(body?.tags)
     ? body.tags.filter((t: unknown): t is string => typeof t === "string")
     : undefined;
+  const keyResultId = typeof body?.keyResultId === "string" && body.keyResultId ? body.keyResultId : undefined;
+  const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
 
   try {
     const issue = await createIssue(
@@ -31,6 +33,8 @@ export async function POST(request: Request) {
       },
       parentId,
       tags,
+      keyResultId,
+      teamId,
     );
     if (agentRunId) markRunReviewed(agentRunId);
     return NextResponse.json({ issue: toIssueView(issue) }, { status: 201 });

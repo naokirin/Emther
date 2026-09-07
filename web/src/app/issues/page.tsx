@@ -6,7 +6,7 @@ import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isRunStale } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
@@ -29,6 +29,8 @@ function IssuesPageInner() {
   const searchParams = useSearchParams();
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
+  const { objectives } = useObjectives();
+  const { teams } = useTeams();
   const { rules } = useSettingsRules();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
@@ -41,6 +43,8 @@ function IssuesPageInner() {
   const [issueWhat, setIssueWhat] = useState("");
   const [issueHow, setIssueHow] = useState("");
   const [issueTags, setIssueTags] = useState("");
+  const [issueKeyResultId, setIssueKeyResultId] = useState("");
+  const [issueTeamId, setIssueTeamId] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueError, setIssueError] = useState<string | null>(null);
@@ -93,6 +97,8 @@ function IssuesPageInner() {
           what: issueWhat,
           how: issueHow,
           tags: issueTags.split(",").map((t) => t.trim()).filter(Boolean),
+          keyResultId: issueKeyResultId || undefined,
+          teamId: issueTeamId || undefined,
         }),
       });
       const data = await res.json();
@@ -103,6 +109,8 @@ function IssuesPageInner() {
       setIssueWhat("");
       setIssueHow("");
       setIssueTags("");
+      setIssueKeyResultId("");
+      setIssueTeamId("");
       setSelectedTypes([]);
       setDialogOpen(false);
       router.push(`/issues/${data.issue.id}`);
@@ -268,6 +276,34 @@ function IssuesPageInner() {
                     [{r.agentName}] {r.task.slice(0, 30)}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div className={styles.field}>
+              <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）</label>
+              <select value={issueTeamId} onChange={(e) => setIssueTeamId(e.target.value)}>
+                <option value="">なし</option>
+                {teams
+                  .filter((t) => !t.archived)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className={styles.field}>
+              <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）</label>
+              <select value={issueKeyResultId} onChange={(e) => setIssueKeyResultId(e.target.value)}>
+                <option value="">なし</option>
+                {objectives.map((o) =>
+                  o.keyResults.map((kr) => (
+                    <option key={kr.id} value={kr.id}>
+                      {o.title} ＞ {kr.title}
+                    </option>
+                  )),
+                )}
               </select>
             </div>
 

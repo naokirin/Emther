@@ -9,7 +9,6 @@ function toView(strategy: OrgStrategy): OrgStrategy {
     mission: unmaskNames(strategy.mission),
     vision: unmaskNames(strategy.vision),
     values: unmaskNames(strategy.values),
-    okr: unmaskNames(strategy.okr),
   };
 }
 
@@ -23,7 +22,6 @@ export async function PATCH(request: Request) {
     mission: typeof body?.mission === "string" ? body.mission : undefined,
     vision: typeof body?.vision === "string" ? body.vision : undefined,
     values: typeof body?.values === "string" ? body.values : undefined,
-    okr: typeof body?.okr === "string" ? body.okr : undefined,
   });
   return NextResponse.json({ strategy: toView(strategy) });
 }

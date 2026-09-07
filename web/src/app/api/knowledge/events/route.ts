@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   const entityType = params.get("entityType");
   const entityId = params.get("entityId");
 
-  if ((entityType !== "issue" && entityType !== "team") || !entityId) {
-    return NextResponse.json({ error: "entityType(issue|team)とentityIdは必須です" }, { status: 400 });
+  if ((entityType !== "issue" && entityType !== "team" && entityType !== "org") || !entityId) {
+    return NextResponse.json({ error: "entityType(issue|team|org)とentityIdは必須です" }, { status: 400 });
   }
 
   const events = listEventsForEntity(entityType as KnowledgeEntityType, entityId);

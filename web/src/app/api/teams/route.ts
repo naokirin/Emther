@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
-import { addTeam, listTeams, type Team } from "@/lib/org-context-store";
+import { addTeam, listTeams, toTeamView } from "@/lib/org-context-store";
 import { teamPathSegments } from "@/lib/types";
-import { unmaskNames } from "@/lib/people-directory";
-
-// 個人情報の分離（ユーザー指摘対応）: ストアはmembersをPERSON_n IDで保持する。
-// EM向けの応答を組み立てるこの境界でだけ実名へ復元する。
-function toView(team: Team): Team {
-  return { ...team, members: team.members.map(unmaskNames) };
-}
 
 export async function GET() {
-  return NextResponse.json({ teams: listTeams().map(toView) });
+  return NextResponse.json({ teams: listTeams().map(toTeamView) });
 }
 
 export async function POST(request: Request) {
@@ -27,5 +20,5 @@ export async function POST(request: Request) {
   }
 
   const team = addTeam(name, members);
-  return NextResponse.json({ team: toView(team) }, { status: 201 });
+  return NextResponse.json({ team: toTeamView(team) }, { status: 201 });
 }

@@ -120,6 +120,9 @@ function migrate(database: DatabaseSync): void {
   // 1bitしか持たず、「様子見」と「却下」を区別できなかったため、別カラムで判定を分ける。
   addColumnIfMissing(database, "agent_runs", "triage_status", "TEXT");
 
+  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案の下書き。
+  addColumnIfMissing(database, "agent_runs", "suggested_sub_issues_json", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
-import { useEntityHistory, useIssue, useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isRunStale } from "@/lib/types";
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +16,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const { history } = useEntityHistory("issue", id);
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
+  const { objectives } = useObjectives();
+  const { teams } = useTeams();
+  // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssueでのみ
+  // 意味を持つため、その場合だけポーリングする。
+  const { impact } = useIssueImpact(id, !!(issue?.archived && issue?.teamId));
   const { rules } = useSettingsRules();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
@@ -107,9 +112,50 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   // 上書きしないので、編集中の選択状態を壊さない）。
   const [tagsSnapshot, setTagsSnapshot] = useState<string[]>([]);
   const [syncedIssueId, setSyncedIssueId] = useState<string | null>(null);
+  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。keyResultIdの選択も同じ理由
+  // （issueの非同期取得）で、同じタイミングにまとめて同期する。
+  const [keyResultIdDraft, setKeyResultIdDraft] = useState<string>("");
+  const [keyResultSaving, setKeyResultSaving] = useState(false);
+  // docs/memo.md「I. チーム単位の憲法」対応。teamIdの選択も同じ理由でまとめて同期する。
+  const [teamIdDraft, setTeamIdDraft] = useState<string>("");
+  const [teamLinkSaving, setTeamLinkSaving] = useState(false);
   if (issue && issue.id !== syncedIssueId) {
     setSyncedIssueId(issue.id);
     setTagsSnapshot(issue.tags);
+    setKeyResultIdDraft(issue.keyResultId ?? "");
+    setTeamIdDraft(issue.teamId ?? "");
+  }
+
+  async function handleChangeKeyResult(keyResultId: string) {
+    if (!issue) return;
+    setKeyResultIdDraft(keyResultId);
+    setKeyResultSaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyResultId: keyResultId || null }),
+      });
+      if (res.ok) await refreshIssue();
+    } finally {
+      setKeyResultSaving(false);
+    }
+  }
+
+  async function handleChangeTeam(teamId: string) {
+    if (!issue) return;
+    setTeamIdDraft(teamId);
+    setTeamLinkSaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId: teamId || null }),
+      });
+      if (res.ok) await refreshIssue();
+    } finally {
+      setTeamLinkSaving(false);
+    }
   }
 
   function toggleInterventionType(label: string) {
@@ -250,6 +296,40 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  const [subIssuesSubmitting, setSubIssuesSubmitting] = useState(false);
+
+  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案した子Issue分解案を、
+  // 実際にサブIssueとして作成するかどうかはEMが選ぶ（既存のサブIssue作成APIをそのまま
+  // 複数回叩くだけで、新しい起票経路は増やさない）。
+  async function handleAdoptSuggestedSubIssues(items: string[]) {
+    if (!issue || !linkedRun) return;
+    setSubIssuesSubmitting(true);
+    try {
+      for (const title of items) {
+        await fetch("/api/issues", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, parentId: issue.id }),
+        });
+      }
+      await fetch(`/api/agents/${linkedRun.id}/sub-issues/dismiss`, { method: "POST" });
+      await Promise.all([refreshIssue(), refreshIssues(), refreshRuns()]);
+    } finally {
+      setSubIssuesSubmitting(false);
+    }
+  }
+
+  async function handleDismissSuggestedSubIssues() {
+    if (!linkedRun) return;
+    setSubIssuesSubmitting(true);
+    try {
+      await fetch(`/api/agents/${linkedRun.id}/sub-issues/dismiss`, { method: "POST" });
+      await refreshRuns();
+    } finally {
+      setSubIssuesSubmitting(false);
+    }
+  }
+
   async function handleToggleActionItem(itemId: string) {
     if (!issue) return;
     try {
@@ -299,6 +379,38 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {decideError && <p className={styles.errorText}>{decideError}</p>}
+
+      {issue.archived && issue.teamId && (
+        <div className={styles.panel}>
+          <h2>介入の効果（{teams.find((t) => t.id === issue.teamId)?.name ?? "関連チーム"}）</h2>
+          <p className={styles.subtitle}>
+            「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueのアーカイブ前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。
+          </p>
+          {!impact ? (
+            <p className={styles.subtitle}>読み込み中…</p>
+          ) : (
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div className={styles.vitalCard} style={{ minWidth: 220 }}>
+                <div className={styles.vitalLabel}>アーカイブ前 直近{impact.windowDays}日間</div>
+                <div className={styles.vitalValue}>
+                  Journal {impact.before.total}件（🙂{impact.before.positive} 🙁{impact.before.negative}）
+                </div>
+              </div>
+              <div className={styles.vitalCard} style={{ minWidth: 220 }}>
+                <div className={styles.vitalLabel}>アーカイブ後 直近{impact.windowDays}日間</div>
+                <div className={styles.vitalValue}>
+                  Journal {impact.after.total}件（🙂{impact.after.positive} 🙁{impact.after.negative}）
+                </div>
+              </div>
+            </div>
+          )}
+          {impact && impact.after.total === 0 && (
+            <p className={styles.subtitle} style={{ marginTop: 8 }}>
+              アーカイブ後まだ観測期間が経過していない、またはJournalの記録がありません。しばらく経ってから確認してください。
+            </p>
+          )}
+        </div>
+      )}
 
       {!issue.parentId && (
         <div className={`${styles.panel} ${styles.charterSection}`}>
@@ -397,6 +509,32 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           />
         </div>
         <div className={styles.field}>
+          <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）</label>
+          <select value={teamIdDraft} onChange={(e) => handleChangeTeam(e.target.value)} disabled={teamLinkSaving}>
+            <option value="">なし</option>
+            {teams
+              .filter((t) => !t.archived)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div className={styles.field}>
+          <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）</label>
+          <select value={keyResultIdDraft} onChange={(e) => handleChangeKeyResult(e.target.value)} disabled={keyResultSaving}>
+            <option value="">なし</option>
+            {objectives.map((o) =>
+              o.keyResults.map((kr) => (
+                <option key={kr.id} value={kr.id}>
+                  {o.title} ＞ {kr.title}
+                </option>
+              )),
+            )}
+          </select>
+        </div>
+        <div className={styles.field}>
           <label>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {INTERVENTION_TYPES.map((t) => (
@@ -467,6 +605,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               onAdoptActionItems={handleAdoptSuggestedActionItems}
               onDismissActionItems={handleDismissSuggestedActionItems}
               actionItemsSubmitting={actionItemsSubmitting}
+              onAdoptSubIssues={handleAdoptSuggestedSubIssues}
+              onDismissSubIssues={handleDismissSuggestedSubIssues}
+              subIssuesSubmitting={subIssuesSubmitting}
             />
           ) : (
             <p className={styles.subtitle}>

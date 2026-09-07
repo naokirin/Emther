@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/chat", label: "何でも相談" },
   { href: "/issues", label: "Issue Workspace" },
+  { href: "/people", label: "People" },
   { href: "/org", label: "Organization Context" },
   { href: "/settings", label: "Settings" },
 ];

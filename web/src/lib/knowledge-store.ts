@@ -195,7 +195,7 @@ export function listEventsForEntity(entityType: KnowledgeEntityType, entityId: s
 // Issue/Teamの変更履歴（Phase 2）記録用の薄いヘルパー。変更は「起きた出来事そのもの」
 // なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"で固定する。
 // 変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
-export function recordChangeEvent(entityType: "issue" | "team", entityId: string, text: string, tags: string[] = []): void {
+export function recordChangeEvent(entityType: "issue" | "team" | "org", entityId: string, text: string, tags: string[] = []): void {
   recordEvent({
     kind: "fact",
     context: "official",
