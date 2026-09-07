@@ -223,7 +223,8 @@
      「コントロールの後ろ」に付く余白に変わってしまうため、ここにmargin-topを足して
      文字とコントロールの間の余白を復元する。 */
   margin-top: 0.25rem;
-  border: 1px solid var(--border);
+  /* WCAG 1.4.11対応。入力欄の境界を白地でも3:1以上で見えるようにする。 */
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.8125rem;
@@ -485,7 +486,8 @@
 }
 
 .option {
-  border: 1px solid var(--border);
+  /* WCAG 1.4.11対応。選択可能な選択肢カードの境界。 */
+  border: 1px solid var(--input-border);
   background: #fff;
   border-radius: 6px;
   padding: 10px;
@@ -529,7 +531,7 @@
 
 .chatRow input {
   flex: 1;
-  border: 1px solid var(--border);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.8125rem;
@@ -550,7 +552,7 @@
 
 .journalInputRow input {
   flex: 1;
-  border: 1px solid var(--border);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.8125rem;
@@ -631,7 +633,7 @@
   /* WCAG 2.2 2.5.8 Target Size対応。24x24px未満にならないよう上下の余白を確保する。 */
   padding: 6px 10px;
   border-radius: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--input-border);
   background: var(--panel-bg, #fff);
   cursor: pointer;
   /* font: inheritを先のfont-sizeの後に置くと、ショートハンドがfont-sizeごと
@@ -859,7 +861,8 @@
 }
 
 .btnOutline {
-  border: 1px solid var(--border);
+  /* WCAG 1.4.11対応。塗りつぶし背景を持たないボタンは境界線だけが輪郭表現のため。 */
+  border: 1px solid var(--input-border);
   background: #fff;
   border-radius: 6px;
   padding: 6px 12px;
@@ -1030,7 +1033,7 @@
 
 .charterField textarea {
   width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.8125rem;

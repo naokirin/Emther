@@ -972,8 +972,10 @@ export default function DashboardPage() {
                 非表示。今日の話でないと分かっているときだけ開いて日付を選べる。 */}
             {journalDateOpen ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                <label style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>発生日</label>
-                <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} style={{ maxWidth: 160 }} />
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  発生日
+                  <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} style={{ maxWidth: 160 }} />
+                </label>
                 <button
                   type="button"
                   className={styles.detailToggle}

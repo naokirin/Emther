@@ -2,22 +2,33 @@
   --background: #f4f5f7;
   --panel: #ffffff;
   --foreground: #1f2430;
-  --text-muted: #6b7280;
+  /* WCAG 1.4.3対応。旧#6b7280は白地4.83:1だが、実際に使われる.gray-bg/.background上では
+     4.35〜4.43:1と、通常サイズテキストに必要な4.5:1をわずかに割っていた（.subtitle等の
+     常用色のため影響範囲が広い）。10%暗くして主要な背景全てで4.5:1を超えるようにする。 */
+  --text-muted: #606673;
   --border: #e2e4e9;
+  /* WCAG 1.4.11対応。フォーム入力欄・アウトラインボタンなど「境界線が唯一の輪郭表現」に
+     なっているUIコンポーネント専用。--borderのまま（白地1.27:1）だと境界が事実上見えない。 */
+  --input-border: #87888b;
 
   --green-bg: #e6f7ec;
   --green-fg: #1c7a3f;
   --green-border: #34c471;
   --yellow-bg: #fff8e1;
-  --yellow-fg: #92700a;
+  /* WCAG 1.4.3対応。旧#92700aは.yellow-bg上4.35:1で通常テキストの4.5:1をわずかに下回る。 */
+  --yellow-fg: #7c5f08;
   --yellow-border: #f3b62b;
   --red-bg: #fdecea;
   --red-fg: #a3241a;
   --red-border: #e5534b;
   --gray-bg: #f2f3f5;
-  --gray-fg: #6b7280;
+  --gray-fg: #606673;
   --gray-border: #b9bec7;
-  --blue: #2f6fed;
+  /* WCAG 1.4.3対応。旧#2f6fedはリンク文字色として使うと.background上4.17:1・.blue-bg上
+     4.01:1と通常テキストの4.5:1を割る場面があった（ボタン背景としては問題なし）。
+     ボタン背景と共有の変数のため、白文字とのコントラストを保ったまま少し暗くする
+     （white-on-new-blueは5.46:1でまだ余裕がある）。 */
+  --blue: #2a63d5;
   --blue-bg: #eaf1ff;
   --terminal-bg: #1b2230;
 }
