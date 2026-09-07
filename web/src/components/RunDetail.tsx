@@ -117,7 +117,7 @@ export function ExecutionState({
       {run.status === "yield" && run.yieldRequest && (
         <div className={styles.yieldBlock}>
           <strong>⚠️ AI Yield: 判断をお願いします</strong>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>{run.yieldRequest.reason}</p>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>{run.yieldRequest.reason}</p>
 
           {run.yieldRequest.options.map((opt) => (
             <div
@@ -132,7 +132,7 @@ export function ExecutionState({
                 {selectedOptionId === opt.id ? "◉" : "○"} Option {opt.id}: {opt.label}
               </strong>
               {opt.detail && <div>{opt.detail}</div>}
-              {opt.risk && <div style={{ color: "var(--text-muted)", fontSize: 11 }}>※Risk: {opt.risk}</div>}
+              {opt.risk && <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>※Risk: {opt.risk}</div>}
             </div>
           ))}
 
@@ -150,12 +150,12 @@ export function ExecutionState({
       {run.status === "idle" && run.proposal && (
         <div className={styles.proposalBlock}>
           <strong>✅ 結論</strong>
-          <p style={{ fontSize: 13, marginTop: 4 }}>{run.proposal.conclusion}</p>
+          <p style={{ fontSize: "0.8125rem", marginTop: 4 }}>{run.proposal.conclusion}</p>
 
           {run.proposal.facts.length > 0 && (
             <>
-              <strong style={{ fontSize: 12 }}>参照ファクト</strong>
-              <ul style={{ margin: "4px 0 8px 18px", fontSize: 12 }}>
+              <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
+              <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
                 {run.proposal.facts.map((f, i) => (
                   <li key={i}>{f}</li>
                 ))}
@@ -163,14 +163,14 @@ export function ExecutionState({
             </>
           )}
 
-          <strong style={{ fontSize: 12 }}>判断ロジック</strong>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 8px" }}>{run.proposal.logic}</p>
+          <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>{run.proposal.logic}</p>
 
           {run.proposal.rejectedAlternatives.length > 0 && (
             <>
-              <strong style={{ fontSize: 12 }}>棄却した代替案</strong>
+              <strong style={{ fontSize: "0.75rem" }}>棄却した代替案</strong>
               {run.proposal.rejectedAlternatives.map((r, i) => (
-                <div key={i} style={{ fontSize: 12, marginTop: 4 }}>
+                <div key={i} style={{ fontSize: "0.75rem", marginTop: 4 }}>
                   <strong>{r.option}</strong>
                   <span style={{ color: "var(--text-muted)" }}> — {r.reason}</span>
                 </div>
@@ -181,7 +181,7 @@ export function ExecutionState({
           {run.suggestedActionItems && run.suggestedActionItems.length > 0 && (
             <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
               <strong>💡 AIが提案するAction Items</strong>
-              <ul style={{ margin: "6px 0 8px 18px", fontSize: 12 }}>
+              <ul style={{ margin: "6px 0 8px 18px", fontSize: "0.75rem" }}>
                 {run.suggestedActionItems.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
@@ -205,10 +205,10 @@ export function ExecutionState({
           {run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
             <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
               <strong>🔭 AIが提案する分解案（サブIssue）</strong>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
                 このIssueが抽象的なため、具体的な子Issueへの分解を提案しています。採用すると実際にサブIssueが作成されます。
               </p>
-              <ul style={{ margin: "6px 0 8px 18px", fontSize: 12 }}>
+              <ul style={{ margin: "6px 0 8px 18px", fontSize: "0.75rem" }}>
                 {run.suggestedSubIssues.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}

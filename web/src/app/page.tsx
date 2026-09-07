@@ -725,7 +725,7 @@ export default function DashboardPage() {
             border: "1px solid var(--yellow-border)",
           }}
         >
-          <span style={{ fontSize: 13 }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
+          <span style={{ fontSize: "0.8125rem" }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
           <button className={styles.btnOutline} style={{ flexShrink: 0 }} onClick={() => router.push("/org")}>
             Organization Contextへ
           </button>
@@ -736,7 +736,7 @@ export default function DashboardPage() {
         className={styles.panel}
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 16px" }}
       >
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
           {guidance.icon} {guidance.text}
         </span>
         {guidance.cta && (
@@ -972,7 +972,7 @@ export default function DashboardPage() {
                 非表示。今日の話でないと分かっているときだけ開いて日付を選べる。 */}
             {journalDateOpen ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                <label style={{ fontSize: 11, color: "var(--text-muted)" }}>発生日</label>
+                <label style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>発生日</label>
                 <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} style={{ maxWidth: 160 }} />
                 <button
                   type="button"
@@ -1012,7 +1012,7 @@ export default function DashboardPage() {
                     border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: "8px 10px",
-                    fontSize: 13,
+                    fontSize: "0.8125rem",
                     fontFamily: "inherit",
                     resize: "vertical",
                   }}
@@ -1150,7 +1150,7 @@ export default function DashboardPage() {
           </form>
           {error && <p className={styles.errorText}>{error}</p>}
 
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 12 }}>
             状態で絞り込み:
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AgentStatus | "")}>
               <option value="">すべて</option>

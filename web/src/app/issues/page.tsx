@@ -177,15 +177,15 @@ function IssuesPageInner() {
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
           アーカイブ済みも表示する（{archivedCount}件）
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
           <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
           Why/What/How未整理のみ
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
           タグで絞り込み:
           <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
             <option value="">すべて</option>
@@ -282,7 +282,7 @@ function IssuesPageInner() {
         onChange={issuesPagination.setPage}
       />
 
-      <h3 style={{ fontSize: 12, color: "var(--text-muted)", margin: "20px 0 6px" }}>Issue未起票のAgent Run</h3>
+      <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "20px 0 6px" }}>Issue未起票のAgent Run</h3>
       <p className={styles.subtitle} style={{ marginBottom: 10 }}>
         ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。クリックするとその場でIssue化して詳細画面へ移動する。
       </p>

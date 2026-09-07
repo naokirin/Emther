@@ -209,13 +209,13 @@ function ChatPageInner() {
               {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
                 <>
                   <strong>🤖 AIが自動起動したRunです（{ORIGIN_LABEL[selectedRun.origin]}）</strong>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
                     内容を確認し、追跡すべきならIssue化、様子を見るなら様子見、不要なら却下してください。EMが選ぶまでここに残り続けます。
                   </p>
                 </>
               )}
               {selectedRun.triageStatus && (
-                <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                   現在のステータス: {TRIAGE_LABEL[selectedRun.triageStatus]}（ボタンでいつでも変更できます）
                 </p>
               )}
