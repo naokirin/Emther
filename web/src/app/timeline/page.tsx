@@ -30,9 +30,10 @@ export default function TimelinePage() {
     <div className={styles.screen}>
       <div className={styles.panel}>
         <h2>Timeline</h2>
-        <p className={styles.subtitle}>
-          Issue・Team・Objectiveの変更履歴を横断した時系列です。日々のJournal（所感・出来事）とは別に、「組織の状態そのものがどう変わったか」を追えます。
+        <p className={styles.subtitle} style={{ marginBottom: 4 }}>
+          Issue・Team・Objectiveの変更履歴を横断した時系列です。「組織の状態そのものがどう変わったか」を追えます。
         </p>
+        <p className={styles.subtitle} style={{ marginBottom: 12 }}>🗓 週次の儀式でOK。毎日見る必要はありません。</p>
         {groups.length === 0 ? (
           <p className={styles.subtitle}>まだ変更履歴はありません。Issueの起票やチーム編集などを行うとここに記録されます。</p>
         ) : (

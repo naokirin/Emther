@@ -97,6 +97,9 @@ export default function GrowthPage() {
 
   return (
     <div className={styles.screen}>
+      <p className={styles.subtitle} style={{ margin: "-8px 0 12px" }}>
+        🗓 週次の儀式でOK。毎日のチェックインは必須ではありません。
+      </p>
       <div className={styles.panel} style={{ marginBottom: 16 }}>
         <h2>現在の改善方針</h2>
         {latestReflection && latestReflection.tryNext ? (

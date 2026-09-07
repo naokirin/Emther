@@ -168,8 +168,11 @@ export default function ReportsPage() {
     <div className={styles.screen}>
       <div className={styles.panel} style={{ marginBottom: 16 }}>
         <h2>Reports</h2>
+        <p className={styles.subtitle} style={{ marginBottom: 4 }}>
+          Quick Journal・Issue進捗・組織の変更イベントを週次/月次で集計したスナップショットです。生成済みのレポートは消えず、いつでも振り返れます。
+        </p>
         <p className={styles.subtitle} style={{ marginBottom: 12 }}>
-          Quick Journal・Issue進捗・組織の変更イベントを週次/月次で集計し、スナップショットとして蓄積します。生成済みのレポートは消えず、いつでも過去のものを振り返れます。
+          🗓 週次・月次の儀式でOK。毎日見る必要はありません。
         </p>
         <div style={{ display: "flex", gap: 8 }}>
           <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("week")}>
