@@ -212,6 +212,17 @@
   margin-bottom: 4px;
 }
 
+/* WCAG 1.3.1/4.1.2対応。単一のinput/select/textareaではなく、複数ボタンのグループや
+   リンク一覧の見出しとして使われていた箇所は<label>ではなく通常のテキストにする
+   （<label>はフォームコントロールとの関連付けを暗示するため、対応する単一コントロールが
+   無い場所での使用は誤解を招く）。見た目は.field labelと同じキャプション調にする。 */
+.fieldCaption {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
 .field select,
 .field textarea,
 .field input {
