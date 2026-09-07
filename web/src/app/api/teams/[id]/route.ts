@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
-import { removeTeam, updateTeam } from "@/lib/org-context-store";
+import { removeTeam, type Team, updateTeam } from "@/lib/org-context-store";
 import { teamPathSegments } from "@/lib/types";
+import { unmaskNames } from "@/lib/people-directory";
+
+// 個人情報の分離（ユーザー指摘対応）: ストアはmembersをPERSON_n IDで保持する。
+// EM向けの応答を組み立てるこの境界でだけ実名へ復元する。
+function toView(team: Team): Team {
+  return { ...team, members: team.members.map(unmaskNames) };
+}
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/teams/[id]">) {
   const { id } = await ctx.params;
@@ -18,7 +25,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/teams/[id]
   if (!team) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  return NextResponse.json({ team });
+  return NextResponse.json({ team: toView(team) });
 }
 
 export async function DELETE(_request: Request, ctx: RouteContext<"/api/teams/[id]">) {

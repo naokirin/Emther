@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
+import { maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
+
+// 個人情報の分離（ユーザー指摘対応）: title・charter（why/what/how）はEMが自由記述する
+// フィールドで人物名を含み得るため、保存前にmaskForStorage（ローカルNER検出＋PERSON_n
+// 置換）を通す。tagsは構造的なラベル（例: "技術的負債"）であり個人名ではないため対象外。
+// EM向けの表示（Dashboard等）は、これを返すAPIルート側でunmaskNamesを通してから応答する。
 
 // docs 3.7「双方向のIssueトラッキング基盤」の最小実装。
 // v5設計書はIssueが独自の実行計画・ロードマップを持つ想定だが、MVPでは
@@ -48,8 +54,10 @@ function emptyCharter(): IssueCharter {
 
 // docs/memo.md TODO「Issueにカテゴリ・タグ付けをしたい」への対応。Journalのtagsと同じ
 // 表記ゆれ吸収（trim・空文字除去・重複除去）をここでも行う。
+// 個人情報の分離（ユーザー指摘対応）: EMがタグに人物名を含めてしまうケース（例:
+// 「#Aさん案件」）に備え、既知の登録済み名前をmaskNames（軽量・部分一致）で置換する。
 function normalizeTags(tags: string[]): string[] {
-  return Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)));
+  return Array.from(new Set(tags.map((t) => maskNames(t.trim())).filter(Boolean)));
 }
 
 // 永続化ファイルに旧バージョン（charter/tagsフィールド追加前）のIssueが残っていても
@@ -63,6 +71,23 @@ const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
 
 function persist(): void {
   saveJSON("issues.json", issues);
+}
+
+// 個人情報の分離（ユーザー指摘対応）: 上のCRUD関数・listIssues/getIssue等はマスクされた
+// （PERSON_n ID化された）テキストを返す内部表現。EM向けのAPI応答を組み立てる境界だけで、
+// この関数を通して実名へ復元する（agent-runtime.tsから呼んではいけない）。
+export function toIssueView(issue: Issue): Issue {
+  return {
+    ...issue,
+    title: unmaskNames(issue.title),
+    charter: {
+      why: unmaskNames(issue.charter.why),
+      what: unmaskNames(issue.charter.what),
+      how: unmaskNames(issue.charter.how),
+    },
+    actionItems: issue.actionItems.map((a) => ({ ...a, text: unmaskNames(a.text) })),
+    tags: issue.tags.map(unmaskNames),
+  };
 }
 
 export function listIssues(): Issue[] {
@@ -83,13 +108,13 @@ export function listChildIssues(parentId: string): Issue[] {
   return issues.filter((i) => i.parentId === parentId).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function createIssue(
+export async function createIssue(
   title: string,
   agentRunId?: string,
   charter?: Partial<IssueCharter>,
   parentId?: string,
   tags?: string[],
-): Issue {
+): Promise<Issue> {
   if (parentId) {
     const parent = getIssue(parentId);
     if (!parent) {
@@ -103,12 +128,12 @@ export function createIssue(
   const now = Date.now();
   const issue: Issue = {
     id: randomUUID(),
-    title: title.trim(),
+    title: await maskForStorage(title.trim()),
     agentRunId,
     charter: {
-      why: charter?.why?.trim() ?? "",
-      what: charter?.what?.trim() ?? "",
-      how: charter?.how?.trim() ?? "",
+      why: charter?.why ? await maskForStorage(charter.why.trim()) : "",
+      what: charter?.what ? await maskForStorage(charter.what.trim()) : "",
+      how: charter?.how ? await maskForStorage(charter.how.trim()) : "",
     },
     actionItems: [],
     parentId,
@@ -126,7 +151,7 @@ export function createIssue(
 // 既存のIssueの「上位」に新しいIssueを作り、既存のIssueをその子として付け替える
 // （＝ズームアウト。大きな課題として括り直す）。既存のIssueが既に子（親を持つ）か、
 // 既に自分の子を持っている場合は2階層を超えてしまうため拒否する。
-export function createParentIssue(childId: string, title: string, charter?: Partial<IssueCharter>): Issue {
+export async function createParentIssue(childId: string, title: string, charter?: Partial<IssueCharter>): Promise<Issue> {
   const child = getIssue(childId);
   if (!child) {
     throw new Error("対象のIssueが見つかりません");
@@ -141,11 +166,11 @@ export function createParentIssue(childId: string, title: string, charter?: Part
   const now = Date.now();
   const parent: Issue = {
     id: randomUUID(),
-    title: title.trim(),
+    title: await maskForStorage(title.trim()),
     charter: {
-      why: charter?.why?.trim() ?? "",
-      what: charter?.what?.trim() ?? "",
-      how: charter?.how?.trim() ?? "",
+      why: charter?.why ? await maskForStorage(charter.why.trim()) : "",
+      what: charter?.what ? await maskForStorage(charter.what.trim()) : "",
+      how: charter?.how ? await maskForStorage(charter.how.trim()) : "",
     },
     actionItems: [],
     archived: false,
@@ -164,13 +189,13 @@ export function createParentIssue(childId: string, title: string, charter?: Part
 
 const CHARTER_FIELD_LABEL: Record<keyof IssueCharter, string> = { why: "Why", what: "What", how: "How" };
 
-export function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>): Issue | undefined {
+export async function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const next: IssueCharter = {
-    why: patch.why !== undefined ? patch.why.trim() : issue.charter.why,
-    what: patch.what !== undefined ? patch.what.trim() : issue.charter.what,
-    how: patch.how !== undefined ? patch.how.trim() : issue.charter.how,
+    why: patch.why !== undefined ? await maskForStorage(patch.why.trim()) : issue.charter.why,
+    what: patch.what !== undefined ? await maskForStorage(patch.what.trim()) : issue.charter.what,
+    how: patch.how !== undefined ? await maskForStorage(patch.how.trim()) : issue.charter.how,
   };
   // 実際に値が変わったフィールドだけを変更履歴に残す（無変化の保存操作でノイズを増やさない）。
   const changedFields = (Object.keys(next) as (keyof IssueCharter)[]).filter((k) => next[k] !== issue.charter[k]);
@@ -187,15 +212,16 @@ export function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>
   return issue;
 }
 
-export function addActionItem(issueId: string, text: string): Issue | undefined {
+export async function addActionItem(issueId: string, text: string): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const trimmed = text.trim();
   if (!trimmed) return issue;
-  issue.actionItems.push({ id: randomUUID(), text: trimmed, done: false });
+  const masked = await maskForStorage(trimmed);
+  issue.actionItems.push({ id: randomUUID(), text: masked, done: false });
   issue.updatedAt = Date.now();
   persist();
-  recordChangeEvent("issue", issue.id, `Action Itemを追加: 「${trimmed}」`);
+  recordChangeEvent("issue", issue.id, `Action Itemを追加: 「${masked}」`);
   return issue;
 }
 

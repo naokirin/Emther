@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db";
 import { cosineSimilarity } from "@/lib/embeddings";
+import { unmaskNames } from "@/lib/people-directory";
 
 // docs/memo.md「H: 永続化データモデルの設計」の中核。ユーザー方針:
 // 「組織・人・システムは時系列で一貫せず、方針転換・一時的感情・環境変化を多く受ける前提で
@@ -28,6 +29,9 @@ export type KnowledgeEvent = {
   // 一意に指す必要がある場合に使う。人物についてのイベント（peopleで名前を持つ）とは
   // 直交する概念なので、両方が同時に埋まることもある（例: 「issueにAさんの名前が言及された」）。
   entityId?: string;
+  // 個人情報の分離（ユーザー指摘対応）: 実名ではなくpeople-directory.tsが発行する
+  // `PERSON_n` IDを保持する（recordEvent呼び出し側が保存前に変換する）。text/summaryも
+  // 同様にPERSON_n IDでマスクした状態で保存する。実名への復元はtoEventView()を通す。
   people: string[];
   text: string;
   tags: string[];
@@ -151,15 +155,28 @@ export function isEventExpired(event: KnowledgeEvent, now = Date.now()): boolean
 
 // 特定の人物に関する「今も重みを持つファクト」。TTL切れのものは除外する
 // （削除はしない＝listEvents()で全履歴は引き続き参照可能）。
-export function listActiveFactsForPerson(name: string, limit = 5): KnowledgeEvent[] {
+// personIdはpeople-directory.tsの`PERSON_n` ID（実名ではない）。
+export function listActiveFactsForPerson(personId: string, limit = 5): KnowledgeEvent[] {
   return listEvents({ kind: "fact" })
-    .filter((e) => e.people.includes(name) && !isEventExpired(e))
+    .filter((e) => e.people.includes(personId) && !isEventExpired(e))
     .slice(0, limit);
 }
 
 // 特定の人物に関する長期的な解釈（プロファイル）。TTLの概念上、基本的に常に有効。
-export function listInterpretationsForPerson(name: string): KnowledgeEvent[] {
-  return listEvents({ kind: "interpretation" }).filter((e) => e.people.includes(name));
+export function listInterpretationsForPerson(personId: string): KnowledgeEvent[] {
+  return listEvents({ kind: "interpretation" }).filter((e) => e.people.includes(personId));
+}
+
+// 個人情報の分離（ユーザー指摘対応）: 上記の関数群はマスクされた（PERSON_n ID化された）
+// テキストを返す内部表現。EM向けのAPI応答を組み立てる境界だけで、この関数を通して
+// 実名へ復元する（agent-runtime.tsから呼んではいけない）。
+export function toEventView(event: KnowledgeEvent): KnowledgeEvent {
+  return {
+    ...event,
+    text: unmaskNames(event.text),
+    summary: event.summary !== undefined ? unmaskNames(event.summary) : event.summary,
+    people: event.people.map(unmaskNames),
+  };
 }
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴を1つのentityId単位で取得する。

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { addJournalEntry, listJournalEntries } from "@/lib/journal-store";
+import { addJournalEntry, listJournalEntries, toJournalEntryView } from "@/lib/journal-store";
 
 export async function GET() {
-  return NextResponse.json({ entries: listJournalEntries() });
+  return NextResponse.json({ entries: listJournalEntries().map(toJournalEntryView) });
 }
 
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   try {
     const entry = await addJournalEntry(text);
-    return NextResponse.json({ entry }, { status: 201 });
+    return NextResponse.json({ entry: toJournalEntryView(entry) }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

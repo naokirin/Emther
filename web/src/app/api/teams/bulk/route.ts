@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { addTeam } from "@/lib/org-context-store";
+import { addTeam, type Team } from "@/lib/org-context-store";
 import { teamPathSegments } from "@/lib/types";
+import { unmaskNames } from "@/lib/people-directory";
+
+function toView(team: Team): Team {
+  return { ...team, members: team.members.map(unmaskNames) };
+}
 
 // docs/memo.md「初回に組織情報やMVV、目標等の情報を大量に投入する必要がある」への対応。
 // MVV/OKRは既存のStrategyフォーム（自由記述テキスト）に丸ごと貼り付ければ足りるが、
@@ -46,5 +51,5 @@ export async function POST(request: Request) {
   }
 
   const teams = parsed.map((p) => addTeam(p.name, p.members));
-  return NextResponse.json({ teams, skipped }, { status: 201 });
+  return NextResponse.json({ teams: teams.map(toView), skipped }, { status: 201 });
 }

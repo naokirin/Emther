@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { decideRun } from "@/lib/agent-runtime";
+import { decideRun, toRunView } from "@/lib/agent-runtime";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/agents/[id]/decide">) {
   const { id } = await ctx.params;
@@ -11,11 +11,11 @@ export async function POST(request: Request, ctx: RouteContext<"/api/agents/[id]
   }
 
   try {
-    const run = decideRun(id, message);
+    const run = await decideRun(id, message);
     if (!run) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
-    return NextResponse.json({ run });
+    return NextResponse.json({ run: toRunView(run) });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 409 });
   }

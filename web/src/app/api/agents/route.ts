@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { listRuns, startRun } from "@/lib/agent-runtime";
+import { listRuns, startRun, toRunView } from "@/lib/agent-runtime";
 
 export async function GET() {
-  return NextResponse.json({ runs: listRuns() });
+  return NextResponse.json({ runs: listRuns().map(toRunView) });
 }
 
 export async function POST(request: Request) {
@@ -14,6 +14,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "agentNameとtaskは必須です" }, { status: 400 });
   }
 
-  const run = startRun(agentName, task);
-  return NextResponse.json({ run }, { status: 201 });
+  const run = await startRun(agentName, task);
+  return NextResponse.json({ run: toRunView(run) }, { status: 201 });
 }
