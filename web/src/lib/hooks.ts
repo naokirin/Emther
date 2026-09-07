@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
+import { timestampToDateInputValue } from "@/lib/journal-date-parser";
 import type {
   EmCheckin,
   EmReflection,
@@ -117,6 +118,9 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
   const [editTags, setEditTags] = useState("");
   const [editPeople, setEditPeople] = useState("");
   const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
+  // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
+  // 訂正を扱えるように」対応。"YYYY-MM-DD"（<input type="date">の値）で保持する。
+  const [editDate, setEditDate] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -125,6 +129,7 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     setEditTags(entry.tags.join(", "));
     setEditPeople(entry.people.join(", "));
     setEditUrgency(entry.urgency);
+    setEditDate(timestampToDateInputValue(entry.createdAt));
     setEditError(null);
   }
 
@@ -143,6 +148,7 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
           tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
           people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
           urgency: editUrgency,
+          occurredAtDate: editDate || undefined,
         }),
       });
       const data = await res.json();
@@ -166,6 +172,8 @@ export function useJournalEditing(journalEntries: JournalEntry[], setJournalEntr
     setEditPeople,
     editUrgency,
     setEditUrgency,
+    editDate,
+    setEditDate,
     editSubmitting,
     editError,
     startEditing,

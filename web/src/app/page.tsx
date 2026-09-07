@@ -145,6 +145,16 @@ export default function DashboardPage() {
   const [journalText, setJournalText] = useState("");
   const [journalSubmitting, setJournalSubmitting] = useState(false);
   const [journalError, setJournalError] = useState<string | null>(null);
+  // 改修依頼「まとめて記録する仕組み」対応。既定は空（＝今日）。EMが「これは今日の話
+  // ではない」と分かっているときだけ明示的に開いて指定する（低頻度の操作を毎回の
+  // 入力の手間にしない）。
+  const [journalDate, setJournalDate] = useState("");
+  const [journalDateOpen, setJournalDateOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkResultMessage, setBulkResultMessage] = useState<string | null>(null);
 
   // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
   // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
@@ -265,12 +275,14 @@ export default function DashboardPage() {
       const res = await fetch("/api/journal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: journalText }),
+        body: JSON.stringify({ text: journalText, occurredAtDate: journalDate || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "タグ付けに失敗しました");
       setJournalEntries([data.entry, ...journalEntries]);
       setJournalText("");
+      setJournalDate("");
+      setJournalDateOpen(false);
       // docs/memo.md「C. Journalセンシング→行動」対応。「AI抽出のまま組織の事実になる」ことを
       // 避けるため、Submit直後は必ず校正できる編集モードで開始する。
       journalEditing.startEditing(data.entry);
@@ -278,6 +290,39 @@ export default function DashboardPage() {
       setJournalError((err as Error).message);
     } finally {
       setJournalSubmitting(false);
+    }
+  }
+
+  // 改修依頼「まとめて記録する仕組み」対応。EMが忙しくて後からまとめて書く場合に、
+  // 1件ずつSubmitさせる負担を無くす。まとめ投入した時刻を全件の発生日にはしない
+  // （危険）——サーバー側で行ごとに解決した「出来事があった日」をそのまま使う。
+  // 結果は他の未確認エントリと同じくJournal一覧にそのまま並び、個別に校正できる。
+  async function handleBulkSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bulkText.trim()) return;
+    setBulkSubmitting(true);
+    setBulkError(null);
+    setBulkResultMessage(null);
+    try {
+      const res = await fetch("/api/journal/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: bulkText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "まとめ記録に失敗しました");
+      const newEntries = data.entries as typeof journalEntries;
+      setJournalEntries([...newEntries, ...journalEntries]);
+      setBulkText("");
+      setBulkResultMessage(
+        `${newEntries.length}件を記録しました（いずれも未確認）。内容と発生日を確認してください。${
+          data.skippedLines > 0 ? ` ※${data.skippedLines}行は上限を超えたため処理していません。` : ""
+        }`,
+      );
+    } catch (err) {
+      setBulkError((err as Error).message);
+    } finally {
+      setBulkSubmitting(false);
     }
   }
 
@@ -923,8 +968,69 @@ export default function DashboardPage() {
                 {journalSubmitting ? "タグ付け中…" : "Submit"}
               </button>
             </div>
+            {/* 改修依頼「通常投入でも日付レベルの訂正を検討」対応。既定は今日のまま・
+                非表示。今日の話でないと分かっているときだけ開いて日付を選べる。 */}
+            {journalDateOpen ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)" }}>発生日</label>
+                <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} style={{ maxWidth: 160 }} />
+                <button
+                  type="button"
+                  className={styles.detailToggle}
+                  onClick={() => {
+                    setJournalDate("");
+                    setJournalDateOpen(false);
+                  }}
+                >
+                  今日に戻す
+                </button>
+              </div>
+            ) : (
+              <button type="button" className={styles.detailToggle} style={{ marginTop: 6 }} onClick={() => setJournalDateOpen(true)}>
+                📅 今日の話じゃない（発生日を変える）
+              </button>
+            )}
           </form>
           {journalError && <p className={styles.errorText}>{journalError}</p>}
+
+          <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+            <button className={styles.detailToggle} onClick={() => setBulkOpen(!bulkOpen)}>
+              📥 まとめて記録する（後からまとめて書きたいとき） {bulkOpen ? "▲" : "▼"}
+            </button>
+            {bulkOpen && (
+              <form onSubmit={handleBulkSubmit} style={{ marginTop: 8 }}>
+                <p className={styles.subtitle} style={{ marginBottom: 6 }}>
+                  1行＝1つの出来事です。日付が変わるときだけ、その行だけに日付を書いてください（例:
+                  3/5・月曜・昨日）。省略した行は直前の日付のままになります。時刻は不要です。
+                </p>
+                <textarea
+                  rows={5}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  style={{
+                    width: "100%",
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                  }}
+                  placeholder={"3/5\nAさんと1on1。異動の相談を受けた\nBチームとの調整が難航\n月曜\nCさんが有休、引き継ぎ確認"}
+                />
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto", marginTop: 8 }}
+                  type="submit"
+                  disabled={bulkSubmitting || !bulkText.trim()}
+                >
+                  {bulkSubmitting ? "処理中…（行数分の時間がかかります）" : "まとめて記録する"}
+                </button>
+                {bulkError && <p className={styles.errorText}>{bulkError}</p>}
+                {bulkResultMessage && <p className={styles.subtitle} style={{ marginTop: 6 }}>✅ {bulkResultMessage}</p>}
+              </form>
+            )}
+          </div>
 
           {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
           {recentJournalEntries.map((entry) => (
@@ -935,11 +1041,13 @@ export default function DashboardPage() {
               editTags={journalEditing.editTags}
               editPeople={journalEditing.editPeople}
               editUrgency={journalEditing.editUrgency}
+              editDate={journalEditing.editDate}
               editSubmitting={journalEditing.editSubmitting}
               editError={journalEditing.editError}
               onChangeEditTags={journalEditing.setEditTags}
               onChangeEditPeople={journalEditing.setEditPeople}
               onChangeEditUrgency={journalEditing.setEditUrgency}
+              onChangeEditDate={journalEditing.setEditDate}
               onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
               onCancelEdit={journalEditing.cancelEditing}
               onStartEdit={() => journalEditing.startEditing(entry)}
