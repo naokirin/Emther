@@ -99,6 +99,9 @@ export type AgentRun = {
   // 「様子見」（追跡は続けるが緊急ではない）と「却下」（対応不要）を区別できないため、
   // 明示的にEMが選んだ場合のみ値が入る別フィールドとして持つ。
   triageStatus?: "watching" | "dismissed";
+  // docs/em_human_story_and_ux.md P0-3対応。triageStatusを設定した時刻。「様子見」が
+  // 期限切れ（WATCH_RESURFACE_AFTER_MS超）になったら「次にすべきこと」へ再浮上させる判定に使う。
+  triageAt?: number;
 };
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
@@ -129,6 +132,7 @@ type AgentRunRow = {
   origin: string;
   reviewed: number;
   triage_status: string | null;
+  triage_at: number | null;
 };
 
 type AgentRunLogRow = {
@@ -148,8 +152,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -162,7 +166,8 @@ function persistRunMeta(run: AgentRun): void {
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
-         triage_status = excluded.triage_status`,
+         triage_status = excluded.triage_status,
+         triage_at = excluded.triage_at`,
     )
     .run(
       run.id,
@@ -183,6 +188,7 @@ function persistRunMeta(run: AgentRun): void {
       run.origin,
       run.reviewed ? 1 : 0,
       run.triageStatus ?? null,
+      run.triageAt ?? null,
     );
 }
 
@@ -226,6 +232,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       origin: (row.origin as AgentRun["origin"]) ?? "manual",
       reviewed: !!row.reviewed,
       triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
+      triageAt: row.triage_at ?? undefined,
     };
     if (run.status === "active") {
       const line: LogLine = { ts: Date.now(), channel: "system", text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" };
@@ -1353,6 +1360,7 @@ export function setRunTriageStatus(id: string, status: "watching" | "dismissed")
   if (!run) return undefined;
   run.reviewed = true;
   run.triageStatus = status;
+  run.triageAt = Date.now();
   persistRunMeta(run);
   return run;
 }

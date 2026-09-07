@@ -48,6 +48,7 @@ export type AgentRun = {
   origin: "manual" | "auto-anomaly" | "auto-summary";
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
+  triageAt?: number;
 };
 
 export const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls: string }> = {
