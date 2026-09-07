@@ -6,6 +6,7 @@ import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { startRun } from "@/lib/agent-runtime";
 import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
+import { getIssue, toIssueView } from "@/lib/issue-store";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
@@ -34,6 +35,12 @@ export type JournalEntry = {
   // docs/em_human_story_and_ux.md P1-9対応。EMが一度でも校正（確認）操作を通したかどうか。
   // supersedesが無い＝記録直後のローカルモデル抽出そのまま、という目印になる。
   confirmed: boolean;
+  // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは書き換えず、「今どこで管理
+  // されているか」を別軸で持たせる。resolvedIssueIdが設定されている場合、
+  // resolvedIssueTitleはtoJournalEntryView()が表示用に解決する（内部表現には無い）。
+  resolvedIssueId?: string;
+  resolvedIssueTitle?: string;
+  resolutionNote?: string;
 };
 
 // 個人情報の分離（ユーザー指摘対応）: KnowledgeEventのtext/summary/peopleはPERSON_n ID
@@ -50,16 +57,21 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     summary: e.summary ?? "",
     createdAt: e.occurredAt,
     confirmed: e.supersedes !== undefined,
+    resolvedIssueId: e.resolvedIssueId,
+    resolutionNote: e.resolutionNote,
   };
 }
 
 export function toJournalEntryView(entry: JournalEntry): JournalEntry {
+  const resolvedIssue = entry.resolvedIssueId ? getIssue(entry.resolvedIssueId) : undefined;
   return {
     ...entry,
     rawText: unmaskNames(entry.rawText),
     summary: unmaskNames(entry.summary),
     people: entry.people.map(unmaskNames),
     tags: entry.tags.map(unmaskNames),
+    resolvedIssueTitle: resolvedIssue ? toIssueView(resolvedIssue).title : undefined,
+    resolutionNote: entry.resolutionNote ? unmaskNames(entry.resolutionNote) : undefined,
   };
 }
 
@@ -256,7 +268,17 @@ export function listJournalEntries(): JournalEntry[] {
 // supersedesで繋いで記録することで「修正」を表現する（元イベントは削除・上書きしない）。
 export async function updateJournalEntry(
   id: string,
-  patch: { tags?: string[]; people?: string[]; urgency?: Urgency; occurredAt?: number },
+  patch: {
+    tags?: string[];
+    people?: string[];
+    urgency?: Urgency;
+    occurredAt?: number;
+    // docs/em_human_story_and_ux.md 改修依頼対応。undefined=変更しない、null=解除、
+    // string=設定、という3値の意味を持たせる（他フィールドと違い「未指定=既存値を保持」が
+    // 「クリアできない」ことを意味してしまうため）。
+    resolvedIssueId?: string | null;
+    resolutionNote?: string | null;
+  },
 ): Promise<JournalEntry | undefined> {
   const original = getEventById(id);
   if (!original || original.entityType !== "journal") return undefined;
@@ -268,6 +290,14 @@ export async function updateJournalEntry(
   // 対応。まとめ入力から生成された（または単に日付を勘違いした）エントリの発生日を、
   // 校正のタイミングで直せるようにする。
   const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : original.occurredAt;
+  const resolvedIssueId =
+    patch.resolvedIssueId !== undefined ? (patch.resolvedIssueId ?? undefined) : original.resolvedIssueId;
+  const resolutionNote =
+    patch.resolutionNote !== undefined
+      ? patch.resolutionNote
+        ? await maskForStorage(patch.resolutionNote.trim())
+        : undefined
+      : original.resolutionNote;
 
   const event = recordEvent({
     kind: original.kind,
@@ -285,6 +315,8 @@ export async function updateJournalEntry(
     supersedes: id,
     sourceJournalId: original.sourceJournalId,
     embedding: original.embedding,
+    resolvedIssueId,
+    resolutionNote,
   });
 
   // docs/em_human_story_and_ux.md P1-9対応。自動検知は「EMが確認・校正した後」にだけ

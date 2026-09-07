@@ -46,6 +46,11 @@ export type KnowledgeEvent = {
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用。@/lib/embeddingsで生成した
   // 埋め込みベクトル。Issue/Teamの変更履歴等、意味的検索の対象外のイベントには付与しない。
   embedding?: number[];
+  // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは「起きた出来事自体の深刻さ」の
+  // 記録として書き換えない一方、「今どこで管理されているか」を別軸として持たせる
+  // （Journal専用の概念だが、他のentityTypeで使っても害はないため型を分けない）。
+  resolvedIssueId?: string;
+  resolutionNote?: string;
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt"> & {
@@ -71,6 +76,8 @@ type Row = {
   supersedes: string | null;
   source_journal_id: string | null;
   embedding_json: string | null;
+  resolved_issue_id: string | null;
+  resolution_note: string | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -92,6 +99,8 @@ function rowToEvent(row: Row): KnowledgeEvent {
     supersedes: row.supersedes ?? undefined,
     sourceJournalId: row.source_journal_id ?? undefined,
     embedding: row.embedding_json ? JSON.parse(row.embedding_json) : undefined,
+    resolvedIssueId: row.resolved_issue_id ?? undefined,
+    resolutionNote: row.resolution_note ?? undefined,
   };
 }
 
@@ -104,8 +113,8 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, entity_id, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, kind, context, entity_type, entity_id, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_issue_id, resolution_note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       event.id,
@@ -125,6 +134,8 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
       event.supersedes ?? null,
       event.sourceJournalId ?? null,
       event.embedding ? JSON.stringify(event.embedding) : null,
+      event.resolvedIssueId ?? null,
+      event.resolutionNote ?? null,
     );
   return event;
 }

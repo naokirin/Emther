@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
@@ -33,6 +34,22 @@ function matchesQuery(entry: JournalEntry, query: string): boolean {
 }
 
 export default function JournalListPage() {
+  return (
+    <Suspense fallback={null}>
+      <JournalListPageInner />
+    </Suspense>
+  );
+}
+
+// docs/em_human_story_and_ux.md 改修依頼「Dashboardの『Journal未確認』が/journalへ
+// 放り込むだけで、その先どのエントリに何をすればいいか分からない」対応。
+// `?focus=<journalEntryId>`が付いている場合、そのエントリが載っているページへ自動的に
+// 移動し、編集モードまで自動的に開く（EMは中身を確認して「この内容で確定」を押すだけで
+// 完結する）。
+function JournalListPageInner() {
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("focus");
+
   const { journalEntries, setJournalEntries } = useJournal();
   const editing = useJournalEditing(journalEntries, setJournalEntries);
 
@@ -60,6 +77,29 @@ export default function JournalListPage() {
   });
 
   const pagination = usePagination(filtered, PAGE_SIZE);
+
+  // focusIdが指すエントリのページへ自動的に移動し、編集モードを開く。issue詳細画面の
+  // syncedIssueIdと同じ理由（journalEntriesはポーリングでの非同期取得のため、初回レンダー
+  // 時点では対象エントリがまだ無い）でuseEffectは使わず、レンダー中に前回のfocusIdと
+  // 比較して同期する。エントリがまだ読み込まれていない間は何もせず、次のレンダーで
+  // 再評価される。
+  const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
+  if (focusId && focusId !== appliedFocusId) {
+    const targetIndex = filtered.findIndex((e) => e.id === focusId);
+    if (targetIndex !== -1) {
+      setAppliedFocusId(focusId);
+      pagination.setPage(Math.floor(targetIndex / PAGE_SIZE) + 1);
+      editing.startEditing(filtered[targetIndex]);
+    }
+  }
+
+  // ページ・編集モードの切り替え（DOMの再構成）が終わったあとでないと対象のカードへ
+  // スクロールできないため、ここだけは実際のDOM操作を伴う副作用としてuseEffectを使う
+  // （state派生の同期ではないため、上記の「レンダー中に同期する」規約の対象外）。
+  const focusedEntryRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (appliedFocusId) focusedEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [appliedFocusId]);
 
   return (
     <div className={styles.screen}>
@@ -134,24 +174,30 @@ export default function JournalListPage() {
           <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
         ) : (
           pagination.pageItems.map((entry) => (
-            <JournalEntryCard
-              key={entry.id}
-              entry={entry}
-              editing={editing.editingEntryId === entry.id}
-              editTags={editing.editTags}
-              editPeople={editing.editPeople}
-              editUrgency={editing.editUrgency}
-              editDate={editing.editDate}
-              editSubmitting={editing.editSubmitting}
-              editError={editing.editError}
-              onChangeEditTags={editing.setEditTags}
-              onChangeEditPeople={editing.setEditPeople}
-              onChangeEditUrgency={editing.setEditUrgency}
-              onChangeEditDate={editing.setEditDate}
-              onConfirmEdit={() => editing.confirmEdit(entry.id)}
-              onCancelEdit={editing.cancelEditing}
-              onStartEdit={() => editing.startEditing(entry)}
-            />
+            <div key={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
+              <JournalEntryCard
+                entry={entry}
+                editing={editing.editingEntryId === entry.id}
+                editTags={editing.editTags}
+                editPeople={editing.editPeople}
+                editUrgency={editing.editUrgency}
+                editDate={editing.editDate}
+                editSubmitting={editing.editSubmitting}
+                editError={editing.editError}
+                resolutionNoteDraft={editing.resolutionNoteDraft}
+                onChangeEditTags={editing.setEditTags}
+                onChangeEditPeople={editing.setEditPeople}
+                onChangeEditUrgency={editing.setEditUrgency}
+                onChangeEditDate={editing.setEditDate}
+                onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
+                onConfirmEdit={() => editing.confirmEdit(entry.id)}
+                onCancelEdit={editing.cancelEditing}
+                onStartEdit={() => editing.startEditing(entry)}
+                onResolveWithNote={() => editing.resolveWithNote(entry.id)}
+                onResolveWithNewIssue={() => editing.resolveWithNewIssue(entry)}
+                onClearResolution={() => editing.clearResolution(entry.id)}
+              />
+            </div>
           ))
         )}
         <PaginationControls
