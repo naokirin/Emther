@@ -653,6 +653,13 @@
   font-size: 1rem;
 }
 
+/* 改修依頼「Journal一覧で解決済みがほかより少し目立たないようにする」対応。
+   Issues一覧のアーカイブ済み行（opacity: 0.6）と同じ考え方だが、解決済みJournalは
+   完全に過去の話ではなく参照する場面もあるため、少しだけ弱める程度に留める。 */
+.journalEntryResolved {
+  opacity: 0.75;
+}
+
 .tagRow {
   margin-top: 6px;
   display: flex;
