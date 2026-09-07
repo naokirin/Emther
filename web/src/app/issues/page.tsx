@@ -198,80 +198,90 @@ function IssuesPageInner() {
         </label>
       </div>
 
-      <div className={styles.runList} style={{ maxHeight: "none" }}>
-        {filteredIssues.length === 0 && <p className={styles.subtitle}>条件に一致するIssueはありません。</p>}
-        {issuesPagination.pageItems.map((issue) => {
-          const linkedRun = runs.find((r) => r.id === issue.agentRunId);
-          const doneCount = issue.actionItems.filter((a) => a.done).length;
-          const charterCount = charterFilledCount(issue.charter);
-          const childCount = issues.filter((i) => i.parentId === issue.id).length;
-          const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
-          const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
-          const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
-          const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
-          return (
-            <button
-              key={issue.id}
-              className={styles.runItem}
-              style={issue.archived ? { opacity: 0.6 } : undefined}
-              onClick={() => router.push(`/issues/${issue.id}`)}
-            >
-              <div>
-                <strong>{issue.title}</strong>{" "}
-                {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
-                {issue.archived && (
-                  <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                    🗄 アーカイブ済み
-                  </span>
-                )}
-                <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn} style={{ marginLeft: 6 }}>
-                  {charterCount === 3 ? "✅" : "❓"} Why/What/How: {charterCount}/3
-                </span>
-                {childCount > 0 && (
-                  <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                    🧩 子Issue: {childCount}件
-                  </span>
-                )}
-              </div>
-
-              {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKR・最終判断日を
-                  一覧の時点で見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}
-              <div className={styles.tagRow}>
-                {interventionTypes.map((t) => (
-                  <span key={t} className={`${styles.tag} ${styles.tagPerson}`}>
-                    🎯 {t}
-                  </span>
-                ))}
-                {teamName && (
-                  <span className={styles.subtitle} title="関連チーム">
-                    👥 {teamName}
-                  </span>
-                )}
-                {krLabel && (
-                  <span className={styles.subtitle} title="紐付いているKey Result">
-                    📈 {krLabel}
-                  </span>
-                )}
-                <span className={styles.subtitle} title="最終更新日">
-                  🕒 最終判断: {formatRelativeDays(issue.updatedAt, now)}
-                </span>
-              </div>
-
-              {topicTags.length > 0 && (
-                <div className={styles.tagRow}>
-                  {topicTags.map((tag) => (
-                    <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
-                      #{tag}
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>タイトル</th>
+              <th>型・関連</th>
+              <th>Why/What/How</th>
+              <th>Action Items</th>
+              <th>最終判断</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredIssues.length === 0 && (
+              <tr>
+                <td colSpan={5} className={styles.tableEmpty}>
+                  条件に一致するIssueはありません。
+                </td>
+              </tr>
+            )}
+            {issuesPagination.pageItems.map((issue) => {
+              const linkedRun = runs.find((r) => r.id === issue.agentRunId);
+              const doneCount = issue.actionItems.filter((a) => a.done).length;
+              const charterCount = charterFilledCount(issue.charter);
+              const childCount = issues.filter((i) => i.parentId === issue.id).length;
+              const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
+              const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
+              const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
+              const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
+              return (
+                <tr key={issue.id} style={issue.archived ? { opacity: 0.6 } : undefined}>
+                  <td>
+                    <button className={styles.tableRowLink} onClick={() => router.push(`/issues/${issue.id}`)}>
+                      {issue.title}
+                    </button>
+                    <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
+                      {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
+                      {childCount > 0 && <span className={styles.tableMuted}>🧩 子Issue: {childCount}件</span>}
+                    </div>
+                    {topicTags.length > 0 && (
+                      <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                        {topicTags.map((tag) => (
+                          <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKRを一覧の時点で
+                      見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}
+                  <td>
+                    {interventionTypes.map((t) => (
+                      <div key={t} style={{ marginBottom: 4 }}>
+                        <span className={`${styles.tag} ${styles.tagPerson}`}>🎯 {t}</span>
+                      </div>
+                    ))}
+                    {teamName && (
+                      <div className={styles.tableMuted} title="関連チーム">
+                        👥 {teamName}
+                      </div>
+                    )}
+                    {krLabel && (
+                      <div className={styles.tableMuted} title="紐付いているKey Result">
+                        📈 {krLabel}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span className={charterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
+                      {charterCount === 3 ? "✅" : "❓"} {charterCount}/3
                     </span>
-                  ))}
-                </div>
-              )}
-              <div className={styles.runItemTask}>
-                Action Items: {doneCount}/{issue.actionItems.length}
-              </div>
-            </button>
-          );
-        })}
+                  </td>
+                  <td>
+                    {doneCount}/{issue.actionItems.length}
+                  </td>
+                  <td className={styles.tableMuted} title="最終更新日">
+                    {formatRelativeDays(issue.updatedAt, now)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
       <PaginationControls
         page={issuesPagination.page}
@@ -286,21 +296,41 @@ function IssuesPageInner() {
       <p className={styles.subtitle} style={{ marginBottom: 10 }}>
         ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。クリックするとその場でIssue化して詳細画面へ移動する。
       </p>
-      <div className={styles.runList} style={{ maxHeight: "none" }}>
-        {unlinkedRuns.length === 0 && <p className={styles.subtitle}>すべてのRunがIssueに紐づいています。</p>}
-        {runsPagination.pageItems.map((run) => (
-          <button key={run.id} className={styles.runItem} onClick={() => handlePromoteRun(run)}>
-            <div>
-              <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
-              {run.consultedBy && (
-                <span className={styles.subtitle} style={{ marginLeft: 6 }}>
-                  🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
-                </span>
-              )}
-            </div>
-            <div className={styles.runItemTask}>{run.task}</div>
-          </button>
-        ))}
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>エージェント / タスク</th>
+              <th>状態</th>
+            </tr>
+          </thead>
+          <tbody>
+            {unlinkedRuns.length === 0 && (
+              <tr>
+                <td colSpan={2} className={styles.tableEmpty}>
+                  すべてのRunがIssueに紐づいています。
+                </td>
+              </tr>
+            )}
+            {runsPagination.pageItems.map((run) => (
+              <tr key={run.id}>
+                <td>
+                  <button className={styles.tableRowLink} onClick={() => handlePromoteRun(run)}>
+                    {run.agentName}: {run.task}
+                  </button>
+                  {run.consultedBy && (
+                    <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
+                      🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
+                    </div>
+                  )}
+                </td>
+                <td>
+                  <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <PaginationControls
         page={runsPagination.page}

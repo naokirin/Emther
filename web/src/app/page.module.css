@@ -277,6 +277,76 @@
   overflow-y: auto;
 }
 
+/* ---------- 一覧表示（表形式） ---------- */
+/* 改修依頼「メッセージのやり取り・Timeline以外の一覧表示は表形式にしたい」対応。
+   overflow-x: autoで、横幅が狭い画面でもテーブル自体が2Dスクロールの原因にならない
+   ようにする（WCAG 1.4.10 Reflow）。 */
+.tableWrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.table tbody tr:hover {
+  background: var(--gray-bg);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 表の行はtr自体をクリック対象にせず（trはキーボード操作の対象にならないため）、
+   主要な列の中身をこのボタンにして表全体を実質的にクリッカブルに見せる。 */
+.tableRowLink {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tableRowLink:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.tableMuted {
+  color: var(--text-muted);
+}
+
+.tableEmpty {
+  padding: 16px 10px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
 .activityStream {
   margin-top: 10px;
   display: flex;
@@ -353,14 +423,17 @@
 
 /* docs/dashboard_ui_readability.md U3-3対応。色塗りの既定を弱める。全面tintは
    本当に緊急な項目（urgent）だけに残し、警告（warn）は枠・左アクセントのみにする——
-   常時オンの色が並ぶと「今ここ」の合図が埋もれるため。 */
-.runItem.nextActionUrgent {
+   常時オンの色が並ぶと「今ここ」の合図が埋もれるため。表形式（.table）の行に対して、
+   左端セルへの太い左ボーダーで「行アクセント」を表現する。 */
+.nextActionUrgentRow td {
   background: var(--red-bg);
-  border-color: var(--red-border);
+}
+
+.nextActionUrgentRow td:first-child {
   border-left: 4px solid var(--red-border);
 }
 
-.runItem.nextActionWarn {
+.nextActionWarnRow td:first-child {
   border-left: 4px solid var(--yellow-border);
 }
 

@@ -20,7 +20,8 @@ function formatEntryDate(ts: number): string {
 // docs/memo.md TODO「Quick JournalをEMが後からリスト確認・検索しにくいUIになっている」対応。
 // Dashboard（直近5件）とJournal一覧（全件検索）の両方で同じ表示・その場編集UIを使うための
 // 共有コンポーネント。編集状態そのものは@/lib/hooksのuseJournalEditingが持ち、
-// このコンポーネントは表示に専念する。
+// このコンポーネントは表示に専念する。改修依頼「一覧表示を表形式に」対応。呼び出し側が
+// <table><tbody>で囲む前提の<tr>を返す（3列: 発生日／内容／操作）。
 export function JournalEntryCard({
   entry,
   editing,
@@ -58,92 +59,102 @@ export function JournalEntryCard({
 
   if (editing) {
     return (
-      <div className={styles.journalEntry}>
-        <div>{entry.rawText}</div>
-        <div className={styles.field} style={{ marginTop: 8 }}>
-          <label>
-            発生日（時刻は不要）
-            <input type="date" value={editDate} onChange={(e) => onChangeEditDate(e.target.value)} style={{ maxWidth: 160 }} />
-          </label>
-        </div>
-        <div className={styles.field}>
-          <label>
-            人物（カンマ区切り）
-            <input type="text" value={editPeople} onChange={(e) => onChangeEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
-          </label>
-        </div>
-        <div className={styles.field}>
-          <label>
-            タグ（カンマ区切り）
-            <input type="text" value={editTags} onChange={(e) => onChangeEditTags(e.target.value)} placeholder="例: 1on1, 技術的負債" />
-          </label>
-        </div>
-        <div className={styles.field}>
-          <label>
-            Urgency
-            <select value={editUrgency} onChange={(e) => onChangeEditUrgency(e.target.value as JournalEntry["urgency"])}>
-              <option value="low">Low</option>
-              <option value="mid">Mid</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={onConfirmEdit}>
-            {editSubmitting ? "確定中…" : "この内容で確定"}
-          </button>
-          <button className={styles.btnOutline} disabled={editSubmitting} onClick={onCancelEdit}>
-            キャンセル
-          </button>
-        </div>
-        {editError && <p className={styles.errorText} role="alert">{editError}</p>}
-      </div>
+      <tr>
+        <td colSpan={3}>
+          <div>{entry.rawText}</div>
+          <div className={styles.field} style={{ marginTop: 8 }}>
+            <label>
+              発生日（時刻は不要）
+              <input type="date" value={editDate} onChange={(e) => onChangeEditDate(e.target.value)} style={{ maxWidth: 160 }} />
+            </label>
+          </div>
+          <div className={styles.field}>
+            <label>
+              人物（カンマ区切り）
+              <input type="text" value={editPeople} onChange={(e) => onChangeEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
+            </label>
+          </div>
+          <div className={styles.field}>
+            <label>
+              タグ（カンマ区切り）
+              <input type="text" value={editTags} onChange={(e) => onChangeEditTags(e.target.value)} placeholder="例: 1on1, 技術的負債" />
+            </label>
+          </div>
+          <div className={styles.field}>
+            <label>
+              Urgency
+              <select value={editUrgency} onChange={(e) => onChangeEditUrgency(e.target.value as JournalEntry["urgency"])}>
+                <option value="low">Low</option>
+                <option value="mid">Mid</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={onConfirmEdit}>
+              {editSubmitting ? "確定中…" : "この内容で確定"}
+            </button>
+            <button className={styles.btnOutline} disabled={editSubmitting} onClick={onCancelEdit}>
+              キャンセル
+            </button>
+          </div>
+          {editError && (
+            <p className={styles.errorText} role="alert">
+              {editError}
+            </p>
+          )}
+        </td>
+      </tr>
     );
   }
 
   return (
-    <div className={styles.journalEntry}>
-      <div>{entry.rawText}</div>
-      <div className={styles.tagRow}>
-        <span className={styles.subtitle} title="出来事の発生日">
-          🗓 {formatEntryDate(entry.createdAt)}
-        </span>
-        {entry.people.map((p) => (
-          <button
-            key={p}
-            className={`${styles.tag} ${styles.tagPerson} ${styles.tagBtn}`}
-            onClick={() => router.push(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
-          >
-            @{p}
-          </button>
-        ))}
-        {entry.tags.map((t) => (
-          <button
-            key={t}
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-            onClick={() => router.push(`/issues?tag=${encodeURIComponent(t)}`)}
-          >
-            #{t}
-          </button>
-        ))}
-        {entry.sentiment !== "neutral" && (
-          <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-            #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-          </span>
-        )}
-        <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
-        {!entry.confirmed && (
-          <span
-            className={styles.subtitle}
-            title="AIの自動抽出のままです。内容・発生日が正しければ「編集」→「この内容で確定」で確認してください。"
-          >
-            🤖 未確認
-          </span>
-        )}
+    <tr>
+      <td className={styles.tableMuted} title="出来事の発生日" style={{ whiteSpace: "nowrap" }}>
+        🗓 {formatEntryDate(entry.createdAt)}
+      </td>
+      <td>
+        <div>{entry.rawText}</div>
+        <div className={styles.tagRow}>
+          {entry.people.map((p) => (
+            <button
+              key={p}
+              className={`${styles.tag} ${styles.tagPerson} ${styles.tagBtn}`}
+              onClick={() => router.push(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
+            >
+              @{p}
+            </button>
+          ))}
+          {entry.tags.map((t) => (
+            <button
+              key={t}
+              className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+              onClick={() => router.push(`/issues?tag=${encodeURIComponent(t)}`)}
+            >
+              #{t}
+            </button>
+          ))}
+          {entry.sentiment !== "neutral" && (
+            <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
+              #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
+            </span>
+          )}
+          <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
+          {!entry.confirmed && (
+            <span
+              className={styles.subtitle}
+              title="AIの自動抽出のままです。内容・発生日が正しければ「編集」→「この内容で確定」で確認してください。"
+            >
+              🤖 未確認
+            </span>
+          )}
+        </div>
+      </td>
+      <td>
         <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={onStartEdit}>
           編集
         </button>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }

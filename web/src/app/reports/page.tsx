@@ -36,96 +36,98 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
   const { journal, issues, events } = report.stats;
 
   return (
-    <div className={styles.journalEntry}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div>
-          <span className={styles.badge} style={{ marginRight: 8 }}>
-            {REPORT_PERIOD_LABEL[report.periodType]}
-          </span>
+    <>
+      <tr>
+        <td>
+          <span className={styles.badge}>{REPORT_PERIOD_LABEL[report.periodType]}</span>
+        </td>
+        <td>
           <strong>
             {formatDateTime(report.periodStart)} 〜 {formatDateTime(report.periodEnd)}
           </strong>
-        </div>
-        <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setExpanded(!expanded)}>
-          {expanded ? "閉じる" : "詳細を見る"}
-        </button>
-      </div>
-      <p className={styles.subtitle} style={{ marginTop: 4 }}>
-        Journal {journal.total}件（高緊急度 {journal.byUrgency.high}件 / ネガティブ {journal.bySentiment.negative}件） ・ Issue起票{" "}
-        {issues.createdCount}件 / 完了 {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
-      </p>
-
+          <div className={styles.tableMuted} style={{ marginTop: 4 }}>
+            Journal {journal.total}件（高緊急度 {journal.byUrgency.high}件 / ネガティブ {journal.bySentiment.negative}件） ・ Issue起票{" "}
+            {issues.createdCount}件 / 完了 {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
+          </div>
+        </td>
+        <td>
+          <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setExpanded(!expanded)}>
+            {expanded ? "閉じる" : "詳細を見る"}
+          </button>
+        </td>
+      </tr>
       {expanded && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, fontSize: "0.75rem" }}>
-          <div>
-            <strong>Quick Journal</strong>
-            <div className={styles.subtitle}>
-              件数: {journal.total} / Urgency（low {journal.byUrgency.low} · mid {journal.byUrgency.mid} · high {journal.byUrgency.high}） /
-              感情（positive {journal.bySentiment.positive} · neutral {journal.bySentiment.neutral} · negative {journal.bySentiment.negative}）
-            </div>
-            {journal.topTags.length > 0 && (
-              <div className={styles.tagRow} style={{ marginTop: 4 }}>
-                {journal.topTags.map((t) => (
-                  <span key={t.tag} className={`${styles.tag} ${styles.tagTopic}`}>
-                    #{t.tag} ×{t.count}
+        <tr>
+          <td colSpan={3}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.75rem" }}>
+              <div>
+                <strong>Quick Journal</strong>
+                <div className={styles.subtitle}>
+                  件数: {journal.total} / Urgency（low {journal.byUrgency.low} · mid {journal.byUrgency.mid} · high{" "}
+                  {journal.byUrgency.high}） / 感情（positive {journal.bySentiment.positive} · neutral {journal.bySentiment.neutral} ·
+                  negative {journal.bySentiment.negative}）
+                </div>
+                {journal.topTags.length > 0 && (
+                  <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                    {journal.topTags.map((t) => (
+                      <span key={t.tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                        #{t.tag} ×{t.count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {journal.notableEntries.length > 0 && (
+                  <ul style={{ listStyle: "none", marginTop: 6, padding: 0 }}>
+                    {journal.notableEntries.map((e) => (
+                      <li key={e.id} style={{ marginBottom: 4 }}>
+                        ・{e.summary}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <strong>Issue進捗</strong>
+                <div className={styles.subtitle}>
+                  期間中に起票: {issues.createdCount}件 / 完了（アーカイブ）: {issues.archivedCount}件 /
+                  現在Why・What・How未整理のIssue: {issues.openIncompleteCount}件
+                </div>
+                {issues.createdTitles.length > 0 && <div style={{ marginTop: 4 }}>起票: {issues.createdTitles.map((i) => i.title).join(" / ")}</div>}
+                {issues.archivedTitles.length > 0 && (
+                  <div style={{ marginTop: 4 }}>完了: {issues.archivedTitles.map((i) => i.title).join(" / ")}</div>
+                )}
+              </div>
+
+              <div>
+                <strong>各種イベント（組織の状態変化）</strong>
+                <div className={styles.subtitle}>
+                  合計{events.total}件
+                  {Object.entries(events.byEntityType).length > 0 && (
+                    <> （{Object.entries(events.byEntityType).map(([k, v]) => `${k}: ${v}件`).join(" / ")}）</>
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label>
+                  EMの所感・コメント
+                  <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="このレポートを見て感じたこと・次にやることなど" />
+                </label>
+                <button className={styles.btnOutline} style={{ marginTop: 6 }} disabled={saving} onClick={handleSave}>
+                  {saving ? "保存中…" : "コメントを保存"}
+                </button>
+                {saved && (
+                  <span className={styles.subtitle} style={{ marginLeft: 8 }} role="status">
+                    ✅ 保存しました
                   </span>
-                ))}
+                )}
               </div>
-            )}
-            {journal.notableEntries.length > 0 && (
-              <ul style={{ listStyle: "none", marginTop: 6, padding: 0 }}>
-                {journal.notableEntries.map((e) => (
-                  <li key={e.id} style={{ marginBottom: 4 }}>
-                    ・{e.summary}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <strong>Issue進捗</strong>
-            <div className={styles.subtitle}>
-              期間中に起票: {issues.createdCount}件 / 完了（アーカイブ）: {issues.archivedCount}件 / 現在Why・What・How未整理のIssue:{" "}
-              {issues.openIncompleteCount}件
             </div>
-            {issues.createdTitles.length > 0 && (
-              <div style={{ marginTop: 4 }}>
-                起票: {issues.createdTitles.map((i) => i.title).join(" / ")}
-              </div>
-            )}
-            {issues.archivedTitles.length > 0 && (
-              <div style={{ marginTop: 4 }}>
-                完了: {issues.archivedTitles.map((i) => i.title).join(" / ")}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <strong>各種イベント（組織の状態変化）</strong>
-            <div className={styles.subtitle}>
-              合計{events.total}件
-              {Object.entries(events.byEntityType).length > 0 && (
-                <> （{Object.entries(events.byEntityType).map(([k, v]) => `${k}: ${v}件`).join(" / ")}）</>
-              )}
-            </div>
-          </div>
-
-          <div className={styles.field}>
-            <label>EMの所感・コメント
-            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="このレポートを見て感じたこと・次にやることなど" /></label>
-            <button className={styles.btnOutline} style={{ marginTop: 6 }} disabled={saving} onClick={handleSave}>
-              {saving ? "保存中…" : "コメントを保存"}
-            </button>
-            {saved && (
-              <span className={styles.subtitle} style={{ marginLeft: 8 }} role="status">
-                ✅ 保存しました
-              </span>
-            )}
-          </div>
-        </div>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
@@ -201,7 +203,22 @@ export default function ReportsPage() {
       {reports.length === 0 ? (
         <p className={styles.subtitle}>まだレポートがありません。上のボタンから作成してください。</p>
       ) : (
-        pagination.pageItems.map((report) => <ReportCard key={report.id} report={report} onSaveNote={handleSaveNote} />)
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>種別</th>
+                <th>期間 / サマリー</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagination.pageItems.map((report) => (
+                <ReportCard key={report.id} report={report} onSaveNote={handleSaveNote} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <PaginationControls
         page={pagination.page}
