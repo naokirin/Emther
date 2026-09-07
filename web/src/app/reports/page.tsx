@@ -112,12 +112,16 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
           </div>
 
           <div className={styles.field}>
-            <label>EMの所感・コメント</label>
-            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="このレポートを見て感じたこと・次にやることなど" />
+            <label>EMの所感・コメント
+            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="このレポートを見て感じたこと・次にやることなど" /></label>
             <button className={styles.btnOutline} style={{ marginTop: 6 }} disabled={saving} onClick={handleSave}>
               {saving ? "保存中…" : "コメントを保存"}
             </button>
-            {saved && <span className={styles.subtitle} style={{ marginLeft: 8 }}>✅ 保存しました</span>}
+            {saved && (
+              <span className={styles.subtitle} style={{ marginLeft: 8 }} role="status">
+                ✅ 保存しました
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -182,7 +186,7 @@ export default function ReportsPage() {
             {generating === "month" ? "生成中…" : "今月のレポートを作成"}
           </button>
         </div>
-        {generateError && <p className={styles.errorText}>{generateError}</p>}
+        {generateError && <p className={styles.errorText} role="alert">{generateError}</p>}
       </div>
 
       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 10 }}>

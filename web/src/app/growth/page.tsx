@@ -122,44 +122,44 @@ export default function GrowthPage() {
           </p>
           <form onSubmit={handleCheckinSubmit}>
             <div className={styles.field}>
-              <label>気分（1: 悪い 〜 5: 良い）</label>
+              <label>気分（1: 悪い 〜 5: 良い）
               <select value={mood} onChange={(e) => setMood(Number(e.target.value))}>
                 {SCALE_OPTIONS.map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
                 ))}
-              </select>
+              </select></label>
             </div>
             <div className={styles.field}>
-              <label>エネルギー（1: 低い 〜 5: 高い）</label>
+              <label>エネルギー（1: 低い 〜 5: 高い）
               <select value={energy} onChange={(e) => setEnergy(Number(e.target.value))}>
                 {SCALE_OPTIONS.map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
                 ))}
-              </select>
+              </select></label>
             </div>
             <div className={styles.field}>
-              <label>ストレス（1: 低い 〜 5: 高い）</label>
+              <label>ストレス（1: 低い 〜 5: 高い）
               <select value={stress} onChange={(e) => setStress(Number(e.target.value))}>
                 {SCALE_OPTIONS.map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
                 ))}
-              </select>
+              </select></label>
             </div>
             <div className={styles.field}>
-              <label>メモ（任意）</label>
-              <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例: 大きめの障害対応が続いて疲労気味" />
+              <label>メモ（任意）
+              <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例: 大きめの障害対応が続いて疲労気味" /></label>
             </div>
             <button className={styles.primaryBtn} type="submit" disabled={checkinSubmitting}>
               {checkinSubmitting ? "記録中…" : "記録する"}
             </button>
           </form>
-          {checkinError && <p className={styles.errorText}>{checkinError}</p>}
+          {checkinError && <p className={styles.errorText} role="alert">{checkinError}</p>}
 
           {recentCheckins.length > 0 && (
             <p className={styles.subtitle} style={{ marginTop: 10 }}>
@@ -198,26 +198,26 @@ export default function GrowthPage() {
           </p>
           <form onSubmit={handleReflectionSubmit}>
             <div className={styles.field}>
-              <label>Keep（続けたいこと・うまくいったこと）</label>
-              <textarea rows={2} value={keep} onChange={(e) => setKeep(e.target.value)} placeholder="例: 週次の1on1を全員分実施できた" />
+              <label>Keep（続けたいこと・うまくいったこと）
+              <textarea rows={2} value={keep} onChange={(e) => setKeep(e.target.value)} placeholder="例: 週次の1on1を全員分実施できた" /></label>
             </div>
             <div className={styles.field}>
-              <label>Problem（課題・気になったこと）</label>
+              <label>Problem（課題・気になったこと）
               <textarea
                 rows={2}
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
                 placeholder="例: 割り込み対応が多く、計画的な仕事に時間を割けなかった"
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>Try（次の改善方針）</label>
+              <label>Try（次の改善方針）
               <textarea
                 rows={2}
                 value={tryNext}
                 onChange={(e) => setTryNext(e.target.value)}
                 placeholder="例: 割り込み対応の受付時間を決めて、それ以外は集中時間にする"
-              />
+              /></label>
             </div>
             <button
               className={styles.primaryBtn}
@@ -227,7 +227,7 @@ export default function GrowthPage() {
               {reflectionSubmitting ? "記録中…" : "この内容で記録"}
             </button>
           </form>
-          {reflectionError && <p className={styles.errorText}>{reflectionError}</p>}
+          {reflectionError && <p className={styles.errorText} role="alert">{reflectionError}</p>}
 
           <div className={styles.runList} style={{ marginTop: 12 }}>
             {reflections.length === 0 && <p className={styles.subtitle}>まだ振り返りがありません。</p>}

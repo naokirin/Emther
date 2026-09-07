@@ -375,42 +375,42 @@ export default function OrgContextPage() {
         </p>
         <form onSubmit={handleAddTeam} style={{ marginTop: 10 }}>
           <div className={styles.field}>
-            <label>チーム名</label>
-            <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="例: Engineering / Team A" />
+            <label>チーム名
+            <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="例: Engineering / Team A" /></label>
           </div>
           <div className={styles.field}>
-            <label>メンバー（カンマ区切り）</label>
+            <label>メンバー（カンマ区切り）
             <input
               type="text"
               value={teamMembers}
               onChange={(e) => setTeamMembers(e.target.value)}
               placeholder="例: Aさん, Bさん ※Journalのpeopleと同じ表記で"
-            />
+            /></label>
           </div>
           <button className={styles.primaryBtn} type="submit" disabled={teamSubmitting || !teamName.trim()}>
             追加
           </button>
         </form>
-        {teamError && <p className={styles.errorText}>{teamError}</p>}
+        {teamError && <p className={styles.errorText} role="alert">{teamError}</p>}
 
         <details style={{ marginTop: 10 }}>
           <summary style={{ cursor: "pointer", fontSize: "0.8125rem" }}>複数チームを一括登録（初回投入用）</summary>
           <form onSubmit={handleBulkAddTeams} style={{ marginTop: 8 }}>
             <div className={styles.field}>
-              <label>1行1チーム、「チーム名: メンバー1, メンバー2」の形式で貼り付け</label>
+              <label>1行1チーム、「チーム名: メンバー1, メンバー2」の形式で貼り付け
               <textarea
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
                 rows={5}
                 placeholder={"例:\nEngineering / Team A: Aさん, Bさん\nEngineering / Team B: Cさん\nDesign: Dさん, Eさん"}
                 style={{ width: "100%", fontFamily: "inherit", fontSize: "0.8125rem" }}
-              />
+              /></label>
             </div>
             <button className={styles.primaryBtn} type="submit" disabled={bulkSubmitting || !bulkText.trim()}>
               {bulkSubmitting ? "登録中…" : "一括登録"}
             </button>
           </form>
-          {bulkError && <p className={styles.errorText}>{bulkError}</p>}
+          {bulkError && <p className={styles.errorText} role="alert">{bulkError}</p>}
           {bulkResult && (
             <p className={styles.subtitle} style={{ marginTop: 6 }}>
               {bulkResult.created}件のチームを作成しました。
@@ -441,7 +441,7 @@ export default function OrgContextPage() {
               追加
             </button>
           </form>
-          {objectiveError && <p className={styles.errorText}>{objectiveError}</p>}
+          {objectiveError && <p className={styles.errorText} role="alert">{objectiveError}</p>}
           {objectives.length === 0 && <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>}
           {objectives.map((o) => (
             <div
@@ -478,28 +478,28 @@ export default function OrgContextPage() {
               組織全体のMVVはIssueに依らず常にAgent Runtimeへ絶対の前提として注入されます。未入力の項目は注入されません。OKRは左の「Objectives」で管理します。
             </p>
             <div className={styles.field}>
-              <label>Mission（生む価値・存在意義）</label>
+              <label>Mission（生む価値・存在意義）
               <textarea
                 rows={2}
                 value={strategyDraft.mission}
                 onChange={(e) => setStrategyDraft({ ...strategyDraft, mission: e.target.value })}
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>Vision（目指す姿）</label>
+              <label>Vision（目指す姿）
               <textarea
                 rows={2}
                 value={strategyDraft.vision}
                 onChange={(e) => setStrategyDraft({ ...strategyDraft, vision: e.target.value })}
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>Values（大事にする価値観）</label>
+              <label>Values（大事にする価値観）
               <textarea
                 rows={2}
                 value={strategyDraft.values}
                 onChange={(e) => setStrategyDraft({ ...strategyDraft, values: e.target.value })}
-              />
+              /></label>
             </div>
           </>
         )}
@@ -526,10 +526,10 @@ export default function OrgContextPage() {
               KeyResultへ紐付けたIssueの完了（アーカイブ）件数から進捗を自動算出します（手動での進捗入力はありません）。
             </p>
             <div className={styles.field}>
-              <label>Objective（目標）</label>
-              <input type="text" value={editObjectiveTitle} onChange={(e) => setEditObjectiveTitle(e.target.value)} />
+              <label>Objective（目標）
+              <input type="text" value={editObjectiveTitle} onChange={(e) => setEditObjectiveTitle(e.target.value)} /></label>
             </div>
-            {objectiveEditError && <p className={styles.errorText}>{objectiveEditError}</p>}
+            {objectiveEditError && <p className={styles.errorText} role="alert">{objectiveEditError}</p>}
 
             <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
             {selectedObjective.keyResults.length === 0 && <p className={styles.subtitle}>まだKey Resultがありません。</p>}
@@ -601,30 +601,30 @@ export default function OrgContextPage() {
               </p>
             )}
             <div className={styles.field}>
-              <label>チーム名</label>
-              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <label>チーム名
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} /></label>
             </div>
             <div className={styles.field}>
-              <label>メンバー（カンマ区切り）</label>
+              <label>メンバー（カンマ区切り）
               <input
                 type="text"
                 value={editMembers}
                 onChange={(e) => setEditMembers(e.target.value)}
                 placeholder="例: Aさん, Bさん ※Journalのpeopleと同じ表記で"
-              />
+              /></label>
             </div>
             <div className={styles.field}>
-              <label>Mission（このチームは何のためにあるか）</label>
-              <textarea rows={2} value={editMission} onChange={(e) => setEditMission(e.target.value)} />
+              <label>Mission（このチームは何のためにあるか）
+              <textarea rows={2} value={editMission} onChange={(e) => setEditMission(e.target.value)} /></label>
             </div>
             <div className={styles.field}>
-              <label>制約（意思決定・実行にあたって前提とすべきこと）</label>
-              <textarea rows={2} value={editConstraints} onChange={(e) => setEditConstraints(e.target.value)} />
+              <label>制約（意思決定・実行にあたって前提とすべきこと）
+              <textarea rows={2} value={editConstraints} onChange={(e) => setEditConstraints(e.target.value)} /></label>
             </div>
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
               このチームに紐付いたIssueのAgent Runにだけ、絶対の前提として注入されます（他チームへは注入されません）。
             </p>
-            {editError && <p className={styles.errorText}>{editError}</p>}
+            {editError && <p className={styles.errorText} role="alert">{editError}</p>}
             <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTeam} disabled={editSaving || !editName.trim()}>
               {editSaving ? "保存中…" : "保存"}
             </button>

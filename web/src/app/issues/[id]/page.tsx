@@ -378,7 +378,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         </button>
       </div>
 
-      {decideError && <p className={styles.errorText}>{decideError}</p>}
+      {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
 
       {issue.archived && issue.teamId && (
         <div className={styles.panel}>
@@ -479,37 +479,37 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         )}
 
         <div className={styles.charterField}>
-          <label>Why（生む価値・誰のため・なぜ今か）</label>
+          <label>Why（生む価値・誰のため・なぜ今か）
           <textarea
             ref={whyRef}
             rows={2}
             defaultValue={issue.charter.why}
             className={issue.charter.why ? "" : styles.charterEmpty}
             placeholder="未整理（クリックして記入）"
-          />
+          /></label>
         </div>
         <div className={styles.charterField}>
-          <label>What（何を・どこまで・どのくらい・完了の定義）</label>
+          <label>What（何を・どこまで・どのくらい・完了の定義）
           <textarea
             ref={whatRef}
             rows={2}
             defaultValue={issue.charter.what}
             className={issue.charter.what ? "" : styles.charterEmpty}
             placeholder="未整理（クリックして記入）"
-          />
+          /></label>
         </div>
         <div className={styles.charterField}>
-          <label>How（どのように実現するか・前提や制約）</label>
+          <label>How（どのように実現するか・前提や制約）
           <textarea
             ref={howRef}
             rows={2}
             defaultValue={issue.charter.how}
             className={issue.charter.how ? "" : styles.charterEmpty}
             placeholder="未整理（クリックして記入）"
-          />
+          /></label>
         </div>
         <div className={styles.field}>
-          <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）</label>
+          <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
           <select value={teamIdDraft} onChange={(e) => handleChangeTeam(e.target.value)} disabled={teamLinkSaving}>
             <option value="">なし</option>
             {teams
@@ -519,10 +519,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   {t.name}
                 </option>
               ))}
-          </select>
+          </select></label>
         </div>
         <div className={styles.field}>
-          <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）</label>
+          <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
           <select value={keyResultIdDraft} onChange={(e) => handleChangeKeyResult(e.target.value)} disabled={keyResultSaving}>
             <option value="">なし</option>
             {objectives.map((o) =>
@@ -532,7 +532,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 </option>
               )),
             )}
-          </select>
+          </select></label>
         </div>
         <div className={styles.field}>
           <label>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</label>
@@ -550,14 +550,14 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
         <div className={styles.field}>
-          <label>タグ（カンマ区切り）</label>
+          <label>タグ（カンマ区切り）
           <input
             type="text"
             ref={tagsRef}
             defaultValue={issue.tags.join(", ")}
             onChange={(e) => setTagsSnapshot(e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
             placeholder="例: バグ, リファクタリング, オンボーディング"
-          />
+          /></label>
         </div>
         {issue.tags.length > 0 && (
           <div className={styles.tagRow} style={{ marginBottom: 10 }}>
@@ -568,7 +568,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             ))}
           </div>
         )}
-        {charterError && <p className={styles.errorText}>{charterError}</p>}
+        {charterError && <p className={styles.errorText} role="alert">{charterError}</p>}
         <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={charterSaving} onClick={handleSaveCharter}>
           {charterSaving ? "保存中…" : "Why/What/How・タグを保存"}
         </button>
@@ -666,22 +666,22 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         >
           <form onSubmit={hierarchyDialog === "child" ? handleCreateChild : handleCreateParent}>
             <div className={styles.field}>
-              <label>タイトル</label>
-              <input type="text" autoFocus value={hTitle} onChange={(e) => setHTitle(e.target.value)} placeholder="例: 割り込みタスクの受け入れ基準を定める" />
+              <label>タイトル
+              <input type="text" autoFocus value={hTitle} onChange={(e) => setHTitle(e.target.value)} placeholder="例: 割り込みタスクの受け入れ基準を定める" /></label>
             </div>
             <div className={styles.field}>
-              <label>Why（生む価値・誰のため・なぜ今か）</label>
-              <textarea rows={2} value={hWhy} onChange={(e) => setHWhy(e.target.value)} />
+              <label>Why（生む価値・誰のため・なぜ今か）
+              <textarea rows={2} value={hWhy} onChange={(e) => setHWhy(e.target.value)} /></label>
             </div>
             <div className={styles.field}>
-              <label>What（何を・どこまで・どのくらい・完了の定義）</label>
-              <textarea rows={2} value={hWhat} onChange={(e) => setHWhat(e.target.value)} />
+              <label>What（何を・どこまで・どのくらい・完了の定義）
+              <textarea rows={2} value={hWhat} onChange={(e) => setHWhat(e.target.value)} /></label>
             </div>
             <div className={styles.field}>
-              <label>How（どのように実現するか・前提や制約）</label>
-              <textarea rows={2} value={hHow} onChange={(e) => setHHow(e.target.value)} />
+              <label>How（どのように実現するか・前提や制約）
+              <textarea rows={2} value={hHow} onChange={(e) => setHHow(e.target.value)} /></label>
             </div>
-            {hError && <p className={styles.errorText}>{hError}</p>}
+            {hError && <p className={styles.errorText} role="alert">{hError}</p>}
             <button className={styles.primaryBtn} type="submit" disabled={hSubmitting || !hTitle.trim()}>
               {hierarchyDialog === "child" ? "サブIssueを作成" : "上位Issueを作成"}
             </button>

@@ -72,8 +72,8 @@ export default function JournalListPage() {
 
       <div className={styles.panel}>
         <div className={styles.field}>
-          <label>キーワード検索（本文・要約・タグ・人物）</label>
-          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例: リファクタリング" />
+          <label>キーワード検索（本文・要約・タグ・人物）
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例: リファクタリング" /></label>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
