@@ -46,7 +46,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
             {formatDateTime(report.periodStart)} 〜 {formatDateTime(report.periodEnd)}
           </strong>
         </div>
-        <button className={styles.detailToggle} onClick={() => setExpanded(!expanded)}>
+        <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setExpanded(!expanded)}>
           {expanded ? "閉じる" : "詳細を見る"}
         </button>
       </div>

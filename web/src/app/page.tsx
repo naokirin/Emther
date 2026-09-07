@@ -810,7 +810,7 @@ export default function DashboardPage() {
 
         {watchingItems.length > 0 && (
           <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-            <button className={styles.detailToggle} onClick={() => setWatchlistOpen(!watchlistOpen)}>
+            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setWatchlistOpen(!watchlistOpen)}>
               👀 様子見中（{watchingItems.length}件）{watchlistOpen ? "を隠す" : "を見る"}
             </button>
             {watchlistOpen && (
@@ -835,7 +835,7 @@ export default function DashboardPage() {
       {/* docs/dashboard_ui_readability.md U0-2対応。Fleet/Activityは副次情報として折りたたむ。
           畳んだままでも状態アイコンの1行サマリーで様子が分かるようにする。 */}
       <div className={`${styles.panel} ${styles.secondaryPanel}`}>
-        <button className={styles.detailToggle} onClick={() => setFleetOpen(!fleetOpen)}>
+        <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setFleetOpen(!fleetOpen)}>
           エージェントの状態・直近の動き　{fleetSummary} {fleetOpen ? "を閉じる ▲" : "を見る ▼"}
         </button>
         {fleetOpen && (
@@ -887,7 +887,10 @@ export default function DashboardPage() {
               <div className={styles.vitalValue}>
                 {v.status === "good" ? "🟢" : v.status === "warn" ? "🟡" : v.status === "bad" ? "🔴" : "⚪️"} {v.label}
               </div>
-              <button className={styles.detailToggle} onClick={() => setOpenVitalId(openVitalId === v.teamId ? null : v.teamId)}>
+              <button
+                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                onClick={() => setOpenVitalId(openVitalId === v.teamId ? null : v.teamId)}
+              >
                 根拠を見る
               </button>
               {openVitalId === v.teamId && <div className={styles.vitalDetail}>{v.reason}</div>}
@@ -911,7 +914,10 @@ export default function DashboardPage() {
             <div className={styles.vitalValue}>
               {vitals.oneOnOneCoverage.covered} / {vitals.oneOnOneCoverage.total}
             </div>
-            <button className={styles.detailToggle} onClick={() => setOpenVitalId(openVitalId === "coverage" ? null : "coverage")}>
+            <button
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              onClick={() => setOpenVitalId(openVitalId === "coverage" ? null : "coverage")}
+            >
               根拠を見る
             </button>
             {openVitalId === "coverage" && <div className={styles.vitalDetail}>{vitals.oneOnOneCoverage.reason}</div>}
@@ -978,7 +984,7 @@ export default function DashboardPage() {
                 </label>
                 <button
                   type="button"
-                  className={styles.detailToggle}
+                  className={`${styles.detailToggle} ${styles.detailToggleButton}`}
                   onClick={() => {
                     setJournalDate("");
                     setJournalDateOpen(false);
@@ -988,7 +994,12 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <button type="button" className={styles.detailToggle} style={{ marginTop: 6 }} onClick={() => setJournalDateOpen(true)}>
+              <button
+                type="button"
+                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                style={{ marginTop: 6 }}
+                onClick={() => setJournalDateOpen(true)}
+              >
                 📅 今日の話じゃない（発生日を変える）
               </button>
             )}
@@ -996,7 +1007,7 @@ export default function DashboardPage() {
           {journalError && <p className={styles.errorText} role="alert">{journalError}</p>}
 
           <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-            <button className={styles.detailToggle} onClick={() => setBulkOpen(!bulkOpen)}>
+            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setBulkOpen(!bulkOpen)}>
               📥 まとめて記録する（後からまとめて書きたいとき） {bulkOpen ? "▲" : "▼"}
             </button>
             {bulkOpen && (
@@ -1070,7 +1081,7 @@ export default function DashboardPage() {
           )}
 
           <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-            <button className={styles.detailToggle} onClick={() => setProfileOpen(!profileOpen)}>
+            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setProfileOpen(!profileOpen)}>
               長期プロファイルを記録する {profileOpen ? "▲" : "▼"}
             </button>
             {profileOpen && (
