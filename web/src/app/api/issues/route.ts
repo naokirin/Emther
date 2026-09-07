@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createIssue, listIssues } from "@/lib/issue-store";
+import { createIssue, listIssues, toIssueView } from "@/lib/issue-store";
 import { markRunReviewed } from "@/lib/agent-runtime";
 
 export async function GET() {
-  return NextResponse.json({ issues: listIssues() });
+  return NextResponse.json({ issues: listIssues().map(toIssueView) });
 }
 
 export async function POST(request: Request) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     : undefined;
 
   try {
-    const issue = createIssue(
+    const issue = await createIssue(
       title,
       agentRunId,
       {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       tags,
     );
     if (agentRunId) markRunReviewed(agentRunId);
-    return NextResponse.json({ issue }, { status: 201 });
+    return NextResponse.json({ issue: toIssueView(issue) }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }

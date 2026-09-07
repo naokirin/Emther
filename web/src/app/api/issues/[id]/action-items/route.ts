@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addActionItem } from "@/lib/issue-store";
+import { addActionItem, toIssueView } from "@/lib/issue-store";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]/action-items">) {
   const { id } = await ctx.params;
@@ -10,9 +10,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
     return NextResponse.json({ error: "textは必須です" }, { status: 400 });
   }
 
-  const issue = addActionItem(id, text);
+  const issue = await addActionItem(id, text);
   if (!issue) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  return NextResponse.json({ issue }, { status: 201 });
+  return NextResponse.json({ issue: toIssueView(issue) }, { status: 201 });
 }

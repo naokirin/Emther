@@ -2,8 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dataFilePath } from "@/lib/persistence";
-import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { listPeople, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, listActiveTeams } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
@@ -271,11 +270,13 @@ function checkMorningSummary(): void {
   const today = todayDateString(now);
   if (lastAutoMorningSummaryDate === today) return;
   lastAutoMorningSummaryDate = today;
-  startRun(
+  void startRun(
     "Lead Agent",
     "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・Why/What/Howが未整理のIssueなど、今日EMがまず確認すべきことを簡潔に整理してください。",
     "auto-summary",
-  );
+  ).catch(() => {
+    // 自動サマリーの起動失敗は無視する（次のwatchdog tickで日付が変わらない限り再試行はしない）。
+  });
 }
 
 let watchdogStarted = false;
@@ -314,6 +315,11 @@ mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 // docs 3.1「Core Context」の`Strategy/`ディレクトリ相当。MVV/OKRは組織全体で
 // 1つの静的な前提であり、Issueに紐づくかどうかに関わらず常に「絶対の前提」として注入する
 // （動的ロード対象はIssue charterとJournalのみ）。未設定の項目は行ごと省略する。
+// 個人情報の分離（ユーザー指摘対応）: org-context-store.tsはMission/Vision/Values/OKRを
+// 既にPERSON_n IDでマスクした状態で保持している（保存前にmaskForStorageを通す設計に変更）。
+// そのためここではmaskNamesを呼ばない——呼ぶ必要が無いのではなく、呼んではいけない
+// （既にマスク済みのIDをもう一度maskNamesに通しても実害は無いが、「保存時点で安全」が
+// 構造的に保証されているという前提を明確にするため、送信直前のマスク処理は撤去した）。
 function buildStrategyBlock(): string {
   const strategy = getOrgStrategy();
   const lines: string[] = [];
@@ -322,22 +328,17 @@ function buildStrategyBlock(): string {
   if (strategy.values) lines.push(`Values: ${strategy.values}`);
   if (strategy.okr) lines.push(`OKR: ${strategy.okr}`);
   if (lines.length === 0) return "";
-  return maskNames(["組織のMVV/OKR（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n"));
+  return ["組織のMVV/OKR（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
+// 同様にorg-context-store.tsはmembersをPERSON_n IDで保持しているため、registerName/
+// maskNamesはもう不要（メンバー名はチーム作成・編集の時点で既にIDへ変換済み）。
 function buildOrgContextBlock(): string {
   const teams = listActiveTeams();
   if (teams.length === 0) return "";
 
-  for (const team of teams) {
-    for (const member of team.members) {
-      registerName(member);
-    }
-  }
-
   const lines = teams.map((t) => `- ${teamDisplayName(t.name)}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
-  const block = ["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n");
-  return maskNames(block);
+  return ["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
 // docs 3.1「動的ロード」: そのrunがIssueに紐づいている場合、Issueのタイトルと
@@ -351,12 +352,14 @@ function buildIssueContextBlock(runId: string): string {
   const { why, what, how } = issue.charter;
   if (!why && !what && !how && issue.tags.length === 0) return "";
 
+  // issue-store.tsはtitle/charterをPERSON_n IDでマスクした状態で保持しているため、
+  // ここでmaskNamesを呼ぶ必要は無い（既に安全）。
   const lines = ["このタスクが紐づくIssueの前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
   if (why) lines.push(`Why（生む価値・誰のため・なぜ今か）: ${why}`);
   if (what) lines.push(`What（何を・どこまで・どのくらい・完了の定義）: ${what}`);
   if (how) lines.push(`How（どのように実現するか・前提や制約）: ${how}`);
   if (issue.tags.length > 0) lines.push(`タグ: ${issue.tags.join(", ")}`);
-  return maskNames(lines.join("\n"));
+  return lines.join("\n");
 }
 
 // docs 3.1「動的ロード」: タスク/EMの発言に登場する人物（people-directoryに登録済み＝
@@ -375,20 +378,24 @@ function buildIssueContextBlock(runId: string): string {
 // 提示し、類似度が低いものは足切りする（無関係な情報を紛れ込ませないため）。
 const SEMANTIC_SIMILARITY_THRESHOLD = 0.4;
 
+// 個人情報の分離（ユーザー指摘対応）: rawTextは実名（EM/クラウドどちらの入力の場合もある）
+// またはPERSON_n ID（Lead Agentからのconsult.questionのように既にマスクされたテキストの
+// 場合）のどちらかを含み得るため、両方でマッチングする。listActiveFactsForPerson等は
+// 既にPERSON_n IDで検索する契約になっているため、person.id（実名ではない）を渡す。
 async function buildJournalContextBlock(rawText: string): Promise<string> {
-  const mentioned = listPeople().filter((p) => rawText.includes(p.name));
+  const mentioned = listPeople().filter((p) => rawText.includes(p.name) || rawText.includes(p.id));
 
   const factLines: string[] = [];
   const interpretationLines: string[] = [];
   const seenIds = new Set<string>();
   for (const person of mentioned) {
-    for (const e of listActiveFactsForPerson(person.name, 5)) {
+    for (const e of listActiveFactsForPerson(person.id, 5)) {
       seenIds.add(e.id);
-      factLines.push(`- [${person.name}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
+      factLines.push(`- [${person.id}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
     }
-    for (const e of listInterpretationsForPerson(person.name)) {
+    for (const e of listInterpretationsForPerson(person.id)) {
       seenIds.add(e.id);
-      interpretationLines.push(`- [${person.name}] ${e.text}`);
+      interpretationLines.push(`- [${person.id}] ${e.text}`);
     }
   }
 
@@ -588,51 +595,22 @@ function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
   persistRunMeta(run);
 }
 
-// docs/memo.md の匿名化方式: クラウド(claude -p)に送る前に、テキスト中の人物名を
-// ローカルモデルで検出してpeople-directoryに登録し、既知の名前をすべてIDに置換する。
-// 実名はEM向けの表示（run.task, ログ）にはそのまま残し、外部に出る経路だけをマスクする。
-const NAME_EXTRACTION_SYSTEM_PROMPT = [
-  "入力テキストに含まれる人物名だけをJSON形式で出力してください。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力すること。",
-  'フォーマット: {"people": string[]}',
-  "敬称はそのまま残すこと（例: Aさん）。人物が見当たらなければ空配列にすること。",
-].join("\n");
-
-async function detectAndRegisterNames(text: string): Promise<void> {
-  try {
-    const content = await runLocalChat(
-      [
-        { role: "system", content: NAME_EXTRACTION_SYSTEM_PROMPT },
-        { role: "user", content: "経営会議。Q3のリリース日が前倒しになった。" },
-        { role: "assistant", content: JSON.stringify({ people: [] }) },
-        { role: "user", content: "CさんのPRレビューが速い。" },
-        { role: "assistant", content: JSON.stringify({ people: ["Cさん"] }) },
-        { role: "user", content: text },
-      ],
-      100,
-    );
-    const jsonText = extractFirstJsonObject(content);
-    if (!jsonText) return;
-    const parsed = JSON.parse(jsonText);
-    if (Array.isArray(parsed.people)) {
-      for (const p of parsed.people) {
-        if (typeof p === "string" && p.trim()) registerName(p);
-      }
-    }
-  } catch {
-    // ローカルNERの失敗は握りつぶす。既知の名前のマスクは引き続き有効なので、
-    // 「新規の名前だけ検出できない」という劣化に留まる。
-  }
-}
-
+// 個人情報の分離（ユーザー指摘対応）: 名前検出＋マスクの実処理はpeople-directory.tsの
+// maskForStorage()に一本化した（agent-runtime.ts固有のロジックとしては持たない）。
+// ここでは「マスクが実際に何か変えたらEMにその旨をログで知らせる」責務だけを持つ。
 async function sanitizeForCloud(run: AgentRun, text: string): Promise<string> {
-  await detectAndRegisterNames(text);
-  const masked = maskNames(text);
+  const masked = await maskForStorage(text);
   if (masked !== text) {
     appendLog(run, "meta", "送信前に人物名を匿名化しました（人物名はローカルのみで保持）");
   }
   return masked;
 }
 
+// 個人情報の分離（ユーザー指摘対応）: クラウドが返すテキストは、渡したプロンプトが
+// PERSON_n IDでマスクされている以上、常にPERSON_n IDのままである（クラウドが実名を
+// 新たに生成することはあり得ない）。そのため、ここでは意図的にunmaskNamesを呼ばず、
+// マスクされたままrun.log/yieldRequest/proposal等へ保存する。実名への復元は、EM向けの
+// API応答を組み立てる境界（各APIルート）でだけ行う——保存経路には実名が一切乗らない。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
   switch (event.type) {
@@ -641,7 +619,7 @@ function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const block of content as any[]) {
         if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
-          appendLog(run, "agent", unmaskNames(block.text.trim()));
+          appendLog(run, "agent", block.text.trim());
         }
       }
       break;
@@ -652,9 +630,9 @@ function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
       if (event.is_error) {
         run.status = "error";
         run.yieldRequest = undefined;
-        appendLog(run, "system", `エラーで終了しました: ${unmaskNames(event.result ?? "(no message)")}`);
+        appendLog(run, "system", `エラーで終了しました: ${event.result ?? "(no message)"}`);
       } else {
-        applyAssistantResultText(run, unmaskNames(typeof event.result === "string" ? event.result : ""), allowConsult);
+        applyAssistantResultText(run, typeof event.result === "string" ? event.result : "", allowConsult);
       }
       break;
     }
@@ -666,7 +644,9 @@ function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
 // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
 // claude/geminiどちらの結果テキストからも、consult/yield/proposalの抽出とrun状態の
 // 確定を同じロジックで行うための共通処理（元は"result"ケースに直書きしていたもの）。
-// 呼び出し側は既にunmaskNames()済みのテキストを渡すこと。
+// 個人情報の分離対応: 呼び出し側は「マスクされたまま」のテキストを渡すこと
+// （unmaskNamesを通した後のテキストを渡してはいけない——yieldRequest/proposal/
+// suggestedActionItemsはそのままSQLiteへ保存されるため、実名が混入する）。
 function applyAssistantResultText(run: AgentRun, resultText: string, allowConsult: boolean): void {
   const consultRequest = run.agentName === "Lead Agent" && allowConsult ? extractConsult(resultText) : undefined;
   if (consultRequest) {
@@ -709,7 +689,12 @@ function isCursorFallbackEnabled(agentName: string): boolean {
   return getRulesAndConstraints().cursorFallbackAgents.includes(agentName);
 }
 
-async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true): Promise<void> {
+// 個人情報の分離（ユーザー指摘対応）: precomputedPromptを渡された場合はsanitizeForCloudを
+// 再度呼ばない。startRun/decideRunは、run.task/ログへ保存する文言自体を「保存前にマスクする」
+// ため、既にマスク済みのテキストを持っている——同じテキストに対して二重にローカルNERを
+// 走らせる（コスト増）だけでなく、既にPERSON_n ID化された文字列を再度NERにかけると
+// 誤検出のリスクもあるため、呼び出し側の結果をそのまま使う。
+async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true, precomputedPrompt?: string): Promise<void> {
   // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
   // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
   // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
@@ -718,7 +703,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   const journalContext = await buildJournalContextBlock(rawPrompt);
-  const prompt = await sanitizeForCloud(run, rawPrompt);
+  const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext);
 
   const claudeFailed = await runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult);
@@ -752,6 +737,20 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
 // 相談待ち（pendingConsult）は失敗ではない。
 function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
+    // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。ここまでの保存時マスク・
+    // クラウド応答の非アンマスク化がすべて正しく機能している前提だが、それに頼らず、
+    // 外部プロセスへ渡す直前のテキストそのものを検査する。実名が1件でも残っていたら
+    // このrunをerrorにして送信自体を止める（実名をログにも残さない）。
+    try {
+      assertNoRealNamesLeaked(prompt);
+      assertNoRealNamesLeaked(systemPrompt);
+    } catch (err) {
+      run.status = "error";
+      appendLog(run, "system", (err as Error).message);
+      resolve(true);
+      return;
+    }
+
     const args = [
       "-p",
       prompt,
@@ -840,6 +839,17 @@ function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
 // システムプロンプトをプロンプト本文の先頭に連結して渡す。
 function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
+    // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
+    try {
+      assertNoRealNamesLeaked(prompt);
+      assertNoRealNamesLeaked(systemPrompt);
+    } catch (err) {
+      run.status = "error";
+      appendLog(run, "system", (err as Error).message);
+      resolve();
+      return;
+    }
+
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
     const args = ["-p", combinedPrompt, "--model", AGY_GEMINI_MODEL, "--output-format", "stream-json"];
     if (run.agyConversationId) {
@@ -900,9 +910,8 @@ function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, a
           );
           return;
         }
-        const unmasked = unmaskNames(text);
-        appendLog(run, "agent", unmasked);
-        applyAssistantResultText(run, unmasked, allowConsult);
+        appendLog(run, "agent", text);
+        applyAssistantResultText(run, text, allowConsult);
       }
     }
 
@@ -957,6 +966,17 @@ function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, a
 // 先頭に連結して渡す。
 function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
+    // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
+    try {
+      assertNoRealNamesLeaked(prompt);
+      assertNoRealNamesLeaked(systemPrompt);
+    } catch (err) {
+      run.status = "error";
+      appendLog(run, "system", (err as Error).message);
+      resolve();
+      return;
+    }
+
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
     const args = [
       "--print",
@@ -1005,7 +1025,7 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const block of content as any[]) {
           if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
-            appendLog(run, "agent", unmaskNames(block.text.trim()));
+            appendLog(run, "agent", block.text.trim());
           }
         }
         return;
@@ -1018,7 +1038,7 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
         }
         if (event.is_error) {
           run.status = "error";
-          appendLog(run, "system", `Cursor CLIも失敗しました: ${unmaskNames(typeof event.result === "string" ? event.result : "(no message)")}`);
+          appendLog(run, "system", `Cursor CLIも失敗しました: ${typeof event.result === "string" ? event.result : "(no message)"}`);
           return;
         }
         const text = typeof event.result === "string" ? event.result.trim() : "";
@@ -1027,7 +1047,7 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
           appendLog(run, "system", "Cursor CLIが空の応答を返しました。");
           return;
         }
-        applyAssistantResultText(run, unmaskNames(text), allowConsult);
+        applyAssistantResultText(run, text, allowConsult);
       }
     }
 
@@ -1089,9 +1109,12 @@ async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promis
     reviewed: leadRun.reviewed,
   };
   runs.set(specialistRun.id, specialistRun);
+  // consult.questionはLead Agentの応答（クラウド由来、既にPERSON_n IDでマスク済み）から
+  // 抽出したものなので、実名を含まない。そのままprecomputedPromptとしても渡し、
+  // 既にマスク済みのテキストに対して再度ローカルNERを走らせない（無駄かつ誤検出のリスク）。
   appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${consult.question}`);
 
-  await runClaudeTurn(specialistRun, consult.question, false);
+  await runClaudeTurn(specialistRun, consult.question, false, consult.question);
 
   const lastAgentLine = [...specialistRun.log].reverse().find((l) => l.channel === "agent");
   const answerText = lastAgentLine?.text ?? "(専門エージェントから回答を取得できませんでした)";
@@ -1106,7 +1129,42 @@ async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promis
     "これを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。",
   ].join("\n");
 
-  await runClaudeTurn(leadRun, followUp, false);
+  // followUpもanswerText（クラウド由来・マスク済み）から組み立てただけなので実名を含まない。
+  await runClaudeTurn(leadRun, followUp, false, followUp);
+}
+
+// 個人情報の分離（ユーザー指摘対応）: 上のrunsマップ・listRuns/getRun等はマスクされた
+// （PERSON_n ID化された）テキストを保持する内部表現。EM向けのAPI応答を組み立てる境界
+// だけで、この関数を通して実名へ復元する（runClaudeTurn等の内部処理からは呼ばないこと）。
+export function toRunView(run: AgentRun): AgentRun {
+  return {
+    ...run,
+    task: unmaskNames(run.task),
+    log: run.log.map((l) => ({ ...l, text: unmaskNames(l.text) })),
+    yieldRequest: run.yieldRequest
+      ? {
+          reason: unmaskNames(run.yieldRequest.reason),
+          options: run.yieldRequest.options.map((o) => ({
+            ...o,
+            label: unmaskNames(o.label),
+            detail: o.detail !== undefined ? unmaskNames(o.detail) : o.detail,
+            risk: o.risk !== undefined ? unmaskNames(o.risk) : o.risk,
+          })),
+        }
+      : run.yieldRequest,
+    proposal: run.proposal
+      ? {
+          conclusion: unmaskNames(run.proposal.conclusion),
+          facts: run.proposal.facts.map(unmaskNames),
+          logic: unmaskNames(run.proposal.logic),
+          rejectedAlternatives: run.proposal.rejectedAlternatives.map((r) => ({
+            option: unmaskNames(r.option),
+            reason: unmaskNames(r.reason),
+          })),
+        }
+      : run.proposal,
+    suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
+  };
 }
 
 export function listRuns(): AgentRun[] {
@@ -1117,11 +1175,15 @@ export function getRun(id: string): AgentRun | undefined {
   return runs.get(id);
 }
 
-export function startRun(agentName: string, task: string, origin: AgentRun["origin"] = "manual"): AgentRun {
+// 個人情報の分離（ユーザー指摘対応）: run.task・ログへ保存する文言は、SQLiteに書き込む
+// 前に必ずマスクする（クラウド送信の直前ではなく、保存の直前にマスクするという設計に
+// 変更した）。runをrunsマップへ登録するのは、マスクが完了した後にする——マスク完了前に
+// 登録すると、その一瞬だけtaskが空文字列で見えるが、実名が見える瞬間は無い（安全側）。
+export async function startRun(agentName: string, rawTask: string, origin: AgentRun["origin"] = "manual"): Promise<AgentRun> {
   const run: AgentRun = {
     id: randomUUID(),
     agentName,
-    task,
+    task: "",
     status: "active",
     log: [],
     totalCostUsd: 0,
@@ -1130,26 +1192,29 @@ export function startRun(agentName: string, task: string, origin: AgentRun["orig
     origin,
     reviewed: origin === "manual",
   };
+  const maskedTask = await sanitizeForCloud(run, rawTask);
+  run.task = maskedTask;
   runs.set(run.id, run);
   appendLog(
     run,
     "meta",
     origin === "manual"
-      ? `タスクを受理: ${task}`
-      : `AIによる自動起動（${origin === "auto-anomaly" ? "異常検知" : "朝のサマリー"}）: ${task}`,
+      ? `タスクを受理: ${maskedTask}`
+      : `AIによる自動起動（${origin === "auto-anomaly" ? "異常検知" : "朝のサマリー"}）: ${maskedTask}`,
   );
-  void runClaudeTurn(run, task);
+  void runClaudeTurn(run, rawTask, true, maskedTask);
   return run;
 }
 
-export function decideRun(id: string, message: string): AgentRun | undefined {
+export async function decideRun(id: string, rawMessage: string): Promise<AgentRun | undefined> {
   const run = runs.get(id);
   if (!run) return undefined;
   if (run.status === "active") {
     throw new Error("エージェントが実行中のため、今は入力を受け付けられません");
   }
-  appendLog(run, "meta", `EMからの入力: ${message}`);
-  void runClaudeTurn(run, message);
+  const maskedMessage = await sanitizeForCloud(run, rawMessage);
+  appendLog(run, "meta", `EMからの入力: ${maskedMessage}`);
+  void runClaudeTurn(run, rawMessage, true, maskedMessage);
   return run;
 }
 

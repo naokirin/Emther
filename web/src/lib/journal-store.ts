@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { registerName } from "@/lib/people-directory";
+import { maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import { recordEvent, listEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
@@ -32,6 +32,9 @@ export type JournalEntry = {
   createdAt: number;
 };
 
+// 個人情報の分離（ユーザー指摘対応）: KnowledgeEventのtext/summary/peopleはPERSON_n ID
+// でマスクされた内部表現。これはそのマスクされた状態のJournalEntryを返す（agent-runtime.ts
+// 等、内部利用向け）。EM向けの表示にはtoJournalEntryView()を使うこと。
 function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
   return {
     id: e.id,
@@ -42,6 +45,16 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     sentiment: (e.sentiment as Sentiment) ?? "neutral",
     summary: e.summary ?? "",
     createdAt: e.occurredAt,
+  };
+}
+
+export function toJournalEntryView(entry: JournalEntry): JournalEntry {
+  return {
+    ...entry,
+    rawText: unmaskNames(entry.rawText),
+    summary: unmaskNames(entry.summary),
+    people: entry.people.map(unmaskNames),
+    tags: entry.tags.map(unmaskNames),
   };
 }
 
@@ -111,24 +124,41 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     throw new Error("ローカルモデルの出力が不正なJSONでした");
   }
 
-  const people: string[] = Array.isArray(structured.people)
+  // 個人情報の分離（ユーザー指摘対応）: peopleはPERSON_n ID配列として保存する
+  // （registerNameは新規なら発行・既存なら既存IDを返す）。
+  const peopleNames: string[] = Array.isArray(structured.people)
     ? structured.people.filter((p: unknown): p is string => typeof p === "string")
     : [];
-  for (const person of people) {
-    registerName(person);
-  }
+  const people = peopleNames.map((p) => registerName(p));
 
   const now = Date.now();
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
   // あくまで補助的な機能であり、Journal記録という主目的をブロックすべきではない。
+  // 埋め込みはローカル生成・ローカル利用のみ（クラウドへは一切送らない）なので、
+  // 生のrawTextから計算してよい（マスクすると人物名という意味的シグナルを失うため）。
   let embedding: number[] | undefined;
   try {
     embedding = await embedText(rawText);
   } catch {
     embedding = undefined;
   }
+
+  // 個人情報の分離（ユーザー指摘対応）: text/summaryはSQLite（クラウドプロンプト構築の
+  // 経路からも読まれるストア）に保存する前にmaskForStorageでPERSON_n IDへ置換する。
+  const maskedText = await maskForStorage(rawText);
+  const rawSummary = typeof structured.summary === "string" ? structured.summary : "";
+  const maskedSummary = rawSummary ? await maskForStorage(rawSummary) : "";
+
+  // 個人情報の分離（実機検証で発見した実際の漏洩経路）: ローカルモデルの抽出精度の限界で、
+  // tagsに人物名そのもの（例: 本来peopleに入るべき「花子さん」を含む文字列）が
+  // 紛れ込むことがある。tags自体は新規検出（NER）は不要だが、既知の登録済み名前を
+  // 部分一致で置換するmaskNames（同期・軽量）は必ず通す。
+  const rawTags: string[] = Array.isArray(structured.tags)
+    ? structured.tags.filter((t: unknown): t is string => typeof t === "string")
+    : [];
+  const maskedTags = rawTags.map((t) => maskNames(t));
 
   // 「一時的な感情・発言」というJournalの性質上、既定ではkind:"fact"・
   // ttlDaysをSettings（journalFactTtlDays）から適用する。公式方針や長期プロファイルの
@@ -139,11 +169,11 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     context: "observation",
     entityType: "journal",
     people,
-    text: rawText,
-    tags: Array.isArray(structured.tags) ? structured.tags.filter((t: unknown) => typeof t === "string") : [],
+    text: maskedText,
+    tags: maskedTags,
     urgency: isUrgency(structured.urgency) ? structured.urgency : "mid",
     sentiment: isSentiment(structured.sentiment) ? structured.sentiment : "neutral",
-    summary: typeof structured.summary === "string" ? structured.summary : "",
+    summary: maskedSummary,
     occurredAt: now,
     id: randomUUID(),
     ttlDays: getRulesAndConstraints().journalFactTtlDays,
@@ -156,21 +186,19 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
   // 既存の「📌 このRunをIssueにする」導線をEMが使うかどうかで、起票の最終判断は
   // 必ず人間に残す（業務要求7 Human-in-the-Loop）。既定はOFF（EMの明示opt-inが必要）。
   if (event.urgency === "high" && getRulesAndConstraints().autoAnomalyDetectionEnabled) {
-    try {
-      startRun(
-        "Lead Agent",
-        [
-          "Journalに緊急度highのエントリが追加されました。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
-          "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
-          "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
-          "",
-          `対象のJournalエントリ: "${rawText}"`,
-        ].join("\n"),
-        "auto-anomaly",
-      );
-    } catch {
+    void startRun(
+      "Lead Agent",
+      [
+        "Journalに緊急度highのエントリが追加されました。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+        "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
+        "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
+        "",
+        `対象のJournalエントリ: "${rawText}"`,
+      ].join("\n"),
+      "auto-anomaly",
+    ).catch(() => {
       // 自動分析の起動失敗でJournal記録自体は失敗させない（あくまで補助機能）。
-    }
+    });
   }
 
   return eventToJournalEntry(event);

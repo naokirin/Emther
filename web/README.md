@@ -353,7 +353,8 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 `docs/memo.md`のTODO「サポートするAIエージェントCLIにCursor CLIを追加する」への対応。claude→agyの順で試してもなお失敗している場合に限り、最後に`cursor-agent`（Cursor CLI）へフォールバックする3段構成にした。
 
 - 実機で確認した`cursor-agent`の重要な仕様: `--print`（非対話）モードは既定で「書き込み・シェル実行を含む全ツールにアクセスできる」（`--help`に明記）。これはclaudeの`--tools ""`やagyのヘッドレス自動拒否より大幅に緩い。回避策として`--mode ask`（読み取り専用のQ&Aモード）を使うと、実機検証でシェル実行・ファイル書き込みは明確に拒否されることを確認した。ただし**`--mode ask`でもGlob/Read等の読み取り専用ツールは承認なしで自動実行してしまう**ことも実機で確認した（例: 指示していないのに`ls`相当のディレクトリ一覧を自発的に取得した）。
-- この読み取りツールの自動実行を無害化するため、`--workspace <path>`で空の専用ディレクトリ（`.data/cursor-sandbox/`、起動時に自動作成）に限定して実行している。実機検証で、この設定下では`cwd`がその専用ディレクトリになり、`Glob`で見えるファイルが0件（＝このアプリのソースや`.data/app.db`などは一切見えない）ことを確認した。`--trust`も併用し、ワークスペース信頼の対話プロンプトが出ないようにしている。
+- この読み取りツールの自動実行を軽減するため、`--workspace <path>`で空の専用ディレクトリ（`.data/cursor-sandbox/`、起動時に自動作成）に限定して実行している。実機検証で、この設定下では`cwd`がその専用ディレクトリになり、`Glob`（相対パス・カレントディレクトリ基準の探索）で見えるファイルが0件になることを確認した。`--trust`も併用し、ワークスペース信頼の対話プロンプトが出ないようにしている。
+- **重要な訂正（後日の実機検証で判明）**: 上記の`--workspace`によるサンドボックスは、**絶対パスを明示的に指定されたファイルの読み取りは一切防げない**ことを実機で確認済み（詳細は後述の「people-directory.jsonの物理的な配置分離」の項を参照）。`--workspace`は「相対パスでの自発的な探索」を防ぐだけであり、モデルが特定のファイルの絶対パスを（タスク文脈から、あるいは自発的な推測で）知った場合、それを読み取ることを止める仕組みではない。claudeの`--tools ""`（構造的にツール自体が無い）ほど厳格な保証ではない点を明確にしておく。
 - `/settings`に「Cursor CLIフォールバック」セクションを追加（`cursorFallbackAgents: string[]`、既定は全エージェントOFF）。モデルは`gpt-5.2`固定（`cursor-agent models`で確認できる一覧はバージョン付きの名前のみ）。
 - `agent-runtime.ts`の`runClaudeTurn`は「claude失敗→（agy有効なら）agyへフォールバック→それでも`run.status`が`"error"`のまま（かつCursorが有効）ならcursor-agentへフォールバック」という順で試す3段構成にした。`cursor-agent`のstream-json出力（`type: "assistant"/"result"`等）はclaudeの`handleStreamEvent`とほぼ同じ形だが、`session_id`はclaude用の`run.sessionId`とは別のID空間（`run.cursorSessionId`、`agent_runs.cursor_session_id`列で永続化）なので専用のパーサー（`runCursorCliAttempt`）を実装した。会話継続は`--resume <session_id>`に対応している（claudeの`--resume`と同じ形式）。
 - 実機検証: `PER_TURN_BUDGET_USD`を一時的に極小値にしてclaudeを実際に失敗させ、`cursorFallbackAgents`に対象エージェントを追加した状態で、claude失敗→（agy未設定なので）スキップ→cursor-agentへフォールバック→実際のGPT-5応答（proposal形式に正しく従った回答）で`idle`まで完了することを確認。続けて`decideRun`で追加メッセージを送り、`cursorSessionId`を使った会話再開で、**直前のターンでのみ与えられた情報（最初の指示文言）を正しく参照した応答**が返ることを確認した（agyと同じ水準の会話継続検証）。設定・予算を既定値に戻した後、通常のタスク（claudeのみ）が従来通り正常完了する（リファクタによる回帰が無い）ことも確認した。
@@ -377,6 +378,41 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 - `extractActionItems`（既存の`extractYield`/`extractProposal`と同じ、壊れた形式は「提案なし」として無視するだけの壊れにくいパース）で抽出した提案は`run.suggestedActionItems`に保持し、`agent_runs`テーブルへ`suggested_action_items_json`として永続化する。
 - `ExecutionState`のproposal表示ブロック内に「💡 AIが提案するAction Items」として一覧表示し、「採用してAction Itemsに追加」（提案の全項目を実際に`POST /api/issues/[id]/action-items`で追加してから提案を消す）と「却下する」（`POST /api/agents/[id]/action-items/dismiss`で提案だけを消す）の2ボタンを設置。EMが明示的に選ぶまでIssueのAction Items自体は変化しない（Human-in-the-Loopを維持）。
 - 実機検証: Issueに紐づくrunへ「次にやるべき作業をAction Itemsとして提案して」と追加メッセージを送ったところ、Issueの文脈（DBバックアップ失敗の障害対応）に沿った具体的な3項目が`suggestedActionItems`として返ることを確認。そのうち2項目を実際に「採用」相当のAPI呼び出し（`POST .../action-items`→`POST .../action-items/dismiss`）で処理し、Issueの`actionItems`に実際に追加されること、かつ処理後は`suggestedActionItems`が`null`に戻ること（＝同じ提案が表示され続けない）を確認した。
+
+### 個人情報の分離を「送信時マスク」から「保存時マスク」へ変更
+
+ユーザー指摘への対応。従来の設計は「実名を生のまま保存し、クラウドへ送る直前にマスクする」（send-time masking）方式だったため、安全性が「送信直前に必ずマスク関数を呼ぶ」という規律だけに依存していた。実際、このセッション中に発見・修正したmaskNames/unmaskNamesの自己破壊バグ（Phase 3）は、この設計の脆さの証拠でもあった。そこで「保存する時点でマスクする」（write-time masking）方式に変更し、クラウド送信コードパスが構造的に実名へ到達できないようにした。
+
+- **原則**: 実名を保持するのは`.data/people-directory.json`（`people-directory.ts`）だけ。SQLite（`app.db`）・その他の`.data/*.json`には常にPERSON_n IDでマスクされた状態を保存する。実名への復元は、EM向けのAPI応答を組み立てる境界（各APIルートの`toXxxView()`関数）でだけ行う。
+- `people-directory.ts`に`maskForStorage(text)`（ローカルNERで新規の名前を検出・登録し、既知の名前をすべてIDに置換する）を新設し、`agent-runtime.ts`に重複していたNER実装を統合した。ついでに非破壊の`getPersonId(name)`（登録済みかどうかの参照のみ、GETリクエストの副作用を防ぐ）も追加。
+- **保存前にマスクする対象**: Journal（本文・要約・タグ・登場人物）、Issue（タイトル・Why/What/How・タグ・Action Item）、Team（メンバー一覧）、Organization Strategy（Mission/Vision/Values/OKR）、Agent Run（タスク文・ログ・yield理由・proposal・提案Action Items）、長期プロファイル（interpretations）、Issue/Teamの変更履歴（監査ログ）。チーム名・タグの構造自体（「技術的負債」等のラベル）は個人名ではないため対象外——ただしローカルモデルの抽出精度の限界で人物名が紛れ込むケースに備え、tagsも軽量なmaskNames（部分一致置換、新規検出はしない）は必ず通す。
+- `KnowledgeEvent.people`・`Team.members`は、実名の配列ではなく`PERSON_n` ID配列として保存する契約に変更した（`listActiveFactsForPerson`/`listInterpretationsForPerson`も実名ではなくIDで検索する）。
+- `agent-runtime.ts`側: `handleStreamEvent`・`runAgyCliAttempt`・`runCursorCliAttempt`から、クラウド応答を保存する直前の`unmaskNames()`呼び出しをすべて撤去した（クラウドが返すテキストはこちらが渡したプロンプト同様PERSON_n IDのままのはずで、実名を新たに生成することはあり得ないため、そのままログ・yieldRequest・proposal・suggestedActionItemsへ保存する）。`startRun`/`decideRun`は、run.task・ログへ書き込む文言をSQLiteへの書き込み前にマスクするよう順序を入れ替えた（runをrunsマップへ登録するのはマスクが完了した後）。
+- `buildOrgContextBlock`/`buildStrategyBlock`/`buildIssueContextBlock`は、参照元のストアが既にマスク済みのため、送信直前の`maskNames()`呼び出しを撤去した（不要になったのではなく、二重防御より「保存時点で安全」という前提を明確にする設計判断）。`buildJournalContextBlock`だけは最後に`maskNames()`を安全網として残している。
+- 実機検証（バイトレベル）: `.data/`を一旦削除しクリーンな状態から、Journal・Team・Organization Strategy・Issue（タイトル/charter/タグ/Action Item）・長期プロファイル・実際のAgent Run（タスク文・ログ・yield理由）のすべてに実名（「花子さん」「次郎さん」）を投入し、Pythonで各`.data/*`ファイルをバイト列として直接検索した。**`people-directory.json`以外のどのファイルにも実名は一切出現しない**ことを確認した一方、EM向けAPI（`GET /api/journal`, `/api/issues`, `/api/teams`, `/api/agents/[id]`等）は引き続き正しく実名を表示することを確認済み。この過程で、ローカルモデルの抽出精度の限界により人物名が`tags`配列に紛れ込み実名のまま保存される実際の漏洩を1件発見し、その場で修正・再検証した（上記のtagsマスキング対応はこの発見に基づく）。
+- **既知の制約**: 修正前に投入されていた開発用データ（実名が生で保存されていた`.data/app.db`・`.data/*.json`）は移行しない。ユーザーの了承のもと、検証前に該当ファイルを削除しクリーンな状態から再開した。既存の実運用データがある状態で同様の変更をする場合は、実名を検出してマスクし直す移行スクリプトが別途必要になる。
+
+### 個人情報の分離を「保証する」実行時ガード
+
+ユーザーからの追加の指摘「people-directory.jsonがローカルモデル以外に読まれないことを保証する仕組みは入っているか」への対応。正直に答えると、上記の保存時マスク対応だけでは**保証にはなっていなかった**——`maskForStorage`/`unmaskNames`をどこでどう呼ぶかというコード上の規律に依存しており、技術的に強制する仕組みは無かった。実際、このセッション中に見つけたmaskNames/unmaskNamesの自己破壊バグや、Journal tagsへの人物名混入は、まさに「規律だけに頼った安全性」が破れた実例そのものである。
+
+- `people-directory.ts`に`assertNoRealNamesLeaked(text)`を追加した。登録済みの実名（`nameToId`のキー）が1件でも部分文字列としてテキストに残っていたら例外を投げる、「最後の砦」のチェック。
+- `runClaudeCliAttempt`・`runAgyCliAttempt`・`runCursorCliAttempt`の3箇所すべてで、実際に`spawn()`する直前に`prompt`・`systemPrompt`の両方に対してこれを呼ぶ。例外が飛んだ場合はそのCLIを起動せず（＝外部プロセスへは何も渡さず）、runを`error`にして終了する。エラーログには実名を含めない（例外メッセージ自体が定型文で、漏れた名前を再度ログに書かないよう設計している）。
+- これにより、"マスク処理のどこかに将来バグが入っても、実名が実際に外部へ送信されることは無い"という、コードレビューの注意深さに依存しない技術的な保証に変わった——「マスクし忘れない」（努力目標）ではなく「実名が残っていたら物理的に送信処理へ進めない」（構造的な保証）という設計。
+- 登録人数は単一ローカルEM利用のスケール（数百人規模まで）を前提にしており、毎ターンの線形スキャンによる性能影響は無視できる。
+- 実機検証: 一時的なテスト専用APIルート（検証後に削除済み、コミット対象には含まれない）で`assertNoRealNamesLeaked`を直接呼び出し、(1) 登録済みの実名を含むテキストに対しては確実に例外を投げること、(2) 同じ内容をマスクした後のテキスト（PERSON_n形式）に対しては例外を投げず正常に通過することの両方を確認した。
+- **既知の制約**: この仕組みはあくまで「登録済みの実名の部分文字列一致」を検出するものであり、people-directory.tsに一度も登録されていない未知の人物名（ローカルNERの検出漏れ）までは検出できない（既存の検出漏れリスクと同じ限界）。
+
+### people-directory.jsonの物理的な配置分離、およびCursor CLIの実際のファイル読み取りリスクの発見
+
+ユーザーからのさらなる指摘「物理的な置き場所の分離と、ローカル以外のLLMエージェントへのpermission不許可も検討すべき」への対応。調査の過程で、当初の想定より深刻な実際の脆弱性を発見した。
+
+- **発見**: `cursor-agent`の`--workspace`サンドボックスは、絶対パス指定のファイル読み取りを一切防がないことを実機で確認した。専用の空ディレクトリを`--workspace`に指定した状態で、`.data/people-directory.json`の絶対パスを直接指示したところ、`cursor-agent`は実際にファイルを読み取り、内容（実名）をそのまま返した。ツール呼び出しの結果はCursor社のバックエンドとの対話ループの一部としてそちらに送信されるため、この読み取りは`agent-runtime.ts`側のどんなコード（`assertNoRealNamesLeaked`を含む）でも検知・阻止できない——このガードは「こちらが構築して送信するプロンプト」だけを検査するものであり、cursor-agentプロセス自身が実行するツール呼び出しの結果までは見えないため。README内の以前の記述（`--workspace`で見えないようにしている）は誤りだったので訂正する。
+- **OSレベルのユーザー分離を試みたが、この環境では機能しないことを実機で確認**: 制限付きのLinuxユーザーを作成し、`sudo -u`経由でファイル読み取りを試したところ、`/proc/self/status`で実際に別UIDで動作していることを確認した上でなお、`chmod 600`のファイルを読めてしまった。原因を`/proc/mounts`で調査したところ、このリポジトリ（`~/repos/...`）は**virtiofs**（Lima VMの共有フォルダ）上にあり、そこではUnixパーミッションがゲスト内のUID単位では実効的に機能しないことが判明した。`cursor-agent --sandbox enabled`（OSレベルの本物のサンドボックス）も"AppArmor configuration"を理由に起動できず、bubblewrap（`bwrap`）による名前空間分離も権限エラーで失敗した。この検証用に作成したLinuxユーザーは、有効な保護になっていないことを確認した上で完全に削除している。
+- **実際に導入した対策**: `~/.local/state/`配下（virtiofsではない、ホームディレクトリ直下の通常のローカルファイルシステム）が実際にパーミッションを尊重することを`sudo -u nobody`での読み取り拒否で確認した上で、`people-directory.json`の保存先を`.data/people-directory.json`（プロジェクトディレクトリ配下）から`~/.local/state/em-ai-team-secure/people-directory.json`（プロジェクトディレクトリの外、ディレクトリ0700・ファイル0600）へ移設した（`persistence.ts`に`loadSecureJSON`/`saveSecureJSON`を新設）。これにより、cursor-agent/agyの`--workspace`／作業ディレクトリの木構造から完全に切り離され、相対パスの探索やプロジェクト内ファイルの列挙では到達できなくなる。ただし、これは「絶対パスを明示的に指示された場合の読み取り」自体を防ぐものではない（実機で確認済みの`cursor-agent`の限界は解消していない）——あくまで、通常のタスク遂行の過程で偶然・自発的に発見される可能性を実質的に排除するものである。
+- **claude/agyは元々この種のリスクに晒されていない**: claudeは`--tools ""`で構造的にツール自体を持たない。agyはヘッドレス実行時のツール承認要求をアプリケーション層で自動拒否する（ファイルパーミッションに依存しない仕組み）ため、virtiofsの制約に影響されない。今回の絶対パス読み取りの実害が確認されたのは`cursor-agent`のみである。
+- 実機検証: 新しい保存先への移設後、既存の登録済み名前（`花子さん`等）が引き続き正しくアンマスクされてAPI応答に現れること、新規の名前（`三郎さん`）が新しい保存先ファイルに正しく追記されること、旧`.data/people-directory.json`が再作成されないこと、Journal投稿が引き続き`.data/app.db`側では`PERSON_n`形式でマスクされたまま保存されることをすべて確認した。
+- **既知の制約（正直な評価）**: `cursor-agent`について、実名を含む可能性のあるファイルへの絶対パスでの意図的な読み取りを技術的に禁止する仕組みは、この環境では確立できていない。物理的な配置分離は「見つかりにくくする」対策であり、「見つけられても読めなくする」対策ではない。真に後者を実現するには、OSレベルのユーザー分離（`sudo -u`経由での制限ユーザーでの実行）が必要だが、これは(1) virtiofsではない場所で完結する構成にする、(2) `agy`（実体はGoogle Antigravity CLIで`~/.gemini/antigravity-cli/`配下に認証・会話状態を持つ）と`cursor-agent`（`~/.cursor/`・`~/.config/cursor/`・`~/.local/share/cursor-agent/`に認証状態を持つ）それぞれの認証状態を制限ユーザーからも利用可能にしつつ本アプリのデータには到達させない、という2点の作り込みが必要で、影響範囲・脆弱性の作り込みリスクの大きさから、ユーザーとの合意のもと今回は見送った。cursor-agentフォールバックを実際に有効化する場合は、このリスク（EM自身が明示的にIssue/Journal等に書いた内容を超えて、ファイルシステム上の他の情報が意図的な絶対パス指定によって読み取られうること）を理解した上で判断すること。
 
 ## 実行方法
 

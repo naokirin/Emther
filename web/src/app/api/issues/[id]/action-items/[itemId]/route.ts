@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { toggleActionItem } from "@/lib/issue-store";
+import { toggleActionItem, toIssueView } from "@/lib/issue-store";
 
 export async function PATCH(_request: Request, ctx: RouteContext<"/api/issues/[id]/action-items/[itemId]">) {
   const { id, itemId } = await ctx.params;
@@ -7,5 +7,5 @@ export async function PATCH(_request: Request, ctx: RouteContext<"/api/issues/[i
   if (!issue) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  return NextResponse.json({ issue });
+  return NextResponse.json({ issue: toIssueView(issue) });
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createParentIssue } from "@/lib/issue-store";
+import { createParentIssue, toIssueView } from "@/lib/issue-store";
 
 // 既存Issueの上位に新しいIssueを作り、既存Issueをその子として付け替える（ズームアウト）。
 export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]/parent">) {
@@ -12,12 +12,12 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
   }
 
   try {
-    const parent = createParentIssue(id, title, {
+    const parent = await createParentIssue(id, title, {
       why: typeof body?.why === "string" ? body.why : undefined,
       what: typeof body?.what === "string" ? body.what : undefined,
       how: typeof body?.how === "string" ? body.how : undefined,
     });
-    return NextResponse.json({ issue: parent }, { status: 201 });
+    return NextResponse.json({ issue: toIssueView(parent) }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
