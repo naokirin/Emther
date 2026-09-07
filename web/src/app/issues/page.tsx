@@ -22,6 +22,18 @@ export default function IssuesPage() {
   );
 }
 
+// docs/em_human_story_and_ux.md P1-7対応。介入の型はtagsの中の1つとして保存されているだけ
+// なので、他の（自由記入の）タグと見た目で区別できるよう、INTERVENTION_TYPESに含まれる
+// ラベルかどうかで判定する。
+const INTERVENTION_TYPE_LABELS = new Set(INTERVENTION_TYPES.map((t) => t.label));
+
+function formatRelativeDays(ts: number, now: number): string {
+  const days = Math.floor((now - ts) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return "今日";
+  if (days === 1) return "1日前";
+  return `${days}日前`;
+}
+
 function IssuesPageInner() {
   const router = useRouter();
   // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの#タグクリックから
@@ -32,6 +44,8 @@ function IssuesPageInner() {
   const { objectives } = useObjectives();
   const { teams } = useTeams();
   const { rules } = useSettingsRules();
+  // eslint-disable-next-line react-hooks/purity -- 「最終判断日」の相対表示にのみ使う
+  const now = Date.now();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
@@ -80,6 +94,16 @@ function IssuesPageInner() {
   }
   const activeType =
     selectedTypes.length > 0 ? INTERVENTION_TYPES.find((t) => t.label === selectedTypes[selectedTypes.length - 1]) : undefined;
+
+  // docs/em_human_story_and_ux.md P1-7対応。「今期何を解いているか」を一覧でも見せるための
+  // Objective/KRタイトルの逆引き。
+  function keyResultLabel(krId: string): string | undefined {
+    for (const o of objectives) {
+      const kr = o.keyResults.find((k) => k.id === krId);
+      if (kr) return `${o.title} ＞ ${kr.title}`;
+    }
+    return undefined;
+  }
 
   async function handleCreateIssue(e: React.FormEvent) {
     e.preventDefault();
@@ -141,8 +165,13 @@ function IssuesPageInner() {
   return (
     <div className={styles.screen}>
       <div className={styles.detailHeader}>
-        <h2 style={{ margin: 0 }}>Issues</h2>
-        <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={() => setDialogOpen(true)}>
+        <div>
+          <h2 style={{ margin: 0 }}>進行中の介入ポートフォリオ</h2>
+          <p className={styles.subtitle} style={{ marginTop: 4 }}>
+            実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。
+          </p>
+        </div>
+        <button className={styles.primaryBtn} style={{ width: "auto", flexShrink: 0 }} onClick={() => setDialogOpen(true)}>
           ＋ 新しいIssue
         </button>
       </div>
@@ -176,6 +205,10 @@ function IssuesPageInner() {
           const doneCount = issue.actionItems.filter((a) => a.done).length;
           const charterCount = charterFilledCount(issue.charter);
           const childCount = issues.filter((i) => i.parentId === issue.id).length;
+          const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
+          const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
+          const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
+          const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
           return (
             <button
               key={issue.id}
@@ -200,9 +233,33 @@ function IssuesPageInner() {
                   </span>
                 )}
               </div>
-              {issue.tags.length > 0 && (
+
+              {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKR・最終判断日を
+                  一覧の時点で見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}
+              <div className={styles.tagRow}>
+                {interventionTypes.map((t) => (
+                  <span key={t} className={`${styles.tag} ${styles.tagPerson}`}>
+                    🎯 {t}
+                  </span>
+                ))}
+                {teamName && (
+                  <span className={styles.subtitle} title="関連チーム">
+                    👥 {teamName}
+                  </span>
+                )}
+                {krLabel && (
+                  <span className={styles.subtitle} title="紐付いているKey Result">
+                    📈 {krLabel}
+                  </span>
+                )}
+                <span className={styles.subtitle} title="最終更新日">
+                  🕒 最終判断: {formatRelativeDays(issue.updatedAt, now)}
+                </span>
+              </div>
+
+              {topicTags.length > 0 && (
                 <div className={styles.tagRow}>
-                  {issue.tags.map((tag) => (
+                  {topicTags.map((tag) => (
                     <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
                       #{tag}
                     </span>
