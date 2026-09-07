@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dataFilePath } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
-import { getOrgStrategy, getTeam, listActiveTeams, listObjectives } from "@/lib/org-context-store";
+import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
-import { teamDisplayName } from "@/lib/types";
+import { teamDisplayName, teamPathSegments } from "@/lib/types";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
 
@@ -337,8 +337,10 @@ const CURSOR_MODEL = "gpt-5.2";
 const CURSOR_WORKSPACE_DIR = dataFilePath("cursor-sandbox");
 mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 
-// docs 3.1「動的ロード」の簡略版: 本来は対象Issueに関連する部分だけを動的にロードすべきだが、
-// MVPではチーム数が少ない前提でOrganization Context（チーム名簿）全体を常に注入する。
+// docs 3.1「動的ロード」対応（docs/em_human_story_and_ux.md P2-13で残件を解消）。
+// 紐づくIssueのteamId、またはタスク本文中のチーム名の言及という手がかりがあれば
+// Organization Context（チーム名簿）を関連チームだけに絞る（buildOrgContextBlock内の
+// relevantTeams参照）。手がかりが一つも無い場合だけ、MVP当初の方針どおり全チームを注入する。
 // メンバー名はここで初めて登場する可能性があるため、注入前に必ずpeople-directoryへ登録し、
 // 実名のままクラウドに出さないようmaskNamesを通す（他の経路と同じ匿名化ルール）。
 // docs 3.1「Core Context」の`Strategy/`ディレクトリ相当。MVV/OKRは組織全体で
@@ -375,13 +377,38 @@ function buildObjectivesBlock(): string {
   );
 }
 
+// docs/em_human_story_and_ux.md P2-13（docs 3.1「動的ロード」の残件）対応。
+// チーム憲法（buildTeamCharterBlock）は既にIssue単位でスコープ済みだが、チーム名簿
+// （名前＋メンバー一覧）自体は「チーム数が少ない前提」で常に全件注入していた。
+// 関連性の手がかり（紐づくIssueのteamId、タスク本文中のチーム名の言及）が
+// 1つも無い場合は絞り込みようがないため、当初のMVP方針どおり全件にフォールバックする
+// （手がかりが無いのに一部だけ見せると、かえって判断材料が欠けて混乱させるため）。
+// 手がかりがある場合だけ、関連するチームに絞る。
+function relevantTeams(teams: Team[], runId: string | undefined, rawText: string | undefined): Team[] {
+  const relevantIds = new Set<string>();
+
+  const linkedTeamId = runId ? getIssueByRunId(runId)?.teamId : undefined;
+  if (linkedTeamId) relevantIds.add(linkedTeamId);
+
+  if (rawText) {
+    for (const t of teams) {
+      const segments = [t.name, ...teamPathSegments(t.name)];
+      if (segments.some((seg) => seg && rawText.includes(seg))) relevantIds.add(t.id);
+    }
+  }
+
+  if (relevantIds.size === 0) return teams;
+  return teams.filter((t) => relevantIds.has(t.id));
+}
+
 // 同様にorg-context-store.tsはmembersをPERSON_n IDで保持しているため、registerName/
 // maskNamesはもう不要（メンバー名はチーム作成・編集の時点で既にIDへ変換済み）。
-function buildOrgContextBlock(): string {
+function buildOrgContextBlock(runId?: string, rawText?: string): string {
   const teams = listActiveTeams();
   if (teams.length === 0) return "";
+  const scoped = relevantTeams(teams, runId, rawText);
 
-  const lines = teams.map((t) => `- ${teamDisplayName(t.name)}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
+  const lines = scoped.map((t) => `- ${teamDisplayName(t.name)}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
   return ["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
@@ -502,7 +529,13 @@ async function buildJournalContextBlock(rawText: string): Promise<string> {
   return maskNames(blocks.join("\n\n"));
 }
 
-function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: string, journalContext?: string): string {
+function buildSystemPrompt(
+  agentName: string,
+  allowConsult: boolean,
+  runId?: string,
+  journalContext?: string,
+  rawText?: string,
+): string {
   const consultRule =
     agentName === "Lead Agent" && allowConsult
       ? [
@@ -586,7 +619,7 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
 
   const issueContext = runId ? buildIssueContextBlock(runId) : "";
   const teamCharterContext = runId ? buildTeamCharterBlock(runId) : "";
-  const orgContext = buildOrgContextBlock();
+  const orgContext = buildOrgContextBlock(runId, rawText);
   const strategyContext = buildStrategyBlock();
   const objectivesContext = buildObjectivesBlock();
   return [base, issueContext, teamCharterContext, journalContext, orgContext, strategyContext, objectivesContext]
@@ -815,7 +848,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   const journalContext = await buildJournalContextBlock(rawPrompt);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
-  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext);
+  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt);
 
   const claudeFailed = await runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult);
 

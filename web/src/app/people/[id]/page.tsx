@@ -1,7 +1,8 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { usePersonProfile } from "@/lib/hooks";
 import { URGENCY_LABEL, charterFilledCount } from "@/lib/types";
@@ -13,6 +14,22 @@ import { URGENCY_LABEL, charterFilledCount } from "@/lib/types";
 export default function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { person } = usePersonProfile(id);
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  // docs/em_human_story_and_ux.md P2-12対応。ローカルNERが自由記述中の一般語や
+  // チーム名を人物として誤登録した場合の削除導線（フィルタでは防ぎきれない誤登録の
+  // 「最後の安全弁」）。
+  async function handleDelete() {
+    if (!person) return;
+    setDeleting(true);
+    try {
+      await fetch(`/api/people/${person.id}`, { method: "DELETE" });
+      router.push("/people");
+    } catch {
+      setDeleting(false);
+    }
+  }
 
   if (!person) {
     return (
@@ -31,7 +48,12 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
         <Link href="/people" className={styles.subtitle}>
           ← People一覧に戻る
         </Link>
-        <h2 style={{ marginTop: 8 }}>{person.name}</h2>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <h2 style={{ marginTop: 8 }}>{person.name}</h2>
+          <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
+            {deleting ? "削除中…" : "誤登録として削除"}
+          </button>
+        </div>
         <p className={styles.subtitle}>
           {person.teamNames.length > 0 ? `所属: ${person.teamNames.join(", ")}` : "所属チームなし"} ／ 直近Journal {person.factCount}件
           {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}

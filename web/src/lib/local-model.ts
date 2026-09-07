@@ -6,6 +6,9 @@ import { pipeline } from "@huggingface/transformers";
 //
 // モデルサイズはこのリポジトリの検証環境（メモリ7.7GB、常時スワップ逼迫気味）での安定性を
 // 優先して0.5Bを採用（1.5Bだとリクエスト後にプロセスが落ちることを複数回確認した）。
+// 2026-09-08にも1.5Bへの切り替えを再検証したが、1リクエストでnext-serverのRSSが
+// 約5GBまで増加してシステム空きメモリが150MB台まで低下し、生成自体も
+// JSON抽出失敗（500）に終わったため0.5Bへ差し戻した。
 // より余裕のあるマシンで動かす場合はMODEL_ID/MODEL_DTYPEを差し替えるとよい。
 const MODEL_ID = "onnx-community/Qwen2.5-0.5B-Instruct";
 const MODEL_DTYPE = "q4";
