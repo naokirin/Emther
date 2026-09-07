@@ -4,6 +4,19 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { URGENCY_LABEL, type JournalEntry } from "@/lib/types";
 
+// docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
+// 訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、常に
+// 発生日を短く表示する（今日/昨日はそう書き、それ以外はM/D）。
+function formatEntryDate(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(today) - startOf(d)) / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) return "今日";
+  if (diffDays === 1) return "昨日";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 // docs/memo.md TODO「Quick JournalをEMが後からリスト確認・検索しにくいUIになっている」対応。
 // Dashboard（直近5件）とJournal一覧（全件検索）の両方で同じ表示・その場編集UIを使うための
 // 共有コンポーネント。編集状態そのものは@/lib/hooksのuseJournalEditingが持ち、
@@ -14,11 +27,13 @@ export function JournalEntryCard({
   editTags,
   editPeople,
   editUrgency,
+  editDate,
   editSubmitting,
   editError,
   onChangeEditTags,
   onChangeEditPeople,
   onChangeEditUrgency,
+  onChangeEditDate,
   onConfirmEdit,
   onCancelEdit,
   onStartEdit,
@@ -28,11 +43,13 @@ export function JournalEntryCard({
   editTags: string;
   editPeople: string;
   editUrgency: JournalEntry["urgency"];
+  editDate: string;
   editSubmitting: boolean;
   editError: string | null;
   onChangeEditTags: (value: string) => void;
   onChangeEditPeople: (value: string) => void;
   onChangeEditUrgency: (value: JournalEntry["urgency"]) => void;
+  onChangeEditDate: (value: string) => void;
   onConfirmEdit: () => void;
   onCancelEdit: () => void;
   onStartEdit: () => void;
@@ -44,6 +61,10 @@ export function JournalEntryCard({
       <div className={styles.journalEntry}>
         <div>{entry.rawText}</div>
         <div className={styles.field} style={{ marginTop: 8 }}>
+          <label>発生日（時刻は不要）</label>
+          <input type="date" value={editDate} onChange={(e) => onChangeEditDate(e.target.value)} style={{ maxWidth: 160 }} />
+        </div>
+        <div className={styles.field}>
           <label>人物（カンマ区切り）</label>
           <input type="text" value={editPeople} onChange={(e) => onChangeEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
         </div>
@@ -76,6 +97,9 @@ export function JournalEntryCard({
     <div className={styles.journalEntry}>
       <div>{entry.rawText}</div>
       <div className={styles.tagRow}>
+        <span className={styles.subtitle} title="出来事の発生日">
+          🗓 {formatEntryDate(entry.createdAt)}
+        </span>
         {entry.people.map((p) => (
           <button
             key={p}
@@ -103,7 +127,7 @@ export function JournalEntryCard({
         {!entry.confirmed && (
           <span
             className={styles.subtitle}
-            title="AIの自動抽出のままです。内容が正しければ「編集」→「この内容で確定」で確認してください。"
+            title="AIの自動抽出のままです。内容・発生日が正しければ「編集」→「この内容で確定」で確認してください。"
           >
             🤖 未確認
           </span>

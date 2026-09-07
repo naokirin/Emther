@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
+import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 
 // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
 // EMがその場で校正するためのエンドポイント。内部的には新しいイベントをsupersedesで
@@ -8,12 +9,23 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
 
+  // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
+  // 訂正を扱えるように」対応。occurredAtDateは"YYYY-MM-DD"（日付レベルのみ）。
+  let occurredAt: number | undefined;
+  if (typeof body?.occurredAtDate === "string" && body.occurredAtDate) {
+    occurredAt = dateStringToNoonTimestamp(body.occurredAtDate);
+    if (occurredAt === undefined) {
+      return NextResponse.json({ error: "occurredAtDateの形式が不正です（YYYY-MM-DD）" }, { status: 400 });
+    }
+  }
+
   const entry = await updateJournalEntry(id, {
     tags: Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined,
     people: Array.isArray(body?.people)
       ? body.people.filter((p: unknown): p is string => typeof p === "string")
       : undefined,
     urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
+    occurredAt,
   });
   if (!entry) {
     return NextResponse.json({ error: "not found" }, { status: 404 });

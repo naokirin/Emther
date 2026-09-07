@@ -5,6 +5,7 @@ import { recordEvent, listEvents, getEventById, type KnowledgeEvent } from "@/li
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { startRun } from "@/lib/agent-runtime";
+import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
@@ -102,7 +103,11 @@ function isSentiment(v: unknown): v is Sentiment {
   return v === "positive" || v === "negative" || v === "neutral";
 }
 
-export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
+// ローカルモデルでの抽出→保存までの一連処理。addJournalEntry（単発）と
+// addJournalEntriesBulk（まとめ入力、1行ずつ同じ処理を回す）の両方から呼ぶ共通処理として
+// 切り出してある。occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら
+// 「まとめ投入した時刻」ではなく行ごとに解決した「出来事があった日」を渡す——後述）。
+async function createJournalEventFromText(rawText: string, occurredAt: number): Promise<KnowledgeEvent> {
   const content = await runLocalChat(
     [
       { role: "system", content: SYSTEM_PROMPT },
@@ -135,8 +140,6 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     : [];
   const people = peopleNames.map((p) => registerName(p));
 
-  const now = Date.now();
-
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
   // あくまで補助的な機能であり、Journal記録という主目的をブロックすべきではない。
@@ -168,7 +171,7 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
   // ttlDaysをSettings（journalFactTtlDays）から適用する。公式方針や長期プロファイルの
   // ように「常に有効」な情報を記録したい場合はrecordEvent()を別途直接使う想定
   // （現時点ではJournalは常にfact扱い、context分類の精緻化は今後の課題）。
-  const event = recordEvent({
+  return recordEvent({
     kind: "fact",
     context: "observation",
     entityType: "journal",
@@ -178,11 +181,18 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
     urgency: isUrgency(structured.urgency) ? structured.urgency : "mid",
     sentiment: isSentiment(structured.sentiment) ? structured.sentiment : "neutral",
     summary: maskedSummary,
-    occurredAt: now,
+    occurredAt,
     id: randomUUID(),
     ttlDays: getRulesAndConstraints().journalFactTtlDays,
     embedding,
   });
+}
+
+// docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。occurredAtは
+// 既定でDate.now()（＝これまでの単発投稿と同じ挙動）。EMが「今日ではなく先日の話」だと
+// 分かっている場合だけ、呼び出し側（APIルート）が日付レベルの値を渡せるようにする。
+export async function addJournalEntry(rawText: string, occurredAt: number = Date.now()): Promise<JournalEntry> {
+  const event = await createJournalEventFromText(rawText, occurredAt);
 
   // docs/em_human_story_and_ux.md P1-9対応（旧実装からの変更）。以前はここ（登録直後、
   // ローカルモデルの生の抽出結果に対して）で自動検知を起動していたが、ローカルモデルの
@@ -191,6 +201,45 @@ export async function addJournalEntry(rawText: string): Promise<JournalEntry> {
   // 「(10) ローカルNER誤検出」とは別の、抽出精度そのものの問題）。そのため自動検知の
   // トリガーはupdateJournalEntry（EMが確認・校正した後）側に移し、ここでは記録のみ行う。
   return eventToJournalEntry(event);
+}
+
+export type BulkJournalResult = { entries: JournalEntry[]; skippedLines: number };
+
+// docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。忙しくて後から
+// まとめて書く場合に、1件ずつSubmitさせる負担を無くす。EMは自由記述のまま複数行を貼り、
+// 「1行＝1つの出来事」・「その行だけが日付なら日付マーカー」という軽い約束事だけを守れば
+// よい（固定フォーマットでの逐一入力は求めない）。
+//
+// 危険な暗黙の決めつけを避けるため:
+// - 「まとめ投入した時刻」を全件のoccurredAtにはしない（危険——投入したタイミングと
+//   出来事が起きたタイミングは別物）。行ごとに解決した「出来事があった日」の正午を
+//   occurredAtにする（時刻までは求めない・ズレのリスクが低いので正午に丸める）。
+// - 抽出結果はいずれも未確認（confirmed:false）のまま返る。自動検知はupdateJournalEntry
+//   （EMが確認した後）側でしか起動しないため、まとめ入力で「偽の緊急事態」が連鎖的に
+//   自動起動する心配はない。
+export async function addJournalEntriesBulk(rawText: string): Promise<BulkJournalResult> {
+  const now = Date.now();
+  const MAX_LINES = 40;
+  const allLines = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  // 日付マーカー行は「消費される」のが正常動作なので、そちらは除いたうえで
+  // MAX_LINESの上限で切り捨てられた件数だけをskippedLinesとして報告する。
+  const totalContentLines = allLines.filter((l) => parseDateMarkerLine(l, now) === undefined).length;
+  const parsed = parseBulkJournalText(rawText, now, MAX_LINES);
+  const skippedLines = Math.max(0, totalContentLines - parsed.length);
+
+  const entries: JournalEntry[] = [];
+  // ローカルモデル（WASM上の単一インスタンス）を前提にしており、並行実行の安全性が
+  // 保証できないため、あえて逐次実行にしている（件数が多いほど時間はかかるが、
+  // 「一括入力で疲弊しない」の主眼は連続クリックを無くすことにあり、待ち時間そのものは
+  // 許容範囲と判断）。
+  for (const line of parsed) {
+    const event = await createJournalEventFromText(line.text, line.occurredAt);
+    entries.push(eventToJournalEntry(event));
+  }
+  return { entries, skippedLines };
 }
 
 export function listJournalEntries(): JournalEntry[] {
@@ -207,7 +256,7 @@ export function listJournalEntries(): JournalEntry[] {
 // supersedesで繋いで記録することで「修正」を表現する（元イベントは削除・上書きしない）。
 export async function updateJournalEntry(
   id: string,
-  patch: { tags?: string[]; people?: string[]; urgency?: Urgency },
+  patch: { tags?: string[]; people?: string[]; urgency?: Urgency; occurredAt?: number },
 ): Promise<JournalEntry | undefined> {
   const original = getEventById(id);
   if (!original || original.entityType !== "journal") return undefined;
@@ -215,6 +264,10 @@ export async function updateJournalEntry(
   const people = patch.people !== undefined ? patch.people.map((p) => registerName(p)) : original.people;
   const tags = patch.tags !== undefined ? patch.tags.map((t) => maskNames(t)) : original.tags;
   const urgency = patch.urgency !== undefined && isUrgency(patch.urgency) ? patch.urgency : original.urgency ?? "mid";
+  // docs/em_human_story_and_ux.md 改修依頼「通常投入でも日付レベルの訂正を扱えるように」
+  // 対応。まとめ入力から生成された（または単に日付を勘違いした）エントリの発生日を、
+  // 校正のタイミングで直せるようにする。
+  const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : original.occurredAt;
 
   const event = recordEvent({
     kind: original.kind,
@@ -227,7 +280,7 @@ export async function updateJournalEntry(
     urgency,
     sentiment: original.sentiment,
     summary: original.summary,
-    occurredAt: original.occurredAt,
+    occurredAt,
     ttlDays: original.ttlDays,
     supersedes: id,
     sourceJournalId: original.sourceJournalId,

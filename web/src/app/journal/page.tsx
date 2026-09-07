@@ -141,11 +141,13 @@ export default function JournalListPage() {
               editTags={editing.editTags}
               editPeople={editing.editPeople}
               editUrgency={editing.editUrgency}
+              editDate={editing.editDate}
               editSubmitting={editing.editSubmitting}
               editError={editing.editError}
               onChangeEditTags={editing.setEditTags}
               onChangeEditPeople={editing.setEditPeople}
               onChangeEditUrgency={editing.setEditUrgency}
+              onChangeEditDate={editing.setEditDate}
               onConfirmEdit={() => editing.confirmEdit(entry.id)}
               onCancelEdit={editing.cancelEditing}
               onStartEdit={() => editing.startEditing(entry)}
