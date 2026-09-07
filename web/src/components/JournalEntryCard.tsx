@@ -140,7 +140,7 @@ export function JournalEntryCard({
             🤖 未確認
           </span>
         )}
-        <button className={styles.detailToggle} onClick={onStartEdit}>
+        <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={onStartEdit}>
           編集
         </button>
       </div>

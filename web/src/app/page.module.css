@@ -808,6 +808,18 @@
   padding: 0;
 }
 
+/* WCAG 2.2 2.5.8 Target Size対応。.detailToggleは文中に埋め込むリンク的な使い方
+   （文の理解に不可欠＝除外対象）と、単独のトグル／アクションボタンとしての使い方が
+   混在している。後者にだけこのクラスを併用し、24px以上のクリック領域を確保する
+   （文中埋め込みの方は除外対象のためpadding追加による見た目の崩れを避け、そのまま）。 */
+.detailToggleButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0.25rem 0.375rem;
+  margin-left: -0.375rem;
+}
+
 .vitalDetail {
   margin-top: 6px;
   font-size: 0.75rem;
