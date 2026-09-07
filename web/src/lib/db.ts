@@ -116,6 +116,10 @@ function migrate(database: DatabaseSync): void {
   // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの下書き。
   addColumnIfMissing(database, "agent_runs", "suggested_action_items_json", "TEXT");
 
+  // docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。reviewedは「EMが確認したか」の
+  // 1bitしか持たず、「様子見」と「却下」を区別できなかったため、別カラムで判定を分ける。
+  addColumnIfMissing(database, "agent_runs", "triage_status", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

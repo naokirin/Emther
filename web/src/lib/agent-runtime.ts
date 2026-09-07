@@ -42,7 +42,8 @@ export type ConsultRequest = {
   question: string;
 };
 
-const SPECIALIST_AGENTS = ["People Agent", "Process Agent", "Tech Agent"];
+// docs/memo.md「F. Product Agentの追加」対応。Lead Agentの相談先候補にProduct Agentを含める。
+const SPECIALIST_AGENTS = ["People Agent", "Process Agent", "Tech Agent", "Product Agent"];
 
 export type LogLine = {
   ts: number;
@@ -85,6 +86,10 @@ export type AgentRun = {
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
   origin: "manual" | "auto-anomaly" | "auto-summary";
   reviewed: boolean;
+  // docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。reviewed（bool）だけでは
+  // 「様子見」（追跡は続けるが緊急ではない）と「却下」（対応不要）を区別できないため、
+  // 明示的にEMが選んだ場合のみ値が入る別フィールドとして持つ。
+  triageStatus?: "watching" | "dismissed";
 };
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
@@ -113,6 +118,7 @@ type AgentRunRow = {
   consulted_by: string | null;
   origin: string;
   reviewed: number;
+  triage_status: string | null;
 };
 
 type AgentRunLogRow = {
@@ -132,8 +138,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -144,7 +150,8 @@ function persistRunMeta(run: AgentRun): void {
          suggested_action_items_json = excluded.suggested_action_items_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
-         reviewed = excluded.reviewed`,
+         reviewed = excluded.reviewed,
+         triage_status = excluded.triage_status`,
     )
     .run(
       run.id,
@@ -163,6 +170,7 @@ function persistRunMeta(run: AgentRun): void {
       run.consultedBy ?? null,
       run.origin,
       run.reviewed ? 1 : 0,
+      run.triageStatus ?? null,
     );
 }
 
@@ -204,6 +212,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       consultedBy: row.consulted_by ?? undefined,
       origin: (row.origin as AgentRun["origin"]) ?? "manual",
       reviewed: !!row.reviewed,
+      triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
     };
     if (run.status === "active") {
       const line: LogLine = { ts: Date.now(), channel: "system", text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" };
@@ -443,12 +452,12 @@ function buildSystemPrompt(agentName: string, allowConsult: boolean, runId?: str
   const consultRule =
     agentName === "Lead Agent" && allowConsult
       ? [
-          "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent）のうち1つに、1ターンにつき1回だけ相談できます。",
+          "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent / Product Agent）のうち1つに、1ターンにつき1回だけ相談できます。",
           "  自分の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません）。",
           "  ```consult",
           '  { "agent": "People Agent", "question": "相談したい内容を1つの質問文で" }',
           "  ```",
-          '  agentは "People Agent" / "Process Agent" / "Tech Agent" のいずれか1つのみ指定できます。',
+          '  agentは "People Agent" / "Process Agent" / "Tech Agent" / "Product Agent" のいずれか1つのみ指定できます。',
           "",
         ]
       : [];
@@ -1224,6 +1233,18 @@ export function markRunReviewed(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run || run.reviewed) return run;
   run.reviewed = true;
+  persistRunMeta(run);
+  return run;
+}
+
+// docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。「様子見」（追跡は続けるが緊急ではない）
+// と「却下」（対応不要）をEMに明示的に選ばせ、triageStatusへ記録する。どちらもreviewed=trueに
+// なるため「次にすべきこと」の緊急度からは外れるが、triageStatusで後から区別できる。
+export function setRunTriageStatus(id: string, status: "watching" | "dismissed"): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.reviewed = true;
+  run.triageStatus = status;
   persistRunMeta(run);
   return run;
 }

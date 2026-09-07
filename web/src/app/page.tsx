@@ -6,23 +6,40 @@ import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useJournal, useRuns, useSettingsRules, useVitals } from "@/lib/hooks";
-import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, isRunStale, type Issue } from "@/lib/types";
+import { AGENT_OPTIONS, URGENCY_LABEL, charterFilledCount, isRunStale, type Issue, type JournalEntry } from "@/lib/types";
 
 const JOURNAL_PAGE_SIZE = 5;
 const INBOX_PAGE_SIZE = 5;
 const NEXT_ACTIONS_LIMIT = 6;
+// docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
+// で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
+// 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
+// よう表示ウィンドウで自然に外れるようにする。
+const JOURNAL_ATTENTION_WINDOW_MS = 24 * 60 * 60 * 1000;
+const ACTIVITY_STREAM_LIMIT = 30;
 
 // docs/memo.md TODO「ダッシュボードで『人間のEMが次になにをするべきか？』がすぐに分かり、
 // 詳細に遷移できる状態にする」への対応。Yield/Error/Issue charter未整理/Team Vitals不調という
 // 既存の4つのシグナルを、EMが今すぐ対応すべき順（urgent→warn）に束ねて1箇所に見せる。
 // 「対応不要」も明示できるよう、0件のときは空のリストにする（評価不能に寄せず、単に「無い」と示す）。
+// docs/memo.md「A. Inboxを組織リスクのトリアージにする」対応。種別が視覚的に埋もれないよう、
+// severity/iconとは別に「これは何のカードか」を示す短いラベルを持たせる。
 type NextAction = {
   id: string;
   severity: "urgent" | "warn";
   icon: string;
+  kindLabel: string;
   text: string;
   onSelect: () => void;
 };
+
+// docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
+function runKindLabel(run: AgentRun): string {
+  if (run.origin === "auto-anomaly") return "異常検知";
+  if (run.origin === "auto-summary") return "朝のサマリー";
+  if (run.status === "yield") return "Yield";
+  return "手動";
+}
 
 // docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunを代表値として見せる。
 // そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
@@ -53,7 +70,7 @@ function getDayPhase(hour: number): DayPhase {
 const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; cta?: string }> = {
   morning: {
     icon: "🌅",
-    text: "朝のチェック: 夜間に止まっていたRunがないか、上の「次にすべきこと」とAgent Fleetの状態を確認しましょう。",
+    text: "朝のチェック: 夜間に止まっていたRunがないか、上の「次にすべきこと」とAgent Fleetの状態を確認しましょう。モヤモヤは「何でも相談」、決まった介入はIssue Workspaceで。",
   },
   midday: {
     icon: "🕐",
@@ -89,6 +106,53 @@ export default function DashboardPage() {
   const [journalText, setJournalText] = useState("");
   const [journalSubmitting, setJournalSubmitting] = useState(false);
   const [journalError, setJournalError] = useState<string | null>(null);
+
+  // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
+  // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editTags, setEditTags] = useState("");
+  const [editPeople, setEditPeople] = useState("");
+  const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function startEditingJournalEntry(entry: JournalEntry) {
+    setEditingEntryId(entry.id);
+    setEditTags(entry.tags.join(", "));
+    setEditPeople(entry.people.join(", "));
+    setEditUrgency(entry.urgency);
+    setEditError(null);
+  }
+
+  function cancelEditingJournalEntry() {
+    setEditingEntryId(null);
+  }
+
+  async function handleConfirmJournalEdit(entryId: string) {
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/journal/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+          people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
+          urgency: editUrgency,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
+      // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。
+      setJournalEntries(journalEntries.map((e) => (e.id === entryId ? data.entry : e)));
+      setEditingEntryId(null);
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
 
   // docs/memo.md「H: 永続化データモデルの設計」対応。Quick Journal（一時的なfact）とは
   // 別に、長期的な解釈（interpretation、TTLなし）を記録する口。「Aさんはリーダー志向がある」
@@ -196,6 +260,9 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error(data.error ?? "タグ付けに失敗しました");
       setJournalEntries([data.entry, ...journalEntries]);
       setJournalText("");
+      // docs/memo.md「C. Journalセンシング→行動」対応。「AI抽出のまま組織の事実になる」ことを
+      // 避けるため、Submit直後は必ず校正できる編集モードで開始する。
+      startEditingJournalEntry(data.entry);
     } catch (err) {
       setJournalError((err as Error).message);
     } finally {
@@ -266,6 +333,7 @@ export default function DashboardPage() {
         id: `stale-${run.id}`,
         severity: "urgent",
         icon: "❔",
+        kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
         onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
       });
@@ -274,6 +342,7 @@ export default function DashboardPage() {
         id: `yield-${run.id}`,
         severity: "urgent",
         icon: "🟡",
+        kindLabel: isUnreviewedAuto ? runKindLabel(run) : "Yield",
         text: `${isUnreviewedAuto ? `${autoLabel}: ` : `${run.agentName}が判断待ちです: `}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
         onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
       });
@@ -282,18 +351,35 @@ export default function DashboardPage() {
         id: `error-${run.id}`,
         severity: "urgent",
         icon: "🔴",
+        kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${isUnreviewedAuto ? `${autoLabel}（エラー）: ` : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
         onSelect: isUnreviewedAuto ? onSelectAuto : () => goToRunIssue(run),
       });
     } else if (isUnreviewedAuto && run.status === "idle") {
+      // docs/memo.md「A」対応。異常検知ドラフトはtaskの要約より、Lead Agentが出した
+      // 結論（proposal.conclusion）の方がEMの判断材料として有用なので優先して見せる。
       nextActions.push({
         id: `auto-${run.id}`,
         severity: "warn",
         icon: "🤖",
-        text: `${autoLabel}: ${run.task.slice(0, 44)}`,
+        kindLabel: runKindLabel(run),
+        text: run.proposal?.conclusion ? run.proposal.conclusion.slice(0, 60) : `${autoLabel}: ${run.task.slice(0, 44)}`,
         onSelect: onSelectAuto,
       });
     }
+  }
+
+  for (const entry of journalEntries) {
+    if (entry.urgency !== "mid" || entry.sentiment !== "negative") continue;
+    if (Date.now() - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
+    nextActions.push({
+      id: `journal-${entry.id}`,
+      severity: "warn",
+      icon: "📝",
+      kindLabel: "要注目Journal",
+      text: (entry.summary || entry.rawText).slice(0, 44),
+      onSelect: () => router.push(`/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}`),
+    });
   }
 
   for (const issue of issues) {
@@ -302,6 +388,7 @@ export default function DashboardPage() {
       id: `charter-${issue.id}`,
       severity: "warn",
       icon: "❓",
+      kindLabel: "Issue未整理",
       text: `Issue「${issue.title}」のWhy/What/Howが${charterFilledCount(issue.charter)}/3しか整理されていません`,
       onSelect: () => router.push(`/issues/${issue.id}`),
     });
@@ -313,8 +400,19 @@ export default function DashboardPage() {
         id: `vital-${v.teamId}`,
         severity: v.status === "bad" ? "urgent" : "warn",
         icon: v.status === "bad" ? "🔴" : "🟡",
+        kindLabel: "チームリスク",
         text: `${v.teamName}のチーム状態: ${v.label}`,
         onSelect: () => router.push("/org"),
+      });
+    } else if (v.status === "unknown") {
+      // docs/memo.md「D」対応。診断で止まらせず、観測を増やす行動（Quick Journal）へ誘導する。
+      nextActions.push({
+        id: `vital-unknown-${v.teamId}`,
+        severity: "warn",
+        icon: "⚪️",
+        kindLabel: "評価不能",
+        text: `${v.teamName}は評価不能（情報不足）— 観測を増やす`,
+        onSelect: () => prefillJournal(v.members.length > 0 ? `#1on1 @${v.members[0]} ` : ""),
       });
     }
   }
@@ -324,12 +422,39 @@ export default function DashboardPage() {
       id: "coverage",
       severity: vitals.oneOnOneCoverage.status === "bad" ? "urgent" : "warn",
       icon: vitals.oneOnOneCoverage.status === "bad" ? "🔴" : "🟡",
+      kindLabel: "1on1不足",
       text: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件です`,
       onSelect: () => router.push("/org"),
     });
   }
 
   nextActions.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "urgent" ? -1 : 1));
+
+  // docs/memo.md「E. 横断Activity Stream」（TODO「Dashboardに全エージェント横断のAgent
+  // Activity Streamパネルを追加する」に対応）。新基盤（SSE等）は導入せず、既存runs[].logを
+  // 時刻順にマージして見せるだけ。ポーリングは既存useRunsのまま。
+  const activityLines = runs
+    .flatMap((run) =>
+      run.log.map((line, idx) => ({
+        id: `${run.id}-${idx}`,
+        ts: line.ts,
+        agentLabel: run.agentName.replace(/ Agent$/, ""),
+        icon: line.text.startsWith("[YIELD]") ? "🟡" : line.channel === "system" ? "⚙️" : line.channel === "meta" ? "📝" : "💬",
+        text: line.text.replace(/\s+/g, " ").slice(0, 80),
+        onSelect: () => {
+          const linkedIssue = issues.find((i) => i.agentRunId === run.id);
+          if (linkedIssue) {
+            router.push(`/issues/${linkedIssue.id}`);
+          } else if (run.agentName === "Lead Agent") {
+            router.push(`/chat?runId=${run.id}`);
+          } else {
+            goToRunIssue(run);
+          }
+        },
+      })),
+    )
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, ACTIVITY_STREAM_LIMIT);
 
   const dayPhase = getDayPhase(new Date().getHours());
   const guidance = DAY_PHASE_GUIDANCE[dayPhase];
@@ -338,6 +463,13 @@ export default function DashboardPage() {
     const el = document.getElementById("quick-journal-input");
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
     (el as HTMLInputElement | null)?.focus();
+  }
+
+  // docs/memo.md「D. 評価不能→観測アクション」対応。評価不能で立ち止まらせず、
+  // 「誰の1on1を記録すればよいか」までQuick Journalへのプリフィルで橋渡しする。
+  function prefillJournal(text: string) {
+    setJournalText(text);
+    focusJournalInput();
   }
 
   return (
@@ -373,7 +505,8 @@ export default function DashboardPage() {
                   onClick={a.onSelect}
                 >
                   <div>
-                    {a.icon} {a.text}
+                    {a.icon} <span className={styles.badge} style={{ marginRight: 6 }}>{a.kindLabel}</span>
+                    {a.text}
                   </div>
                 </button>
               ))}
@@ -403,6 +536,22 @@ export default function DashboardPage() {
         })}
       </div>
 
+      <div className={styles.panel}>
+        <h2>Agent Activity Stream</h2>
+        <p className={styles.subtitle}>全エージェント横断の直近ログです（最新が上）。クリックで詳細（紐付くIssueまたは相談）に移動できます。</p>
+        {activityLines.length === 0 ? (
+          <p className={styles.subtitle}>まだアクティビティはありません。</p>
+        ) : (
+          <div className={styles.activityStream}>
+            {activityLines.map((a) => (
+              <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={a.text}>
+                [{a.agentLabel}] {a.icon} {a.text}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className={`${styles.panel} ${styles.vitalsPanel}`}>
         <div className={styles.vitalsHead}>
           <div>
@@ -427,6 +576,18 @@ export default function DashboardPage() {
                 根拠を見る
               </button>
               {openVitalId === v.teamId && <div className={styles.vitalDetail}>{v.reason}</div>}
+              {v.status === "unknown" && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  <button className={styles.btnOutline} onClick={() => prefillJournal("")}>
+                    Quick Journalにメモする
+                  </button>
+                  {v.members.length > 0 && (
+                    <button className={styles.btnOutline} onClick={() => prefillJournal(`#1on1 @${v.members[0]} `)}>
+                      {v.members[0]}の1on1を記録
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -439,6 +600,16 @@ export default function DashboardPage() {
               根拠を見る
             </button>
             {openVitalId === "coverage" && <div className={styles.vitalDetail}>{vitals.oneOnOneCoverage.reason}</div>}
+            {(vitals.oneOnOneCoverage.status === "warn" || vitals.oneOnOneCoverage.status === "bad") &&
+              vitals.oneOnOneCoverage.uncoveredMembers.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  {vitals.oneOnOneCoverage.uncoveredMembers.slice(0, 3).map((name) => (
+                    <button key={name} className={styles.btnOutline} onClick={() => prefillJournal(`#1on1 @${name} `)}>
+                      {name}の1on1を記録
+                    </button>
+                  ))}
+                </div>
+              )}
           </div>
 
           {vitals.teams.length === 0 && (
@@ -475,29 +646,76 @@ export default function DashboardPage() {
           {journalError && <p className={styles.errorText}>{journalError}</p>}
 
           {journalEntries.length === 0 && !journalSubmitting && <p className={styles.subtitle}>まだジャーナルはありません。</p>}
-          {journalPagination.pageItems.map((entry) => (
-            <div key={entry.id} className={styles.journalEntry}>
-              <div>{entry.rawText}</div>
-              <div className={styles.tagRow}>
-                {entry.people.map((p) => (
-                  <span key={p} className={`${styles.tag} ${styles.tagPerson}`}>
-                    @{p}
-                  </span>
-                ))}
-                {entry.tags.map((t) => (
-                  <span key={t} className={`${styles.tag} ${styles.tagTopic}`}>
-                    #{t}
-                  </span>
-                ))}
-                {entry.sentiment !== "neutral" && (
-                  <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-                    #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-                  </span>
-                )}
-                <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
+          {journalPagination.pageItems.map((entry) =>
+            editingEntryId === entry.id ? (
+              <div key={entry.id} className={styles.journalEntry}>
+                <div>{entry.rawText}</div>
+                <div className={styles.field} style={{ marginTop: 8 }}>
+                  <label>人物（カンマ区切り）</label>
+                  <input type="text" value={editPeople} onChange={(e) => setEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
+                </div>
+                <div className={styles.field}>
+                  <label>タグ（カンマ区切り）</label>
+                  <input type="text" value={editTags} onChange={(e) => setEditTags(e.target.value)} placeholder="例: 1on1, 技術的負債" />
+                </div>
+                <div className={styles.field}>
+                  <label>Urgency</label>
+                  <select value={editUrgency} onChange={(e) => setEditUrgency(e.target.value as JournalEntry["urgency"])}>
+                    <option value="low">Low</option>
+                    <option value="mid">Mid</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    className={styles.primaryBtn}
+                    style={{ width: "auto" }}
+                    disabled={editSubmitting}
+                    onClick={() => handleConfirmJournalEdit(entry.id)}
+                  >
+                    {editSubmitting ? "確定中…" : "この内容で確定"}
+                  </button>
+                  <button className={styles.btnOutline} disabled={editSubmitting} onClick={cancelEditingJournalEntry}>
+                    キャンセル
+                  </button>
+                </div>
+                {editError && <p className={styles.errorText}>{editError}</p>}
               </div>
-            </div>
-          ))}
+            ) : (
+              <div key={entry.id} className={styles.journalEntry}>
+                <div>{entry.rawText}</div>
+                <div className={styles.tagRow}>
+                  {entry.people.map((p) => (
+                    <button
+                      key={p}
+                      className={`${styles.tag} ${styles.tagPerson} ${styles.tagBtn}`}
+                      onClick={() => router.push(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
+                    >
+                      @{p}
+                    </button>
+                  ))}
+                  {entry.tags.map((t) => (
+                    <button
+                      key={t}
+                      className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+                      onClick={() => router.push(`/issues?tag=${encodeURIComponent(t)}`)}
+                    >
+                      #{t}
+                    </button>
+                  ))}
+                  {entry.sentiment !== "neutral" && (
+                    <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
+                      #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
+                    </span>
+                  )}
+                  <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
+                  <button className={styles.detailToggle} onClick={() => startEditingJournalEntry(entry)}>
+                    編集
+                  </button>
+                </div>
+              </div>
+            ),
+          )}
           <PaginationControls
             page={journalPagination.page}
             totalPages={journalPagination.totalPages}
@@ -599,6 +817,7 @@ export default function DashboardPage() {
             {inboxPagination.pageItems.map((run) => (
               <button key={run.id} className={styles.runItem} onClick={() => goToRunIssue(run)}>
                 <div>
+                  <span className={styles.badge} style={{ marginRight: 6 }}>{runKindLabel(run)}</span>
                   <strong>{run.agentName}</strong> <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
                   {run.consultedBy && (
                     <span className={styles.subtitle} style={{ marginLeft: 6 }}>

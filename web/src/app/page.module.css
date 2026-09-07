@@ -147,6 +147,40 @@
   overflow-y: auto;
 }
 
+.activityStream {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 180px;
+  overflow-y: auto;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: var(--code-bg, #0f172a0d);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.activityLine {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+  font: inherit;
+}
+
+.activityLine:hover {
+  background: var(--panel-bg-hover, rgba(0, 0, 0, 0.05));
+}
+
 .runItem {
   text-align: left;
   border: 1px solid var(--border);
@@ -429,6 +463,29 @@
 .tagNeg {
   background: var(--red-bg);
   color: var(--red-fg);
+}
+
+.tagBtn {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.typeChip {
+  display: inline-block;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg, #fff);
+  cursor: pointer;
+  font: inherit;
+}
+
+.typeChipSelected {
+  background: #eef6ff;
+  color: #1b6fc9;
+  border-color: #1b6fc9;
 }
 
 .urgencyLabel {

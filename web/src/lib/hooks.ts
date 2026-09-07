@@ -102,7 +102,10 @@ export function useTeams(intervalMs = 5000) {
 }
 
 export function useVitals(intervalMs = 5000) {
-  const fallback: OrgVitals = { teams: [], oneOnOneCoverage: { status: "unknown", covered: 0, total: 0, reason: "" } };
+  const fallback: OrgVitals = {
+    teams: [],
+    oneOnOneCoverage: { status: "unknown", covered: 0, total: 0, reason: "", uncoveredMembers: [] },
+  };
   const { data, refresh } = usePolling<OrgVitals>("/api/vitals", fallback, intervalMs);
   return { vitals: data, refreshVitals: refresh };
 }

@@ -129,6 +129,14 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   return event;
 }
 
+// docs/memo.md「C. Journalセンシング→行動」対応。イベントソーシング（イベントは削除・
+// 上書きしない）を保ったまま「その場微修正」を実現するため、既存イベントを1件取得し、
+// supersedesで新イベントに繋ぐための参照用途。
+export function getEventById(id: string): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  return row ? rowToEvent(row) : undefined;
+}
+
 export function listEvents(filter?: { entityType?: KnowledgeEntityType; kind?: KnowledgeKind }): KnowledgeEvent[] {
   const conditions: string[] = [];
   const params: string[] = [];
