@@ -5,7 +5,7 @@ import type { AgentRun } from "@/components/RunDetail";
 import { timestampToDateInputValue } from "@/lib/journal-date-parser";
 import type {
   EmCheckin,
-  EmReflection,
+  EmReflectionNote,
   Issue,
   IssueImpact,
   JournalEntry,
@@ -291,15 +291,15 @@ export function useEmCheckins(intervalMs = 15000) {
   return { checkins: data.checkins, setCheckins: (checkins: EmCheckin[]) => setData({ checkins }), refreshCheckins: refresh };
 }
 
-export function useEmReflections(intervalMs = 15000) {
-  const { data, setData, refresh } = usePolling<{ reflections: EmReflection[] }>(
-    "/api/em-self/reflections",
-    { reflections: [] },
+export function useReflectionNotes(intervalMs = 15000) {
+  const { data, setData, refresh } = usePolling<{ notes: EmReflectionNote[] }>(
+    "/api/em-self/reflection-notes",
+    { notes: [] },
     intervalMs,
   );
   return {
-    reflections: data.reflections,
-    setReflections: (reflections: EmReflection[]) => setData({ reflections }),
-    refreshReflections: refresh,
+    notes: data.notes,
+    setNotes: (notes: EmReflectionNote[]) => setData({ notes }),
+    refreshNotes: refresh,
   };
 }
