@@ -12,6 +12,7 @@ import {
   useJournalEditing,
   useObjectives,
   useOrgStrategy,
+  usePeople,
   useRuns,
   useSettingsRules,
   useTeams,
@@ -127,6 +128,8 @@ export default function DashboardPage() {
   const { strategy } = useOrgStrategy();
   const { teams } = useTeams();
   const { objectives } = useObjectives();
+  // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
+  const { people } = usePeople();
 
   // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
   // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する。
@@ -445,6 +448,51 @@ export default function DashboardPage() {
     });
   }
 
+  // docs/em_human_story_and_ux.md P1-10対応。要注目人物（ネガティブ傾向が優勢）を
+  // 朝キューにも薄く載せる（Peopleハブは「ある画面」のままだと朝の物語に編入されないため）。
+  const attentionPeople = people
+    .filter((p) => p.trend.negative >= 2 && p.trend.negative > p.trend.positive)
+    .sort((a, b) => b.trend.negative - a.trend.negative)
+    .slice(0, 3);
+  for (const p of attentionPeople) {
+    nextActions.push({
+      id: `person-${p.id}`,
+      severity: "warn",
+      lane: "observation",
+      icon: "🧑",
+      kindLabel: "要注目人物",
+      text: `${p.name}: ネガティブな傾向のFactが${p.trend.negative}件あります`,
+      onSelect: () => router.push(`/people/${p.id}`),
+    });
+  }
+
+  // docs/em_human_story_and_ux.md P1-10対応。進行中（未アーカイブ）の介入のうち、着手は
+  // されているのに長期間動きが無いものは「やりっぱなし」になりやすい。観測不足として
+  // 朝キューに載せる（着手前の空のIssueは「Issue未整理」側で既に拾っているため対象外）。
+  const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
+  const staleInterventions = issues
+    .filter(
+      (i) =>
+        !i.archived &&
+        !i.parentId &&
+        (charterFilledCount(i.charter) > 0 || i.actionItems.length > 0) &&
+        now - i.updatedAt > STALE_INTERVENTION_MS,
+    )
+    .sort((a, b) => a.updatedAt - b.updatedAt)
+    .slice(0, 3);
+  for (const issue of staleInterventions) {
+    const days = Math.round((now - issue.updatedAt) / (24 * 60 * 60 * 1000));
+    nextActions.push({
+      id: `stale-issue-${issue.id}`,
+      severity: "warn",
+      lane: "observation",
+      icon: "🧊",
+      kindLabel: "介入の観測不足",
+      text: `「${issue.title}」が${days}日間動いていません。効果を観測しましたか？`,
+      onSelect: () => router.push(`/issues/${issue.id}`),
+    });
+  }
+
   for (const v of vitals.teams) {
     if (v.status === "bad" || v.status === "warn") {
       nextActions.push({
@@ -536,6 +584,13 @@ export default function DashboardPage() {
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
   const autoRunsToday = runs.filter((r) => r.origin !== "manual" && r.createdAt >= todayStart.getTime()).length;
+
+  // docs/em_human_story_and_ux.md P1-10対応。戦略（H）を「ある画面」から朝の要約へ薄く載せる。
+  // 判断待ちの項目ではなく単なる現況表示なので、次にすべきことのリストではなくヘッダー直下の
+  // 1行として出す。
+  const krTotals = objectives
+    .flatMap((o) => o.progress)
+    .reduce((acc, p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done: 0, total: 0 });
 
   // docs/memo.md「E. 横断Activity Stream」（TODO「Dashboardに全エージェント横断のAgent
   // Activity Streamパネルを追加する」に対応）。新基盤（SSE等）は導入せず、既存runs[].logを
@@ -662,6 +717,14 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        {krTotals.total > 0 && (
+          <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
+            📈 今期のKR進捗: {krTotals.done}/{krTotals.total}件
+            <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => router.push("/org")}>
+              詳細
+            </button>
+          </p>
+        )}
         {autoRunsToday > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
             🤖 本日のAI自動起動: {autoRunsToday}件
