@@ -56,6 +56,14 @@
   animation: none;
 }
 
+/* docs/dashboard_ui_readability.md U1-2対応。画面直下に並ぶパネル間の余白を1箇所で揃え、
+   「セクション＝呼吸」を作る。:not(.layout)は、.screenと.layout（2カラムgrid）を同じ要素に
+   併用しているchat/settings/org画面を除外するため——そちらの直下の子はgridの列であり、
+   margin-topを入れるとカラムの縦位置がずれてしまう。 */
+.screen:not(.layout) > * + * {
+  margin-top: 16px;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
@@ -68,11 +76,18 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-  margin-bottom: 16px;
 }
 
 @media (max-width: 860px) {
-  .layout,
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* docs/dashboard_ui_readability.md U4-3対応。Quick Journal／Inboxはどちらもフォーム＋
+   リストで内容が詰まっており、.layoutより広い幅で折り返しが目立ち始めるため、
+   専用の（より広い）ブレークポイントで先に縦積みへ切り替える。 */
+@media (max-width: 1000px) {
   .dashColumns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -151,6 +166,14 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px 18px;
+}
+
+/* docs/dashboard_ui_readability.md U1-3対応。副次パネル（既定で畳んである・振り返り専用
+   等）は主パネル（.heroPanel）と同じ白カードにせず、地の色に近いトーンへ落として
+   「見なくていい」感を出す。 */
+.secondaryPanel {
+  background: var(--gray-bg);
+  border-color: transparent;
 }
 
 .panel h2 {
@@ -256,7 +279,9 @@
   border-radius: 8px;
   padding: 8px 10px;
   cursor: pointer;
-  font-size: 12px;
+  /* docs/dashboard_ui_readability.md U1-1対応。リスト行は「全部同じ小ささ」から
+     一段引き上げる（11〜12px一色だった帯を広げる）。 */
+  font-size: 13px;
   box-shadow: 0 1px 2px rgba(15, 18, 25, 0.04);
 }
 
@@ -267,11 +292,6 @@
 .runItem.selected {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px var(--blue) inset;
-}
-
-/* 「次にすべきこと」パネル（Dashboard）: 深刻度を左のアクセントで一目で区別する。 */
-.nextActionsPanel {
-  margin-bottom: 16px;
 }
 
 /* docs/dashboard_ui_readability.md U0-1 / U1-3対応。Dashboard先頭の主パネルだけを
@@ -289,6 +309,9 @@
   margin: 0;
 }
 
+/* docs/dashboard_ui_readability.md U3-3対応。色塗りの既定を弱める。全面tintは
+   本当に緊急な項目（urgent）だけに残し、警告（warn）は枠・左アクセントのみにする——
+   常時オンの色が並ぶと「今ここ」の合図が埋もれるため。 */
 .runItem.nextActionUrgent {
   background: var(--red-bg);
   border-color: var(--red-border);
@@ -296,8 +319,6 @@
 }
 
 .runItem.nextActionWarn {
-  background: var(--yellow-bg);
-  border-color: var(--yellow-border);
   border-left: 4px solid var(--yellow-border);
 }
 
@@ -511,7 +532,8 @@
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 10px;
-  font-size: 13px;
+  /* docs/dashboard_ui_readability.md U1-1対応。本文として読ませる部分は14pxへ広げる。 */
+  font-size: 14px;
 }
 
 .tagRow {
@@ -644,10 +666,6 @@
 }
 
 /* ---------- Team Vitals ---------- */
-.vitalsPanel {
-  margin-bottom: 16px;
-}
-
 .vitalsHead {
   display: flex;
   justify-content: space-between;

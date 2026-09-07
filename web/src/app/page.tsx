@@ -243,6 +243,9 @@ export default function DashboardPage() {
   // 既定で折りたたみ、朝の視線が「次にすべきこと」から逸れないようにする。
   const [fleetOpen, setFleetOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
+  // docs/dashboard_ui_readability.md U4-1対応。Quick Journalと長期プロファイルが
+  // 同一パネル内で「入力が2種類」に見えないよう、長期プロファイルは既定で畳んでおく。
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
   const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
@@ -701,7 +704,7 @@ export default function DashboardPage() {
       {/* docs/em_human_story_and_ux.md P0-5 / docs/dashboard_ui_readability.md U0-1対応。
           先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
           最初にトリアージへ着地させる。 */}
-      <div className={`${styles.panel} ${styles.nextActionsPanel} ${styles.heroPanel}`}>
+      <div className={`${styles.panel} ${styles.heroPanel}`}>
         <h1 className={styles.heroHeadline}>{headline}</h1>
 
         <div className={styles.tabs} style={{ margin: "10px 0" }}>
@@ -745,10 +748,10 @@ export default function DashboardPage() {
                   className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
                   onClick={a.onSelect}
                 >
-                  <div>
-                    {a.icon} <span className={styles.badge} style={{ marginRight: 6 }}>{a.kindLabel}</span>
-                    {a.text}
-                  </div>
+                  {/* docs/dashboard_ui_readability.md U3-1対応。絵文字とバッジを両立させず、
+                      種別（バッジ）＋本文の2層にする。 */}
+                  <span className={styles.badge}>{a.kindLabel}</span>
+                  <div className={styles.runItemTask}>{a.text}</div>
                 </button>
               ))}
             </div>
@@ -786,7 +789,7 @@ export default function DashboardPage() {
 
       {/* docs/dashboard_ui_readability.md U0-2対応。Fleet/Activityは副次情報として折りたたむ。
           畳んだままでも状態アイコンの1行サマリーで様子が分かるようにする。 */}
-      <div className={styles.panel}>
+      <div className={`${styles.panel} ${styles.secondaryPanel}`}>
         <button className={styles.detailToggle} onClick={() => setFleetOpen(!fleetOpen)}>
           エージェントの状態・直近の動き　{fleetSummary} {fleetOpen ? "を閉じる ▲" : "を見る ▼"}
         </button>
@@ -819,7 +822,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className={`${styles.panel} ${styles.vitalsPanel}`}>
+      <div className={styles.panel}>
         <div className={styles.vitalsHead}>
           <div>
             <h2>チームの状態</h2>
@@ -952,53 +955,63 @@ export default function DashboardPage() {
             </p>
           )}
 
-          <h3
-            style={{ fontSize: 13, marginTop: 18, marginBottom: 4, cursor: "help" }}
-            title="「Aさんはリーダー志向がある」のような長期的な解釈を、Quick Journalとは別に期限切れなく記録します。"
-          >
-            長期プロファイル ⓘ
-          </h3>
-          <form onSubmit={handleProfileSubmit}>
-            <div className={styles.journalInputRow}>
-              <input
-                type="text"
-                value={profilePerson}
-                onChange={(e) => setProfilePerson(e.target.value)}
-                placeholder="対象（例: Aさん）"
-                style={{ maxWidth: 140 }}
-              />
-              <input
-                type="text"
-                value={profileText}
-                onChange={(e) => setProfileText(e.target.value)}
-                placeholder="例: Aさんはリーダー志向がある"
-              />
-              <button
-                className={styles.primaryBtn}
-                style={{ width: "auto" }}
-                type="submit"
-                disabled={profileSubmitting || !profilePerson.trim() || !profileText.trim()}
-              >
-                {profileSubmitting ? "記録中…" : "記録"}
-              </button>
-            </div>
-          </form>
-          {profileError && <p className={styles.errorText}>{profileError}</p>}
-          {profileSaved && <p className={styles.subtitle}>✅ 長期プロファイルとして記録しました。</p>}
+          <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+            <button className={styles.detailToggle} onClick={() => setProfileOpen(!profileOpen)}>
+              長期プロファイルを記録する {profileOpen ? "▲" : "▼"}
+            </button>
+            {profileOpen && (
+              <>
+                <p className={styles.subtitle} style={{ margin: "6px 0 8px" }}>
+                  「Aさんはリーダー志向がある」のような長期的な解釈を、Quick Journalとは別に期限切れなく記録します。
+                </p>
+                <form onSubmit={handleProfileSubmit}>
+                  <div className={styles.journalInputRow}>
+                    <input
+                      type="text"
+                      value={profilePerson}
+                      onChange={(e) => setProfilePerson(e.target.value)}
+                      placeholder="対象（例: Aさん）"
+                      style={{ maxWidth: 140 }}
+                    />
+                    <input
+                      type="text"
+                      value={profileText}
+                      onChange={(e) => setProfileText(e.target.value)}
+                      placeholder="例: Aさんはリーダー志向がある"
+                    />
+                    <button
+                      className={styles.primaryBtn}
+                      style={{ width: "auto" }}
+                      type="submit"
+                      disabled={profileSubmitting || !profilePerson.trim() || !profileText.trim()}
+                    >
+                      {profileSubmitting ? "記録中…" : "記録"}
+                    </button>
+                  </div>
+                </form>
+                {profileError && <p className={styles.errorText}>{profileError}</p>}
+                {profileSaved && <p className={styles.subtitle}>✅ 長期プロファイルとして記録しました。</p>}
 
-          <button
-            type="button"
-            className={styles.btnOutline}
-            style={{ marginTop: 8 }}
-            onClick={handleDraftProfile}
-            disabled={draftStarting || !profilePerson.trim() || draftRun?.status === "active"}
-          >
-            {draftStarting || draftRun?.status === "active" ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
-          </button>
-          <p className={styles.subtitle} style={{ marginTop: 4 }} title="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。">
-            ⓘ あくまで下書きです。「記録」を押すまで保存されません。
-          </p>
-          {draftError && <p className={styles.errorText}>{draftError}</p>}
+                <button
+                  type="button"
+                  className={styles.btnOutline}
+                  style={{ marginTop: 8 }}
+                  onClick={handleDraftProfile}
+                  disabled={draftStarting || !profilePerson.trim() || draftRun?.status === "active"}
+                >
+                  {draftStarting || draftRun?.status === "active" ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
+                </button>
+                <p
+                  className={styles.subtitle}
+                  style={{ marginTop: 4 }}
+                  title="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。"
+                >
+                  ⓘ あくまで下書きです。「記録」を押すまで保存されません。
+                </p>
+                {draftError && <p className={styles.errorText}>{draftError}</p>}
+              </>
+            )}
+          </div>
         </div>
 
         <div className={styles.panel}>

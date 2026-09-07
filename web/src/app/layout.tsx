@@ -26,7 +26,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <div className={styles.page}>
           <div className={styles.header}>
             <h1 className={styles.title}>EM Support System</h1>
-            <p className={styles.subtitle}>Manager&apos;s Cockpit — Daily Triage &amp; Agent Oversight</p>
+            {/* docs/dashboard_ui_readability.md U2-1対応。全画面共通のタグラインが英語のみ
+                だったため、他の見出しと揃えて日本語にする。 */}
+            <p className={styles.subtitle}>組織のトリアージとAIエージェントの監督</p>
           </div>
           <TopNav />
           <StoryBanner />
