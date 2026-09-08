@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   charterFilledCount,
+  isIssueStalled,
   isJournalEntryResolved,
   isRunStale,
+  issueProgress,
   normalizeTeamName,
   teamDisplayName,
   teamPathSegments,
   truncateForTitle,
+  type Issue,
   type IssueCharter,
   type JournalEntry,
 } from "@/lib/types";
@@ -78,6 +81,80 @@ describe("charterFilledCount", () => {
   it("全項目埋まっていれば3", () => {
     const charter: IssueCharter = { why: "a", what: "b", how: "c" };
     expect(charterFilledCount(charter)).toBe(3);
+  });
+});
+
+function baseIssue(overrides: Partial<Issue> = {}): Issue {
+  return {
+    id: "issue-1",
+    title: "Issue",
+    charter: { why: "", what: "", how: "" },
+    actionItems: [],
+    logEntries: [],
+    status: "not_started",
+    archived: false,
+    tags: [],
+    createdAt: 0,
+    updatedAt: 0,
+    ...overrides,
+  };
+}
+
+describe("issueProgress", () => {
+  it("Action Itemの完了数を数える", () => {
+    const issue = baseIssue({
+      actionItems: [
+        { id: "1", text: "a", done: true },
+        { id: "2", text: "b", done: false },
+      ],
+    });
+    expect(issueProgress(issue)).toEqual({ done: 1, total: 2 });
+  });
+
+  it("子Issueの完了（status:doneまたはarchived）も合算する", () => {
+    const issue = baseIssue();
+    const children = [baseIssue({ id: "c1", status: "done" }), baseIssue({ id: "c2", archived: true }), baseIssue({ id: "c3" })];
+    expect(issueProgress(issue, children)).toEqual({ done: 2, total: 3 });
+  });
+
+  it("項目が無ければ0/0", () => {
+    expect(issueProgress(baseIssue())).toEqual({ done: 0, total: 0 });
+  });
+});
+
+describe("isIssueStalled", () => {
+  const now = Date.now();
+  const staleDays = 14;
+
+  it("archived済みは対象外", () => {
+    const issue = baseIssue({ archived: true, actionItems: [{ id: "1", text: "a", done: false }], updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
+    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
+  });
+
+  it("子Issue（parentIdあり）は対象外", () => {
+    const issue = baseIssue({ parentId: "p1", actionItems: [{ id: "1", text: "a", done: false }], updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
+    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
+  });
+
+  it("着手前（charter未整理かつAction Item無し）は対象外", () => {
+    const issue = baseIssue({ updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
+    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
+  });
+
+  it("着手済みで閾値を超えていればtrue", () => {
+    const issue = baseIssue({
+      actionItems: [{ id: "1", text: "a", done: false }],
+      updatedAt: now - 30 * 24 * 60 * 60 * 1000,
+    });
+    expect(isIssueStalled(issue, now, staleDays)).toBe(true);
+  });
+
+  it("閾値以内ならfalse", () => {
+    const issue = baseIssue({
+      actionItems: [{ id: "1", text: "a", done: false }],
+      updatedAt: now - 1 * 24 * 60 * 60 * 1000,
+    });
+    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
   });
 });
 

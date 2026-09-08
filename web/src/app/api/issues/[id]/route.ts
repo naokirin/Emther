@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
-import { getIssue, setIssueKeyResult, setIssueTags, setIssueTeam, setIssueTitle, toIssueView, updateIssueCharter } from "@/lib/issue-store";
+import {
+  getIssue,
+  setIssueKeyResult,
+  setIssueStatus,
+  setIssueTags,
+  setIssueTeam,
+  setIssueTitle,
+  toIssueView,
+  updateIssueCharter,
+  type IssueStatus,
+} from "@/lib/issue-store";
+import { ISSUE_STATUSES } from "@/lib/types";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]">) {
   const { id } = await ctx.params;
@@ -17,6 +28,10 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
   if (typeof body?.title === "string" && !body.title.trim()) {
     return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
+  }
+  // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。
+  if ("status" in (body ?? {}) && !ISSUE_STATUSES.includes(body.status)) {
+    return NextResponse.json({ error: "statusの値が不正です" }, { status: 400 });
   }
 
   let issue = await updateIssueCharter(id, {
@@ -41,6 +56,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   if ("teamId" in (body ?? {})) {
     const teamId = typeof body.teamId === "string" && body.teamId ? body.teamId : null;
     issue = setIssueTeam(id, teamId) ?? issue;
+  }
+  if ("status" in (body ?? {})) {
+    issue = setIssueStatus(id, body.status as IssueStatus) ?? issue;
   }
   return NextResponse.json({ issue: toIssueView(issue) });
 }

@@ -45,6 +45,21 @@ describe("PATCH /api/settings/rules", () => {
     expect((await res.json()).rules.maxParallelAgentRuns).toBe(1);
   });
 
+  it("decisionQueueLimit/observationQueueLimit/staleInterventionDaysを更新できる", async () => {
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", {
+        decisionQueueLimit: 5,
+        observationQueueLimit: 10,
+        staleInterventionDays: 3,
+      }),
+    );
+    const json = await res.json();
+    expect(json.rules.decisionQueueLimit).toBe(5);
+    expect(json.rules.observationQueueLimit).toBe(10);
+    expect(json.rules.staleInterventionDays).toBe(3);
+  });
+
   it("型が不正な値は無視する（既定値のまま）", async () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { teamWindowDays: "not-a-number" }));

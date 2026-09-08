@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
+import { ProgressBar } from "@/components/ProgressBar";
+import { IssueStatusBadge, IssueStatusSelector } from "@/components/IssueStatus";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
-import { INTERVENTION_TYPES, charterFilledCount, isRunStale } from "@/lib/types";
+import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueStatus } from "@/lib/types";
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -22,6 +24,8 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   // 意味を持つため、その場合だけポーリングする。
   const { impact } = useIssueImpact(id, !!issue?.teamId);
   const { rules } = useSettingsRules();
+  // eslint-disable-next-line react-hooks/purity -- 「停滞中」表示にのみ使う
+  const now = Date.now();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
@@ -242,6 +246,24 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const [archiving, setArchiving] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+
+  // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。カンバンのドラッグ&ドロップは
+  // 実装しないため、列（ステータス）の切り替えはここから行う。
+  async function handleChangeStatus(status: IssueStatus) {
+    if (!issue) return;
+    setStatusSaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) await refreshIssue();
+    } finally {
+      setStatusSaving(false);
+    }
+  }
 
   async function handleToggleArchived() {
     if (!issue) return;
@@ -503,10 +525,16 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 編集
               </button>
               <br />
+              <IssueStatusBadge status={issue.status} />{" "}
               {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
               {issue.archived && (
                 <span className={styles.subtitle} style={{ marginLeft: 6 }}>
                   🗄 アーカイブ済み
+                </span>
+              )}
+              {isIssueStalled(issue, now, rules.staleInterventionDays) && (
+                <span className={styles.subtitle} style={{ marginLeft: 6 }}>
+                  ⏳ 停滞中
                 </span>
               )}
             </>
@@ -515,6 +543,15 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         <button className={styles.btnOutline} onClick={handleToggleArchived} disabled={archiving}>
           {issue.archived ? "アーカイブを解除" : "アーカイブする"}
         </button>
+      </div>
+
+      <div className={styles.field}>
+        <span className={styles.fieldCaption}>ステータス</span>
+        <IssueStatusSelector status={issue.status} onChange={handleChangeStatus} disabled={statusSaving} />
+      </div>
+      <div className={styles.field} style={{ maxWidth: 260 }}>
+        <span className={styles.fieldCaption}>進捗（Action Items + サブIssue）</span>
+        <ProgressBar {...issueProgress(issue, childIssues)} />
       </div>
 
       {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
@@ -632,8 +669,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 <thead>
                   <tr>
                     <th>タイトル</th>
+                    <th>ステータス</th>
                     <th>Why/What/How</th>
-                    <th>Action Items</th>
+                    <th>進捗</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -652,12 +690,15 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           </div>
                         </td>
                         <td>
+                          <IssueStatusBadge status={child.status} />
+                        </td>
+                        <td>
                           <span className={childCharter === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
                             {childCharter === 3 ? "✅" : "❓"} {childCharter}/3
                           </span>
                         </td>
                         <td>
-                          {child.actionItems.filter((a) => a.done).length}/{child.actionItems.length}
+                          <ProgressBar {...issueProgress(child)} />
                         </td>
                       </tr>
                     );

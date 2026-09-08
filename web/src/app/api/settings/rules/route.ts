@@ -43,6 +43,9 @@ export async function PATCH(request: Request) {
     autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
     autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
     maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
+    decisionQueueLimit: positiveInt(body?.decisionQueueLimit),
+    observationQueueLimit: positiveInt(body?.observationQueueLimit),
+    staleInterventionDays: positiveInt(body?.staleInterventionDays),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);

@@ -50,6 +50,15 @@ export type RulesAndConstraints = {
   // 不安定になる。ここで同時に「実行中」にできるCLI子プロセス数の上限を設け、
   // 超過分はキューイングして順番に起動する（agent-runtime.tsのacquireRunSlot）。
   maxParallelAgentRuns: number;
+  // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
+  // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
+  // 超過分は非表示にはせず、既存の折りたたみ展開で引き続き確認できる。
+  decisionQueueLimit: number;
+  observationQueueLimit: number;
+  // docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。介入（Issue）が何日動きが無ければ
+  // 「観測不足」として朝キューに再浮上させるかの閾値。既定14日は過去のP1-10対応での
+  // チューニング値を維持し、EMが好みに応じて短くできるようにする。
+  staleInterventionDays: number;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -69,6 +78,9 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
   maxParallelAgentRuns: 2,
+  decisionQueueLimit: 3,
+  observationQueueLimit: 6,
+  staleInterventionDays: 14,
 };
 
 let rules: RulesAndConstraints = {

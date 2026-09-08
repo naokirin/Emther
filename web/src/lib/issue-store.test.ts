@@ -214,6 +214,57 @@ describe("listIssues / listChildIssues / getIssueByRunId", () => {
   });
 });
 
+describe("status", () => {
+  it("createIssueの既定statusはnot_started", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    expect(issue.status).toBe("not_started");
+  });
+
+  it("addActionItemでnot_startedからin_progressへ自動昇格する", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    const updated = await store.addActionItem(issue.id, "レビューを依頼する");
+    expect(updated?.status).toBe("in_progress");
+  });
+
+  it("addLogEntryでnot_startedからin_progressへ自動昇格する", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    const updated = await store.addLogEntry(issue.id, "状況確認した");
+    expect(updated?.status).toBe("in_progress");
+  });
+
+  it("setIssueStatusでblockedにした後はAction Item追加で上書きされない", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    store.setIssueStatus(issue.id, "blocked");
+    const updated = await store.addActionItem(issue.id, "待ち");
+    expect(updated?.status).toBe("blocked");
+  });
+
+  it("setIssueArchived(true)でstatusがdoneになり、解除するとin_progressに戻る", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    const archived = store.setIssueArchived(issue.id, true);
+    expect(archived?.status).toBe("done");
+    const unarchived = store.setIssueArchived(issue.id, false);
+    expect(unarchived?.status).toBe("in_progress");
+  });
+
+  it("setIssueStatusは同じ値なら変更履歴を増やさず現状を返す", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    const result = store.setIssueStatus(issue.id, "not_started");
+    expect(result?.status).toBe("not_started");
+  });
+
+  it("存在しないIssueIdはundefined", async () => {
+    const store = await loadModule();
+    expect(store.setIssueStatus("missing", "blocked")).toBeUndefined();
+  });
+});
+
 describe("toIssueView", () => {
   it("PERSON_n IDでマスクされたフィールドを実名復元する", async () => {
     const peopleDirectory = await import("@/lib/people-directory");
