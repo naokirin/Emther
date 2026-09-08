@@ -909,11 +909,11 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .vitalsLegend {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -924,25 +924,25 @@
 
 .vitalsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
 }
 
 .vitalCard {
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   background: var(--gray-bg);
 }
 
 .vitalLabel {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .vitalValue {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
@@ -980,6 +980,10 @@
 
 .vital-unknown .vitalValue {
   color: var(--gray-fg);
+}
+
+.vitalCard .detailToggle {
+  font-size: 0.75rem;
 }
 
 .detailToggle {
@@ -1172,6 +1176,58 @@
   cursor: pointer;
   color: var(--text-muted);
   padding: 2px 6px;
+}
+
+/* ---------- SlideOver（改修依頼「一覧⇄詳細をサイドピークで」対応） ---------- */
+.slideOverOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 25, 0.4);
+  z-index: 100;
+}
+
+.slideOverBox {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(560px, 92vw);
+  background: var(--panel);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  animation: slideOverIn 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slideOverBox {
+    animation: none;
+  }
+}
+
+@keyframes slideOverIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.slideOverHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.slideOverBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 32px;
 }
 
 /* ---------- Back link ---------- */
@@ -1660,5 +1716,77 @@
   width: 14px;
   flex-shrink: 0;
   color: var(--blue-text);
+}
+
+/* ---------- People: 円形スコアバッジ（改修依頼「労務SaaS的な視覚スコア表示」対応） ---------- */
+.personScoreBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--gray-border);
+  font-family: var(--font-mono);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.personScoreGood {
+  background: var(--green-bg);
+  color: var(--green-fg);
+  border-color: var(--green-border);
+}
+
+.personScoreWarn {
+  background: var(--yellow-bg);
+  color: var(--yellow-fg);
+  border-color: var(--yellow-border);
+}
+
+.personScoreBad {
+  background: var(--red-bg);
+  color: var(--red-fg);
+  border-color: var(--red-border);
+}
+
+.personScoreUnknown {
+  background: var(--gray-bg);
+  color: var(--text-muted);
+  border-color: var(--gray-border);
+}
+
+.personCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.personCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.personCard:hover {
+  border-color: var(--input-border);
+}
+
+.personCardBody {
+  min-width: 0;
+  flex: 1;
+}
+
+.personCardName {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 

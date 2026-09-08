@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { STATUS_META, StatusBadge, resolveYieldKind, runFallbackTitle, type AgentRun, type AgentStatus } from "@/components/RunDetail";
+import { runKindLabel } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
-import { PaginationControls, usePagination } from "@/components/Pagination";
-import { Select } from "@/components/Select";
 import {
   useEmCheckins,
+  useGoToRunIssue,
   useIssues,
   useJournal,
   useJournalEditing,
@@ -21,33 +20,20 @@ import {
   useVitals,
 } from "@/lib/hooks";
 import {
-  AGENT_OPTIONS,
   charterFilledCount,
   isJournalEntryResolved,
   isRunStale,
-  truncateForTitle,
-  YIELD_KIND_META,
   type Issue,
   type JournalEntry,
 } from "@/lib/types";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
-const INBOX_PAGE_SIZE = 5;
 const NEXT_ACTIONS_LIMIT = 6;
-const STATUS_FILTER_OPTIONS = [
-  { value: "", label: "すべて" },
-  { value: "active", label: "🔵 Active" },
-  { value: "queued", label: "⏳ Queued（順番待ち）" },
-  { value: "yield", label: "🟡 Yield" },
-  { value: "idle", label: "⚪️ Idle" },
-  { value: "error", label: "🔴 Error" },
-];
 // docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
 // で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
 // 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
 // よう表示ウィンドウで自然に外れるようにする。
 const JOURNAL_ATTENTION_WINDOW_MS = 24 * 60 * 60 * 1000;
-const ACTIVITY_STREAM_LIMIT = 30;
 
 // docs/memo.md TODO「ダッシュボードで『人間のEMが次になにをするべきか？』がすぐに分かり、
 // 詳細に遷移できる状態にする」への対応。Yield/Error/Issue charter未整理/Team Vitals不調という
@@ -96,30 +82,6 @@ type PendingJournalDraft = {
 // docs/em_human_story_and_ux.md P0-3対応。「様子見」に決めたまま長期間放置されている
 // 項目は、判断待ちレーンへ再浮上させる。
 const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
-
-// docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
-// docs/em_ui_ux_issue.md 5節対応。yield中はDecide/Inform/Commitの種別まで見せる
-// （§2.3「Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる」の語彙を揃える）。
-function runKindLabel(run: AgentRun): string {
-  if (run.status === "yield" && run.yieldRequest) {
-    const kind = resolveYieldKind(run.yieldRequest.kind, run.yieldRequest.options.length);
-    return YIELD_KIND_META[kind].label;
-  }
-  if (run.origin === "auto-anomaly") return "異常検知";
-  if (run.origin === "auto-summary") return "朝のサマリー";
-  if (run.status === "yield") return "Yield";
-  return "手動";
-}
-
-// docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunを代表値として見せる。
-// そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
-function latestRunForAgent(agentName: string, runs: AgentRun[]): AgentRun | undefined {
-  const relevant = runs.filter((r) => r.agentName === agentName);
-  if (relevant.length === 0) return undefined;
-  return relevant.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
-}
-
-const STALE_META = { icon: "❔", label: "応答なし（無応答）", cls: styles.stale };
 
 function issueNeedsCharter(issue: Issue): boolean {
   return !issue.parentId && !issue.archived && charterFilledCount(issue.charter) < 3;
@@ -184,6 +146,7 @@ export default function DashboardPage() {
 
   const { runs, refreshRuns } = useRuns();
   const { issues } = useIssues();
+  const goToRunIssue = useGoToRunIssue(issues);
   const { vitals } = useVitals();
   const { journalEntries, setJournalEntries } = useJournal();
   // 改修依頼「今日の振り返りに、今日記録されていない場合のアラートを出す」対応。
@@ -201,11 +164,6 @@ export default function DashboardPage() {
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
-
-  const [agentName, setAgentName] = useState(AGENT_OPTIONS[0]);
-  const [task, setTask] = useState("");
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const [journalText, setJournalText] = useState("");
   const [journalError, setJournalError] = useState<string | null>(null);
@@ -323,24 +281,11 @@ export default function DashboardPage() {
   // docs/em_human_story_and_ux.md P0-1対応。既定は「判断待ち」だけを見せ、他レーンは
   // タブで切り替える（3種類を同じリストに混在させない）。
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
-  // docs/dashboard_ui_readability.md U0-2対応。Fleet/Activity Streamは副次情報として
-  // 既定で折りたたみ、朝の視線が「次にすべきこと」から逸れないようにする。
-  const [fleetOpen, setFleetOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   // docs/dashboard_ui_readability.md U4-1対応。Quick Journalと長期プロファイルが
   // 同一パネル内で「入力が2種類」に見えないよう、長期プロファイルは既定で畳んでおく。
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
-  const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
-  // ユーザー指摘「『今日』の判断待ちで却下のものも並ぶので、フィルタとして却下を非表示にしたい。
-  // また却下のものはデフォルトで非表示となるようにしたい」対応。相談・起動一覧は
-  // 判断待ちレーン（nextActions）と異なりtriageStatusで絞っていなかったため、却下済みの
-  // runがいつまでも残って見えてしまっていた。デフォルトでは却下を隠し、必要なときだけ表示できる。
-  const [showDismissedRuns, setShowDismissedRuns] = useState(false);
-  const filteredRuns = runs
-    .filter((r) => showDismissedRuns || r.triageStatus !== "dismissed")
-    .filter((r) => !statusFilter || r.status === statusFilter);
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
   // 直近5件だけを見せ、全件の検索・絞り込みは/journalに委ねる。
@@ -352,7 +297,6 @@ export default function DashboardPage() {
     ? journalEntries.filter((e) => !isJournalEntryResolved(e))
     : journalEntries;
   const recentJournalEntries = visibleJournalEntries.slice(0, JOURNAL_DASHBOARD_LIMIT);
-  const inboxPagination = usePagination(filteredRuns, INBOX_PAGE_SIZE);
 
   // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化する」対応。POST /api/journalは
   // ローカルモデルでの抽出（数十秒かかることがある）を含むため、fetchの完了をSubmitボタンで
@@ -445,71 +389,6 @@ export default function DashboardPage() {
     setBulkResultMessage(null);
     submitBulkDraft(text);
     setBulkText("");
-  }
-
-  async function handleStart(e: React.FormEvent) {
-    e.preventDefault();
-    if (!task.trim()) return;
-    setStarting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentName, task }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "起動に失敗しました");
-      setTask("");
-      await refreshRuns();
-      // docs/em_human_story_and_ux.md P0-2対応。Lead Agentは「何でも相談」の相手なので、
-      // 起票フォームから始めた場合も即Issue化はせず、まず相談画面に着地させる
-      // （Issue化・様子見・却下はそちら側で明示的に選べる）。専門エージェントは
-      // 「決まった介入」を前提に既存どおり即Issue化する。
-      if (agentName === "Lead Agent") {
-        router.push(`/chat?runId=${data.run.id}`);
-      } else {
-        await goToRunIssue(data.run);
-      }
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  // 既にIssue化されていればそのIssueへ、まだならその場でIssue化してから遷移する
-  // （Issue Workspaceは「Issueの詳細」を表示する画面として一本化しているため）。
-  // 明示的な「Issueにする」操作からのみ呼ぶこと（P0-2: 即Issue化を既定にしない）。
-  async function goToRunIssue(run: AgentRun) {
-    const existing = issues.find((i) => i.agentRunId === run.id);
-    if (existing) {
-      router.push(`/issues/${existing.id}`);
-      return;
-    }
-    try {
-      const res = await fetch("/api/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
-      });
-      const data = await res.json();
-      if (res.ok) router.push(`/issues/${data.issue.id}`);
-    } catch {
-      // 失敗時はIssue一覧から手動で紐づけられる
-    }
-  }
-
-  // docs/em_human_story_and_ux.md P0-2対応。Inbox行クリックの既定を「相談」優先にする。
-  // Lead Agentでまだ何にも紐付いていないrunは/chatへ（そこで「Issueにする/様子見/却下」を
-  // 選べる）。専門エージェントや、既にIssue化済みのrunはこれまで通り。
-  function handleInboxRunClick(run: AgentRun) {
-    const existing = issues.find((i) => i.agentRunId === run.id);
-    if (!existing && run.agentName === "Lead Agent") {
-      router.push(`/chat?runId=${run.id}`);
-      return;
-    }
-    goToRunIssue(run);
   }
 
   const nextActions: NextAction[] = [];
@@ -796,45 +675,6 @@ export default function DashboardPage() {
     .flatMap((o) => o.progress)
     .reduce((acc, p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done: 0, total: 0 });
 
-  // ユーザー指摘「いつのものかわからないので日時を先頭に入れてほしい」対応。月/日 時:分を
-  // 常に2桁ゼロ埋めで返すことで、文字数を固定長にする（.activityLineTime側の固定幅指定と
-  // 合わせて、日時の値によってテキストの開始位置がずれないようにする）。
-  function formatActivityTimestamp(ts: number): string {
-    const d = new Date(ts);
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
-    return `${mm}/${dd} ${hh}:${mi}`;
-  }
-
-  // docs/memo.md「E. 横断Activity Stream」（TODO「Dashboardに全エージェント横断のAgent
-  // Activity Streamパネルを追加する」に対応）。新基盤（SSE等）は導入せず、既存runs[].logを
-  // 時刻順にマージして見せるだけ。ポーリングは既存useRunsのまま。
-  const activityLines = runs
-    .flatMap((run) =>
-      run.log.map((line, idx) => ({
-        id: `${run.id}-${idx}`,
-        ts: line.ts,
-        timeLabel: formatActivityTimestamp(line.ts),
-        agentLabel: run.agentName.replace(/ Agent$/, ""),
-        icon: line.text.startsWith("[YIELD]") ? "🟡" : line.channel === "system" ? "⚙️" : line.channel === "meta" ? "📝" : "💬",
-        text: line.text.replace(/\s+/g, " ").slice(0, 80),
-        onSelect: () => {
-          const linkedIssue = issues.find((i) => i.agentRunId === run.id);
-          if (linkedIssue) {
-            router.push(`/issues/${linkedIssue.id}`);
-          } else if (run.agentName === "Lead Agent") {
-            router.push(`/chat?runId=${run.id}`);
-          } else {
-            goToRunIssue(run);
-          }
-        },
-      })),
-    )
-    .sort((a, b) => b.ts - a.ts)
-    .slice(0, ACTIVITY_STREAM_LIMIT);
-
   const dayPhase = getDayPhase(new Date(now).getHours());
   const guidance = DAY_PHASE_GUIDANCE[dayPhase];
 
@@ -859,16 +699,6 @@ export default function DashboardPage() {
   if (!strategy.mission && !strategy.vision && !strategy.values) setupGaps.push("MVV未設定");
   if (teams.length === 0) setupGaps.push(`Team ${teams.length}件`);
   if (objectives.length === 0) setupGaps.push(`Objective ${objectives.length}件`);
-
-  // docs/dashboard_ui_readability.md U0-2対応。Fleetは既定で折りたたむため、
-  // 折りたたんだままでも状態が一目で分かるよう、状態アイコンだけの1行サマリーを作る。
-  const fleetStatuses = AGENT_OPTIONS.map((name) => {
-    const latest = latestRunForAgent(name, runs);
-    const stale = latest ? staleRunIds.has(latest.id) : false;
-    const meta = stale ? STALE_META : STATUS_META[latest?.status ?? "idle"];
-    return { name, meta };
-  });
-  const fleetSummary = fleetStatuses.map((f) => f.meta.icon).join(" ");
 
   // docs/em_human_story_and_ux.md P0-5対応。先頭を「今日の組織の問い」1文へ圧縮する。
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
@@ -1043,44 +873,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* docs/dashboard_ui_readability.md U0-2対応。Fleet/Activityは副次情報として折りたたむ。
-          畳んだままでも状態アイコンの1行サマリーで様子が分かるようにする。 */}
-      <div className={`${styles.panel} ${styles.secondaryPanel}`}>
-        <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setFleetOpen(!fleetOpen)}>
-          エージェントの状態・直近の動き　{fleetSummary} {fleetOpen ? "を閉じる ▲" : "を見る ▼"}
-        </button>
-        {fleetOpen && (
-          <>
-            <div className={styles.fleetRow} style={{ marginTop: 12 }}>
-              {fleetStatuses.map(({ name, meta }) => (
-                <div key={name} className={`${styles.fleetBadge} ${meta.cls}`}>
-                  <strong>
-                    {meta.icon} {name}
-                  </strong>
-                  <span className={styles.fleetName}>{meta.label}</span>
-                </div>
-              ))}
-            </div>
-            {activityLines.length === 0 ? (
-              <p className={styles.subtitle} style={{ marginTop: 12 }}>
-                まだ直近の動きはありません。
-              </p>
-            ) : (
-              <div className={styles.activityStream} style={{ marginTop: 12 }}>
-                {activityLines.map((a) => (
-                  <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={`${a.timeLabel} ${a.text}`}>
-                    <span className={styles.activityLineTime}>{a.timeLabel}</span>
-                    <span className={styles.activityLineText}>
-                      [{a.agentLabel}] {a.icon} {a.text}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
       <div className={styles.panel}>
         <div className={styles.vitalsHead}>
           <div>
@@ -1158,373 +950,254 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className={styles.dashColumns}>
-        <div className={styles.panel}>
-          <div className={styles.detailHeader} style={{ alignItems: "center" }}>
-            <h2 style={{ margin: 0 }}>
-              メモする{" "}
-              <span
-                className={styles.subtitle}
-                style={{ fontWeight: 400, cursor: "help" }}
-                title="入力後、完全ローカルの軽量モデル（Qwen2.5-0.5B、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。"
-              >
-                ⓘ
-              </span>
-            </h2>
-            <button className={styles.btnOutline} onClick={() => router.push("/journal")}>
-              すべて見る →
+      <div className={styles.panel}>
+        <div className={styles.detailHeader} style={{ alignItems: "center" }}>
+          <h2 style={{ margin: 0 }}>
+            メモする{" "}
+            <span
+              className={styles.subtitle}
+              style={{ fontWeight: 400, cursor: "help" }}
+              title="入力後、完全ローカルの軽量モデル（Qwen2.5-0.5B、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。"
+            >
+              ⓘ
+            </span>
+          </h2>
+          <button className={styles.btnOutline} onClick={() => router.push("/journal")}>
+            すべて見る →
+          </button>
+        </div>
+        <form onSubmit={handleJournalSubmit}>
+          <div className={styles.journalInputRow}>
+            <input
+              id="quick-journal-input"
+              type="text"
+              value={journalText}
+              onChange={(e) => setJournalText(e.target.value)}
+              placeholder="例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
+            />
+            <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={!journalText.trim()}>
+              Submit
             </button>
           </div>
-          <form onSubmit={handleJournalSubmit}>
-            <div className={styles.journalInputRow}>
-              <input
-                id="quick-journal-input"
-                type="text"
-                value={journalText}
-                onChange={(e) => setJournalText(e.target.value)}
-                placeholder="例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
-              />
-              <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={!journalText.trim()}>
-                Submit
-              </button>
-            </div>
-            {/* 改修依頼「通常投入でも日付レベルの訂正を検討」対応。既定は今日のまま・
-                非表示。今日の話でないと分かっているときだけ開いて日付を選べる。 */}
-            {journalDateOpen ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                  発生日
-                  <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} style={{ maxWidth: 160 }} />
-                </label>
-                <button
-                  type="button"
-                  className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                  onClick={() => {
-                    setJournalDate("");
-                    setJournalDateOpen(false);
-                  }}
-                >
-                  今日に戻す
-                </button>
-              </div>
-            ) : (
+          {/* 改修依頼「通常投入でも日付レベルの訂正を検討」対応。既定は今日のまま・
+              非表示。今日の話でないと分かっているときだけ開いて日付を選べる。 */}
+          {journalDateOpen ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                発生日
+                <input type="date" value={journalDate} onChange={(e) => setJournalDate(e.target.value)} style={{ maxWidth: 160 }} />
+              </label>
               <button
                 type="button"
                 className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                style={{ marginTop: 6 }}
-                onClick={() => setJournalDateOpen(true)}
+                onClick={() => {
+                  setJournalDate("");
+                  setJournalDateOpen(false);
+                }}
               >
-                📅 今日の話じゃない（発生日を変える）
+                今日に戻す
               </button>
-            )}
-          </form>
-          {journalError && <p className={styles.errorText} role="alert">{journalError}</p>}
-
-          <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setBulkOpen(!bulkOpen)}>
-              📥 まとめて記録する（後からまとめて書きたいとき） {bulkOpen ? "▲" : "▼"}
-            </button>
-            {bulkOpen && (
-              <form onSubmit={handleBulkSubmit} style={{ marginTop: 8 }}>
-                <p className={styles.subtitle} style={{ marginBottom: 6 }}>
-                  1行＝1つの出来事です。日付が変わるときだけ、その行だけに日付を書いてください（例:
-                  3/5・月曜・昨日）。省略した行は直前の日付のままになります。時刻は不要です。
-                </p>
-                <textarea
-                  rows={5}
-                  value={bulkText}
-                  onChange={(e) => setBulkText(e.target.value)}
-                  style={{
-                    width: "100%",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                    padding: "8px 10px",
-                    fontSize: "0.8125rem",
-                    fontFamily: "inherit",
-                    resize: "vertical",
-                  }}
-                  placeholder={"3/5\nAさんと1on1。異動の相談を受けた\nBチームとの調整が難航\n月曜\nCさんが有休、引き継ぎ確認"}
-                />
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto", marginTop: 8 }}
-                  type="submit"
-                  disabled={!bulkText.trim()}
-                >
-                  まとめて記録する
-                </button>
-                {bulkError && <p className={styles.errorText} role="alert">{bulkError}</p>}
-                {bulkResultMessage && (
-                  <p className={styles.subtitle} style={{ marginTop: 6 }} role="status">
-                    ✅ {bulkResultMessage}
-                  </p>
-                )}
-              </form>
-            )}
-          </div>
-
-          {journalEntries.length > 0 && (
-            <label
-              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 10 }}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              style={{ marginTop: 6 }}
+              onClick={() => setJournalDateOpen(true)}
             >
-              <input
-                type="checkbox"
-                checked={excludeResolvedJournal}
-                onChange={(e) => setExcludeResolvedJournal(e.target.checked)}
+              📅 今日の話じゃない（発生日を変える）
+            </button>
+          )}
+        </form>
+        {journalError && <p className={styles.errorText} role="alert">{journalError}</p>}
+
+        <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+          <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setBulkOpen(!bulkOpen)}>
+            📥 まとめて記録する（後からまとめて書きたいとき） {bulkOpen ? "▲" : "▼"}
+          </button>
+          {bulkOpen && (
+            <form onSubmit={handleBulkSubmit} style={{ marginTop: 8 }}>
+              <p className={styles.subtitle} style={{ marginBottom: 6 }}>
+                1行＝1つの出来事です。日付が変わるときだけ、その行だけに日付を書いてください（例:
+                3/5・月曜・昨日）。省略した行は直前の日付のままになります。時刻は不要です。
+              </p>
+              <textarea
+                rows={5}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  padding: "8px 10px",
+                  fontSize: "0.8125rem",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                }}
+                placeholder={"3/5\nAさんと1on1。異動の相談を受けた\nBチームとの調整が難航\n月曜\nCさんが有休、引き継ぎ確認"}
               />
-              ✅ 対応済みを除外
-            </label>
-          )}
-          {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
-            <p className={styles.subtitle}>まだジャーナルはありません。</p>
-          )}
-          {journalEntries.length > 0 && visibleJournalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
-            <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
-          )}
-          {pendingJournalDrafts.map((draft) => (
-            <div key={draft.tempId} className={styles.journalEntry}>
-              <div>{draft.label}</div>
-              {draft.error ? (
-                <div className={styles.tagRow} style={{ marginTop: 4 }}>
-                  <span className={styles.errorText} role="alert">
-                    ⚠️ {draft.error}
-                  </span>
-                  <button className={styles.btnOutline} onClick={draft.retry}>
-                    再試行
-                  </button>
-                  <button
-                    className={styles.btnOutline}
-                    onClick={() => setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== draft.tempId))}
-                  >
-                    取り消す
-                  </button>
-                </div>
-              ) : (
-                <p className={styles.subtitle} style={{ marginTop: 4 }} role="status">
-                  <span className={styles.spinner} aria-hidden="true" />
-                  ローカルAIでタグ付け中…
+              <button
+                className={styles.primaryBtn}
+                style={{ width: "auto", marginTop: 8 }}
+                type="submit"
+                disabled={!bulkText.trim()}
+              >
+                まとめて記録する
+              </button>
+              {bulkError && <p className={styles.errorText} role="alert">{bulkError}</p>}
+              {bulkResultMessage && (
+                <p className={styles.subtitle} style={{ marginTop: 6 }} role="status">
+                  ✅ {bulkResultMessage}
                 </p>
               )}
-            </div>
-          ))}
-          {recentJournalEntries.map((entry) => (
-            <JournalEntryCard
-              key={entry.id}
-              entry={entry}
-              editing={journalEditing.editingEntryId === entry.id}
-              editRawText={journalEditing.editRawText}
-              editTags={journalEditing.editTags}
-              editPeople={journalEditing.editPeople}
-              editUrgency={journalEditing.editUrgency}
-              editDate={journalEditing.editDate}
-              editSubmitting={journalEditing.editSubmitting}
-              editError={journalEditing.editError}
-              resolutionNoteDraft={journalEditing.resolutionNoteDraft}
-              pending={journalEditing.isEntryPending(entry.id)}
-              pendingError={journalEditing.pendingEntryErrors[entry.id]}
-              onDismissPendingError={() => journalEditing.dismissPendingError(entry.id)}
-              onChangeEditRawText={journalEditing.setEditRawText}
-              onChangeEditTags={journalEditing.setEditTags}
-              onChangeEditPeople={journalEditing.setEditPeople}
-              onChangeEditUrgency={journalEditing.setEditUrgency}
-              onChangeEditDate={journalEditing.setEditDate}
-              onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}
-              onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
-              onCancelEdit={journalEditing.cancelEditing}
-              onStartEdit={() => journalEditing.startEditing(entry)}
-              onResolveWithNote={() => journalEditing.resolveWithNote(entry.id)}
-              onResolveWithNewIssue={() => journalEditing.resolveWithNewIssue(entry)}
-              onClearResolution={() => journalEditing.clearResolution(entry.id)}
-            />
-          ))}
-          {visibleJournalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
-            <p className={styles.subtitle} style={{ marginTop: -4, marginBottom: 12 }}>
-              他{visibleJournalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
-              <button className={styles.detailToggle} onClick={() => router.push("/journal")}>
-                Journal一覧
-              </button>
-              から確認できます。
-            </p>
+            </form>
           )}
-
-          <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setProfileOpen(!profileOpen)}>
-              長期プロファイルを記録する {profileOpen ? "▲" : "▼"}
-            </button>
-            {profileOpen && (
-              <>
-                <p className={styles.subtitle} style={{ margin: "6px 0 8px" }}>
-                  「Aさんはリーダー志向がある」のような長期的な解釈を、Quick Journalとは別に期限切れなく記録します。
-                </p>
-                <form onSubmit={handleProfileSubmit}>
-                  <div className={styles.journalInputRow}>
-                    <input
-                      type="text"
-                      value={profilePerson}
-                      onChange={(e) => setProfilePerson(e.target.value)}
-                      placeholder="対象（例: Aさん）"
-                      style={{ maxWidth: 140 }}
-                    />
-                    <input
-                      type="text"
-                      value={profileText}
-                      onChange={(e) => setProfileText(e.target.value)}
-                      placeholder="例: Aさんはリーダー志向がある"
-                    />
-                    <button
-                      className={styles.primaryBtn}
-                      style={{ width: "auto" }}
-                      type="submit"
-                      disabled={profileSubmitting || !profilePerson.trim() || !profileText.trim()}
-                    >
-                      {profileSubmitting ? "記録中…" : "記録"}
-                    </button>
-                  </div>
-                </form>
-                {profileError && <p className={styles.errorText} role="alert">{profileError}</p>}
-                {profileSaved && (
-                  <p className={styles.subtitle} role="status">
-                    ✅ 長期プロファイルとして記録しました。
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  className={styles.btnOutline}
-                  style={{ marginTop: 8 }}
-                  onClick={handleDraftProfile}
-                  disabled={draftStarting || !profilePerson.trim() || draftRunBusy}
-                >
-                  {draftStarting || draftRunBusy ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
-                </button>
-                <p
-                  className={styles.subtitle}
-                  style={{ marginTop: 4 }}
-                  title="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。"
-                >
-                  ⓘ あくまで下書きです。「記録」を押すまで保存されません。
-                </p>
-                {draftError && <p className={styles.errorText} role="alert">{draftError}</p>}
-              </>
-            )}
-          </div>
         </div>
 
-        <div className={styles.panel}>
-          <h2>相談・起動</h2>
-          <form onSubmit={handleStart}>
-            <div className={styles.field}>
-              {/* 改修依頼「デフォルトのセレクトボックスの多用による選択のしにくさ」対応。
-                  固定5件の選択肢はプルダウンで隠さず、常に見えるボタン群にする
-                  （介入の型・ステータス選択と同じ.typeChipパターン）。 */}
-              <span className={styles.fieldCaption}>エージェント</span>
-              <div role="group" aria-label="エージェント" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {AGENT_OPTIONS.map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    className={`${styles.typeChip} ${agentName === name ? styles.typeChipSelected : ""}`}
-                    onClick={() => setAgentName(name)}
-                  >
-                    {name}
-                  </button>
-                ))}
+        {journalEntries.length > 0 && (
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 10 }}
+          >
+            <input
+              type="checkbox"
+              checked={excludeResolvedJournal}
+              onChange={(e) => setExcludeResolvedJournal(e.target.checked)}
+            />
+            ✅ 対応済みを除外
+          </label>
+        )}
+        {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
+          <p className={styles.subtitle}>まだジャーナルはありません。</p>
+        )}
+        {journalEntries.length > 0 && visibleJournalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
+          <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
+        )}
+        {pendingJournalDrafts.map((draft) => (
+          <div key={draft.tempId} className={styles.journalEntry}>
+            <div>{draft.label}</div>
+            {draft.error ? (
+              <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                <span className={styles.errorText} role="alert">
+                  ⚠️ {draft.error}
+                </span>
+                <button className={styles.btnOutline} onClick={draft.retry}>
+                  再試行
+                </button>
+                <button
+                  className={styles.btnOutline}
+                  onClick={() => setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== draft.tempId))}
+                >
+                  取り消す
+                </button>
               </div>
-            </div>
-            <div className={styles.field}>
-              <label>タスク内容
-              <textarea
-                rows={3}
-                value={task}
-                onChange={(e) => setTask(e.target.value)}
-                placeholder="例: Aさんのリファクタリングが停滞している。Bチームの割り込みタスクが原因らしい。対応方針を検討して。"
-              /></label>
-            </div>
-            <button className={styles.primaryBtn} type="submit" disabled={starting || !task.trim()}>
-              {starting ? "起動中…" : "エージェントを起動"}
-            </button>
-          </form>
-          {error && <p className={styles.errorText} role="alert">{error}</p>}
-
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-              状態で絞り込み:
-              <Select
-                value={statusFilter}
-                onChange={(v) => setStatusFilter(v as AgentStatus | "")}
-                options={STATUS_FILTER_OPTIONS}
-                style={{ minWidth: 180 }}
-              />
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-              <input
-                type="checkbox"
-                checked={showDismissedRuns}
-                onChange={(e) => setShowDismissedRuns(e.target.checked)}
-              />
-              🗑️ 却下も表示
-            </label>
+            ) : (
+              <p className={styles.subtitle} style={{ marginTop: 4 }} role="status">
+                <span className={styles.spinner} aria-hidden="true" />
+                ローカルAIでタグ付け中…
+              </p>
+            )}
           </div>
-
-          <div className={styles.tableWrap} style={{ marginTop: 8 }}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>種別</th>
-                  <th>エージェント / タスク</th>
-                  <th>状態</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRuns.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className={styles.tableEmpty}>
-                      条件に一致するエージェントはありません。
-                    </td>
-                  </tr>
-                )}
-                {inboxPagination.pageItems.map((run) => {
-                  const linked = issues.some((i) => i.agentRunId === run.id);
-                  return (
-                    <tr key={run.id}>
-                      <td>
-                        <span className={styles.badge}>{runKindLabel(run)}</span>
-                      </td>
-                      <td>
-                        <button className={styles.tableRowLink} onClick={() => handleInboxRunClick(run)}>
-                          {run.agentName}: {run.task}
-                        </button>
-                        {run.consultedBy && (
-                          <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
-                            🔀 {runs.find((r) => r.id === run.consultedBy)?.agentName ?? "Lead Agent"}からの相談
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <StatusBadge status={run.status} stale={staleRunIds.has(run.id)} />
-                      </td>
-                      <td>
-                        {!linked && run.agentName === "Lead Agent" && (
-                          <button className={styles.btnOutline} onClick={() => goToRunIssue(run)}>
-                            📌 Issueにする
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <PaginationControls
-            page={inboxPagination.page}
-            totalPages={inboxPagination.totalPages}
-            total={inboxPagination.total}
-            rangeStart={inboxPagination.rangeStart}
-            rangeEnd={inboxPagination.rangeEnd}
-            onChange={inboxPagination.setPage}
+        ))}
+        {recentJournalEntries.map((entry) => (
+          <JournalEntryCard
+            key={entry.id}
+            entry={entry}
+            editing={journalEditing.editingEntryId === entry.id}
+            editRawText={journalEditing.editRawText}
+            editTags={journalEditing.editTags}
+            editPeople={journalEditing.editPeople}
+            editUrgency={journalEditing.editUrgency}
+            editDate={journalEditing.editDate}
+            editSubmitting={journalEditing.editSubmitting}
+            editError={journalEditing.editError}
+            resolutionNoteDraft={journalEditing.resolutionNoteDraft}
+            pending={journalEditing.isEntryPending(entry.id)}
+            pendingError={journalEditing.pendingEntryErrors[entry.id]}
+            onDismissPendingError={() => journalEditing.dismissPendingError(entry.id)}
+            onChangeEditRawText={journalEditing.setEditRawText}
+            onChangeEditTags={journalEditing.setEditTags}
+            onChangeEditPeople={journalEditing.setEditPeople}
+            onChangeEditUrgency={journalEditing.setEditUrgency}
+            onChangeEditDate={journalEditing.setEditDate}
+            onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}
+            onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
+            onCancelEdit={journalEditing.cancelEditing}
+            onStartEdit={() => journalEditing.startEditing(entry)}
+            onResolveWithNote={() => journalEditing.resolveWithNote(entry.id)}
+            onResolveWithNewIssue={() => journalEditing.resolveWithNewIssue(entry)}
+            onClearResolution={() => journalEditing.clearResolution(entry.id)}
           />
+        ))}
+        {visibleJournalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
+          <p className={styles.subtitle} style={{ marginTop: -4, marginBottom: 12 }}>
+            他{visibleJournalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
+            <button className={styles.detailToggle} onClick={() => router.push("/journal")}>
+              Journal一覧
+            </button>
+            から確認できます。
+          </p>
+        )}
+
+        <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+          <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setProfileOpen(!profileOpen)}>
+            長期プロファイルを記録する {profileOpen ? "▲" : "▼"}
+          </button>
+          {profileOpen && (
+            <>
+              <p className={styles.subtitle} style={{ margin: "6px 0 8px" }}>
+                「Aさんはリーダー志向がある」のような長期的な解釈を、Quick Journalとは別に期限切れなく記録します。
+              </p>
+              <form onSubmit={handleProfileSubmit}>
+                <div className={styles.journalInputRow}>
+                  <input
+                    type="text"
+                    value={profilePerson}
+                    onChange={(e) => setProfilePerson(e.target.value)}
+                    placeholder="対象（例: Aさん）"
+                    style={{ maxWidth: 140 }}
+                  />
+                  <input
+                    type="text"
+                    value={profileText}
+                    onChange={(e) => setProfileText(e.target.value)}
+                    placeholder="例: Aさんはリーダー志向がある"
+                  />
+                  <button
+                    className={styles.primaryBtn}
+                    style={{ width: "auto" }}
+                    type="submit"
+                    disabled={profileSubmitting || !profilePerson.trim() || !profileText.trim()}
+                  >
+                    {profileSubmitting ? "記録中…" : "記録"}
+                  </button>
+                </div>
+              </form>
+              {profileError && <p className={styles.errorText} role="alert">{profileError}</p>}
+              {profileSaved && (
+                <p className={styles.subtitle} role="status">
+                  ✅ 長期プロファイルとして記録しました。
+                </p>
+              )}
+
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ marginTop: 8 }}
+                onClick={handleDraftProfile}
+                disabled={draftStarting || !profilePerson.trim() || draftRunBusy}
+              >
+                {draftStarting || draftRunBusy ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
+              </button>
+              <p
+                className={styles.subtitle}
+                style={{ marginTop: 4 }}
+                title="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。"
+              >
+                ⓘ あくまで下書きです。「記録」を押すまで保存されません。
+              </p>
+              {draftError && <p className={styles.errorText} role="alert">{draftError}</p>}
+            </>
+          )}
         </div>
       </div>
     </div>

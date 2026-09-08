@@ -4,15 +4,19 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
+import { PersonScoreBadge } from "@/components/PersonScoreBadge";
 import { usePersonProfile } from "@/lib/hooks";
 import { URGENCY_LABEL, charterFilledCount } from "@/lib/types";
 
+// docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。中身をidベースの
+// コンポーネントに切り出し、フルページ（本ファイル末尾のPersonDetailPage）と
+// 一覧側のSlideOver（people/page.tsx）の両方から同じロジック・JSXを使う。
+//
 // docs/memo.md「J. Peopleを第一級ハブに」対応。人物軸でJournal fact・長期プロファイル
 // （解釈）・チーム所属・関連Issueを横断して見せる詳細画面。新規の永続化エンティティは
 // 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ（このページ自体はEMの
 // 「介入」を行う場所ではなく、辿るための入口——実際の記録・起票は既存の各画面で行う）。
-export default function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export function PersonDetailContent({ id }: { id: string }) {
   const { person } = usePersonProfile(id);
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -32,35 +36,29 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
   }
 
   if (!person) {
-    return (
-      <div className={styles.screen}>
-        <div className={styles.panel}>
-          <p className={styles.subtitle}>読み込み中、または該当する人物が見つかりませんでした。</p>
-          <Link href="/people">← Peopleに戻る</Link>
-        </div>
-      </div>
-    );
+    return <p className={styles.subtitle}>読み込み中、または該当する人物が見つかりませんでした。</p>;
   }
 
   return (
-    <div className={styles.screen}>
-      <div className={styles.panel}>
-        <Link href="/people" className={styles.subtitle}>
-          ← People一覧に戻る
-        </Link>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-          <h2 style={{ marginTop: 8 }}>{person.name}</h2>
-          <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
-            {deleting ? "削除中…" : "誤登録として削除"}
-          </button>
+    <>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+        <PersonScoreBadge trend={person.trend} factCount={person.factCount} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <h2 style={{ margin: 0 }}>{person.name}</h2>
+            <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
+              {deleting ? "削除中…" : "誤登録として削除"}
+            </button>
+          </div>
+          <p className={styles.subtitle}>
+            {person.teamNames.length > 0 ? `所属: ${person.teamNames.join(", ")}` : "所属チームなし"} ／ 直近Journal {person.factCount}件
+            {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}
+            {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
+          </p>
         </div>
-        <p className={styles.subtitle}>
-          {person.teamNames.length > 0 ? `所属: ${person.teamNames.join(", ")}` : "所属チームなし"} ／ 直近Journal {person.factCount}件
-          {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}
-          {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
-        </p>
+      </div>
 
-        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
         {person.interpretations.length === 0 ? (
           <p className={styles.subtitle}>まだ記録がありません。Dashboardの長期プロファイルから記録できます。</p>
         ) : (
@@ -161,6 +159,22 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
             </table>
           </div>
         )}
+    </>
+  );
+}
+
+// フルページ表示用（直接URLアクセス・リロード・「詳細画面で開く」の遷移先）。
+export default function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return (
+    <div className={styles.screen}>
+      <div className={styles.panel}>
+        <Link href="/people" className={styles.subtitle}>
+          ← People一覧に戻る
+        </Link>
+        <div style={{ marginTop: 8 }}>
+          <PersonDetailContent id={id} />
+        </div>
       </div>
     </div>
   );

@@ -32,7 +32,15 @@ const STORY_GROUPS: StoryGroup[] = [
     hint: "現場の出来事を事実として残す・校正する",
     items: [{ href: "/journal", label: "現場メモ" }],
   },
-  { key: "consult", label: "相談", hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める", items: [{ href: "/chat", label: "何でも相談" }] },
+  {
+    key: "consult",
+    label: "相談",
+    hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める",
+    items: [
+      { href: "/chat", label: "何でも相談" },
+      { href: "/agents", label: "エージェント" },
+    ],
+  },
   {
     key: "intervention",
     label: "課題",
