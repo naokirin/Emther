@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
+import { MarkdownView } from "@/components/MarkdownView";
 import { isJournalEntryResolved, URGENCY_LABEL, type JournalEntry } from "@/lib/types";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
@@ -117,7 +118,7 @@ export function JournalEntryCard({
   if (pendingError) {
     return (
       <div className={styles.journalEntry}>
-        <div>{entry.rawText}</div>
+        <MarkdownView text={entry.rawText} />
         <div className={styles.tagRow} style={{ marginTop: 4 }}>
           <span className={styles.errorText} role="alert">
             ⚠️ 更新に失敗しました: {pendingError.message}
@@ -136,7 +137,7 @@ export function JournalEntryCard({
   if (pending) {
     return (
       <div className={styles.journalEntry}>
-        <div>{entry.rawText}</div>
+        <MarkdownView text={entry.rawText} />
         <p className={styles.subtitle} style={{ marginTop: 4 }} role="status">
           <span className={styles.spinner} aria-hidden="true" />
           更新中…
@@ -161,7 +162,11 @@ export function JournalEntryCard({
           </div>
         ) : (
           <div>
-            {entry.rawText}{" "}
+            {/* docs/em_ui_ux_issue.md 7節対応。テキスト領域自体のクリックでも編集を開始
+                できるようにする（アクセシブルな入口は下の「本文を編集」ボタン）。 */}
+            <div className={styles.editableTextView} onClick={() => setRawTextRevealed(true)}>
+              <MarkdownView text={entry.rawText} />
+            </div>
             <button
               className={`${styles.detailToggle} ${styles.detailToggleButton}`}
               onClick={() => setRawTextRevealed(true)}
@@ -266,16 +271,19 @@ export function JournalEntryCard({
 
   return (
     <div className={`${styles.journalEntry} ${isResolved ? styles.journalEntryResolved : ""}`}>
-      <div>
-        {/* 改修依頼「対応済みラベルを本文前につけることでより『対応済み』がわかりやすい
-            ようにする」対応。tagRow内の✅チップ（Issueへのリンク・メモの詳細）とは別に、
-            本文を読み始める前に一目で分かるよう先頭に軽量なラベルを添える。 */}
-        {isResolved && (
-          <span className={`${styles.tag} ${styles.tagPos}`} style={{ marginRight: 6 }}>
-            対応済み
-          </span>
-        )}
-        {entry.rawText}
+      {/* 改修依頼「対応済みラベルを本文前につけることでより『対応済み』がわかりやすい
+          ようにする」対応。tagRow内の✅チップ（Issueへのリンク・メモの詳細）とは別に、
+          本文を読み始める前に一目で分かるよう先頭に軽量なラベルを添える。 */}
+      {isResolved && (
+        <span className={`${styles.tag} ${styles.tagPos}`} style={{ marginRight: 6 }}>
+          対応済み
+        </span>
+      )}
+      {/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。本文はMarkdownで
+          描画し、クリックでも編集モードへ入れるようにする（アクセシブルな入口は下の
+          「編集」ボタン）。 */}
+      <div className={styles.editableTextView} onClick={onStartEdit}>
+        <MarkdownView text={entry.rawText} />
       </div>
       <div className={styles.tagRow}>
         <span className={styles.subtitle} title="出来事の発生日">
