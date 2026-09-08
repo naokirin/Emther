@@ -857,3 +857,126 @@ describe("Lead Agentのconsult協働ループ（handleConsult）", () => {
     expect(spawnCalls).toHaveLength(3); // Tech Agentへの孫consultは起動されていない
   });
 });
+
+describe("watchdog: checkStaleRuns", () => {
+  it("ハングした子プロセスを追跡できている場合はkillし、ログに残す（実際の状態確定はcloseイベント側）", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agentKillAfterSeconds: 0 });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "ハングしそうなタスク");
+    await waitForSpawnCount(1);
+    await new Promise((r) => setTimeout(r, 5)); // agentKillAfterSeconds:0を確実に超過させる
+
+    rt.checkStaleRuns();
+    expect(spawnCalls[0].child.kill).toHaveBeenCalledTimes(1);
+    expect(rt.getRun(run.id)?.log.some((l) => l.text.includes("応答なしとみなして強制終了します"))).toBe(true);
+    expect(rt.getRun(run.id)?.status).toBe("active"); // kill()自体はまだ状態を確定させない
+
+    // killされた子プロセスが実際に終了したことをcloseイベントで再現する。
+    closeChild(spawnCalls[0].child, 137);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(run.id)?.status).toBe("error");
+  });
+
+  it("閾値内であれば何もしない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agentKillAfterSeconds: 600 });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "まだ新しいタスク");
+    await waitForSpawnCount(1);
+
+    rt.checkStaleRuns();
+    expect(spawnCalls[0].child.kill).not.toHaveBeenCalled();
+  });
+
+  it("activeなのに追跡中の子プロセスが無い場合は直接errorへ倒す（異常系への保険）", async () => {
+    // consultで相談中のLead runは、自分自身のCLIプロセスは既にcloseしてliveProcessesから
+    // 消えている一方、専門エージェントの回答を待つ間statusは"active"のまま——という
+    // 実際に発生しうる状態を使って、この保険分岐を再現する。
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agentKillAfterSeconds: 0 });
+    const rt = await loadModule();
+    const leadRun = await rt.startRun("Lead Agent", "複合的な課題");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      sessionId: "sess-lead-1",
+      text: '```consult\n{ "agents": ["People Agent"], "question": "質問" }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 2) throw new Error("specialist run not created yet");
+    });
+    await new Promise((r) => setTimeout(r, 5));
+
+    rt.checkStaleRuns();
+    expect(rt.getRun(leadRun.id)?.status).toBe("error");
+    expect(rt.getRun(leadRun.id)?.log.some((l) => l.text.includes("実行中のプロセスも追跡できないため、エラー扱いにしました"))).toBe(true);
+
+    // 後続の専門エージェント回答〜フォローアップターンをドレインしておく（テスト終了後に
+    // 非同期処理が残らないようにする）。checkStaleRunsによる一時的なerror化に関わらず、
+    // handleConsultのフォローアップターンはrunClaudeTurnの先頭でstatusを再度activeに戻すため、
+    // 最終的にはconsultが完了しidleへ到達する。
+    await waitForSpawnCount(2);
+    emitClaudeResult(spawnCalls[1].child, { text: "People Agentの回答" });
+    closeChild(spawnCalls[1].child, 0);
+    await waitForSpawnCount(3);
+    emitClaudeResult(spawnCalls[2].child, {
+      text: '```proposal\n{ "conclusion": "結論", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[2].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(leadRun.id)?.status !== "idle") throw new Error("not idle yet");
+    });
+  });
+});
+
+describe("watchdog: checkMorningSummary", () => {
+  it("autoMorningSummaryEnabledが既定(false)なら何もしない", async () => {
+    const rt = await loadModule();
+    rt.checkMorningSummary();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+    expect(spawnCalls).toHaveLength(0);
+  });
+
+  it("設定時刻に達していなければ起動しない（hourを24にして『今日中は絶対到達しない』を再現）", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 24 });
+    const rt = await loadModule();
+    rt.checkMorningSummary();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("設定時刻に達していれば当日1回だけLead Agentを自動起動する", async () => {
+    // hour:0にすることで「今日中は常に到達済み」を実時刻に依存せず再現する。
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
+    const rt = await loadModule();
+
+    rt.checkMorningSummary();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    const run = rt.listRuns()[0];
+    expect(run.agentName).toBe("Lead Agent");
+    expect(run.origin).toBe("auto-summary");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "サマリー完了", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+
+    // 同日中の再呼び出しでは再度起動しない（重複生成の防止）。
+    rt.checkMorningSummary();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(1);
+    expect(spawnCalls).toHaveLength(1);
+  });
+});
