@@ -8,8 +8,16 @@ import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/compo
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssueStatusSelector } from "@/components/IssueStatus";
+import { MarkdownView } from "@/components/MarkdownView";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
-import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueStatus } from "@/lib/types";
+import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueCharter, type IssueStatus } from "@/lib/types";
+
+// docs/em_ui_ux_issue.md 7節対応。閲覧モードのWhy/What/Howのラベル（編集モードのlabel文言と揃える）。
+const CHARTER_VIEW_FIELDS: { key: keyof IssueCharter; label: string }[] = [
+  { key: "why", label: "Why（生む価値・誰のため・なぜ今か）" },
+  { key: "what", label: "What（何を・どこまで・どのくらい・完了の定義）" },
+  { key: "how", label: "How（どのように実現するか・前提や制約）" },
+];
 
 export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -115,6 +123,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const [titleSaving, setTitleSaving] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
 
+  // docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。titleEditingと同じ
+  // パターン。textarea群は非制御（defaultValue）で、charterEditingがfalseの間は
+  // アンマウントされているため、キャンセル時に個別のdraft巻き戻しは不要
+  // （再度開けば必ずissue.charterの現在値から始まる）。
+  const [charterEditing, setCharterEditing] = useState(false);
   const [charterSaving, setCharterSaving] = useState(false);
   const [charterError, setCharterError] = useState<string | null>(null);
   const whyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -238,11 +251,22 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         throw new Error(data?.error ?? "保存に失敗しました");
       }
       await refreshIssue();
+      setCharterEditing(false);
     } catch (err) {
       setCharterError((err as Error).message);
     } finally {
       setCharterSaving(false);
     }
+  }
+
+  function startEditingCharter() {
+    setCharterError(null);
+    setCharterEditing(true);
+  }
+
+  function handleCancelCharter() {
+    setCharterError(null);
+    setCharterEditing(false);
   }
 
   const [archiving, setArchiving] = useState(false);
@@ -476,6 +500,13 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       </div>
     );
   }
+
+  // docs/em_ui_ux_issue.md 7節対応。閲覧モードでチーム・Key Resultを文字列表示するための
+  // 逆引き（issues/page.tsxのkeyResultLabelと同じ考え方）。
+  const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
+  const krLabel = issue.keyResultId
+    ? objectives.flatMap((o) => o.keyResults.map((kr) => ({ objTitle: o.title, kr }))).find((x) => x.kr.id === issue.keyResultId)
+    : undefined;
 
   return (
     <div className={styles.screen}>
@@ -718,104 +749,152 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
         {charterFilledCount(issue.charter) < 3 && (
           <div className={styles.charterWarnBanner}>
-            ⚠️ Why/What/Howが{charterFilledCount(issue.charter)}/3しか整理されていません。点線の欄が「まだ分かっていないこと」です。計画や実行を進める前に明確にすることを推奨します。
+            ⚠️ Why/What/Howが{charterFilledCount(issue.charter)}/3しか整理されていません。{charterEditing ? "点線の欄が「まだ分かっていないこと」です。" : ""}計画や実行を進める前に明確にすることを推奨します。
           </div>
         )}
 
-        <div className={styles.charterField}>
-          <label>Why（生む価値・誰のため・なぜ今か）
-          <textarea
-            ref={whyRef}
-            rows={2}
-            defaultValue={issue.charter.why}
-            className={issue.charter.why ? "" : styles.charterEmpty}
-            placeholder="未整理（クリックして記入）"
-          /></label>
-        </div>
-        <div className={styles.charterField}>
-          <label>What（何を・どこまで・どのくらい・完了の定義）
-          <textarea
-            ref={whatRef}
-            rows={2}
-            defaultValue={issue.charter.what}
-            className={issue.charter.what ? "" : styles.charterEmpty}
-            placeholder="未整理（クリックして記入）"
-          /></label>
-        </div>
-        <div className={styles.charterField}>
-          <label>How（どのように実現するか・前提や制約）
-          <textarea
-            ref={howRef}
-            rows={2}
-            defaultValue={issue.charter.how}
-            className={issue.charter.how ? "" : styles.charterEmpty}
-            placeholder="未整理（クリックして記入）"
-          /></label>
-        </div>
-        <div className={styles.field}>
-          <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
-          <select value={teamIdDraft} onChange={(e) => handleChangeTeam(e.target.value)} disabled={teamLinkSaving}>
-            <option value="">なし</option>
-            {teams
-              .filter((t) => !t.archived)
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-          </select></label>
-        </div>
-        <div className={styles.field}>
-          <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
-          <select value={keyResultIdDraft} onChange={(e) => handleChangeKeyResult(e.target.value)} disabled={keyResultSaving}>
-            <option value="">なし</option>
-            {objectives.map((o) =>
-              o.keyResults.map((kr) => (
-                <option key={kr.id} value={kr.id}>
-                  {o.title} ＞ {kr.title}
-                </option>
-              )),
+        {/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。デフォルトは
+            入力フォームを持たない閲覧モード。テキストクリックまたは「編集」ボタンで
+            編集モードへ切り替える（titleEditingと同じ思想）。 */}
+        {!charterEditing ? (
+          <>
+            {CHARTER_VIEW_FIELDS.map(({ key, label }) => (
+              <div key={key} className={styles.charterField}>
+                <span className={styles.fieldCaption}>{label}</span>
+                {issue.charter[key] ? (
+                  <div className={styles.editableTextView} onClick={startEditingCharter}>
+                    <MarkdownView text={issue.charter[key]} />
+                  </div>
+                ) : (
+                  <div className={styles.charterEmptyView} onClick={startEditingCharter}>
+                    未整理（クリックして記入）
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <p className={styles.subtitle}>👥 関連チーム: {teamName ?? "なし"}</p>
+            <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+              📈 Key Result: {krLabel ? `${krLabel.objTitle} ＞ ${krLabel.kr.title}` : "なし"}
+            </p>
+
+            {issue.tags.length > 0 && (
+              <div className={styles.tagRow} style={{ marginBottom: 10 }}>
+                {issue.tags.map((tag) => (
+                  <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                    #{tag}
+                  </span>
+                ))}
+              </div>
             )}
-          </select></label>
-        </div>
-        <div className={styles.field}>
-          <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>
-          <div role="group" aria-label="介入の型（複数選択可）" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {INTERVENTION_TYPES.map((t) => (
-              <button
-                key={t.label}
-                type="button"
-                className={`${styles.typeChip} ${tagsSnapshot.includes(t.label) ? styles.typeChipSelected : ""}`}
-                onClick={() => toggleInterventionType(t.label)}
-              >
-                {t.label}
+
+            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={startEditingCharter}>
+              編集
+            </button>
+          </>
+        ) : (
+          <>
+            <div className={styles.charterField}>
+              <label>Why（生む価値・誰のため・なぜ今か）
+              <textarea
+                ref={whyRef}
+                rows={2}
+                defaultValue={issue.charter.why}
+                className={issue.charter.why ? "" : styles.charterEmpty}
+                placeholder="未整理（クリックして記入）"
+              /></label>
+            </div>
+            <div className={styles.charterField}>
+              <label>What（何を・どこまで・どのくらい・完了の定義）
+              <textarea
+                ref={whatRef}
+                rows={2}
+                defaultValue={issue.charter.what}
+                className={issue.charter.what ? "" : styles.charterEmpty}
+                placeholder="未整理（クリックして記入）"
+              /></label>
+            </div>
+            <div className={styles.charterField}>
+              <label>How（どのように実現するか・前提や制約）
+              <textarea
+                ref={howRef}
+                rows={2}
+                defaultValue={issue.charter.how}
+                className={issue.charter.how ? "" : styles.charterEmpty}
+                placeholder="未整理（クリックして記入）"
+              /></label>
+            </div>
+            <div className={styles.field}>
+              <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
+              <select value={teamIdDraft} onChange={(e) => handleChangeTeam(e.target.value)} disabled={teamLinkSaving}>
+                <option value="">なし</option>
+                {teams
+                  .filter((t) => !t.archived)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select></label>
+            </div>
+            <div className={styles.field}>
+              <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
+              <select value={keyResultIdDraft} onChange={(e) => handleChangeKeyResult(e.target.value)} disabled={keyResultSaving}>
+                <option value="">なし</option>
+                {objectives.map((o) =>
+                  o.keyResults.map((kr) => (
+                    <option key={kr.id} value={kr.id}>
+                      {o.title} ＞ {kr.title}
+                    </option>
+                  )),
+                )}
+              </select></label>
+            </div>
+            <div className={styles.field}>
+              <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>
+              <div role="group" aria-label="介入の型（複数選択可）" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {INTERVENTION_TYPES.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    className={`${styles.typeChip} ${tagsSnapshot.includes(t.label) ? styles.typeChipSelected : ""}`}
+                    onClick={() => toggleInterventionType(t.label)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label>タグ（カンマ区切り）
+              <input
+                type="text"
+                ref={tagsRef}
+                defaultValue={issue.tags.join(", ")}
+                onChange={(e) => setTagsSnapshot(e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+                placeholder="例: バグ, リファクタリング, オンボーディング"
+              /></label>
+            </div>
+            {issue.tags.length > 0 && (
+              <div className={styles.tagRow} style={{ marginBottom: 10 }}>
+                {issue.tags.map((tag) => (
+                  <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {charterError && <p className={styles.errorText} role="alert">{charterError}</p>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={charterSaving} onClick={handleSaveCharter}>
+                {charterSaving ? "保存中…" : "Why/What/How・タグを保存"}
               </button>
-            ))}
-          </div>
-        </div>
-        <div className={styles.field}>
-          <label>タグ（カンマ区切り）
-          <input
-            type="text"
-            ref={tagsRef}
-            defaultValue={issue.tags.join(", ")}
-            onChange={(e) => setTagsSnapshot(e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
-            placeholder="例: バグ, リファクタリング, オンボーディング"
-          /></label>
-        </div>
-        {issue.tags.length > 0 && (
-          <div className={styles.tagRow} style={{ marginBottom: 10 }}>
-            {issue.tags.map((tag) => (
-              <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
-                #{tag}
-              </span>
-            ))}
-          </div>
+              <button className={styles.btnOutline} disabled={charterSaving} onClick={handleCancelCharter}>
+                キャンセル
+              </button>
+            </div>
+          </>
         )}
-        {charterError && <p className={styles.errorText} role="alert">{charterError}</p>}
-        <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={charterSaving} onClick={handleSaveCharter}>
-          {charterSaving ? "保存中…" : "Why/What/How・タグを保存"}
-        </button>
 
         {history.length > 0 && (
           <details style={{ marginTop: 14 }}>

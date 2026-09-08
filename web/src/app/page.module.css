@@ -1196,6 +1196,146 @@
   background: repeating-linear-gradient(135deg, #22252e, #22252e 6px, #2a2e3a 6px, #2a2e3a 12px);
 }
 
+/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。閲覧モードの自由記述
+   テキスト領域（Issue charter・Journal本文など）に共通で使う。クリックで編集モードに
+   入れることを示すため、ホバー時だけ枠を出す（常時枠を出すと読んでいる最中の視覚ノイズ
+   になるため）。 */
+.editableTextView {
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin: 0.25rem 0 0;
+}
+
+.editableTextView:hover {
+  border-color: var(--input-border);
+  background: var(--gray-bg);
+}
+
+.charterEmptyView {
+  display: block;
+  cursor: pointer;
+  border: 1.5px dashed var(--gray-border);
+  background: repeating-linear-gradient(135deg, #22252e, #22252e 6px, #2a2e3a 6px, #2a2e3a 12px);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* docs/em_ui_ux_issue.md 7節対応。Issue charter・Journal本文などEMの自由記述テキストを
+   見出し・箇条書き・太字を活かして読みやすく描画する共通スタイル（@/components/MarkdownView）。
+   フォントサイズは呼び出し元の文脈に委ね、ここでは要素間の余白・装飾だけを定義する。 */
+.markdownView p {
+  margin: 0 0 8px;
+}
+
+.markdownView p:last-child {
+  margin-bottom: 0;
+}
+
+.markdownView ul,
+.markdownView ol {
+  margin: 0 0 8px 20px;
+  padding: 0;
+}
+
+.markdownView li {
+  margin-bottom: 2px;
+}
+
+.markdownView h1,
+.markdownView h2,
+.markdownView h3,
+.markdownView h4,
+.markdownView h5,
+.markdownView h6 {
+  margin: 10px 0 6px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.markdownView h1:first-child,
+.markdownView h2:first-child,
+.markdownView h3:first-child,
+.markdownView h4:first-child,
+.markdownView h5:first-child,
+.markdownView h6:first-child {
+  margin-top: 0;
+}
+
+.markdownView h1 {
+  font-size: 1.05em;
+}
+
+.markdownView h2 {
+  font-size: 1em;
+}
+
+.markdownView h3,
+.markdownView h4,
+.markdownView h5,
+.markdownView h6 {
+  font-size: 0.95em;
+}
+
+.markdownView strong {
+  font-weight: 700;
+}
+
+.markdownView code {
+  background: var(--terminal-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.markdownView pre {
+  background: var(--terminal-bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  margin: 0 0 8px;
+}
+
+.markdownView pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdownView blockquote {
+  border-left: 3px solid var(--border);
+  margin: 0 0 8px;
+  padding-left: 10px;
+  color: var(--text-muted);
+}
+
+.markdownView a {
+  color: var(--blue-text);
+  text-decoration: underline;
+}
+
+.markdownView hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+
+.markdownView table {
+  border-collapse: collapse;
+  margin: 0 0 8px;
+  font-size: 0.9em;
+}
+
+.markdownView th,
+.markdownView td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+}
+
 /* 改修依頼「ローカルAIの処理を非同期化し、対象のアイテム部分にスピナーだけ表示する」対応。
    処理中であることだけを示す最小限のインジケーター。 */
 .spinner {
