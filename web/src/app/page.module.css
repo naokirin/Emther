@@ -1566,3 +1566,99 @@
   border-left-width: 4px;
 }
 
+/* ---------- カスタムSelect（改修依頼「selectの選択肢の選択のしにくさ」対応） ---------- */
+/* @/components/Select.tsx。ネイティブ<select>のポップアップはCSSで一切スタイルできない
+   ため、閉じた状態の見た目はglobals.cssのselect{}と揃えつつ、開いたリストボックス自体を
+   自前のCSSで組む。トリガーは.field select等と同じ視覚言語（枠・背景・矢印）にする。 */
+/* 既定は内容幅（ネイティブselectと同じ挙動）。.field内などで幅いっぱいにしたい場合は
+   呼び出し側でstyle={{ width: "100%" }}を渡す。 */
+.customSelect {
+  position: relative;
+  display: inline-block;
+  min-width: 160px;
+  margin-top: 0.25rem;
+}
+
+.customSelectButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 2.25rem;
+  background-color: var(--panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%239aa1af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
+  color: var(--foreground);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 8px 30px 8px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customSelectButton:hover {
+  border-color: var(--foreground);
+}
+
+.customSelectButton:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.customSelectButton[aria-expanded="true"] {
+  border-color: var(--blue);
+}
+
+.customSelectButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.customSelectPlaceholder {
+  color: var(--text-muted);
+}
+
+.customSelectList {
+  z-index: 200;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  list-style: none;
+}
+
+.customSelectOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.5rem;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.customSelectOptionActive {
+  background: var(--blue-bg);
+}
+
+.customSelectOptionSelected {
+  font-weight: 600;
+  color: var(--blue-text);
+}
+
+.customSelectCheck {
+  display: inline-block;
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--blue-text);
+}
+

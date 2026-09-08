@@ -17,6 +17,28 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
 
+// 改修依頼「selectの選択肢の選択のしにくさそのものの改善」対応。1〜5の固定尺度は
+// プルダウンで隠さずボタン群にする（介入の型・ステータス選択と同じ.typeChipパターン）。
+function ScalePicker({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldCaption}>{label}</span>
+      <div role="group" aria-label={label} style={{ display: "flex", gap: 6 }}>
+        {SCALE_OPTIONS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            className={`${styles.typeChip} ${value === v ? styles.typeChipSelected : ""}`}
+            onClick={() => onChange(v)}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
 // 入力・改善方針機能を作る」対応。/growthのEM自身のバイタル（自己チェックイン）フォーム＋履歴。
 export function EmCheckinWidget() {
@@ -60,42 +82,9 @@ export function EmCheckinWidget() {
   return (
     <>
       <form onSubmit={handleSubmit}>
-        <div className={styles.field}>
-          <label>
-            気分（1: 悪い 〜 5: 良い）
-            <select value={mood} onChange={(e) => setMood(Number(e.target.value))}>
-              {SCALE_OPTIONS.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className={styles.field}>
-          <label>
-            エネルギー（1: 低い 〜 5: 高い）
-            <select value={energy} onChange={(e) => setEnergy(Number(e.target.value))}>
-              {SCALE_OPTIONS.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className={styles.field}>
-          <label>
-            ストレス（1: 低い 〜 5: 高い）
-            <select value={stress} onChange={(e) => setStress(Number(e.target.value))}>
-              {SCALE_OPTIONS.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <ScalePicker label="気分（1: 悪い 〜 5: 良い）" value={mood} onChange={setMood} />
+        <ScalePicker label="エネルギー（1: 低い 〜 5: 高い）" value={energy} onChange={setEnergy} />
+        <ScalePicker label="ストレス（1: 低い 〜 5: 高い）" value={stress} onChange={setStress} />
         <div className={styles.field}>
           <label>
             メモ（任意）

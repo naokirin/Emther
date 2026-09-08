@@ -3,6 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { useReports } from "@/lib/hooks";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@/lib/types";
 
@@ -191,13 +192,18 @@ export default function ReportsPage() {
         {generateError && <p className={styles.errorText} role="alert">{generateError}</p>}
       </div>
 
-      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 10 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: 10 }}>
         種別で絞り込み:
-        <select value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value as ReportPeriodType | "")}>
-          <option value="">すべて</option>
-          <option value="week">週次</option>
-          <option value="month">月次</option>
-        </select>
+        <Select
+          value={periodFilter}
+          onChange={(v) => setPeriodFilter(v as ReportPeriodType | "")}
+          options={[
+            { value: "", label: "すべて" },
+            { value: "week", label: "週次" },
+            { value: "month", label: "月次" },
+          ]}
+          style={{ minWidth: 120 }}
+        />
       </label>
 
       {reports.length === 0 ? (

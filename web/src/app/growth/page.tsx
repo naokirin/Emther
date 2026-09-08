@@ -125,14 +125,21 @@ export default function GrowthPage() {
           </p>
           <form onSubmit={handleNoteSubmit}>
             <div className={styles.field}>
-              <label>
-                種類
-                <select value={noteType} onChange={(e) => setNoteType(e.target.value as ReflectionNoteType)}>
-                  <option value="keep">{NOTE_TYPE_LABEL.keep}</option>
-                  <option value="problem">{NOTE_TYPE_LABEL.problem}</option>
-                  <option value="try">{NOTE_TYPE_LABEL.try}</option>
-                </select>
-              </label>
+              {/* 改修依頼「selectの選択肢の選択のしにくさそのものの改善」対応。固定3択は
+                  プルダウンで隠さずボタン群にする。 */}
+              <span className={styles.fieldCaption}>種類</span>
+              <div role="group" aria-label="種類" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {(["keep", "problem", "try"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`${styles.typeChip} ${noteType === t ? styles.typeChipSelected : ""}`}
+                    onClick={() => setNoteType(t)}
+                  >
+                    {NOTE_TYPE_LABEL[t]}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className={styles.journalInputRow}>
               <input
