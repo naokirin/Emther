@@ -73,8 +73,13 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "サブIssueの作成に失敗しました");
+      // 改修依頼「一覧と入力の分離によるアクション→一覧のフローの分断」対応。以前は
+      // 作成直後に新しいサブIssue自身の詳細画面へ遷移しており、いま開いていた親Issueの
+      // 「サブIssue（分解した子Issue）」一覧にそのまま反映される様子を見られなかった。
+      // 遷移せずダイアログを閉じるだけにし、一覧側の更新を即座に反映する
+      // （Why/What/Howを詰めたい場合は一覧からそのサブIssueへ改めて入れる）。
       closeHierarchyDialog();
-      router.push(`/issues/${data.issue.id}`);
+      await refreshIssues();
     } catch (err) {
       setHError((err as Error).message);
     } finally {

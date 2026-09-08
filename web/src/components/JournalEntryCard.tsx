@@ -194,14 +194,21 @@ export function JournalEntryCard({
           </label>
         </div>
         <div className={styles.field}>
-          <label>
-            Urgency
-            <select value={editUrgency} onChange={(e) => onChangeEditUrgency(e.target.value as JournalEntry["urgency"])}>
-              <option value="low">Low</option>
-              <option value="mid">Mid</option>
-              <option value="high">High</option>
-            </select>
-          </label>
+          {/* 改修依頼「デフォルトのセレクトボックスの多用による選択のしにくさ」対応。
+              3択の固定選択肢はプルダウンで隠さない。 */}
+          <span className={styles.fieldCaption}>Urgency</span>
+          <div role="group" aria-label="Urgency" style={{ display: "flex", gap: 6 }}>
+            {(["low", "mid", "high"] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                className={`${styles.typeChip} ${editUrgency === u ? styles.typeChipSelected : ""}`}
+                onClick={() => onChangeEditUrgency(u)}
+              >
+                {u === "low" ? "Low" : u === "mid" ? "Mid" : "High"}
+              </button>
+            ))}
+          </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={handleConfirm}>
