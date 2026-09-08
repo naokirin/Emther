@@ -9,7 +9,7 @@ import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEv
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
-import { teamDisplayName, teamPathSegments } from "@/lib/types";
+import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
 
 export type AgentStatus = "active" | "yield" | "idle" | "error";
 
@@ -42,13 +42,123 @@ export type Proposal = {
 // 相談し、それぞれの回答を踏まえて結論を出せるようにする（agents: string[]）。
 // 連鎖相談（専門エージェントがさらに別の専門エージェントに相談する）は無限ループ
 // リスクがあるため引き続き禁止（specialistRunはallowConsult=falseで起動する）。
+// docs/agent_specialization.md「6. Leadのconsult差分化」段階5対応。以前はagents全員へ
+// 同一questionを送るしかなく、プロンプトで「宛先ごとに書き分けろ」と指示するだけだった
+// （1つの質問文に複数の宛先向けの依頼を詰め込む書き方）。questionsは任意のagentName→
+// 個別質問のマップで、指定が無いagentには従来どおりquestionが使われる（後方互換）。
 export type ConsultRequest = {
   agents: string[];
   question: string;
+  questions?: Record<string, string>;
 };
 
 // docs/memo.md「F. Product Agentの追加」対応。Lead Agentの相談先候補にProduct Agentを含める。
 const SPECIALIST_AGENTS = ["People Agent", "Process Agent", "Tech Agent", "Product Agent"];
+
+// docs/agent_specialization.md「3. A. 役割定義」対応。以前は自己紹介1行
+// （「あなたは『〇〇 Agent』です」）だけで専門性をモデルの名前推論に委ねていたため、
+// 同じ事実を見ても各エージェントの結論・logicの軸が実質同じになりがちだった。
+// ここでは「専門領域」「主に答える問い」「やらないこと（境界）」を各象限ごとに固定文で
+// 与える。「やらないこと」を必ず書くのは、肯定文の専門領域だけより境界の方が
+// 役割の安定に効くため（同ドキュメント3.1「共通の枠」の考え方）。
+const ROLE_BLOCKS: Record<string, string[]> = {
+  "Lead Agent": [
+    "【役割】",
+    "- 専門領域: 論点の分解、専門エージェントへの振り分け、統合判断、EMへのYield",
+    "- 主に答える問い: 「今日EMが決めるべきことは何か／誰の専門見解が必要か」",
+    "- やらないこと: 一象限の深い専門分析を自分だけで完結させること（必要ならconsult）",
+    "- 統合時: 専門家の一致点・相違点・採用した軸をlogicに明示する",
+    "- コスト: 無関係なconsultを増やさない",
+  ],
+  "People Agent": [
+    "【役割】",
+    "- 専門領域: 個人・関係性・動機・成長・心理的安全性・1on1・オンボーディング",
+    "- 主に答える問い: 「誰の状態がどう変化し、EMは人にどう介入すべきか」",
+    "- 見る: 人物プロファイル、Journalの感情・緊急度、チーム内の関係・負荷の偏り",
+    "- やらないこと: 技術選定の本論、ロードマップ優先順位の本論（必要なら境界を示す）",
+    "- 提案の翻訳先: 1on1設計、心理的安全性、役割の人側、採用・オンボーディング",
+  ],
+  "Process Agent": [
+    "【役割】",
+    "- 専門領域: 意思決定、フロー、依存、会議体、エスカレーション、プロセス変更",
+    "- 主に答える問い: 「仕事がどこで止まり、仕組みとしてどう直すか」",
+    "- 見る: 手戻り／待ち／承認の所在、チーム間依存、運用ルールと実態の乖離",
+    "- やらないこと: 個人の内面の深掘り（People）、顧客価値の優先の本論（Product）",
+    "- 提案の翻訳先: 意思決定プロセス、依存関係の切り方、プロセス変更、役割明確化（責任の置き方）",
+  ],
+  "Tech Agent": [
+    "【役割】",
+    "- 専門領域: 技術的負債、品質、アーキ制約、リリースリスク、実装可能性が組織に与える摩擦",
+    "- 主に答える問い: 「技術制約が組織のどこを詰まらせているか／EMが調整すべき技術−組織の接点は何か」",
+    "- 見る: 負債・障害・リリース遅延の技術要因、専門性の偏り、ツール／環境のボトルネック",
+    "- やらないこと: コードを書く、リポジトリ操作（ツールは無効化済み）。純粋な人事評価の本論",
+    "- 提案の翻訳先: 依存の技術境界、プロセス（リリース／レビュー）、優先順位（返済 vs 機能）へのインプット",
+    "- 注意: 「実装タスク一覧」ではなく「組織障害としての技術」で語ること",
+  ],
+  "Product Agent": [
+    "【役割】",
+    "- 専門領域: 顧客価値、優先順位、スコープ、ロードマップと組織能力の齟齬",
+    "- 主に答える問い: 「何をやる／やらないべきで、それが組織のどこと衝突しているか」",
+    "- 見る: Objective/KR、並行過多、スコープ膨張、価値に対する組織の供給能力",
+    "- やらないこと: 個人のケアの本論（People）、詳細な技術設計（Tech）",
+    "- 提案の翻訳先: 優先順位／スコープ、役割・意思決定（優先の決まる場所）、プロセス（価値検証の回し方）",
+  ],
+};
+
+// 専門エージェント（Lead以外）共通のテール。docs/agent_specialization.md 3.1
+// 「情報不足時: 推測で埋めずyield（options空可）」対応。各象限固有の「提案の翻訳先」等は
+// ROLE_BLOCKS側に持たせ、ここでは象限を問わず共通の境界だけを足す。
+const SPECIALIST_ROLE_TAIL = "- 情報不足時: 推測で埋めず、proposalではなくyieldしてください（optionsは空でも構いません）";
+
+// docs/agent_specialization.md「6. Leadのconsult差分化（振り分け表）」対応。以前は
+// 「名前列挙＋コスト注意」のみで、Leadがどの論点でどの専門家を呼ぶべきかの
+// ヒューリスティックが無かった。
+const CONSULT_ROUTING_TABLE = [
+  "  論点の兆しと呼ぶ先の目安:",
+  "  - 特定人物・モチベ・1on1・安全性・オンボード → People Agent",
+  "  - 承認待ち・会議・フロー・手戻り・依存 → Process Agent",
+  "  - 障害・負債・リリース技術要因・スキル偏り（技術） → Tech Agent",
+  "  - 優先順位・スコープ・KR・顧客価値・ロードマップ衝突 → Product Agent",
+  "  - 複合論点（例: 人×プロセス、技術×優先）は該当する2つまでに絞る（3つ以上は例外的な場合のみ）",
+];
+
+// docs/agent_specialization.md「7. 介入の型 ↔ エージェント」対応。INTERVENTION_TYPES
+// （EM向けのIssueテンプレート、types.ts）を、そのままエージェント振り分けの辞書としても
+// 使う。コード・プロンプト・UIが同じ辞書を共有することで「専門チーム感」を出す狙い。
+const INTERVENTION_TYPE_AGENTS: Record<string, { primary: string[]; secondary: string[] }> = {
+  "1on1設計": { primary: ["People Agent"], secondary: ["Process Agent"] },
+  心理的安全性: { primary: ["People Agent"], secondary: ["Process Agent"] },
+  "採用・オンボーディング": { primary: ["People Agent"], secondary: ["Process Agent"] },
+  意思決定プロセス: { primary: ["Process Agent"], secondary: ["Tech Agent"] },
+  プロセス変更: { primary: ["Process Agent"], secondary: [] },
+  依存関係の切り方: { primary: ["Process Agent"], secondary: ["Tech Agent"] },
+  "優先順位／スコープ": { primary: ["Product Agent"], secondary: ["Process Agent"] },
+  役割明確化: { primary: ["Process Agent", "People Agent"], secondary: [] },
+};
+
+// 紐づくIssueのtagsに介入の型が含まれ、かつそのagentNameが主担当／副担当に該当する場合、
+// 「この介入型を主軸に」という一文を足す。該当しない場合はブロック自体を省略する
+// （無関係な介入型の指示で専門性をブレさせないため）。
+function buildInterventionTypeGuidance(runId: string | undefined, agentName: string): string {
+  if (!runId) return "";
+  const issue = getIssueByRunId(runId);
+  if (!issue || issue.tags.length === 0) return "";
+
+  const validLabels = new Set(INTERVENTION_TYPES.map((t) => t.label));
+  const lines: string[] = [];
+  for (const tag of issue.tags) {
+    if (!validLabels.has(tag)) continue;
+    const mapping = INTERVENTION_TYPE_AGENTS[tag];
+    if (!mapping) continue;
+    if (mapping.primary.includes(agentName)) {
+      lines.push(`- 「${tag}」はこのIssueに設定された介入の型です。あなたが主担当として、この介入型を主軸に検討してください。`);
+    } else if (mapping.secondary.includes(agentName)) {
+      lines.push(`- 「${tag}」はこのIssueに設定された介入の型です。あなたは副担当のため、主担当エージェントの観点を補う形で検討してください。`);
+    }
+  }
+  if (lines.length === 0) return "";
+  return ["このタスクに設定された介入の型（絶対の前提として扱うこと）:", ...lines].join("\n");
+}
 
 export type LogLine = {
   ts: number;
@@ -365,16 +475,28 @@ function buildStrategyBlock(): string {
 // Objective/KeyResultの構造化データから組み立てる。進捗（何件完了か）はEMが画面で見る
 // ものであり、エージェントへの前提としては「今期何を目指し、何が主要な結果か」という
 // 構造だけで十分なため、ここでは件数計算はしない。
-function buildObjectivesBlock(): string {
+// docs/agent_specialization.md「5.3 象限ごとの厚み」対応。同じObjectives/KRという
+// 事実は全エージェントに渡す（コアは共通のまま）が、前置き文だけを変えて
+// 「判断の主軸にすべきか、参考程度か」という重み付けの差をつける。事実そのものを
+// 隠すと判断材料が欠けるため、削るのではなく強調の度合いだけを変える。
+function objectivesBlockIntro(agentName: string): string {
+  if (agentName === "Product Agent" || agentName === "Lead Agent") {
+    return "組織の今期Objective/Key Results（あなたの判断の主軸としてください。Organization Context / Strategy、絶対の前提として扱うこと）:";
+  }
+  if (agentName === "People Agent") {
+    return "組織の今期Objective/Key Results（参考情報。人物・関係性の判断を優先してください。Organization Context / Strategy）:";
+  }
+  return "組織の今期Objective/Key Results（Organization Context / Strategy、絶対の前提として扱うこと）:";
+}
+
+function buildObjectivesBlock(agentName: string): string {
   const objectives = listObjectives();
   if (objectives.length === 0) return "";
   const lines = objectives.map((o) => {
     const krs = o.keyResults.length > 0 ? o.keyResults.map((k) => `KR: ${k.title}`).join(" / ") : "(Key Result未設定)";
     return `- ${o.title} — ${krs}`;
   });
-  return ["組織の今期Objective/Key Results（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join(
-    "\n",
-  );
+  return [objectivesBlockIntro(agentName), ...lines].join("\n");
 }
 
 // docs/em_human_story_and_ux.md P2-13（docs 3.1「動的ロード」の残件）対応。
@@ -468,22 +590,36 @@ function buildTeamCharterBlock(runId: string): string {
 // 提示し、類似度が低いものは足切りする（無関係な情報を紛れ込ませないため）。
 const SEMANTIC_SIMILARITY_THRESHOLD = 0.4;
 
+// docs/agent_specialization.md「5.3 象限ごとの厚み」対応。Peopleは「言及人物の解釈
+// （長期プロファイル）を多め、直近Journalのsentiment/urgencyを厚く」が期待値、
+// Process/Tech/Product/Leadは「個人解釈の長文すべて／人物性格の深掘りは薄くてよい」が
+// 期待値（表5.3）。完全に隠すと判断材料が欠けるため、削るのではなく件数だけを絞る。
+const PERSON_FACT_LIMIT_DEFAULT = 5;
+const PERSON_FACT_LIMIT_PEOPLE = 10;
+const PERSON_INTERPRETATION_LIMIT_NON_PEOPLE = 3;
+
 // 個人情報の分離（ユーザー指摘対応）: rawTextは実名（EM/クラウドどちらの入力の場合もある）
 // またはPERSON_n ID（Lead Agentからのconsult.questionのように既にマスクされたテキストの
 // 場合）のどちらかを含み得るため、両方でマッチングする。listActiveFactsForPerson等は
 // 既にPERSON_n IDで検索する契約になっているため、person.id（実名ではない）を渡す。
-async function buildJournalContextBlock(rawText: string): Promise<string> {
+async function buildJournalContextBlock(rawText: string, agentName: string): Promise<string> {
   const mentioned = listPeople().filter((p) => rawText.includes(p.name) || rawText.includes(p.id));
+  const isPeopleAgent = agentName === "People Agent";
+  const factLimit = isPeopleAgent ? PERSON_FACT_LIMIT_PEOPLE : PERSON_FACT_LIMIT_DEFAULT;
 
   const factLines: string[] = [];
   const interpretationLines: string[] = [];
+  let omittedInterpretationCount = 0;
   const seenIds = new Set<string>();
   for (const person of mentioned) {
-    for (const e of listActiveFactsForPerson(person.id, 5)) {
+    for (const e of listActiveFactsForPerson(person.id, factLimit)) {
       seenIds.add(e.id);
       factLines.push(`- [${person.id}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
     }
-    for (const e of listInterpretationsForPerson(person.id)) {
+    const interpretations = listInterpretationsForPerson(person.id);
+    const capped = isPeopleAgent ? interpretations : interpretations.slice(0, PERSON_INTERPRETATION_LIMIT_NON_PEOPLE);
+    omittedInterpretationCount += interpretations.length - capped.length;
+    for (const e of capped) {
       seenIds.add(e.id);
       interpretationLines.push(`- [${person.id}] ${e.text}`);
     }
@@ -509,8 +645,12 @@ async function buildJournalContextBlock(rawText: string): Promise<string> {
 
   const blocks: string[] = [];
   if (interpretationLines.length > 0) {
+    const omittedNote = omittedInterpretationCount > 0 ? `。他${omittedInterpretationCount}件は抜粋のため省略（詳細はPeople Agentの専門領域）` : "";
     blocks.push(
-      ["長期的なプロファイル・解釈（TTLなし、訂正されるまで有効。一時的な感情と混同しないこと）:", ...interpretationLines].join("\n"),
+      [
+        `長期的なプロファイル・解釈（TTLなし、訂正されるまで有効。一時的な感情と混同しないこと${omittedNote}）:`,
+        ...interpretationLines,
+      ].join("\n"),
     );
   }
   if (factLines.length > 0) {
@@ -540,11 +680,13 @@ function buildSystemPrompt(
     agentName === "Lead Agent" && allowConsult
       ? [
           "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent / Product Agent）のうち1つ以上に、1ターンにつき1回だけ相談できます。複数の専門性にまたがる論点なら、複数の専門エージェントに同時に（並行して）相談し、それぞれの回答を踏まえて結論を出してください。",
-          "  自分（たち）の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません。各エージェントには同じquestionが送られます）。",
+          ...CONSULT_ROUTING_TABLE,
+          "  自分（たち）の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません）。",
           "  ```consult",
-          '  { "agents": ["People Agent", "Tech Agent"], "question": "相談したい内容を1つの質問文で" }',
+          '  { "agents": ["People Agent", "Tech Agent"], "question": "相談内容の要約（ログ用。questionsを省略したagentにはこの文面がそのまま送られます）", "questions": { "People Agent": "People Agent宛の質問（人物面だけを聞く）", "Tech Agent": "Tech Agent宛の質問（技術要因だけを聞く）" } }',
           "  ```",
           '  agentsには "People Agent" / "Process Agent" / "Tech Agent" / "Product Agent" のうち1つ以上を、本当に必要な専門性だけに絞って指定してください（無関係なエージェントを含めるとコストが無駄に増えます）。',
+          '  questionsは任意ですが、同じ長文タスクを丸投げしないため強く推奨します。agentsに含まれるエージェントごとに「その専門性だけで答えられる問い」を1文で書き分けてください（例: 「Peopleには人物面だけ、Processには流れの詰まりだけ」）。questionsで指定しなかったagentにはquestionがそのまま使われます。',
           "",
         ]
       : [];
@@ -580,10 +722,17 @@ function buildSystemPrompt(
         ]
       : [];
 
+  const roleBlockLines = ROLE_BLOCKS[agentName] ?? [];
+  const roleBlock =
+    roleBlockLines.length > 0
+      ? [...roleBlockLines, ...(agentName === "Lead Agent" ? [] : [SPECIALIST_ROLE_TAIL]), ""]
+      : [];
+
   const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
     "与えられたタスクの文脈だけを判断材料とし、実際の外部システムやファイルには一切アクセスできません（ツールは無効化されています）。",
     "",
+    ...roleBlock,
     "回答のルール:",
     ...consultRule,
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
@@ -618,11 +767,21 @@ function buildSystemPrompt(
   ].join("\n");
 
   const issueContext = runId ? buildIssueContextBlock(runId) : "";
+  const interventionTypeGuidance = buildInterventionTypeGuidance(runId, agentName);
   const teamCharterContext = runId ? buildTeamCharterBlock(runId) : "";
   const orgContext = buildOrgContextBlock(runId, rawText);
   const strategyContext = buildStrategyBlock();
-  const objectivesContext = buildObjectivesBlock();
-  return [base, issueContext, teamCharterContext, journalContext, orgContext, strategyContext, objectivesContext]
+  const objectivesContext = buildObjectivesBlock(agentName);
+  return [
+    base,
+    issueContext,
+    interventionTypeGuidance,
+    teamCharterContext,
+    journalContext,
+    orgContext,
+    strategyContext,
+    objectivesContext,
+  ]
     .filter(Boolean)
     .join("\n\n");
 }
@@ -709,6 +868,9 @@ function extractSubIssues(resultText: string): string[] | undefined {
 // docs 3.3「階層型マルチエージェント」/ docs/memo.md「M」: Lead Agentが1体以上の
 // 専門エージェントに並行相談したい場合の合図。agentsは重複除去し、SPECIALIST_AGENTSに
 // 含まれない値・空配列は不正なブロックとして扱う（相談なしにフォールバック）。
+// docs/agent_specialization.md 段階5対応。questionsはagentName→個別質問の任意マップ。
+// キーがagentsに含まれない・SPECIALIST_AGENTS外・値が文字列でない場合はそのエントリだけ
+// 無視する（consultブロック全体を不正扱いにはしない）。
 function extractConsult(resultText: string): ConsultRequest | undefined {
   const match = resultText.match(/```consult\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
@@ -717,13 +879,28 @@ function extractConsult(resultText: string): ConsultRequest | undefined {
     if (!parsed || typeof parsed.question !== "string") return undefined;
     const rawAgents: unknown[] = Array.isArray(parsed.agents) ? parsed.agents : typeof parsed.agent === "string" ? [parsed.agent] : [];
     const agents = Array.from(new Set(rawAgents.filter((a): a is string => typeof a === "string" && SPECIALIST_AGENTS.includes(a))));
-    if (agents.length > 0) {
-      return { agents, question: parsed.question };
+    if (agents.length === 0) return undefined;
+
+    let questions: Record<string, string> | undefined;
+    if (parsed.questions && typeof parsed.questions === "object") {
+      const entries = Object.entries(parsed.questions as Record<string, unknown>).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === "string" && entry[1].trim().length > 0 && agents.includes(entry[0]),
+      );
+      if (entries.length > 0) questions = Object.fromEntries(entries);
     }
+
+    return { agents, question: parsed.question, questions };
   } catch {
     // 不正なconsultブロックは相談なしとして扱う
   }
   return undefined;
+}
+
+// docs/agent_specialization.md 段階5対応。指定agentへの個別質問があればそれを、
+// 無ければ共通questionにフォールバックする（後方互換）。
+function consultQuestionFor(consult: ConsultRequest, agentName: string): string {
+  return consult.questions?.[agentName] ?? consult.question;
 }
 
 function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
@@ -791,7 +968,10 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
   if (consultRequest) {
     // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
     run.pendingConsult = consultRequest;
-    appendLog(run, "system", `[相談] ${consultRequest.agents.join("・")}に質問: ${consultRequest.question}`);
+    const consultLog = consultRequest.questions
+      ? consultRequest.agents.map((a) => `${a}へ: ${consultQuestionFor(consultRequest, a)}`).join(" / ")
+      : `${consultRequest.agents.join("・")}に質問: ${consultRequest.question}`;
+    appendLog(run, "system", `[相談] ${consultLog}`);
     return;
   }
 
@@ -846,7 +1026,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   run.pendingConsult = undefined;
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
-  const journalContext = await buildJournalContextBlock(rawPrompt);
+  const journalContext = await buildJournalContextBlock(rawPrompt, run.agentName);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt);
 
@@ -1241,10 +1421,13 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
 // して再帰的な相談連鎖を禁止する——専門エージェント同士が孫相談することは無い）。
 async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promise<void> {
   const specialistRuns = consult.agents.map((agentName) => {
+    // docs/agent_specialization.md 段階5対応。consult.questionsにこのagentName向けの
+    // 個別質問があればそれを使い、無ければ従来どおり共通questionにフォールバックする。
+    const question = consultQuestionFor(consult, agentName);
     const specialistRun: AgentRun = {
       id: randomUUID(),
       agentName,
-      task: consult.question,
+      task: question,
       status: "active",
       log: [],
       totalCostUsd: 0,
@@ -1255,18 +1438,18 @@ async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promis
       reviewed: leadRun.reviewed,
     };
     runs.set(specialistRun.id, specialistRun);
-    // consult.questionはLead Agentの応答（クラウド由来、既にPERSON_n IDでマスク済み）から
+    // consult.question(s)はLead Agentの応答（クラウド由来、既にPERSON_n IDでマスク済み）から
     // 抽出したものなので、実名を含まない。そのままprecomputedPromptとしても渡し、
     // 既にマスク済みのテキストに対して再度ローカルNERを走らせない（無駄かつ誤検出のリスク）。
-    appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${consult.question}`);
-    return specialistRun;
+    appendLog(specialistRun, "meta", `${leadRun.agentName}からの相談: ${question}`);
+    return { run: specialistRun, question };
   });
 
   // 複数の専門エージェントへの相談は並行実行する（Fleet/Activity Streamにも
   // 同時にactiveな複数のエージェントとして自然に反映される）。
-  await Promise.all(specialistRuns.map((r) => runClaudeTurn(r, consult.question, false, consult.question)));
+  await Promise.all(specialistRuns.map(({ run: r, question }) => runClaudeTurn(r, question, false, question)));
 
-  const answers = specialistRuns.map((r) => {
+  const answers = specialistRuns.map(({ run: r }) => {
     const lastAgentLine = [...r.log].reverse().find((l) => l.channel === "agent");
     return { agentName: r.agentName, answerText: lastAgentLine?.text ?? "(専門エージェントから回答を取得できませんでした)" };
   });
