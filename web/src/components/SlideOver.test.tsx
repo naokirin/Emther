@@ -72,7 +72,9 @@ describe("SlideOver", () => {
         <button>最後のボタン</button>
       </SlideOver>,
     );
-    const last = screen.getByRole("button", { name: "最後のボタン" });
+    // DOM上の最後のフォーカス対象は、幅変更ハンドル（role="separator"）。
+    // ここからのTabで先頭（閉じるボタン）へ戻ることを確認する。
+    const last = screen.getByRole("separator", { name: "パネルの幅を変更" });
     last.focus();
     await user.tab();
     expect(screen.getByRole("button", { name: "閉じる" })).toHaveFocus();
@@ -113,5 +115,21 @@ describe("SlideOver", () => {
       </SlideOver>,
     );
     expect(screen.queryByRole("link", { name: "詳細画面で開く" })).not.toBeInTheDocument();
+  });
+
+  it("幅変更ハンドルの←→キーで幅（インラインstyle）が変わる", async () => {
+    const user = userEvent.setup();
+    render(
+      <SlideOver title="タイトル" onClose={vi.fn()}>
+        <p>本文</p>
+      </SlideOver>,
+    );
+    const handle = screen.getByRole("separator", { name: "パネルの幅を変更" });
+    const box = screen.getByRole("dialog");
+    const initialWidth = box.style.width;
+    handle.focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(box.style.width).not.toBe(initialWidth);
+    expect(parseInt(box.style.width, 10)).toBeGreaterThan(parseInt(initialWidth, 10));
   });
 });

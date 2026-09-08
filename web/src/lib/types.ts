@@ -369,6 +369,16 @@ export function personVitalStatus(trend: PersonTrend): VitalStatus {
   return "good";
 }
 
+// ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
+// lib/vitals.ts（Team Vitals）の文言（bad="要注意"／warn="やや注意"／good="安定"）と
+// 揃え、アプリ全体で同じVitalStatusの意味付けにする。
+export const PERSON_VITAL_LABEL: Record<VitalStatus, string> = {
+  good: "安定",
+  warn: "やや注意",
+  bad: "要注意",
+  unknown: "評価不能",
+};
+
 export type PersonSummary = {
   id: string;
   name: string;

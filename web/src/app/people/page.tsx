@@ -6,6 +6,7 @@ import { PersonScoreBadge } from "@/components/PersonScoreBadge";
 import { PersonDetailContent } from "@/app/people/[id]/page";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, usePeople } from "@/lib/hooks";
+import { PERSON_VITAL_LABEL, personVitalStatus } from "@/lib/types";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
 // 既存のJournal fact・解釈・チーム所属・関連Issueを人物軸で束ねて見せるだけの一覧画面。
@@ -33,8 +34,14 @@ function PeoplePageInner() {
     <div className={styles.screen}>
       <div className={styles.panel}>
         <h2>People</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 14 }}>
+        <p className={styles.subtitle}>
           Quick Journal・チームメンバー登録・長期プロファイルを通じて認識された人物の一覧です。カードをクリックすると、その人物に関するJournal・長期プロファイル・関連Issueを横断して確認できます。
+        </p>
+        {/* ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
+            円バッジはJournalの傾向から算出した「気にかけるべき度合い」を示す簡易バイタルで
+            あり、点数ではないことと色の意味を明示する（Team Vitalsと同じ判定思想）。 */}
+        <p className={styles.subtitle} style={{ marginBottom: 14 }}>
+          円は本人に関するJournalの傾向から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。🟢安定　🟡やや注意　🔴要注意　⚪️評価不能（件数不足）
         </p>
         {sorted.length === 0 ? (
           <p className={styles.subtitle}>まだ誰も登録されていません。Quick Journalに記録するかチームにメンバーを追加すると、ここに表示されます。</p>
@@ -45,7 +52,9 @@ function PeoplePageInner() {
                 <PersonScoreBadge trend={p.trend} factCount={p.factCount} />
                 <div className={styles.personCardBody}>
                   <div className={styles.personCardName}>{p.name}</div>
-                  <div className={styles.tableMuted}>{p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}</div>
+                  <div className={styles.tableMuted}>
+                    {PERSON_VITAL_LABEL[personVitalStatus(p.trend)]}・{p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}
+                  </div>
                 </div>
               </button>
             ))}

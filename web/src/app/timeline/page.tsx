@@ -1,8 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { useTimeline } from "@/lib/hooks";
+import { IssueDetailContent } from "@/app/issues/[id]/page";
+import { SlideOver } from "@/components/SlideOver";
+import { usePeekParam, useTimeline } from "@/lib/hooks";
 import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@/lib/types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しい永続化エンティティは持たず、
@@ -23,8 +26,22 @@ function groupByDate(entries: TimelineEntry[]): { date: string; items: TimelineE
 }
 
 export default function TimelinePage() {
+  // usePeekParamはuseSearchParamsを使うため<Suspense>で包む必要がある。
+  return (
+    <Suspense fallback={null}>
+      <TimelinePageInner />
+    </Suspense>
+  );
+}
+
+function TimelinePageInner() {
   const { entries } = useTimeline();
   const groups = groupByDate(entries);
+  // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。TimelineのIssueエントリだけ、
+  // 一覧・詳細の他画面と同じ仕組みでスライドオーバー表示にする。Team/Objectiveは
+  // /org側が個別エンティティのURL・詳細ビューを持たないため対象外（従来通り/orgへ遷移）。
+  const peek = usePeekParam("issue");
+  const peekedEntry = peek.id ? entries.find((e) => e.entityType === "issue" && e.entityId === peek.id) : undefined;
 
   return (
     <div className={styles.screen}>
@@ -45,7 +62,16 @@ export default function TimelinePage() {
                   <li key={entry.id} className={styles.field} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                       <span className={styles.badge}>{TIMELINE_ENTITY_TYPE_LABEL[entry.entityType]}</span>
-                      {entry.href ? (
+                      {entry.entityType === "issue" && entry.entityId ? (
+                        <button
+                          type="button"
+                          className={styles.tableRowLink}
+                          style={{ fontWeight: 600 }}
+                          onClick={() => peek.open(entry.entityId!)}
+                        >
+                          {entry.entityLabel ?? "(削除済み)"}
+                        </button>
+                      ) : entry.href ? (
                         <Link href={entry.href} style={{ fontWeight: 600 }}>
                           {entry.entityLabel ?? "(削除済み)"}
                         </Link>
@@ -64,6 +90,12 @@ export default function TimelinePage() {
           ))
         )}
       </div>
+
+      {peekedEntry && peek.id && (
+        <SlideOver title={peekedEntry.entityLabel ?? "Issue"} detailHref={`/issues/${peek.id}`} onClose={peek.close}>
+          <IssueDetailContent id={peek.id} />
+        </SlideOver>
+      )}
     </div>
   );
 }

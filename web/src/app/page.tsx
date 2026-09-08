@@ -773,7 +773,11 @@ export default function DashboardPage() {
 
       {/* docs/em_human_story_and_ux.md P0-5 / docs/dashboard_ui_readability.md U0-1対応。
           先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
-          最初にトリアージへ着地させる。 */}
+          最初にトリアージへ着地させる。
+          ユーザー指摘「幅に余裕があるときは判断待ちとチームの状態を横並びにし、PC画面では
+          ファーストビューに収める」対応。dashColumns（既存の2カラムgrid、1000px未満で
+          縦積み）を再利用し、どちらも自身の高さのまま隣接させる（align-items: start）。 */}
+      <div className={styles.dashColumns}>
       <div className={`${styles.panel} ${styles.heroPanel}`}>
         <h2 className={styles.heroHeadline}>{headline}</h2>
 
@@ -948,6 +952,7 @@ export default function DashboardPage() {
             </p>
           )}
         </div>
+      </div>
       </div>
 
       <div className={styles.panel}>
