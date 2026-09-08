@@ -128,6 +128,19 @@ export function getIssueByRunId(agentRunId: string): Issue | undefined {
   return issues.find((i) => i.agentRunId === agentRunId);
 }
 
+// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。createIssue時点ではまだ存在しないAgent Runを、作成後に紐づけるための関数
+// （agent-runtime.ts側のstartRunから、Claude呼び出しを開始する前に呼ぶことで、
+// buildSystemPrompt/getIssueByRunIdが常に紐付き済みの状態を見られるようにする）。
+export function linkIssueRun(issueId: string, agentRunId: string): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  issue.agentRunId = agentRunId;
+  issue.updatedAt = Date.now();
+  persist();
+  return issue;
+}
+
 export function listChildIssues(parentId: string): Issue[] {
   return issues.filter((i) => i.parentId === parentId).sort((a, b) => b.updatedAt - a.updatedAt);
 }

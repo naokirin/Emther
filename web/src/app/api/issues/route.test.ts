@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 import { jsonRequest } from "@/lib/test-helpers/api-route";
@@ -5,6 +6,27 @@ import { jsonRequest } from "@/lib/test-helpers/api-route";
 vi.mock("@/lib/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
+}));
+
+vi.mock("@/lib/embeddings", () => ({
+  embedText: vi.fn(async () => [1, 0, 0]),
+  cosineSimilarity: () => 0,
+}));
+
+// このAPIは素のIssue作成（agentRunId無し）のたびにLead Agentの分析Run
+// （agent-runtime.ts側のstartRun）を自動で起動するようになった。CLI子プロセスを
+// 実際に起動してしまわないよう、agent-runtime.test.tsと同じ方針でnode:child_processの
+// spawnをモックする（テスト自体はrunの完了を待たないため、フェイクの子プロセスは
+// エラーで終了させるだけで十分）。
+vi.mock("node:child_process", () => ({
+  spawn: () => {
+    const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; kill: () => void };
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.kill = () => {};
+    queueMicrotask(() => child.emit("error", new Error("spawn claude ENOENT (mocked in test)")));
+    return child;
+  },
 }));
 
 let dir: string;
@@ -101,5 +123,33 @@ describe("POST /api/issues", () => {
     const route = await import("./route");
     await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "AI起点のIssue", agentRunId: "run-1" }));
     expect(agentRuntime.getRun("run-1")?.reviewed).toBe(true);
+
+    // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+    // 対応。agentRunIdを渡した場合（＝既存のAgent Runから起票された場合）は、
+    // それ以上Lead Agentの分析Runを新たに起動しない（重複起動しない）。
+    expect(agentRuntime.listRuns()).toHaveLength(1);
+  });
+
+  it("agentRunIdを渡さない場合はLead Agentの分析Runを自動で起動し、Issueに紐づける", async () => {
+    const route = await import("./route");
+    const res = await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "Journal起点のIssue", why: "本文" }));
+    const json = await res.json();
+
+    const agentRuntime = await import("@/lib/agent-runtime");
+    const runs = agentRuntime.listRuns();
+    expect(runs).toHaveLength(1);
+    expect(runs[0].agentName).toBe("Lead Agent");
+    expect(runs[0].task).toContain("Journal起点のIssue");
+    expect(json.issue.agentRunId).toBe(runs[0].id);
+  });
+
+  it("AIチームの分析起動に失敗してもIssueの起票自体は成功する", async () => {
+    const agentRuntime = await import("@/lib/agent-runtime");
+    vi.spyOn(agentRuntime, "startRun").mockRejectedValueOnce(new Error("起動失敗"));
+
+    const route = await import("./route");
+    const res = await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "起動失敗しても作られるIssue" }));
+    expect(res.status).toBe(201);
+    expect((await res.json()).issue.title).toBe("起動失敗しても作られるIssue");
   });
 });

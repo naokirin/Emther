@@ -157,6 +157,34 @@ describe("ExecutionState", () => {
     expect(onDismissActionItems).toHaveBeenCalledTimes(1);
   });
 
+  it("提案されたWhy/What/Howを採用/却下できる", async () => {
+    const onAdoptCharter = vi.fn();
+    const onDismissCharter = vi.fn();
+    const user = userEvent.setup();
+    const run = baseRun({
+      status: "idle",
+      proposal: { conclusion: "c", facts: [], logic: "l", rejectedAlternatives: [] },
+      suggestedCharter: { why: "生む価値の提案" },
+    });
+    render(
+      <ExecutionState
+        run={run}
+        selectedOptionId={null}
+        onSelectOption={noop}
+        onConfirmOption={noop}
+        onFocusChat={noop}
+        deciding={false}
+        onAdoptCharter={onAdoptCharter}
+        onDismissCharter={onDismissCharter}
+      />,
+    );
+    expect(screen.getByText("生む価値の提案")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "採用してWhy/What/Howに反映" }));
+    expect(onAdoptCharter).toHaveBeenCalledWith({ why: "生む価値の提案" });
+    await user.click(screen.getByRole("button", { name: "却下する" }));
+    expect(onDismissCharter).toHaveBeenCalledTimes(1);
+  });
+
   it("error状態では再試行ボタンを表示する", async () => {
     const onRetry = vi.fn();
     const user = userEvent.setup();

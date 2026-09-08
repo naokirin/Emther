@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { dataFilePath, loadJSON, saveJSON } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
-import { getIssueByRunId } from "@/lib/issue-store";
+import { getIssueByRunId, linkIssueRun, type IssueCharter } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
@@ -193,6 +193,11 @@ export type AgentRun = {
   // 抽象的すぎると判断した場合にAIが提案する、具体的な子Issue案の下書き。EMが個別に
   // 「採用」するまで実際のサブIssueは作られない（action_itemsと同じHuman-in-the-Loop）。
   suggestedSubIssues?: string[];
+  // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+  // 対応。紐づくIssueのWhy/What/Howのうち未整理の項目をAIが埋める提案の下書き。
+  // suggestedActionItems/suggestedSubIssuesと同じくEMが「採用」するまでIssue.charterへは
+  // 反映しない（Human-in-the-Loopを維持）。埋める提案がある項目のみキーを持つ。
+  suggestedCharter?: Partial<IssueCharter>;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -240,6 +245,7 @@ type AgentRunRow = {
   proposal_json: string | null;
   suggested_action_items_json: string | null;
   suggested_sub_issues_json: string | null;
+  suggested_charter_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -267,8 +273,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -278,6 +284,7 @@ function persistRunMeta(run: AgentRun): void {
          proposal_json = excluded.proposal_json,
          suggested_action_items_json = excluded.suggested_action_items_json,
          suggested_sub_issues_json = excluded.suggested_sub_issues_json,
+         suggested_charter_json = excluded.suggested_charter_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -296,6 +303,7 @@ function persistRunMeta(run: AgentRun): void {
       run.proposal ? JSON.stringify(run.proposal) : null,
       run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
       run.suggestedSubIssues ? JSON.stringify(run.suggestedSubIssues) : null,
+      run.suggestedCharter ? JSON.stringify(run.suggestedCharter) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -340,6 +348,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
       suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
       suggestedSubIssues: row.suggested_sub_issues_json ? JSON.parse(row.suggested_sub_issues_json) : undefined,
+      suggestedCharter: row.suggested_charter_json ? JSON.parse(row.suggested_charter_json) : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -743,6 +752,25 @@ export function buildSystemPrompt(
         ]
       : [];
 
+  // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+  // 対応。action_items/sub_issuesと同じ形式で、紐づくIssueのWhy/What/Howのうち
+  // 未整理（空欄）の項目だけを埋める提案を許可する。既に書かれている項目を上書き提案しない
+  // のは、EMが既に整理した内容をAIが勝手に書き換えたと誤解しないようにするため。
+  const linkedIssueForCharter = runId ? getIssueByRunId(runId) : undefined;
+  const missingCharterFields = linkedIssueForCharter
+    ? (["why", "what", "how"] as const).filter((k) => !linkedIssueForCharter.charter[k])
+    : [];
+  const charterRule =
+    linkedIssueForCharter && missingCharterFields.length > 0
+      ? [
+          `- このタスクが紐づくIssueは、Why/What/Howのうち次の項目が未整理です: ${missingCharterFields.join(", ")}。与えられた前提から埋められるものがあれば、proposal/action_items/sub_issuesブロックに続けて以下の形式でcharterブロックを追加してください（未整理のうち埋められる項目だけを含め、既に書かれている項目・埋められない項目はキー自体を含めないこと。1つも埋められなければ省略して構いません。yieldする場合は出力しないこと）。`,
+          "```charter",
+          '{ "why": "生む価値・誰のため・なぜ今か", "what": "何を・どこまで・どのくらい・完了の定義", "how": "どのように実現するか・前提や制約" }',
+          "```",
+          "",
+        ]
+      : [];
+
   const roleBlockLines = ROLE_BLOCKS[agentName] ?? [];
   const roleBlock =
     roleBlockLines.length > 0
@@ -770,6 +798,7 @@ export function buildSystemPrompt(
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
     ...actionItemsRule,
     ...subIssuesRule,
+    ...charterRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき",
@@ -882,6 +911,28 @@ export function extractSubIssues(resultText: string): string[] | undefined {
     }
   } catch {
     // 不正なsub_issuesブロックは「提案なし」として扱う
+  }
+  return undefined;
+}
+
+// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。AIが提案するWhy/What/Howの埋め合わせ案。extractActionItems/extractSubIssuesと
+// 同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。why/what/how以外の
+// キー・空文字列の値は無視し、1つも有効な値が残らなければ「提案なし」とする。
+export function extractCharter(resultText: string): Partial<IssueCharter> | undefined {
+  const match = resultText.match(/```charter\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const result: Partial<IssueCharter> = {};
+    for (const key of ["why", "what", "how"] as const) {
+      const value = (parsed as Record<string, unknown>)[key];
+      if (typeof value === "string" && value.trim()) result[key] = value.trim();
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  } catch {
+    // 不正なcharterブロックは「提案なし」として扱う
   }
   return undefined;
 }
@@ -1003,6 +1054,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.proposal = undefined;
     run.suggestedActionItems = undefined;
     run.suggestedSubIssues = undefined;
+    run.suggestedCharter = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
@@ -1010,6 +1062,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.proposal = extractProposal(resultText);
     run.suggestedActionItems = run.proposal ? extractActionItems(resultText) : undefined;
     run.suggestedSubIssues = run.proposal ? extractSubIssues(resultText) : undefined;
+    run.suggestedCharter = run.proposal ? extractCharter(resultText) : undefined;
     appendLog(
       run,
       "system",
@@ -1020,6 +1073,9 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     }
     if (run.suggestedSubIssues) {
       appendLog(run, "system", `[サブIssue分解案] ${run.suggestedSubIssues.length}件`);
+    }
+    if (run.suggestedCharter) {
+      appendLog(run, "system", `[Why/What/How提案] ${Object.keys(run.suggestedCharter).length}件`);
     }
   }
 }
@@ -1567,6 +1623,13 @@ export function toRunView(run: AgentRun): AgentRun {
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
     suggestedSubIssues: run.suggestedSubIssues?.map(unmaskNames),
+    suggestedCharter: run.suggestedCharter
+      ? {
+          why: run.suggestedCharter.why !== undefined ? unmaskNames(run.suggestedCharter.why) : undefined,
+          what: run.suggestedCharter.what !== undefined ? unmaskNames(run.suggestedCharter.what) : undefined,
+          how: run.suggestedCharter.how !== undefined ? unmaskNames(run.suggestedCharter.how) : undefined,
+        }
+      : run.suggestedCharter,
   };
 }
 
@@ -1582,7 +1645,19 @@ export function getRun(id: string): AgentRun | undefined {
 // 前に必ずマスクする（クラウド送信の直前ではなく、保存の直前にマスクするという設計に
 // 変更した）。runをrunsマップへ登録するのは、マスクが完了した後にする——マスク完了前に
 // 登録すると、その一瞬だけtaskが空文字列で見えるが、実名が見える瞬間は無い（安全側）。
-export async function startRun(agentName: string, rawTask: string, origin: AgentRun["origin"] = "manual"): Promise<AgentRun> {
+// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。linkedIssueIdを渡すと、実際にClaudeを起動する（runClaudeTurn）前に同期的に
+// Issue.agentRunIdを紐づける。buildSystemPrompt内のgetIssueByRunId（issueContext/
+// actionItemsRule/subIssuesRule/charterRuleが参照する）が、最初のターンから
+// 紐付き済みの状態を見られるようにするための順序保証（先にrunClaudeTurnを起動して
+// 後から紐づけると、非同期処理のタイミング次第で最初のターンにIssueの前提が
+// 渡らないレースが起き得る）。
+export async function startRun(
+  agentName: string,
+  rawTask: string,
+  origin: AgentRun["origin"] = "manual",
+  linkedIssueId?: string,
+): Promise<AgentRun> {
   const run: AgentRun = {
     id: randomUUID(),
     agentName,
@@ -1598,6 +1673,7 @@ export async function startRun(agentName: string, rawTask: string, origin: Agent
   const maskedTask = await sanitizeForCloud(run, rawTask);
   run.task = maskedTask;
   runs.set(run.id, run);
+  if (linkedIssueId) linkIssueRun(linkedIssueId, run.id);
   appendLog(
     run,
     "meta",
@@ -1607,6 +1683,23 @@ export async function startRun(agentName: string, rawTask: string, origin: Agent
   );
   void runClaudeTurn(run, rawTask, true, maskedTask);
   return run;
+}
+
+// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。/api/issues・/api/issues/[id]/parentの両方（＝「素のIssue作成」の全経路）から
+// 同じ文面でLead Agentへタスクを渡すための共通ビルダー。issueContext（buildIssueContextBlock）
+// が既に紐付き済みのWhy/What/Howをブロックとして注入するが、それが省略されるケース
+// （タイトルのみでWhy/What/How・タグが全て空のIssue）でもタイトルだけは確実に伝わるよう、
+// ここでも明示的に含める。
+export function buildIssueDraftTask(title: string, charter: { why?: string; what?: string; how?: string }): string {
+  const lines = ["新しいIssueが起票されました。EMが次の一手を判断できるよう、チームとして分析してください。", `タイトル: ${title}`];
+  if (charter.why) lines.push(`Why（記録時点）: ${charter.why}`);
+  if (charter.what) lines.push(`What（記録時点）: ${charter.what}`);
+  if (charter.how) lines.push(`How（記録時点）: ${charter.how}`);
+  lines.push(
+    "Why/What/Howのうち未整理な項目があれば埋める提案をし、そのうえで改善の方向性を判断してください。次にやるべき具体的なAction Itemsや、課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。複数の専門性にまたがる論点なら、該当する専門エージェントに相談してください。",
+  );
+  return lines.join("\n");
 }
 
 export async function decideRun(id: string, rawMessage: string): Promise<AgentRun | undefined> {
@@ -1661,6 +1754,17 @@ export function clearSuggestedSubIssues(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
   run.suggestedSubIssues = undefined;
+  persistRunMeta(run);
+  return run;
+}
+
+// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。AIが提案したWhy/What/Howの埋め合わせ案を、EMが採用した後（実際の反映は
+// 呼び出し側が/api/issues/[id]を個別に叩く）または却下した後に、提案自体をrunから消す。
+export function clearSuggestedCharter(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.suggestedCharter = undefined;
   persistRunMeta(run);
   return run;
 }

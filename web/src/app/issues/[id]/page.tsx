@@ -401,6 +401,39 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  const [charterSubmitting, setCharterSubmitting] = useState(false);
+
+  // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+  // 対応。AIが提案したWhy/What/Howの埋め合わせ案を、実際にIssue.charterへ反映するか
+  // どうかはEMが選ぶ（既存のPATCH /api/issues/[id]をそのまま叩くだけで、新しい更新経路は
+  // 増やさない。提案に含まれない項目はキー自体を送らないため上書きされない）。
+  async function handleAdoptSuggestedCharter(charter: { why?: string; what?: string; how?: string }) {
+    if (!issue || !linkedRun) return;
+    setCharterSubmitting(true);
+    try {
+      await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(charter),
+      });
+      await fetch(`/api/agents/${linkedRun.id}/charter/dismiss`, { method: "POST" });
+      await Promise.all([refreshIssue(), refreshRuns()]);
+    } finally {
+      setCharterSubmitting(false);
+    }
+  }
+
+  async function handleDismissSuggestedCharter() {
+    if (!linkedRun) return;
+    setCharterSubmitting(true);
+    try {
+      await fetch(`/api/agents/${linkedRun.id}/charter/dismiss`, { method: "POST" });
+      await refreshRuns();
+    } finally {
+      setCharterSubmitting(false);
+    }
+  }
+
   async function handleToggleActionItem(itemId: string) {
     if (!issue) return;
     try {
@@ -778,6 +811,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               onAdoptSubIssues={handleAdoptSuggestedSubIssues}
               onDismissSubIssues={handleDismissSuggestedSubIssues}
               subIssuesSubmitting={subIssuesSubmitting}
+              onAdoptCharter={handleAdoptSuggestedCharter}
+              onDismissCharter={handleDismissSuggestedCharter}
+              charterSubmitting={charterSubmitting}
             />
           ) : (
             <p className={styles.subtitle}>
