@@ -377,7 +377,7 @@ const liveProcesses = new Map<string, ReturnType<typeof spawn>>();
 // （二重に状態を書き換えず、実際にプロセスが終了したタイミングで確定させるため）。
 const WATCHDOG_INTERVAL_MS = 30_000;
 
-function checkStaleRuns(): void {
+export function checkStaleRuns(): void {
   const { agentKillAfterSeconds } = getRulesAndConstraints();
   const thresholdMs = agentKillAfterSeconds * 1000;
   const now = Date.now();
@@ -421,7 +421,7 @@ export function todayDateString(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-function checkMorningSummary(): void {
+export function checkMorningSummary(): void {
   const { autoMorningSummaryEnabled, autoMorningSummaryHour } = getRulesAndConstraints();
   if (!autoMorningSummaryEnabled) return;
   const now = new Date();
