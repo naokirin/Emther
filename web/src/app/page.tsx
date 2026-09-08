@@ -706,6 +706,18 @@ export default function DashboardPage() {
     .flatMap((o) => o.progress)
     .reduce((acc, p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done: 0, total: 0 });
 
+  // ユーザー指摘「いつのものかわからないので日時を先頭に入れてほしい」対応。月/日 時:分を
+  // 常に2桁ゼロ埋めで返すことで、文字数を固定長にする（.activityLineTime側の固定幅指定と
+  // 合わせて、日時の値によってテキストの開始位置がずれないようにする）。
+  function formatActivityTimestamp(ts: number): string {
+    const d = new Date(ts);
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${mm}/${dd} ${hh}:${mi}`;
+  }
+
   // docs/memo.md「E. 横断Activity Stream」（TODO「Dashboardに全エージェント横断のAgent
   // Activity Streamパネルを追加する」に対応）。新基盤（SSE等）は導入せず、既存runs[].logを
   // 時刻順にマージして見せるだけ。ポーリングは既存useRunsのまま。
@@ -714,6 +726,7 @@ export default function DashboardPage() {
       run.log.map((line, idx) => ({
         id: `${run.id}-${idx}`,
         ts: line.ts,
+        timeLabel: formatActivityTimestamp(line.ts),
         agentLabel: run.agentName.replace(/ Agent$/, ""),
         icon: line.text.startsWith("[YIELD]") ? "🟡" : line.channel === "system" ? "⚙️" : line.channel === "meta" ? "📝" : "💬",
         text: line.text.replace(/\s+/g, " ").slice(0, 80),
@@ -936,8 +949,11 @@ export default function DashboardPage() {
             ) : (
               <div className={styles.activityStream} style={{ marginTop: 12 }}>
                 {activityLines.map((a) => (
-                  <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={a.text}>
-                    [{a.agentLabel}] {a.icon} {a.text}
+                  <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={`${a.timeLabel} ${a.text}`}>
+                    <span className={styles.activityLineTime}>{a.timeLabel}</span>
+                    <span className={styles.activityLineText}>
+                      [{a.agentLabel}] {a.icon} {a.text}
+                    </span>
                   </button>
                 ))}
               </div>
