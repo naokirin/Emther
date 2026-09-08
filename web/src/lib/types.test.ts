@@ -6,6 +6,7 @@ import {
   normalizeTeamName,
   teamDisplayName,
   teamPathSegments,
+  truncateForTitle,
   type IssueCharter,
   type JournalEntry,
 } from "@/lib/types";
@@ -106,5 +107,26 @@ describe("isJournalEntryResolved", () => {
 
   it("resolutionNoteがあれば対応済み", () => {
     expect(isJournalEntryResolved(baseEntry({ resolutionNote: "様子見に決めた" }))).toBe(true);
+  });
+});
+
+describe("truncateForTitle", () => {
+  it("上限以下ならそのまま返す", () => {
+    expect(truncateForTitle("短いタイトル")).toBe("短いタイトル");
+  });
+
+  it("前後の空白は除去する", () => {
+    expect(truncateForTitle("  タイトル  ")).toBe("タイトル");
+  });
+
+  it("上限を超えたら切り詰めて…を付ける（文の途中で切れたことをEMが分かるようにする）", () => {
+    const long = "あ".repeat(80);
+    const result = truncateForTitle(long, 60);
+    expect(result).toBe(`${"あ".repeat(59)}…`);
+    expect(result.length).toBe(60);
+  });
+
+  it("maxLengthを指定できる", () => {
+    expect(truncateForTitle("あいうえおかきくけこ", 5)).toBe("あいうえ…");
   });
 });

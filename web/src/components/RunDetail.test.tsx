@@ -25,6 +25,22 @@ describe("runFallbackTitle", () => {
     expect(runFallbackTitle(baseRun({ task: "本来のタスク" }))).toBe("本来のタスク");
   });
 
+  it("proposal.conclusionがあればtaskより優先する（異常検知など定型の指示文がtaskの場合に本文を残すため）", () => {
+    expect(
+      runFallbackTitle(
+        baseRun({
+          task: "Journalに緊急度highのエントリが追加されました。内容を確認し、Issueとして追跡すべきか判断してください。",
+          proposal: {
+            conclusion: "五木さんの目標設定の悩みをIssue化して追跡すべきと判断します",
+            facts: [],
+            logic: "",
+            rejectedAlternatives: [],
+          },
+        }),
+      ),
+    ).toBe("五木さんの目標設定の悩みをIssue化して追跡すべきと判断します");
+  });
+
   it("taskが空ならyieldの理由を使う", () => {
     expect(
       runFallbackTitle(baseRun({ task: "  ", yieldRequest: { reason: "情報不足のため判断が必要", options: [] } })),

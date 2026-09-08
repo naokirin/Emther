@@ -58,7 +58,16 @@ export type AgentRun = {
 // クリックしても何も起きない（エラーがUIに出ない）まま詰む。run.task以外にも意味のある
 // テキスト（Yieldの理由・最初のログ行）があればそれを使い、それも無ければ最低限
 // エージェント名だけのタイトルにフォールバックし、Issue化自体は必ず成功させる。
+//
+// ユーザー指摘対応（続報）: auto-anomaly/auto-summaryのrunはrun.task自体が「〜を判断
+// してください」という定型の指示文＋本文という長い文字列で、EMが書いた短い文ではない。
+// これをそのままタイトルにすると（呼び出し側でtruncateForTitleしても）本文へ辿り着く
+// 前の定型句だけが残ってしまう。proposal.conclusionはAIが実際に出した結論そのもの
+// （journal-store.tsのプロンプトで必ず「結論の中でIssue化を検討する旨を明記」させている）
+// なので、存在すればtaskより優先してタイトルに使う。
 export function runFallbackTitle(run: AgentRun): string {
+  const conclusion = run.proposal?.conclusion.trim();
+  if (conclusion) return conclusion;
   const task = run.task.trim();
   if (task) return task;
   const yieldReason = run.yieldRequest?.reason.trim();

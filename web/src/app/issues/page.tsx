@@ -7,7 +7,7 @@ import { StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDe
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
-import { INTERVENTION_TYPES, charterFilledCount, isRunStale } from "@/lib/types";
+import { INTERVENTION_TYPES, charterFilledCount, isRunStale, truncateForTitle } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
 const RUNS_PAGE_SIZE = 5;
@@ -159,7 +159,7 @@ function IssuesPageInner() {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: runFallbackTitle(run).slice(0, 60), agentRunId: run.id }),
+        body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Issue化に失敗しました");
