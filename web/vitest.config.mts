@@ -9,7 +9,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // フック/コンポーネントのテスト（*.test.tsx）はファイル先頭の
+    // `// @vitest-environment jsdom` プラグマでjsdomへ個別に切り替える
+    // （それ以外の大多数のテストはDOM不要なので既定のnode環境のまま高速に保つ）。
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["./vitest.setup.ts"],
     // これらのストアはimport時にloadJSON/getDb()を呼びファイル状態を読み込むため、
     // テストごとに新しいプロセスで実行してモジュールキャッシュ・環境変数の
     // 影響が他テストファイルへ漏れないようにする。
