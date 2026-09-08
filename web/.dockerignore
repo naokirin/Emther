@@ -1,0 +1,16 @@
+node_modules
+.next
+.data
+coverage
+.git
+.gitignore
+*.md
+!README.md
+tsconfig.tsbuildinfo
+vitest.config.mts
+vitest.setup.ts
+src/**/*.test.ts
+src/**/*.test.tsx
+src/lib/test-helpers
+.DS_Store
+.env*
