@@ -825,6 +825,42 @@
   border-color: var(--blue);
 }
 
+/* ---------- EMバイタルチェックインの1〜5尺度ボタン ---------- */
+.scalePickerGroup {
+  display: flex;
+  gap: 12px;
+}
+
+.scaleChip {
+  min-width: 44px;
+  padding: 10px 0;
+  text-align: center;
+  border-radius: 10px;
+  border: 1px solid var(--input-border);
+  background: var(--panel);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.scaleChipSelected {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--blue);
+}
+
+/* ユーザー指摘「気分／エネルギー／ストレスの幅を揃え、中央寄せにする」対応。数字1桁分の
+   幅で十分なため小さめにし、日付・メモ列を圧迫しない（日付側はnowrapで折り返し崩れを防ぐ）。 */
+.checkinScaleCol {
+  width: 56px;
+  text-align: center;
+}
+
+.checkinDateCol {
+  white-space: nowrap;
+}
+
 .urgencyLabel {
   font-size: 0.8125rem;
   font-weight: 700;
@@ -1199,6 +1235,33 @@
   animation: slideOverIn 0.18s ease-out;
 }
 
+/* ユーザー指摘「サイドピークの幅を自由に変更できるようにしたい」対応。左端の8px帯を
+   ドラッグハンドルにする（見た目は中央の縦線のみ、当たり判定はWCAG 2.2 2.5.8対応で広め）。 */
+.slideOverResizeHandle {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.slideOverResizeHandle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 2px;
+  height: 100%;
+  background: transparent;
+}
+
+.slideOverResizeHandle:hover::after,
+.slideOverResizeHandle:focus-visible::after {
+  background: var(--blue);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .slideOverBox {
     animation: none;
@@ -1228,6 +1291,26 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px 32px;
+}
+
+/* ユーザー指摘「サイドピークからの詳細画面移動のリンクをアイコン表示にしたい」対応。
+   .modalClose（×ボタン）と同じ見た目の言語で揃えた、アイコンのみのリンクボタン。
+   アクセシブルな名前はLink側のaria-label/titleで維持する。 */
+.slideOverExpandLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px 6px;
+}
+
+.slideOverExpandLink:hover {
+  color: var(--blue-text);
 }
 
 /* ---------- Back link ---------- */
@@ -1718,7 +1801,8 @@
   color: var(--blue-text);
 }
 
-/* ---------- People: 円形スコアバッジ（改修依頼「労務SaaS的な視覚スコア表示」対応） ---------- */
+/* ---------- People: 円形バイタルバッジ（改修依頼「どのくらい気をかけるべきかの
+   バイタル表示にしたい」対応。Team Vitalsと同じ状態アイコンを円の中に大きく表示する） ---------- */
 .personScoreBadge {
   display: flex;
   align-items: center;
@@ -1728,9 +1812,8 @@
   height: 48px;
   border-radius: 50%;
   border: 2px solid var(--gray-border);
-  font-family: var(--font-mono);
-  font-size: 1.0625rem;
-  font-weight: 700;
+  font-size: 1.375rem;
+  line-height: 1;
 }
 
 .personScoreGood {

@@ -19,16 +19,20 @@ function formatDate(ts: number): string {
 
 // 改修依頼「selectの選択肢の選択のしにくさそのものの改善」対応。1〜5の固定尺度は
 // プルダウンで隠さずボタン群にする（介入の型・ステータス選択と同じ.typeChipパターン）。
+//
+// ユーザー指摘「数値選択の間がつまりすぎているので広げてバランスと押しやすさを上げる」対応。
+// 他の.typeChip（可変長ラベルのタグ・フィルタ）と共有せず、1桁の数字専用に幅を揃えた
+// 大きめのボタン（.scaleChip）にし、間隔も広げる。
 function ScalePicker({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div className={styles.field}>
       <span className={styles.fieldCaption}>{label}</span>
-      <div role="group" aria-label={label} style={{ display: "flex", gap: 6 }}>
+      <div role="group" aria-label={label} className={styles.scalePickerGroup}>
         {SCALE_OPTIONS.map((v) => (
           <button
             key={v}
             type="button"
-            className={`${styles.typeChip} ${value === v ? styles.typeChipSelected : ""}`}
+            className={`${styles.scaleChip} ${value === v ? styles.scaleChipSelected : ""}`}
             onClick={() => onChange(v)}
           >
             {v}
@@ -117,19 +121,19 @@ export function EmCheckinWidget() {
             <thead>
               <tr>
                 <th>日付</th>
-                <th>気分</th>
-                <th>エネルギー</th>
-                <th>ストレス</th>
+                <th className={styles.checkinScaleCol}>気分</th>
+                <th className={styles.checkinScaleCol}>エネルギー</th>
+                <th className={styles.checkinScaleCol}>ストレス</th>
                 <th>メモ</th>
               </tr>
             </thead>
             <tbody>
               {checkinPagination.pageItems.map((c) => (
                 <tr key={c.id}>
-                  <td className={styles.tableMuted}>{formatDate(c.createdAt)}</td>
-                  <td>{c.mood}</td>
-                  <td>{c.energy}</td>
-                  <td>{c.stress}</td>
+                  <td className={`${styles.tableMuted} ${styles.checkinDateCol}`}>{formatDate(c.createdAt)}</td>
+                  <td className={styles.checkinScaleCol}>{c.mood}</td>
+                  <td className={styles.checkinScaleCol}>{c.energy}</td>
+                  <td className={styles.checkinScaleCol}>{c.stress}</td>
                   <td>{c.note}</td>
                 </tr>
               ))}

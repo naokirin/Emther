@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
 import { usePersonProfile } from "@/lib/hooks";
-import { URGENCY_LABEL, charterFilledCount } from "@/lib/types";
+import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatus } from "@/lib/types";
 
 // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。中身をidベースの
 // コンポーネントに切り出し、フルページ（本ファイル末尾のPersonDetailPage）と
@@ -51,7 +51,8 @@ export function PersonDetailContent({ id }: { id: string }) {
             </button>
           </div>
           <p className={styles.subtitle}>
-            {person.teamNames.length > 0 ? `所属: ${person.teamNames.join(", ")}` : "所属チームなし"} ／ 直近Journal {person.factCount}件
+            気にかけるべき度合い: {PERSON_VITAL_LABEL[personVitalStatus(person.trend)]} ／
+            {person.teamNames.length > 0 ? ` 所属: ${person.teamNames.join(", ")}` : " 所属チームなし"} ／ 直近Journal {person.factCount}件
             {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}
             {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
           </p>
