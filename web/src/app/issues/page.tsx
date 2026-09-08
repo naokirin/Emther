@@ -9,6 +9,7 @@ import { PaginationControls, usePagination } from "@/components/Pagination";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
+import { Select } from "@/components/Select";
 import { useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, isRunStale, issueProgress, truncateForTitle } from "@/lib/types";
 
@@ -212,24 +213,22 @@ function IssuesPageInner() {
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
             アーカイブ済みも表示する（{archivedCount}件）
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
             Why/What/How未整理のみ
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             タグで絞り込み:
-            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
-              <option value="">すべて</option>
-              {allTags.map((tag) => (
-                <option key={tag} value={tag}>
-                  #{tag}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={tagFilter}
+              onChange={setTagFilter}
+              options={[{ value: "", label: "すべて" }, ...allTags.map((tag) => ({ value: tag, label: `#${tag}` }))]}
+              style={{ minWidth: 160 }}
+            />
           </label>
         </div>
 
@@ -401,42 +400,41 @@ function IssuesPageInner() {
             </div>
             <div className={styles.field}>
               <label>関連づけるAgent Run（任意）
-              <select value={issueRunId} onChange={(e) => setIssueRunId(e.target.value)}>
-                <option value="">なし</option>
-                {runs.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    [{r.agentName}] {r.task.slice(0, 30)}
-                  </option>
-                ))}
-              </select></label>
+              <Select
+                value={issueRunId}
+                onChange={setIssueRunId}
+                options={[
+                  { value: "", label: "なし" },
+                  ...runs.map((r) => ({ value: r.id, label: `[${r.agentName}] ${r.task.slice(0, 30)}` })),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
             </div>
 
             <div className={styles.field}>
               <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
-              <select value={issueTeamId} onChange={(e) => setIssueTeamId(e.target.value)}>
-                <option value="">なし</option>
-                {teams
-                  .filter((t) => !t.archived)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-              </select></label>
+              <Select
+                value={issueTeamId}
+                onChange={setIssueTeamId}
+                options={[
+                  { value: "", label: "なし" },
+                  ...teams.filter((t) => !t.archived).map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
             </div>
 
             <div className={styles.field}>
               <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
-              <select value={issueKeyResultId} onChange={(e) => setIssueKeyResultId(e.target.value)}>
-                <option value="">なし</option>
-                {objectives.map((o) =>
-                  o.keyResults.map((kr) => (
-                    <option key={kr.id} value={kr.id}>
-                      {o.title} ＞ {kr.title}
-                    </option>
-                  )),
-                )}
-              </select></label>
+              <Select
+                value={issueKeyResultId}
+                onChange={setIssueKeyResultId}
+                options={[
+                  { value: "", label: "なし" },
+                  ...objectives.flatMap((o) => o.keyResults.map((kr) => ({ value: kr.id, label: `${o.title} ＞ ${kr.title}` }))),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
             </div>
 
             <div className={styles.field}>

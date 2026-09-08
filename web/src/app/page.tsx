@@ -6,6 +6,7 @@ import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, resolveYieldKind, runFallbackTitle, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import {
   useEmCheckins,
   useIssues,
@@ -33,6 +34,14 @@ import {
 const JOURNAL_DASHBOARD_LIMIT = 5;
 const INBOX_PAGE_SIZE = 5;
 const NEXT_ACTIONS_LIMIT = 6;
+const STATUS_FILTER_OPTIONS = [
+  { value: "", label: "すべて" },
+  { value: "active", label: "🔵 Active" },
+  { value: "queued", label: "⏳ Queued（順番待ち）" },
+  { value: "yield", label: "🟡 Yield" },
+  { value: "idle", label: "⚪️ Idle" },
+  { value: "error", label: "🔴 Error" },
+];
 // docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
 // で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
 // 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
@@ -1438,16 +1447,14 @@ export default function DashboardPage() {
           {error && <p className={styles.errorText} role="alert">{error}</p>}
 
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
               状態で絞り込み:
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AgentStatus | "")}>
-                <option value="">すべて</option>
-                <option value="active">🔵 Active</option>
-                <option value="queued">⏳ Queued（順番待ち）</option>
-                <option value="yield">🟡 Yield</option>
-                <option value="idle">⚪️ Idle</option>
-                <option value="error">🔴 Error</option>
-              </select>
+              <Select
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as AgentStatus | "")}
+                options={STATUS_FILTER_OPTIONS}
+                style={{ minWidth: 180 }}
+              />
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
               <input

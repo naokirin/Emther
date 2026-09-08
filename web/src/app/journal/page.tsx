@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
+import { Select } from "@/components/Select";
 import { useJournal, useJournalEditing } from "@/lib/hooks";
 import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
 
@@ -15,6 +16,20 @@ const PERIOD_OPTIONS: { value: string; label: string }[] = [
   { value: "7", label: "直近7日" },
   { value: "30", label: "直近30日" },
   { value: "90", label: "直近90日" },
+];
+
+const URGENCY_FILTER_OPTIONS = [
+  { value: "", label: "すべて" },
+  { value: "low", label: "Low" },
+  { value: "mid", label: "Mid" },
+  { value: "high", label: "High" },
+];
+
+const SENTIMENT_FILTER_OPTIONS = [
+  { value: "", label: "すべて" },
+  { value: "positive", label: "ポジティブ" },
+  { value: "neutral", label: "ニュートラル" },
+  { value: "negative", label: "ネガティブ" },
 ];
 
 // docs/memo.md TODO「Quick Journal を人間側が後からリスト確認・検索しにくいUIになっている。
@@ -119,58 +134,48 @@ function JournalListPageInner() {
           <label>キーワード検索（本文・要約・タグ・人物）
           <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例: リファクタリング" /></label>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             期間:
-            <select value={periodDays} onChange={(e) => setPeriodDays(e.target.value)}>
-              {PERIOD_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <Select value={periodDays} onChange={setPeriodDays} options={PERIOD_OPTIONS} style={{ minWidth: 140 }} />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             人物:
-            <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)}>
-              <option value="">すべて</option>
-              {allPeople.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={personFilter}
+              onChange={setPersonFilter}
+              options={[{ value: "", label: "すべて" }, ...allPeople.map((p) => ({ value: p, label: p }))]}
+              style={{ minWidth: 140 }}
+            />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             タグ:
-            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
-              <option value="">すべて</option>
-              {allTags.map((t) => (
-                <option key={t} value={t}>
-                  #{t}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={tagFilter}
+              onChange={setTagFilter}
+              options={[{ value: "", label: "すべて" }, ...allTags.map((t) => ({ value: t, label: `#${t}` }))]}
+              style={{ minWidth: 140 }}
+            />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             Urgency:
-            <select value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value as JournalEntry["urgency"] | "")}>
-              <option value="">すべて</option>
-              <option value="low">Low</option>
-              <option value="mid">Mid</option>
-              <option value="high">High</option>
-            </select>
+            <Select
+              value={urgencyFilter}
+              onChange={(v) => setUrgencyFilter(v as JournalEntry["urgency"] | "")}
+              options={URGENCY_FILTER_OPTIONS}
+              style={{ minWidth: 120 }}
+            />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             感情:
-            <select value={sentimentFilter} onChange={(e) => setSentimentFilter(e.target.value as JournalEntry["sentiment"] | "")}>
-              <option value="">すべて</option>
-              <option value="positive">ポジティブ</option>
-              <option value="neutral">ニュートラル</option>
-              <option value="negative">ネガティブ</option>
-            </select>
+            <Select
+              value={sentimentFilter}
+              onChange={(v) => setSentimentFilter(v as JournalEntry["sentiment"] | "")}
+              options={SENTIMENT_FILTER_OPTIONS}
+              style={{ minWidth: 140 }}
+            />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             <input type="checkbox" checked={excludeResolved} onChange={(e) => setExcludeResolved(e.target.checked)} />
             ✅ 対応済みを除外
           </label>

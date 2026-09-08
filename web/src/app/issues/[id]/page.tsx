@@ -9,6 +9,7 @@ import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssueStatusSelector } from "@/components/IssueStatus";
 import { MarkdownView } from "@/components/MarkdownView";
+import { Select } from "@/components/Select";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueCharter, type IssueStatus } from "@/lib/types";
 
@@ -831,29 +832,29 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             <div className={styles.field}>
               <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
-              <select value={teamIdDraft} onChange={(e) => handleChangeTeam(e.target.value)} disabled={teamLinkSaving}>
-                <option value="">なし</option>
-                {teams
-                  .filter((t) => !t.archived)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-              </select></label>
+              <Select
+                value={teamIdDraft}
+                onChange={handleChangeTeam}
+                disabled={teamLinkSaving}
+                options={[
+                  { value: "", label: "なし" },
+                  ...teams.filter((t) => !t.archived).map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
             </div>
             <div className={styles.field}>
               <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
-              <select value={keyResultIdDraft} onChange={(e) => handleChangeKeyResult(e.target.value)} disabled={keyResultSaving}>
-                <option value="">なし</option>
-                {objectives.map((o) =>
-                  o.keyResults.map((kr) => (
-                    <option key={kr.id} value={kr.id}>
-                      {o.title} ＞ {kr.title}
-                    </option>
-                  )),
-                )}
-              </select></label>
+              <Select
+                value={keyResultIdDraft}
+                onChange={handleChangeKeyResult}
+                disabled={keyResultSaving}
+                options={[
+                  { value: "", label: "なし" },
+                  ...objectives.flatMap((o) => o.keyResults.map((kr) => ({ value: kr.id, label: `${o.title} ＞ ${kr.title}` }))),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
             </div>
             <div className={styles.field}>
               <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>
