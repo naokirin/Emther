@@ -1,21 +1,109 @@
+import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 
-// agent-runtime.tsは実際のCLI子プロセス（claude/agy/cursor-agent）を起動するstartRun/
-// decideRun/runClaudeTurn等を持つが、それらはこのテストの対象外にする（node:child_processの
-// spawnをモックする別途まとまった作業が必要）。ここでは、それらに依存しない
-// 「純粋なパース関数」「プロンプト組み立て関数」、およびDBへ直接rowを仕込むことで
-// 実プロセスを起動せずに検証できる「run一覧・状態遷移系の関数」だけを対象にする。
+// agent-runtime.tsの「純粋なパース関数」「プロンプト組み立て関数」「DBへ直接rowを仕込むことで
+// 実プロセスを起動せずに検証できるrun一覧・状態遷移系の関数」は上のdescribeブロック群でカバー
+// 済み。ここから下は、実際にCLI子プロセスを起動するstartRun/decideRun/runClaudeTurn（claude→agy→
+// cursor-agentのフォールバック連鎖）と、Lead Agentのconsult協働ループ（handleConsult）を対象に、
+// node:child_processのspawnを丸ごとモックして検証する。
 vi.mock("@/lib/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
+
+vi.mock("@/lib/embeddings", () => ({
+  embedText: vi.fn(async () => [1, 0, 0]),
+  cosineSimilarity: () => 0,
+}));
+
+// vi.mockのファクトリはファイル先頭へホイストされるため、テストごとに差し替えたい実装は
+// vi.hoisted()で作った可変の参照（spawnRef.impl）越しに間接呼び出しする。実装の中身
+// （FakeChildProcess等）は通常のimportが揃った後の、このファイルの下の方で定義してよい。
+const spawnRef = vi.hoisted(() => ({
+  impl: (() => {
+    throw new Error("spawn is not mocked for this test");
+  }) as (command: string, args: string[]) => unknown,
+}));
+vi.mock("node:child_process", () => ({
+  spawn: (command: string, args: string[]) => spawnRef.impl(command, args),
+}));
+
+// claude/agy/cursor-agentいずれも「stdout/stderrへstream-json形式のNDJSONを流し、
+// 終了時にcloseイベントを出す」という同じ形のChildProcessとして扱えるため、共通の
+// フェイクで代用する（イベント構造の実装差はstdout/stderrの読み取り側=agent-runtime.ts側にある）。
+class FakeChildProcess extends EventEmitter {
+  stdout = new EventEmitter();
+  stderr = new EventEmitter();
+  kill = vi.fn();
+}
+
+type SpawnCall = { command: string; args: string[]; child: FakeChildProcess };
+let spawnCalls: SpawnCall[] = [];
+
+function setupSpawnMock(): void {
+  spawnCalls = [];
+  spawnRef.impl = (command: string, args: string[]) => {
+    const child = new FakeChildProcess();
+    spawnCalls.push({ command, args, child });
+    return child;
+  };
+}
+
+function emitLine(child: FakeChildProcess, payload: unknown): void {
+  child.stdout.emit("data", Buffer.from(`${JSON.stringify(payload)}\n`));
+}
+
+function emitAssistantText(child: FakeChildProcess, text: string): void {
+  emitLine(child, { type: "assistant", message: { content: [{ type: "text", text }] } });
+}
+
+function emitClaudeResult(
+  child: FakeChildProcess,
+  opts: { text?: string; sessionId?: string; costUsd?: number; isError?: boolean } = {},
+): void {
+  emitLine(child, {
+    type: "result",
+    session_id: opts.sessionId,
+    total_cost_usd: opts.costUsd ?? 0.01,
+    is_error: opts.isError ?? false,
+    result: opts.text ?? "",
+  });
+}
+
+function emitAgyResult(
+  child: FakeChildProcess,
+  opts: { status?: string; text?: string; conversationId?: string } = {},
+): void {
+  emitLine(child, {
+    event: "result",
+    result: { status: opts.status ?? "SUCCESS", response: opts.text, conversation_id: opts.conversationId },
+  });
+}
+
+function emitCursorResult(
+  child: FakeChildProcess,
+  opts: { sessionId?: string; isError?: boolean; text?: string } = {},
+): void {
+  emitLine(child, { type: "result", session_id: opts.sessionId, is_error: opts.isError ?? false, result: opts.text ?? "" });
+}
+
+function closeChild(child: FakeChildProcess, code = 0): void {
+  child.emit("close", code);
+}
+
+async function waitForSpawnCount(n: number): Promise<void> {
+  await vi.waitFor(() => {
+    if (spawnCalls.length < n) throw new Error(`spawn call count ${spawnCalls.length} < ${n}`);
+  });
+}
 
 let dir: string;
 
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
+  setupSpawnMock();
 });
 
 afterEach(() => {
@@ -447,5 +535,325 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.setRunTriageStatus("missing", "dismissed")).toBeUndefined();
     expect(rt.clearSuggestedActionItems("missing")).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();
+  });
+});
+
+describe("startRun（CLI起動・claude→agy→cursorのフォールバック連鎖）", () => {
+  it("claudeが直接proposalを返した場合、そのままidleで完了する", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "障害対応の方針を決めたい");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].command).toBe("claude");
+    expect(spawnCalls[0].args).toContain("-p");
+    expect(spawnCalls[0].args).not.toContain("--resume");
+
+    emitAssistantText(spawnCalls[0].child, "検討しています…");
+    emitClaudeResult(spawnCalls[0].child, {
+      sessionId: "sess-1",
+      costUsd: 0.02,
+      text: '```proposal\n{ "conclusion": "対応を継続", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    const finished = rt.getRun(run.id)!;
+    expect(finished.status).toBe("idle");
+    expect(finished.sessionId).toBe("sess-1");
+    expect(finished.totalCostUsd).toBeCloseTo(0.02);
+    expect(finished.proposal?.conclusion).toBe("対応を継続");
+    expect(finished.log.some((l) => l.channel === "agent" && l.text === "検討しています…")).toBe(true);
+  });
+
+  it("claudeがyieldブロックを返した場合、statusがyieldになる", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "判断に迷うタスク");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```yield\n{ "reason": "情報不足", "options": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(run.id)?.status).toBe("yield");
+    expect(rt.getRun(run.id)?.yieldRequest?.reason).toBe("情報不足");
+  });
+
+  it("フォールバック無効のままclaudeが結果を返さず終了した場合、errorになりagy/cursorは起動しない", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "落ちるタスク");
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1); // 結果イベント無しで終了
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(run.id)?.status).toBe("error");
+    expect(spawnCalls).toHaveLength(1);
+    expect(rt.getRun(run.id)?.log.some((l) => l.text.includes("プロセスが結果を返さずに終了しました"))).toBe(true);
+  });
+
+  it("claude失敗→agyフォールバックが有効なら起動し、成功すればidleになる", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"] });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].command).toBe("agy");
+    emitAgyResult(spawnCalls[1].child, {
+      text: '```proposal\n{ "conclusion": "agy経由の結論", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+      conversationId: "agy-conv-1",
+    });
+    closeChild(spawnCalls[1].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    const finished = rt.getRun(run.id)!;
+    expect(finished.status).toBe("idle");
+    expect(finished.agyConversationId).toBe("agy-conv-1");
+    expect(finished.proposal?.conclusion).toBe("agy経由の結論");
+    expect(finished.log.some((l) => l.text.includes("agy経由でGeminiモデルにこのターンをフォールバック"))).toBe(true);
+  });
+
+  it("claude失敗→agy無効→cursorフォールバックが有効なら起動し、成功すればidleになる", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ cursorFallbackAgents: ["Lead Agent"] });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].command).toBe("cursor-agent");
+    expect(spawnCalls[1].args).toContain("--workspace");
+    emitCursorResult(spawnCalls[1].child, { sessionId: "cursor-sess-1", text: "cursor-agentからの回答。proposalなし。" });
+    closeChild(spawnCalls[1].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    const finished = rt.getRun(run.id)!;
+    expect(finished.status).toBe("idle");
+    expect(finished.cursorSessionId).toBe("cursor-sess-1");
+    expect(finished.log.some((l) => l.text.includes("Cursor CLI経由でこのターンをフォールバック"))).toBe(true);
+  });
+
+  it("claude失敗→agyも失敗→cursorが有効なら3段目として起動し成功する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"], cursorFallbackAgents: ["Lead Agent"] });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].command).toBe("agy");
+    closeChild(spawnCalls[1].child, 1); // agyも結果を返さず終了
+
+    await waitForSpawnCount(3);
+    expect(spawnCalls[2].command).toBe("cursor-agent");
+    emitCursorResult(spawnCalls[2].child, { text: "cursorで復旧" });
+    closeChild(spawnCalls[2].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(run.id)?.status).toBe("idle");
+  });
+
+  it("claude/agy/cursorすべて失敗すればerrorのまま確定する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"], cursorFallbackAgents: ["Lead Agent"] });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "全滅するタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+    await waitForSpawnCount(2);
+    closeChild(spawnCalls[1].child, 1);
+    await waitForSpawnCount(3);
+    closeChild(spawnCalls[2].child, 1);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(run.id)?.status).toBe("error");
+    expect(spawnCalls).toHaveLength(3);
+  });
+
+  it("maxParallelAgentRunsの上限に達すると後発のrunはqueuedで待機し、先発の枠解放後に起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ maxParallelAgentRuns: 1 });
+    const rt = await loadModule();
+
+    await rt.startRun("Lead Agent", "1件目のタスク");
+    await waitForSpawnCount(1);
+
+    const run2 = await rt.startRun("Lead Agent", "2件目のタスク");
+    await vi.waitFor(() => {
+      if (rt.getRun(run2.id)?.status !== "queued") throw new Error("run2 is not queued yet");
+    });
+    expect(spawnCalls).toHaveLength(1); // run2はまだCLIを起動していない
+
+    emitClaudeResult(spawnCalls[0].child, { text: '```proposal\n{ "conclusion": "c", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```' });
+    closeChild(spawnCalls[0].child, 0);
+
+    await waitForSpawnCount(2); // run1の枠解放を受けてrun2がCLIを起動する
+    expect(rt.getRun(run2.id)?.status).toBe("active");
+    emitClaudeResult(spawnCalls[1].child, { text: '```proposal\n{ "conclusion": "c2", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```' });
+    closeChild(spawnCalls[1].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run2.id)?.status === "active" || rt.getRun(run2.id)?.status === "queued") throw new Error("still pending");
+    });
+    expect(rt.getRun(run2.id)?.status).toBe("idle");
+  });
+});
+
+describe("decideRun", () => {
+  it("実行中(active)または順番待ち(queued)のrunへの入力は拒否する", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "タスク");
+    await waitForSpawnCount(1); // まだactiveのまま
+    await expect(rt.decideRun(run.id, "追加の指示")).rejects.toThrow("今は入力を受け付けられません");
+  });
+
+  it("存在しないrunはundefinedを返す", async () => {
+    const rt = await loadModule();
+    expect(await rt.decideRun("missing", "x")).toBeUndefined();
+  });
+
+  it("idle状態のrunはdecideRunで再開でき、既存sessionIdを--resumeで引き継ぐ", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "最初のタスク");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      sessionId: "sess-1",
+      text: '```proposal\n{ "conclusion": "一旦完了", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status !== "idle") throw new Error("not idle yet");
+    });
+
+    await rt.decideRun(run.id, "続けてください");
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].args).toContain("--resume");
+    expect(spawnCalls[1].args[spawnCalls[1].args.indexOf("--resume") + 1]).toBe("sess-1");
+
+    emitClaudeResult(spawnCalls[1].child, { sessionId: "sess-1", text: '```yield\n{ "reason": "続きは人間の判断が必要", "options": [] }\n```' });
+    closeChild(spawnCalls[1].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(run.id)?.status).toBe("yield");
+  });
+});
+
+describe("Lead Agentのconsult協働ループ（handleConsult）", () => {
+  it("consultブロックで専門エージェントを起動し、両者の回答を踏まえてLeadが最終proposalを出す", async () => {
+    const rt = await loadModule();
+    const leadRun = await rt.startRun("Lead Agent", "人と技術が絡む複合的な課題");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].command).toBe("claude");
+    emitClaudeResult(spawnCalls[0].child, {
+      sessionId: "sess-lead-1",
+      text: '```consult\n{ "agents": ["People Agent", "Tech Agent"], "question": "共通質問", "questions": { "People Agent": "人物面の質問", "Tech Agent": "技術面の質問" } }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    // consultを検知した時点でLead run自身はまだactive、専門エージェントrunが2件作られ
+    // それぞれのconsultQuestionFor()による個別質問がtaskに反映されている。
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 3) throw new Error("specialist runs not created yet");
+    });
+    const peopleRun = rt.listRuns().find((r) => r.agentName === "People Agent")!;
+    const techRun = rt.listRuns().find((r) => r.agentName === "Tech Agent")!;
+    expect(peopleRun.task).toBe("人物面の質問");
+    expect(techRun.task).toBe("技術面の質問");
+    expect(peopleRun.consultedBy).toBe(leadRun.id);
+    expect(techRun.consultedBy).toBe(leadRun.id);
+    expect(rt.getRun(leadRun.id)?.status).toBe("active");
+
+    // 専門エージェント2件分のCLI起動を待って、それぞれの回答を返す。
+    await waitForSpawnCount(3);
+    const peopleCall = spawnCalls.find((c) => c.args.includes("人物面の質問"))!;
+    const techCall = spawnCalls.find((c) => c.args.includes("技術面の質問"))!;
+    emitAssistantText(peopleCall.child, "People Agentとしての回答本文");
+    emitClaudeResult(peopleCall.child, { sessionId: "sess-people-1", text: "People Agentとしての回答本文" });
+    closeChild(peopleCall.child, 0);
+    emitAssistantText(techCall.child, "Tech Agentとしての回答本文");
+    emitClaudeResult(techCall.child, { sessionId: "sess-tech-1", text: "Tech Agentとしての回答本文" });
+    closeChild(techCall.child, 0);
+
+    // 両専門エージェントの回答が出揃うと、Leadのフォローアップターンが
+    // 元のsessionId（sess-lead-1）を--resumeして起動する。
+    await waitForSpawnCount(4);
+    const followUpCall = spawnCalls[3];
+    expect(followUpCall.command).toBe("claude");
+    expect(followUpCall.args[followUpCall.args.indexOf("--resume") + 1]).toBe("sess-lead-1");
+    const followUpPrompt = followUpCall.args[followUpCall.args.indexOf("-p") + 1];
+    expect(followUpPrompt).toContain("People Agentとしての回答本文");
+    expect(followUpPrompt).toContain("Tech Agentとしての回答本文");
+
+    emitClaudeResult(followUpCall.child, {
+      sessionId: "sess-lead-1",
+      text: '```proposal\n{ "conclusion": "両専門家の見解を統合した結論", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(followUpCall.child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(leadRun.id)?.status === "active") throw new Error("still active");
+    });
+    const finishedLead = rt.getRun(leadRun.id)!;
+    expect(finishedLead.status).toBe("idle");
+    expect(finishedLead.proposal?.conclusion).toBe("両専門家の見解を統合した結論");
+    expect(finishedLead.log.some((l) => l.text.includes("[People Agentからの回答]"))).toBe(true);
+    expect(finishedLead.log.some((l) => l.text.includes("[Tech Agentからの回答]"))).toBe(true);
+    expect(rt.getRun(peopleRun.id)?.status).toBe("idle");
+    expect(rt.getRun(techRun.id)?.status).toBe("idle");
+    expect(spawnCalls).toHaveLength(4); // Lead初回 + 専門2件 + Leadフォローアップの計4回のみ
+  });
+
+  it("フォローアップターンの応答に再びconsultブロックが含まれても孫consultとして扱わない", async () => {
+    const rt = await loadModule();
+    const leadRun = await rt.startRun("Lead Agent", "課題");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      sessionId: "sess-lead-1",
+      text: '```consult\n{ "agents": ["People Agent"], "question": "質問" }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    await waitForSpawnCount(2);
+    emitClaudeResult(spawnCalls[1].child, { text: "People Agentの回答" });
+    closeChild(spawnCalls[1].child, 0);
+
+    await waitForSpawnCount(3);
+    const followUpCall = spawnCalls[2];
+    // allowConsult:falseで呼ばれるフォローアップターンでは、consultブロックが
+    // 返ってきても孫consultとしては処理されず、通常のテキスト（proposal無し）として扱われる。
+    emitClaudeResult(followUpCall.child, {
+      text: '```consult\n{ "agents": ["Tech Agent"], "question": "孫consultは無視されるはず" }\n```',
+    });
+    closeChild(followUpCall.child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(leadRun.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(leadRun.id)?.status).toBe("idle"); // yieldでもactiveでもない＝孫consultとして処理されなかった
+    expect(rt.getRun(leadRun.id)?.proposal).toBeUndefined(); // proposal形式にも従っていないため
+    expect(spawnCalls).toHaveLength(3); // Tech Agentへの孫consultは起動されていない
   });
 });
