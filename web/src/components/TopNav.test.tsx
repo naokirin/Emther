@@ -9,10 +9,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("TopNav", () => {
-  it("グループ単位（7個）のタブを表示する", () => {
+  it("グループ単位（8個）のタブを表示する", () => {
     mockPathname = "/";
     render(<TopNav />);
-    expect(screen.getAllByRole("link")).toHaveLength(7);
+    expect(screen.getAllByRole("link")).toHaveLength(8);
   });
 
   it("現在のパスに応じたグループのタブだけactiveクラスを持つ", () => {
@@ -35,6 +35,14 @@ describe("TopNav", () => {
     render(<TopNav />);
     expect(screen.getByRole("link", { name: "今日" }).className).not.toContain("tabBtnActive");
   });
+
+  // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応の回帰テスト。
+  it("/peopleは「課題」ではなく独立した「メンバー」タブがactiveになる", () => {
+    mockPathname = "/people";
+    render(<TopNav />);
+    expect(screen.getByRole("link", { name: "メンバー" }).className).toContain("tabBtnActive");
+    expect(screen.getByRole("link", { name: "課題" }).className).not.toContain("tabBtnActive");
+  });
 });
 
 describe("StoryBanner", () => {
@@ -44,10 +52,16 @@ describe("StoryBanner", () => {
     expect(screen.getByText(/現場メモ/)).toBeInTheDocument();
   });
 
-  it("複数画面を持つグループ（課題）では表示しない（サイドメニュー見出しと重複するため）", () => {
-    mockPathname = "/issues";
+  it("複数画面を持つグループ（相談）では表示しない（サイドメニュー見出しと重複するため）", () => {
+    mockPathname = "/chat";
     const { container } = render(<StoryBanner />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("課題から分離した単一画面グループ（メンバー）では見出しを表示する", () => {
+    mockPathname = "/people";
+    render(<StoryBanner />);
+    expect(screen.getByText(/メンバー/)).toBeInTheDocument();
   });
 
   it("どのグループにも属さないパスでは表示しない", () => {
@@ -59,14 +73,15 @@ describe("StoryBanner", () => {
 
 describe("AppShell", () => {
   it("複数画面グループでは配下画面へのサイドメニューを表示する", () => {
-    mockPathname = "/people";
+    mockPathname = "/chat";
     render(
       <AppShell>
         <div>page content</div>
       </AppShell>,
     );
-    expect(screen.getByRole("link", { name: "課題一覧" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "人" }).className).toContain("sideNavItemActive");
+    expect(screen.getByRole("link", { name: "何でも相談" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "エージェント" }).className).not.toContain("sideNavItemActive");
+    expect(screen.getByRole("link", { name: "何でも相談" }).className).toContain("sideNavItemActive");
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
@@ -79,5 +94,16 @@ describe("AppShell", () => {
     );
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
+  });
+
+  // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応の回帰テスト。
+  it("課題から分離した単一画面グループ（メンバー、/people）ではサイドメニューを表示しない", () => {
+    mockPathname = "/people";
+    render(
+      <AppShell>
+        <div>page content</div>
+      </AppShell>,
+    );
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 });
