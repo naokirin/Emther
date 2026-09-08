@@ -29,8 +29,12 @@
   margin-bottom: 12px;
 }
 
+/* デザイン見直し（frontend-design）対応。以前は本文とほぼ同じ大きさで、アプリ名としての
+   存在感が無かった。Zen Kaku Gothic Newの太いウェイトで実際の見出しの重みを与える。 */
 .title {
-  font-size: 1.25rem;
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
   margin: 0 0 4px 0;
 }
 
@@ -133,7 +137,7 @@
 }
 
 .sideNavHint {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   padding: 0 10px 6px;
   cursor: help;
@@ -196,8 +200,13 @@
   border-color: transparent;
 }
 
+/* デザイン見直し（frontend-design）対応。旧サイズ（0.9375rem）は本文（0.8125rem）との
+   差が小さく、画面が「同じ大きさの文字の羅列」に見えていた。はっきり区別できる大きさ・
+   太さに引き上げる。 */
 .panel h2 {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
   margin: 0 0 10px 0;
 }
 
@@ -207,7 +216,7 @@
 
 .field label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
@@ -218,7 +227,7 @@
    無い場所での使用は誤解を招く）。見た目は.field labelと同じキャプション調にする。 */
 .fieldCaption {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
@@ -264,7 +273,7 @@
 
 .errorText {
   color: var(--red-fg);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   margin-top: 8px;
 }
 
@@ -294,7 +303,7 @@
 
 .table th {
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   font-weight: 600;
   padding: 8px 10px;
@@ -355,7 +364,7 @@
   height: 180px;
   overflow-y: auto;
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   background: var(--gray-bg);
   border-radius: 8px;
   padding: 8px;
@@ -389,8 +398,11 @@
    関わらず本文（.activityLineText）の開始位置が揃うようにする。 */
 .activityLineTime {
   flex-shrink: 0;
-  /* "MM/DD HH:mm" は常に11文字（ゼロ埋め済み）。 */
+  /* "MM/DD HH:mm" は常に11文字（ゼロ埋め済み）。等幅フォントにすることで11chの前提が
+     文字送りのブレなく厳密に成立する（デザイン見直し対応）。 */
   width: 11ch;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
@@ -438,9 +450,14 @@
   background: var(--blue-bg);
 }
 
+/* デザイン見直し（frontend-design）対応。この1文は§2.6が定める「朝にEMが最初に読む
+   もの」そのものなので、画面内で最も強い見出しにする（Zen Kaku Gothic Newの黒に近い
+   ウェイト）。 */
 .heroHeadline {
-  font-size: 1.1875rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
   margin: 0;
 }
 
@@ -465,15 +482,21 @@
   white-space: nowrap;
 }
 
+/* デザイン見直し（frontend-design）対応。丸ピルの反復をやめ、左の太い縁で状態色を
+   示す「計器の表示灯」の見た目に統一する（.issueStatusBadgeと同じ言語）。 */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
+  padding: 3px 9px 3px 8px;
+  border-radius: 4px;
   border: 1px solid var(--border);
+  border-left-width: 3px;
+  /* 改修依頼「ウィンドウ幅が十分あるのにラベルが改行される」対応。表のセル等、
+     親要素の幅がテキストより先に決まる文脈でラベル自体が2行になっていた。 */
+  white-space: nowrap;
 }
 
 .badge.active {
@@ -505,6 +528,29 @@
   background: var(--red-bg);
   color: var(--red-fg);
   border-color: var(--red-border);
+}
+
+/* 改修依頼「以前から変わったことがより分かりやすいUIに」対応。緊急度（黄=要判断／
+   赤=緊急）とは別次元の「新しさ」を示す唯一の印。塗りつぶした小さな青ドット＋文字
+   ラベルにし、状態バッジ（.badge/.issueStatusBadge）の左縁アクセントとは違う形にして
+   混同を避ける。 */
+.newBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--blue-text);
+  white-space: nowrap;
+}
+
+.newBadge::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue-text);
 }
 
 /* 「動いていると思ったら止まっていた」対策の表示。Team Vitalsの評価不能（.vital-unknown）と
@@ -541,7 +587,7 @@
   border-radius: 8px;
   padding: 12px 14px;
   font-family: "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1.7;
   min-height: 260px;
   max-height: 420px;
@@ -619,7 +665,7 @@
 
 .option .risk {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   margin-top: 4px;
 }
 
@@ -680,7 +726,7 @@
   border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 4px 8px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .journalEntry {
@@ -715,7 +761,7 @@
   display: inline-block;
   /* 本文（.journalEntry, 1rem）よりほんの少し小さくする程度に留める。区切りの主役は
      色・枠線・太さで、サイズ差は補助的な合図にする（大きく離しすぎない）。 */
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   /* WCAG 2.2 2.5.8 Target Size対応。クリック可能な@人物・#トピックタグ（.tagBtn）が
      24x24px未満にならないよう、上下の余白を確保する。 */
@@ -724,19 +770,16 @@
   border: 1px solid transparent;
 }
 
-/* 人物・トピックタグは、#ネガティブ等（tagPos/tagNeg）と違って背景がジャーナルカードの
-   地色（--gray-bg）にごく近い薄い色だったため、枠線を追加し彩度も上げて「地の色に
-   埋もれて見えるだけの文字」ではなく明確なラベル片として見えるようにする。 */
-.tagPerson {
-  background: #241f3d;
-  color: #b8a6ff;
-  border-color: #7a67d6;
-}
-
+/* デザイン見直し（frontend-design）対応。以前は人物・トピックタグに紫・シアンという
+   専用の色相を割り当てていたが、これらは「状態」ではなく「何についてか」という
+   メタデータであり、黄=判断待ち／赤=緊急／緑=健全という状態信号と混同されると
+   画面全体の意味が読み取りにくくなる（実際、旧配色は7色が同時に主張し合っていた）。
+   状態色を割り当てず、中立のアウトラインだけで「クリック可能なラベル」と分かるようにする。 */
+.tagPerson,
 .tagTopic {
-  background: #122a3d;
-  color: #7dd3fc;
-  border-color: #2e86d1;
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--input-border);
 }
 
 .tagPos {
@@ -771,17 +814,19 @@
   /* font: inheritを先のfont-sizeの後に置くと、ショートハンドがfont-sizeごと
      打ち消してしまう（.tagBtnで実際に踏んだ不具合と同じ原因）。font-familyだけにする。 */
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 
+/* デザイン見直し（frontend-design）対応。これは状態表示ではなく「選択中」という
+   操作可能な状態なので、唯一の構造色である青に統一する（以前のシアンを撤回）。 */
 .typeChipSelected {
-  background: #122a3d;
-  color: #7dd3fc;
-  border-color: #2e86d1;
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--blue);
 }
 
 .urgencyLabel {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   margin-left: 2px;
 }
@@ -809,7 +854,8 @@
 .fleetBadge {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-left-width: 3px;
+  border-radius: 6px;
   padding: 10px 14px;
   display: flex;
   flex-direction: column;
@@ -851,7 +897,7 @@
 }
 
 .fleetName {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 400;
   color: inherit;
   opacity: 0.85;
@@ -867,7 +913,7 @@
 }
 
 .vitalsLegend {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -890,7 +936,7 @@
 }
 
 .vitalLabel {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   margin-bottom: 4px;
 }
@@ -938,7 +984,7 @@
 
 .detailToggle {
   margin-top: 6px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   border: none;
   background: none;
   color: var(--blue-text);
@@ -960,7 +1006,7 @@
 
 .vitalDetail {
   margin-top: 6px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1016,7 +1062,7 @@
   background: var(--panel);
   border-radius: 6px;
   padding: 6px 12px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   cursor: pointer;
 }
 
@@ -1076,13 +1122,13 @@
 
 .chatBubbleSender {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--blue-text);
   margin-bottom: 4px;
 }
 
 .chatNote {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   text-align: center;
   margin: 6px 0;
@@ -1138,20 +1184,21 @@
 }
 
 /* ---------- Issue Charter (Why/What/How) ---------- */
-.charterBadgeReady {
+.charterBadgeReady,
+.charterBadgeWarn {
   display: inline-block;
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   padding: 2px 8px;
-  border-radius: 12px;
+  border-radius: 4px;
+}
+
+.charterBadgeReady {
   background: var(--green-bg);
   color: var(--green-fg);
 }
 
 .charterBadgeWarn {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 12px;
   background: var(--yellow-bg);
   color: var(--yellow-fg);
 }
@@ -1165,7 +1212,7 @@
   border: 1px solid var(--yellow-border);
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--yellow-fg);
   margin-bottom: 12px;
 }
@@ -1176,7 +1223,7 @@
 
 .charterField label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   margin-bottom: 4px;
 }
@@ -1379,20 +1426,26 @@
 }
 
 .progressBarLabel {
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
+/* デザイン見直し（frontend-design）対応。人物・トピックのタグ（丸ピル・状態色なし）と
+   形自体を変え、「状態＝計器の表示灯」「タグ＝ラベル」を一目で区別できるようにする。
+   左の太い縁を状態色にする（角丸ピルの反復をやめる）。 */
 .issueStatusBadge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
+  padding: 3px 9px 3px 8px;
+  border-radius: 4px;
   border: 1px solid var(--border);
+  border-left-width: 3px;
+  white-space: nowrap;
 }
 
 .issueStatusNotStarted {
@@ -1433,11 +1486,27 @@
   }
 }
 
+/* デザイン見直し（frontend-design）対応。4列が同じ灰色の箱で並ぶだけだと、いま
+   どの列を見ているかの手がかりが列見出しの小さな絵文字だけになる。列の上端を
+   ステータス色にし、カードの状態バッジ・タイムラインの左縁と同じ「計器」の言語で揃える。 */
 .boardColumn {
   background: var(--gray-bg);
-  border-radius: 10px;
+  border-top: 3px solid var(--gray-border);
+  border-radius: 6px;
   padding: 10px;
   min-height: 80px;
+}
+
+.boardColumn.inProgress {
+  border-top-color: var(--blue);
+}
+
+.boardColumn.blocked {
+  border-top-color: var(--yellow-border);
+}
+
+.boardColumn.done {
+  border-top-color: var(--green-border);
 }
 
 .boardColumnHeader {
@@ -1445,8 +1514,13 @@
   align-items: center;
   justify-content: space-between;
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 8px;
+}
+
+.boardColumnCount {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
 }
 
 .boardCard {
@@ -1479,17 +1553,16 @@
 }
 
 /* ---------- Yield種別（docs/em_ui_ux_issue.md 5節） ---------- */
-.yieldBlock.decide {
-  border-color: var(--yellow-border);
-}
-
+/* デザイン見直し（frontend-design）対応。以前はcommit専用にオレンジ色相を新設していたが、
+   「黄=EMの判断が要る」という単一の意味に統一するため撤回し、同じ黄系のまま左太枠で
+   重み（最も説明責任が重いYield種別）だけを差別化する。informは「決定」ではなく
+   「前提情報の不足」なので唯一、青（構造色）に寄せて性質の違いを示す。 */
 .yieldBlock.inform {
   background: var(--blue-bg);
   border-color: var(--blue);
 }
 
 .yieldBlock.commit {
-  background: var(--orange-bg);
-  border-color: var(--orange-border);
+  border-left-width: 4px;
 }
 

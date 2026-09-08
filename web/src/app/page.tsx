@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { STATUS_META, StatusBadge, resolveYieldKind, runFallbackTitle, type AgentRun, type AgentStatus } from "@/components/RunDetail";
@@ -65,6 +65,10 @@ type NextAction = {
   kindLabel: string;
   text: string;
   onSelect: () => void;
+  // 改修依頼「何が新しく出てきたか（以前から変わったか）をより分かりやすく」対応。
+  // このカードの根拠になった事実が発生・更新された時刻。前回このダッシュボードを
+  // 開いた時刻（ローカルのlastSeenAt）と比較し、新着だけに「NEW」を出す。
+  since: number;
 };
 
 // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
@@ -147,6 +151,28 @@ export default function DashboardPage() {
   // 「現在時刻」として1回だけ取得し使い回す（経過時間の表示用途であり、他のポーリングで
   // どのみち定期的に再レンダーされるため、1回の取得で十分）。
   const now = Date.now();
+
+  // 改修依頼「以前から変わったことがより分かりやすいUIに」対応。前回このダッシュボードを
+  // 開いた時刻をブラウザのlocalStorageに記録し（サーバー側の既読管理は増やさない軽量な
+  // 実装）、判断待ちカードのうち根拠の時刻がそれより新しいものにだけ「NEW」を出す。
+  // 初回訪問（保存値なし）はnullにし、「全部NEW」という誤った印象を与えない。
+  const [lastSeenAt] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = window.localStorage.getItem("em-dashboard-last-seen");
+      return stored ? Number(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("em-dashboard-last-seen", String(Date.now()));
+    } catch {
+      // localStorageが使えない環境でも「NEW」表示を諦めるだけで、閲覧自体は妨げない
+    }
+  }, []);
+
   const { runs, refreshRuns } = useRuns();
   const { issues } = useIssues();
   const { vitals } = useVitals();
@@ -513,6 +539,7 @@ export default function DashboardPage() {
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
         onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
+        since: run.updatedAt,
       });
     } else if (run.status === "yield") {
       nextActions.push({
@@ -523,6 +550,7 @@ export default function DashboardPage() {
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "Yield",
         text: `${isUnreviewedAuto ? `${autoLabel}: ` : `${run.agentName}が判断待ちです: `}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
         onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
+        since: run.updatedAt,
       });
     } else if (run.status === "error") {
       nextActions.push({
@@ -533,6 +561,7 @@ export default function DashboardPage() {
         kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
         text: `${isUnreviewedAuto ? `${autoLabel}（エラー）: ` : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
         onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
+        since: run.updatedAt,
       });
     } else if (isUnreviewedAuto && run.status === "idle") {
       // docs/memo.md「A」対応。異常検知ドラフトはtaskの要約より、Lead Agentが出した
@@ -545,6 +574,7 @@ export default function DashboardPage() {
         kindLabel: runKindLabel(run),
         text: run.proposal?.conclusion ? run.proposal.conclusion.slice(0, 60) : `${autoLabel}: ${run.task.slice(0, 44)}`,
         onSelect: onSelectAuto,
+        since: run.updatedAt,
       });
     }
   }
@@ -560,6 +590,7 @@ export default function DashboardPage() {
         kindLabel: "要注目Journal",
         text: (entry.summary || entry.rawText).slice(0, 44),
         onSelect: () => router.push(`/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}`),
+        since: entry.createdAt,
       });
     } else if (entry.urgency === "high" && !entry.confirmed) {
       // docs/em_human_story_and_ux.md P1-9対応。緊急度highの自動検知はEMの校正後にしか
@@ -577,6 +608,7 @@ export default function DashboardPage() {
         kindLabel: "Journal未確認",
         text: `内容を確認して確定してください（緊急度high・未確認）: ${(entry.summary || entry.rawText).slice(0, 36)}`,
         onSelect: () => router.push(`/journal?focus=${entry.id}`),
+        since: entry.createdAt,
       });
     }
   }
@@ -591,6 +623,7 @@ export default function DashboardPage() {
       kindLabel: "Issue未整理",
       text: `Issue「${issue.title}」のWhy/What/Howが${charterFilledCount(issue.charter)}/3しか整理されていません`,
       onSelect: () => router.push(`/issues/${issue.id}`),
+      since: issue.updatedAt,
     });
   }
 
@@ -609,6 +642,8 @@ export default function DashboardPage() {
       kindLabel: "要注目人物",
       text: `${p.name}: ネガティブな傾向のFactが${p.trend.negative}件あります`,
       onSelect: () => router.push(`/people/${p.id}`),
+      // Person集計に個別のタイムスタンプが無いため「新着」判定はしない（0固定）。
+      since: 0,
     });
   }
 
@@ -636,6 +671,8 @@ export default function DashboardPage() {
       kindLabel: "介入の観測不足",
       text: `「${issue.title}」が${days}日間動いていません。効果を観測しましたか？`,
       onSelect: () => router.push(`/issues/${issue.id}`),
+      // 停滞検知自体が「長期間動きが無いこと」なので、常に新着扱いにはしない。
+      since: 0,
     });
   }
 
@@ -649,6 +686,8 @@ export default function DashboardPage() {
         kindLabel: "チームリスク",
         text: `${v.teamName}のチーム状態: ${v.label}`,
         onSelect: () => router.push("/org"),
+        // Team Vitalsは実測値の再計算結果であり個別のタイムスタンプを持たないため0固定。
+        since: 0,
       });
     } else if (v.status === "unknown") {
       // docs/memo.md「D」対応。診断で止まらせず、観測を増やす行動（Quick Journal）へ誘導する。
@@ -660,6 +699,7 @@ export default function DashboardPage() {
         kindLabel: "評価不能",
         text: `${v.teamName}は評価不能（情報不足）— 観測を増やす`,
         onSelect: () => prefillJournal(v.members.length > 0 ? `#1on1 @${v.members[0]} ` : ""),
+        since: 0,
       });
     }
   }
@@ -677,6 +717,7 @@ export default function DashboardPage() {
       // Team Vitalsパネル側から/orgへ行ける。
       onSelect: () =>
         prefillJournal(vitals.oneOnOneCoverage.uncoveredMembers[0] ? `#1on1 @${vitals.oneOnOneCoverage.uncoveredMembers[0]} ` : ""),
+      since: 0,
     });
   }
 
@@ -696,6 +737,8 @@ export default function DashboardPage() {
       kindLabel: "様子見の期限切れ",
       text: `${days}日前から様子見のままです。再度判断してください: ${run.task.slice(0, 40)}`,
       onSelect: () => router.push(`/chat?runId=${run.id}`),
+      // 期限切れ自体は「以前からの様子見」なので新着扱いにはしない。
+      since: 0,
     });
   }
 
@@ -717,6 +760,7 @@ export default function DashboardPage() {
       kindLabel: "自動起動まとめ",
       text: `AIの自動起動ドラフトが${autoDraftIds.size}件たまっています。相談履歴からまとめて確認してください`,
       onSelect: () => router.push("/chat"),
+      since: 0,
     });
   }
 
@@ -939,6 +983,9 @@ export default function DashboardPage() {
                   onClick={a.onSelect}
                 >
                   <span className={styles.badge}>{a.kindLabel}</span>
+                  {/* 改修依頼「以前から変わったことがより分かりやすいUIに」対応。前回訪問より
+                      後に発生・更新された根拠を持つカードだけに新着マークを出す。 */}
+                  {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
                   <div className={styles.runItemTask}>{a.text}</div>
                 </button>
               ))}
@@ -1358,14 +1405,22 @@ export default function DashboardPage() {
           <h2>相談・起動</h2>
           <form onSubmit={handleStart}>
             <div className={styles.field}>
-              <label>エージェント
-              <select value={agentName} onChange={(e) => setAgentName(e.target.value)}>
+              {/* 改修依頼「デフォルトのセレクトボックスの多用による選択のしにくさ」対応。
+                  固定5件の選択肢はプルダウンで隠さず、常に見えるボタン群にする
+                  （介入の型・ステータス選択と同じ.typeChipパターン）。 */}
+              <span className={styles.fieldCaption}>エージェント</span>
+              <div role="group" aria-label="エージェント" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {AGENT_OPTIONS.map((name) => (
-                  <option key={name} value={name}>
+                  <button
+                    key={name}
+                    type="button"
+                    className={`${styles.typeChip} ${agentName === name ? styles.typeChipSelected : ""}`}
+                    onClick={() => setAgentName(name)}
+                  >
                     {name}
-                  </option>
+                  </button>
                 ))}
-              </select></label>
+              </div>
             </div>
             <div className={styles.field}>
               <label>タスク内容
