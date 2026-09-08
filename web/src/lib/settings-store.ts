@@ -44,6 +44,12 @@ export type RulesAndConstraints = {
   // tickで一度だけLead Agentへ朝のサマリー作成タスクを投げる。
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
+  // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
+  // 起動することがある」対応。エージェントは1体につき1つのCLI子プロセス（claude/agy/
+  // cursor-agent）を起動するため、無制限に並列起動を許すとメモリを大量消費し環境が
+  // 不安定になる。ここで同時に「実行中」にできるCLI子プロセス数の上限を設け、
+  // 超過分はキューイングして順番に起動する（agent-runtime.tsのacquireRunSlot）。
+  maxParallelAgentRuns: number;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -62,6 +68,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoAnomalyDetectionEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
+  maxParallelAgentRuns: 2,
 };
 
 let rules: RulesAndConstraints = {

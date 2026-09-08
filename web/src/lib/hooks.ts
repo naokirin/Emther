@@ -408,6 +408,7 @@ export function useSettingsRules(intervalMs = 8000) {
       autoAnomalyDetectionEnabled: false,
       autoMorningSummaryEnabled: false,
       autoMorningSummaryHour: 7,
+      maxParallelAgentRuns: 2,
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

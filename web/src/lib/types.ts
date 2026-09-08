@@ -120,6 +120,10 @@ export type RulesAndConstraints = {
   autoAnomalyDetectionEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
+  // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
+  // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
+  // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
+  maxParallelAgentRuns: number;
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。

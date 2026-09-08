@@ -3,7 +3,9 @@
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
 
-export type AgentStatus = "active" | "yield" | "idle" | "error";
+// "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
+// CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
+export type AgentStatus = "active" | "queued" | "yield" | "idle" | "error";
 
 export type YieldOption = {
   id: string;
@@ -68,6 +70,7 @@ export function runFallbackTitle(run: AgentRun): string {
 
 export const STATUS_META: Record<AgentStatus, { icon: string; label: string; cls: string }> = {
   active: { icon: "🟢", label: "Active", cls: styles.active },
+  queued: { icon: "⏳", label: "Queued（順番待ち）", cls: styles.queued },
   yield: { icon: "🟡", label: "Yield / Waiting", cls: styles.yield },
   idle: { icon: "⚪️", label: "Idle（完了・待機中）", cls: styles.idle },
   error: { icon: "🔴", label: "Error", cls: styles.error },
@@ -252,6 +255,9 @@ export function ExecutionState({
         </p>
       )}
       {run.status === "active" && !stale && <p className={styles.subtitle}>エージェントが検討中です…</p>}
+      {run.status === "queued" && (
+        <p className={styles.subtitle}>⏳ 同時実行数の上限のため、順番待ちです。他のAgent Runが完了すると自動的に起動します。</p>
+      )}
       {run.status === "error" && (
         <div>
           <p className={styles.errorText} role="alert">エラーで終了しました。右のログを確認してください。</p>
@@ -335,9 +341,10 @@ export function CopilotChat({
           ),
         )}
         {run.status === "active" && <div className={styles.chatNote}>&gt;_ 応答を待っています…</div>}
+        {run.status === "queued" && <div className={styles.chatNote}>&gt;_ ⏳ 順番待ちです（同時実行数の上限）…</div>}
       </div>
 
-      {run.status !== "active" && (
+      {run.status !== "active" && run.status !== "queued" && (
         <div className={styles.chatRow}>
           <input
             id={inputId}

@@ -197,7 +197,14 @@ export default function DashboardPage() {
   const [draftError, setDraftError] = useState<string | null>(null);
 
   const draftRun = draftRunId ? runs.find((r) => r.id === draftRunId) ?? null : null;
-  if (draftRun && draftRunId && draftRunId !== consumedDraftRunId && draftRun.status !== "active") {
+  const draftRunBusy = draftRun?.status === "active" || draftRun?.status === "queued";
+  if (
+    draftRun &&
+    draftRunId &&
+    draftRunId !== consumedDraftRunId &&
+    draftRun.status !== "active" &&
+    draftRun.status !== "queued"
+  ) {
     setConsumedDraftRunId(draftRunId);
     if (draftRun.status === "idle") {
       setProfileText(draftRun.proposal?.conclusion ?? "");
@@ -441,6 +448,15 @@ export default function DashboardPage() {
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
+    // ユーザー指摘「却下したのに『今日』の判断待ちに残り続ける」対応。agent-runtime.tsの
+    // setRunTriageStatusは「様子見/却下どちらもreviewed=trueになり次にすべきことの
+    // 緊急度から外れる」設計だが、下のstale/yield/error分岐にはreviewed/triageStatusの
+    // チェックが無く、statusがyield/error/無応答のままだと却下後も表示され続けてしまって
+    // いた（idle分岐のisUnreviewedAutoだけが正しくガードされていた）。EMが明示的に
+    // 様子見／却下を選んだrunは、statusに関わらずここでは扱わない
+    // （様子見は下のwatchingItemsで別途表示、却下は対応不要として消える）。
+    if (run.triageStatus === "watching" || run.triageStatus === "dismissed") continue;
+
     // AI主導（イベント駆動・バッチ駆動、docs/first_implession 3.6/3.7）で自動起動されたrunは、
     // EMがまだ内容を確認していない（reviewed=false）間はstatusに関わらず必ずここに残す
     // （idleで完結していても「対応不要」と見なさない——見て見ぬふりを防ぐ）。クリック先も
@@ -1227,9 +1243,9 @@ export default function DashboardPage() {
                   className={styles.btnOutline}
                   style={{ marginTop: 8 }}
                   onClick={handleDraftProfile}
-                  disabled={draftStarting || !profilePerson.trim() || draftRun?.status === "active"}
+                  disabled={draftStarting || !profilePerson.trim() || draftRunBusy}
                 >
-                  {draftStarting || draftRun?.status === "active" ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
+                  {draftStarting || draftRunBusy ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
                 </button>
                 <p
                   className={styles.subtitle}
@@ -1277,6 +1293,7 @@ export default function DashboardPage() {
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AgentStatus | "")}>
               <option value="">すべて</option>
               <option value="active">🔵 Active</option>
+              <option value="queued">⏳ Queued（順番待ち）</option>
               <option value="yield">🟡 Yield</option>
               <option value="idle">⚪️ Idle</option>
               <option value="error">🔴 Error</option>

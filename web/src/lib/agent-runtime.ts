@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { dataFilePath } from "@/lib/persistence";
+import { dataFilePath, loadJSON, saveJSON } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
 import { getIssueByRunId } from "@/lib/issue-store";
@@ -11,7 +11,12 @@ import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
 
-export type AgentStatus = "active" | "yield" | "idle" | "error";
+// ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
+// 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
+// maxParallelAgentRuns）に達しているため、CLI子プロセスの起動を待っている状態
+// （acquireRunSlot参照）。"active"は実際にCLI子プロセスが動いている状態で、
+// 両者はEM向けUI上で区別して表示する。
+export type AgentStatus = "active" | "queued" | "yield" | "idle" | "error";
 
 export type YieldOption = {
   id: string;
@@ -344,7 +349,9 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
       triageAt: row.triage_at ?? undefined,
     };
-    if (run.status === "active") {
+    // "queued"（同時実行数の上限による起動待ち）もキュー自体がメモリ上にしか無いため、
+    // "active"と同じく再起動をまたいで復元できない。
+    if (run.status === "active" || run.status === "queued") {
       const line: LogLine = { ts: Date.now(), channel: "system", text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" };
       run = { ...run, status: "error", updatedAt: line.ts, log: [...run.log, line] };
       insertRunLog(run.id, line);
@@ -393,9 +400,22 @@ function checkStaleRuns(): void {
 
 // docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
 // 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
-// サーバー再起動をまたぐ厳密な保証はしない（＝再起動直後は当日分が未生成になり得る）が、
-// 単一ローカルユーザー・常時起動のプロセス前提のMVPでは許容できる簡略化と判断。
-let lastAutoMorningSummaryDate: string | null = null;
+// ユーザー指摘「朝のサマリーのログが大量に並んでいる」対応（原因調査の結果）:
+// 以前はこの「今日はもう作った」ガードをモジュール内の変数だけで持っていたため、
+// サーバー再起動はもちろん、開発サーバー（next dev）がファイル変更のたびに
+// このモジュールをホットリロードするだけでもガードがリセットされ、リロードのたびに
+// 朝のサマリーRunが重複生成されてしまっていた。`.data/auto-morning-summary.json`へ
+// 永続化することで、再起動・ホットリロードをまたいでも「今日は既に生成済み」を
+// 正しく覚えておくようにする。
+function loadLastAutoMorningSummaryDate(): string | null {
+  return loadJSON<{ date: string | null }>("auto-morning-summary.json", { date: null }).date;
+}
+
+function saveLastAutoMorningSummaryDate(date: string): void {
+  saveJSON("auto-morning-summary.json", { date });
+}
+
+let lastAutoMorningSummaryDate: string | null = loadLastAutoMorningSummaryDate();
 
 function todayDateString(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -409,6 +429,7 @@ function checkMorningSummary(): void {
   const today = todayDateString(now);
   if (lastAutoMorningSummaryDate === today) return;
   lastAutoMorningSummaryDate = today;
+  saveLastAutoMorningSummaryDate(today);
   void startRun(
     "Lead Agent",
     "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・Why/What/Howが未整理のIssueなど、今日EMがまず確認すべきことを簡潔に整理してください。",
@@ -1013,6 +1034,48 @@ function isCursorFallbackEnabled(agentName: string): boolean {
   return getRulesAndConstraints().cursorFallbackAgents.includes(agentName);
 }
 
+// ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
+// 起動することがある」対応。1回のCLI子プロセス起動（claude/agy/cursor-agentのいずれか）
+// をここで数える「枠」で囲み、settings-store.tsのmaxParallelAgentRunsを超える同時起動を
+// 防ぐ。1つのrunのターン内でのフォールバック（claude失敗→agy→cursor）は逐次実行のため
+// 同時に複数の枠を要求することは無く、Lead Agentのconsultによる並行相談は専門エージェントの
+// 数だけ別々に枠を取り合う（上限に達した分だけキューイングされる）。
+let activeRunSlots = 0;
+const runSlotQueue: Array<() => void> = [];
+
+async function acquireRunSlot(run: AgentRun): Promise<void> {
+  const maxParallelAgentRuns = Math.max(1, getRulesAndConstraints().maxParallelAgentRuns);
+  if (activeRunSlots < maxParallelAgentRuns) {
+    activeRunSlots++;
+    run.status = "active";
+    return;
+  }
+  run.status = "queued";
+  const position = runSlotQueue.length + 1;
+  appendLog(run, "system", `⏳ 同時実行数の上限（${maxParallelAgentRuns}）に達しているため、順番待ちです（現在${position}番目）。`);
+  await new Promise<void>((resolve) => runSlotQueue.push(resolve));
+  activeRunSlots++;
+  run.status = "active";
+}
+
+function releaseRunSlot(): void {
+  activeRunSlots--;
+  const next = runSlotQueue.shift();
+  if (next) next();
+}
+
+// CLI子プロセスを1回起動する処理（fn）を同時実行数の枠で囲む。枠が空くまではrun.statusが
+// "queued"のまま待機し、空いたら"active"に戻してfnを実行する。fn完了後（成功・失敗問わず）は
+// 必ず枠を解放し、キュー待ちがいれば次の枠を渡す。
+async function withRunSlot<T>(run: AgentRun, fn: () => Promise<T>): Promise<T> {
+  await acquireRunSlot(run);
+  try {
+    return await fn();
+  } finally {
+    releaseRunSlot();
+  }
+}
+
 // 個人情報の分離（ユーザー指摘対応）: precomputedPromptを渡された場合はsanitizeForCloudを
 // 再度呼ばない。startRun/decideRunは、run.task/ログへ保存する文言自体を「保存前にマスクする」
 // ため、既にマスク済みのテキストを持っている——同じテキストに対して二重にローカルNERを
@@ -1030,7 +1093,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt);
 
-  const claudeFailed = await runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult);
+  const claudeFailed = await withRunSlot(run, () => runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult));
 
   // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
   // claude CLIの実行失敗・予算/レート制限のいずれでも（run.statusが"error"になっていれば）
@@ -1039,7 +1102,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   // 引き継げる（claudeのsessionIdとは別のID空間で管理している）。
   if (claudeFailed && isAgyFallbackEnabled(run.agentName)) {
     appendLog(run, "system", "⚠️ claude CLIが利用できなかったため、agy経由でGeminiモデルにこのターンをフォールバックします。");
-    await runAgyCliAttempt(run, prompt, systemPrompt, allowConsult);
+    await withRunSlot(run, () => runAgyCliAttempt(run, prompt, systemPrompt, allowConsult));
   }
 
   // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
@@ -1047,7 +1110,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   // かつこのエージェント種別でCursorフォールバックが有効な場合のみ、最後にcursor-agentを試す。
   if ((run.status as AgentStatus) === "error" && isCursorFallbackEnabled(run.agentName)) {
     appendLog(run, "system", "⚠️ 他のCLIも利用できなかったため、Cursor CLI経由でこのターンをフォールバックします。");
-    await runCursorCliAttempt(run, prompt, systemPrompt, allowConsult);
+    await withRunSlot(run, () => runCursorCliAttempt(run, prompt, systemPrompt, allowConsult));
   }
 
   if (run.pendingConsult) {
@@ -1549,8 +1612,8 @@ export async function startRun(agentName: string, rawTask: string, origin: Agent
 export async function decideRun(id: string, rawMessage: string): Promise<AgentRun | undefined> {
   const run = runs.get(id);
   if (!run) return undefined;
-  if (run.status === "active") {
-    throw new Error("エージェントが実行中のため、今は入力を受け付けられません");
+  if (run.status === "active" || run.status === "queued") {
+    throw new Error("エージェントが実行中または順番待ちのため、今は入力を受け付けられません");
   }
   const maskedMessage = await sanitizeForCloud(run, rawMessage);
   appendLog(run, "meta", `EMからの入力: ${maskedMessage}`);
