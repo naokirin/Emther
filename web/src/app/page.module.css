@@ -460,6 +460,13 @@
   border-color: var(--green-border);
 }
 
+/* 同時実行数の上限による起動待ち（queued）。activeと混同しないよう色相を変える。 */
+.badge.queued {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--blue);
+}
+
 .badge.yield {
   background: var(--yellow-bg);
   color: var(--yellow-fg);
@@ -781,6 +788,12 @@
   background: var(--green-bg);
   color: var(--green-fg);
   border-color: var(--green-border);
+}
+
+.fleetBadge.queued {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--blue);
 }
 
 .fleetBadge.yield {

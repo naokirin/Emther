@@ -115,6 +115,21 @@ export default function SettingsPage() {
           /></label>
         </div>
 
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Agent Runの同時実行数</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          エージェント1体につきCLI子プロセス（claude/agy/cursor-agent）を1つ起動します。無制限に並列起動するとメモリを大量消費し環境が不安定になるため、同時に実行できる数に上限を設けます。
+          上限を超えた分は自動的にキューイングされ、順番が来ると起動します（Agent Run一覧で「⏳ Queued（順番待ち）」として確認できます）。
+        </p>
+        <div className={styles.field} style={{ maxWidth: 160 }}>
+          <label>同時に実行できるAgent Runの最大数
+          <input
+            type="number"
+            min={1}
+            value={draft.maxParallelAgentRuns}
+            onChange={(e) => setDraft({ ...draft, maxParallelAgentRuns: Number(e.target.value) })}
+          /></label>
+        </div>
+
         <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           「動いていると思ったら止まっていた」を防ぐための閾値です。statusが稼働中のままログ更新が無い時間で判定します。
