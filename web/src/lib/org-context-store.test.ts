@@ -1,0 +1,138 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+
+vi.mock("@/lib/local-model", () => ({
+  runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
+  extractFirstJsonObject: (text: string) => text,
+}));
+
+let dir: string;
+
+beforeEach(() => {
+  dir = setupIsolatedStoreEnv();
+  vi.resetModules();
+});
+
+afterEach(() => {
+  teardownIsolatedStoreEnv(dir);
+});
+
+async function loadModule() {
+  return import("@/lib/org-context-store");
+}
+
+describe("teams", () => {
+  it("addTeamはチーム名を正規化し、メンバーをPERSON_n IDでマスクする", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Engineering / Team A", ["Aさん", "Bさん"]);
+    expect(team.name).toBe("Engineering/Team A");
+    expect(team.members).toEqual(["PERSON_1", "PERSON_2"]);
+    expect(team.archived).toBe(false);
+  });
+
+  it("toTeamViewはmembersを実名へ復元する", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", ["Aさん"]);
+    const view = store.toTeamView(team);
+    expect(view.members).toEqual(["Aさん"]);
+  });
+
+  it("listActiveTeamsはアーカイブ済みチームを除外する", async () => {
+    const store = await loadModule();
+    const t1 = store.addTeam("Team A", []);
+    const t2 = store.addTeam("Team B", []);
+    store.setTeamArchived(t2.id, true);
+    expect(store.listTeams()).toHaveLength(2);
+    expect(store.listActiveTeams().map((t) => t.id)).toEqual([t1.id]);
+  });
+
+  it("updateTeamは変更のあったフィールドだけ更新し、無変化なら何もしない", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", ["Aさん"]);
+    const same = await store.updateTeam(team.id, { name: "Team A" });
+    expect(same?.updatedAt).toBe(team.updatedAt);
+
+    const renamed = await store.updateTeam(team.id, { name: "Team A Renamed" });
+    expect(renamed?.name).toBe("Team A Renamed");
+    expect(renamed!.updatedAt).toBeGreaterThanOrEqual(team.updatedAt);
+  });
+
+  it("updateTeamは存在しないIDに対してundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(await store.updateTeam("missing", { name: "x" })).toBeUndefined();
+  });
+
+  it("removeTeamは削除に成功した場合trueを返す", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", []);
+    expect(store.removeTeam(team.id)).toBe(true);
+    expect(store.getTeam(team.id)).toBeUndefined();
+    expect(store.removeTeam(team.id)).toBe(false);
+  });
+});
+
+describe("org strategy", () => {
+  it("既定値は空文字列", async () => {
+    const store = await loadModule();
+    expect(store.getOrgStrategy()).toEqual({ mission: "", vision: "", values: "" });
+  });
+
+  it("updateOrgStrategyは指定フィールドだけ更新する", async () => {
+    const store = await loadModule();
+    await store.updateOrgStrategy({ mission: "顧客に価値を届ける" });
+    const strategy = store.getOrgStrategy();
+    expect(strategy.mission).toBe("顧客に価値を届ける");
+    expect(strategy.vision).toBe("");
+  });
+});
+
+describe("objectives", () => {
+  it("Objectiveの作成・改名・削除ができる", async () => {
+    const store = await loadModule();
+    const objective = await store.addObjective("売上を伸ばす");
+    expect(store.listObjectives()).toHaveLength(1);
+
+    const renamed = await store.renameObjective(objective.id, "売上を2倍にする");
+    expect(renamed?.title).toBe("売上を2倍にする");
+
+    expect(store.removeObjective(objective.id)).toBe(true);
+    expect(store.listObjectives()).toHaveLength(0);
+  });
+
+  it("KeyResultの追加・削除ができる", async () => {
+    const store = await loadModule();
+    const objective = await store.addObjective("売上を伸ばす");
+    const withKr = await store.addKeyResult(objective.id, "新規契約を10件獲得する");
+    expect(withKr?.keyResults).toHaveLength(1);
+
+    const krId = withKr!.keyResults[0].id;
+    const removed = store.removeKeyResult(objective.id, krId);
+    expect(removed?.keyResults).toHaveLength(0);
+  });
+
+  it("listObjectivesWithProgressはKeyResultに紐づくIssueの完了数から進捗を計算する", async () => {
+    const orgStore = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+
+    const objective = await orgStore.addObjective("売上を伸ばす");
+    const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
+    const krId = withKr!.keyResults[0].id;
+
+    const issue1 = await issueStore.createIssue("契約A", undefined, undefined, undefined, undefined, krId);
+    await issueStore.createIssue("契約B", undefined, undefined, undefined, undefined, krId);
+    issueStore.setIssueArchived(issue1.id, true);
+
+    const progress = orgStore.listObjectivesWithProgress();
+    expect(progress[0].progress[0]).toEqual({ keyResultId: krId, total: 2, done: 1 });
+  });
+
+  it("toObjectiveViewはPERSON_n IDでマスクされたtitleを実名復元する", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const store = await loadModule();
+    peopleDirectory.registerName("Aさん");
+    const objective = await store.addObjective("Aさんの育成計画");
+    expect(objective.title).not.toBe("Aさんの育成計画");
+    const view = store.toObjectiveView(objective);
+    expect(view.title).toBe("Aさんの育成計画");
+  });
+});
