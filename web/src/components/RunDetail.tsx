@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
+import { YIELD_KIND_META, type YieldKind } from "@/lib/types";
 
 // "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
 // CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
@@ -39,7 +40,7 @@ export type AgentRun = {
   status: AgentStatus;
   sessionId?: string;
   log: LogLine[];
-  yieldRequest?: { reason: string; options: YieldOption[] };
+  yieldRequest?: { reason: string; options: YieldOption[]; kind?: YieldKind };
   proposal?: Proposal;
   suggestedActionItems?: string[];
   suggestedSubIssues?: string[];
@@ -102,6 +103,14 @@ export function StatusBadge({ status, stale }: { status: AgentStatus; stale?: bo
   );
 }
 
+// docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。サーバー側（agent-runtime.ts）は
+// 既にkindを正規化して返すが、キャッシュされた古いrunデータ等との保険として同じ
+// フォールバック（options有無からdecide/informへ）をクライアント側にも持たせる。
+export function resolveYieldKind(kind: YieldKind | undefined, optionsLength: number): YieldKind {
+  if (kind) return kind;
+  return optionsLength === 0 ? "inform" : "decide";
+}
+
 // docs/first_implession/em_ui_wireframe_v5.html の Issue Workspace「Execution State」に対応。
 // Context（このrunが何のタスクか）＋ Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）＋
 // 通常完了時のProposalを表示する。Action Itemsは呼び出し側（Issueがある場合のみ）で追加する。
@@ -153,9 +162,14 @@ export function ExecutionState({
         <strong>Context:</strong> {run.task}
       </p>
 
-      {run.status === "yield" && run.yieldRequest && (
-        <div className={styles.yieldBlock}>
-          <strong>⚠️ AI Yield: 判断をお願いします</strong>
+      {run.status === "yield" && run.yieldRequest && (() => {
+        const kind = resolveYieldKind(run.yieldRequest.kind, run.yieldRequest.options.length);
+        const kindMeta = YIELD_KIND_META[kind];
+        return (
+        <div className={`${styles.yieldBlock} ${styles[kind]}`}>
+          <strong>
+            {kindMeta.icon} {kindMeta.label}: {kindMeta.description}
+          </strong>
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>{run.yieldRequest.reason}</p>
 
           {run.yieldRequest.options.map((opt) => (
@@ -184,7 +198,8 @@ export function ExecutionState({
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {run.status === "idle" && run.proposal && (
         <div className={styles.proposalBlock}>

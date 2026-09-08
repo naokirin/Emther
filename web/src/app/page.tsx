@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { STATUS_META, StatusBadge, runFallbackTitle, type AgentRun, type AgentStatus } from "@/components/RunDetail";
+import { STATUS_META, StatusBadge, resolveYieldKind, runFallbackTitle, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import {
+  useEmCheckins,
   useIssues,
   useJournal,
   useJournalEditing,
@@ -24,6 +25,7 @@ import {
   isJournalEntryResolved,
   isRunStale,
   truncateForTitle,
+  YIELD_KIND_META,
   type Issue,
   type JournalEntry,
 } from "@/lib/types";
@@ -83,7 +85,13 @@ type PendingJournalDraft = {
 const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 // docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
+// docs/em_ui_ux_issue.md 5節対応。yield中はDecide/Inform/Commitの種別まで見せる
+// （§2.3「Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる」の語彙を揃える）。
 function runKindLabel(run: AgentRun): string {
+  if (run.status === "yield" && run.yieldRequest) {
+    const kind = resolveYieldKind(run.yieldRequest.kind, run.yieldRequest.options.length);
+    return YIELD_KIND_META[kind].label;
+  }
   if (run.origin === "auto-anomaly") return "異常検知";
   if (run.origin === "auto-summary") return "朝のサマリー";
   if (run.status === "yield") return "Yield";
@@ -143,6 +151,8 @@ export default function DashboardPage() {
   const { issues } = useIssues();
   const { vitals } = useVitals();
   const { journalEntries, setJournalEntries } = useJournal();
+  // 改修依頼「今日の振り返りに、今日記録されていない場合のアラートを出す」対応。
+  const { checkins } = useEmCheckins();
   const { rules } = useSettingsRules();
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。
   const { strategy } = useOrgStrategy();
@@ -721,6 +731,11 @@ export default function DashboardPage() {
   todayStart.setHours(0, 0, 0, 0);
   const autoRunsToday = runs.filter((r) => r.origin !== "manual" && r.createdAt >= todayStart.getTime()).length;
 
+  // 改修依頼「今日の振り返りは、今日記録されていない場合のアラート表示とEMの成長への
+  // リンクのみ置く」対応。入力フォーム自体はここには置かず、未記録のときだけ気づかせて
+  // /growthへ誘導する（記録は/growthに一本化）。
+  const hasCheckinToday = checkins.some((c) => c.createdAt >= todayStart.getTime());
+
   // docs/em_human_story_and_ux.md P1-10対応。戦略（H）を「ある画面」から朝の要約へ薄く載せる。
   // 判断待ちの項目ではなく単なる現況表示なので、次にすべきことのリストではなくヘッダー直下の
   // 1行として出す。
@@ -803,8 +818,17 @@ export default function DashboardPage() {
   const fleetSummary = fleetStatuses.map((f) => f.meta.icon).join(" ");
 
   // docs/em_human_story_and_ux.md P0-5対応。先頭を「今日の組織の問い」1文へ圧縮する。
+  // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
+  // 上限を分ける（判断待ちは特に少数に絞る）。超過分は非表示にせず、下の案内から
+  // Issue一覧・Organization Contextで確認できる（情報を失わない）。
+  const LANE_LIMITS: Record<Lane, number> = {
+    decision: rules.decisionQueueLimit,
+    observation: rules.observationQueueLimit,
+    maintenance: NEXT_ACTIONS_LIMIT,
+  };
   const laneActionsForFilter = nextActions.filter((a) => a.lane === laneFilter);
-  const visibleActions = laneActionsForFilter.slice(0, NEXT_ACTIONS_LIMIT);
+  const laneLimit = LANE_LIMITS[laneFilter];
+  const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   // 絞り込みは下のタブだけで行う（見出し内の件数はクリックできない、ただの要約）。
   const headline =
     nextActions.length === 0
@@ -846,6 +870,23 @@ export default function DashboardPage() {
           </button>
         )}
       </div>
+
+      {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
+          記録先（/growth）への導線のみを置く。入力フォーム自体はここには置かない
+          （改修依頼「今日記録されていない場合のアラート表示とEMの成長へのリンクのみ」対応）。 */}
+      {dayPhase === "evening" && (
+        <div className={styles.panel}>
+          <h2>今日の振り返り</h2>
+          {!hasCheckinToday && (
+            <div className={styles.charterWarnBanner}>
+              ⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス）を記録していません。
+            </div>
+          )}
+          <button className={styles.btnOutline} onClick={() => router.push("/growth")}>
+            EMの成長へ →
+          </button>
+        </div>
+      )}
 
       {/* docs/em_human_story_and_ux.md P0-5 / docs/dashboard_ui_readability.md U0-1対応。
           先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
@@ -902,9 +943,9 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            {laneActionsForFilter.length > NEXT_ACTIONS_LIMIT && (
+            {laneActionsForFilter.length > laneLimit && (
               <p className={styles.subtitle} style={{ marginTop: 8 }}>
-                このレーンに他{laneActionsForFilter.length - NEXT_ACTIONS_LIMIT}件（Issue一覧・Organization Contextから確認できます）
+                このレーンに他{laneActionsForFilter.length - laneLimit}件（Issue一覧・Organization Contextから確認できます）
               </p>
             )}
           </>

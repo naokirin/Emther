@@ -123,13 +123,37 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
       '{ "reason": "情報不足", "options": [{ "id": "A", "label": "選択肢A" }] }',
       "```",
     ].join("\n");
-    expect(rt.extractYield(text)).toEqual({ reason: "情報不足", options: [{ id: "A", label: "選択肢A" }] });
+    expect(rt.extractYield(text)).toEqual({
+      reason: "情報不足",
+      options: [{ id: "A", label: "選択肢A" }],
+      kind: "decide",
+    });
   });
 
   it("extractYieldはoptionsが無ければ空配列にフォールバックする", async () => {
     const rt = await loadModule();
     const text = '```yield\n{ "reason": "理由のみ" }\n```';
     expect(rt.extractYield(text)?.options).toEqual([]);
+  });
+
+  it("extractYieldはkindを明示的にパースする", async () => {
+    const rt = await loadModule();
+    const text = '```yield\n{ "reason": "介入の実行を決めてください", "kind": "commit", "options": [] }\n```';
+    expect(rt.extractYield(text)?.kind).toBe("commit");
+  });
+
+  it("extractYieldはkind未指定の場合、options有無からdecide/informへフォールバックする", async () => {
+    const rt = await loadModule();
+    const withOptions = '```yield\n{ "reason": "選んでください", "options": [{ "id": "A", "label": "案A" }] }\n```';
+    expect(rt.extractYield(withOptions)?.kind).toBe("decide");
+    const withoutOptions = '```yield\n{ "reason": "情報が足りません", "options": [] }\n```';
+    expect(rt.extractYield(withoutOptions)?.kind).toBe("inform");
+  });
+
+  it("extractYieldは未知のkind値を無視してフォールバックする", async () => {
+    const rt = await loadModule();
+    const text = '```yield\n{ "reason": "理由", "kind": "unknown-kind", "options": [] }\n```';
+    expect(rt.extractYield(text)?.kind).toBe("inform");
   });
 
   it("extractYieldはyieldブロックが無ければundefined", async () => {

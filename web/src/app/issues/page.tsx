@@ -6,8 +6,11 @@ import styles from "@/app/page.module.css";
 import { StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
+import { ProgressBar } from "@/components/ProgressBar";
+import { IssueStatusBadge } from "@/components/IssueStatus";
+import { IssueBoard } from "@/components/IssueBoard";
 import { useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
-import { INTERVENTION_TYPES, charterFilledCount, isRunStale, truncateForTitle } from "@/lib/types";
+import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, isRunStale, issueProgress, truncateForTitle } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
 const RUNS_PAGE_SIZE = 5;
@@ -50,6 +53,8 @@ function IssuesPageInner() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
+  // docs/em_ui_ux_issue.md 4節「ビューの切り替え機能」対応。
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
   const [issueRunId, setIssueRunId] = useState("");
@@ -183,9 +188,27 @@ function IssuesPageInner() {
               実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。
             </p>
           </div>
-          <button className={styles.primaryBtn} style={{ width: "auto", flexShrink: 0 }} onClick={() => setDialogOpen(true)}>
-            ＋ 新しいIssue
-          </button>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <div className={styles.tabs} style={{ margin: 0 }}>
+              <button
+                type="button"
+                className={`${styles.tabBtn} ${viewMode === "list" ? styles.tabBtnActive : ""}`}
+                onClick={() => setViewMode("list")}
+              >
+                リスト
+              </button>
+              <button
+                type="button"
+                className={`${styles.tabBtn} ${viewMode === "board" ? styles.tabBtnActive : ""}`}
+                onClick={() => setViewMode("board")}
+              >
+                ボード
+              </button>
+            </div>
+            <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={() => setDialogOpen(true)}>
+              ＋ 新しいIssue
+            </button>
+          </div>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
@@ -210,30 +233,42 @@ function IssuesPageInner() {
           </label>
         </div>
 
+        {viewMode === "board" ? (
+          <IssueBoard
+            issues={filteredIssues}
+            allIssues={issues}
+            now={now}
+            staleInterventionDays={rules.staleInterventionDays}
+            onSelect={(id) => router.push(`/issues/${id}`)}
+          />
+        ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
                 <th>タイトル</th>
+                <th>ステータス</th>
                 <th>型・関連</th>
                 <th>Why/What/How</th>
-                <th>Action Items</th>
+                <th>進捗</th>
                 <th>最終判断</th>
               </tr>
             </thead>
             <tbody>
               {filteredIssues.length === 0 && (
                 <tr>
-                  <td colSpan={5} className={styles.tableEmpty}>
+                  <td colSpan={6} className={styles.tableEmpty}>
                     条件に一致するIssueはありません。
                   </td>
                 </tr>
               )}
               {issuesPagination.pageItems.map((issue) => {
                 const linkedRun = runs.find((r) => r.id === issue.agentRunId);
-                const doneCount = issue.actionItems.filter((a) => a.done).length;
+                const childIssuesOfRow = issues.filter((i) => i.parentId === issue.id);
                 const charterCount = charterFilledCount(issue.charter);
-                const childCount = issues.filter((i) => i.parentId === issue.id).length;
+                const childCount = childIssuesOfRow.length;
+                const progress = issueProgress(issue, childIssuesOfRow);
+                const stalled = isIssueStalled(issue, now, rules.staleInterventionDays);
                 const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
                 const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
                 const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
@@ -248,6 +283,7 @@ function IssuesPageInner() {
                         {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
                         {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
                         {childCount > 0 && <span className={styles.tableMuted}>🧩 子Issue: {childCount}件</span>}
+                        {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
                       </div>
                       {topicTags.length > 0 && (
                         <div className={styles.tagRow} style={{ marginTop: 4 }}>
@@ -258,6 +294,9 @@ function IssuesPageInner() {
                           ))}
                         </div>
                       )}
+                    </td>
+                    <td>
+                      <IssueStatusBadge status={issue.status} />
                     </td>
                     {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKRを一覧の時点で
                         見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}
@@ -284,7 +323,7 @@ function IssuesPageInner() {
                       </span>
                     </td>
                     <td>
-                      {doneCount}/{issue.actionItems.length}
+                      <ProgressBar done={progress.done} total={progress.total} />
                     </td>
                     <td className={styles.tableMuted} title="最終更新日">
                       {formatRelativeDays(issue.updatedAt, now)}
@@ -295,6 +334,8 @@ function IssuesPageInner() {
             </tbody>
           </table>
         </div>
+        )}
+        {viewMode === "list" && (
         <PaginationControls
           page={issuesPagination.page}
           totalPages={issuesPagination.totalPages}
@@ -303,6 +344,7 @@ function IssuesPageInner() {
           rangeEnd={issuesPagination.rangeEnd}
           onChange={issuesPagination.setPage}
         />
+        )}
       </div>
 
       {/* 改修依頼対応。この一覧はエージェント名＋タスク要約だけで情報量が少なく、

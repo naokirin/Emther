@@ -3,11 +3,10 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { useEmCheckins, useReflectionNotes } from "@/lib/hooks";
+import { EmCheckinWidget } from "@/components/EmCheckinWidget";
+import { useReflectionNotes } from "@/lib/hooks";
 import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
 
-const SCALE_OPTIONS = [1, 2, 3, 4, 5];
-const CHECKIN_PAGE_SIZE = 10;
 const WEEK_GROUP_PAGE_SIZE = 4;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,11 +15,6 @@ const NOTE_TYPE_LABEL: Record<ReflectionNoteType, string> = {
   problem: "⚠️ Problem（気になること）",
   try: "🔧 Try（次にやってみたいこと）",
 };
-
-function average(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
@@ -63,15 +57,7 @@ function groupNotesByWeek(notes: EmReflectionNote[]): WeekGroup[] {
 // これはEM自身についての自己申告であり、本人の申告そのものが根拠になるため、良好/要注意といった
 // アルゴリズム判定は行わず、数値と履歴をそのまま見せる。
 export default function GrowthPage() {
-  const { checkins, setCheckins } = useEmCheckins();
   const { notes, setNotes } = useReflectionNotes();
-
-  const [mood, setMood] = useState(3);
-  const [energy, setEnergy] = useState(3);
-  const [stress, setStress] = useState(3);
-  const [note, setNote] = useState("");
-  const [checkinSubmitting, setCheckinSubmitting] = useState(false);
-  const [checkinError, setCheckinError] = useState<string | null>(null);
 
   const [noteType, setNoteType] = useState<ReflectionNoteType>("keep");
   const [noteText, setNoteText] = useState("");
@@ -79,35 +65,8 @@ export default function GrowthPage() {
   const [noteError, setNoteError] = useState<string | null>(null);
 
   const latestTryNote = notes.find((n) => n.type === "try");
-  const recentCheckins = checkins.slice(0, 7);
-  const avgMood = average(recentCheckins.map((c) => c.mood));
-  const avgEnergy = average(recentCheckins.map((c) => c.energy));
-  const avgStress = average(recentCheckins.map((c) => c.stress));
-
-  const checkinPagination = usePagination(checkins, CHECKIN_PAGE_SIZE);
   const weekGroups = groupNotesByWeek(notes);
   const weekGroupPagination = usePagination(weekGroups, WEEK_GROUP_PAGE_SIZE);
-
-  async function handleCheckinSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setCheckinSubmitting(true);
-    setCheckinError(null);
-    try {
-      const res = await fetch("/api/em-self/checkins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood, energy, stress, note }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
-      setCheckins([data.checkin, ...checkins]);
-      setNote("");
-    } catch (err) {
-      setCheckinError((err as Error).message);
-    } finally {
-      setCheckinSubmitting(false);
-    }
-  }
 
   // 改修依頼対応。1回の送信＝1件のメモ。typeは直前の選択を保ったままにする
   // （同じ種類のメモを立て続けに書きたい場面が多いため、毎回選び直させない）。
@@ -156,103 +115,7 @@ export default function GrowthPage() {
           <p className={styles.subtitle} style={{ marginBottom: 10 }}>
             チームの状態と同じく、EM自身のコンディションも記録しなければ見えなくなります。気分・エネルギー・ストレスを自己申告で記録します（他者からの推測ではなく、あなた自身の申告そのものが根拠です）。
           </p>
-          <form onSubmit={handleCheckinSubmit}>
-            <div className={styles.field}>
-              <label>
-                気分（1: 悪い 〜 5: 良い）
-                <select value={mood} onChange={(e) => setMood(Number(e.target.value))}>
-                  {SCALE_OPTIONS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className={styles.field}>
-              <label>
-                エネルギー（1: 低い 〜 5: 高い）
-                <select value={energy} onChange={(e) => setEnergy(Number(e.target.value))}>
-                  {SCALE_OPTIONS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className={styles.field}>
-              <label>
-                ストレス（1: 低い 〜 5: 高い）
-                <select value={stress} onChange={(e) => setStress(Number(e.target.value))}>
-                  {SCALE_OPTIONS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className={styles.field}>
-              <label>
-                メモ（任意）
-                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例: 大きめの障害対応が続いて疲労気味" />
-              </label>
-            </div>
-            <button className={styles.primaryBtn} type="submit" disabled={checkinSubmitting}>
-              {checkinSubmitting ? "記録中…" : "記録する"}
-            </button>
-          </form>
-          {checkinError && (
-            <p className={styles.errorText} role="alert">
-              {checkinError}
-            </p>
-          )}
-
-          {recentCheckins.length > 0 && (
-            <p className={styles.subtitle} style={{ marginTop: 10 }}>
-              直近{recentCheckins.length}件の平均: 気分 {avgMood?.toFixed(1)} / エネルギー {avgEnergy?.toFixed(1)} / ストレス {avgStress?.toFixed(1)}
-            </p>
-          )}
-
-          {checkins.length === 0 ? (
-            <p className={styles.subtitle} style={{ marginTop: 12 }}>
-              まだ記録がありません。
-            </p>
-          ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>日付</th>
-                    <th>気分</th>
-                    <th>エネルギー</th>
-                    <th>ストレス</th>
-                    <th>メモ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {checkinPagination.pageItems.map((c) => (
-                    <tr key={c.id}>
-                      <td className={styles.tableMuted}>{formatDate(c.createdAt)}</td>
-                      <td>{c.mood}</td>
-                      <td>{c.energy}</td>
-                      <td>{c.stress}</td>
-                      <td>{c.note}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <PaginationControls
-            page={checkinPagination.page}
-            totalPages={checkinPagination.totalPages}
-            total={checkinPagination.total}
-            rangeStart={checkinPagination.rangeStart}
-            rangeEnd={checkinPagination.rangeEnd}
-            onChange={checkinPagination.setPage}
-          />
+          <EmCheckinWidget />
         </div>
 
         <div className={styles.panel}>

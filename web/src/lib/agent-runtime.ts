@@ -9,7 +9,7 @@ import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEv
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
-import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
+import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type YieldKind } from "@/lib/types";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -28,6 +28,10 @@ export type YieldOption = {
 export type YieldRequest = {
   reason: string;
   options: YieldOption[];
+  // docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。§2.3のDecide/Inform/Commitの区別。
+  // 省略可能（既存run・AIが出力しなかった場合との後方互換）で、UI側（RunDetail.tsx）が
+  // options.length===0かどうかからdecide/informへフォールバック推定する。
+  kind?: YieldKind;
 };
 
 export type RejectedAlternative = {
@@ -801,19 +805,21 @@ export function buildSystemPrompt(
     ...charterRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
-    "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき",
-    "  2. 判断に必須の前提情報が不足しているとき",
+    "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき（kind: \"decide\"）",
+    "  2. 判断に必須の前提情報が不足しているとき（kind: \"inform\"）",
+    "  3. 介入の実行・人への働きかけ・優先順位の変更など、組織への働きかけの最終決定が必要なとき（kind: \"commit\"。これは常に人間EMが決める）",
     "",
     "yieldブロックのフォーマット（このとおりのfenced code blockにすること。前後に他の文章を混ぜないこと）:",
     "```yield",
     "{",
     '  "reason": "なぜ人間の判断が必要かの説明",',
+    '  "kind": "decide | inform | commit のいずれか",',
     '  "options": [',
     '    { "id": "A", "label": "選択肢Aの短い名前", "detail": "説明", "risk": "懸念点" }',
     "  ]",
     "}",
     "```",
-    '情報が単に不足しているだけで具体的な選択肢を提示できない場合は "options": [] としてください。',
+    '情報が単に不足しているだけで具体的な選択肢を提示できない場合は "options": [] としてください（この場合は通常kind: "inform"）。',
   ].join("\n");
 
   const issueContext = runId ? buildIssueContextBlock(runId) : "";
@@ -836,15 +842,28 @@ export function buildSystemPrompt(
     .join("\n\n");
 }
 
+const KNOWN_YIELD_KINDS: YieldKind[] = ["decide", "inform", "commit"];
+
+// docs/em_ui_ux_issue.md 5節対応。kindはAIの自己申告のため、未知の値・欠落は
+// options有無から機械的にフォールバック推定する（既存run・プロンプト非対応モデルとの後方互換）。
+function normalizeYieldKind(value: unknown, options: YieldOption[]): YieldKind {
+  if (typeof value === "string" && (KNOWN_YIELD_KINDS as string[]).includes(value)) {
+    return value as YieldKind;
+  }
+  return options.length === 0 ? "inform" : "decide";
+}
+
 export function extractYield(resultText: string): YieldRequest | undefined {
   const match = resultText.match(/```yield\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
     const parsed = JSON.parse(match[1].trim());
     if (parsed && typeof parsed.reason === "string") {
+      const options = Array.isArray(parsed.options) ? parsed.options : [];
       return {
         reason: parsed.reason,
-        options: Array.isArray(parsed.options) ? parsed.options : [],
+        options,
+        kind: normalizeYieldKind(parsed.kind, options),
       };
     }
   } catch {
@@ -1602,6 +1621,7 @@ export function toRunView(run: AgentRun): AgentRun {
     yieldRequest: run.yieldRequest
       ? {
           reason: unmaskNames(run.yieldRequest.reason),
+          kind: run.yieldRequest.kind,
           options: run.yieldRequest.options.map((o) => ({
             ...o,
             label: unmaskNames(o.label),

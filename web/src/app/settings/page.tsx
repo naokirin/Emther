@@ -243,6 +243,43 @@ export default function SettingsPage() {
             onChange={(e) => setDraft({ ...draft, autoMorningSummaryHour: Number(e.target.value) })}
           /></label>
         </div>
+
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Morning Modeの上限件数（AI主導トリアージ）</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          docs/em_ui_ux_issue.md 2.2/4節対応。「今日の判断待ち」を朝の主作業にしないため、Morning Modeで前面に出す件数に上限を設けます。超過分は非表示ではなく折りたたみに回り、いつでも確認できます。
+        </p>
+        <div className={styles.field} style={{ maxWidth: 160 }}>
+          <label>判断待ち（decision）レーンの上限件数
+          <input
+            type="number"
+            min={1}
+            value={draft.decisionQueueLimit}
+            onChange={(e) => setDraft({ ...draft, decisionQueueLimit: Number(e.target.value) })}
+          /></label>
+        </div>
+        <div className={styles.field} style={{ maxWidth: 160 }}>
+          <label>観測不足（observation）レーンの上限件数
+          <input
+            type="number"
+            min={1}
+            value={draft.observationQueueLimit}
+            onChange={(e) => setDraft({ ...draft, observationQueueLimit: Number(e.target.value) })}
+          /></label>
+        </div>
+
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>停滞Issue検知</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          着手済みの介入（Issue）がこの日数以上動いていなければ「停滞中」として一覧・朝キューに表示します。
+        </p>
+        <div className={styles.field} style={{ maxWidth: 160 }}>
+          <label>停滞とみなす日数
+          <input
+            type="number"
+            min={1}
+            value={draft.staleInterventionDays}
+            onChange={(e) => setDraft({ ...draft, staleInterventionDays: Number(e.target.value) })}
+          /></label>
+        </div>
       </div>
     </div>
   );

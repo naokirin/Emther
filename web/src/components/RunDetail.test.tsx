@@ -117,6 +117,28 @@ describe("ExecutionState", () => {
     expect(onSelectOption).toHaveBeenCalledWith("A");
   });
 
+  it("yieldのkindがcommitならCommitのカード見出しを表示する", () => {
+    const run = baseRun({
+      status: "yield",
+      yieldRequest: { reason: "介入を実行するか決めてください", kind: "commit", options: [] },
+    });
+    render(
+      <ExecutionState run={run} selectedOptionId={null} onSelectOption={noop} onConfirmOption={noop} onFocusChat={noop} deciding={false} />,
+    );
+    expect(screen.getByText(/Commit/)).toBeInTheDocument();
+  });
+
+  it("yieldのkind未指定・options空ならInformへフォールバックする", () => {
+    const run = baseRun({
+      status: "yield",
+      yieldRequest: { reason: "前提が足りません", options: [] },
+    });
+    render(
+      <ExecutionState run={run} selectedOptionId={null} onSelectOption={noop} onConfirmOption={noop} onFocusChat={noop} deciding={false} />,
+    );
+    expect(screen.getByText(/Inform/)).toBeInTheDocument();
+  });
+
   it("idle+proposalの場合は結論・ロジック・棄却案を表示する", () => {
     const run = baseRun({
       status: "idle",

@@ -79,6 +79,29 @@ describe("PATCH /api/issues/[id]", () => {
     expect(json.issue.teamId).toBe("team-1");
   });
 
+  it("statusを更新できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${issue.id}`, "PATCH", { status: "blocked" }),
+      routeCtx({ id: issue.id }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).issue.status).toBe("blocked");
+  });
+
+  it("不正なstatusは400", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${issue.id}`, "PATCH", { status: "unknown" }),
+      routeCtx({ id: issue.id }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("keyResultId/teamIdにnullを渡すと解除できる（キー自体が無ければ変更しない）", async () => {
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("Issue");

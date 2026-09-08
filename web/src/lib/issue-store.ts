@@ -21,6 +21,10 @@ export type ActionItem = {
   done: boolean;
 };
 
+// docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。@/lib/typesのIssueStatusと
+// 同じ内容（他のIssue関連型と同じく意図的に型を分離している）。
+export type IssueStatus = "not_started" | "in_progress" | "blocked" | "done";
+
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
 // Action Items（やる/やった）とは別に、進行中に思いついた時点でひとこと書き足すだけの
 // 自由記述ログ。構造化フォーム（考えたこと欄／アクション欄／結果欄を分ける）にすると
@@ -54,6 +58,7 @@ export type Issue = {
   actionItems: ActionItem[];
   logEntries: IssueLogEntry[];
   parentId?: string;
+  status: IssueStatus;
   archived: boolean;
   // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻
   // （unarchiveするとundefinedに戻す）。介入前後比較の起点として使う。
@@ -82,6 +87,14 @@ function normalizeTags(tags: string[]): string[] {
   return Array.from(new Set(tags.map((t) => maskNames(t.trim())).filter(Boolean)));
 }
 
+// docs/em_ui_ux_issue.md 4節対応。statusフィールド追加前のIssueには、既存の事実
+// （archived/actionItems/logEntries）から機械的に推定した初期値を補う。
+function inferStatus(issue: Issue): IssueStatus {
+  if (issue.archived) return "done";
+  if (issue.actionItems.some((a) => a.done) || issue.logEntries.length > 0) return "in_progress";
+  return "not_started";
+}
+
 // 永続化ファイルに旧バージョン（charter/tagsフィールド追加前）のIssueが残っていても
 // 壊れないよう、読み込み時に補完する。
 const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
@@ -90,6 +103,7 @@ const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
   archived: issue.archived ?? false,
   tags: issue.tags ?? [],
   logEntries: issue.logEntries ?? [],
+  status: issue.status ?? inferStatus(issue),
 }));
 
 function persist(): void {
@@ -177,6 +191,7 @@ export async function createIssue(
     actionItems: [],
     logEntries: [],
     parentId,
+    status: "not_started",
     archived: false,
     tags: normalizeTags(tags ?? []),
     keyResultId,
@@ -216,6 +231,7 @@ export async function createParentIssue(childId: string, title: string, charter?
     },
     actionItems: [],
     logEntries: [],
+    status: "not_started",
     archived: false,
     tags: [],
     createdAt: now,
@@ -273,6 +289,13 @@ export async function setIssueTitle(issueId: string, title: string): Promise<Iss
   return issue;
 }
 
+// docs/em_ui_ux_issue.md 4節対応。「未着手」のまま実際に着手の事実（Action Item・経過ログの
+// 追加）が生じたら、EMの操作を挟まず機械的に「進行中」へ昇格する。blocked/doneは
+// EMの明示判断（§2.4「人・優先順位に触れる介入は常にYield」の思想）なので上書きしない。
+function bumpToInProgressIfNotStarted(issue: Issue): void {
+  if (issue.status === "not_started") issue.status = "in_progress";
+}
+
 export async function addActionItem(issueId: string, text: string): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
@@ -280,6 +303,7 @@ export async function addActionItem(issueId: string, text: string): Promise<Issu
   if (!trimmed) return issue;
   const masked = await maskForStorage(trimmed);
   issue.actionItems.push({ id: randomUUID(), text: masked, done: false });
+  bumpToInProgressIfNotStarted(issue);
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `Action Itemを追加: 「${masked}」`);
@@ -297,6 +321,7 @@ export async function addLogEntry(issueId: string, text: string): Promise<Issue 
   if (!trimmed) return issue;
   const masked = await maskForStorage(trimmed);
   issue.logEntries.push({ id: randomUUID(), text: masked, createdAt: Date.now() });
+  bumpToInProgressIfNotStarted(issue);
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `経過ログを追加: 「${masked}」`);
@@ -309,9 +334,23 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
   const item = issue.actionItems.find((a) => a.id === itemId);
   if (!item) return undefined;
   item.done = !item.done;
+  bumpToInProgressIfNotStarted(issue);
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を${item.done ? "完了" : "未完了"}にしました`);
+  return issue;
+}
+
+// docs/em_ui_ux_issue.md 4節対応。statusはEMがカンバン・詳細画面から明示的に切り替える
+// （blocked/doneは事実から自動推定しない。§2.4の思想と同じ）。
+export function setIssueStatus(issueId: string, status: IssueStatus): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  if (issue.status === status) return issue;
+  issue.status = status;
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `ステータスを変更しました: ${status}`);
   return issue;
 }
 
@@ -328,6 +367,13 @@ export function setIssueArchived(issueId: string, archived: boolean): Issue | un
   // 「いつアーカイブされたか」を正確に知るための専用フィールドを持つ
   // （介入の前後比較の起点として使う）。
   issue.archivedAt = archived ? Date.now() : undefined;
+  // docs/em_ui_ux_issue.md 4節対応。archivedとstatusの機械的な整合を保つ
+  // （EMが個別にstatusを戻し忘れないようにする）。
+  if (archived) {
+    issue.status = "done";
+  } else if (issue.status === "done") {
+    issue.status = "in_progress";
+  }
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, archived ? "アーカイブしました" : "アーカイブを解除しました");

@@ -141,6 +141,15 @@ export type RulesAndConstraints = {
   // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
   // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
   maxParallelAgentRuns: number;
+  // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
+  // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
+  // 超過分は非表示にはせず、既存の折りたたみ展開で引き続き確認できる。
+  decisionQueueLimit: number;
+  observationQueueLimit: number;
+  // docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。介入（Issue）が何日動きが無ければ
+  // 「観測不足」として朝キューに再浮上させるかの閾値。既定14日は過去のP1-10対応でのチューニング
+  // 値を維持し、EMが好みに応じて短くできるようにする。
+  staleInterventionDays: number;
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
@@ -181,6 +190,21 @@ export type ActionItem = {
   done: boolean;
 };
 
+// docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。archived（2値）だけでは
+// 「進行中」と「ブロッカーあり」を区別できないため、別軸のステータスを持たせる。
+// blocked/doneへの遷移はEMの明示操作を主とし、not_started→in_progressだけは
+// 事実（Action Item追加・経過ログ追加）から機械的に自動昇格させる（issue-store.ts参照）。
+export type IssueStatus = "not_started" | "in_progress" | "blocked" | "done";
+
+export const ISSUE_STATUSES: IssueStatus[] = ["not_started", "in_progress", "blocked", "done"];
+
+export const ISSUE_STATUS_META: Record<IssueStatus, { icon: string; label: string }> = {
+  not_started: { icon: "⚪️", label: "未着手" },
+  in_progress: { icon: "🔵", label: "進行中" },
+  blocked: { icon: "🟡", label: "ブロッカーあり(Waiting)" },
+  done: { icon: "✅", label: "完了" },
+};
+
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
 // 進行中に思いついた時点でひとこと書き足すだけの自由記述ログ（種別を分けない）。
 export type IssueLogEntry = {
@@ -204,6 +228,7 @@ export type Issue = {
   actionItems: ActionItem[];
   logEntries: IssueLogEntry[];
   parentId?: string;
+  status: IssueStatus;
   archived: boolean;
   // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻。
   archivedAt?: number;
@@ -222,6 +247,35 @@ export type Issue = {
 export function charterFilledCount(charter: IssueCharter): number {
   return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
 }
+
+// docs/em_ui_ux_issue.md 4節「進捗の視覚化」対応。Action Itemsの完了数に、子Issueの完了数
+// （status:"done"またはarchived）を合算した進捗を返す。0/0のときは「項目なし」であって
+// 「100%完了」ではないため、呼び出し側で区別して表示すること（Team Vitalsの評価不能と同じ思想）。
+export function issueProgress(issue: Issue, childIssues: Issue[] = []): { done: number; total: number } {
+  const actionDone = issue.actionItems.filter((a) => a.done).length;
+  const childDone = childIssues.filter((c) => c.status === "done" || c.archived).length;
+  return { done: actionDone + childDone, total: issue.actionItems.length + childIssues.length };
+}
+
+// docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。旧page.tsxのstaleInterventions
+// ロジック（14日間動きが無い介入の検知）を共有ヘルパーへ切り出し、一覧・ボード双方の
+// 表示から再利用できるようにする。着手前（charter未整理かつAction Item無し）は対象外。
+export function isIssueStalled(issue: Issue, now: number, staleDays: number): boolean {
+  if (issue.archived || issue.parentId) return false;
+  if (charterFilledCount(issue.charter) === 0 && issue.actionItems.length === 0) return false;
+  return now - issue.updatedAt > staleDays * 24 * 60 * 60 * 1000;
+}
+
+// docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。§2.3のDecide/Inform/Commitの区別を
+// YieldRequestに持たせる。AIプロンプト側の指示は@/lib/agent-runtime.tsのbuildSystemPrompt、
+// パースはextractYieldを参照。省略された場合は既存run（後方互換）としてUI側でフォールバック推定する。
+export type YieldKind = "decide" | "inform" | "commit";
+
+export const YIELD_KIND_META: Record<YieldKind, { icon: string; label: string; description: string }> = {
+  decide: { icon: "🔀", label: "Decide", description: "複数の案から選んでください" },
+  inform: { icon: "📋", label: "Inform", description: "判断に必要な前提情報を教えてください" },
+  commit: { icon: "🤝", label: "Commit", description: "介入の実行・人への働きかけ・優先順位変更を決めてください" },
+};
 
 // docs/memo.md「F. Product Agentの追加」対応。People(人)/Process(組織運営)/Tech(実装)の
 // 3象限に、Product(顧客価値・優先順位・ロードマップ)を足して4象限を埋める。
