@@ -144,7 +144,7 @@ const INTERVENTION_TYPE_AGENTS: Record<string, { primary: string[]; secondary: s
 // 紐づくIssueのtagsに介入の型が含まれ、かつそのagentNameが主担当／副担当に該当する場合、
 // 「この介入型を主軸に」という一文を足す。該当しない場合はブロック自体を省略する
 // （無関係な介入型の指示で専門性をブレさせないため）。
-function buildInterventionTypeGuidance(runId: string | undefined, agentName: string): string {
+export function buildInterventionTypeGuidance(runId: string | undefined, agentName: string): string {
   if (!runId) return "";
   const issue = getIssueByRunId(runId);
   if (!issue || issue.tags.length === 0) return "";
@@ -417,7 +417,7 @@ function saveLastAutoMorningSummaryDate(date: string): void {
 
 let lastAutoMorningSummaryDate: string | null = loadLastAutoMorningSummaryDate();
 
-function todayDateString(now: Date): string {
+export function todayDateString(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
@@ -482,7 +482,7 @@ mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 // そのためここではmaskNamesを呼ばない——呼ぶ必要が無いのではなく、呼んではいけない
 // （既にマスク済みのIDをもう一度maskNamesに通しても実害は無いが、「保存時点で安全」が
 // 構造的に保証されているという前提を明確にするため、送信直前のマスク処理は撤去した）。
-function buildStrategyBlock(): string {
+export function buildStrategyBlock(): string {
   const strategy = getOrgStrategy();
   const lines: string[] = [];
   if (strategy.mission) lines.push(`Mission: ${strategy.mission}`);
@@ -510,7 +510,7 @@ function objectivesBlockIntro(agentName: string): string {
   return "組織の今期Objective/Key Results（Organization Context / Strategy、絶対の前提として扱うこと）:";
 }
 
-function buildObjectivesBlock(agentName: string): string {
+export function buildObjectivesBlock(agentName: string): string {
   const objectives = listObjectives();
   if (objectives.length === 0) return "";
   const lines = objectives.map((o) => {
@@ -527,7 +527,7 @@ function buildObjectivesBlock(agentName: string): string {
 // 1つも無い場合は絞り込みようがないため、当初のMVP方針どおり全件にフォールバックする
 // （手がかりが無いのに一部だけ見せると、かえって判断材料が欠けて混乱させるため）。
 // 手がかりがある場合だけ、関連するチームに絞る。
-function relevantTeams(teams: Team[], runId: string | undefined, rawText: string | undefined): Team[] {
+export function relevantTeams(teams: Team[], runId: string | undefined, rawText: string | undefined): Team[] {
   const relevantIds = new Set<string>();
 
   const linkedTeamId = runId ? getIssueByRunId(runId)?.teamId : undefined;
@@ -546,7 +546,7 @@ function relevantTeams(teams: Team[], runId: string | undefined, rawText: string
 
 // 同様にorg-context-store.tsはmembersをPERSON_n IDで保持しているため、registerName/
 // maskNamesはもう不要（メンバー名はチーム作成・編集の時点で既にIDへ変換済み）。
-function buildOrgContextBlock(runId?: string, rawText?: string): string {
+export function buildOrgContextBlock(runId?: string, rawText?: string): string {
   const teams = listActiveTeams();
   if (teams.length === 0) return "";
   const scoped = relevantTeams(teams, runId, rawText);
@@ -560,7 +560,7 @@ function buildOrgContextBlock(runId?: string, rawText?: string): string {
 // のIssue Workspaceが目指していた「壁打ちがIssueの文脈を踏まえる」ことの実体化。
 // charterが3項目とも空（未整理）のIssueなら、渡す情報が無いのでブロック自体を省略する
 // （空の前提を渡して混乱させないため）。
-function buildIssueContextBlock(runId: string): string {
+export function buildIssueContextBlock(runId: string): string {
   const issue = getIssueByRunId(runId);
   if (!issue) return "";
   const { why, what, how } = issue.charter;
@@ -581,7 +581,7 @@ function buildIssueContextBlock(runId: string): string {
 // Mission/制約を動的にロードする（docs/memo.md TODO「Organization Contextの動的ロードを
 // 対象Issueに関連するチームのみに絞る」に対応する部分）。Mission/制約が両方未設定なら
 // 渡す情報が無いのでブロック自体を省略する。
-function buildTeamCharterBlock(runId: string): string {
+export function buildTeamCharterBlock(runId: string): string {
   const issue = getIssueByRunId(runId);
   if (!issue?.teamId) return "";
   const team = getTeam(issue.teamId);
@@ -690,7 +690,7 @@ async function buildJournalContextBlock(rawText: string, agentName: string): Pro
   return maskNames(blocks.join("\n\n"));
 }
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   agentName: string,
   allowConsult: boolean,
   runId?: string,
@@ -807,7 +807,7 @@ function buildSystemPrompt(
     .join("\n\n");
 }
 
-function extractYield(resultText: string): YieldRequest | undefined {
+export function extractYield(resultText: string): YieldRequest | undefined {
   const match = resultText.match(/```yield\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
@@ -827,7 +827,7 @@ function extractYield(resultText: string): YieldRequest | undefined {
 // docs 3.5「構造化された提案」: 結論・参照ファクト・判断ロジック・棄却した代替案を
 // 必ず含めさせる。抽出できない（規約に従わなかった）場合はundefinedを返し、
 // UI側は素のテキストログのみを表示する（無理に構造化して見せない）。
-function extractProposal(resultText: string): Proposal | undefined {
+export function extractProposal(resultText: string): Proposal | undefined {
   const match = resultText.match(/```proposal\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
@@ -854,7 +854,7 @@ function extractProposal(resultText: string): Proposal | undefined {
 // docs/first_implession 3.8対応。AIが提案するAction Itemsの下書き。EMが個別に採用する
 // までIssue.actionItemsへは反映しない（extractYield/extractProposalと同じ壊れにくい
 // パースの考え方: 不正な形式は「提案なし」として扱うだけで、proposal自体は無効にしない）。
-function extractActionItems(resultText: string): string[] | undefined {
+export function extractActionItems(resultText: string): string[] | undefined {
   const match = resultText.match(/```action_items\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
@@ -871,7 +871,7 @@ function extractActionItems(resultText: string): string[] | undefined {
 
 // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案。
 // extractActionItemsと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
-function extractSubIssues(resultText: string): string[] | undefined {
+export function extractSubIssues(resultText: string): string[] | undefined {
   const match = resultText.match(/```sub_issues\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
@@ -892,7 +892,7 @@ function extractSubIssues(resultText: string): string[] | undefined {
 // docs/agent_specialization.md 段階5対応。questionsはagentName→個別質問の任意マップ。
 // キーがagentsに含まれない・SPECIALIST_AGENTS外・値が文字列でない場合はそのエントリだけ
 // 無視する（consultブロック全体を不正扱いにはしない）。
-function extractConsult(resultText: string): ConsultRequest | undefined {
+export function extractConsult(resultText: string): ConsultRequest | undefined {
   const match = resultText.match(/```consult\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
@@ -920,7 +920,7 @@ function extractConsult(resultText: string): ConsultRequest | undefined {
 
 // docs/agent_specialization.md 段階5対応。指定agentへの個別質問があればそれを、
 // 無ければ共通questionにフォールバックする（後方互換）。
-function consultQuestionFor(consult: ConsultRequest, agentName: string): string {
+export function consultQuestionFor(consult: ConsultRequest, agentName: string): string {
   return consult.questions?.[agentName] ?? consult.question;
 }
 
@@ -1026,11 +1026,11 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
 
 // AGENT_OPTIONSのうち、Settingsで明示的にagy（Gemini）フォールバックを有効化した
 // エージェント種別だけがフォールバック対象になる（既定は全エージェントOFF）。
-function isAgyFallbackEnabled(agentName: string): boolean {
+export function isAgyFallbackEnabled(agentName: string): boolean {
   return getRulesAndConstraints().agyFallbackAgents.includes(agentName);
 }
 
-function isCursorFallbackEnabled(agentName: string): boolean {
+export function isCursorFallbackEnabled(agentName: string): boolean {
   return getRulesAndConstraints().cursorFallbackAgents.includes(agentName);
 }
 
