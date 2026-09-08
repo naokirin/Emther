@@ -1,0 +1,48 @@
+# EM Support System — コンテナ完結構成
+# ホストの ~/.claude 等はマウントしない。認証はコンテナ内で行い named volume に保存する。
+
+services:
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: em-ai-team-web:local
+    ports:
+      - "${EM_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      EM_DATA_DIR: /data
+      EM_SECURE_DATA_DIR: /secure
+      HF_HOME: /home/em/.cache/huggingface
+      TRANSFORMERS_CACHE: /home/em/.cache/huggingface
+      AGY_CLI_DISABLE_AUTO_UPDATE: "true"
+      # 対話ログインの代わり（未設定なら空。./scripts/docker-auth.sh を使う）
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+    volumes:
+      # アプリ永続化（SQLite / JSON）
+      - em-data:/data
+      # people-directory（実名対応表）専用
+      - em-secure:/secure
+      # CLI 認証（ホスト認証ディレクトリは載せない）
+      - em-claude-auth:/home/em/.claude
+      - em-agy-auth:/home/em/.gemini
+      - em-cursor-auth:/home/em/.cursor
+      - em-cursor-config:/home/em/.config/cursor
+      # ローカルモデルの重みキャッシュ
+      - em-hf-cache:/home/em/.cache/huggingface
+    # Quick Journal（0.5B）+ 埋め込みモデル同時ロードの目安
+    mem_limit: 8g
+    mem_reservation: 4g
+    shm_size: "1gb"
+    restart: unless-stopped
+
+volumes:
+  em-data:
+  em-secure:
+  em-claude-auth:
+  em-agy-auth:
+  em-cursor-auth:
+  em-cursor-config:
+  em-hf-cache:

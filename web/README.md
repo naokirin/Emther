@@ -416,6 +416,8 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 
 ## 実行方法
 
+### ローカル（ホストの Node + CLI）
+
 ```bash
 npm install
 npm run dev
@@ -423,6 +425,17 @@ npm run dev
 
 `http://localhost:3000` を開く。ローカルの `claude` CLI（サブスクリプション認証済みのもの）を利用するため、追加のAPIキー設定は不要。
 
+### Docker（コンテナ完結・推奨の再現手順）
+
+ホストの `~/.claude` 等はマウントせず、コンテナ内で CLI 認証まで完結させる構成です。詳細は [`docs/docker.md`](../docs/docker.md)。
+
+```bash
+./scripts/docker-up.sh
+./scripts/docker-auth.sh claude   # 初回のみ（対話）
+./scripts/docker-status.sh
+```
+
+`http://localhost:3000` を開く。
 ## 課金に関する注記
 
 `claude -p`（非対話モード）を使っている。「サブスクリプション範囲内か、別課金か」は一度認識が入れ替わった経緯があるため、コスト最適化を本格的に詰める前に現状の課金条件を再確認すること。`--bg`（バックグラウンドセッション）への切り替えも試したが、このセッションが動く検証環境固有と思われるグローバルフック起因で`state: "blocked"`のまま進まなくなる不具合が複数パターンで再現し、断念した経緯がある。
