@@ -188,6 +188,18 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractSubIssues(text)).toEqual(["子課題A", "子課題B"]);
   });
 
+  it("extractCharterはwhy/what/howのうち有効な値だけをパースする", async () => {
+    const rt = await loadModule();
+    const text = '```charter\n{ "why": "価値", "what": "", "how": 123 }\n```';
+    expect(rt.extractCharter(text)).toEqual({ why: "価値" });
+  });
+
+  it("extractCharterは1件も有効な値が無ければundefined", async () => {
+    const rt = await loadModule();
+    expect(rt.extractCharter('```charter\n{ "what": "" }\n```')).toBeUndefined();
+    expect(rt.extractCharter("ブロックなし")).toBeUndefined();
+  });
+
   it("extractConsultはagents/questionをパースする", async () => {
     const rt = await loadModule();
     const text = '```consult\n{ "agents": ["People Agent", "Tech Agent"], "question": "共通質問" }\n```';
@@ -420,6 +432,28 @@ describe("buildSystemPrompt", () => {
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-without-issue");
     expect(prompt).not.toContain("```action_items");
     expect(prompt).not.toContain("```sub_issues");
+  });
+
+  it("Why/What/Howが未整理のIssueに紐づくrunにはcharterブロックの説明が付く（子Issueでも同様）", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const parent = await issueStore.createIssue("親Issue");
+    await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
+    const rt = await loadModule();
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
+    expect(prompt).toContain("```charter");
+    expect(prompt).toContain("why, what, how");
+  });
+
+  it("Why/What/Howが全て埋まっているIssueに紐づくrunにはcharterブロックの説明が付かない", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    await issueStore.createIssue("Issue", "run-1", { why: "w1", what: "w2", how: "w3" });
+    const rt = await loadModule();
+    expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```charter");
+  });
+
+  it("Issueに紐づかないrunにはcharterブロックの説明が付かない", async () => {
+    const rt = await loadModule();
+    expect(rt.buildSystemPrompt("Lead Agent", true, "run-without-issue")).not.toContain("```charter");
   });
 });
 

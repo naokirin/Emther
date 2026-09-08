@@ -43,6 +43,7 @@ export type AgentRun = {
   proposal?: Proposal;
   suggestedActionItems?: string[];
   suggestedSubIssues?: string[];
+  suggestedCharter?: { why?: string; what?: string; how?: string };
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -119,6 +120,9 @@ export function ExecutionState({
   onAdoptSubIssues,
   onDismissSubIssues,
   subIssuesSubmitting,
+  onAdoptCharter,
+  onDismissCharter,
+  charterSubmitting,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -134,7 +138,15 @@ export function ExecutionState({
   onAdoptSubIssues?: (items: string[]) => void;
   onDismissSubIssues?: () => void;
   subIssuesSubmitting?: boolean;
+  onAdoptCharter?: (charter: { why?: string; what?: string; how?: string }) => void;
+  onDismissCharter?: () => void;
+  charterSubmitting?: boolean;
 }) {
+  const CHARTER_FIELD_LABEL: Record<"why" | "what" | "how", string> = {
+    why: "Why（生む価値・誰のため・なぜ今か）",
+    what: "What（何を・どこまで・どのくらい・完了の定義）",
+    how: "How（どのように実現するか・前提や制約）",
+  };
   return (
     <>
       <p className={styles.contextText}>
@@ -255,6 +267,37 @@ export function ExecutionState({
               </div>
             </div>
           )}
+
+          {run.suggestedCharter && Object.keys(run.suggestedCharter).length > 0 && (
+            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
+              <strong>📝 AIが提案するWhy/What/How</strong>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                未整理だった項目の埋め合わせ案です。採用すると、この項目だけIssueのWhy/What/Howに反映されます（既に書かれている項目は上書きしません）。
+              </p>
+              {(["why", "what", "how"] as const).map(
+                (key) =>
+                  run.suggestedCharter?.[key] && (
+                    <div key={key} style={{ fontSize: "0.75rem", marginTop: 6 }}>
+                      <strong>{CHARTER_FIELD_LABEL[key]}</strong>
+                      <p style={{ margin: "2px 0 0" }}>{run.suggestedCharter[key]}</p>
+                    </div>
+                  ),
+              )}
+              <div className={styles.yieldActions}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={charterSubmitting}
+                  onClick={() => onAdoptCharter?.(run.suggestedCharter ?? {})}
+                >
+                  採用してWhy/What/Howに反映
+                </button>
+                <button className={styles.btnOutline} disabled={charterSubmitting} onClick={onDismissCharter}>
+                  却下する
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -290,7 +333,7 @@ type ChatTurn = { kind: "user" | "ai" | "note"; text: string };
 // yield/proposal/consultの機械可読ブロックはExecution State側で構造化表示するので、
 // チャット吹き出しでは自然文の説明部分だけを見せて二重表示を避ける。
 function stripStructuredBlocks(text: string): string {
-  return text.replace(/```(?:yield|proposal|consult|action_items)\s*\n?[\s\S]*?```/g, "").trim();
+  return text.replace(/```(?:yield|proposal|consult|action_items|charter)\s*\n?[\s\S]*?```/g, "").trim();
 }
 
 function buildChatTurns(log: LogLine[]): ChatTurn[] {

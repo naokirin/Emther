@@ -138,6 +138,11 @@ function migrate(database: DatabaseSync): void {
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案の下書き。
   addColumnIfMissing(database, "agent_runs", "suggested_sub_issues_json", "TEXT");
 
+  // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+  // 対応。AIが提案するWhy/What/Howの下書き（未整理の項目のみ埋める提案。既存の
+  // suggested_action_items_json/suggested_sub_issues_jsonと同じHuman-in-the-Loop設計）。
+  addColumnIfMissing(database, "agent_runs", "suggested_charter_json", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

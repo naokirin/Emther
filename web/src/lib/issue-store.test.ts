@@ -198,6 +198,20 @@ describe("listIssues / listChildIssues / getIssueByRunId", () => {
     expect(store.getIssueByRunId("run-123")?.id).toBe(issue.id);
     expect(store.getIssueByRunId("run-unknown")).toBeUndefined();
   });
+
+  it("linkIssueRunは後からagentRunIdを紐づける", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("素のIssue");
+    expect(issue.agentRunId).toBeUndefined();
+    const linked = store.linkIssueRun(issue.id, "run-456");
+    expect(linked?.agentRunId).toBe("run-456");
+    expect(store.getIssueByRunId("run-456")?.id).toBe(issue.id);
+  });
+
+  it("linkIssueRunは存在しないIssueならundefined", async () => {
+    const store = await loadModule();
+    expect(store.linkIssueRun("missing", "run-456")).toBeUndefined();
+  });
 });
 
 describe("toIssueView", () => {
