@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { URGENCY_LABEL, type JournalEntry } from "@/lib/types";
+import { isJournalEntryResolved, URGENCY_LABEL, type JournalEntry } from "@/lib/types";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
 // 訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、常に
@@ -81,7 +81,7 @@ export function JournalEntryCard({
   onDismissPendingError: () => void;
 }) {
   const router = useRouter();
-  const isResolved = !!(entry.resolvedIssueId || entry.resolutionNote);
+  const isResolved = isJournalEntryResolved(entry);
   // docs/em_human_story_and_ux.md 改修依頼「本文編集は他の編集項目より頻度が低いので、
   // 編集を押したときだけ編集モードに入るようにする」対応。tags/people/urgency/日付は
   // 編集モードに入ると常に触れるが、本文はIssueのタイトル編集と同じくボタンで

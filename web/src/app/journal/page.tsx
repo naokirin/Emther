@@ -6,7 +6,7 @@ import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { useJournal, useJournalEditing } from "@/lib/hooks";
-import type { JournalEntry } from "@/lib/types";
+import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
 
 const PAGE_SIZE = 10;
 
@@ -59,6 +59,9 @@ function JournalListPageInner() {
   const [urgencyFilter, setUrgencyFilter] = useState<JournalEntry["urgency"] | "">("");
   const [sentimentFilter, setSentimentFilter] = useState<JournalEntry["sentiment"] | "">("");
   const [periodDays, setPeriodDays] = useState("all");
+  // ユーザー指摘「対応済みを除外するフィルタを追加してほしい」対応。対応済みの定義は
+  // JournalEntryCard.tsxの「✅ 対応済み」表示と同じ（isJournalEntryResolved）。
+  const [excludeResolved, setExcludeResolved] = useState(false);
   // レンダー中にDate.now()を直接呼ばない（react-hooks/purity）ため、マウント時の1回だけ
   // 遅延初期化で取得する。日単位の期間フィルタなので、この程度の鮮度で十分。
   const [now] = useState(() => Date.now());
@@ -73,6 +76,7 @@ function JournalListPageInner() {
     if (urgencyFilter && entry.urgency !== urgencyFilter) return false;
     if (sentimentFilter && entry.sentiment !== sentimentFilter) return false;
     if (periodDays !== "all" && now - entry.createdAt > Number(periodDays) * 24 * 60 * 60 * 1000) return false;
+    if (excludeResolved && isJournalEntryResolved(entry)) return false;
     return true;
   });
 
@@ -165,6 +169,10 @@ function JournalListPageInner() {
               <option value="neutral">ニュートラル</option>
               <option value="negative">ネガティブ</option>
             </select>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            <input type="checkbox" checked={excludeResolved} onChange={(e) => setExcludeResolved(e.target.checked)} />
+            ✅ 対応済みを除外
           </label>
         </div>
       </div>
