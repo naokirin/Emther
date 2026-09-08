@@ -15,6 +15,10 @@ export default defineConfig({
     // 影響が他テストファイルへ漏れないようにする。
     isolate: true,
     pool: "forks",
+    // このマシンのCPUコア数（4）を大きく超えて一斉にforkすると、依存解決が稀に
+    // レースしてalias解決に失敗することを実機で確認した（"Cannot find package '@/...'"）。
+    // 同時起動数をコア数程度に抑えて安定させる。
+    maxWorkers: 4,
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],
