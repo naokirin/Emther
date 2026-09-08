@@ -18,7 +18,14 @@ import {
   useTeams,
   useVitals,
 } from "@/lib/hooks";
-import { AGENT_OPTIONS, charterFilledCount, isRunStale, type Issue, type JournalEntry } from "@/lib/types";
+import {
+  AGENT_OPTIONS,
+  charterFilledCount,
+  isJournalEntryResolved,
+  isRunStale,
+  type Issue,
+  type JournalEntry,
+} from "@/lib/types";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
 const INBOX_PAGE_SIZE = 5;
@@ -280,11 +287,25 @@ export default function DashboardPage() {
 
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
   const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
-  const filteredRuns = statusFilter ? runs.filter((r) => r.status === statusFilter) : runs;
+  // ユーザー指摘「『今日』の判断待ちで却下のものも並ぶので、フィルタとして却下を非表示にしたい。
+  // また却下のものはデフォルトで非表示となるようにしたい」対応。相談・起動一覧は
+  // 判断待ちレーン（nextActions）と異なりtriageStatusで絞っていなかったため、却下済みの
+  // runがいつまでも残って見えてしまっていた。デフォルトでは却下を隠し、必要なときだけ表示できる。
+  const [showDismissedRuns, setShowDismissedRuns] = useState(false);
+  const filteredRuns = runs
+    .filter((r) => showDismissedRuns || r.triageStatus !== "dismissed")
+    .filter((r) => !statusFilter || r.status === statusFilter);
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
   // 直近5件だけを見せ、全件の検索・絞り込みは/journalに委ねる。
-  const recentJournalEntries = journalEntries.slice(0, JOURNAL_DASHBOARD_LIMIT);
+  // ユーザー指摘「メモするについても解決済みをフィルタできるようにしたい。ただしメモは
+  // 解決済みでもデフォルトは表示としたい」対応。/journalのexcludeResolvedと判定基準
+  // （isJournalEntryResolved）を揃えるが、却下runとは異なりデフォルトはfalse（＝表示）にする。
+  const [excludeResolvedJournal, setExcludeResolvedJournal] = useState(false);
+  const visibleJournalEntries = excludeResolvedJournal
+    ? journalEntries.filter((e) => !isJournalEntryResolved(e))
+    : journalEntries;
+  const recentJournalEntries = visibleJournalEntries.slice(0, JOURNAL_DASHBOARD_LIMIT);
   const inboxPagination = usePagination(filteredRuns, INBOX_PAGE_SIZE);
 
   // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化する」対応。POST /api/journalは
@@ -1144,8 +1165,23 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {journalEntries.length > 0 && (
+            <label
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 10 }}
+            >
+              <input
+                type="checkbox"
+                checked={excludeResolvedJournal}
+                onChange={(e) => setExcludeResolvedJournal(e.target.checked)}
+              />
+              ✅ 対応済みを除外
+            </label>
+          )}
           {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
             <p className={styles.subtitle}>まだジャーナルはありません。</p>
+          )}
+          {journalEntries.length > 0 && visibleJournalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
+            <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
           )}
           {pendingJournalDrafts.map((draft) => (
             <div key={draft.tempId} className={styles.journalEntry}>
@@ -1203,9 +1239,9 @@ export default function DashboardPage() {
               onClearResolution={() => journalEditing.clearResolution(entry.id)}
             />
           ))}
-          {journalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
+          {visibleJournalEntries.length > JOURNAL_DASHBOARD_LIMIT && (
             <p className={styles.subtitle} style={{ marginTop: -4, marginBottom: 12 }}>
-              他{journalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
+              他{visibleJournalEntries.length - JOURNAL_DASHBOARD_LIMIT}件は
               <button className={styles.detailToggle} onClick={() => router.push("/journal")}>
                 Journal一覧
               </button>
@@ -1304,17 +1340,27 @@ export default function DashboardPage() {
           </form>
           {error && <p className={styles.errorText} role="alert">{error}</p>}
 
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 12 }}>
-            状態で絞り込み:
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AgentStatus | "")}>
-              <option value="">すべて</option>
-              <option value="active">🔵 Active</option>
-              <option value="queued">⏳ Queued（順番待ち）</option>
-              <option value="yield">🟡 Yield</option>
-              <option value="idle">⚪️ Idle</option>
-              <option value="error">🔴 Error</option>
-            </select>
-          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              状態で絞り込み:
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AgentStatus | "")}>
+                <option value="">すべて</option>
+                <option value="active">🔵 Active</option>
+                <option value="queued">⏳ Queued（順番待ち）</option>
+                <option value="yield">🟡 Yield</option>
+                <option value="idle">⚪️ Idle</option>
+                <option value="error">🔴 Error</option>
+              </select>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              <input
+                type="checkbox"
+                checked={showDismissedRuns}
+                onChange={(e) => setShowDismissedRuns(e.target.checked)}
+              />
+              🗑️ 却下も表示
+            </label>
+          </div>
 
           <div className={styles.tableWrap} style={{ marginTop: 8 }}>
             <table className={styles.table}>
