@@ -31,6 +31,13 @@ export type JournalEntry = {
   resolutionNote?: string;
 };
 
+// JournalEntryCard.tsxの「✅ 対応済み」表示と同じ判定基準（Issueで追跡中、または
+// 対応メモが残っている）。/journal一覧の「対応済みを除外」フィルタと表示ラベルの
+// 両方でこの1箇所を参照し、判定基準がずれないようにする。
+export function isJournalEntryResolved(entry: JournalEntry): boolean {
+  return !!(entry.resolvedIssueId || entry.resolutionNote);
+}
+
 // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。
 export type TeamCharter = {
   mission: string;
