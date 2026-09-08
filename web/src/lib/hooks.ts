@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
 import { timestampToDateInputValue } from "@/lib/journal-date-parser";
+import { truncateForTitle } from "@/lib/types";
 import type {
   EmCheckin,
   EmReflectionNote,
@@ -274,7 +275,7 @@ export function useJournalEditing(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: (entry.summary || entry.rawText).slice(0, 60),
+          title: truncateForTitle(entry.summary || entry.rawText),
           why: entry.rawText,
           tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
         }),

@@ -38,6 +38,16 @@ export function isJournalEntryResolved(entry: JournalEntry): boolean {
   return !!(entry.resolvedIssueId || entry.resolutionNote);
 }
 
+// ユーザー指摘対応: 異常検知runなど、EMが書いた短い文ではなく定型の指示文＋本文という
+// 長いtaskをそのままIssueタイトルに使うと、単純なslice(0, n)では文の途中（しかも
+// 肝心の本文へ辿り着く前）でちぎれ、省略されたことも分からない見た目になっていた。
+// Issueタイトルを作る全箇所でこの1箇所を通し、上限超過時は「…」を付けて明示する。
+export function truncateForTitle(text: string, maxLength = 60): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。
 export type TeamCharter = {
   mission: string;

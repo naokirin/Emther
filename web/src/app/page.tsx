@@ -23,6 +23,7 @@ import {
   charterFilledCount,
   isJournalEntryResolved,
   isRunStale,
+  truncateForTitle,
   type Issue,
   type JournalEntry,
 } from "@/lib/types";
@@ -445,7 +446,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: runFallbackTitle(run).slice(0, 60), agentRunId: run.id }),
+        body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
       });
       const data = await res.json();
       if (res.ok) router.push(`/issues/${data.issue.id}`);
