@@ -160,8 +160,12 @@ export function listEvents(filter?: { entityType?: KnowledgeEntityType; kind?: K
     params.push(filter.kind);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  // occurred_atが同値（例: 「まとめて記録する」で同日イベントが同じ正午時刻を
+  // 共有するケース）の場合、recorded_at（記録した実時刻）で降順のタイブレークを
+  // かけないと、SQLiteの不定順（実質的に古い順）で返り、新しく登録した方が
+  // 一覧の下に来てしまう。
   const rows = getDb()
-    .prepare(`SELECT * FROM knowledge_events ${where} ORDER BY occurred_at DESC`)
+    .prepare(`SELECT * FROM knowledge_events ${where} ORDER BY occurred_at DESC, recorded_at DESC`)
     .all(...params) as unknown as Row[];
   return rows.map(rowToEvent);
 }
