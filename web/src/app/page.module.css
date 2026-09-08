@@ -362,7 +362,9 @@
 }
 
 .activityLine {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   width: 100%;
   text-align: left;
   border: none;
@@ -370,14 +372,34 @@
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: inherit;
   /* font-family: inherit;（buttonの既定UIフォントを避ける）にしないと、font:のショート
      ハンドはfont-size/font-weightも一括で上書きしてしまう（.tag/.tagBtnで実際に踏んだ
      不具合と同じ原因）。ここは競合する明示指定が無いため実害は無いが、念のため統一する。 */
   font-family: inherit;
+  /* ユーザー指摘「増えると上下で重なってしまう」対応。親.activityStreamはflex-directionが
+     columnで高さ固定＋overflow-y:autoだが、flexアイテムは既定でflex-shrink:1のため、
+     内容が180pxを超えるとスクロールする前に各行の高さが圧縮され、行同士が重なって見えて
+     いた。0にして行の高さを常に内容通りに保ち、収まらない分は親のスクロールに任せる。 */
+  flex-shrink: 0;
+}
+
+/* ユーザー指摘「いつのものかわからないので日時を先頭に入れてほしい。ただしテキストの
+   開始位置がずれないように」対応。日時部分を固定幅にすることで、日付・時刻の値に
+   関わらず本文（.activityLineText）の開始位置が揃うようにする。 */
+.activityLineTime {
+  flex-shrink: 0;
+  /* "MM/DD HH:mm" は常に11文字（ゼロ埋め済み）。 */
+  width: 11ch;
+  color: var(--text-muted);
+}
+
+.activityLineText {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activityLine:hover {
