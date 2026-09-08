@@ -669,6 +669,20 @@
   font-size: 0.8125rem;
 }
 
+.treeAddRow {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.treeAddRow input {
+  flex: 1;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+
 .journalEntry {
   background: var(--gray-bg);
   border: 1px solid var(--border);

@@ -429,13 +429,12 @@ export default function OrgContextPage() {
           </div>
 
           <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Objectives（OKR）</div>
-          <form onSubmit={handleAddObjective} style={{ display: "flex", gap: 6, margin: "4px 0" }}>
+          <form onSubmit={handleAddObjective} className={styles.treeAddRow}>
             <input
               type="text"
               value={newObjectiveTitle}
               onChange={(e) => setNewObjectiveTitle(e.target.value)}
               placeholder="新しいObjective"
-              style={{ fontSize: "0.75rem" }}
             />
             <button className={styles.btnOutline} type="submit" disabled={objectiveSubmitting || !newObjectiveTitle.trim()}>
               追加
@@ -565,7 +564,7 @@ export default function OrgContextPage() {
                 </table>
               </div>
             )}
-            <form onSubmit={handleAddKeyResult} style={{ display: "flex", gap: 6 }}>
+            <form onSubmit={handleAddKeyResult} className={styles.treeAddRow}>
               <input
                 type="text"
                 value={newKeyResultTitle}
