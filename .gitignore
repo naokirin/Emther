@@ -1,3 +1,5 @@
 # リポジトリ直下のローカル設定（Docker API キー等）
 .env
 .DS_Store
+
+node_modules/
