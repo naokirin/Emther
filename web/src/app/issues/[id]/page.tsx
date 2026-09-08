@@ -20,8 +20,10 @@ const CHARTER_VIEW_FIELDS: { key: keyof IssueCharter; label: string }[] = [
   { key: "how", label: "How（どのように実現するか・前提や制約）" },
 ];
 
-export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。中身をidベースの
+// コンポーネントに切り出し、フルページ（本ファイル末尾のIssueDetailPage）と
+// 一覧側のSlideOver（issues/page.tsx）の両方から同じロジック・JSXを使う。
+export function IssueDetailContent({ id }: { id: string }) {
   const router = useRouter();
   const { issue, refreshIssue } = useIssue(id);
   const { history } = useEntityHistory("issue", id);
@@ -497,14 +499,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   if (!issue) {
-    return (
-      <div className={styles.screen}>
-        <Link href="/issues" className={styles.backLink}>
-          ← Issue一覧に戻る
-        </Link>
-        <p className={styles.subtitle}>読み込み中、またはIssueが見つかりません。</p>
-      </div>
-    );
+    return <p className={styles.subtitle}>読み込み中、またはIssueが見つかりません。</p>;
   }
 
   // docs/em_ui_ux_issue.md 7節対応。閲覧モードでチーム・Key Resultを文字列表示するための
@@ -515,11 +510,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     : undefined;
 
   return (
-    <div className={styles.screen}>
-      <Link href="/issues" className={styles.backLink}>
-        ← Issue一覧に戻る
-      </Link>
-
+    <>
       {parentIssue && (
         <Link href={`/issues/${parentIssue.id}`} className={styles.backLink} style={{ display: "block" }}>
           ⬆ 上位Issue: {parentIssue.title}
@@ -1020,6 +1011,19 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           </form>
         </Modal>
       )}
+    </>
+  );
+}
+
+// フルページ表示用（直接URLアクセス・リロード・「詳細画面で開く」の遷移先）。
+export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return (
+    <div className={styles.screen}>
+      <Link href="/issues" className={styles.backLink}>
+        ← Issue一覧に戻る
+      </Link>
+      <IssueDetailContent id={id} />
     </div>
   );
 }

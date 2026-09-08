@@ -356,6 +356,19 @@ export const URGENCY_LABEL: Record<JournalEntry["urgency"], string> = {
 // 集約ビュー（@/lib/people-hub.tsのサーバー側の型と対応）。
 export type PersonTrend = { positive: number; negative: number; neutral: number };
 
+// 改修依頼「Peopleを労務SaaS的な視覚スコア表示に」対応。Team Vitals
+// （lib/vitals.tsのcomputeOrgVitals、平均sentimentスコア＋設定可能な閾値）と同じ
+// 「ネガティブ優勢→bad／件数不足→unknown」という判定思想を踏襲するが、こちらは
+// 一覧カードの軽量な視覚表示用なので、Team Vitalsのような設定可能な閾値
+// （RulesAndConstraints）は持たない単純な多数決にする。
+export function personVitalStatus(trend: PersonTrend): VitalStatus {
+  const total = trend.positive + trend.negative + trend.neutral;
+  if (total < 2) return "unknown";
+  if (trend.negative > trend.positive) return "bad";
+  if (trend.negative === trend.positive && trend.negative > 0) return "warn";
+  return "good";
+}
+
 export type PersonSummary = {
   id: string;
   name: string;

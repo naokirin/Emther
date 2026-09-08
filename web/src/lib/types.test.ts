@@ -6,6 +6,7 @@ import {
   isRunStale,
   issueProgress,
   normalizeTeamName,
+  personVitalStatus,
   teamDisplayName,
   teamPathSegments,
   truncateForTitle,
@@ -184,6 +185,26 @@ describe("isJournalEntryResolved", () => {
 
   it("resolutionNoteがあれば対応済み", () => {
     expect(isJournalEntryResolved(baseEntry({ resolutionNote: "様子見に決めた" }))).toBe(true);
+  });
+});
+
+describe("personVitalStatus", () => {
+  it("件数が2未満なら評価不能", () => {
+    expect(personVitalStatus({ positive: 1, negative: 0, neutral: 0 })).toBe("unknown");
+    expect(personVitalStatus({ positive: 0, negative: 0, neutral: 0 })).toBe("unknown");
+  });
+
+  it("ネガティブがポジティブより多ければbad", () => {
+    expect(personVitalStatus({ positive: 1, negative: 3, neutral: 0 })).toBe("bad");
+  });
+
+  it("同数（0より多い）ならwarn", () => {
+    expect(personVitalStatus({ positive: 2, negative: 2, neutral: 0 })).toBe("warn");
+  });
+
+  it("ポジティブが優勢、またはネガティブが無ければgood", () => {
+    expect(personVitalStatus({ positive: 3, negative: 1, neutral: 0 })).toBe("good");
+    expect(personVitalStatus({ positive: 0, negative: 0, neutral: 3 })).toBe("good");
   });
 });
 

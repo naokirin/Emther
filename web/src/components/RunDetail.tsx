@@ -111,6 +111,21 @@ export function resolveYieldKind(kind: YieldKind | undefined, optionsLength: num
   return optionsLength === 0 ? "inform" : "decide";
 }
 
+// docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
+// docs/em_ui_ux_issue.md 5節対応。yield中はDecide/Inform/Commitの種別まで見せる
+// （§2.3「Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる」の語彙を揃える）。
+// ダッシュボード（判断カード表）と/agents（Inbox一覧）の両方から使う共通ヘルパー。
+export function runKindLabel(run: AgentRun): string {
+  if (run.status === "yield" && run.yieldRequest) {
+    const kind = resolveYieldKind(run.yieldRequest.kind, run.yieldRequest.options.length);
+    return YIELD_KIND_META[kind].label;
+  }
+  if (run.origin === "auto-anomaly") return "異常検知";
+  if (run.origin === "auto-summary") return "朝のサマリー";
+  if (run.status === "yield") return "Yield";
+  return "手動";
+}
+
 // docs/first_implession/em_ui_wireframe_v5.html の Issue Workspace「Execution State」に対応。
 // Context（このrunが何のタスクか）＋ Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）＋
 // 通常完了時のProposalを表示する。Action Itemsは呼び出し側（Issueがある場合のみ）で追加する。

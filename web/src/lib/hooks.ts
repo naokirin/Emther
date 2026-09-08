@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { AgentRun } from "@/components/RunDetail";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { timestampToDateInputValue } from "@/lib/journal-date-parser";
 import { truncateForTitle } from "@/lib/types";
 import type {
@@ -78,6 +79,69 @@ function usePolling<T>(url: string, fallback: T, intervalMs: number, enabled = t
   }, [url, intervalMs, enabled]);
 
   return { data, setData, loaded, refresh };
+}
+
+// 改修依頼「一覧⇄詳細をNotionのようなサイドピークで」対応。詳細をモーダル遷移ではなく
+// クエリパラメータ（例: ?issue=<id>）で保持する。一覧ページ自身がこの値を読んで
+// SlideOverを開閉するだけの軽量な実装（Next.jsのParallel/Intercepting Routesは
+// このバージョンでの検証コストを踏まえ見送った——docs/em_ui_ux_issue.md関連の設計判断）。
+// URLに状態が残るためリロードしてもpeekが消えず、ブラウザの戻る/進むでも自然に開閉する。
+// 呼び出し側の一覧ページは`useSearchParams`を使うため`<Suspense>`で包む必要がある
+// （Next.js公式の要件。issues/page.tsx・journal/page.tsxの既存パターンを踏襲すること）。
+export function usePeekParam(key: string) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const id = searchParams.get(key);
+
+  const open = useCallback(
+    (nextId: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set(key, nextId);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [key, pathname, router, searchParams],
+  );
+
+  const close = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(key);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [key, pathname, router, searchParams]);
+
+  return { id, open, close };
+}
+
+// 既にIssue化されていればそのIssueへ、まだならその場でIssue化してから遷移する
+// （Issue Workspaceは「Issueの詳細」を表示する画面として一本化しているため）。
+// 明示的な「Issueにする」操作からのみ呼ぶこと（P0-2: 即Issue化を既定にしない）。
+// ダッシュボード（判断カード表）と/agents（Inbox一覧）の両方から使う共通ロジック。
+// 呼び出し側が既に持っているissuesを引数で受け取る（内部でuseIssues()を呼ぶと
+// ポーリングが二重になるため）。
+export function useGoToRunIssue(issues: Issue[]) {
+  const router = useRouter();
+  return useCallback(
+    async (run: AgentRun) => {
+      const existing = issues.find((i) => i.agentRunId === run.id);
+      if (existing) {
+        router.push(`/issues/${existing.id}`);
+        return;
+      }
+      try {
+        const res = await fetch("/api/issues", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
+        });
+        const data = await res.json();
+        if (res.ok) router.push(`/issues/${data.issue.id}`);
+      } catch {
+        // 失敗時はIssue一覧から手動で紐づけられる
+      }
+    },
+    [issues, router],
+  );
 }
 
 export function useRuns(intervalMs = 1500) {

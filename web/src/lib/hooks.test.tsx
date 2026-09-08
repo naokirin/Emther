@@ -2,8 +2,17 @@
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useIssueImpact, useIssues, useJournalEditing } from "./hooks";
+import { useIssueImpact, useIssues, useJournalEditing, usePeekParam } from "./hooks";
 import type { JournalEntry } from "@/lib/types";
+
+const pushMock = vi.fn();
+let mockPathname = "/issues";
+let mockSearchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+  usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
+}));
 
 describe("usePolling（useIssuesを代表として検証）", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -273,5 +282,51 @@ describe("useJournalEditing", () => {
     expect(body.resolvedIssueId).toBeNull();
     expect(body.resolutionNote).toBeNull();
     expect(result.current.entries[0].resolvedIssueId).toBeUndefined();
+  });
+});
+
+describe("usePeekParam", () => {
+  beforeEach(() => {
+    pushMock.mockClear();
+    mockPathname = "/issues";
+    mockSearchParams = new URLSearchParams();
+  });
+
+  it("クエリパラメータが無ければidはnull", () => {
+    const { result } = renderHook(() => usePeekParam("issue"));
+    expect(result.current.id).toBeNull();
+  });
+
+  it("openはキーへidを付けてpushする", () => {
+    const { result } = renderHook(() => usePeekParam("issue"));
+    act(() => result.current.open("issue-1"));
+    expect(pushMock).toHaveBeenCalledWith("/issues?issue=issue-1", { scroll: false });
+  });
+
+  it("既存のクエリパラメータ（他のキー）は保ったままopenする", () => {
+    mockSearchParams = new URLSearchParams("tag=bug");
+    const { result } = renderHook(() => usePeekParam("issue"));
+    act(() => result.current.open("issue-1"));
+    expect(pushMock).toHaveBeenCalledWith("/issues?tag=bug&issue=issue-1", { scroll: false });
+  });
+
+  it("既にクエリパラメータが有ればidを読み取る", () => {
+    mockSearchParams = new URLSearchParams("issue=issue-1");
+    const { result } = renderHook(() => usePeekParam("issue"));
+    expect(result.current.id).toBe("issue-1");
+  });
+
+  it("closeはキーを外してpushする（他のキーは残す）", () => {
+    mockSearchParams = new URLSearchParams("issue=issue-1&tag=bug");
+    const { result } = renderHook(() => usePeekParam("issue"));
+    act(() => result.current.close());
+    expect(pushMock).toHaveBeenCalledWith("/issues?tag=bug", { scroll: false });
+  });
+
+  it("closeで他のクエリパラメータが無くなる場合は素のpathnameへpushする", () => {
+    mockSearchParams = new URLSearchParams("issue=issue-1");
+    const { result } = renderHook(() => usePeekParam("issue"));
+    act(() => result.current.close());
+    expect(pushMock).toHaveBeenCalledWith("/issues", { scroll: false });
   });
 });

@@ -10,7 +10,9 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
 import { Select } from "@/components/Select";
-import { useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
+import { SlideOver } from "@/components/SlideOver";
+import { IssueDetailContent } from "@/app/issues/[id]/page";
+import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, isRunStale, issueProgress, truncateForTitle } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
@@ -43,6 +45,8 @@ function IssuesPageInner() {
   // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの#タグクリックから
   // `/issues?tag=...`で直接この一覧のタグフィルタを開けるようにする。
   const searchParams = useSearchParams();
+  // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。
+  const peek = usePeekParam("issue");
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
   const { objectives } = useObjectives();
@@ -238,7 +242,7 @@ function IssuesPageInner() {
             allIssues={issues}
             now={now}
             staleInterventionDays={rules.staleInterventionDays}
-            onSelect={(id) => router.push(`/issues/${id}`)}
+            onSelect={(id) => peek.open(id)}
           />
         ) : (
         <div className={styles.tableWrap}>
@@ -275,7 +279,7 @@ function IssuesPageInner() {
                 return (
                   <tr key={issue.id} style={issue.archived ? { opacity: 0.6 } : undefined}>
                     <td>
-                      <button className={styles.tableRowLink} onClick={() => router.push(`/issues/${issue.id}`)}>
+                      <button className={styles.tableRowLink} onClick={() => peek.open(issue.id)}>
                         {issue.title}
                       </button>
                       <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -503,6 +507,17 @@ function IssuesPageInner() {
           </form>
         </Modal>
       )}
+
+      {peek.id &&
+        (() => {
+          const peekedIssue = issues.find((i) => i.id === peek.id);
+          if (!peekedIssue) return null;
+          return (
+            <SlideOver title={peekedIssue.title} detailHref={`/issues/${peekedIssue.id}`} onClose={peek.close}>
+              <IssueDetailContent id={peekedIssue.id} />
+            </SlideOver>
+          );
+        })()}
     </div>
   );
 }
