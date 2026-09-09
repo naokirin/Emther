@@ -618,7 +618,7 @@ async function executeIssueUpdateAnalysis(
 ): Promise<void> {
   if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
   const issue = getIssue(issueId);
-  if (!issue || issue.archived) return;
+  if (!issue || issue.archived || issue.status === "done") return;
 
   const task = buildIssueUpdateTask(trigger, detail, issue.title);
   const linkedRun = issue.agentRunId ? runs.get(issue.agentRunId) : undefined;
@@ -681,7 +681,7 @@ export function reactToIssueUpdate(
 ): void {
   if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
   const issue = getIssue(issueId);
-  if (!issue || issue.archived) return;
+  if (!issue || issue.archived || issue.status === "done") return;
 
   const label = trigger === "charter" ? "課題の更新分析（Why/What/How）" : "課題の更新分析（経過ログ）";
   scheduleDebouncedIssueUpdate(

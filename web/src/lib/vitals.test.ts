@@ -178,7 +178,7 @@ describe("computeIssueImpact", () => {
     expect(vitals.computeIssueImpact(issue)).toBeUndefined();
   });
 
-  it("未アーカイブのIssueはinProgress:trueで、Issue作成〜現在を観測窓にする", async () => {
+  it("未完了のIssueはinProgress:trueで、Issue作成〜現在を観測窓にする", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
@@ -191,7 +191,7 @@ describe("computeIssueImpact", () => {
     expect(impact?.after.total).toBe(1);
   });
 
-  it("アーカイブ済みのIssueはinProgress:falseで、アーカイブ後windowDays日間を観測窓にする", async () => {
+  it("アーカイブだけでは完了扱いの効果窓に入らない（inProgressのまま）", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
@@ -201,7 +201,22 @@ describe("computeIssueImpact", () => {
     await journalStore.addJournalEntry("介入後の様子");
 
     const archivedIssue = issueStore.getIssue(issue.id)!;
+    expect(archivedIssue.status).not.toBe("done");
     const impact = vitals.computeIssueImpact(archivedIssue);
+    expect(impact?.inProgress).toBe(true);
+  });
+
+  it("status=doneのIssueはinProgress:falseで、doneAt以降windowDays日間を観測窓にする", async () => {
+    const { vitals, issueStore, orgStore, journalStore } = await loadModules();
+    const team = orgStore.addTeam("Team A", ["Aさん"]);
+    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    issueStore.setIssueStatus(issue.id, "done");
+
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    await journalStore.addJournalEntry("介入後の様子");
+
+    const doneIssue = issueStore.getIssue(issue.id)!;
+    const impact = vitals.computeIssueImpact(doneIssue);
     expect(impact?.inProgress).toBe(false);
     expect(impact?.after.total).toBe(1);
   });

@@ -382,15 +382,19 @@ export function removeKeyResult(objectiveId: string, keyResultId: string): Objec
 export type KeyResultProgress = { keyResultId: string; total: number; done: number };
 export type ObjectiveWithProgress = Objective & { progress: KeyResultProgress[] };
 
-// docs/memo.md「H」対応。進捗は手動入力ではなく、KeyResultへ紐付いたIssueの
-// 完了（archived）件数から機械的に算出する（Team Vitalsと同じ「観測から出す」考え方）。
+// docs/memo.md「H」対応。進捗は手動入力ではなく、KeyResultへ紐付いたIssueのうち
+// !archived の status=done 件数から機械的に算出する（docs/issue_tracker_contract.md §4）。
 export function listObjectivesWithProgress(): ObjectiveWithProgress[] {
   const issues = listIssues();
   return objectives.map((o) => ({
     ...o,
     progress: o.keyResults.map((kr) => {
-      const linked = issues.filter((i) => i.keyResultId === kr.id);
-      return { keyResultId: kr.id, total: linked.length, done: linked.filter((i) => i.archived).length };
+      const linked = issues.filter((i) => i.keyResultId === kr.id && !i.archived);
+      return {
+        keyResultId: kr.id,
+        total: linked.length,
+        done: linked.filter((i) => i.status === "done").length,
+      };
     }),
   }));
 }

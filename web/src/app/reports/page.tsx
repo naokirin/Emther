@@ -48,7 +48,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
           </strong>
           <div className={styles.tableMuted} style={{ marginTop: 4 }}>
             Journal {journal.total}件（高緊急度 {journal.byUrgency.high}件 / ネガティブ {journal.bySentiment.negative}件） ・ Issue起票{" "}
-            {issues.createdCount}件 / 完了 {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
+            {issues.createdCount}件 / 解決 {issues.doneCount ?? 0}件 / アーカイブ {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
           </div>
         </td>
         <td>
@@ -91,12 +91,15 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
               <div>
                 <strong>Issue進捗</strong>
                 <div className={styles.subtitle}>
-                  期間中に起票: {issues.createdCount}件 / 完了（アーカイブ）: {issues.archivedCount}件 /
-                  現在Why・What・How未整理のIssue: {issues.openIncompleteCount}件
+                  期間中に起票: {issues.createdCount}件 / 解決（完了）: {issues.doneCount ?? 0}件 / アーカイブ（追わない）:{" "}
+                  {issues.archivedCount}件 / 現在Why・What・How未整理のIssue: {issues.openIncompleteCount}件
                 </div>
                 {issues.createdTitles.length > 0 && <div style={{ marginTop: 4 }}>起票: {issues.createdTitles.map((i) => i.title).join(" / ")}</div>}
+                {(issues.doneTitles?.length ?? 0) > 0 && (
+                  <div style={{ marginTop: 4 }}>解決: {issues.doneTitles!.map((i) => i.title).join(" / ")}</div>
+                )}
                 {issues.archivedTitles.length > 0 && (
-                  <div style={{ marginTop: 4 }}>完了: {issues.archivedTitles.map((i) => i.title).join(" / ")}</div>
+                  <div style={{ marginTop: 4 }}>アーカイブ: {issues.archivedTitles.map((i) => i.title).join(" / ")}</div>
                 )}
               </div>
 

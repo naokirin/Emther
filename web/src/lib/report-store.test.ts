@@ -79,20 +79,23 @@ describe("generateReport", () => {
     expect(report.stats.journal.notableEntries).toHaveLength(1);
   });
 
-  it("期間内に作成・アーカイブされたIssueを集計する", async () => {
+  it("期間内に作成・解決・アーカイブされたIssueを分けて集計する", async () => {
     const issueStore = await import("@/lib/issue-store");
     const store = await loadModule();
     const now = Date.now();
 
-    const issue = await issueStore.createIssue("期間内Issue");
-    issueStore.setIssueArchived(issue.id, true);
+    const archivedIssue = await issueStore.createIssue("アーカイブIssue");
+    issueStore.setIssueArchived(archivedIssue.id, true);
+    const doneIssue = await issueStore.createIssue("解決Issue");
+    issueStore.setIssueStatus(doneIssue.id, "done");
 
     const report = store.generateReport("week", now + 1000);
-    expect(report.stats.issues.createdCount).toBe(1);
+    expect(report.stats.issues.createdCount).toBe(2);
     expect(report.stats.issues.archivedCount).toBe(1);
+    expect(report.stats.issues.doneCount).toBe(1);
   });
 
-  it("openIncompleteCountはcharter未整理かつ未アーカイブの親Issue数（現在のスナップショット）", async () => {
+  it("openIncompleteCountはcharter未整理かつアクティブ（!archived && status!=done）の親Issue数", async () => {
     const issueStore = await import("@/lib/issue-store");
     const store = await loadModule();
 
@@ -100,6 +103,8 @@ describe("generateReport", () => {
     const complete = await issueStore.createIssue("charter整理済み", undefined, { why: "a", what: "b", how: "c" });
     const archived = await issueStore.createIssue("アーカイブ済み");
     issueStore.setIssueArchived(archived.id, true);
+    const done = await issueStore.createIssue("解決済み未整理");
+    issueStore.setIssueStatus(done.id, "done");
 
     const report = store.generateReport("week");
     expect(report.stats.issues.openIncompleteCount).toBe(1);

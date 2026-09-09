@@ -415,7 +415,7 @@ export default function OrgContextPage() {
               </div>
             </div>
             <p className={styles.subtitle}>
-              KeyResultへ紐付けたIssueの完了（アーカイブ）件数から進捗を自動算出します（手動での進捗入力はありません）。
+              KeyResultへ紐付けたIssueのうち、追っていない（アーカイブ）ものを除き、ステータス完了（解決）件数から進捗を自動算出します（手動での進捗入力はありません）。
             </p>
             <div className={styles.field}>
               <label>Objective（目標）
