@@ -604,7 +604,10 @@ export function IssueDetailContent({ id }: { id: string }) {
             onChange={(e) => setLogText(e.target.value)}
             placeholder="例: Bチームと調整し、割り込み受付時間を14〜15時に限定することで合意"
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddLogEntry();
+              // 日本語IMEの変換確定Enterでは保存しない（isComposing / keyCode 229）
+              if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                handleAddLogEntry();
+              }
             }}
           />
           <button
@@ -967,7 +970,10 @@ export function IssueDetailContent({ id }: { id: string }) {
               value={actionItemText}
               onChange={(e) => setActionItemText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleAddActionItem();
+                // 日本語IMEの変換確定Enterでは追加しない（isComposing / keyCode 229）
+                if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                  handleAddActionItem();
+                }
               }}
             />
             <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={!actionItemText.trim()} onClick={handleAddActionItem}>
