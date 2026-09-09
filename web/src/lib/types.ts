@@ -60,6 +60,12 @@ export type Team = {
   members: string[];
   charter: TeamCharter;
   archived: boolean;
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  // 既定はtrue(＝自分が管理するチーム)。パートナーチーム・ステークホルダーチームなど、
+  // 所属メンバーの1on1実施やIssueをEMが主体的に扱わないチームだけfalseにする想定。
+  // 既存チームの移行はorg-context-store.ts側で読み込み時に`?? true`を補う（既定を
+  // 変えずに済むよう、無指定は「自分のチーム」として扱う）。
+  managedByEm: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -172,6 +178,7 @@ export type TeamVital = {
   label: string;
   reason: string;
   members: string[];
+  managedByEm: boolean;
 };
 
 export type CoverageVital = {
@@ -373,12 +380,15 @@ export type PersonTrend = { positive: number; negative: number; neutral: number 
 // 「ネガティブ優勢→bad／件数不足→unknown」という判定思想を踏襲するが、こちらは
 // 一覧カードの軽量な視覚表示用なので、Team Vitalsのような設定可能な閾値
 // （RulesAndConstraints）は持たない単純な多数決にする。
-export function personVitalStatus(trend: PersonTrend): VitalStatus {
+// ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
+// hasConcerningIssue（ブロッカーあり・停滞中の関連Issueが1件でもあるか）がtrueの場合、
+// Journalのsentimentだけでは"good"/"unknown"に見えていても、少なくとも"warn"へ引き上げる
+// （"warn"/"bad"は据え置き＝Issueの状況で評価を下げることはあっても甘くはしない）。
+export function personVitalStatus(trend: PersonTrend, hasConcerningIssue = false): VitalStatus {
   const total = trend.positive + trend.negative + trend.neutral;
-  if (total < 2) return "unknown";
-  if (trend.negative > trend.positive) return "bad";
-  if (trend.negative === trend.positive && trend.negative > 0) return "warn";
-  return "good";
+  const base: VitalStatus = total < 2 ? "unknown" : trend.negative > trend.positive ? "bad" : trend.negative === trend.positive && trend.negative > 0 ? "warn" : "good";
+  if (hasConcerningIssue && (base === "good" || base === "unknown")) return "warn";
+  return base;
 }
 
 // ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
@@ -397,6 +407,8 @@ export type PersonSummary = {
   teamNames: string[];
   trend: PersonTrend;
   factCount: number;
+  isDirectReport: boolean;
+  hasConcerningIssue: boolean;
 };
 
 export type PersonFact = {

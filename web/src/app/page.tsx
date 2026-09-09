@@ -909,7 +909,9 @@ export default function DashboardPage() {
                   <button className={styles.btnOutline} onClick={() => prefillJournal("")}>
                     Quick Journalにメモする
                   </button>
-                  {v.members.length > 0 && (
+                  {/* ユーザー要望「部下以外の人の1on1実施は基本的に扱わない」対応。
+                      自分が管理するチーム(managedByEm)でなければこの提案は出さない。 */}
+                  {v.managedByEm && v.members.length > 0 && (
                     <button className={styles.btnOutline} onClick={() => prefillJournal(`#1on1 @${v.members[0]} `)}>
                       {v.members[0]}の1on1を記録
                     </button>

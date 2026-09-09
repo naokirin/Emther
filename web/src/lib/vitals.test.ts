@@ -103,6 +103,65 @@ describe("computeOrgVitals", () => {
     expect(result.oneOnOneCoverage.total).toBe(2);
     expect(result.oneOnOneCoverage.uncoveredMembers).toEqual(["PERSON_2"]);
   });
+
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  it("自分が管理していないチーム(managedByEm:false)のメンバーは1on1カバレッジの対象外", async () => {
+    const { vitals, orgStore } = await loadModules();
+    const team = orgStore.addTeam("パートナーチーム", ["Cさん"]);
+    await orgStore.updateTeam(team.id, { managedByEm: false });
+
+    const result = vitals.computeOrgVitals();
+    expect(result.oneOnOneCoverage.status).toBe("unknown");
+    expect(result.oneOnOneCoverage.total).toBe(0);
+  });
+
+  it("TeamVitalはmanagedByEmをそのまま返す", async () => {
+    const { vitals, orgStore } = await loadModules();
+    const team = orgStore.addTeam("Team A", []);
+    await orgStore.updateTeam(team.id, { managedByEm: false });
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].managedByEm).toBe(false);
+  });
+
+  // ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
+  it("チームに紐づくブロッカーIssueが1件あれば、Journalが良好でもwarn以上に引き上げる", async () => {
+    const { vitals, orgStore, journalStore, issueStore } = await loadModules();
+    const team = orgStore.addTeam("Team A", ["Aさん"]);
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    await journalStore.addJournalEntry("Aさんが好調");
+    await journalStore.addJournalEntry("Aさんがまた好調");
+    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].status).toBe("warn");
+    expect(result.teams[0].reason).toContain("ブロッカー");
+  });
+
+  it("チームに紐づくブロッカーIssueがあっても、既にbad判定なら据え置く", async () => {
+    const { vitals, orgStore, journalStore, issueStore } = await loadModules();
+    const team = orgStore.addTeam("Team A", ["Aさん"]);
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative", summary: "" };
+    await journalStore.addJournalEntry("Aさんが不満");
+    await journalStore.addJournalEntry("Aさんがまた不満");
+    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].status).toBe("bad");
+  });
+
+  it("アーカイブ済みのブロッカーIssueは無視する", async () => {
+    const { vitals, orgStore, issueStore } = await loadModules();
+    const team = orgStore.addTeam("Team A", ["Aさん"]);
+    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
+    issueStore.setIssueStatus(issue.id, "blocked");
+    issueStore.setIssueArchived(issue.id, true);
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].status).toBe("unknown");
+  });
 });
 
 describe("computeIssueImpact", () => {

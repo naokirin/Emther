@@ -125,6 +125,8 @@ export default function OrgContextPage() {
   // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。
   const [editMission, setEditMission] = useState("");
   const [editConstraints, setEditConstraints] = useState("");
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  const [editManagedByEm, setEditManagedByEm] = useState(true);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
@@ -134,6 +136,7 @@ export default function OrgContextPage() {
     setEditMembers(team.members.join(", "));
     setEditMission(team.charter.mission);
     setEditConstraints(team.charter.constraints);
+    setEditManagedByEm(team.managedByEm);
     setEditError(null);
     setSelection({ kind: "team", id: team.id });
   }
@@ -147,7 +150,7 @@ export default function OrgContextPage() {
       const res = await fetch(`/api/teams/${selectedTeam.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, members, mission: editMission, constraints: editConstraints }),
+        body: JSON.stringify({ name: editName, members, mission: editMission, constraints: editConstraints, managedByEm: editManagedByEm }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
@@ -634,6 +637,14 @@ export default function OrgContextPage() {
             </div>
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
               このチームに紐付いたIssueのAgent Runにだけ、絶対の前提として注入されます（他チームへは注入されません）。
+            </p>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 10 }}>
+              <input type="checkbox" checked={editManagedByEm} onChange={(e) => setEditManagedByEm(e.target.checked)} />
+              自分が管理するチーム
+            </label>
+            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+              OFFにすると、このチームのメンバーはPeople一覧で「部下」ではなく「その他」に分類され、1on1
+              Coverageの集計対象からも外れます（パートナーチーム・ステークホルダーチームなど、EMが主体的に1on1・Issueを扱わないチーム向け）。他のチームにも所属している場合は、そちらがONであれば「部下」として扱われます。
             </p>
             {editError && <p className={styles.errorText} role="alert">{editError}</p>}
             <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTeam} disabled={editSaving || !editName.trim()}>

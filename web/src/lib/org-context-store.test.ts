@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 
@@ -28,6 +30,33 @@ describe("teams", () => {
     expect(team.name).toBe("Engineering/Team A");
     expect(team.members).toEqual(["PERSON_1", "PERSON_2"]);
     expect(team.archived).toBe(false);
+    // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+    // 既定は「自分が管理するチーム」（既存の挙動を変えない既定値）。
+    expect(team.managedByEm).toBe(true);
+  });
+
+  it("既存データ(managedByEmフィールド無し)は「自分が管理するチーム」として読み込む", async () => {
+    const dataDir = join(dir, "data");
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(
+      join(dataDir, "teams.json"),
+      JSON.stringify([
+        { id: "legacy-1", name: "既存チーム", members: [], charter: { mission: "", constraints: "" }, archived: false, createdAt: 1, updatedAt: 1 },
+      ]),
+      "utf8",
+    );
+    const store = await loadModule();
+    expect(store.getTeam("legacy-1")?.managedByEm).toBe(true);
+  });
+
+  it("updateTeamはmanagedByEmを更新できる", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("パートナーチーム", []);
+    const updated = await store.updateTeam(team.id, { managedByEm: false });
+    expect(updated?.managedByEm).toBe(false);
+    // 変化が無ければupdatedAtも動かさない（他フィールドと同じ規約）。
+    const same = await store.updateTeam(team.id, { managedByEm: false });
+    expect(same?.updatedAt).toBe(updated?.updatedAt);
   });
 
   it("toTeamViewはmembersを実名へ復元する", async () => {

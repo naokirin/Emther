@@ -20,12 +20,22 @@ const STATUS_CLS: Record<string, string> = {
 // ラベル（PERSON_VITAL_LABEL）で「気にかけるべき度合い」を直接示す。判定根拠の件数・
 // 内訳はtitleツールチップに残す（呼び出し側でラベルを併記する場合はPERSON_VITAL_LABELを
 // 直接参照する）。
-export function PersonScoreBadge({ trend, factCount }: { trend: PersonTrend; factCount: number }) {
-  const status = personVitalStatus(trend);
+export function PersonScoreBadge({
+  trend,
+  factCount,
+  hasConcerningIssue = false,
+}: {
+  trend: PersonTrend;
+  factCount: number;
+  // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。
+  hasConcerningIssue?: boolean;
+}) {
+  const status = personVitalStatus(trend, hasConcerningIssue);
+  const issueNote = hasConcerningIssue ? "・停滞/ブロッカーありの関連Issueがあります" : "";
   return (
     <div
       className={`${styles.personScoreBadge} ${STATUS_CLS[status]}`}
-      title={`${PERSON_VITAL_LABEL[status]}（Journal ${factCount}件、🙂${trend.positive} 🙁${trend.negative}）`}
+      title={`${PERSON_VITAL_LABEL[status]}（Journal ${factCount}件、🙂${trend.positive} 🙁${trend.negative}${issueNote}）`}
     >
       {VITAL_ICON[status]}
     </div>
