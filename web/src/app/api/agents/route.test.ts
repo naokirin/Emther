@@ -42,10 +42,10 @@ afterEach(() => {
 });
 
 describe("GET /api/agents", () => {
-  it("空なら空配列", async () => {
+  it("空なら空配列とpendingAgentStarts", async () => {
     const route = await import("./route");
     const res = await route.GET();
-    expect(await res.json()).toEqual({ runs: [] });
+    expect(await res.json()).toEqual({ runs: [], pendingAgentStarts: [] });
   });
 });
 

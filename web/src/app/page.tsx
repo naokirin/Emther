@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { runKindLabel } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
+import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import {
   useEmCheckins,
   useGoToRunIssue,
@@ -148,7 +149,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const { runs, runsLoaded, refreshRuns } = useRuns();
+  const { runs, pendingAgentStarts, runsLoaded, refreshRuns } = useRuns();
   const { issues, issuesLoaded } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
   const { vitals, vitalsLoaded } = useVitals();
@@ -649,6 +650,23 @@ export default function DashboardPage() {
       onSelect: () => router.push(`/chat?runId=${run.id}`),
       // 期限切れ自体は「以前からの様子見」なので新着扱いにはしない。
       since: 0,
+    });
+  }
+
+  // デバウンス待ちの自動起動予定。EMが「更新したのに動いていない」と感じないよう、
+  // 観測レーンに残り秒数つきで載せる（判断待ちではないので decision には入れない）。
+  for (const pending of pendingAgentStarts) {
+    nextActions.push({
+      id: `pending-start-${pending.id}`,
+      severity: "warn",
+      lane: "observation",
+      icon: "⏳",
+      kindLabel: "起動予定",
+      text: formatPendingAgentStartText(pending, now),
+      onSelect: () => {
+        if (pending.issueId) router.push(`/issues/${pending.issueId}`);
+      },
+      since: pending.firesAt,
     });
   }
 

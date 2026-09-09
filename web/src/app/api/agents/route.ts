@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { listRuns, startRun, toRunView } from "@/lib/agent-runtime";
+import { listPendingAgentStarts, listRuns, startRun, toRunView } from "@/lib/agent-runtime";
 
 export async function GET() {
-  return NextResponse.json({ runs: listRuns().map(toRunView) });
+  return NextResponse.json({
+    runs: listRuns().map(toRunView),
+    pendingAgentStarts: listPendingAgentStarts(),
+  });
 }
 
 export async function POST(request: Request) {

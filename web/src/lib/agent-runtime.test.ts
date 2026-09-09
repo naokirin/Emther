@@ -1293,4 +1293,31 @@ describe("reactToIssueUpdate", () => {
     const logText = rt.getRun(run.id)?.log.map((l) => l.text).join("\n") ?? "";
     expect(logText).toContain("経過ログ");
   });
+
+  it("ONならデバウンス中はlistPendingAgentStartsに現れる", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    const rt = await loadModule();
+    rt.setIssueUpdateDebounceMsForTest(45_000);
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題");
+
+    rt.reactToIssueUpdate(issue.id, "charter", "Why");
+    const pending = rt.listPendingAgentStarts();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].issueId).toBe(issue.id);
+    expect(pending[0].kind).toBe("issue-update");
+    expect(pending[0].label).toContain("Why/What/How");
+    expect(pending[0].firesAt).toBeGreaterThan(Date.now());
+    expect(rt.listRuns()).toHaveLength(0);
+
+    // 再スケジュールでfiresAtが延びる（連打保存のデバウンス）
+    const firstFiresAt = pending[0].firesAt;
+    await new Promise((r) => setTimeout(r, 20));
+    rt.reactToIssueUpdate(issue.id, "log", "経過を追記");
+    const again = rt.listPendingAgentStarts();
+    expect(again).toHaveLength(1);
+    expect(again[0].firesAt).toBeGreaterThanOrEqual(firstFiresAt);
+    expect(again[0].label).toContain("経過ログ");
+  });
 });

@@ -248,6 +248,22 @@ export async function createParentIssue(childId: string, title: string, charter?
 
 const CHARTER_FIELD_LABEL: Record<keyof IssueCharter, string> = { why: "Why", what: "What", how: "How" };
 
+// agent-runtime ↔ issue-storeの循環参照を避けるため動的import。
+// クライアントが保存直後に refreshRuns しても pending を取りこぼさないよう、
+// レスポンス返却前に reactToIssueUpdate（同期・デバウンス登録のみ）まで完了させる。
+async function scheduleIssueUpdateAnalysis(
+  issueId: string,
+  trigger: "charter" | "log",
+  detail: string,
+): Promise<void> {
+  try {
+    const { reactToIssueUpdate } = await import("@/lib/agent-runtime");
+    reactToIssueUpdate(issueId, trigger, detail);
+  } catch {
+    // 自動分析の予約失敗でIssue更新自体は失敗させない。
+  }
+}
+
 export async function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
@@ -267,12 +283,8 @@ export async function updateIssueCharter(issueId: string, patch: Partial<IssueCh
       issue.id,
       `${changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・")}を更新しました`,
     );
-    // SettingsでONなら、Why/What/How更新をきっかけにAgentチームを起こす。
-    // agent-runtime ↔ issue-storeの循環参照を避けるため動的importにする。
     const detail = changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・");
-    void import("@/lib/agent-runtime")
-      .then((m) => m.reactToIssueUpdate(issue.id, "charter", detail))
-      .catch(() => {});
+    await scheduleIssueUpdateAnalysis(issue.id, "charter", detail);
   }
   return issue;
 }
@@ -331,10 +343,7 @@ export async function addLogEntry(issueId: string, text: string): Promise<Issue 
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `経過ログを追加: 「${masked}」`);
-  // SettingsでONなら、経過ログ追加をきっかけにAgentチームを起こす。
-  void import("@/lib/agent-runtime")
-    .then((m) => m.reactToIssueUpdate(issue.id, "log", masked))
-    .catch(() => {});
+  await scheduleIssueUpdateAnalysis(issue.id, "log", masked);
   return issue;
 }
 

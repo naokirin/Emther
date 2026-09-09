@@ -10,6 +10,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssueStatusSelector } from "@/components/IssueStatus";
 import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
+import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueCharter, type IssueStatus } from "@/lib/types";
 
@@ -29,7 +30,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   const { issue, issueLoaded, refreshIssue } = useIssue(id);
   const { history } = useEntityHistory("issue", id);
   const { issues, refreshIssues } = useIssues();
-  const { runs, refreshRuns } = useRuns();
+  const { runs, pendingAgentStarts, refreshRuns } = useRuns();
   const { objectives } = useObjectives();
   const { teams } = useTeams();
   // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssueでのみ
@@ -260,6 +261,7 @@ export function IssueDetailContent({ id }: { id: string }) {
         throw new Error(data?.error ?? "保存に失敗しました");
       }
       await refreshIssue();
+      await refreshRuns();
       setCharterEditing(false);
     } catch (err) {
       setCharterError((err as Error).message);
@@ -314,6 +316,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   const linkedRun: AgentRun | null = issue ? runs.find((r) => r.id === issue.agentRunId) ?? null : null;
+  const pendingStart = pendingAgentStarts.find((p) => p.issueId === id) ?? null;
 
   async function sendDecision(text: string) {
     if (!linkedRun || !text.trim()) return;
@@ -380,7 +383,7 @@ export function IssueDetailContent({ id }: { id: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       setLogText("");
-      await refreshIssue();
+      await Promise.all([refreshIssue(), refreshRuns()]);
     } catch (err) {
       setLogError((err as Error).message);
     } finally {
@@ -588,6 +591,8 @@ export function IssueDetailContent({ id }: { id: string }) {
       </div>
 
       {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
+
+      {pendingStart && <PendingAgentStartNotice pending={pendingStart} />}
 
       {/* ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」
           対応。Action Items（やる/やった）とは別に、進行中いつでも書き足せる自由記述の

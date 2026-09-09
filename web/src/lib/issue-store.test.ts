@@ -277,3 +277,37 @@ describe("toIssueView", () => {
     expect(view.charter.why).toBe("Aさんのため");
   });
 });
+
+describe("自動分析のpending登録タイミング", () => {
+  it("updateIssueCharterの完了時点でpendingAgentStartsに載っている（レスポンス前に予約完了）", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    const rt = await import("@/lib/agent-runtime");
+    rt.setIssueUpdateDebounceMsForTest(45_000);
+
+    const store = await loadModule();
+    const issue = await store.createIssue("課題");
+    await store.updateIssueCharter(issue.id, { why: "なぜ今か" });
+
+    // fire-and-forgetだとここで空になり得る。await済みなら即存在する。
+    const pending = rt.listPendingAgentStarts();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].issueId).toBe(issue.id);
+  });
+
+  it("addLogEntryの完了時点でもpendingAgentStartsに載っている", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    const rt = await import("@/lib/agent-runtime");
+    rt.setIssueUpdateDebounceMsForTest(45_000);
+
+    const store = await loadModule();
+    const issue = await store.createIssue("課題");
+    await store.addLogEntry(issue.id, "対応を始めた");
+
+    const pending = rt.listPendingAgentStarts();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].issueId).toBe(issue.id);
+    expect(pending[0].label).toContain("経過ログ");
+  });
+});
