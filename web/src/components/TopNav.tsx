@@ -28,23 +28,11 @@ type StoryGroup = {
   items: NavItem[];
 };
 
+// ユーザー要望「タブの順番を『今日』『課題』『チーム・メンバー』『相談』『現場メモ』
+// 『振り返り』『方針・目標』『設定』の順にしたい」対応。グルーピングの中身は変えず、
+// 並び順だけをこの配列の並びで決める。
 const STORY_GROUPS: StoryGroup[] = [
   { key: "dashboard", label: "今日", hint: "組織の状態を掴み、今日向き合う判断を選ぶ", items: [{ href: "/", label: "今日" }] },
-  {
-    key: "sensing",
-    label: "現場メモ",
-    hint: "現場の出来事を事実として残す・校正する",
-    items: [{ href: "/journal", label: "現場メモ" }],
-  },
-  {
-    key: "consult",
-    label: "相談",
-    hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める",
-    items: [
-      { href: "/chat", label: "何でも相談" },
-      { href: "/agents", label: "エージェント" },
-    ],
-  },
   {
     key: "intervention",
     label: "課題",
@@ -68,12 +56,19 @@ const STORY_GROUPS: StoryGroup[] = [
     ],
   },
   {
-    key: "constitution",
-    label: "方針・目標",
-    // ユーザー要望「方針・目標タブは方針・目標の設定によりフォーカスした形にしたい」対応。
-    // チーム（体制）はメンバータブへ移設したため、ここはMVV・OKRの前提設定に絞る。
-    hint: "組織の憲法＝MVV・目標（OKR）という前提を置く",
-    items: [{ href: "/org", label: "方針・目標" }],
+    key: "consult",
+    label: "相談",
+    hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める",
+    items: [
+      { href: "/chat", label: "何でも相談" },
+      { href: "/agents", label: "エージェント" },
+    ],
+  },
+  {
+    key: "sensing",
+    label: "現場メモ",
+    hint: "現場の出来事を事実として残す・校正する",
+    items: [{ href: "/journal", label: "現場メモ" }],
   },
   {
     key: "reflection",
@@ -84,6 +79,14 @@ const STORY_GROUPS: StoryGroup[] = [
       { href: "/reports", label: "レポート" },
       { href: "/growth", label: "EMの成長" },
     ],
+  },
+  {
+    key: "constitution",
+    label: "方針・目標",
+    // ユーザー要望「方針・目標タブは方針・目標の設定によりフォーカスした形にしたい」対応。
+    // チーム（体制）はメンバータブへ移設したため、ここはMVV・OKRの前提設定に絞る。
+    hint: "組織の憲法＝MVV・目標（OKR）という前提を置く",
+    items: [{ href: "/org", label: "方針・目標" }],
   },
   { key: "settings", label: "設定", hint: "しきい値・自動起動の挙動を調整する", items: [{ href: "/settings", label: "設定" }] },
 ];
