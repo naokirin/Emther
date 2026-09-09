@@ -1,8 +1,8 @@
 import { getTeam, listActiveTeams, type Team } from "@/lib/org-context-store";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
-import { teamDisplayName } from "@/lib/types";
-import type { Issue } from "@/lib/issue-store";
+import { isIssueStalled, teamDisplayName } from "@/lib/types";
+import { listIssues, type Issue } from "@/lib/issue-store";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
 // 重要: データが足りない場合に「良好」や「要注意」へ寄せず、必ず"unknown"として
@@ -20,6 +20,9 @@ export type TeamVital = {
   // 記録すればよいか具体的に示せるよう、チームメンバー（PERSON_n IDのまま）を持たせる。
   // 実名への変換はAPIルート側（unmaskNames）で行う。
   members: string[];
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  // Dashboardの「○○さんの1on1を記録」提案を、自分が管理するチームに限定するために使う。
+  managedByEm: boolean;
 };
 
 export type CoverageVital = {
@@ -47,15 +50,40 @@ function sentimentScore(s: JournalEntry["sentiment"]): number {
   return 0;
 }
 
+const STATUS_LABEL: Record<VitalStatus, string> = { good: "安定", warn: "やや注意", bad: "要注意", unknown: "評価不能" };
+
+// ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
+// Journalのsentimentだけで判定すると、Issueが停滞・ブロックしていても穏やかに見えてしまう。
+// このチームに紐づく（Issue.teamId一致）未アーカイブIssueに、ブロッカーあり・停滞中のものが
+// 1件でもあるかを見る。
+function hasConcerningTeamIssue(teamId: string, now: number, staleDays: number): boolean {
+  return listIssues().some(
+    (i) => i.teamId === teamId && !i.archived && (i.status === "blocked" || isIssueStalled(i, now, staleDays)),
+  );
+}
+
 function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType<typeof getRulesAndConstraints>): TeamVital {
+  const concerning = hasConcerningTeamIssue(team.id, Date.now(), rules.staleInterventionDays);
+  // hasConcerningIssueがtrueの場合、Journal起因の判定が"good"/"unknown"でも"warn"以上に
+  // 引き上げる（"warn"/"bad"は据え置き＝Issueの状況で評価を下げることはあっても甘くはしない）。
+  function withIssueEscalation(status: VitalStatus, reason: string): { status: VitalStatus; label: string; reason: string } {
+    if (concerning && (status === "good" || status === "unknown")) {
+      return {
+        status: "warn",
+        label: STATUS_LABEL.warn,
+        reason: `${reason}停滞中または、ブロッカーありの関連Issueがあるため「やや注意」に引き上げています。`,
+      };
+    }
+    return { status, label: STATUS_LABEL[status], reason };
+  }
+
   if (team.members.length === 0) {
     return {
       teamId: team.id,
       teamName: teamDisplayName(team.name),
-      status: "unknown",
-      label: "評価不能",
-      reason: "メンバーが登録されていません。Organization Contextでメンバーを追加してください。",
+      ...withIssueEscalation("unknown", "メンバーが登録されていません。Organization Contextでメンバーを追加してください。"),
       members: team.members,
+      managedByEm: team.managedByEm,
     };
   }
 
@@ -67,10 +95,12 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
     return {
       teamId: team.id,
       teamName: teamDisplayName(team.name),
-      status: "unknown",
-      label: "評価不能",
-      reason: `直近${rules.teamWindowDays}日間に${teamDisplayName(team.name)}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
+      ...withIssueEscalation(
+        "unknown",
+        `直近${rules.teamWindowDays}日間に${teamDisplayName(team.name)}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
+      ),
       members: team.members,
+      managedByEm: team.managedByEm,
     };
   }
 
@@ -79,25 +109,23 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   const avg = relevant.reduce((sum, e) => sum + sentimentScore(e.sentiment), 0) / relevant.length;
 
   let status: VitalStatus;
-  let label: string;
   if (avg <= rules.teamBadSentimentMax) {
     status = "bad";
-    label = "要注意";
   } else if (avg < rules.teamWarnSentimentMax) {
     status = "warn";
-    label = "やや注意";
   } else {
     status = "good";
-    label = "安定";
   }
 
   return {
     teamId: team.id,
     teamName: teamDisplayName(team.name),
-    status,
-    label,
-    reason: `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
+    ...withIssueEscalation(
+      status,
+      `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
+    ),
     members: team.members,
+    managedByEm: team.managedByEm,
   };
 }
 
@@ -106,13 +134,16 @@ function computeCoverageVital(
   entries: JournalEntry[],
   rules: ReturnType<typeof getRulesAndConstraints>,
 ): CoverageVital {
-  const allMembers = Array.from(new Set(teams.flatMap((t) => t.members)));
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  // 1on1 Coverageは「EMが1on1を実施すべき相手」の充足率なので、自分が管理するチーム
+  // （managedByEm）のメンバーだけを対象にする（兼務で他チームにも所属していれば対象に含む）。
+  const allMembers = Array.from(new Set(teams.filter((t) => t.managedByEm).flatMap((t) => t.members)));
   if (allMembers.length === 0) {
     return {
       status: "unknown",
       covered: 0,
       total: 0,
-      reason: "チーム・メンバーが登録されていないため算出できません。",
+      reason: "自分が管理するチーム・メンバーが登録されていないため算出できません。",
       uncoveredMembers: [],
     };
   }

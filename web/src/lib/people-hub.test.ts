@@ -70,6 +70,74 @@ describe("listPersonSummaries", () => {
     const hub = await loadModule();
     expect(hub.listPersonSummaries()).toEqual([]);
   });
+
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  it("自分が管理するチーム(managedByEm:true)のメンバーはisDirectReport:true", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const hub = await loadModule();
+    orgStore.addTeam("Team A", ["Aさん"]);
+
+    const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
+    expect(summary?.isDirectReport).toBe(true);
+  });
+
+  it("自分が管理していないチーム(managedByEm:false)のみのメンバーはisDirectReport:false", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const hub = await loadModule();
+    const team = orgStore.addTeam("パートナーチーム", ["Cさん"]);
+    await orgStore.updateTeam(team.id, { managedByEm: false });
+
+    const summary = hub.listPersonSummaries().find((s) => s.name === "Cさん");
+    expect(summary?.isDirectReport).toBe(false);
+  });
+
+  it("兼務(管理チーム＋非管理チーム)ならisDirectReport:true", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const hub = await loadModule();
+    orgStore.addTeam("Team A", ["Dさん"]);
+    const partner = orgStore.addTeam("パートナーチーム", ["Dさん"]);
+    await orgStore.updateTeam(partner.id, { managedByEm: false });
+
+    const summary = hub.listPersonSummaries().find((s) => s.name === "Dさん");
+    expect(summary?.isDirectReport).toBe(true);
+  });
+
+  // ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
+  it("関連Issueにブロッカーありのものが1件でもあればhasConcerningIssue:true", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const issueStore = await import("@/lib/issue-store");
+    const hub = await loadModule();
+    peopleDirectory.registerName("Aさん");
+    const issue = await issueStore.createIssue("Aさんの育成計画");
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
+    expect(summary?.hasConcerningIssue).toBe(true);
+  });
+
+  it("関連Issueがブロッカー・停滞のいずれでもなければhasConcerningIssue:false", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const issueStore = await import("@/lib/issue-store");
+    const hub = await loadModule();
+    peopleDirectory.registerName("Aさん");
+    await issueStore.createIssue("Aさんの育成計画");
+
+    const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
+    expect(summary?.hasConcerningIssue).toBe(false);
+  });
+
+  it("アーカイブ済みのブロッカーIssueは無視する", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const issueStore = await import("@/lib/issue-store");
+    const hub = await loadModule();
+    peopleDirectory.registerName("Aさん");
+    const issue = await issueStore.createIssue("Aさんの育成計画");
+    issueStore.setIssueStatus(issue.id, "blocked");
+    issueStore.setIssueArchived(issue.id, true);
+
+    const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
+    expect(summary?.hasConcerningIssue).toBe(false);
+  });
 });
 
 describe("getPersonProfile", () => {
@@ -97,6 +165,21 @@ describe("getPersonProfile", () => {
     const profile = hub.getPersonProfile("Aさん");
     expect(profile?.relatedIssues).toHaveLength(1);
     expect(profile?.relatedIssues[0].title).toBe("Aさんの育成計画");
+  });
+
+  it("isDirectReport/hasConcerningIssueもlistPersonSummariesと同じ基準で返す", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const orgStore = await import("@/lib/org-context-store");
+    const issueStore = await import("@/lib/issue-store");
+    const hub = await loadModule();
+    peopleDirectory.registerName("Aさん");
+    orgStore.addTeam("Team A", ["Aさん"]);
+    const issue = await issueStore.createIssue("Aさんの育成計画");
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    const profile = hub.getPersonProfile("Aさん");
+    expect(profile?.isDirectReport).toBe(true);
+    expect(profile?.hasConcerningIssue).toBe(true);
   });
 
   it("factsとinterpretationsを分けて返す", async () => {

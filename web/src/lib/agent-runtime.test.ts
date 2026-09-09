@@ -287,8 +287,8 @@ describe("isAgyFallbackEnabled / isCursorFallbackEnabled", () => {
 });
 
 describe("relevantTeams", () => {
-  const teamA = { id: "t1", name: "Engineering", members: [], charter: { mission: "", constraints: "" }, archived: false, createdAt: 0, updatedAt: 0 };
-  const teamB = { id: "t2", name: "Sales", members: [], charter: { mission: "", constraints: "" }, archived: false, createdAt: 0, updatedAt: 0 };
+  const teamA = { id: "t1", name: "Engineering", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, createdAt: 0, updatedAt: 0 };
+  const teamB = { id: "t2", name: "Sales", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, createdAt: 0, updatedAt: 0 };
 
   it("手がかりが無ければ全チームを返す", async () => {
     const rt = await loadModule();

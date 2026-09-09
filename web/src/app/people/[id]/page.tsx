@@ -42,7 +42,7 @@ export function PersonDetailContent({ id }: { id: string }) {
   return (
     <>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-        <PersonScoreBadge trend={person.trend} factCount={person.factCount} />
+        <PersonScoreBadge trend={person.trend} factCount={person.factCount} hasConcerningIssue={person.hasConcerningIssue} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <h2 style={{ margin: 0 }}>{person.name}</h2>
@@ -51,10 +51,12 @@ export function PersonDetailContent({ id }: { id: string }) {
             </button>
           </div>
           <p className={styles.subtitle}>
-            気にかけるべき度合い: {PERSON_VITAL_LABEL[personVitalStatus(person.trend)]} ／
+            {person.isDirectReport ? "部下" : "その他（自分が管理するチーム以外）"} ／
+            気にかけるべき度合い: {PERSON_VITAL_LABEL[personVitalStatus(person.trend, person.hasConcerningIssue)]} ／
             {person.teamNames.length > 0 ? ` 所属: ${person.teamNames.join(", ")}` : " 所属チームなし"} ／ 直近Journal {person.factCount}件
             {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}
             {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
+            {person.hasConcerningIssue && " ／ ⚠️ 停滞・ブロッカーありの関連Issueがあります"}
           </p>
         </div>
       </div>
@@ -99,7 +101,11 @@ export function PersonDetailContent({ id }: { id: string }) {
               <tbody>
                 {person.facts.map((f) => (
                   <tr key={f.id}>
-                    <td>{f.text}</td>
+                    <td>
+                      <Link href={`/journal?focus=${f.id}`} className={styles.tableRowLink}>
+                        {f.text}
+                      </Link>
+                    </td>
                     <td>
                       <div className={styles.tagRow}>
                         {f.tags.map((t) => (

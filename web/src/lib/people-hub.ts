@@ -1,7 +1,9 @@
 import { listPeople } from "@/lib/people-directory";
 import { listActiveFactsForPerson, listInterpretationsForPerson, toEventView, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { listActiveTeams } from "@/lib/org-context-store";
-import { listIssues, toIssueView, type IssueCharter } from "@/lib/issue-store";
+import { listIssues, toIssueView, type Issue, type IssueCharter } from "@/lib/issue-store";
+import { getRulesAndConstraints } from "@/lib/settings-store";
+import { isIssueStalled } from "@/lib/types";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
 // 既存のpeople-directory（誰がいるか）・knowledge-store（Journal fact／長期解釈）・
@@ -16,6 +18,14 @@ export type PersonSummary = {
   teamNames: string[];
   trend: PersonTrend;
   factCount: number;
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  // 自分が管理するチーム(Team.managedByEm)に1つでも所属していればtrue(兼務も部下扱い)。
+  isDirectReport: boolean;
+  // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。この人物名を
+  // 含む未アーカイブIssueに、ブロッカーあり(status:"blocked")または停滞中(isIssueStalled)の
+  // ものが1件でもあればtrue。personVitalStatusでJournalのsentimentが穏やかでも
+  // 「やや注意」以上に引き上げるためのシグナル。
+  hasConcerningIssue: boolean;
 };
 
 export type PersonFact = {
@@ -56,8 +66,26 @@ function toPersonFact(e: KnowledgeEvent): PersonFact {
   return { id: e.id, text: e.text, tags: e.tags, sentiment: e.sentiment, urgency: e.urgency, occurredAt: e.occurredAt };
 }
 
+// org/page.tsxの関連Issue抽出（selectedTeam.members.some(m => haystack.includes(m))）と
+// 同じ考え方。issue-store側は既にtoIssueViewで実名復元済みなので、実名同士の単純な
+// 部分一致で十分（厳密な紐付けではない簡易抽出）。
+function findRelatedIssues(personName: string): Issue[] {
+  return listIssues()
+    .map(toIssueView)
+    .filter((i) => `${i.title} ${i.charter.why} ${i.charter.what} ${i.charter.how}`.includes(personName));
+}
+
+// ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。未アーカイブの
+// 関連Issueに、ブロッカーあり・停滞中のものが1件でもあるかどうか。
+function hasConcerningRelatedIssue(relatedIssues: Issue[], now: number, staleDays: number): boolean {
+  return relatedIssues.some((i) => !i.archived && (i.status === "blocked" || isIssueStalled(i, now, staleDays)));
+}
+
 export function listPersonSummaries(): PersonSummary[] {
   const teams = listActiveTeams();
+  const managedTeams = teams.filter((t) => t.managedByEm);
+  const now = Date.now();
+  const { staleInterventionDays } = getRulesAndConstraints();
   return listPeople().map((p) => {
     const facts = listActiveFactsForPerson(p.id, FACTS_LIMIT);
     return {
@@ -66,6 +94,8 @@ export function listPersonSummaries(): PersonSummary[] {
       teamNames: teams.filter((t) => t.members.includes(p.id)).map((t) => t.name),
       trend: computeTrend(facts),
       factCount: facts.length,
+      isDirectReport: managedTeams.some((t) => t.members.includes(p.id)),
+      hasConcerningIssue: hasConcerningRelatedIssue(findRelatedIssues(p.name), now, staleInterventionDays),
     };
   });
 }
@@ -84,13 +114,8 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     .map(toEventView)
     .map((e) => ({ id: e.id, text: e.text, occurredAt: e.occurredAt }));
 
-  // org/page.tsxの関連Issue抽出（selectedTeam.members.some(m => haystack.includes(m))）と
-  // 同じ考え方。issue-store側は既にtoIssueViewで実名復元済みなので、実名同士の単純な
-  // 部分一致で十分（厳密な紐付けではない簡易抽出）。
-  const relatedIssues = listIssues()
-    .map(toIssueView)
-    .filter((i) => `${i.title} ${i.charter.why} ${i.charter.what} ${i.charter.how}`.includes(person.name))
-    .map((i) => ({ id: i.id, title: i.title, archived: i.archived, charter: i.charter }));
+  const relatedIssuesRaw = findRelatedIssues(person.name);
+  const relatedIssues = relatedIssuesRaw.map((i) => ({ id: i.id, title: i.title, archived: i.archived, charter: i.charter }));
 
   return {
     id: person.id,
@@ -101,5 +126,11 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     facts: facts.map(toPersonFact),
     interpretations,
     relatedIssues,
+    isDirectReport: teams.some((t) => t.managedByEm),
+    hasConcerningIssue: hasConcerningRelatedIssue(
+      relatedIssuesRaw,
+      Date.now(),
+      getRulesAndConstraints().staleInterventionDays,
+    ),
   };
 }

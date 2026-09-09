@@ -29,4 +29,24 @@ describe("PersonScoreBadge", () => {
     render(<PersonScoreBadge trend={{ positive: 1, negative: 1, neutral: 0 }} factCount={2} />);
     expect(screen.getByText("🟡")).toBeInTheDocument();
   });
+
+  it("hasConcerningIssueがtrueだと、Journalが良好・件数不足でも🟡（やや注意）以上に引き上げる", () => {
+    const { rerender } = render(
+      <PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningIssue />,
+    );
+    expect(screen.getByText("🟡")).toBeInTheDocument();
+
+    rerender(<PersonScoreBadge trend={{ positive: 0, negative: 0, neutral: 0 }} factCount={0} hasConcerningIssue />);
+    expect(screen.getByText("🟡")).toBeInTheDocument();
+  });
+
+  it("hasConcerningIssueがtrueでもネガティブ優勢（bad）は据え置く", () => {
+    render(<PersonScoreBadge trend={{ positive: 0, negative: 3, neutral: 0 }} factCount={3} hasConcerningIssue />);
+    expect(screen.getByText("🔴")).toBeInTheDocument();
+  });
+
+  it("hasConcerningIssueがtrueのときtitleに注記を追加する", () => {
+    render(<PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningIssue />);
+    expect(screen.getByText("🟡")).toHaveAttribute("title", "やや注意（Journal 3件、🙂3 🙁0・停滞/ブロッカーありの関連Issueがあります）");
+  });
 });

@@ -35,6 +35,9 @@ export type Team = {
   members: string[];
   charter: TeamCharter;
   archived: boolean;
+  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
+  // types.tsのTeam型のコメント参照。
+  managedByEm: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -47,6 +50,8 @@ const teams: Team[] = loadJSON<Team[]>("teams.json", []).map((team) => ({
   ...team,
   charter: team.charter ?? emptyTeamCharter(),
   archived: team.archived ?? false,
+  // 既存チーム（フィールド未保存）は「自分が管理するチーム」として扱う（既定を変えない）。
+  managedByEm: team.managedByEm ?? true,
   updatedAt: team.updatedAt ?? team.createdAt,
 }));
 
@@ -96,6 +101,7 @@ export function addTeam(name: string, members: string[]): Team {
     members: maskMembers(members),
     charter: emptyTeamCharter(),
     archived: false,
+    managedByEm: true,
     createdAt: now,
     updatedAt: now,
   };
@@ -107,11 +113,15 @@ export function addTeam(name: string, members: string[]): Team {
 
 export async function updateTeam(
   id: string,
-  patch: { name?: string; members?: string[]; mission?: string; constraints?: string },
+  patch: { name?: string; members?: string[]; mission?: string; constraints?: string; managedByEm?: boolean },
 ): Promise<Team | undefined> {
   const team = getTeam(id);
   if (!team) return undefined;
   const changes: string[] = [];
+  if (patch.managedByEm !== undefined && patch.managedByEm !== team.managedByEm) {
+    changes.push(patch.managedByEm ? "自分が管理するチームに設定しました" : "自分が管理するチームから外しました");
+    team.managedByEm = patch.managedByEm;
+  }
   if (patch.name !== undefined) {
     const nextName = normalizeTeamName(patch.name);
     if (nextName !== team.name) {
