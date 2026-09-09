@@ -39,6 +39,8 @@ emther doctor
 emther backup
 ```
 
+端末移行のバックアップ／復元／全データ削除は、CLI に加えて UI の **設定 → データ** からも実行できます（アーカイブ形式は `emther backup` と同じ。復元・リセット後はプロセスが停止するため再起動が必要です）。CLI を正本とし、UI は同操作の補助経路です。
+
 - 既定で **127.0.0.1** のみにバインドする（LAN 公開しない）。
 - standalone ビルドは `npm run build:standalone`（`next build --webpack`）。Turbopack 既定ビルドだと `serverExternalPackages`（transformers / onnx）が欠ける既知問題があるため。
 - UI フォントは `@fontsource/*` を npm 同梱し、ビルド時に Google Fonts へネットワークしない。
@@ -94,5 +96,5 @@ onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選�
 ## セキュリティ上の注意（公開リポジトリ）
 
 - `.env`・認証ディレクトリ・state 配下はコミットしない（既存の ignore を維持）。
-- バックアップ対象は主に `data` + `secure`（`emther backup`）。アーカイブは個人情報を含むため取り扱いに注意。
+- バックアップ対象は主に `data` + `secure`（`emther backup` および Settings → データ）。アーカイブは個人情報を含むため取り扱いに注意。
 - 本番インターネット公開は想定しない（認証なしの単一ユーザー向け）。ランチャー既定も localhost のみ。

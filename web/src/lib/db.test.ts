@@ -50,4 +50,12 @@ describe("getDb", () => {
     const row = db.prepare("SELECT * FROM knowledge_events WHERE id = ?").get("evt-1") as { text: string };
     expect(row.text).toBe("hello");
   });
+
+  it("closeDbのあとgetDbで新しい接続を開ける", async () => {
+    const { getDb, closeDb } = await import("@/lib/db");
+    getDb().prepare("SELECT 1 AS n").get();
+    closeDb();
+    const reopened = getDb();
+    expect(reopened.prepare("SELECT 1 AS n").get()).toEqual({ n: 1 });
+  });
 });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
+import { DataMigrationPanel } from "@/components/DataMigrationPanel";
 import { useSettingsRules } from "@/lib/hooks";
 import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@/lib/types";
 
@@ -14,7 +15,7 @@ import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliNam
 // TopNav.tsxのAppShellとは別に、ここだけで完結するstateで持つ）。ドラフトは1つの
 // RulesAndConstraintsオブジェクトのまま（グループを切り替えても他グループの編集内容は
 // 保持される）で、変わるのは表示だけ。
-type SettingsGroupKey = "vitals" | "agentRun" | "aiTools" | "automation" | "morningMode";
+type SettingsGroupKey = "vitals" | "agentRun" | "aiTools" | "automation" | "morningMode" | "data";
 
 const SETTINGS_GROUPS: { key: SettingsGroupKey; label: string }[] = [
   { key: "vitals", label: "バイタル・判定基準" },
@@ -22,6 +23,7 @@ const SETTINGS_GROUPS: { key: SettingsGroupKey; label: string }[] = [
   { key: "aiTools", label: "AIツール" },
   { key: "automation", label: "自動起動" },
   { key: "morningMode", label: "Morning Mode" },
+  { key: "data", label: "データ" },
 ];
 
 export default function SettingsPage() {
@@ -97,25 +99,38 @@ export default function SettingsPage() {
         {/* WCAG 2.4.6/1.3.1対応。以前はh1（layout.tsx側）から直接h3へ飛んでいた
             （見出しレベルの飛び越し）。ページの主見出しとしてh2を挟む。 */}
         <h2>Settings</h2>
-        {/* ユーザー指摘「保存ボタンが右上にしかなく、押し忘れ・保存されたかの
-            わかりにくさがある」対応。左メニューでどのグループを見ていても常に同じ
-            場所に見える、ページ上部に固定した保存バーにする（グループ間で切り替えても
-            スクロール・移動が要らない）。 */}
-        <div className={styles.editorPath}>
-          <code>/Settings/Rules_and_Constraints</code>
-          <button className={styles.primaryBtn} onClick={handleSave} disabled={saving || !seeded || !isDirty}>
-            {saving ? "保存中…" : isDirty ? "保存" : "保存済み"}
-          </button>
-        </div>
-        {isDirty && <p className={styles.errorText} role="status">⚠️ 未保存の変更があります</p>}
-        {!isDirty && savedAt !== null && (
-          <p className={styles.successText} role="status">✓ {new Date(savedAt).toLocaleTimeString("ja-JP")}に保存しました</p>
+        {activeGroup !== "data" ? (
+          <>
+            {/* ユーザー指摘「保存ボタンが右上にしかなく、押し忘れ・保存されたかの
+                わかりにくさがある」対応。左メニューでどのグループを見ていても常に同じ
+                場所に見える、ページ上部に固定した保存バーにする（グループ間で切り替えても
+                スクロール・移動が要らない）。 */}
+            <div className={styles.editorPath}>
+              <code>/Settings/Rules_and_Constraints</code>
+              <button className={styles.primaryBtn} onClick={handleSave} disabled={saving || !seeded || !isDirty}>
+                {saving ? "保存中…" : isDirty ? "保存" : "保存済み"}
+              </button>
+            </div>
+            {isDirty && <p className={styles.errorText} role="status">⚠️ 未保存の変更があります</p>}
+            {!isDirty && savedAt !== null && (
+              <p className={styles.successText} role="status">✓ {new Date(savedAt).toLocaleTimeString("ja-JP")}に保存しました</p>
+            )}
+            {saveError && <p className={styles.errorText} role="alert">{saveError}</p>}
+            <p className={styles.subtitle}>
+              Team Vitalsの判定に使う閾値・データ欠如とみなす期間です。Organization Context（組織のMVVや体制）とは異なり、
+              こちらはアプリの動作を調整する設定値です。
+            </p>
+          </>
+        ) : (
+          <>
+            <div className={styles.editorPath}>
+              <code>/Settings/Data</code>
+            </div>
+            <p className={styles.subtitle}>
+              端末移行のためのバックアップ・復元と、全データのリセットです。Rules の保存とは別の操作です。
+            </p>
+          </>
         )}
-        {saveError && <p className={styles.errorText} role="alert">{saveError}</p>}
-        <p className={styles.subtitle}>
-          Team Vitalsの判定に使う閾値・データ欠如とみなす期間です。Organization Context（組織のMVVや体制）とは異なり、
-          こちらはアプリの動作を調整する設定値です。
-        </p>
       </div>
 
       <div className={styles.appBody} style={{ marginTop: 16 }}>
@@ -502,6 +517,7 @@ export default function SettingsPage() {
                 </div>
               </>
             )}
+            {activeGroup === "data" && <DataMigrationPanel />}
           </div>
         </div>
       </div>
