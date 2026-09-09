@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { IssueDetailContent } from "@/app/issues/[id]/page";
+import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, useTimeline } from "@/lib/hooks";
 import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@/lib/types";

@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
-import { PersonDetailContent } from "@/app/people/[id]/page";
+import { PersonDetailContent } from "@/components/PersonDetailContent";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, usePeople } from "@/lib/hooks";
 import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@/lib/types";
