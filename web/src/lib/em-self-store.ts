@@ -8,7 +8,7 @@ import { maskForStorage, unmaskNames } from "@/lib/people-directory";
 // であり、推測ではなく本人の自己申告そのものが根拠になるため、他のVitalsとは異なり
 // 自己申告の数値をそのまま記録する（アルゴリズムによる良好/要注意判定は行わない）。
 // 件数・更新頻度ともに単一ユーザーの手入力程度の規模のため、Issue/Team等と同じ
-// loadJSON/saveJSON（`.data/*.json`）で十分と判断し、SQLiteへは寄せない。
+// loadJSON/saveJSON（データディレクトリ配下の`*.json`）で十分と判断し、SQLiteへは寄せない。
 
 export type EmCheckin = {
   id: string;

@@ -1,17 +1,29 @@
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { dataFilePath, loadJSON, loadSecureJSON, saveJSON, saveSecureJSON } from "@/lib/persistence";
+import {
+  dataFilePath,
+  defaultDataDir,
+  defaultSecureDataDir,
+  loadJSON,
+  loadSecureJSON,
+  migrateLegacyLocations,
+  resetMigrationGuardForTests,
+  saveJSON,
+  saveSecureJSON,
+} from "@/lib/persistence";
 
 let dir: string;
 
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
+  resetMigrationGuardForTests();
 });
 
 afterEach(() => {
   teardownIsolatedStoreEnv(dir);
+  resetMigrationGuardForTests();
 });
 
 describe("loadJSON / saveJSON", () => {
@@ -44,6 +56,51 @@ describe("dataFilePath", () => {
     const path = dataFilePath("app.db");
     expect(path).toBe(join(process.env.EM_DATA_DIR!, "app.db"));
     expect(existsSync(process.env.EM_DATA_DIR!)).toBe(true);
+  });
+});
+
+describe("default paths", () => {
+  it("デフォルトは ~/.local/state/em-ai-team/{data,secure}", () => {
+    expect(defaultDataDir()).toMatch(/\.local[/\\]state[/\\]em-ai-team[/\\]data$/);
+    expect(defaultSecureDataDir()).toMatch(/\.local[/\\]state[/\\]em-ai-team[/\\]secure$/);
+  });
+});
+
+describe("migrateLegacyLocations", () => {
+  it("旧data/secureを新配置へ移し、宛先に中身がある場合は触らない", () => {
+    const root = join(dir, "migrate");
+    const legacyData = join(root, "legacy-data");
+    const legacySecure = join(root, "legacy-secure");
+    const data = join(root, "data");
+    const secure = join(root, "secure");
+    mkdirSync(legacyData, { recursive: true });
+    mkdirSync(legacySecure, { recursive: true });
+    writeFileSync(join(legacyData, "teams.json"), '{"teams":[]}', "utf8");
+    writeFileSync(join(legacySecure, "people-directory.json"), '{"entries":[],"counter":0}', "utf8");
+
+    const first = migrateLegacyLocations({
+      dataDir: data,
+      secureDataDir: secure,
+      legacyDataDir: legacyData,
+      legacySecureDataDir: legacySecure,
+    });
+    expect(first).toEqual({ migratedData: true, migratedSecure: true });
+    expect(existsSync(join(data, "teams.json"))).toBe(true);
+    expect(existsSync(join(secure, "people-directory.json"))).toBe(true);
+    expect(existsSync(legacyData)).toBe(false);
+    expect(existsSync(legacySecure)).toBe(false);
+
+    mkdirSync(legacyData, { recursive: true });
+    writeFileSync(join(legacyData, "other.json"), "{}", "utf8");
+    const second = migrateLegacyLocations({
+      dataDir: data,
+      secureDataDir: secure,
+      legacyDataDir: legacyData,
+      legacySecureDataDir: legacySecure,
+    });
+    expect(second.migratedData).toBe(false);
+    expect(existsSync(join(legacyData, "other.json"))).toBe(true);
+    expect(existsSync(join(data, "other.json"))).toBe(false);
   });
 });
 

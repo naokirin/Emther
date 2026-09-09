@@ -3,16 +3,14 @@
 //   ID:名前の対応表はローカルのみが読める場所に持ち、外部送信前にIDへ置換、
 //   表示時にはプログラムでID→名前に戻す」
 //
-// この対応表は`~/.local/state/em-ai-team-secure/people-directory.json`（所有者のみ
+// この対応表は`~/.local/state/em-ai-team/secure/people-directory.json`（所有者のみ
 // 読み書き可能、0700/0600）にのみ存在し、外部LLM（claude -p 等）には絶対に渡さない。
-// 個人情報の分離（ユーザー指摘対応）: 当初は`.data/people-directory.json`（プロジェクト
-// ディレクトリ配下）に置いていたが、このリポジトリがvirtiofs（Lima VM共有フォルダ）上に
-// あり、そこではUnixパーミッションが実効的に機能しないことを実機検証で確認した。また
-// cursor-agentの`--workspace`サンドボックスは絶対パス指定のファイル読み取りを防げない
-// （こちらも実機検証済み）ため、「プロジェクトディレクトリの外・非virtiofsな場所」へ
-// 物理的に移設した。これにより、(1) cursor-agentのworkspace探索・相対パス推測から
-// 完全に切り離され、(2) 将来的にOSユーザー分離を追加する場合に実際にパーミッションが
-// 機能する場所になっている。
+// 個人情報の分離（ユーザー指摘対応）: 当初はプロジェクト配下の`.data/`、次いで
+// `~/.local/state/em-ai-team-secure/` に置いていたが、配布方針（docs/packaging.md）に
+// 合わせ業務データと同根の `em-ai-team/secure` へ移した（旧配置からは自動移行）。
+// virtiofs 上では Unix パーミッションが実効的でないこと、cursor-agent の
+// `--workspace` が絶対パス読み取りを防げないことは実機検証済みのため、
+// プロジェクト外・権限が効く場所に置く方針は維持する。
 // 名前の登録元は現状 journal-store.ts（ローカルモデルによる人物抽出）と
 // agent-runtime.ts（クラウドに送る直前のローカルNERによる検出）の2箇所。
 
@@ -197,12 +195,12 @@ export function assertNoRealNamesLeaked(text: string): void {
 }
 
 // 重要な設計変更: 「保存する前にマスクする」ための唯一の入口。個人名（実名）に触れて
-// よいのはこのファイル（people-directory.ts、`.data/people-directory.json`はローカル
+// よいのはこのファイル（people-directory.ts、secure配下のpeople-directory.jsonはローカル
 // ディスクにのみ存在し外部LLMには絶対に渡さない）と、ダッシュボード表示のためのAPI応答
 // 組み立て層だけ、という原則をコード上で強制する。ローカルNERで新規の名前を検出・登録し、
 // 既知の名前をすべてIDへ置換したテキストを返す。呼び出し側（journal-store.ts,
 // issue-store.ts, org-context-store.ts, agent-runtime.ts）は、この関数が返した
-// マスク済みテキストだけをSQLite/`.data/*.json`へ保存する（生の実名を保存してはならない）。
+// マスク済みテキストだけをSQLite/業務JSONへ保存する（生の実名を保存してはならない）。
 const NAME_EXTRACTION_SYSTEM_PROMPT = [
   "入力テキストに含まれる人物名だけをJSON形式で出力してください。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力すること。",
   'フォーマット: {"people": string[]}',
