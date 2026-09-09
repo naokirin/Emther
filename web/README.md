@@ -1,4 +1,4 @@
-# EM Support System — MVP
+# Emther — MVP
 
 `docs/first_implession/em_v5.md` で定義したアーキテクチャのうち、以下の垂直スライスを実装したもの。
 
@@ -9,7 +9,7 @@
 - **Settings（新設）** — Team Vitalsの判定閾値（Rules_and_Constraints）はOrganization Contextから分離し、`/settings`という独立の設定画面として持つ
 - Agent Fleetステータス表示 — エージェント種別ごとの直近の稼働状況を信号機で表示
 - **3.7 双方向Issueトラッキング（最小版）** — Issue Workspace
-- ローカルファイルへの簡易永続化 — 既定は `~/.local/state/em-ai-team/{data,secure}`（`docs/packaging.md`）。プロセス再起動でデータが消える問題を解消
+- ローカルファイルへの簡易永続化 — 既定は `~/.local/state/emther/{data,secure}`（`docs/packaging.md`）。プロセス再起動でデータが消える問題を解消
 - **3.5 構造化された提案** — yieldしない完了時も「結論/参照ファクト/判断ロジック/棄却した代替案」を必ず構造化させる
 - **3.3 階層型マルチエージェント（最小版）** — Lead Agentが専門エージェントに実際に相談し、その回答を踏まえて結論を出す
 - UI再構成 — `docs/first_implession/em_ui_wireframe_v5.html` に合わせて、Dashboard / Issue一覧 / Issue詳細 / Organization Contextを実URLの別画面に再編
@@ -243,7 +243,7 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 ### 永続化
 
 - 小さく低頻度更新なストア（teams, issues, org-strategy, settings-rules）は引き続き`web/src/lib/persistence.ts`の`loadJSON`/`saveJSON`でデータディレクトリ配下の`*.json`へベタ書きする。複数ワーカーや同時書き込みは想定しない、シングルプロセス前提の最小実装。
-- 既定のデータ根は`~/.local/state/em-ai-team/data`（業務）と`.../secure`（people-directory）。`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`で上書き可能。詳細は`docs/packaging.md`。
+- 既定のデータ根は`~/.local/state/emther/data`（業務）と`.../secure`（people-directory）。`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`で上書き可能。詳細は`docs/packaging.md`。
 - people-directory（実名⇔`PERSON_n`）は secure 配下のみ。ローカルディスク上のファイルであり外部LLMには一切送信されない。
 
 ### 永続化データモデルの再設計 Phase 1（イベントソーシング＋バイテンポラル、SQLite移行）
@@ -409,7 +409,7 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 
 - **発見**: `cursor-agent`の`--workspace`サンドボックスは、絶対パス指定のファイル読み取りを一切防がないことを実機で確認した。専用の空ディレクトリを`--workspace`に指定した状態で、`.data/people-directory.json`の絶対パスを直接指示したところ、`cursor-agent`は実際にファイルを読み取り、内容（実名）をそのまま返した。ツール呼び出しの結果はCursor社のバックエンドとの対話ループの一部としてそちらに送信されるため、この読み取りは`agent-runtime.ts`側のどんなコード（`assertNoRealNamesLeaked`を含む）でも検知・阻止できない——このガードは「こちらが構築して送信するプロンプト」だけを検査するものであり、cursor-agentプロセス自身が実行するツール呼び出しの結果までは見えないため。README内の以前の記述（`--workspace`で見えないようにしている）は誤りだったので訂正する。
 - **OSレベルのユーザー分離を試みたが、この環境では機能しないことを実機で確認**: 制限付きのLinuxユーザーを作成し、`sudo -u`経由でファイル読み取りを試したところ、`/proc/self/status`で実際に別UIDで動作していることを確認した上でなお、`chmod 600`のファイルを読めてしまった。原因を`/proc/mounts`で調査したところ、このリポジトリ（`~/repos/...`）は**virtiofs**（Lima VMの共有フォルダ）上にあり、そこではUnixパーミッションがゲスト内のUID単位では実効的に機能しないことが判明した。`cursor-agent --sandbox enabled`（OSレベルの本物のサンドボックス）も"AppArmor configuration"を理由に起動できず、bubblewrap（`bwrap`）による名前空間分離も権限エラーで失敗した。この検証用に作成したLinuxユーザーは、有効な保護になっていないことを確認した上で完全に削除している。
-- **実際に導入した対策**: `~/.local/state/`配下（virtiofsではない、ホームディレクトリ直下の通常のローカルファイルシステム）が実際にパーミッションを尊重することを`sudo -u nobody`での読み取り拒否で確認した上で、`people-directory.json`の保存先をプロジェクト配下からホーム配下へ移設した（現在は`~/.local/state/em-ai-team/secure/`、`persistence.ts`の`loadSecureJSON`/`saveSecureJSON`）。これにより、cursor-agent/agyの`--workspace`／作業ディレクトリの木構造から完全に切り離され、相対パスの探索やプロジェクト内ファイルの列挙では到達できなくなる。ただし、これは「絶対パスを明示的に指示された場合の読み取り」自体を防ぐものではない（実機で確認済みの`cursor-agent`の限界は解消していない）——あくまで、通常のタスク遂行の過程で偶然・自発的に発見される可能性を実質的に排除するものである。
+- **実際に導入した対策**: `~/.local/state/`配下（virtiofsではない、ホームディレクトリ直下の通常のローカルファイルシステム）が実際にパーミッションを尊重することを`sudo -u nobody`での読み取り拒否で確認した上で、`people-directory.json`の保存先をプロジェクト配下からホーム配下へ移設した（現在は`~/.local/state/emther/secure/`、`persistence.ts`の`loadSecureJSON`/`saveSecureJSON`）。これにより、cursor-agent/agyの`--workspace`／作業ディレクトリの木構造から完全に切り離され、相対パスの探索やプロジェクト内ファイルの列挙では到達できなくなる。ただし、これは「絶対パスを明示的に指示された場合の読み取り」自体を防ぐものではない（実機で確認済みの`cursor-agent`の限界は解消していない）——あくまで、通常のタスク遂行の過程で偶然・自発的に発見される可能性を実質的に排除するものである。
 - **claude/agyは元々この種のリスクに晒されていない**: claudeは`--tools ""`で構造的にツール自体を持たない。agyはヘッドレス実行時のツール承認要求をアプリケーション層で自動拒否する（ファイルパーミッションに依存しない仕組み）ため、virtiofsの制約に影響されない。今回の絶対パス読み取りの実害が確認されたのは`cursor-agent`のみである。
 - 実機検証: 新しい保存先への移設後、既存の登録済み名前（`花子さん`等）が引き続き正しくアンマスクされてAPI応答に現れること、新規の名前（`三郎さん`）が新しい保存先ファイルに正しく追記されること、旧`.data/people-directory.json`が再作成されないこと、Journal投稿が引き続き`.data/app.db`側では`PERSON_n`形式でマスクされたまま保存されることをすべて確認した。
 - **既知の制約（正直な評価）**: `cursor-agent`について、実名を含む可能性のあるファイルへの絶対パスでの意図的な読み取りを技術的に禁止する仕組みは、この環境では確立できていない。物理的な配置分離は「見つかりにくくする」対策であり、「見つけられても読めなくする」対策ではない。真に後者を実現するには、OSレベルのユーザー分離（`sudo -u`経由での制限ユーザーでの実行）が必要だが、これは(1) virtiofsではない場所で完結する構成にする、(2) `agy`（実体はGoogle Antigravity CLIで`~/.gemini/antigravity-cli/`配下に認証・会話状態を持つ）と`cursor-agent`（`~/.cursor/`・`~/.config/cursor/`・`~/.local/share/cursor-agent/`に認証状態を持つ）それぞれの認証状態を制限ユーザーからも利用可能にしつつ本アプリのデータには到達させない、という2点の作り込みが必要で、影響範囲・脆弱性の作り込みリスクの大きさから、ユーザーとの合意のもと今回は見送った。cursor-agentフォールバックを実際に有効化する場合は、このリスク（EM自身が明示的にIssue/Journal等に書いた内容を超えて、ファイルシステム上の他の情報が意図的な絶対パス指定によって読み取られうること）を理解した上で判断すること。

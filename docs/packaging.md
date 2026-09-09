@@ -1,20 +1,20 @@
 # 配布・パッケージ化方針
 
-個人の EM サポートツールとして、**GitHub 公開リポジトリから入手でき、利用者のマシン上にだけ機微データが残る**ことを目標にする。npm レジストリへの公開はしない。
+個人の EM サポートツール **Emther（EM Support System）** として、**GitHub 公開リポジトリから入手でき、利用者のマシン上にだけ機微データが残る**ことを目標にする。npm レジストリへの公開はしない。
 
-関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/em-ai-team`（ランチャー）、`scripts/package-standalone.sh` / `scripts/install-release.sh`（Release 成果物）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）、`.github/workflows/release.yml`。
+関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/emther`（ランチャー）、`scripts/package-standalone.sh` / `scripts/install-release.sh`（Release 成果物）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）、`.github/workflows/release.yml`。
 
 ## 製品像
 
 | レイヤ | 置き場所 | 備考 |
 | --- | --- | --- |
-| ソース | GitHub（公開） | clone して `./scripts/em-ai-team install` |
-| アプリ本体 | `~/.local/share/em-ai-team/app` | Next.js standalone（webpack ビルド） |
-| 起動コマンド | `~/.local/bin/em-ai-team` | install / install-release / build / start / stop / status / doctor / backup / restore |
-| 業務データ | `~/.local/state/em-ai-team/data` | SQLite・JSON。リポジトリ外必須 |
-| 実名対応表 | `~/.local/state/em-ai-team/secure` | 0700 / 0600。data と兄弟だが権限分離 |
-| バックアップ | `~/.local/state/em-ai-team/backups` | `em-ai-team backup` が作成 |
-| モデルキャッシュ | `~/.cache/huggingface` 等（将来は `~/.cache/em-ai-team` も検討） | アプリ本体に同梱しない |
+| ソース | GitHub（公開） | clone して `./scripts/emther install` |
+| アプリ本体 | `~/.local/share/emther/app` | Next.js standalone（webpack ビルド） |
+| 起動コマンド | `~/.local/bin/emther` | install / install-release / build / start / stop / status / doctor / backup / restore |
+| 業務データ | `~/.local/state/emther/data` | SQLite・JSON。リポジトリ外必須 |
+| 実名対応表 | `~/.local/state/emther/secure` | 0700 / 0600。data と兄弟だが権限分離 |
+| バックアップ | `~/.local/state/emther/backups` | `emther backup` が作成 |
+| モデルキャッシュ | `~/.cache/huggingface` 等（将来は `~/.cache/emther` も検討） | アプリ本体に同梱しない |
 | Agent CLI | 利用者ホスト（必須: `claude`） | `agy` / `cursor-agent` は任意 |
 | 隔離実行 | Docker Compose（任意） | 認証・依存ごとコンテナに閉じたい人向け |
 
@@ -26,17 +26,17 @@
 
 ```bash
 # ソースから
-git clone <このリポジトリの URL>
-cd em_ai_team
-./scripts/em-ai-team install
+git clone https://github.com/naokirin/Emther.git
+cd Emther
+./scripts/emther install
 
 # または GitHub Release の tarball から
-tar -xzf em-ai-team-vX.Y.Z-linux-x64.tar.gz
-./em-ai-team/install.sh
+tar -xzf emther-vX.Y.Z-linux-x64.tar.gz
+./emther/install.sh
 
-em-ai-team start
-em-ai-team doctor
-em-ai-team backup
+emther start
+emther doctor
+emther backup
 ```
 
 - 既定で **127.0.0.1** のみにバインドする（LAN 公開しない）。
@@ -46,7 +46,7 @@ em-ai-team backup
 
 ## 入手チャネル
 
-1. **主経路:** 公開リポジトリを clone → `./scripts/em-ai-team install`（`README.md`）
+1. **主経路:** 公開リポジトリを clone → `./scripts/emther install`（`README.md`）
 2. **GitHub Releases:** タグ `v*` push で CI（`.github/workflows/release.yml`）が `linux-x64` / `darwin-arm64` の tarball + SHA256 を添付
 3. **npm 公開:** しない（`npx` も主経路にしない）
 4. **Docker:** セカンドクラス。手順は `docs/docker.md`
@@ -58,7 +58,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-成果物名の例: `em-ai-team-v0.1.0-linux-x64.tar.gz`（中身は `app/` + `bin/em-ai-team` + `install.sh`）。  
+成果物名の例: `emther-v0.1.0-linux-x64.tar.gz`（中身は `app/` + `bin/emther` + `install.sh`）。  
 onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選ぶ。
 
 ## データパス規約（Phase 0）
@@ -66,22 +66,23 @@ onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選�
 デフォルト（環境変数未設定時）:
 
 ```text
-~/.local/state/em-ai-team/data/     # EM_DATA_DIR で上書き可
-~/.local/state/em-ai-team/secure/   # EM_SECURE_DATA_DIR で上書き可
+~/.local/state/emther/data/     # EM_DATA_DIR で上書き可
+~/.local/state/emther/secure/   # EM_SECURE_DATA_DIR で上書き可
 ```
 
 - 開発・テスト・Docker は従来どおり環境変数で差し替える。
 - リポジトリ配下の `web/.data` には**新規書き込みしない**（公開 clone 作業ツリーと機微データの混在を防ぐ）。
 - 旧配置からの一度きりの移行（存在する場合のみ、宛先が未作成のとき）:
-  - `./.data`（起動時 cwd 基準の旧デフォルト）→ `.../em-ai-team/data`
-  - `~/.local/state/em-ai-team-secure` → `.../em-ai-team/secure`
+  - `~/.local/state/em-ai-team/{data,secure}` → `.../emther/{data,secure}`
+  - `./.data`（起動時 cwd 基準の旧デフォルト）→ `.../emther/data`
+  - `~/.local/state/em-ai-team-secure` → `.../emther/secure`
 
 ## ロードマップ
 
 | Phase | 内容 | 状態 |
 | --- | --- | --- |
 | 0 | デフォルトデータパスの XDG 化＋旧配置からの移行 | 実装済み |
-| 1 | Next.js `output: "standalone"` ＋ `em-ai-team` ランチャー | 実装済み |
+| 1 | Next.js `output: "standalone"` ＋ `emther` ランチャー | 実装済み |
 | 2 | `doctor` / `backup`（`restore`）／ルート配布 README | 実装済み |
 | 3 | CI から GitHub Release 成果物を作成 | 実装済み |
 
@@ -93,5 +94,5 @@ onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選�
 ## セキュリティ上の注意（公開リポジトリ）
 
 - `.env`・認証ディレクトリ・state 配下はコミットしない（既存の ignore を維持）。
-- バックアップ対象は主に `data` + `secure`（`em-ai-team backup`）。アーカイブは個人情報を含むため取り扱いに注意。
+- バックアップ対象は主に `data` + `secure`（`emther backup`）。アーカイブは個人情報を含むため取り扱いに注意。
 - 本番インターネット公開は想定しない（認証なしの単一ユーザー向け）。ランチャー既定も localhost のみ。

@@ -58,9 +58,9 @@ jobs:
           EM_PACKAGE_VERSION: ${{ steps.ver.outputs.version }}
           EM_PACKAGE_PLATFORM: ${{ matrix.platform }}
         run: |
-          chmod +x scripts/package-standalone.sh scripts/em-ai-team scripts/install-release.sh
+          chmod +x scripts/package-standalone.sh scripts/emther scripts/install-release.sh
           mkdir -p dist
-          OUT="dist/em-ai-team-${EM_PACKAGE_VERSION}-${EM_PACKAGE_PLATFORM}.tar.gz"
+          OUT="dist/emther-${EM_PACKAGE_VERSION}-${EM_PACKAGE_PLATFORM}.tar.gz"
           ./scripts/package-standalone.sh --tarball "$OUT" --version "$EM_PACKAGE_VERSION" --platform "$EM_PACKAGE_PLATFORM"
           cd dist
           if command -v sha256sum >/dev/null 2>&1; then
@@ -111,15 +111,15 @@ jobs:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           body: |
-            Prebuilt standalone packages (Node 24+ still required on the host).
+            Emther (EM Support System) — prebuilt standalone packages (Node 24+ still required on the host).
 
             ## Install from Release
             ```bash
             # pick the asset matching your OS/CPU, then:
-            tar -xzf em-ai-team-${{ github.ref_name }}-<platform>.tar.gz
-            ./em-ai-team/install.sh
-            em-ai-team doctor
-            em-ai-team start
+            tar -xzf emther-${{ github.ref_name }}-<platform>.tar.gz
+            ./emther/install.sh
+            emther doctor
+            emther start
             ```
 
             Or clone and build locally: see repository `README.md`.

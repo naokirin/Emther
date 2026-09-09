@@ -1,4 +1,4 @@
-# EM Support System — コンテナ完結構成
+# Emther (EM Support System) — コンテナ完結構成
 # ホストの ~/.claude 等はマウントしない。認証はコンテナ内で行い named volume に保存する。
 
 services:
@@ -6,7 +6,7 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
-    image: em-ai-team-web:local
+    image: emther-web:local
     ports:
       - "${EM_PORT:-3000}:3000"
     environment:
