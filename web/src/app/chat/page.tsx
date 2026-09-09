@@ -220,9 +220,9 @@ function ChatPageInner() {
             <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
               {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
                 <>
-                  <strong>🤖 AIが自動起動したRunです（{ORIGIN_LABEL[selectedRun.origin]}）</strong>
+                  <strong>📋 ドラフトIssue（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                    内容を確認し、追跡すべきならIssue化、様子を見るなら様子見、不要なら却下してください。EMが選ぶまでここに残り続けます。
+                    AIの自動分析の出口です。追跡するなら「Issueにする」、様子を見るなら「様子見」、不要なら却下してください。EMが選ぶまでここに残り続けます。
                   </p>
                 </>
               )}

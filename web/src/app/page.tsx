@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { runKindLabel } from "@/components/RunDetail";
+import { draftKindLabel, isDraftAwaitingTriage, runKindLabel } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
@@ -75,7 +75,32 @@ type NextAction = {
   // このカードの根拠になった事実が発生・更新された時刻。前回このダッシュボードを
   // 開いた時刻（ローカルのlastSeenAt）と比較し、新着だけに「NEW」を出す。
   since: number;
+  /** ヒーローCTAの短いラベル（未指定時は「開く」） */
+  ctaLabel?: string;
 };
+
+/** ダッシュボードの「次の1手」優先度。起票待ちドラフト → 実行異常/Yield → その他判断 → 観測 → 整備。 */
+function heroRank(a: NextAction): number {
+  if (a.id.startsWith("pending-unmasked-")) return 0;
+  if (a.kindLabel === "ドラフトIssue" || a.id.startsWith("auto-") || a.id === "auto-bundle") return 1;
+  if (a.kindLabel === "ドラフト分析中") return 2;
+  if (a.id.startsWith("yield-") || a.id.startsWith("stale-") || a.id.startsWith("error-")) return 3;
+  if (a.id.startsWith("journal-unconfirmed-")) return 4;
+  if (a.lane === "decision" && a.severity === "urgent") return 5;
+  if (a.lane === "decision") return 6;
+  if (a.lane === "observation") return 7;
+  return 8;
+}
+
+function pickHeroAction(actions: NextAction[]): NextAction | null {
+  if (actions.length === 0) return null;
+  return [...actions].sort((a, b) => {
+    const rd = heroRank(a) - heroRank(b);
+    if (rd !== 0) return rd;
+    if (a.severity !== b.severity) return a.severity === "urgent" ? -1 : 1;
+    return b.since - a.since;
+  })[0];
+}
 
 // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
 // スピナーだけ表示する」対応。POST /api/journal・/api/journal/bulkはローカルモデルの
@@ -113,7 +138,7 @@ function getDayPhase(hour: number): DayPhase {
 const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; cta?: string }> = {
   morning: {
     icon: "🌅",
-    text: "朝のチェック: 下の判断待ちから片づけましょう。",
+    text: "朝のチェック: 下の「次の1手」から片づけましょう。",
   },
   midday: {
     icon: "🕐",
@@ -436,23 +461,23 @@ export default function DashboardPage() {
     // （様子見は下のwatchingItemsで別途表示、却下は対応不要として消える）。
     if (run.triageStatus === "watching" || run.triageStatus === "dismissed") continue;
 
-    // AI主導（イベント駆動・バッチ駆動、docs/first_implession 3.6/3.7）で自動起動されたrunは、
-    // EMがまだ内容を確認していない（reviewed=false）間はstatusに関わらず必ずここに残す
-    // （idleで完結していても「対応不要」と見なさない——見て見ぬふりを防ぐ）。クリック先も
-    // 通常のgoToRunIssue（即Issue化）ではなく、EMが中身を見てからIssue化/却下を選べる
-    // /chatへ寄せる。
-    const isUnreviewedAuto = run.origin !== "manual" && !run.reviewed;
-    const autoLabel =
-      run.origin === "auto-anomaly"
-        ? "Journal自動分析"
-        : run.origin === "auto-issue-update"
-          ? "Issue更新分析"
-          : "朝のサマリー";
-    const onSelectAuto = () => router.push(`/chat?runId=${run.id}`);
-    // docs/em_human_story_and_ux.md P0-2対応（修正）。自動検知drafts（isUnreviewedAuto）だけ
-    // でなく、まだIssueに紐付いていないLead Agent run全般（手動で始めた「何でも相談」が
-    // Yield/エラー/無応答になっている場合を含む）も、クリックしたらgoToRunIssueで即Issue化
-    // せず/chatへ寄せる。Lead Agentは「相談」の相手であり、決まった介入ではないため。
+    // AI主導（イベント駆動・バッチ駆動）で自動起動されたrunは、EMがまだ内容を確認して
+    // いない間は「ドラフトIssue（起票待ち）」としてここに残す。クリック先は即Issue化せず
+    // /chat（起票／様子見／却下）へ。Issue更新分析だけは紐付くIssue Workspaceへ。
+    const isDraft = isDraftAwaitingTriage(run);
+    const onSelectDraft = () => {
+      if (run.origin === "auto-issue-update") {
+        const linked = issues.find((i) => i.agentRunId === run.id);
+        if (linked) {
+          router.push(`/issues/${linked.id}`);
+          return;
+        }
+      }
+      router.push(`/chat?runId=${run.id}`);
+    };
+    // docs/em_human_story_and_ux.md P0-2対応（修正）。自動検知draftsだけでなく、
+    // まだIssueに紐付いていないLead Agent run全般も、クリックしたらgoToRunIssueで
+    // 即Issue化せず/chatへ寄せる。
     const isLeadUnlinked = run.agentName === "Lead Agent" && !issues.some((i) => i.agentRunId === run.id);
 
     if (staleRunIds.has(run.id)) {
@@ -462,23 +487,23 @@ export default function DashboardPage() {
         severity: "urgent",
         lane: "decision",
         icon: "❔",
-        kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
+        kindLabel: isDraft ? draftKindLabel(run) : "実行異常",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
-        onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
+        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
         since: run.updatedAt,
+        ctaLabel: "確認する",
       });
     } else if (run.status === "yield") {
-      // Yieldカードは badge に種別だけ出すと1行目の情報量が薄い。Agent名を1行目へ寄せ、
-      // 2行目は理由（または task）に専念させる。
       nextActions.push({
         id: `yield-${run.id}`,
         severity: "urgent",
         lane: "decision",
         icon: "🟡",
-        kindLabel: isUnreviewedAuto ? runKindLabel(run) : `Yield · ${run.agentName}`,
-        text: `${isUnreviewedAuto ? `${autoLabel}: ` : ""}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
-        onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
+        kindLabel: isDraft ? draftKindLabel(run) : `Yield · ${run.agentName}`,
+        text: `${isDraft ? "ドラフト: " : ""}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
+        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
         since: run.updatedAt,
+        ctaLabel: "判断する",
       });
     } else if (run.status === "error") {
       nextActions.push({
@@ -486,23 +511,39 @@ export default function DashboardPage() {
         severity: "urgent",
         lane: "decision",
         icon: "🔴",
-        kindLabel: isUnreviewedAuto ? runKindLabel(run) : "実行異常",
-        text: `${isUnreviewedAuto ? `${autoLabel}（エラー）: ` : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
-        onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
+        kindLabel: isDraft ? draftKindLabel(run) : "実行異常",
+        text: `${isDraft ? "ドラフト（エラー）: " : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
+        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
         since: run.updatedAt,
+        ctaLabel: "確認する",
       });
-    } else if (isUnreviewedAuto && run.status === "idle") {
-      // docs/memo.md「A」対応。異常検知ドラフトはtaskの要約より、Lead Agentが出した
-      // 結論（proposal.conclusion）の方がEMの判断材料として有用なので優先して見せる。
+    } else if (isDraft && (run.status === "active" || run.status === "queued")) {
+      // 分析中もヒーローから消えないようにする（「進んでいるのか見えにくい」対策）。
+      nextActions.push({
+        id: `auto-${run.id}`,
+        severity: "warn",
+        lane: "decision",
+        icon: "⏳",
+        kindLabel: draftKindLabel(run),
+        text: `分析中: ${run.task.slice(0, 44)}`,
+        onSelect: onSelectDraft,
+        since: run.updatedAt,
+        ctaLabel: "進捗を見る",
+      });
+    } else if (isDraft && run.status === "idle") {
+      // 自律の出口＝起票待ちドラフト。本文は proposal.conclusion を優先。
       nextActions.push({
         id: `auto-${run.id}`,
         severity: "warn",
         lane: "decision",
         icon: "🤖",
-        kindLabel: runKindLabel(run),
-        text: run.proposal?.conclusion ? run.proposal.conclusion.slice(0, 60) : `${autoLabel}: ${run.task.slice(0, 44)}`,
-        onSelect: onSelectAuto,
+        kindLabel: draftKindLabel(run),
+        text: run.proposal?.conclusion
+          ? run.proposal.conclusion.slice(0, 60)
+          : `${runKindLabel(run)}: ${run.task.slice(0, 44)}`,
+        onSelect: onSelectDraft,
         since: run.updatedAt,
+        ctaLabel: "起票／却下する",
       });
     }
   }
@@ -758,17 +799,15 @@ export default function DashboardPage() {
       severity: "warn",
       lane: "decision",
       icon: "🤖",
-      kindLabel: "自動起動まとめ",
-      text: `AIの自動起動ドラフトが${autoDraftIds.size}件たまっています。相談履歴からまとめて確認してください`,
+      kindLabel: "ドラフトIssue",
+      text: `起票待ちのドラフトが${autoDraftIds.size}件たまっています。相談履歴からまとめて確認してください`,
       onSelect: () => router.push("/chat"),
       since: 0,
+      ctaLabel: "一覧を開く",
     });
   }
 
   nextActions.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "urgent" ? -1 : 1));
-
-  const laneCounts: Record<Lane, number> = { decision: 0, observation: 0, maintenance: 0 };
-  for (const a of nextActions) laneCounts[a.lane]++;
 
   // docs/em_human_story_and_ux.md P0-4対応。「1日の上限感」をUIで示す（ハード制限はせず、
   // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）。
@@ -824,17 +863,21 @@ export default function DashboardPage() {
     observation: rules.observationQueueLimit,
     maintenance: NEXT_ACTIONS_LIMIT,
   };
-  const laneActionsForFilter = nextActions.filter((a) => a.lane === laneFilter);
+  const heroAction = pickHeroAction(nextActions);
+  const restActions = heroAction ? nextActions.filter((a) => a.id !== heroAction.id) : nextActions;
+  const restLaneCounts: Record<Lane, number> = { decision: 0, observation: 0, maintenance: 0 };
+  for (const a of restActions) restLaneCounts[a.lane]++;
+  const laneActionsForFilter = restActions.filter((a) => a.lane === laneFilter);
   const laneLimit = LANE_LIMITS[laneFilter] + laneExtraVisible[laneFilter];
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   const hiddenActionCount = Math.max(0, laneActionsForFilter.length - laneLimit);
-  // 絞り込みは下のタブだけで行う（見出し内の件数はクリックできない、ただの要約）。
   // 未ロード中は「課題はありません」と断定しない（空fallbackを実データと誤認させない）。
   const headline = !nextActionsLoaded
     ? "読み込み中…"
-    : nextActions.length === 0
-      ? "✅ 今日、判断待ちの組織課題はありません。"
-      : `🧭 今日: 判断待ち${laneCounts.decision}件・観測不足${laneCounts.observation}件・整備${laneCounts.maintenance}件`;
+    : heroAction
+      ? "次の1手"
+      : "✅ 今日、判断待ちの組織課題はありません。";
+  const restCount = restActions.length;
 
   return (
     <div className={styles.screen}>
@@ -905,28 +948,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* docs/em_human_story_and_ux.md P0-5 / docs/dashboard_ui_readability.md U0-1対応。
-          先頭ブロックを視覚的な「主」にする。1文の見出し＋レーン別タブで、朝の視線を
-          最初にトリアージへ着地させる。
-          ユーザー指摘「幅に余裕があるときは判断待ちとチームの状態を横並びにし、PC画面では
-          ファーストビューに収める」対応。dashColumns（既存の2カラムgrid、1000px未満で
-          縦積み）を再利用し、どちらも自身の高さのまま隣接させる（align-items: start）。 */}
+      {/* 「次の1手」をヒーローに固定。他のレーン一覧は従属。Fleet/Activityは /agents。 */}
       <div className={styles.dashColumns}>
       <div className={`${styles.panel} ${styles.heroPanel}`}>
         <h2 className={styles.heroHeadline}>{headline}</h2>
-
-        <div className={styles.tabs} style={{ margin: "10px 0" }}>
-          {(Object.keys(LANE_META) as Lane[]).map((lane) => (
-            <button
-              key={lane}
-              className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""}`}
-              onClick={() => setLaneFilter(lane)}
-              title={LANE_META[lane].hint}
-            >
-              {LANE_META[lane].label}（{laneCounts[lane]}）
-            </button>
-          ))}
-        </div>
 
         {krTotals.total > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
@@ -938,7 +963,7 @@ export default function DashboardPage() {
         )}
         {autoRunsToday > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
-            🤖 本日のAI自動起動: {autoRunsToday}件
+            🤖 本日のAI自動起動: {autoRunsToday}件（出口は起票待ちドラフト）
             <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => router.push("/settings")}>
               頻度を調整
             </button>
@@ -947,41 +972,101 @@ export default function DashboardPage() {
 
         {!nextActionsLoaded ? (
           <p className={styles.subtitle}>読み込み中…</p>
-        ) : visibleActions.length === 0 ? (
-          <p className={styles.subtitle}>✅ このレーンに対応が必要な項目はありません。</p>
+        ) : heroAction ? (
+          <div
+            className={`${styles.runItem} ${heroAction.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+            style={{
+              display: "block",
+              padding: "14px 16px",
+              marginBottom: 12,
+              cursor: "pointer",
+              borderWidth: 2,
+            }}
+            onClick={heroAction.onSelect}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                heroAction.onSelect();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+              <span className={styles.badge}>{heroAction.kindLabel}</span>
+              {lastSeenAt !== null && heroAction.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                {LANE_META[heroAction.lane].label}
+              </span>
+            </div>
+            <div className={styles.runItemTask} style={{ fontSize: "1rem", lineHeight: 1.45, marginBottom: 12 }}>
+              {heroAction.icon} {heroAction.text}
+            </div>
+            <button
+              type="button"
+              className={styles.primaryBtn}
+              style={{ width: "auto" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                heroAction.onSelect();
+              }}
+            >
+              {heroAction.ctaLabel ?? "開く"}
+            </button>
+          </div>
         ) : (
+          <p className={styles.subtitle}>✅ 今すぐ決めるべき次の1手はありません。</p>
+        )}
+
+        {restCount > 0 && (
           <>
-            {/* 改修依頼「表形式を戻してほしい」対応。ここは判断1件ずつを個別に読んで
-                クリックする場面で、カラム分けよりも「1件＝1カード」の一覧性が重要
-                なため、表形式ではなくボタン（カード）の並びに戻す。 */}
-            <div className={styles.runList} style={{ maxHeight: "none" }}>
-              {visibleActions.map((a) => (
+            <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
+              他に {restCount} 件（判断待ち{restLaneCounts.decision}・観測{restLaneCounts.observation}・整備{restLaneCounts.maintenance}）
+            </p>
+            <div className={styles.tabs} style={{ margin: "0 0 10px" }}>
+              {(Object.keys(LANE_META) as Lane[]).map((lane) => (
                 <button
-                  key={a.id}
-                  className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                  onClick={a.onSelect}
+                  key={lane}
+                  className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""}`}
+                  onClick={() => setLaneFilter(lane)}
+                  title={LANE_META[lane].hint}
                 >
-                  <span className={styles.badge}>{a.kindLabel}</span>
-                  {/* 改修依頼「以前から変わったことがより分かりやすいUIに」対応。前回訪問より
-                      後に発生・更新された根拠を持つカードだけに新着マークを出す。 */}
-                  {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
-                  <div className={styles.runItemTask}>{a.text}</div>
+                  {LANE_META[lane].label}（{restLaneCounts[lane]}）
                 </button>
               ))}
             </div>
-            {hiddenActionCount > 0 && (
-              <button
-                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                style={{ marginTop: 8 }}
-                onClick={() =>
-                  setLaneExtraVisible((prev) => ({
-                    ...prev,
-                    [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
-                  }))
-                }
-              >
-                もっと見る（残り{hiddenActionCount}件）
-              </button>
+            {visibleActions.length === 0 ? (
+              <p className={styles.subtitle}>このレーンの残りはありません。</p>
+            ) : (
+              <>
+                <div className={styles.runList} style={{ maxHeight: "none" }}>
+                  {visibleActions.map((a) => (
+                    <button
+                      key={a.id}
+                      className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                      onClick={a.onSelect}
+                    >
+                      <span className={styles.badge}>{a.kindLabel}</span>
+                      {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
+                      <div className={styles.runItemTask}>{a.text}</div>
+                    </button>
+                  ))}
+                </div>
+                {hiddenActionCount > 0 && (
+                  <button
+                    className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                    style={{ marginTop: 8 }}
+                    onClick={() =>
+                      setLaneExtraVisible((prev) => ({
+                        ...prev,
+                        [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
+                      }))
+                    }
+                  >
+                    もっと見る（残り{hiddenActionCount}件）
+                  </button>
+                )}
+              </>
             )}
           </>
         )}

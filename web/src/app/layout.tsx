@@ -14,6 +14,7 @@ import "@fontsource/jetbrains-mono/latin-600.css";
 import "./globals.css";
 import styles from "./page.module.css";
 import { LocalModelDownloadBanner } from "@/components/LocalModelDownloadBanner";
+import { PersonQuickAdd } from "@/components/PersonQuickAdd";
 import { AppShell, StoryBanner, TopNav } from "@/components/TopNav";
 
 // デザイン見直し（frontend-design）対応。従来はnext/font/googleでGeistを読み込みながら
@@ -41,9 +42,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           本文へスキップ
         </a>
         <div className={styles.page}>
-          <div className={styles.header}>
-            <h1 className={styles.title}>Emther</h1>
-            <p className={styles.subtitle}>EM Support System</p>
+          <div className={styles.header} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <h1 className={styles.title}>Emther</h1>
+              <p className={styles.subtitle}>EM Support System</p>
+            </div>
+            <PersonQuickAdd />
           </div>
           <TopNav />
           <StoryBanner />
