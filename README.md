@@ -13,10 +13,24 @@
 
 ## インストールと起動
 
+### A. ソースから（いつでも使える主経路）
+
 ```bash
 git clone <このリポジトリの URL>
 cd em_ai_team
 ./scripts/em-ai-team install
+em-ai-team start
+```
+
+### B. GitHub Release の tarball から（タグ `v*` の CI 成果物）
+
+OS/CPU に合った資産を GitHub の Releases から取得します（onnx 等はプラットフォーム固有です）。
+
+```bash
+tar -xzf em-ai-team-vX.Y.Z-<platform>.tar.gz
+./em-ai-team/install.sh
+# または: em-ai-team install-release em-ai-team-vX.Y.Z-<platform>.tar.gz
+em-ai-team doctor
 em-ai-team start
 ```
 

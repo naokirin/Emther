@@ -1,0 +1,131 @@
+name: Release
+
+# タグ v* を push すると、プラットフォーム別 standalone をビルドして GitHub Release に添付する。
+# 例: git tag v0.1.0 && git push origin v0.1.0
+# workflow_dispatch は成果物のビルド確認のみ（Release は作らない）。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  package:
+    name: Package (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: macos-latest
+            platform: darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            short="${GITHUB_SHA:0:7}"
+            echo "version=dev-${short}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build standalone tarball
+        shell: bash
+        env:
+          EM_PACKAGE_VERSION: ${{ steps.ver.outputs.version }}
+          EM_PACKAGE_PLATFORM: ${{ matrix.platform }}
+        run: |
+          chmod +x scripts/package-standalone.sh scripts/em-ai-team scripts/install-release.sh
+          mkdir -p dist
+          OUT="dist/em-ai-team-${EM_PACKAGE_VERSION}-${EM_PACKAGE_PLATFORM}.tar.gz"
+          ./scripts/package-standalone.sh --tarball "$OUT" --version "$EM_PACKAGE_VERSION" --platform "$EM_PACKAGE_PLATFORM"
+          cd dist
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$(basename "$OUT")" > "$(basename "$OUT").sha256"
+          else
+            shasum -a 256 "$(basename "$OUT")" > "$(basename "$OUT").sha256"
+          fi
+          ls -lh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Collect assets
+        shell: bash
+        run: |
+          mkdir -p dist
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.sha256' \) -exec cp -a {} dist/ \;
+          {
+            echo "SHA256 checksums"
+            echo
+            cat dist/*.sha256
+          } > dist/SHA256SUMS.txt
+          ls -lh dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            Prebuilt standalone packages (Node 24+ still required on the host).
+
+            ## Install from Release
+            ```bash
+            # pick the asset matching your OS/CPU, then:
+            tar -xzf em-ai-team-${{ github.ref_name }}-<platform>.tar.gz
+            ./em-ai-team/install.sh
+            em-ai-team doctor
+            em-ai-team start
+            ```
+
+            Or clone and build locally: see repository `README.md`.
+
+            Native addons (onnxruntime) are **platform-specific** — use the tarball for your OS/arch.
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256
+            dist/SHA256SUMS.txt

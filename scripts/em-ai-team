@@ -53,15 +53,16 @@ usage() {
 Usage: em-ai-team <command>
 
 Commands:
-  install   Build the standalone app, record source path, install launcher to ${BIN_HOME}
-  build     Build and install the app to ${APP_DIR}
-  start     Start the installed app (binds ${HOST}:${PORT})
-  stop      Stop the running app
-  status    Show process / paths / URL
-  doctor    Check Node / app / data dirs / port / Agent CLIs
-  backup    Archive data+secure to ${BACKUP_DIR} (contains personal data)
-  restore   Restore from a backup archive (stops the app first)
-  help      Show this help
+  install          Build the standalone app, record source path, install launcher to ${BIN_HOME}
+  install-release  Install from a GitHub Release tarball
+  build            Build and install the app to ${APP_DIR}
+  start            Start the installed app (binds ${HOST}:${PORT})
+  stop             Stop the running app
+  status           Show process / paths / URL
+  doctor           Check Node / app / data dirs / port / Agent CLIs
+  backup           Archive data+secure to ${BACKUP_DIR} (contains personal data)
+  restore          Restore from a backup archive (stops the app first)
+  help             Show this help
 
 Environment:
   EM_APP_DIR            App install dir (default: ${SHARE_HOME}/${APP_NAME}/app)
@@ -324,59 +325,44 @@ cmd_restore() {
 
 cmd_build() {
   ensure_node
-  local root web_dir standalone
+  local root packager
   root="$(require_source)"
-  web_dir="$root/web"
-
-  echo "==> source: $root"
-  echo "==> dependencies (web/)"
-  (
-    cd "$web_dir"
-    if [[ -f package-lock.json ]]; then
-      npm ci
-    else
-      npm install
-    fi
-  )
-
-  echo "==> standalone build (webpack; transformers/onnx を含めるため)"
-  (
-    cd "$web_dir"
-    npm run build:standalone
-  )
-
-  standalone="$web_dir/.next/standalone"
-  if [[ ! -f "$standalone/server.js" ]]; then
-    echo "error: $standalone/server.js がありません。ビルド結果を確認してください。" >&2
+  packager="$SCRIPT_DIR/package-standalone.sh"
+  if [[ ! -f "$packager" ]]; then
+    packager="$root/scripts/package-standalone.sh"
+  fi
+  if [[ ! -f "$packager" ]]; then
+    echo "error: package-standalone.sh がありません" >&2
     exit 1
   fi
+  chmod +x "$packager" 2>/dev/null || true
 
-  echo "==> install app → $APP_DIR"
-  mkdir -p "$APP_DIR"
-  find "$APP_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  cp -a "$standalone"/. "$APP_DIR"/
-
-  mkdir -p "$APP_DIR/.next"
-  rm -rf "$APP_DIR/.next/static"
-  cp -a "$web_dir/.next/static" "$APP_DIR/.next/static"
-
-  if [[ -d "$web_dir/public" ]]; then
-    rm -rf "$APP_DIR/public"
-    cp -a "$web_dir/public" "$APP_DIR/public"
-  fi
-
-  # serverExternalPackages の取りこぼしに備え、ネイティブ依存を明示コピー
-  for pkg in @huggingface/transformers onnxruntime-node onnxruntime-common; do
-    if [[ -e "$web_dir/node_modules/$pkg" ]]; then
-      mkdir -p "$APP_DIR/node_modules/$(dirname "$pkg")"
-      rm -rf "$APP_DIR/node_modules/$pkg"
-      cp -a "$web_dir/node_modules/$pkg" "$APP_DIR/node_modules/$pkg"
-    fi
-  done
+  echo "==> source: $root"
+  EM_SOURCE_ROOT="$root" "$packager" --root "$root" --dest "$APP_DIR"
 
   mkdir -p "$META_DIR"
   printf '%s\n' "$root" >"$SOURCE_ROOT_FILE"
   echo "アプリを配置しました: $APP_DIR"
+}
+
+cmd_install_release() {
+  local archive="${1:-}"
+  local installer="$SCRIPT_DIR/install-release.sh"
+  if [[ -z "$archive" ]]; then
+    echo "Usage: em-ai-team install-release <em-ai-team-*.tar.gz>" >&2
+    exit 1
+  fi
+  if [[ ! -f "$installer" ]]; then
+    # ~/.local/bin にコピーされたランチャーから呼ばれた場合、同梱スクリプトが無い
+    if [[ -f "$SCRIPT_DIR/../install-release.sh" ]]; then
+      installer="$SCRIPT_DIR/../install-release.sh"
+    else
+      echo "error: install-release.sh が見つかりません。tarball 内の ./install.sh を使ってください。" >&2
+      exit 1
+    fi
+  fi
+  chmod +x "$installer" 2>/dev/null || true
+  EM_APP_DIR="$APP_DIR" "$installer" "$archive"
 }
 
 install_launcher() {
@@ -504,6 +490,7 @@ main() {
   shift || true
   case "$cmd" in
     install) cmd_install "$@" ;;
+    install-release) cmd_install_release "$@" ;;
     build) cmd_build "$@" ;;
     start) cmd_start "$@" ;;
     stop) cmd_stop "$@" ;;
