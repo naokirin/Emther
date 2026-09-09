@@ -1229,6 +1229,13 @@ function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
     if (run.sessionId) {
       args.push("--resume", run.sessionId);
     }
+    // ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。設定で
+    // このエージェント種別に系統が指定されていれば渡す。未設定ならclaude CLIの既定に任せる
+    // （挙動を変えないデフォルト）。
+    const modelTier = getRulesAndConstraints().agentModelTiers[run.agentName];
+    if (modelTier) {
+      args.push("--model", modelTier);
+    }
 
     appendLog(run, "meta", run.sessionId ? "エージェントを再開しています…" : "エージェントを起動しています…");
 
@@ -1659,6 +1666,25 @@ export function listRuns(): AgentRun[] {
 
 export function getRun(id: string): AgentRun | undefined {
   return runs.get(id);
+}
+
+// ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents（Inbox一覧）専用の
+// ページ取得。toRunView()はrun.logを全文含めて返すため一覧表示には過剰に重く、runの件数が
+// 増えるほどAPIレスポンスも線形に肥大化する。runFallbackTitle（「📌 Issueにする」クリック時の
+// タイトル自動生成の最終フォールバック）が「先頭の非systemログ行」だけを参照するため、
+// 全ログではなく最大1行だけに切り詰めて返す（表示にも自動生成にも必要十分）。
+export function listRunsPage(
+  filter: { status?: AgentStatus; showDismissed?: boolean },
+  opts: { limit: number; offset: number },
+): { runs: AgentRun[]; total: number } {
+  const all = listRuns()
+    .filter((r) => filter.showDismissed || r.triageStatus !== "dismissed")
+    .filter((r) => !filter.status || r.status === filter.status);
+  const page = all.slice(opts.offset, opts.offset + opts.limit).map((r) => {
+    const firstNonSystemLine = r.log.find((l) => l.channel !== "system");
+    return toRunView({ ...r, log: firstNonSystemLine ? [firstNonSystemLine] : [] });
+  });
+  return { runs: page, total: all.length };
 }
 
 // 個人情報の分離（ユーザー指摘対応）: run.task・ログへ保存する文言は、SQLiteに書き込む

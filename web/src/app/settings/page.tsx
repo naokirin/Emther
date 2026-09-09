@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useSettingsRules } from "@/lib/hooks";
-import { AGENT_OPTIONS, type RulesAndConstraints } from "@/lib/types";
+import { AGENT_OPTIONS, MODEL_TIER_OPTIONS, type ModelTier, type RulesAndConstraints } from "@/lib/types";
 
 // Rules_and_Constraints（Team Vitalsの判定閾値）はOrganization Context（組織のMVVや
 // 体制などの「不動の前提」）とは性質が異なり、アプリの挙動を調整する設定値なので、
@@ -163,6 +163,39 @@ export default function SettingsPage() {
             onChange={(e) => setDraft({ ...draft, journalFactTtlDays: Number(e.target.value) })}
           /></label>
         </div>
+
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル系統</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          claude CLIが呼び出すモデルの系統をエージェント種別ごとに事前に決めておけます。モデルは日々更新されるため、
+          特定バージョンではなく系統名（sonnet/opus/fable/haiku）で指定します。「（CLIの既定のまま）」を選ぶと、
+          claude CLI自身が選ぶ既定モデルのまま動きます。
+        </p>
+        {AGENT_OPTIONS.map((name) => (
+          <div key={name} className={styles.field} style={{ maxWidth: 220 }}>
+            <label>{name}
+            <select
+              value={draft.agentModelTiers[name] ?? ""}
+              onChange={(e) => {
+                const value = e.target.value as ModelTier | "";
+                const next = { ...draft.agentModelTiers };
+                if (value) {
+                  next[name] = value;
+                } else {
+                  delete next[name];
+                }
+                setDraft({ ...draft, agentModelTiers: next });
+              }}
+            >
+              <option value="">（CLIの既定のまま）</option>
+              {MODEL_TIER_OPTIONS.map((tier) => (
+                <option key={tier} value={tier}>
+                  {tier}
+                </option>
+              ))}
+            </select>
+            </label>
+          </div>
+        ))}
 
         <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>

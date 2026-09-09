@@ -7,24 +7,31 @@ import styles from "@/app/page.module.css";
 // 複数のリスト（Issues、Dashboardのジャーナル/Inbox）で同じページネーションUIを
 // 使い回すための共通フック＋コンポーネント。フィルタ自体は各画面固有の条件で
 // items配列を絞り込んでからこのフックへ渡す想定（フィルタロジックはここに含めない）。
-export function usePagination<T>(items: T[], pageSize: number) {
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-  // フィルタ変更で件数が減り、保持していたpageが範囲外になっても
-  // 表示側では自動的に最終ページへ丸める（stateそのものは書き換えない）。
-  const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * pageSize;
-  const pageItems = items.slice(start, start + pageSize);
 
+// ユーザー要望「一覧の全件取得をページネーション化したい」対応。Agent Run/Journal一覧は
+// サーバー側でページ分割・件数集計するようになったため（クライアントは1ページ分の
+// itemsとtotalしか持たない）、ページ番号・表示範囲の算出だけをusePaginationと共有する。
+export function paginationMeta(total: number, page: number, pageSize: number) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  // 件数が減ってpageが範囲外になっても、表示側では自動的に最終ページへ丸める。
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const start = (currentPage - 1) * pageSize;
   return {
     page: currentPage,
-    setPage,
     totalPages,
-    pageItems,
-    total: items.length,
-    rangeStart: items.length === 0 ? 0 : start + 1,
-    rangeEnd: Math.min(start + pageSize, items.length),
+    total,
+    rangeStart: total === 0 ? 0 : start + 1,
+    rangeEnd: Math.min(start + pageSize, total),
   };
+}
+
+export function usePagination<T>(items: T[], pageSize: number) {
+  const [page, setPage] = useState(1);
+  const meta = paginationMeta(items.length, page, pageSize);
+  const start = (meta.page - 1) * pageSize;
+  const pageItems = items.slice(start, start + pageSize);
+
+  return { ...meta, setPage, pageItems };
 }
 
 export function PaginationControls({

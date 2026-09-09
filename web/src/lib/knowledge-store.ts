@@ -170,6 +170,140 @@ export function listEvents(filter?: { entityType?: KnowledgeEntityType; kind?: K
   return rows.map(rowToEvent);
 }
 
+// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。値そのものをSQL文字列へ
+// 連結することはない（常にbind parameter経由）が、LIKEのワイルドカード文字（%・_）は
+// 値の中に含まれると意図しない部分一致を起こすため、リテラルとして扱うためにエスケープする。
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+export type EventPageFilter = {
+  entityType?: KnowledgeEntityType;
+  kind?: KnowledgeKind;
+  // 自由記述検索（text/summary/tags_json/people_jsonへの部分一致）。text/people_jsonは
+  // PERSON_n IDでマスクされた状態で保存されているため、呼び出し側（journal-store.ts）が
+  // 検索語を渡す前にmaskNamesで変換しておくこと。
+  textQuery?: string;
+  // タグ・人物の完全一致フィルタ（JSON配列内の要素として存在するか）。personExactは
+  // PERSON_n ID、tagExactはマスク後のタグ文字列を渡すこと（textQueryと同じ理由）。
+  tagExact?: string;
+  personExact?: string;
+  urgency?: string;
+  sentiment?: string;
+  occurredAtFrom?: number;
+  excludeResolved?: boolean;
+  excludeSuperseded?: boolean;
+};
+
+function buildEventPageWhere(filter: EventPageFilter): { where: string; params: (string | number)[] } {
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+  if (filter.entityType) {
+    conditions.push("entity_type = ?");
+    params.push(filter.entityType);
+  }
+  if (filter.kind) {
+    conditions.push("kind = ?");
+    params.push(filter.kind);
+  }
+  if (filter.urgency) {
+    conditions.push("urgency = ?");
+    params.push(filter.urgency);
+  }
+  if (filter.sentiment) {
+    conditions.push("sentiment = ?");
+    params.push(filter.sentiment);
+  }
+  if (filter.occurredAtFrom !== undefined) {
+    conditions.push("occurred_at >= ?");
+    params.push(filter.occurredAtFrom);
+  }
+  if (filter.textQuery) {
+    const like = `%${escapeLike(filter.textQuery)}%`;
+    conditions.push("(text LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR tags_json LIKE ? ESCAPE '\\' OR people_json LIKE ? ESCAPE '\\')");
+    params.push(like, like, like, like);
+  }
+  if (filter.tagExact) {
+    conditions.push("tags_json LIKE ? ESCAPE '\\'");
+    params.push(`%"${escapeLike(filter.tagExact)}"%`);
+  }
+  if (filter.personExact) {
+    conditions.push("people_json LIKE ? ESCAPE '\\'");
+    params.push(`%"${escapeLike(filter.personExact)}"%`);
+  }
+  if (filter.excludeResolved) {
+    conditions.push("resolved_issue_id IS NULL AND (resolution_note IS NULL OR resolution_note = '')");
+  }
+  if (filter.excludeSuperseded) {
+    conditions.push("id NOT IN (SELECT supersedes FROM knowledge_events WHERE supersedes IS NOT NULL)");
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return { where, params };
+}
+
+// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。listEvents()は常に全件を
+// 返すため、件数が増えるほどAPIレスポンス・パース・マスク処理のコストが線形に増加する。
+// こちらはWHERE句・LIMIT/OFFSETをSQL側で組み立て、該当ページ分の行と総件数だけを返す。
+export function listEventsPage(
+  filter: EventPageFilter,
+  opts: { limit: number; offset: number },
+): { events: KnowledgeEvent[]; total: number } {
+  const { where, params } = buildEventPageWhere(filter);
+  const totalRow = getDb().prepare(`SELECT COUNT(*) as c FROM knowledge_events ${where}`).get(...params) as { c: number };
+  const rows = getDb()
+    .prepare(`SELECT * FROM knowledge_events ${where} ORDER BY occurred_at DESC, recorded_at DESC LIMIT ? OFFSET ?`)
+    .all(...params, opts.limit, opts.offset) as unknown as Row[];
+  return { events: rows.map(rowToEvent), total: totalRow.c };
+}
+
+// ユーザー指摘「Dashboardから特定のJournalエントリへ直接飛ぶ深いリンクを、ページネーション後も
+// 保ちたい」対応。対象イベントが、同じfilter・並び順（occurred_at DESC, recorded_at DESC）の
+// 何件目（0-indexed）に位置するかを1クエリで求める。クライアント側で全件を走査してインデックスを
+// 探す必要をなくす。
+export function findEventOffset(target: { occurredAt: number; recordedAt: number }, filter: EventPageFilter): number {
+  const { where, params } = buildEventPageWhere(filter);
+  const orderCondition = "(occurred_at > ? OR (occurred_at = ? AND recorded_at > ?))";
+  const combinedWhere = where ? `${where} AND ${orderCondition}` : `WHERE ${orderCondition}`;
+  const row = getDb()
+    .prepare(`SELECT COUNT(*) as c FROM knowledge_events ${combinedWhere}`)
+    .get(...params, target.occurredAt, target.occurredAt, target.recordedAt) as { c: number };
+  return row.c;
+}
+
+// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。絞り込みドロップダウン
+// （タグ・人物）の選択肢一覧。listEvents()（SELECT *）と違い、tags_json/people_jsonの
+// 2カラムだけを読むため、件数が増えても本文・要約等の重いフィールドを読み込まずに済む。
+export function listEventFacets(filter: {
+  entityType?: KnowledgeEntityType;
+  kind?: KnowledgeKind;
+  excludeSuperseded?: boolean;
+}): { tags: string[]; people: string[] } {
+  const conditions: string[] = [];
+  const params: string[] = [];
+  if (filter.entityType) {
+    conditions.push("entity_type = ?");
+    params.push(filter.entityType);
+  }
+  if (filter.kind) {
+    conditions.push("kind = ?");
+    params.push(filter.kind);
+  }
+  if (filter.excludeSuperseded) {
+    conditions.push("id NOT IN (SELECT supersedes FROM knowledge_events WHERE supersedes IS NOT NULL)");
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = getDb()
+    .prepare(`SELECT tags_json, people_json FROM knowledge_events ${where}`)
+    .all(...params) as { tags_json: string; people_json: string }[];
+  const tags = new Set<string>();
+  const people = new Set<string>();
+  for (const row of rows) {
+    for (const t of JSON.parse(row.tags_json) as string[]) tags.add(t);
+    for (const p of JSON.parse(row.people_json) as string[]) people.add(p);
+  }
+  return { tags: Array.from(tags), people: Array.from(people) };
+}
+
 // TTL切れかどうかの判定。ttlDaysが無い場合は常にfalse（＝常に有効＝長期解釈・公式方針）。
 export function isEventExpired(event: KnowledgeEvent, now = Date.now()): boolean {
   if (event.ttlDays === undefined) return false;

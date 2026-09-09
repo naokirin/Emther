@@ -537,6 +537,46 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.listRuns().map((r) => r.id)).toEqual(["run-new", "run-old"]);
   });
 
+  it("listRunsPageはフィルタ・ページングした結果とtotalを返す", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "run-1", created_at: 5, status: "idle" });
+    insertRunRow(getDb(), { id: "run-2", created_at: 4, status: "yield" });
+    insertRunRow(getDb(), { id: "run-3", created_at: 3, status: "idle" });
+    insertRunRow(getDb(), { id: "run-4", created_at: 2, status: "idle", triage_status: "dismissed" });
+    const rt = await loadModule();
+
+    const page1 = rt.listRunsPage({}, { limit: 2, offset: 0 });
+    expect(page1.runs.map((r) => r.id)).toEqual(["run-1", "run-2"]);
+    // 却下(dismissed)は既定で除外されるため、total 4件中3件が対象。
+    expect(page1.total).toBe(3);
+
+    const page2 = rt.listRunsPage({}, { limit: 2, offset: 2 });
+    expect(page2.runs.map((r) => r.id)).toEqual(["run-3"]);
+
+    const statusFiltered = rt.listRunsPage({ status: "yield" }, { limit: 10, offset: 0 });
+    expect(statusFiltered.runs.map((r) => r.id)).toEqual(["run-2"]);
+
+    const withDismissed = rt.listRunsPage({ showDismissed: true }, { limit: 10, offset: 0 });
+    expect(withDismissed.total).toBe(4);
+  });
+
+  it("listRunsPageはrun.logを先頭の非systemログ行1件までに切り詰める", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "run-1" });
+    getDb()
+      .prepare("INSERT INTO agent_run_logs (run_id, ts, channel, text) VALUES (?, ?, ?, ?)")
+      .run("run-1", 1, "system", "起動しています…");
+    getDb()
+      .prepare("INSERT INTO agent_run_logs (run_id, ts, channel, text) VALUES (?, ?, ?, ?)")
+      .run("run-1", 2, "agent", "検討中の結論その1");
+    getDb()
+      .prepare("INSERT INTO agent_run_logs (run_id, ts, channel, text) VALUES (?, ?, ?, ?)")
+      .run("run-1", 3, "agent", "検討中の結論その2");
+    const rt = await loadModule();
+    const { runs } = rt.listRunsPage({}, { limit: 10, offset: 0 });
+    expect(runs[0].log).toEqual([expect.objectContaining({ text: "検討中の結論その1" })]);
+  });
+
   it("toRunViewはPERSON_n IDを実名に復元する", async () => {
     const peopleDirectory = await import("@/lib/people-directory");
     const id = peopleDirectory.registerName("Aさん");
@@ -623,6 +663,25 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.totalCostUsd).toBeCloseTo(0.02);
     expect(finished.proposal?.conclusion).toBe("対応を継続");
     expect(finished.log.some((l) => l.channel === "agent" && l.text === "検討しています…")).toBe(true);
+  });
+
+  it("設定でエージェント種別にモデル系統が指定されていれば--modelを渡す", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agentModelTiers: { "Lead Agent": "opus" } });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "障害対応の方針を決めたい");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].args).toContain("--model");
+    expect(spawnCalls[0].args[spawnCalls[0].args.indexOf("--model") + 1]).toBe("opus");
+  });
+
+  it("設定でモデル系統が未指定のエージェントは--modelを渡さない", async () => {
+    const rt = await loadModule();
+    await rt.startRun("People Agent", "1on1の頻度を決めたい");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].args).not.toContain("--model");
   });
 
   it("claudeがyieldブロックを返した場合、statusがyieldになる", async () => {

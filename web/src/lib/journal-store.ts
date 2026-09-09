@@ -1,7 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
-import { recordEvent, listEvents, getEventById, type KnowledgeEvent } from "@/lib/knowledge-store";
+import { getPersonId, maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import {
+  recordEvent,
+  listEvents,
+  listEventsPage,
+  findEventOffset,
+  listEventFacets,
+  getEventById,
+  type EventPageFilter,
+  type KnowledgeEvent,
+} from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { startRun } from "@/lib/agent-runtime";
@@ -260,6 +269,70 @@ export function listJournalEntries(): JournalEntry[] {
   // 修正した）版だけを一覧から除外する。履歴自体はSQLiteに残り続ける（削除しない）。
   const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
   return events.filter((e) => !supersededIds.has(e.id)).map(eventToJournalEntry);
+}
+
+// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
+// 専用の検索フィルタ。query/tag/personはEM向けの実名表示のまま受け取り、内部で
+// マスク後の表現（PERSON_n ID・マスク済みタグ）へ変換してからSQLへ渡す
+// （knowledge_events.text/tags_json/people_jsonはマスクされた状態で保存されているため）。
+export type JournalListFilter = {
+  query?: string;
+  tag?: string;
+  person?: string;
+  urgency?: Urgency;
+  sentiment?: Sentiment;
+  sinceMs?: number;
+  excludeResolved?: boolean;
+};
+
+// 未登録の人物名（people-directoryにgetPersonIdで見つからない名前）が渡された場合、
+// personExactをundefinedのまま返すとフィルタ自体が適用されず「絞り込み無し＝全件」に
+// なってしまう（buildEventPageWhereはundefinedの条件をスキップするため）。どのPERSON_n IDにも
+// 一致しない値を渡すことで、意図通り「該当なし」を返す。
+const UNKNOWN_PERSON_SENTINEL = "__unknown_person__";
+
+function toEventFilter(filter: JournalListFilter): EventPageFilter {
+  return {
+    entityType: "journal",
+    kind: "fact",
+    textQuery: filter.query ? maskNames(filter.query) : undefined,
+    tagExact: filter.tag ? maskNames(filter.tag) : undefined,
+    personExact: filter.person ? (getPersonId(filter.person) ?? UNKNOWN_PERSON_SENTINEL) : undefined,
+    urgency: filter.urgency,
+    sentiment: filter.sentiment,
+    occurredAtFrom: filter.sinceMs,
+    excludeResolved: filter.excludeResolved,
+    excludeSuperseded: true,
+  };
+}
+
+export function listJournalEntriesPage(
+  filter: JournalListFilter,
+  opts: { limit: number; offset: number },
+): { entries: JournalEntry[]; total: number } {
+  const { events, total } = listEventsPage(toEventFilter(filter), opts);
+  return { entries: events.map(eventToJournalEntry), total };
+}
+
+// ユーザー指摘「Dashboardの『Journal未確認』から/journalへ飛んだ際、そのエントリが
+// 載っているページへ自動的に移動したい」対応。ページネーション後もこの深いリンクを保つため、
+// 対象エントリが現在のフィルタ・並び順で何件目に位置するかをサーバー側で求める。
+// フィルタに合致しない（別のtag/urgency等で絞り込み中）場合はundefinedを返す。
+export function findJournalEntryOffset(id: string, filter: JournalListFilter): number | undefined {
+  const target = getEventById(id);
+  if (!target || target.entityType !== "journal") return undefined;
+  return findEventOffset({ occurredAt: target.occurredAt, recordedAt: target.recordedAt }, toEventFilter(filter));
+}
+
+// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。絞り込みドロップダウン
+// （タグ・人物）用の選択肢一覧。全件からの重複排除が必要なため、これ自体は全行を
+// 走査するが、読むのはtags_json/people_jsonの2カラムのみ（本文・要約等は含まない）。
+export function listJournalFacets(): { tags: string[]; people: string[] } {
+  const { tags, people } = listEventFacets({ entityType: "journal", kind: "fact", excludeSuperseded: true });
+  return {
+    tags: tags.map(unmaskNames).sort((a, b) => a.localeCompare(b, "ja")),
+    people: people.map(unmaskNames).sort((a, b) => a.localeCompare(b, "ja")),
+  };
 }
 
 // docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、

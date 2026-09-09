@@ -4,10 +4,10 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
-import { PaginationControls, usePagination } from "@/components/Pagination";
+import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
-import { useJournal, useJournalEditing } from "@/lib/hooks";
-import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
+import { useJournalEditing, useJournalSearch } from "@/lib/hooks";
+import type { JournalEntry } from "@/lib/types";
 
 const PAGE_SIZE = 10;
 
@@ -32,22 +32,6 @@ const SENTIMENT_FILTER_OPTIONS = [
   { value: "negative", label: "ネガティブ" },
 ];
 
-// docs/memo.md TODO「Quick Journal を人間側が後からリスト確認・検索しにくいUIになっている。
-// ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalをリスト確認・検索できる
-// 画面を追加する」対応。Dashboardは直近5件のみを表示し、全件の横断検索・絞り込みは
-// この画面に寄せる。検索・絞り込みはIssue一覧と同じくクライアント側フィルタ
-// （単一ローカルユーザー規模のため、専用の検索APIは導入しない）。
-function matchesQuery(entry: JournalEntry, query: string): boolean {
-  if (!query) return true;
-  const lower = query.toLowerCase();
-  return (
-    entry.rawText.toLowerCase().includes(lower) ||
-    entry.summary.toLowerCase().includes(lower) ||
-    entry.tags.some((t) => t.toLowerCase().includes(lower)) ||
-    entry.people.some((p) => p.toLowerCase().includes(lower))
-  );
-}
-
 export default function JournalListPage() {
   return (
     <Suspense fallback={null}>
@@ -61,12 +45,13 @@ export default function JournalListPage() {
 // `?focus=<journalEntryId>`が付いている場合、そのエントリが載っているページへ自動的に
 // 移動し、編集モードまで自動的に開く（EMは中身を確認して「この内容で確定」を押すだけで
 // 完結する）。
+//
+// ユーザー要望「一覧の全件取得をページネーション化したい」対応。検索・絞り込み・ページ送りは
+// すべてサーバー側（/api/journal/search）で行う。focusIdが指すエントリの「何ページ目か」も
+// サーバー側で解決し（findJournalEntryOffset）、クライアントでの全件走査は行わない。
 function JournalListPageInner() {
   const searchParams = useSearchParams();
   const focusId = searchParams.get("focus");
-
-  const { journalEntries, setJournalEntries } = useJournal();
-  const editing = useJournalEditing(journalEntries, setJournalEntries);
 
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -77,38 +62,47 @@ function JournalListPageInner() {
   // ユーザー指摘「対応済みを除外するフィルタを追加してほしい」対応。対応済みの定義は
   // JournalEntryCard.tsxの「✅ 対応済み」表示と同じ（isJournalEntryResolved）。
   const [excludeResolved, setExcludeResolved] = useState(false);
-  // レンダー中にDate.now()を直接呼ばない（react-hooks/purity）ため、マウント時の1回だけ
-  // 遅延初期化で取得する。日単位の期間フィルタなので、この程度の鮮度で十分。
-  const [now] = useState(() => Date.now());
+  const [page, setPage] = useState(1);
 
-  const allTags = Array.from(new Set(journalEntries.flatMap((e) => e.tags))).sort((a, b) => a.localeCompare(b, "ja"));
-  const allPeople = Array.from(new Set(journalEntries.flatMap((e) => e.people))).sort((a, b) => a.localeCompare(b, "ja"));
+  // フィルタが変わったら1ページ目に戻す（サーバー側の総件数が変わり、保持していた
+  // ページ番号が範囲外になりうるため）。
+  function updateFilter<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setPage(1);
+    };
+  }
 
-  const filtered = journalEntries.filter((entry) => {
-    if (!matchesQuery(entry, query)) return false;
-    if (tagFilter && !entry.tags.includes(tagFilter)) return false;
-    if (personFilter && !entry.people.includes(personFilter)) return false;
-    if (urgencyFilter && entry.urgency !== urgencyFilter) return false;
-    if (sentimentFilter && entry.sentiment !== sentimentFilter) return false;
-    if (periodDays !== "all" && now - entry.createdAt > Number(periodDays) * 24 * 60 * 60 * 1000) return false;
-    if (excludeResolved && isJournalEntryResolved(entry)) return false;
-    return true;
-  });
-
-  const pagination = usePagination(filtered, PAGE_SIZE);
-
-  // focusIdが指すエントリのページへ自動的に移動し、編集モードを開く。issue詳細画面の
-  // syncedIssueIdと同じ理由（journalEntriesはポーリングでの非同期取得のため、初回レンダー
-  // 時点では対象エントリがまだ無い）でuseEffectは使わず、レンダー中に前回のfocusIdと
-  // 比較して同期する。エントリがまだ読み込まれていない間は何もせず、次のレンダーで
-  // 再評価される。
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
-  if (focusId && focusId !== appliedFocusId) {
-    const targetIndex = filtered.findIndex((e) => e.id === focusId);
-    if (targetIndex !== -1) {
-      setAppliedFocusId(focusId);
-      pagination.setPage(Math.floor(targetIndex / PAGE_SIZE) + 1);
-      editing.startEditing(filtered[targetIndex]);
+  const activeFocusId = focusId && focusId !== appliedFocusId ? focusId : null;
+
+  const { entries, total, resolvedPage, facets, setEntries } = useJournalSearch(
+    {
+      query,
+      tag: tagFilter,
+      person: personFilter,
+      urgency: urgencyFilter,
+      sentiment: sentimentFilter,
+      periodDays,
+      excludeResolved,
+    },
+    page,
+    PAGE_SIZE,
+    activeFocusId,
+  );
+  const editing = useJournalEditing(entries, setEntries);
+  const pagination = paginationMeta(total, activeFocusId ? resolvedPage : page, PAGE_SIZE);
+
+  // focusIdが指すエントリがサーバーから返ってきたら、ページ番号をそちらへ同期し、
+  // 編集モードを開く。journalEntriesはポーリングでの非同期取得のため、初回レンダー時点では
+  // まだ対象エントリが無いことがある（issue詳細画面のsyncedIssueIdと同じ理由でuseEffectは
+  // 使わず、レンダー中に前回のfocusIdと比較して同期する）。
+  if (activeFocusId) {
+    const target = entries.find((e) => e.id === activeFocusId);
+    if (target) {
+      setAppliedFocusId(activeFocusId);
+      setPage(resolvedPage);
+      editing.startEditing(target);
     }
   }
 
@@ -132,19 +126,24 @@ function JournalListPageInner() {
       <div className={styles.panel}>
         <div className={styles.field}>
           <label>キーワード検索（本文・要約・タグ・人物）
-          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例: リファクタリング" /></label>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => updateFilter(setQuery)(e.target.value)}
+            placeholder="例: リファクタリング"
+          /></label>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             期間:
-            <Select value={periodDays} onChange={setPeriodDays} options={PERIOD_OPTIONS} style={{ minWidth: 140 }} />
+            <Select value={periodDays} onChange={updateFilter(setPeriodDays)} options={PERIOD_OPTIONS} style={{ minWidth: 140 }} />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             人物:
             <Select
               value={personFilter}
-              onChange={setPersonFilter}
-              options={[{ value: "", label: "すべて" }, ...allPeople.map((p) => ({ value: p, label: p }))]}
+              onChange={updateFilter(setPersonFilter)}
+              options={[{ value: "", label: "すべて" }, ...facets.people.map((p) => ({ value: p, label: p }))]}
               style={{ minWidth: 140 }}
             />
           </label>
@@ -152,8 +151,8 @@ function JournalListPageInner() {
             タグ:
             <Select
               value={tagFilter}
-              onChange={setTagFilter}
-              options={[{ value: "", label: "すべて" }, ...allTags.map((t) => ({ value: t, label: `#${t}` }))]}
+              onChange={updateFilter(setTagFilter)}
+              options={[{ value: "", label: "すべて" }, ...facets.tags.map((t) => ({ value: t, label: `#${t}` }))]}
               style={{ minWidth: 140 }}
             />
           </label>
@@ -161,7 +160,7 @@ function JournalListPageInner() {
             Urgency:
             <Select
               value={urgencyFilter}
-              onChange={(v) => setUrgencyFilter(v as JournalEntry["urgency"] | "")}
+              onChange={updateFilter((v: string) => setUrgencyFilter(v as JournalEntry["urgency"] | ""))}
               options={URGENCY_FILTER_OPTIONS}
               style={{ minWidth: 120 }}
             />
@@ -170,23 +169,27 @@ function JournalListPageInner() {
             感情:
             <Select
               value={sentimentFilter}
-              onChange={(v) => setSentimentFilter(v as JournalEntry["sentiment"] | "")}
+              onChange={updateFilter((v: string) => setSentimentFilter(v as JournalEntry["sentiment"] | ""))}
               options={SENTIMENT_FILTER_OPTIONS}
               style={{ minWidth: 140 }}
             />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-            <input type="checkbox" checked={excludeResolved} onChange={(e) => setExcludeResolved(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={excludeResolved}
+              onChange={(e) => updateFilter(setExcludeResolved)(e.target.checked)}
+            />
             ✅ 対応済みを除外
           </label>
         </div>
       </div>
 
       <div className={styles.panel} style={{ marginTop: 16 }}>
-        {filtered.length === 0 ? (
+        {entries.length === 0 ? (
           <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
         ) : (
-          pagination.pageItems.map((entry) => (
+          entries.map((entry) => (
             <div key={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
               <JournalEntryCard
                 entry={entry}
@@ -224,7 +227,7 @@ function JournalListPageInner() {
           total={pagination.total}
           rangeStart={pagination.rangeStart}
           rangeEnd={pagination.rangeEnd}
-          onChange={pagination.setPage}
+          onChange={setPage}
         />
       </div>
     </div>

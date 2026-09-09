@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { STATUS_META, StatusBadge, runKindLabel, type AgentRun, type AgentStatus } from "@/components/RunDetail";
-import { PaginationControls, usePagination } from "@/components/Pagination";
+import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
-import { useGoToRunIssue, useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { useGoToRunIssue, useIssues, useRuns, useRunsInbox, useSettingsRules } from "@/lib/hooks";
 import { AGENT_OPTIONS, isRunStale } from "@/lib/types";
 
 // docs/em_ui_ux_issue.md「ダッシュボードの簡素化」対応。旧「今日」タブに同居していた
@@ -69,10 +69,26 @@ export default function AgentsPage() {
   // ユーザー指摘「『今日』の判断待ちで却下のものも並ぶので、フィルタとして却下を非表示にしたい。
   // また却下のものはデフォルトで非表示となるようにしたい」対応。
   const [showDismissedRuns, setShowDismissedRuns] = useState(false);
-  const filteredRuns = runs
-    .filter((r) => showDismissedRuns || r.triageStatus !== "dismissed")
-    .filter((r) => !statusFilter || r.status === statusFilter);
-  const inboxPagination = usePagination(filteredRuns, INBOX_PAGE_SIZE);
+  // ユーザー要望「一覧の全件取得をページネーション化したい」対応。フィルタ・ページ番号を
+  // サーバーへ渡し、そのページ分のrunsだけを受け取る（Fleet状態・Activity Streamは
+  // 引き続き上のuseRuns()＝全件取得のまま。今回のスコープ外）。
+  const [inboxPage, setInboxPage] = useState(1);
+  const { runs: inboxRuns, total: inboxTotal } = useRunsInbox(
+    { status: statusFilter, showDismissed: showDismissedRuns },
+    inboxPage,
+    INBOX_PAGE_SIZE,
+  );
+  const inboxMeta = paginationMeta(inboxTotal, inboxPage, INBOX_PAGE_SIZE);
+
+  function handleStatusFilterChange(v: AgentStatus | "") {
+    setStatusFilter(v);
+    setInboxPage(1);
+  }
+
+  function handleShowDismissedChange(v: boolean) {
+    setShowDismissedRuns(v);
+    setInboxPage(1);
+  }
 
   async function handleStart(e: React.FormEvent) {
     e.preventDefault();
@@ -223,7 +239,7 @@ export default function AgentsPage() {
             状態で絞り込み:
             <Select
               value={statusFilter}
-              onChange={(v) => setStatusFilter(v as AgentStatus | "")}
+              onChange={(v) => handleStatusFilterChange(v as AgentStatus | "")}
               options={STATUS_FILTER_OPTIONS}
               style={{ minWidth: 180 }}
             />
@@ -232,7 +248,7 @@ export default function AgentsPage() {
             <input
               type="checkbox"
               checked={showDismissedRuns}
-              onChange={(e) => setShowDismissedRuns(e.target.checked)}
+              onChange={(e) => handleShowDismissedChange(e.target.checked)}
             />
             🗑️ 却下も表示
           </label>
@@ -249,14 +265,14 @@ export default function AgentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRuns.length === 0 && (
+              {inboxTotal === 0 && (
                 <tr>
                   <td colSpan={4} className={styles.tableEmpty}>
                     条件に一致するエージェントはありません。
                   </td>
                 </tr>
               )}
-              {inboxPagination.pageItems.map((run) => {
+              {inboxRuns.map((run) => {
                 const linked = issues.some((i) => i.agentRunId === run.id);
                 return (
                   <tr key={run.id}>
@@ -290,12 +306,12 @@ export default function AgentsPage() {
           </table>
         </div>
         <PaginationControls
-          page={inboxPagination.page}
-          totalPages={inboxPagination.totalPages}
-          total={inboxPagination.total}
-          rangeStart={inboxPagination.rangeStart}
-          rangeEnd={inboxPagination.rangeEnd}
-          onChange={inboxPagination.setPage}
+          page={inboxMeta.page}
+          totalPages={inboxMeta.totalPages}
+          total={inboxMeta.total}
+          rangeStart={inboxMeta.rangeStart}
+          rangeEnd={inboxMeta.rangeEnd}
+          onChange={setInboxPage}
         />
       </div>
     </div>

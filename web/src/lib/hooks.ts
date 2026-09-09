@@ -153,6 +153,22 @@ export function useRuns(intervalMs = 1500) {
   return { runs: data.runs, setRuns: (runs: AgentRun[]) => setData({ runs }), refreshRuns: refresh };
 }
 
+// ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents画面のInbox一覧専用。
+// useRuns()（全件取得、Fleet状態・Activity Stream用に据え置き）とは別に、フィルタ＋ページ番号を
+// クエリパラメータとして都度APIへ渡し、そのページ分のrunsとtotalだけを受け取る。
+export function useRunsInbox(filter: { status: string; showDismissed: boolean }, page: number, pageSize: number, intervalMs = 1500) {
+  const params = new URLSearchParams();
+  if (filter.status) params.set("status", filter.status);
+  if (filter.showDismissed) params.set("showDismissed", "1");
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+
+  type Result = { runs: AgentRun[]; total: number; page: number; pageSize: number };
+  const fallback: Result = { runs: [], total: 0, page: 1, pageSize };
+  const { data, refresh } = usePolling<Result>(`/api/agents/inbox?${params.toString()}`, fallback, intervalMs);
+  return { runs: data.runs, total: data.total, refreshInbox: refresh };
+}
+
 export function useIssues(intervalMs = 3000) {
   const { data, setData, refresh } = usePolling<{ issues: Issue[] }>(
     "/api/issues",
@@ -177,6 +193,61 @@ export function useJournal(intervalMs = 5000) {
     setJournalEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) =>
       setData((prev) => ({ entries: typeof entries === "function" ? entries(prev.entries) : entries })),
     refreshJournal: refresh,
+  };
+}
+
+// ユーザー要望「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
+// 専用。useJournal()（全件取得、Dashboard・Organization Context画面のチームVitals集計用に
+// 据え置き）とは別に、フィルタ・ページ番号をクエリパラメータとして都度APIへ渡し、
+// そのページ分のentries・total・絞り込みドロップダウン用facetsだけを受け取る。
+export type JournalSearchFilter = {
+  query: string;
+  tag: string;
+  person: string;
+  urgency: string;
+  sentiment: string;
+  periodDays: string;
+  excludeResolved: boolean;
+};
+
+export function useJournalSearch(
+  filter: JournalSearchFilter,
+  page: number,
+  pageSize: number,
+  focusId: string | null,
+  intervalMs = 5000,
+) {
+  const params = new URLSearchParams();
+  if (filter.query) params.set("query", filter.query);
+  if (filter.tag) params.set("tag", filter.tag);
+  if (filter.person) params.set("person", filter.person);
+  if (filter.urgency) params.set("urgency", filter.urgency);
+  if (filter.sentiment) params.set("sentiment", filter.sentiment);
+  if (filter.periodDays !== "all") params.set("periodDays", filter.periodDays);
+  if (filter.excludeResolved) params.set("excludeResolved", "1");
+  if (focusId) params.set("focusId", focusId);
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+
+  type Result = {
+    entries: JournalEntry[];
+    total: number;
+    page: number;
+    pageSize: number;
+    facets: { tags: string[]; people: string[] };
+  };
+  const fallback: Result = { entries: [], total: 0, page: 1, pageSize, facets: { tags: [], people: [] } };
+  const { data, setData, refresh } = usePolling<Result>(`/api/journal/search?${params.toString()}`, fallback, intervalMs);
+  return {
+    entries: data.entries,
+    total: data.total,
+    resolvedPage: data.page,
+    facets: data.facets,
+    // useJournalEditing（Dashboard/journal一覧で共有する編集ロジック）はsetJournalEntriesを
+    // 関数形式（前回値を起点に更新）でも呼ぶため、useJournal()の実装と同じ形にしておく。
+    setEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) =>
+      setData((prev) => ({ ...prev, entries: typeof entries === "function" ? entries(prev.entries) : entries })),
+    refreshSearch: refresh,
   };
 }
 
@@ -477,6 +548,7 @@ export function useSettingsRules(intervalMs = 8000) {
       decisionQueueLimit: 3,
       observationQueueLimit: 6,
       staleInterventionDays: 14,
+      agentModelTiers: {},
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

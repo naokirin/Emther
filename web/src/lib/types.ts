@@ -150,6 +150,9 @@ export type RulesAndConstraints = {
   // 「観測不足」として朝キューに再浮上させるかの閾値。既定14日は過去のP1-10対応でのチューニング
   // 値を維持し、EMが好みに応じて短くできるようにする。
   staleInterventionDays: number;
+  // AGENT_OPTIONSの値をキーにした、エージェント種別ごとのモデル系統指定。キーが無い
+  // （または値が空文字列の）エージェントはclaude CLIの既定モデルのまま動く。
+  agentModelTiers: Partial<Record<string, ModelTier>>;
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
@@ -280,6 +283,15 @@ export const YIELD_KIND_META: Record<YieldKind, { icon: string; label: string; d
 // docs/memo.md「F. Product Agentの追加」対応。People(人)/Process(組織運営)/Tech(実装)の
 // 3象限に、Product(顧客価値・優先順位・ロードマップ)を足して4象限を埋める。
 export const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent", "Product Agent"];
+
+// ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。Claude Codeの
+// 「計画立案はOpus、単純な分析はSonnet」のような使い分けに倣い、エージェント種別ごとに
+// モデルの"系統"（claude CLIの--modelが受け付けるエイリアス）を指定できるようにする。
+// モデルは日々更新されるため、特定バージョン（例: claude-sonnet-5-20260101）ではなく
+// 系統名にとどめる。空文字列は「claude CLIの既定モデルのまま」を意味し、既定値
+//（DEFAULT_RULES.agentModelTiers = {}）では全エージェントが未設定＝既存の挙動を変えない。
+export const MODEL_TIER_OPTIONS = ["sonnet", "opus", "fable", "haiku"] as const;
+export type ModelTier = (typeof MODEL_TIER_OPTIONS)[number];
 
 // docs/memo.md「G. Issueに『介入の型』を足す」対応。実装タスク箱ではなく「仕組み・人・組織への
 // 介入」へIssueの切り口を寄せるためのプリセット。保存先は既存のtags（新規フィールドは増やさない）で、
