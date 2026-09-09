@@ -13,9 +13,9 @@
 // `--workspace` が絶対パス読み取りを防げないことは実機検証済みのため、
 // プロジェクト外・権限が効く場所に置く方針は維持する。
 // 名前の登録元は、チームメンバー追加・Journal校正でEMが明示した人物・People画面の
-// 手動登録に限定する。ローカルNERの検出結果では自動登録しない（誤登録が
-// assertNoRealNamesLeaked を誤発火させ Agent 送信を止めるため）。NERは未登録候補の
-// 提示と「未マスクのまま進めてよいか」確認にだけ使う。
+// 手動登録・人名候補ダイアログでの「人名として登録」に限定する。ローカルNERの検出結果
+// では自動登録しない（誤登録が assertNoRealNamesLeaked を誤発火させ Agent 送信を
+// 止めるため）。NERは未登録候補の提示と確認にだけ使う。
 
 import { loadSecureJSON, saveSecureJSON } from "@/lib/persistence";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
@@ -53,10 +53,63 @@ function persist(): void {
 // 扱う。
 export type PersonRecord = { id: string; name: string; aliases: string[] };
 
+// 「田中さん」「田中くん」「田中」を同一人物として扱うための敬称正規化。
+// 表示用の正式名は登録時の表記を保持し、照合・マスク時だけ敬称を吸収する。
+const PERSON_HONORIFICS = ["さん", "くん", "ちゃん", "様", "氏", "君"] as const;
+const HONORIFIC_SUFFIX_RE = /(?:さん|くん|ちゃん|様|氏|君)$/;
+/** マスク用に bare 形を載せる最小文字数（1文字は誤マスクが多すぎる） */
+const MIN_BARE_NAME_LENGTH_FOR_MASK = 2;
+
+export function stripPersonHonorific(name: string): string {
+  return name.trim().replace(HONORIFIC_SUFFIX_RE, "").trim();
+}
+
+function findIdByAnyForm(name: string): string | undefined {
+  const trimmed = name.trim();
+  if (!trimmed) return undefined;
+  const exact = nameToId.get(trimmed);
+  if (exact) return exact;
+  const bare = stripPersonHonorific(trimmed);
+  if (!bare) return undefined;
+  for (const [n, id] of nameToId.entries()) {
+    if (stripPersonHonorific(n) === bare) return id;
+  }
+  return undefined;
+}
+
+/** 登録済み表記に加え、敬称付き／なしの揺れも同一IDへマップする（永続化はしない）。 */
+function buildMaskMapping(): Map<string, string> {
+  const mapping = new Map(nameToId);
+  const bareToId = new Map<string, string>();
+  for (const [n, id] of nameToId.entries()) {
+    const bare = stripPersonHonorific(n);
+    if (!bare) continue;
+    if (!bareToId.has(bare)) bareToId.set(bare, id);
+  }
+  for (const [bare, id] of bareToId.entries()) {
+    // bare 単体は2文字以上のみ（1文字は誤マスクが多い）。敬称付きは常に載せる。
+    if (bare.length >= MIN_BARE_NAME_LENGTH_FOR_MASK && !mapping.has(bare)) {
+      mapping.set(bare, id);
+    }
+    for (const h of PERSON_HONORIFICS) {
+      const form = `${bare}${h}`;
+      if (!mapping.has(form)) mapping.set(form, id);
+    }
+  }
+  return mapping;
+}
+
 export function registerName(name: string): string {
   const trimmed = name.trim();
-  const existing = nameToId.get(trimmed);
-  if (existing) return existing;
+  const existing = findIdByAnyForm(trimmed);
+  if (existing) {
+    // 敬称違いの新表記は別名として残し、以後その表記でもマスクできるようにする
+    if (trimmed && !nameToId.has(trimmed)) {
+      nameToId.set(trimmed, existing);
+      persist();
+    }
+    return existing;
+  }
 
   counter += 1;
   const id = `PERSON_${counter}`;
@@ -87,8 +140,9 @@ function replaceAllAtOnce(text: string, mapping: Map<string, string>): string {
 
 // 名前をIDに置換する。同じ長さ・重なり合う候補がある場合は長い名前を優先する
 // （例: "Aさん"と"A"を両方登録していても、"Aさん"が先に一致する）。
+// 敬称の有無・違い（さん／くん等）は buildMaskMapping で吸収する。
 export function maskNames(text: string): string {
-  return replaceAllAtOnce(text, nameToId);
+  return replaceAllAtOnce(text, buildMaskMapping());
 }
 
 // IDを実名に戻す。IDは"PERSON_1", "PERSON_10", "PERSON_11"のように採番されるため、
@@ -140,8 +194,15 @@ export function addAlias(id: string, aliasName: string): { ok: true } | { ok: fa
   const canonical = idToName.get(id);
   if (canonical === undefined) return { ok: false, error: "対象の人物が見つかりません" };
   if (canonical === trimmed) return { ok: false, error: "正式名と同じです" };
-  const existingOwner = nameToId.get(trimmed);
-  if (existingOwner === id) return { ok: false, error: "既にこの人物の別名として登録済みです" };
+  const existingOwner = findIdByAnyForm(trimmed);
+  if (existingOwner === id) {
+    if (!nameToId.has(trimmed)) {
+      nameToId.set(trimmed, id);
+      persist();
+      return { ok: true };
+    }
+    return { ok: false, error: "既にこの人物の別名として登録済みです" };
+  }
   if (existingOwner !== undefined) {
     return { ok: false, error: "この名前は既に別の人物として登録されています。「重複を統合」を使ってください。" };
   }
@@ -183,7 +244,7 @@ export function mergePersons(fromId: string, toId: string): { ok: true } | { ok:
 // 読み取り専用API（例: 人物名でのフィルタ検索）が、未知の名前を渡されただけで
 // people-directoryに新規登録してしまう事故を防ぐ。
 export function getPersonId(name: string): string | undefined {
-  return nameToId.get(name.trim());
+  return findIdByAnyForm(name);
 }
 
 // 個人情報の分離の「保証する仕組み」（ユーザー指摘対応）。ここまでの対応（保存前マスク・
@@ -199,7 +260,8 @@ export function getPersonId(name: string): string | undefined {
 // 登録人数は数百人規模までしか想定していない（単一ローカルEM利用のスケール）ため、
 // 毎ターンの線形スキャンで性能上の問題にはならない。
 export function assertNoRealNamesLeaked(text: string): void {
-  for (const name of nameToId.keys()) {
+  // maskNames と同じ拡大集合で検査し、敬称違いの漏れも止める
+  for (const name of buildMaskMapping().keys()) {
     if (name && text.includes(name)) {
       throw new Error("実名が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。");
     }
@@ -289,7 +351,14 @@ export function acknowledgeUnmaskedCandidates(candidates: string[]): void {
 }
 
 export function isAcknowledgedUnmasked(name: string): boolean {
-  return acknowledgedUnmasked.has(name.trim());
+  const trimmed = name.trim();
+  if (acknowledgedUnmasked.has(trimmed)) return true;
+  const bare = stripPersonHonorific(trimmed);
+  if (!bare) return false;
+  for (const a of acknowledgedUnmasked) {
+    if (stripPersonHonorific(a) === bare) return true;
+  }
+  return false;
 }
 
 /** ローカルNERで未登録・未許可の人名らしい語句を検出する（副作用なし・登録しない）。 */
@@ -316,8 +385,8 @@ export async function detectUnregisteredNameCandidates(text: string): Promise<st
       if (typeof p !== "string") continue;
       const trimmed = p.trim();
       if (!isPlausiblePersonName(trimmed)) continue;
-      if (nameToId.has(trimmed)) continue;
-      if (acknowledgedUnmasked.has(trimmed)) continue;
+      if (findIdByAnyForm(trimmed)) continue;
+      if (isAcknowledgedUnmasked(trimmed)) continue;
       found.add(trimmed);
     }
     return [...found];
@@ -335,6 +404,11 @@ export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOpt
   }
   const candidates = [...found];
   if (candidates.length === 0) return;
+  // 登録してマスクする方が未マスク許可より安全なため、両方指定時は登録を優先する
+  if (opts.registerNameCandidates) {
+    for (const c of candidates) registerName(c);
+    return;
+  }
   if (!opts.allowUnmaskedCandidates) {
     throw new UnconfirmedNameCandidatesError(candidates);
   }

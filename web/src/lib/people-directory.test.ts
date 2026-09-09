@@ -47,6 +47,32 @@ describe("registerName / maskNames / unmaskNames", () => {
     expect(id1).toBe(id2);
   });
 
+  it("敬称の違い（さん／くん／なし）は同一人物とみなす", async () => {
+    const pd = await loadModule();
+    const id1 = pd.registerName("田中さん");
+    const id2 = pd.registerName("田中くん");
+    const id3 = pd.registerName("田中");
+    expect(id1).toBe(id2);
+    expect(id1).toBe(id3);
+    expect(pd.listPeople()).toEqual([
+      { id: id1, name: "田中さん", aliases: expect.arrayContaining(["田中くん", "田中"]) },
+    ]);
+  });
+
+  it("maskNamesは登録時と異なる敬称でも同じIDへ置換する", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    expect(pd.maskNames("田中くんと話した")).toBe(`${id}と話した`);
+    expect(pd.maskNames("田中と話した")).toBe(`${id}と話した`);
+  });
+
+  it("getPersonIdは敬称違いでも同一人物を返す", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    expect(pd.getPersonId("田中くん")).toBe(id);
+    expect(pd.getPersonId("田中")).toBe(id);
+  });
+
   it("maskNamesは登録済みの名前をIDに置換する", async () => {
     const pd = await loadModule();
     const id = pd.registerName("Aさん");
@@ -61,9 +87,9 @@ describe("registerName / maskNames / unmaskNames", () => {
 
   it("長い名前が短い名前のprefixになっていても最長一致を優先する", async () => {
     const pd = await loadModule();
-    pd.registerName("A");
-    const idFull = pd.registerName("Aさん");
-    expect(pd.maskNames("Aさんに会った")).toBe(`${idFull}に会った`);
+    pd.registerName("山田");
+    const idFull = pd.registerName("山田太郎");
+    expect(pd.maskNames("山田太郎に会った")).toBe(`${idFull}に会った`);
   });
 
   it("PERSON_1とPERSON_10のように短いIDが長いIDのprefixでも壊れず復元できる", async () => {
@@ -269,5 +295,21 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
     expect(pd.isAcknowledgedUnmasked("Bさん")).toBe(true);
     expect(await pd.detectUnregisteredNameCandidates("Bさんと話した")).toEqual([]);
     expect(pd.listPeople()).toHaveLength(0);
+  });
+
+  it("registerNameCandidates で候補を人名登録する", async () => {
+    mockPeople = ["Bさん"];
+    const pd = await loadModule();
+    await pd.ensureNameCandidatesAllowed(["Bさんと話した"], { registerNameCandidates: true });
+    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "Bさん", aliases: [] }]);
+    expect(await pd.detectUnregisteredNameCandidates("Bさんと話した")).toEqual([]);
+    expect(pd.maskNames("Bくんと話した")).toBe("PERSON_1と話した");
+  });
+
+  it("登録済みと敬称だけ違う候補は未登録扱いしない", async () => {
+    mockPeople = ["田中くん"];
+    const pd = await loadModule();
+    pd.registerName("田中さん");
+    expect(await pd.detectUnregisteredNameCandidates("田中くんと話した")).toEqual([]);
   });
 });

@@ -513,11 +513,17 @@ export function dismissPendingUnmaskedSend(id: string): boolean {
   return pendingUnmaskedSends.delete(id);
 }
 
-export async function confirmPendingUnmaskedSend(id: string): Promise<AgentRun | undefined> {
+export async function confirmPendingUnmaskedSend(
+  id: string,
+  opts: MaskOptions = { allowUnmaskedCandidates: true },
+): Promise<AgentRun | undefined> {
   const pending = pendingUnmaskedSends.get(id);
   if (!pending) return undefined;
   pendingUnmaskedSends.delete(id);
-  const allow: MaskOptions = { allowUnmaskedCandidates: true };
+  const allow: MaskOptions = {
+    allowUnmaskedCandidates: opts.registerNameCandidates ? false : (opts.allowUnmaskedCandidates ?? true),
+    registerNameCandidates: opts.registerNameCandidates,
+  };
   if (pending.kind === "decide-run" && pending.runId && pending.message) {
     return decideRun(pending.runId, pending.message, allow);
   }

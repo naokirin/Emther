@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createIssue, listIssues, toIssueView } from "@/lib/issue-store";
 import { buildIssueDraftTask, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
 import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET() {
   return NextResponse.json({ issues: listIssues().map(toIssueView) });
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     what: typeof body?.what === "string" ? body.what : undefined,
     how: typeof body?.how === "string" ? body.how : undefined,
   };
-  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
+  const opts = maskOptionsFromBody(body);
 
   try {
     const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, opts);

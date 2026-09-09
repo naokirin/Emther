@@ -1345,6 +1345,20 @@ export default function DashboardPage() {
               setConfirmingUnmasked(null);
             }
           }}
+          onRegister={async () => {
+            setConfirmingUnmaskedBusy(true);
+            try {
+              await fetch(`/api/agents/pending-unmasked/${encodeURIComponent(confirmingUnmasked.id)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "confirm", registerNameCandidates: true }),
+              });
+              await refreshRuns();
+            } finally {
+              setConfirmingUnmaskedBusy(false);
+              setConfirmingUnmasked(null);
+            }
+          }}
         />
       )}
     </div>

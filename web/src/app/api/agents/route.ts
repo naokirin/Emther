@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listPendingAgentStarts, listPendingUnmaskedSends, listRuns, startRun, toRunView } from "@/lib/agent-runtime";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET() {
   return NextResponse.json({
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   try {
     const run = await startRun(agentName, task, "manual", undefined, {
-      allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body),
+      ...maskOptionsFromBody(body),
     });
     return NextResponse.json({ run: toRunView(run) }, { status: 201 });
   } catch (err) {

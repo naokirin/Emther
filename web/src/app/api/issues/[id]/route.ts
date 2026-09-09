@@ -11,7 +11,7 @@ import {
   type IssueStatus,
 } from "@/lib/issue-store";
 import { ISSUE_STATUSES } from "@/lib/types";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]">) {
   const { id } = await ctx.params;
@@ -25,7 +25,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]
 export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id]">) {
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
-  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
+  const opts = maskOptionsFromBody(body);
 
   // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
   if (typeof body?.title === "string" && !body.title.trim()) {

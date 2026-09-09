@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
 import { PersonDetailContent } from "@/components/PersonDetailContent";
@@ -9,9 +9,9 @@ import { usePeekParam, usePeople } from "@/lib/hooks";
 import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@/lib/types";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
-// 既存のJournal fact・解釈・チーム所属・関連Issueを人物軸で束ねて見せるだけの一覧画面。
-// 人物の「登録」自体はこの画面からは行わない（Journal記録・チームメンバー登録・長期プロファイル
-// 記録の副産物としてpeople-directoryへ自動登録される既存の仕組みをそのまま使う）。
+// 既存のJournal fact・解釈・チーム所属・関連Issueを人物軸で束ねて見せる一覧画面。
+// 人物の登録は、この画面からの直接追加・チームメンバー登録・Journal校正・長期プロファイル
+// 記録を通じて people-directory へ行われる（ローカルNERの検出結果では自動登録しない）。
 //
 // docs/em_ui_ux_issue.md「労務SaaS的な視覚スコア表示」「一覧⇄詳細をサイドピークで」対応。
 // テーブルではなくスコアバッジ付きカードのグリッドにし、クリックでSlideOverを開く
@@ -49,19 +49,46 @@ function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (
 }
 
 function PeoplePageInner() {
-  const { people, peopleLoaded } = usePeople();
+  const { people, peopleLoaded, refreshPeople } = usePeople();
   const peek = usePeekParam("person");
+  const [newName, setNewName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const sorted = [...people].sort((a, b) => b.factCount - a.factCount || a.name.localeCompare(b.name, "ja"));
   const reports = sorted.filter((p) => p.isDirectReport);
   const others = sorted.filter((p) => !p.isDirectReport);
   const peekedPerson = peek.id ? sorted.find((p) => p.id === peek.id) : undefined;
+
+  async function handleAddPerson(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    setSubmitting(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/people", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "登録に失敗しました");
+      setNewName("");
+      await refreshPeople();
+      if (typeof data?.person?.id === "string") peek.open(data.person.id);
+    } catch (err) {
+      setAddError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
         <h2>People</h2>
         <p className={styles.subtitle}>
-          Quick Journal・チームメンバー登録・長期プロファイルを通じて認識された人物の一覧です。カードをクリックすると、その人物に関するJournal・長期プロファイル・関連Issueを横断して確認できます。
+          Quick Journal・チームメンバー登録・長期プロファイル・この画面からの直接追加を通じて認識された人物の一覧です。カードをクリックすると、その人物に関するJournal・長期プロファイル・関連Issueを横断して確認できます。
         </p>
         {/* ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
             円バッジはJournalの傾向から算出した「気にかけるべき度合い」を示す簡易バイタルで
@@ -69,11 +96,35 @@ function PeoplePageInner() {
         <p className={styles.subtitle} style={{ marginBottom: 14 }}>
           円は本人に関するJournalの傾向・関連Issueの状況（停滞・ブロッカー）から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。🟢安定　🟡やや注意　🔴要注意　⚪️評価不能（件数不足）
         </p>
+
+        <form onSubmit={handleAddPerson} style={{ marginBottom: 16 }}>
+          <div className={styles.field}>
+            <label>
+              人物を追加
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="例: 田中さん"
+                disabled={submitting}
+              />
+            </label>
+          </div>
+          <button className={styles.primaryBtn} type="submit" disabled={submitting || !newName.trim()}>
+            {submitting ? "登録中…" : "追加"}
+          </button>
+          {addError && (
+            <p className={styles.errorText} role="alert" style={{ marginTop: 8 }}>
+              {addError}
+            </p>
+          )}
+        </form>
+
         {sorted.length === 0 ? (
           <p className={styles.subtitle}>
             {!peopleLoaded
               ? "読み込み中…"
-              : "まだ誰も登録されていません。Quick Journalに記録するか、左メニューの「チーム」でメンバーを追加すると、ここに表示されます。"}
+              : "まだ誰も登録されていません。上のフォームから追加するか、Quick Journalに記録するか、左メニューの「チーム」でメンバーを追加すると、ここに表示されます。"}
           </p>
         ) : (
           <>

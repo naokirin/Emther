@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import {
   confirmPendingUnmaskedSend,
   dismissPendingUnmaskedSend,
@@ -17,7 +18,12 @@ export async function POST(request: Request, ctx: RouteContext<"/api/agents/pend
   }
 
   try {
-    const run = await confirmPendingUnmaskedSend(id);
+    const opts = maskOptionsFromBody(body);
+    // 未指定時は従来どおり未マスク許可で進める（ダイアログの「このまま」）
+    const run = await confirmPendingUnmaskedSend(id, {
+      allowUnmaskedCandidates: opts.registerNameCandidates ? false : true,
+      registerNameCandidates: opts.registerNameCandidates,
+    });
     if (!run) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json({ run: toRunView(run) });
   } catch (err) {

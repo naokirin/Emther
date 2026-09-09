@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addJournalEntriesBulk, toJournalEntryView } from "@/lib/journal-store";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。EMが忙しくて
 // 後からまとめて書く場合に、1件ずつSubmitさせる負担を無くすための専用エンドポイント。
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   try {
     const { entries, skippedLines } = await addJournalEntriesBulk(text, {
-      allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body),
+      ...maskOptionsFromBody(body),
     });
     return NextResponse.json({ entries: entries.map(toJournalEntryView), skippedLines }, { status: 201 });
   } catch (err) {
