@@ -195,3 +195,62 @@ describe("getPersonProfile", () => {
     expect(profile?.interpretations.map((i) => i.text)).toEqual(["interpretation-1"]);
   });
 });
+
+// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
+describe("addPersonAlias / removePersonAlias", () => {
+  it("別名を追加・取り消しでき、listPersonSummariesに反映される", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const hub = await loadModule();
+    const id = peopleDirectory.registerName("田中さん");
+
+    expect(hub.addPersonAlias(id, "田中")).toEqual({ ok: true });
+    expect(hub.listPersonSummaries().find((s) => s.id === id)?.aliases).toEqual(["田中"]);
+
+    expect(hub.removePersonAlias(id, "田中")).toBe(true);
+    expect(hub.listPersonSummaries().find((s) => s.id === id)?.aliases).toEqual([]);
+  });
+});
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+describe("mergePersons", () => {
+  it("Journal・チーム所属を統合先へ付け替え、統合元は一覧から消える", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const orgStore = await import("@/lib/org-context-store");
+    const knowledgeStore = await import("@/lib/knowledge-store");
+    const hub = await loadModule();
+
+    const fromId = peopleDirectory.registerName("たなかさん");
+    const toId = peopleDirectory.registerName("田中さん");
+    orgStore.addTeam("Team A", ["たなかさん"]);
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [fromId],
+      text: `${fromId}と話した`,
+      tags: [],
+      occurredAt: 1,
+    });
+
+    const result = hub.mergePersons(fromId, toId);
+    expect(result).toEqual({ ok: true });
+
+    const summaries = hub.listPersonSummaries();
+    expect(summaries.find((s) => s.id === fromId)).toBeUndefined();
+    const merged = summaries.find((s) => s.id === toId)!;
+    expect(merged.aliases).toEqual(["たなかさん"]);
+    expect(merged.teamNames).toEqual(["Team A"]);
+    expect(merged.factCount).toBe(1);
+  });
+
+  it("people-directory側が失敗（存在しないID等）した場合はknowledge-store/teamsを更新しない", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const orgStore = await import("@/lib/org-context-store");
+    const hub = await loadModule();
+    const toId = peopleDirectory.registerName("田中さん");
+    orgStore.addTeam("Team A", []);
+
+    const result = hub.mergePersons("PERSON_999", toId);
+    expect(result).toEqual({ ok: false, error: "統合元の人物が見つかりません" });
+  });
+});

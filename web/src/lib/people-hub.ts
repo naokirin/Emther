@@ -1,6 +1,13 @@
-import { listPeople } from "@/lib/people-directory";
-import { listActiveFactsForPerson, listInterpretationsForPerson, toEventView, type KnowledgeEvent } from "@/lib/knowledge-store";
-import { listActiveTeams } from "@/lib/org-context-store";
+import { addAlias, listPeople, mergePersons as mergePersonsInDirectory, removeAlias } from "@/lib/people-directory";
+import {
+  listActiveFactsForPerson,
+  listInterpretationsForPerson,
+  reassignPersonId,
+  recordChangeEvent,
+  toEventView,
+  type KnowledgeEvent,
+} from "@/lib/knowledge-store";
+import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-store";
 import { listIssues, toIssueView, type Issue, type IssueCharter } from "@/lib/issue-store";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { isIssueStalled } from "@/lib/types";
@@ -15,6 +22,8 @@ export type PersonTrend = { positive: number; negative: number; neutral: number 
 export type PersonSummary = {
   id: string;
   name: string;
+  // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
+  aliases: string[];
   teamNames: string[];
   trend: PersonTrend;
   factCount: number;
@@ -91,6 +100,7 @@ export function listPersonSummaries(): PersonSummary[] {
     return {
       id: p.id,
       name: p.name,
+      aliases: p.aliases,
       teamNames: teams.filter((t) => t.members.includes(p.id)).map((t) => t.name),
       trend: computeTrend(facts),
       factCount: facts.length,
@@ -100,11 +110,11 @@ export function listPersonSummaries(): PersonSummary[] {
   });
 }
 
-// idOrNameはPERSON_n IDまたは実名のどちらでも受け付ける。チームメンバー一覧
+// idOrNameはPERSON_n ID・正式名・別名のいずれでも受け付ける。チームメンバー一覧
 // （org-context-store経由でEM向けには実名として返る）など、呼び出し元によっては
 // IDを持っていないケースがあるための配慮。
 export function getPersonProfile(idOrName: string): PersonProfile | undefined {
-  const person = listPeople().find((p) => p.id === idOrName || p.name === idOrName);
+  const person = listPeople().find((p) => p.id === idOrName || p.name === idOrName || p.aliases.includes(idOrName));
   if (!person) return undefined;
   const id = person.id;
 
@@ -120,6 +130,7 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
   return {
     id: person.id,
     name: person.name,
+    aliases: person.aliases,
     teamNames: teams.map((t) => t.name),
     trend: computeTrend(facts),
     factCount: facts.length,
@@ -133,4 +144,32 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
       getRulesAndConstraints().staleInterventionDays,
     ),
   };
+}
+
+// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。People詳細画面から
+// 直接、既存の人物へ別名を追加・取り消しできるようにする薄いラッパー
+// （people-directory.tsの対応表操作をそのまま呼ぶだけ）。
+export function addPersonAlias(id: string, aliasName: string): { ok: true } | { ok: false; error: string } {
+  return addAlias(id, aliasName);
+}
+
+export function removePersonAlias(id: string, aliasName: string): boolean {
+  return removeAlias(id, aliasName);
+}
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+// people-directory（対応表の付け替え）・knowledge-store（Journal等に埋め込まれた
+// PERSON_n IDの書き換え）・org-context-store（チーム所属の付け替え）の3ストアを横断する
+// 統合処理をここで束ねる（people-hub.tsが既に人物軸の集約レイヤーとして各ストアを
+// import済みのため、ここが自然な置き場所）。fromId（統合元・消える側）をtoId（統合先・
+// 残る側）へ統合する。
+export function mergePersons(fromId: string, toId: string): { ok: true } | { ok: false; error: string } {
+  const result = mergePersonsInDirectory(fromId, toId);
+  if (!result.ok) return result;
+  reassignPersonId(fromId, toId);
+  reassignPersonIdInTeams(fromId, toId);
+  // 監査ログはPERSON_n IDのまま記録する（team更新時の「メンバー: ...」と同じ規約。
+  // 実名はSQLiteへ書き込まない）。
+  recordChangeEvent("person", toId, `重複していた人物（${fromId}）をこの人物へ統合しました。`);
+  return { ok: true };
 }

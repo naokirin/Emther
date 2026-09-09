@@ -36,7 +36,12 @@ function persist(): void {
   saveSecureJSON("people-directory.json", { entries: Array.from(nameToId.entries()), counter });
 }
 
-export type PersonRecord = { id: string; name: string };
+// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。nameToIdは元々
+// 「名前→ID」のMapであり、複数の名前文字列が同じIDを指すこと自体は構造上すでに可能
+// だった（1つのIDに複数の別名がぶら下がる形）。idToName（表示用の正式名、1id=1名）と
+// 組み合わせ、「正式名以外でこのIDを指しているnameToIdのキー」を別名（aliases）として
+// 扱う。
+export type PersonRecord = { id: string; name: string; aliases: string[] };
 
 export function registerName(name: string): string {
   const trimmed = name.trim();
@@ -83,8 +88,17 @@ export function unmaskNames(text: string): string {
   return replaceAllAtOnce(text, idToName);
 }
 
+// idToName（正式名、1id=1名）を主軸に列挙する。nameToIdを主軸にすると、別名を
+// 持つ人物が別名の数だけ重複したPersonRecordとして現れてしまう（統合・別名機能の
+// 目的そのものを損なう）ため、必ずidToName側から辿ること。
 export function listPeople(): PersonRecord[] {
-  return [...nameToId.entries()].map(([name, id]) => ({ id, name }));
+  const aliasesById = new Map<string, string[]>();
+  for (const [name, id] of nameToId.entries()) {
+    if (idToName.get(id) === name) continue; // 正式名はaliasesに含めない
+    if (!aliasesById.has(id)) aliasesById.set(id, []);
+    aliasesById.get(id)!.push(name);
+  }
+  return [...idToName.entries()].map(([id, name]) => ({ id, name, aliases: aliasesById.get(id) ?? [] }));
 }
 
 // docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
@@ -93,14 +107,66 @@ export function listPeople(): PersonRecord[] {
 // （knowledge-store側にPERSON_n ID付きで残る）はここでは削除しない——誤登録エントリは
 // 実際のJournal記録を伴わないケースがほとんどであり、対応表からの削除だけで
 // 「以後そのIDは実名に戻らない・以後NERで再度この名前が出れば新しいIDが振られる」
-// という実用上十分な復旧になる。
+// という実用上十分な復旧になる。正式名だけでなく、登録済みの別名もすべて一緒に消す
+// （別名だけが対応表に残ると、以後その別名を含む文が誰にも解決できないIDへマスクされ
+// 続けてしまうため）。
 export function deletePerson(id: string): boolean {
   const name = idToName.get(id);
   if (name === undefined) return false;
   idToName.delete(id);
-  nameToId.delete(name);
+  for (const [n, i] of nameToId.entries()) {
+    if (i === id) nameToId.delete(n);
+  }
   persist();
   return true;
+}
+
+// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。既存の人物に
+// 別名を追加登録する（新規IDは発行しない）。以後、この別名がJournal等の自由記述に
+// 現れた場合もこのIDへマスクされる。
+export function addAlias(id: string, aliasName: string): { ok: true } | { ok: false; error: string } {
+  const trimmed = aliasName.trim();
+  if (!trimmed) return { ok: false, error: "別名を入力してください" };
+  const canonical = idToName.get(id);
+  if (canonical === undefined) return { ok: false, error: "対象の人物が見つかりません" };
+  if (canonical === trimmed) return { ok: false, error: "正式名と同じです" };
+  const existingOwner = nameToId.get(trimmed);
+  if (existingOwner === id) return { ok: false, error: "既にこの人物の別名として登録済みです" };
+  if (existingOwner !== undefined) {
+    return { ok: false, error: "この名前は既に別の人物として登録されています。「重複を統合」を使ってください。" };
+  }
+  nameToId.set(trimmed, id);
+  persist();
+  return { ok: true };
+}
+
+// 誤って登録した別名を取り消す（正式名自体はdeletePersonでのみ削除できる——ここでは
+// 「対応表から人物を消す」ことと「別名を1件取り消す」ことを明確に分ける）。
+export function removeAlias(id: string, aliasName: string): boolean {
+  const trimmed = aliasName.trim();
+  if (idToName.get(id) === trimmed) return false;
+  if (nameToId.get(trimmed) !== id) return false;
+  nameToId.delete(trimmed);
+  persist();
+  return true;
+}
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+// fromId（重複・統合されて消える側）の正式名・別名をすべてtoId（統合先・残る側）の
+// 別名として付け替え、fromIdの正式名エントリを削除する。これにより、以後fromIdの
+// 名前がJournal等に現れてもtoIdへマスクされる（統合＝表記揺れ登録の特殊形）。
+// Journal/Issue/チーム所属側のPERSON_n ID付け替えは呼び出し側（people-hub.ts）の責務
+// （このファイルは対応表のみを扱う、既存の関心の分離を保つ）。
+export function mergePersons(fromId: string, toId: string): { ok: true } | { ok: false; error: string } {
+  if (fromId === toId) return { ok: false, error: "同じ人物です" };
+  if (!idToName.has(fromId)) return { ok: false, error: "統合元の人物が見つかりません" };
+  if (!idToName.has(toId)) return { ok: false, error: "統合先の人物が見つかりません" };
+  for (const [name, id] of nameToId.entries()) {
+    if (id === fromId) nameToId.set(name, toId);
+  }
+  idToName.delete(fromId);
+  persist();
+  return { ok: true };
 }
 
 // registerNameと違い、未登録の名前に対して新規IDを発行しない（副作用のない参照専用）。

@@ -38,6 +38,11 @@ export type Team = {
   // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // types.tsのTeam型のコメント参照。
   managedByEm: boolean;
+  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。relevantTeams
+  // （agent-runtime.ts、EMの自由記述からどのチームの話か推定する処理）が正式名と併せて
+  // 照合対象にする代替の呼び方（略称・旧名等）。チーム名自体と同じく個人情報ではないため
+  // マスク対象にしない。
+  aliases: string[];
   createdAt: number;
   updatedAt: number;
 };
@@ -52,6 +57,7 @@ const teams: Team[] = loadJSON<Team[]>("teams.json", []).map((team) => ({
   archived: team.archived ?? false,
   // 既存チーム（フィールド未保存）は「自分が管理するチーム」として扱う（既定を変えない）。
   managedByEm: team.managedByEm ?? true,
+  aliases: team.aliases ?? [],
   updatedAt: team.updatedAt ?? team.createdAt,
 }));
 
@@ -102,6 +108,7 @@ export function addTeam(name: string, members: string[]): Team {
     charter: emptyTeamCharter(),
     archived: false,
     managedByEm: true,
+    aliases: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -113,7 +120,14 @@ export function addTeam(name: string, members: string[]): Team {
 
 export async function updateTeam(
   id: string,
-  patch: { name?: string; members?: string[]; mission?: string; constraints?: string; managedByEm?: boolean },
+  patch: {
+    name?: string;
+    members?: string[];
+    mission?: string;
+    constraints?: string;
+    managedByEm?: boolean;
+    aliases?: string[];
+  },
 ): Promise<Team | undefined> {
   const team = getTeam(id);
   if (!team) return undefined;
@@ -121,6 +135,13 @@ export async function updateTeam(
   if (patch.managedByEm !== undefined && patch.managedByEm !== team.managedByEm) {
     changes.push(patch.managedByEm ? "自分が管理するチームに設定しました" : "自分が管理するチームから外しました");
     team.managedByEm = patch.managedByEm;
+  }
+  if (patch.aliases !== undefined) {
+    const nextAliases = Array.from(new Set(patch.aliases.map((a) => a.trim()).filter(Boolean)));
+    if (nextAliases.join(",") !== team.aliases.join(",")) {
+      changes.push(`別名: 「${team.aliases.join(", ") || "(なし)"}」→「${nextAliases.join(", ") || "(なし)"}」`);
+      team.aliases = nextAliases;
+    }
   }
   if (patch.name !== undefined) {
     const nextName = normalizeTeamName(patch.name);
@@ -179,6 +200,25 @@ export function removeTeam(id: string): boolean {
   persist();
   recordChangeEvent("team", team.id, `チームを削除しました: 「${team.name}」`);
   return true;
+}
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+// 統合元（fromId）がメンバーに含まれるチームで、fromIdをtoIdへ置き換える。統合先
+// （toId）が既にそのチームのメンバーなら、fromIdは単に取り除く（重複メンバー化を防ぐ）。
+export function reassignPersonIdInTeams(fromId: string, toId: string): void {
+  let changed = false;
+  for (const team of teams) {
+    const idx = team.members.indexOf(fromId);
+    if (idx === -1) continue;
+    changed = true;
+    if (team.members.includes(toId)) {
+      team.members.splice(idx, 1);
+    } else {
+      team.members[idx] = toId;
+    }
+    team.updatedAt = Date.now();
+  }
+  if (changed) persist();
 }
 
 // docs 3.1「Core Context」の`Strategy/`ディレクトリに相当する最小実装。
