@@ -155,11 +155,40 @@ describe("objectives", () => {
     const objective = await store.addObjective("売上を伸ばす");
     expect(store.listObjectives()).toHaveLength(1);
 
-    const renamed = await store.renameObjective(objective.id, "売上を2倍にする");
+    const renamed = await store.updateObjective(objective.id, { title: "売上を2倍にする" });
     expect(renamed?.title).toBe("売上を2倍にする");
 
     expect(store.removeObjective(objective.id)).toBe(true);
     expect(store.listObjectives()).toHaveLength(0);
+  });
+
+  // ユーザー要望「目標のカスケーディング構成」対応。
+  it("addObjectiveはteamIdを受け付け、updateObjectiveでteamIdを設定・解除できる", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", []);
+    const orgWide = await store.addObjective("組織目標");
+    expect(orgWide.teamId).toBeUndefined();
+
+    const teamObjective = await store.addObjective("チーム目標", team.id);
+    expect(teamObjective.teamId).toBe(team.id);
+
+    const cleared = await store.updateObjective(teamObjective.id, { teamId: null });
+    expect(cleared?.teamId).toBeUndefined();
+
+    const reassigned = await store.updateObjective(orgWide.id, { teamId: team.id });
+    expect(reassigned?.teamId).toBe(team.id);
+  });
+
+  it("updateObjectiveは変更が無ければupdatedAtを動かさない", async () => {
+    const store = await loadModule();
+    const objective = await store.addObjective("売上を伸ばす");
+    const same = await store.updateObjective(objective.id, { title: "売上を伸ばす" });
+    expect(same?.updatedAt).toBe(objective.updatedAt);
+  });
+
+  it("updateObjectiveは存在しないIDに対してundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(await store.updateObjective("missing", { title: "x" })).toBeUndefined();
   });
 
   it("KeyResultの追加・削除ができる", async () => {

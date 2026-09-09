@@ -114,6 +114,9 @@ export type KeyResult = {
 export type Objective = {
   id: string;
   title: string;
+  // ユーザー要望「目標のカスケーディング構成」対応。未指定＝組織全体のトップレベル目標、
+  // 指定時はそのチーム自身の目標（＝上位の組織目標を達成するための下位目標）。
+  teamId?: string;
   keyResults: KeyResult[];
   createdAt: number;
   updatedAt: number;

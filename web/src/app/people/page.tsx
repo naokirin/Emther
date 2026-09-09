@@ -16,6 +16,11 @@ import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@/lib
 // docs/em_ui_ux_issue.md「労務SaaS的な視覚スコア表示」「一覧⇄詳細をサイドピークで」対応。
 // テーブルではなくスコアバッジ付きカードのグリッドにし、クリックでSlideOverを開く
 // （usePeekParamはuseSearchParamsを使うため<Suspense>で包む必要がある）。
+//
+// ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
+// 切り替えられるようにしたい」対応。チーム管理は@/app/teams/page.tsxへ分離した
+// （TopNav.tsxの「members」グループへ2画面目として追加し、既存のサイドメニュー機構に
+// そのまま乗せている）。
 export default function PeoplePage() {
   return (
     <Suspense fallback={null}>
@@ -24,8 +29,6 @@ export default function PeoplePage() {
   );
 }
 
-// ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
-// PersonSummary.isDirectReport（Team.managedByEmに基づくサーバー側の判定）でセクションを分ける。
 function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (id: string) => void }) {
   return (
     <div className={styles.personCardGrid}>
@@ -67,13 +70,13 @@ function PeoplePageInner() {
           円は本人に関するJournalの傾向・関連Issueの状況（停滞・ブロッカー）から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。🟢安定　🟡やや注意　🔴要注意　⚪️評価不能（件数不足）
         </p>
         {sorted.length === 0 ? (
-          <p className={styles.subtitle}>まだ誰も登録されていません。Quick Journalに記録するかチームにメンバーを追加すると、ここに表示されます。</p>
+          <p className={styles.subtitle}>まだ誰も登録されていません。Quick Journalに記録するか、左メニューの「チーム」でメンバーを追加すると、ここに表示されます。</p>
         ) : (
           <>
             <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>部下（自分が管理するチームのメンバー）</h3>
             {reports.length === 0 ? (
               <p className={styles.subtitle} style={{ marginBottom: 16 }}>
-                自分が管理するチームにメンバーが登録されていません。Organization Contextでチーム・メンバーを登録してください。
+                自分が管理するチームにメンバーが登録されていません。左メニューの「チーム」でチーム・メンバーを登録してください。
               </p>
             ) : (
               <div style={{ marginBottom: 20 }}>

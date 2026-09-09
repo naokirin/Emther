@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("PATCH /api/org/objectives/[id]", () => {
-  it("titleが無ければ400", async () => {
+  it("title・teamIdどちらも無ければ400", async () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", {}), routeCtx({ id: "missing" }));
     expect(res.status).toBe(400);
@@ -37,6 +37,25 @@ describe("PATCH /api/org/objectives/[id]", () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { title: "新タイトル" }), routeCtx({ id: objective.id }));
     expect((await res.json()).objective.title).toBe("新タイトル");
+  });
+
+  // ユーザー要望「目標のカスケーディング構成」対応。
+  it("teamIdだけを指定して所属チームを設定できる", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const team = orgStore.addTeam("Team A", []);
+    const objective = await orgStore.addObjective("組織目標");
+    const route = await import("./route");
+    const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { teamId: team.id }), routeCtx({ id: objective.id }));
+    expect((await res.json()).objective.teamId).toBe(team.id);
+  });
+
+  it("teamId:nullで組織全体の目標に戻せる", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const team = orgStore.addTeam("Team A", []);
+    const objective = await orgStore.addObjective("チーム目標", team.id);
+    const route = await import("./route");
+    const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { teamId: null }), routeCtx({ id: objective.id }));
+    expect((await res.json()).objective.teamId).toBeUndefined();
   });
 });
 
