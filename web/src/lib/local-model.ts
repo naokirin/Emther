@@ -1,4 +1,4 @@
-import { pipeline } from "@huggingface/transformers";
+import { pipeline, type ProgressCallback } from "@huggingface/transformers";
 
 // このモジュールが提供するローカル推論は、機微情報を外部に一切送信しないことが目的。
 // journal-store.ts（ジャーナルの自動タグ付け）と people-directory.ts 経由の
@@ -9,18 +9,31 @@ import { pipeline } from "@huggingface/transformers";
 // 2026-09-08にも1.5Bへの切り替えを再検証したが、1リクエストでnext-serverのRSSが
 // 約5GBまで増加してシステム空きメモリが150MB台まで低下し、生成自体も
 // JSON抽出失敗（500）に終わったため0.5Bへ差し戻した。
-// より余裕のあるマシンで動かす場合はMODEL_ID/MODEL_DTYPEを差し替えるとよい。
-const MODEL_ID = "onnx-community/Qwen2.5-0.5B-Instruct";
-const MODEL_DTYPE = "q4";
+// より余裕のあるマシンで動かす場合はLOCAL_CHAT_MODELを差し替えるとよい。
+//
+// 未キャッシュ時の起動ダウンロード＋進捗表示は model-loader.ts が担う。
+export const LOCAL_CHAT_MODEL = {
+  task: "text-generation" as const,
+  id: "onnx-community/Qwen2.5-0.5B-Instruct",
+  dtype: "q4" as const,
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let generatorPromise: Promise<any> | null = null;
 
-export function getLocalGenerator() {
+export function getLocalGenerator(progress_callback?: ProgressCallback) {
   if (!generatorPromise) {
-    generatorPromise = pipeline("text-generation", MODEL_ID, { dtype: MODEL_DTYPE });
+    generatorPromise = pipeline(LOCAL_CHAT_MODEL.task, LOCAL_CHAT_MODEL.id, {
+      dtype: LOCAL_CHAT_MODEL.dtype,
+      progress_callback,
+    });
   }
   return generatorPromise;
+}
+
+/** pipeline() 失敗後に再試行できるよう、拒否済み Promise を捨てる。 */
+export function clearLocalGeneratorCache() {
+  generatorPromise = null;
 }
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
