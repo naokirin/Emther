@@ -549,6 +549,8 @@ export function useSettingsRules(intervalMs = 8000) {
       observationQueueLimit: 6,
       staleInterventionDays: 14,
       agentModelTiers: {},
+      agentAgyModels: {},
+      agentCursorModels: {},
       cliPriorityOrder: ["claude", "agy", "cursor"],
     },
   };

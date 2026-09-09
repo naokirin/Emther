@@ -65,6 +65,13 @@ export type RulesAndConstraints = {
   // エイリアス。バージョンは固定しない）指定。キーが無い（または空文字列の）エージェントは
   // claude CLIの既定モデルのまま動く（既定は全エージェント未設定＝既存の挙動を変えない）。
   agentModelTiers: Partial<Record<string, ModelTier>>;
+  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+  // できるようにしたい」対応。claudeと違い、agy/cursorのモデルはエイリアスではなく
+  // バージョン付きの具体名でしか指定できない実機確認済みの制約があるため、自由入力の
+  // 文字列にする。キーが無い（または空文字列の）エージェントはagent-runtime.tsの
+  // 既定モデル定数のまま動く。
+  agentAgyModels: Partial<Record<string, string>>;
+  agentCursorModels: Partial<Record<string, string>>;
   // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
   // claude→agy→cursorの順が固定だったが、この並びを設定で入れ替えられるようにする
   // （agy/cursorは引き続きagyFallbackAgents/cursorFallbackAgentsでのopt-inが必要で、
@@ -93,6 +100,8 @@ const DEFAULT_RULES: RulesAndConstraints = {
   observationQueueLimit: 6,
   staleInterventionDays: 14,
   agentModelTiers: {},
+  agentAgyModels: {},
+  agentCursorModels: {},
   cliPriorityOrder: ["claude", "agy", "cursor"],
 };
 

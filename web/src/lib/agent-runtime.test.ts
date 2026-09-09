@@ -849,6 +849,52 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     );
   });
 
+  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+  // できるようにしたい」対応。
+  it("agentAgyModelsでこのエージェント種別のモデルを指定すると、agy起動時にそのモデルを渡す", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      agyFallbackAgents: ["Lead Agent"],
+      agentAgyModels: { "Lead Agent": "gemini-custom-model" },
+    });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].command).toBe("agy");
+    expect(spawnCalls[1].args[spawnCalls[1].args.indexOf("--model") + 1]).toBe("gemini-custom-model");
+  });
+
+  it("agentAgyModelsが未設定のエージェントは既定モデルのままagyを起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"] });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].args[spawnCalls[1].args.indexOf("--model") + 1]).toBe("gemini-3.6-flash-medium");
+  });
+
+  it("agentCursorModelsでこのエージェント種別のモデルを指定すると、cursor-agent起動時にそのモデルを渡す", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      cursorFallbackAgents: ["Lead Agent"],
+      agentCursorModels: { "Lead Agent": "gpt-custom" },
+    });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    closeChild(spawnCalls[0].child, 1);
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].command).toBe("cursor-agent");
+    expect(spawnCalls[1].args[spawnCalls[1].args.indexOf("--model") + 1]).toBe("gpt-custom");
+  });
+
   it("claude/agy/cursorすべて失敗すればerrorのまま確定する", async () => {
     const settingsStore = await import("@/lib/settings-store");
     settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"], cursorFallbackAgents: ["Lead Agent"] });
