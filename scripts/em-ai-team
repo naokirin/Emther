@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# EM Support System — ホスト向けランチャー（docs/packaging.md Phase 1）
+# EM Support System — ホスト向けランチャー（docs/packaging.md）
 # 使い方:
-#   ./scripts/em-ai-team install   # ビルドして ~/.local へ配置
-#   em-ai-team start|stop|status
-#   em-ai-team build               # アプリ本体だけ再ビルド／配置（ソースツリーが必要）
+#   ./scripts/em-ai-team install
+#   em-ai-team start|stop|status|doctor|backup|restore
+#   em-ai-team build
 set -euo pipefail
 
 APP_NAME="em-ai-team"
@@ -15,6 +15,7 @@ BIN_HOME="${XDG_BIN_HOME:-$HOME/.local/bin}"
 APP_DIR="${EM_APP_DIR:-$SHARE_HOME/$APP_NAME/app}"
 STATE_DIR="$STATE_HOME/$APP_NAME"
 RUN_DIR="$STATE_DIR/run"
+BACKUP_DIR="${EM_BACKUP_DIR:-$STATE_DIR/backups}"
 META_DIR="$SHARE_HOME/$APP_NAME"
 SOURCE_ROOT_FILE="$META_DIR/source-root"
 DATA_DIR="${EM_DATA_DIR:-$STATE_DIR/data}"
@@ -57,12 +58,16 @@ Commands:
   start     Start the installed app (binds ${HOST}:${PORT})
   stop      Stop the running app
   status    Show process / paths / URL
+  doctor    Check Node / app / data dirs / port / Agent CLIs
+  backup    Archive data+secure to ${BACKUP_DIR} (contains personal data)
+  restore   Restore from a backup archive (stops the app first)
   help      Show this help
 
 Environment:
   EM_APP_DIR            App install dir (default: ${SHARE_HOME}/${APP_NAME}/app)
   EM_DATA_DIR           Business data dir (default: ${STATE_DIR}/data)
   EM_SECURE_DATA_DIR    People-directory dir (default: ${STATE_DIR}/secure)
+  EM_BACKUP_DIR         Backup output dir (default: ${STATE_DIR}/backups)
   EM_SOURCE_ROOT        Git clone path (for build/install; else read from ${SOURCE_ROOT_FILE})
   EM_HOST               Bind host (default: 127.0.0.1)
   EM_PORT               Bind port (default: 3000)
@@ -111,6 +116,210 @@ require_source() {
     exit 1
   fi
   echo "$root"
+}
+
+doctor_ok() {
+  echo "  ok  $*"
+}
+
+doctor_warn() {
+  echo "  warn $*"
+}
+
+doctor_fail() {
+  echo "  FAIL $*"
+  DOCTOR_FAILED=1
+}
+
+cmd_doctor() {
+  DOCTOR_FAILED=0
+  echo "==> em-ai-team doctor"
+  echo "HOST=${HOST} PORT=${PORT}"
+  echo "APP_DIR=${APP_DIR}"
+  echo "EM_DATA_DIR=${DATA_DIR}"
+  echo "EM_SECURE_DATA_DIR=${SECURE_DIR}"
+  echo ""
+
+  # Node
+  if ! command -v node >/dev/null 2>&1; then
+    doctor_fail "node が見つかりません（Node 24+ が必要）"
+  else
+    local major
+    major="$(node -p "process.versions.node.split('.')[0]")"
+    if [[ "$major" -lt 24 ]]; then
+      doctor_fail "Node 24+ が必要です（現在: $(node -v)）"
+    else
+      doctor_ok "node $(node -v)"
+    fi
+  fi
+
+  # PATH
+  if echo ":$PATH:" | grep -q ":$BIN_HOME:"; then
+    doctor_ok "PATH に ${BIN_HOME} あり"
+  else
+    doctor_warn "PATH に ${BIN_HOME} がありません（em-ai-team コマンドを使うなら追加）"
+  fi
+
+  # App
+  if [[ -f "$APP_DIR/server.js" ]]; then
+    doctor_ok "アプリインストール済み ($APP_DIR/server.js)"
+  else
+    doctor_fail "アプリ未インストール — ./scripts/em-ai-team install を実行"
+  fi
+
+  # Data dirs
+  if [[ -d "$DATA_DIR" ]]; then
+    doctor_ok "data ディレクトリあり ($DATA_DIR)"
+  else
+    doctor_warn "data ディレクトリ未作成（初回 start で作成されます）"
+  fi
+  if [[ -d "$SECURE_DIR" ]]; then
+    local mode
+    mode="$(stat -c '%a' "$SECURE_DIR" 2>/dev/null || stat -f '%OLp' "$SECURE_DIR" 2>/dev/null || echo '?')"
+    if [[ "$mode" == "700" ]]; then
+      doctor_ok "secure ディレクトリあり・権限 700 ($SECURE_DIR)"
+    else
+      doctor_warn "secure ディレクトリの権限が 700 ではありません (現在: $mode) — chmod 700 を推奨"
+    fi
+  else
+    doctor_warn "secure ディレクトリ未作成（初回 start で作成されます）"
+  fi
+
+  # Port
+  if command -v ss >/dev/null 2>&1; then
+    if ss -ltn 2>/dev/null | grep -E ":${PORT}\\s" >/dev/null; then
+      if is_running; then
+        doctor_ok "ポート ${PORT} は本アプリが listen 中 (pid $(cat "$PID_FILE"))"
+      else
+        doctor_warn "ポート ${PORT} は他プロセスが使用中の可能性（本アプリの pid ファイルなし）"
+      fi
+    else
+      doctor_ok "ポート ${PORT} は空き"
+    fi
+  elif command -v lsof >/dev/null 2>&1; then
+    if lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+      if is_running; then
+        doctor_ok "ポート ${PORT} は本アプリが listen 中 (pid $(cat "$PID_FILE"))"
+      else
+        doctor_warn "ポート ${PORT} は他プロセスが使用中の可能性"
+      fi
+    else
+      doctor_ok "ポート ${PORT} は空き"
+    fi
+  else
+    doctor_warn "ss/lsof が無くポート確認をスキップ"
+  fi
+
+  # HTTP smoke when running
+  if is_running; then
+    if command -v curl >/dev/null 2>&1; then
+      local code
+      code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://${HOST}:${PORT}/" || echo "000")"
+      if [[ "$code" == "200" ]]; then
+        doctor_ok "HTTP http://${HOST}:${PORT}/ → ${code}"
+      else
+        doctor_warn "HTTP http://${HOST}:${PORT}/ → ${code}（起動直後やエラーの可能性）"
+      fi
+    fi
+  else
+    doctor_ok "プロセスは停止中（start 前なら正常）"
+  fi
+
+  # Agent CLIs
+  if command -v claude >/dev/null 2>&1; then
+    doctor_ok "claude あり ($(command -v claude))"
+  else
+    doctor_warn "claude なし — Agent Run の主経路には Claude Code CLI が必要"
+  fi
+  if command -v agy >/dev/null 2>&1; then
+    doctor_ok "agy あり（任意フォールバック）"
+  else
+    doctor_ok "agy なし（任意・Settings で使う場合のみ必要）"
+  fi
+  if command -v cursor-agent >/dev/null 2>&1 || command -v agent >/dev/null 2>&1; then
+    doctor_ok "cursor-agent/agent あり（任意フォールバック）"
+  else
+    doctor_ok "cursor-agent なし（任意・Settings で使う場合のみ必要）"
+  fi
+
+  echo ""
+  if [[ "$DOCTOR_FAILED" -ne 0 ]]; then
+    echo "結果: 問題あり（FAIL を解消してください）"
+    exit 1
+  fi
+  echo "結果: 重大な問題は検出されませんでした（warn は任意対応）"
+}
+
+cmd_backup() {
+  mkdir -p "$BACKUP_DIR" "$DATA_DIR"
+  mkdir -p "$SECURE_DIR"
+  chmod 700 "$SECURE_DIR" 2>/dev/null || true
+
+  local stamp archive tmp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  archive="$BACKUP_DIR/em-ai-team-state-${stamp}.tar.gz"
+  tmp="$(mktemp -d)"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" EXIT
+
+  echo "==> backup（個人情報を含みます。取り扱いに注意）"
+  echo "    data:   $DATA_DIR"
+  echo "    secure: $SECURE_DIR"
+  mkdir -p "$tmp/em-ai-team/data" "$tmp/em-ai-team/secure"
+  if [[ -d "$DATA_DIR" ]]; then
+    cp -a "$DATA_DIR"/. "$tmp/em-ai-team/data/" 2>/dev/null || true
+  fi
+  if [[ -d "$SECURE_DIR" ]]; then
+    cp -a "$SECURE_DIR"/. "$tmp/em-ai-team/secure/" 2>/dev/null || true
+  fi
+  printf '%s\n' "$stamp" >"$tmp/em-ai-team/BACKUP_META.txt"
+  printf 'data=%s\nsecure=%s\n' "$DATA_DIR" "$SECURE_DIR" >>"$tmp/em-ai-team/BACKUP_META.txt"
+
+  tar -C "$tmp" -czf "$archive" em-ai-team
+  chmod 600 "$archive" 2>/dev/null || true
+  echo "作成しました: $archive"
+  echo "復元: em-ai-team restore $archive"
+}
+
+cmd_restore() {
+  local archive="${1:-}"
+  if [[ -z "$archive" ]]; then
+    echo "Usage: em-ai-team restore <backup.tar.gz>" >&2
+    echo "最近のバックアップ:" >&2
+    ls -1t "$BACKUP_DIR"/em-ai-team-state-*.tar.gz 2>/dev/null | head -5 >&2 || echo "  （なし）" >&2
+    exit 1
+  fi
+  if [[ ! -f "$archive" ]]; then
+    echo "error: ファイルがありません: $archive" >&2
+    exit 1
+  fi
+
+  if is_running; then
+    echo "==> 復元前にアプリを停止します"
+    cmd_stop
+  fi
+
+  local tmp
+  tmp="$(mktemp -d)"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" EXIT
+  tar -C "$tmp" -xzf "$archive"
+  if [[ ! -d "$tmp/em-ai-team/data" || ! -d "$tmp/em-ai-team/secure" ]]; then
+    echo "error: アーカイブ形式が不正です（em-ai-team/{data,secure} が必要）" >&2
+    exit 1
+  fi
+
+  echo "==> restore → data=$DATA_DIR secure=$SECURE_DIR"
+  mkdir -p "$DATA_DIR" "$SECURE_DIR"
+  # 既存を空にしてからコピー（部分混在を避ける）
+  find "$DATA_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  find "$SECURE_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -a "$tmp/em-ai-team/data"/. "$DATA_DIR/"
+  cp -a "$tmp/em-ai-team/secure"/. "$SECURE_DIR/"
+  chmod 700 "$SECURE_DIR" 2>/dev/null || true
+  # secure 内ファイルを 0600 に寄せる（ベストエフォート）
+  find "$SECURE_DIR" -type f -exec chmod 600 {} + 2>/dev/null || true
+  echo "復元しました。 em-ai-team start で起動できます。"
 }
 
 cmd_build() {
@@ -188,6 +397,7 @@ cmd_install() {
   echo ""
   echo "次のコマンドで起動できます:"
   echo "  em-ai-team start"
+  echo "  em-ai-team doctor"
   echo "  （または） $SCRIPT_PATH start"
 }
 
@@ -201,7 +411,7 @@ cmd_start() {
   if is_running; then
     echo "すでに起動しています (pid $(cat "$PID_FILE"))"
     echo "URL: http://${HOST}:${PORT}"
-    exit 0
+    return 0
   fi
 
   mkdir -p "$RUN_DIR" "$DATA_DIR"
@@ -242,7 +452,7 @@ cmd_stop() {
   if ! is_running; then
     echo "停止しています"
     rm -f "$PID_FILE"
-    exit 0
+    return 0
   fi
   local pid
   pid="$(cat "$PID_FILE")"
@@ -298,6 +508,9 @@ main() {
     start) cmd_start "$@" ;;
     stop) cmd_stop "$@" ;;
     status) cmd_status "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    backup) cmd_backup "$@" ;;
+    restore) cmd_restore "$@" ;;
     help|-h|--help) usage ;;
     *)
       echo "unknown command: $cmd" >&2

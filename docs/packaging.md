@@ -2,7 +2,7 @@
 
 個人の EM サポートツールとして、**GitHub 公開リポジトリから入手でき、利用者のマシン上にだけ機微データが残る**ことを目標にする。npm レジストリへの公開はしない。
 
-関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/em-ai-team`（ランチャー）、`docs/docker.md`（隔離プロファイル）。
+関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/em-ai-team`（ランチャー）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）。
 
 ## 製品像
 
@@ -10,27 +10,27 @@
 | --- | --- | --- |
 | ソース | GitHub（公開） | clone して `./scripts/em-ai-team install` |
 | アプリ本体 | `~/.local/share/em-ai-team/app` | Next.js standalone（webpack ビルド） |
-| 起動コマンド | `~/.local/bin/em-ai-team` | `install` / `build` / `start` / `stop` / `status` |
+| 起動コマンド | `~/.local/bin/em-ai-team` | install / build / start / stop / status / doctor / backup / restore |
 | 業務データ | `~/.local/state/em-ai-team/data` | SQLite・JSON。リポジトリ外必須 |
 | 実名対応表 | `~/.local/state/em-ai-team/secure` | 0700 / 0600。data と兄弟だが権限分離 |
+| バックアップ | `~/.local/state/em-ai-team/backups` | `em-ai-team backup` が作成 |
 | モデルキャッシュ | `~/.cache/huggingface` 等（将来は `~/.cache/em-ai-team` も検討） | アプリ本体に同梱しない |
 | Agent CLI | 利用者ホスト（必須: `claude`） | `agy` / `cursor-agent` は任意 |
 | 隔離実行 | Docker Compose（任意） | 認証・依存ごとコンテナに閉じたい人向け |
 
 **同梱しないもの:** API キー、people-directory、モデル重み。認証と初回ダウンロードは利用者各自。
 
-## ホストインストール（Phase 1・現行）
+## ホストインストール（現行）
 
-前提: Node 24+、（Agent Run を使うなら）ホストに `claude` CLI。
+前提: Node 24+、（Agent Run を使うなら）ホストに `claude` CLI。手順の正本はリポジトリ直下の `README.md`。
 
 ```bash
 git clone <このリポジトリの URL>
 cd em_ai_team
 ./scripts/em-ai-team install
 em-ai-team start
-# ブラウザで http://127.0.0.1:3000
-em-ai-team status
-em-ai-team stop
+em-ai-team doctor
+em-ai-team backup
 ```
 
 - 既定で **127.0.0.1** のみにバインドする（LAN 公開しない）。
@@ -40,7 +40,7 @@ em-ai-team stop
 
 ## 入手チャネル
 
-1. **主経路:** 公開リポジトリを clone → `./scripts/em-ai-team install`
+1. **主経路:** 公開リポジトリを clone → `./scripts/em-ai-team install`（`README.md`）
 2. **GitHub Releases:** 将来、standalone 成果物と checksum を添付（Phase 3）
 3. **npm 公開:** しない（`npx` も主経路にしない）
 4. **Docker:** セカンドクラス。手順は `docs/docker.md`
@@ -66,7 +66,7 @@ em-ai-team stop
 | --- | --- | --- |
 | 0 | デフォルトデータパスの XDG 化＋旧配置からの移行 | 実装済み |
 | 1 | Next.js `output: "standalone"` ＋ `em-ai-team` ランチャー | 実装済み |
-| 2 | `doctor` / `backup` / 短い配布 README の整備 | 未着手 |
+| 2 | `doctor` / `backup`（`restore`）／ルート配布 README | 実装済み |
 | 3 | CI から GitHub Release 成果物を作成 | 未着手 |
 
 ## 明示的にやらないこと
@@ -77,5 +77,5 @@ em-ai-team stop
 ## セキュリティ上の注意（公開リポジトリ）
 
 - `.env`・認証ディレクトリ・state 配下はコミットしない（既存の ignore を維持）。
-- バックアップ対象は主に `~/.local/state/em-ai-team/`（secure を含む）。取り扱いに注意。
+- バックアップ対象は主に `data` + `secure`（`em-ai-team backup`）。アーカイブは個人情報を含むため取り扱いに注意。
 - 本番インターネット公開は想定しない（認証なしの単一ユーザー向け）。ランチャー既定も localhost のみ。
