@@ -52,16 +52,22 @@ function agentCliModels(value: unknown): Partial<Record<string, string>> | undef
   return result;
 }
 
-// ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
-// CLI_OPTIONSの並べ替え（重複無し・過不足無し）でなければ黙って落とす（不正な設定で
-// runClaudeTurnが候補ゼロになってrunが何も試さず終わる、といった事態を防ぐ）。
-function cliPriorityOrder(value: unknown): CliName[] | undefined {
+// ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が発生
+// している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
+// 「claude codeが外せないようになっている」対応。以前のcliPriorityOrder
+// （全エージェント共通の並び順）とagyFallbackAgents/cursorFallbackAgents
+// （エージェント種別ごとのON/OFF）を統合した、全エージェント共通のCLI優先順位
+// リスト。配列に含まれるCLIだけが候補（＝含まれないCLIは除外）で、含まれる順が
+// 試行順（＝優先度）。claudeも他の2つと同様に除外できる。CLI_OPTIONSに無い値・
+// 重複を含む配列・空配列は黙って落とす（不正な設定でrunClaudeTurnが候補ゼロに
+// なってrunが何も試さず終わる、といった事態を防ぐ）。
+function cliOrder(value: unknown): CliName[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const names = value.filter((v): v is string => typeof v === "string");
-  if (names.length !== CLI_OPTIONS.length) return undefined;
+  if (names.length === 0 || names.length !== value.length) return undefined;
   const unique = new Set(names);
-  if (unique.size !== CLI_OPTIONS.length) return undefined;
-  if (!CLI_OPTIONS.every((c) => unique.has(c))) return undefined;
+  if (unique.size !== names.length) return undefined;
+  if (!names.every((n) => (CLI_OPTIONS as readonly string[]).includes(n))) return undefined;
   return names as CliName[];
 }
 
@@ -78,12 +84,6 @@ export async function PATCH(request: Request) {
     agentStaleAfterSeconds: num(body?.agentStaleAfterSeconds),
     agentKillAfterSeconds: num(body?.agentKillAfterSeconds),
     journalFactTtlDays: num(body?.journalFactTtlDays),
-    agyFallbackAgents: Array.isArray(body?.agyFallbackAgents)
-      ? body.agyFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
-      : undefined,
-    cursorFallbackAgents: Array.isArray(body?.cursorFallbackAgents)
-      ? body.cursorFallbackAgents.filter((a: unknown): a is string => typeof a === "string")
-      : undefined,
     autoAnomalyDetectionEnabled: bool(body?.autoAnomalyDetectionEnabled),
     autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
     autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
@@ -94,7 +94,7 @@ export async function PATCH(request: Request) {
     agentModelTiers: agentModelTiers(body?.agentModelTiers),
     agentAgyModels: agentCliModels(body?.agentAgyModels),
     agentCursorModels: agentCliModels(body?.agentCursorModels),
-    cliPriorityOrder: cliPriorityOrder(body?.cliPriorityOrder),
+    cliOrder: cliOrder(body?.cliOrder),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);

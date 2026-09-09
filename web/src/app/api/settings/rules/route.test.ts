@@ -29,13 +29,11 @@ describe("PATCH /api/settings/rules", () => {
       jsonRequest("http://localhost/x", "PATCH", {
         teamWindowDays: 30,
         autoAnomalyDetectionEnabled: true,
-        agyFallbackAgents: ["Lead Agent", 123],
       }),
     );
     const json = await res.json();
     expect(json.rules.teamWindowDays).toBe(30);
     expect(json.rules.autoAnomalyDetectionEnabled).toBe(true);
-    expect(json.rules.agyFallbackAgents).toEqual(["Lead Agent"]);
     expect(json.rules.maxParallelAgentRuns).toBe(2); // 未指定は既定値のまま
   });
 
@@ -66,34 +64,41 @@ describe("PATCH /api/settings/rules", () => {
     expect((await res.json()).rules.teamWindowDays).toBe(14);
   });
 
-  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
-  describe("cliPriorityOrder", () => {
-    it("claude/agy/cursorの並び替えを更新できる", async () => {
+  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
+  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
+  // 「claude codeが外せないようになっている」対応。以前のcliPriorityOrder
+  // （全エージェント共通の並び順）+ agyFallbackAgents/cursorFallbackAgents
+  // （エージェント種別ごとのON/OFF）を、全エージェント共通の単一のCLI優先順位
+  // リストcliOrderへ統合した。claudeも他の2つと同様に除外できる。
+  describe("cliOrder", () => {
+    it("CLIの優先順位・除外を設定できる", async () => {
       const route = await import("./route");
-      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "claude", "agy"] }));
-      expect((await res.json()).rules.cliPriorityOrder).toEqual(["cursor", "claude", "agy"]);
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliOrder: ["cursor", "claude", "agy"] }));
+      expect((await res.json()).rules.cliOrder).toEqual(["cursor", "claude", "agy"]);
     });
 
-    it("要素が不足していると無視する（既定値のまま）", async () => {
+    it("claudeを含まない配列も設定できる（claudeも除外できる）", async () => {
       const route = await import("./route");
-      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "claude"] }));
-      expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliOrder: ["agy", "cursor"] }));
+      expect((await res.json()).rules.cliOrder).toEqual(["agy", "cursor"]);
     });
 
-    it("重複した値があると無視する（既定値のまま）", async () => {
+    it("重複した値がある配列は無視する（既定値のまま）", async () => {
       const route = await import("./route");
-      const res = await route.PATCH(
-        jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "cursor", "claude"] }),
-      );
-      expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliOrder: ["claude", "claude"] }));
+      expect((await res.json()).rules.cliOrder).toEqual(["claude"]);
     });
 
-    it("知らない値が含まれると無視する（既定値のまま）", async () => {
+    it("知らない値が含まれる配列は無視する（既定値のまま）", async () => {
       const route = await import("./route");
-      const res = await route.PATCH(
-        jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "claude", "bogus"] }),
-      );
-      expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliOrder: ["claude", "bogus"] }));
+      expect((await res.json()).rules.cliOrder).toEqual(["claude"]);
+    });
+
+    it("空配列は無視する（既定値のまま）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliOrder: [] }));
+      expect((await res.json()).rules.cliOrder).toEqual(["claude"]);
     });
   });
 

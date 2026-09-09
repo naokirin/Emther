@@ -1101,16 +1101,6 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
   }
 }
 
-// AGENT_OPTIONSのうち、Settingsで明示的にagy（Gemini）フォールバックを有効化した
-// エージェント種別だけがフォールバック対象になる（既定は全エージェントOFF）。
-export function isAgyFallbackEnabled(agentName: string): boolean {
-  return getRulesAndConstraints().agyFallbackAgents.includes(agentName);
-}
-
-export function isCursorFallbackEnabled(agentName: string): boolean {
-  return getRulesAndConstraints().cursorFallbackAgents.includes(agentName);
-}
-
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。1回のCLI子プロセス起動（claude/agy/cursor-agentのいずれか）
 // をここで数える「枠」で囲み、settings-store.tsのmaxParallelAgentRunsを超える同時起動を
@@ -1158,16 +1148,6 @@ async function withRunSlot<T>(run: AgentRun, fn: () => Promise<T>): Promise<T> {
 // ため、既にマスク済みのテキストを持っている——同じテキストに対して二重にローカルNERを
 // 走らせる（コスト増）だけでなく、既にPERSON_n ID化された文字列を再度NERにかけると
 // 誤検出のリスクもあるため、呼び出し側の結果をそのまま使う。
-// ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
-// claude以外（agy/cursor）は引き続きエージェント種別ごとのopt-in（agyFallbackAgents/
-// cursorFallbackAgents）が候補に入るための前提条件。claudeには無効化トグルが無く、
-// 常に候補になる。
-function isCliApplicable(cli: CliName, agentName: string): boolean {
-  if (cli === "claude") return true;
-  if (cli === "agy") return isAgyFallbackEnabled(agentName);
-  return isCursorFallbackEnabled(agentName);
-}
-
 // 戻り値は呼び出し側では使わない（run.statusを見て次の候補へ進むかを判断するため）。
 // runClaudeCliAttemptだけPromise<boolean>を返す非対称な型のため、Promise<unknown>にしている。
 function runCliAttempt(cli: CliName, run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<unknown> {
@@ -1190,16 +1170,20 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
 
   // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」・
   // 「サポートするAIエージェントCLIにCursor CLIを追加する」対応を、Settingsの
-  // cliPriorityOrderで並び替え可能にしたもの。以前はclaude→agy→cursorの順が固定
-  // だったが、このエージェント種別で候補になっているCLI（claudeは常に候補、agy/cursorは
-  // 引き続きopt-in）を、設定された優先順位の順に、失敗（run.statusが"error"）する限り
-  // 次の候補へ進む。agyは`--conversation`で会話継続できるため、run.agyConversationIdが
-  // あればそのまま引き継げる（claudeのsessionIdとは別のID空間で管理している）。
-  const priorityOrder = getRulesAndConstraints().cliPriorityOrder;
-  const candidates = priorityOrder.filter((cli) => isCliApplicable(cli, run.agentName));
+  // cliOrder（全エージェント共通のCLI優先順位リスト）で並び替え・除外可能にしたもの。
+  // ユーザー指摘「優先度設定が増えたことでフォールバック設定との競合が発生している」
+  // 「エージェントごとに設定できる必要はない、全体で1つで大丈夫」「claude codeが
+  // 外せないようになっている」対応で、以前のcliPriorityOrder（全エージェント共通の
+  // 並び順）とagyFallbackAgents/cursorFallbackAgents（エージェント種別ごとのON/OFF）
+  // をこの1つの設定へ統合した——配列に含まれるCLIだけが候補（除外＝配列から外す）で、
+  // claudeも他の2つと同様に除外できる（API側のバリデーションで空配列は弾く）。
+  // 含まれる順に、失敗（run.statusが"error"）する限り次の候補へ進む。agyは
+  // `--conversation`で会話継続できるため、run.agyConversationIdがあればそのまま
+  // 引き継げる（claudeのsessionIdとは別のID空間で管理している）。
+  const configuredOrder = getRulesAndConstraints().cliOrder;
   // 設定が万一壊れていても（本来はAPI側のバリデーションで防ぐ）runが何も試さず終わる
   // ことが無いようにする最後の砦。
-  const clisToTry: CliName[] = candidates.length > 0 ? candidates : ["claude"];
+  const clisToTry: CliName[] = configuredOrder && configuredOrder.length > 0 ? configuredOrder : ["claude"];
 
   for (let i = 0; i < clisToTry.length; i++) {
     const cli = clisToTry[i];

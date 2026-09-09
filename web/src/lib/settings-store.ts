@@ -26,17 +26,6 @@ export type RulesAndConstraints = {
   // 重みを失わせるべき（ファクトと解釈の分離）。この日数を過ぎたJournalファクトは
   // Agent Runtimeへの注入対象から外れる（削除はされない、履歴としては残る）。
   journalFactTtlDays: number;
-  // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」への対応。
-  // ここに含まれるエージェント名（AGENT_OPTIONSの値）だけが、claude CLIの実行失敗・
-  // 予算/レート制限時に`agy`（複数モデルに対応したCLI。Geminiモデルを指定して呼び出す）
-  // へのフォールバックを試みる。既定は空（全エージェントフォールバック無効）——
-  // 挙動が変わるフォールバックはEMの明示的な opt-in を必須にする。
-  agyFallbackAgents: string[];
-  // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
-  // claude→agyの順で試して依然として失敗している場合に限り、ここに含まれる
-  // エージェント名だけがCursor CLI（cursor-agent）へのフォールバックを試みる。
-  // 既定は空（全エージェントフォールバック無効）。
-  cursorFallbackAgents: string[];
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動」対応。
   // どちらも既定OFF（EMの明示opt-inが必須。自律実行によるコスト発生を勝手に始めない）。
   // イベント駆動: Journalに緊急度highのエントリが追加された時、Lead Agentへ自動で分析タスクを投げる。
@@ -72,11 +61,15 @@ export type RulesAndConstraints = {
   // 既定モデル定数のまま動く。
   agentAgyModels: Partial<Record<string, string>>;
   agentCursorModels: Partial<Record<string, string>>;
-  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
-  // claude→agy→cursorの順が固定だったが、この並びを設定で入れ替えられるようにする
-  // （agy/cursorは引き続きagyFallbackAgents/cursorFallbackAgentsでのopt-inが必要で、
-  // この設定は「候補の中でどの順に試すか」だけを決める）。既定は既存の固定順と同じ。
-  cliPriorityOrder: CliName[];
+  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
+  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
+  // 「claude codeが外せないようになっている」対応。以前のcliPriorityOrder
+  // （全エージェント共通の並び順）+ agyFallbackAgents/cursorFallbackAgents
+  // （エージェント種別ごとのON/OFF）を、全エージェント共通の単一のCLI優先順位
+  // リストへ統合したもの。配列に含まれるCLIだけが候補（除外＝配列から外す）で、
+  // 含まれる順が試行順（優先度）。claudeも含め除外可能（空配列にはできない）。
+  // 詳細は@/lib/types.tsの同名の型を参照。
+  cliOrder: CliName[];
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -90,8 +83,6 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
-  agyFallbackAgents: [],
-  cursorFallbackAgents: [],
   autoAnomalyDetectionEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
@@ -102,7 +93,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentModelTiers: {},
   agentAgyModels: {},
   agentCursorModels: {},
-  cliPriorityOrder: ["claude", "agy", "cursor"],
+  cliOrder: ["claude"],
 };
 
 let rules: RulesAndConstraints = {

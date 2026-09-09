@@ -539,8 +539,6 @@ export function useSettingsRules(intervalMs = 8000) {
       agentStaleAfterSeconds: 120,
       agentKillAfterSeconds: 600,
       journalFactTtlDays: 90,
-      agyFallbackAgents: [],
-      cursorFallbackAgents: [],
       autoAnomalyDetectionEnabled: false,
       autoMorningSummaryEnabled: false,
       autoMorningSummaryHour: 7,
@@ -551,7 +549,7 @@ export function useSettingsRules(intervalMs = 8000) {
       agentModelTiers: {},
       agentAgyModels: {},
       agentCursorModels: {},
-      cliPriorityOrder: ["claude", "agy", "cursor"],
+      cliOrder: ["claude"],
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);
