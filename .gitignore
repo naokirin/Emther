@@ -1,5 +1,14 @@
-# リポジトリ直下のローカル設定（Docker API キー等）
+# ローカル認証・環境変数（実キーを入れた .env 等）
 .env
+.env.*
+!.env.docker.example
+!.env*.example
+
+# Claude Code のマシン固有状態（グローバル ignore / info/exclude に頼らない）
+.claude/
+
+# OS
 .DS_Store
 
+# 依存関係（ルートに誤配置された場合）
 node_modules/
