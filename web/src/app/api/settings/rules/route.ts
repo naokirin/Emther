@@ -36,6 +36,22 @@ function agentModelTiers(value: unknown): Partial<Record<string, ModelTier>> | u
   return result;
 }
 
+// ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+// できるようにしたい」対応。agentModelTiersと違いモデル名は自由入力（エイリアスが無い
+// ため）なので、値自体の妥当性は検証しない（trimして空になったキーは既定へ戻す）。
+function agentCliModels(value: unknown): Partial<Record<string, string>> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const result: Partial<Record<string, string>> = {};
+  for (const [agentName, model] of Object.entries(value as Record<string, unknown>)) {
+    if (!AGENT_OPTIONS.includes(agentName)) continue;
+    if (typeof model !== "string") continue;
+    const trimmed = model.trim();
+    if (!trimmed) continue;
+    result[agentName] = trimmed;
+  }
+  return result;
+}
+
 // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
 // CLI_OPTIONSの並べ替え（重複無し・過不足無し）でなければ黙って落とす（不正な設定で
 // runClaudeTurnが候補ゼロになってrunが何も試さず終わる、といった事態を防ぐ）。
@@ -76,6 +92,8 @@ export async function PATCH(request: Request) {
     observationQueueLimit: positiveInt(body?.observationQueueLimit),
     staleInterventionDays: positiveInt(body?.staleInterventionDays),
     agentModelTiers: agentModelTiers(body?.agentModelTiers),
+    agentAgyModels: agentCliModels(body?.agentAgyModels),
+    agentCursorModels: agentCliModels(body?.agentCursorModels),
     cliPriorityOrder: cliPriorityOrder(body?.cliPriorityOrder),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));

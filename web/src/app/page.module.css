@@ -156,6 +156,27 @@
   background: var(--gray-bg);
 }
 
+/* ユーザー指摘「サイドメニューのデザインがほかタブと異なる」対応。.sideNavItem/
+   .sideNavItemActiveは元々<Link>（グローバルナビのAppShell）向けだが、Settings画面内の
+   切り替えはURL遷移を伴わないため<button>で使う。ネイティブbutton既定の背景（UAスタイル
+   シートのbuttonface）を打ち消さないと非アクティブ項目だけ灰色い箱に見えてしまうため、
+   ここで明示的にtransparentにする。.sideNavItemActiveより前に置く必要がある——CSSは
+   クラス名の並び順ではなくスタイルシート内の記述順で同じ詳細度の衝突を解決するため、
+   後ろに置くとActive時の背景色をtransparentが上書きしてしまう。
+   ユーザー指摘（続報）「まだフォントサイズが違う」対応。`font: inherit`はショートハンドの
+   ため、font-size等の指定していないサブプロパティも含めてすべてinherit値にリセットして
+   しまい、.sideNavItemが指定するfont-size: 0.8125remを上書きして周囲の（より大きい）
+   フォントサイズを継承してしまっていた。button既定のfont-familyだけを打ち消したいので、
+   ショートハンドではなくfont-familyだけを指定する。 */
+.sideNavButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+}
+
 .sideNavItemActive,
 .sideNavItemActive:hover {
   background: var(--blue-bg);
@@ -273,6 +294,14 @@
 
 .errorText {
   color: var(--red-fg);
+  font-size: 0.8125rem;
+  margin-top: 8px;
+}
+
+/* ユーザー指摘「保存の押し忘れや保存されたかのわかりにくさ」対応。Settings画面の
+   保存確認メッセージ用。errorTextと対になる、成功を示す常設のテキストスタイル。 */
+.successText {
+  color: var(--green-fg);
   font-size: 0.8125rem;
   margin-top: 8px;
 }

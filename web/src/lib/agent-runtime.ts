@@ -1345,8 +1345,12 @@ function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, a
       return;
     }
 
+    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+    // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば
+    // それを使い、未設定なら既定モデルのまま動く。
+    const agyModel = getRulesAndConstraints().agentAgyModels[run.agentName] || AGY_GEMINI_MODEL;
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
-    const args = ["-p", combinedPrompt, "--model", AGY_GEMINI_MODEL, "--output-format", "stream-json"];
+    const args = ["-p", combinedPrompt, "--model", agyModel, "--output-format", "stream-json"];
     if (run.agyConversationId) {
       args.push("--conversation", run.agyConversationId);
     }
@@ -1472,6 +1476,10 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
       return;
     }
 
+    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+    // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば
+    // それを使い、未設定なら既定モデルのまま動く。
+    const cursorModel = getRulesAndConstraints().agentCursorModels[run.agentName] || CURSOR_MODEL;
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
     const args = [
       "--print",
@@ -1483,7 +1491,7 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
       "--output-format",
       "stream-json",
       "--model",
-      CURSOR_MODEL,
+      cursorModel,
     ];
     if (run.cursorSessionId) {
       args.push("--resume", run.cursorSessionId);

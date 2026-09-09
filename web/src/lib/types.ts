@@ -176,6 +176,13 @@ export type RulesAndConstraints = {
   // AGENT_OPTIONSの値をキーにした、エージェント種別ごとのモデル系統指定。キーが無い
   // （または値が空文字列の）エージェントはclaude CLIの既定モデルのまま動く。
   agentModelTiers: Partial<Record<string, ModelTier>>;
+  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+  // できるようにしたい」対応。claudeのagentModelTiersと違い、agy/cursorのモデルは
+  // （エイリアスではなく）バージョン付きの具体名でしか指定できない実機確認済みの制約が
+  // あるため、系統選択のプルダウンではなく自由入力の文字列にする。キーが無い（または
+  // 空文字列の）エージェントはagent-runtime.tsの既定モデル定数のまま動く。
+  agentAgyModels: Partial<Record<string, string>>;
+  agentCursorModels: Partial<Record<string, string>>;
   // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
   // CLI_OPTIONSの並べ替え（重複無し・全件含む）。既定は["claude","agy","cursor"]
   // （既存の固定順と同じ＝挙動を変えない既定値）。

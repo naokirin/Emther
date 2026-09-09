@@ -96,4 +96,43 @@ describe("PATCH /api/settings/rules", () => {
       expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
     });
   });
+
+  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+  // できるようにしたい」対応。
+  describe("agentAgyModels / agentCursorModels", () => {
+    it("エージェント種別ごとのモデル名を設定できる", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(
+        jsonRequest("http://localhost/x", "PATCH", {
+          agentAgyModels: { "Lead Agent": "gemini-custom" },
+          agentCursorModels: { "Lead Agent": "gpt-custom" },
+        }),
+      );
+      const json = await res.json();
+      expect(json.rules.agentAgyModels).toEqual({ "Lead Agent": "gemini-custom" });
+      expect(json.rules.agentCursorModels).toEqual({ "Lead Agent": "gpt-custom" });
+    });
+
+    it("AGENT_OPTIONSに無いキーは落とす", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(
+        jsonRequest("http://localhost/x", "PATCH", { agentAgyModels: { "存在しないエージェント": "gemini-x" } }),
+      );
+      expect((await res.json()).rules.agentAgyModels).toEqual({});
+    });
+
+    it("空文字列（trim後）のモデル名は落とす（既定モデルへ戻す）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { agentAgyModels: { "Lead Agent": "   " } }));
+      expect((await res.json()).rules.agentAgyModels).toEqual({});
+    });
+
+    it("前後の空白はtrimして保存する", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(
+        jsonRequest("http://localhost/x", "PATCH", { agentAgyModels: { "Lead Agent": "  gemini-custom  " } }),
+      );
+      expect((await res.json()).rules.agentAgyModels).toEqual({ "Lead Agent": "gemini-custom" });
+    });
+  });
 });

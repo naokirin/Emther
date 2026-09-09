@@ -25,6 +25,10 @@ describe("getRulesAndConstraints", () => {
     // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
     // 既定は既存の固定順（claude→agy→cursor）と同じにする。
     expect(rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
+    // できるようにしたい」対応。既定は全エージェント未設定。
+    expect(rules.agentAgyModels).toEqual({});
+    expect(rules.agentCursorModels).toEqual({});
   });
 });
 
