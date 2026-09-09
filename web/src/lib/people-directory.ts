@@ -12,10 +12,12 @@
 // virtiofs 上では Unix パーミッションが実効的でないこと、cursor-agent の
 // `--workspace` が絶対パス読み取りを防げないことは実機検証済みのため、
 // プロジェクト外・権限が効く場所に置く方針は維持する。
-// 名前の登録元は、チームメンバー追加・Journal校正でEMが明示した人物・People画面の
-// 手動登録・人名候補ダイアログでの「人名として登録」に限定する。ローカルNERの検出結果
-// では自動登録しない（誤登録が assertNoRealNamesLeaked を誤発火させ Agent 送信を
-// 止めるため）。NERは未登録候補の提示と確認にだけ使う。
+// 名前の登録元は、チームメンバー追加・Journal校正でEMが明示した人物・People画面／
+// ヘッダーのクイック追加・人名候補ダイアログでの「人名として登録」に限定する。
+// ローカルNERの検出結果では自動登録しない（誤登録が assertNoRealNamesLeaked を誤発火
+// させ Agent 送信を止めるため）。
+// 方針: 名簿の事前登録が正。未登録語句で処理を止めない（既定ではNER確認ゲートを走らせない）。
+// NERは allowUnmaskedCandidates:false（厳格確認）または registerNameCandidates:true のときだけ使う。
 
 import { loadSecureJSON, saveSecureJSON } from "@/lib/persistence";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
@@ -396,8 +398,20 @@ export async function detectUnregisteredNameCandidates(text: string): Promise<st
   }
 }
 
-/** 複数テキストから未確認候補を集め、未許可なら UnconfirmedNameCandidatesError を投げる。 */
+/**
+ * 複数テキストから未確認候補を集め、必要なら登録／確認エラーにする。
+ *
+ * 既定（opts未指定）: NERを起動せず即return。登録済み人名だけが後続の maskForStorage で
+ * マスクされる。事前登録が正の方針に合わせ、保存・Agent送信のホットパスからローカルSLMを外す。
+ *
+ * - registerNameCandidates: true → NERで候補を検出し人名登録する
+ * - allowUnmaskedCandidates: false → NERで候補を検出し、未許可なら UnconfirmedNameCandidatesError
+ * - allowUnmaskedCandidates: true → NERで候補を検出し acknowledge して進める
+ */
 export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOptions = {}): Promise<void> {
+  const needsNer = opts.registerNameCandidates === true || opts.allowUnmaskedCandidates === false || opts.allowUnmaskedCandidates === true;
+  if (!needsNer) return;
+
   // 空を除き、同一文面の重複検出を避ける。複数フィールド（Why/What/How等）は
   // ローカルNERへ1回だけ渡す——フィールドごとの直列呼び出しは保存を数倍遅くし、
   // 同一モデルへの並行呼び出しは低メモリ環境で不安定なため結合する。
@@ -410,7 +424,7 @@ export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOpt
     for (const c of candidates) registerName(c);
     return;
   }
-  if (!opts.allowUnmaskedCandidates) {
+  if (opts.allowUnmaskedCandidates === false) {
     throw new UnconfirmedNameCandidatesError(candidates);
   }
   acknowledgeUnmaskedCandidates(candidates);

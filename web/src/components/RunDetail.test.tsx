@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CopilotChat, ExecutionState, runFallbackTitle, StatusBadge, type AgentRun } from "./RunDetail";
+import { CopilotChat, ExecutionState, draftKindLabel, isDraftAwaitingTriage, runFallbackTitle, StatusBadge, type AgentRun } from "./RunDetail";
 
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -71,6 +71,26 @@ describe("runFallbackTitle", () => {
         baseRun({ task: "", agentName: "Tech Agent", log: [{ ts: 0, channel: "system", text: "システムログのみ" }] }),
       ),
     ).toBe("Tech AgentのRun（内容未記録）");
+  });
+});
+
+describe("isDraftAwaitingTriage / draftKindLabel", () => {
+  it("自動起動かつ未確認ならドラフト", () => {
+    expect(isDraftAwaitingTriage(baseRun({ origin: "auto-anomaly", reviewed: false }))).toBe(true);
+    expect(isDraftAwaitingTriage(baseRun({ origin: "manual", reviewed: false }))).toBe(false);
+    expect(isDraftAwaitingTriage(baseRun({ origin: "auto-anomaly", reviewed: true }))).toBe(false);
+    expect(
+      isDraftAwaitingTriage(baseRun({ origin: "auto-anomaly", reviewed: false, triageStatus: "dismissed" })),
+    ).toBe(false);
+  });
+
+  it("idleのドラフトはドラフトIssue、実行中はドラフト分析中", () => {
+    expect(draftKindLabel(baseRun({ origin: "auto-summary", reviewed: false, status: "idle" }))).toBe(
+      "ドラフトIssue",
+    );
+    expect(draftKindLabel(baseRun({ origin: "auto-summary", reviewed: false, status: "active" }))).toBe(
+      "ドラフト分析中",
+    );
   });
 });
 

@@ -279,21 +279,33 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
     expect(await pd.detectUnregisteredNameCandidates("NPSと1on1とPRとABC123とA")).toEqual([]);
   });
 
-  it("未許可なら UnconfirmedNameCandidatesError を投げる", async () => {
+  it("既定ではNERを呼ばず通過する（事前登録が正）", async () => {
+    mockPeople = ["Bさん"];
+    const { runLocalChat } = await import("@/lib/local-model");
+    const pd = await loadModule();
+    vi.mocked(runLocalChat).mockClear();
+    await pd.ensureNameCandidatesAllowed(["Bさんと話した"]);
+    expect(runLocalChat).not.toHaveBeenCalled();
+    expect(pd.listPeople()).toHaveLength(0);
+  });
+
+  it("allowUnmaskedCandidates:false なら UnconfirmedNameCandidatesError を投げる", async () => {
     mockPeople = ["Bさん"];
     const pd = await loadModule();
     const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
-    await expect(pd.ensureNameCandidatesAllowed(["Bさんと話した"])).rejects.toBeInstanceOf(
-      UnconfirmedNameCandidatesError,
-    );
+    await expect(
+      pd.ensureNameCandidatesAllowed(["Bさんと話した"], { allowUnmaskedCandidates: false }),
+    ).rejects.toBeInstanceOf(UnconfirmedNameCandidatesError);
   });
 
-  it("複数テキストでもローカルNERは1回だけ呼ぶ", async () => {
+  it("厳格確認時、複数テキストでもローカルNERは1回だけ呼ぶ", async () => {
     mockPeople = [];
     const { runLocalChat } = await import("@/lib/local-model");
     const pd = await loadModule();
     vi.mocked(runLocalChat).mockClear();
-    await pd.ensureNameCandidatesAllowed(["理由の文", "内容の文", "方法の文"]);
+    await pd.ensureNameCandidatesAllowed(["理由の文", "内容の文", "方法の文"], {
+      allowUnmaskedCandidates: true,
+    });
     expect(runLocalChat).toHaveBeenCalledTimes(1);
   });
 

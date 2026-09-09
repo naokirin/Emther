@@ -116,7 +116,7 @@ describe("charter / title / action items / log entries", () => {
     expect(runLocalChat).not.toHaveBeenCalled();
   });
 
-  it("updateIssueCharterは変更フィールドだけをまとめて1回NERする", async () => {
+  it("updateIssueCharterは既定でNERを走らせない（事前登録が正）", async () => {
     const { runLocalChat } = await import("@/lib/local-model");
     const store = await loadModule();
     const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
@@ -127,6 +127,25 @@ describe("charter / title / action items / log entries", () => {
       what: "新しい内容",
       how: "方法",
     });
+    expect(updated?.charter.what).toBe("新しい内容");
+    expect(runLocalChat).not.toHaveBeenCalled();
+  });
+
+  it("updateIssueCharterは明示オプトイン時、変更フィールドだけをまとめて1回NERする", async () => {
+    const { runLocalChat } = await import("@/lib/local-model");
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
+    vi.mocked(runLocalChat).mockClear();
+
+    const updated = await store.updateIssueCharter(
+      issue.id,
+      {
+        why: "理由",
+        what: "新しい内容",
+        how: "方法",
+      },
+      { allowUnmaskedCandidates: true },
+    );
     expect(updated?.charter.what).toBe("新しい内容");
     expect(runLocalChat).toHaveBeenCalledTimes(1);
   });

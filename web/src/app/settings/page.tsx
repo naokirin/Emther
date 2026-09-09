@@ -293,6 +293,21 @@ export default function SettingsPage() {
 
             {activeGroup === "aiTools" && (
               <>
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: "var(--panel-muted, var(--panel))",
+                    fontSize: "0.8125rem",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong>プライバシー（運用前提）:</strong>{" "}
+                  人名のマスクは「ヘッダーの＋人を追加／チーム名簿で事前登録した名前」だけが対象です。
+                  利用するCLI・モデル側で学習・改善へのデータ利用がOFFになっていることを確認してください（Emther側では学習設定を強制できません）。
+                </div>
                 {/* ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との
                     競合が発生している」「エージェントごとに設定できる必要はない、全体で
                     1つで大丈夫」対応。以前は「利用するAIツールの優先順位」（全エージェント
@@ -476,7 +491,7 @@ export default function SettingsPage() {
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動（イベント駆動・バッチ駆動）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
                   既定はOFFです。ONにすると、EMが何も指示していなくてもLead Agentが自動的に起動しコストが発生します。
-                  自動起動されたRunはDashboardの「次にすべきこと」に表示され、EMが内容を確認する（または却下する）までそこに残り続けます。
+                  自動起動されたRunは「ドラフトIssue（起票待ち）」としてDashboardの「次の1手」に表示され、EMが起票／様子見／却下するまでそこに残り続けます。
                 </p>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>

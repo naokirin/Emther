@@ -15,13 +15,15 @@ export function parseRegisterNameCandidates(body: unknown): boolean {
   return (body as Record<string, unknown>).registerNameCandidates === true;
 }
 
-/** API body から MaskOptions を組み立てる。登録指定がある場合は未マスク許可より優先。 */
+/** API body から MaskOptions を組み立てる。フラグ未指定時は空（NERゲートなし＝事前登録が正）。 */
 export function maskOptionsFromBody(body: unknown): MaskOptions {
-  const registerNameCandidates = parseRegisterNameCandidates(body);
-  return {
-    registerNameCandidates,
-    allowUnmaskedCandidates: !registerNameCandidates && parseAllowUnmaskedCandidates(body),
-  };
+  if (parseRegisterNameCandidates(body)) {
+    return { registerNameCandidates: true };
+  }
+  if (parseAllowUnmaskedCandidates(body)) {
+    return { allowUnmaskedCandidates: true };
+  }
+  return {};
 }
 
 export function jsonFromUnknownError(err: unknown, fallbackStatus = 500): NextResponse {

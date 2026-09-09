@@ -72,4 +72,19 @@ describe("POST /api/people", () => {
     const json = await res.json();
     expect(json.person.id).toBe("PERSON_1");
   });
+
+  it("aliases を同時に登録できる", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      new Request("http://localhost/api/people", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "山田さん", aliases: ["山田くん", "Yamada"] }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.person.name).toBe("山田さん");
+    expect(json.person.aliases).toEqual(expect.arrayContaining(["山田くん", "Yamada"]));
+  });
 });

@@ -133,6 +133,29 @@ export function runKindLabel(run: AgentRun): string {
   return "手動";
 }
 
+/** 自動起動かつ未トリアージ（起票／様子見／却下前）のドラフト。Issue行ではなく AgentRun が正。 */
+export function isDraftAwaitingTriage(
+  run: Pick<AgentRun, "origin" | "reviewed" | "triageStatus">,
+): boolean {
+  return (
+    run.origin !== "manual" &&
+    !run.reviewed &&
+    run.triageStatus !== "watching" &&
+    run.triageStatus !== "dismissed"
+  );
+}
+
+/**
+ * ダッシュボード／相談の「ドラフトIssue」語彙。
+ * idle完了＝起票待ち、active/queued＝分析中。yield/error は従来の種別ラベルを優先。
+ */
+export function draftKindLabel(run: AgentRun): string {
+  if (!isDraftAwaitingTriage(run)) return runKindLabel(run);
+  if (run.status === "active" || run.status === "queued") return "ドラフト分析中";
+  if (run.status === "idle") return "ドラフトIssue";
+  return runKindLabel(run);
+}
+
 // docs/first_implession/em_ui_wireframe_v5.html の Issue Workspace「Execution State」に対応。
 // Context（このrunが何のタスクか）＋ Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）＋
 // 通常完了時のProposalを表示する。Action Itemsは呼び出し側（Issueがある場合のみ）で追加する。
