@@ -2,7 +2,7 @@
 
 個人の EM サポートツールとして、**GitHub 公開リポジトリから入手でき、利用者のマシン上にだけ機微データが残る**ことを目標にする。npm レジストリへの公開はしない。
 
-関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/em-ai-team`（ランチャー）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）。
+関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/em-ai-team`（ランチャー）、`scripts/package-standalone.sh` / `scripts/install-release.sh`（Release 成果物）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）、`.github/workflows/release.yml`。
 
 ## 製品像
 
@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | ソース | GitHub（公開） | clone して `./scripts/em-ai-team install` |
 | アプリ本体 | `~/.local/share/em-ai-team/app` | Next.js standalone（webpack ビルド） |
-| 起動コマンド | `~/.local/bin/em-ai-team` | install / build / start / stop / status / doctor / backup / restore |
+| 起動コマンド | `~/.local/bin/em-ai-team` | install / install-release / build / start / stop / status / doctor / backup / restore |
 | 業務データ | `~/.local/state/em-ai-team/data` | SQLite・JSON。リポジトリ外必須 |
 | 実名対応表 | `~/.local/state/em-ai-team/secure` | 0700 / 0600。data と兄弟だが権限分離 |
 | バックアップ | `~/.local/state/em-ai-team/backups` | `em-ai-team backup` が作成 |
@@ -18,16 +18,22 @@
 | Agent CLI | 利用者ホスト（必須: `claude`） | `agy` / `cursor-agent` は任意 |
 | 隔離実行 | Docker Compose（任意） | 認証・依存ごとコンテナに閉じたい人向け |
 
-**同梱しないもの:** API キー、people-directory、モデル重み。認証と初回ダウンロードは利用者各自。
+**同梱しないもの:** API キー、people-directory、モデル重み。認証と初回ダウンロードは利用者各自。ホストには引き続き **Node 24+** が必要（Release tarball も同様）。
 
 ## ホストインストール（現行）
 
 前提: Node 24+、（Agent Run を使うなら）ホストに `claude` CLI。手順の正本はリポジトリ直下の `README.md`。
 
 ```bash
+# ソースから
 git clone <このリポジトリの URL>
 cd em_ai_team
 ./scripts/em-ai-team install
+
+# または GitHub Release の tarball から
+tar -xzf em-ai-team-vX.Y.Z-linux-x64.tar.gz
+./em-ai-team/install.sh
+
 em-ai-team start
 em-ai-team doctor
 em-ai-team backup
@@ -41,9 +47,19 @@ em-ai-team backup
 ## 入手チャネル
 
 1. **主経路:** 公開リポジトリを clone → `./scripts/em-ai-team install`（`README.md`）
-2. **GitHub Releases:** 将来、standalone 成果物と checksum を添付（Phase 3）
+2. **GitHub Releases:** タグ `v*` push で CI（`.github/workflows/release.yml`）が `linux-x64` / `darwin-arm64` の tarball + SHA256 を添付
 3. **npm 公開:** しない（`npx` も主経路にしない）
 4. **Docker:** セカンドクラス。手順は `docs/docker.md`
+
+### Release の切り方
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+成果物名の例: `em-ai-team-v0.1.0-linux-x64.tar.gz`（中身は `app/` + `bin/em-ai-team` + `install.sh`）。  
+onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選ぶ。
 
 ## データパス規約（Phase 0）
 
@@ -67,7 +83,7 @@ em-ai-team backup
 | 0 | デフォルトデータパスの XDG 化＋旧配置からの移行 | 実装済み |
 | 1 | Next.js `output: "standalone"` ＋ `em-ai-team` ランチャー | 実装済み |
 | 2 | `doctor` / `backup`（`restore`）／ルート配布 README | 実装済み |
-| 3 | CI から GitHub Release 成果物を作成 | 未着手 |
+| 3 | CI から GitHub Release 成果物を作成 | 実装済み |
 
 ## 明示的にやらないこと
 

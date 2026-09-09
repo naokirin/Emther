@@ -58,3 +58,4 @@
 * 配布方針 Phase 0（`docs/packaging.md`）— GitHub公開・npm非公開を前提に、既定データパスを`~/.local/state/em-ai-team/{data,secure}`へ。旧`cwd/.data`および`~/.local/state/em-ai-team-secure`からは宛先が空のとき一度だけ自動移行。Dockerは隔離用プロファイルとして維持
 * 配布方針 Phase 1 — Next.js `output: "standalone"` と `scripts/em-ai-team`（install/build/start/stop/status）。standalone は `build:standalone`（webpack）で作成し `~/.local/share/em-ai-team/app` へ配置。既定バインドは 127.0.0.1
 * 配布方針 Phase 2 — `em-ai-team doctor` / `backup` / `restore` とリポジトリ直下の配布用 `README.md`（詳細方針は `docs/packaging.md`）
+* 配布方針 Phase 3 — タグ `v*` で `.github/workflows/release.yml` が linux-x64 / darwin-arm64 の standalone tarball + SHA256 を GitHub Release に添付。`scripts/package-standalone.sh` / `install-release.sh`、`em-ai-team install-release`
