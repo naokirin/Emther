@@ -44,6 +44,7 @@ emther backup    # data + secure を tar.gz に（個人情報を含む）
 emther restore ~/.local/state/emther/backups/emther-state-YYYYMMDD-HHMMSS.tar.gz
 ```
 
+同じバックアップは UI の **設定 → データ** からもダウンロード／復元／全削除できます（復元・リセット後はサーバーが停止するので `emther start` で再起動してください）。CLI が端末移行の正本で、UI は同形式の補助経路です。
 `~/.local/bin` が PATH に無い場合は、シェル設定に追加するか `./scripts/emther …` を直接使ってください。  
 （旧コマンド名 `em-ai-team` は互換ラッパーが残りますが、今後は `emther` を使ってください。）
 

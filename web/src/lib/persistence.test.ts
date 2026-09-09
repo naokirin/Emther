@@ -4,8 +4,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 import {
   dataFilePath,
+  defaultBackupDir,
   defaultDataDir,
   defaultSecureDataDir,
+  getBackupDir,
+  getDataDir,
+  getSecureDataDir,
   loadJSON,
   loadSecureJSON,
   migrateLegacyLocations,
@@ -60,9 +64,22 @@ describe("dataFilePath", () => {
 });
 
 describe("default paths", () => {
-  it("デフォルトは ~/.local/state/emther/{data,secure}", () => {
+  it("デフォルトは ~/.local/state/emther/{data,secure,backups}", () => {
     expect(defaultDataDir()).toMatch(/\.local[/\\]state[/\\]emther[/\\]data$/);
     expect(defaultSecureDataDir()).toMatch(/\.local[/\\]state[/\\]emther[/\\]secure$/);
+    expect(defaultBackupDir()).toMatch(/\.local[/\\]state[/\\]emther[/\\]backups$/);
+  });
+});
+
+describe("getDataDir / getSecureDataDir / getBackupDir", () => {
+  it("環境変数のパスを返し、ディレクトリを作成する", () => {
+    process.env.EM_BACKUP_DIR = join(dir, "backups");
+    expect(getDataDir()).toBe(process.env.EM_DATA_DIR);
+    expect(getSecureDataDir()).toBe(process.env.EM_SECURE_DATA_DIR);
+    expect(getBackupDir()).toBe(process.env.EM_BACKUP_DIR);
+    expect(existsSync(process.env.EM_DATA_DIR!)).toBe(true);
+    expect(existsSync(process.env.EM_SECURE_DATA_DIR!)).toBe(true);
+    expect(existsSync(process.env.EM_BACKUP_DIR!)).toBe(true);
   });
 });
 

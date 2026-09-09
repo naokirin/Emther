@@ -411,6 +411,18 @@ export function checkStaleRuns(): void {
   }
 }
 
+/** データ復元／リセット直前用。追跡中の agent CLI 子プロセスをベストエフォートで kill する。 */
+export function killLiveAgentProcesses(): void {
+  for (const [id, child] of liveProcesses.entries()) {
+    try {
+      child.kill();
+    } catch {
+      // 既に終了済み等は無視
+    }
+    liveProcesses.delete(id);
+  }
+}
+
 // docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
 // 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
 // ユーザー指摘「朝のサマリーのログが大量に並んでいる」対応（原因調査の結果）:

@@ -29,6 +29,10 @@ export function defaultSecureDataDir(): string {
   return join(APP_STATE_ROOT, "secure");
 }
 
+export function defaultBackupDir(): string {
+  return join(APP_STATE_ROOT, "backups");
+}
+
 function previousDataDir(): string {
   return join(PREVIOUS_APP_STATE_ROOT, "data");
 }
@@ -138,10 +142,31 @@ function secureDataDir(): string {
   return defaultSecureDataDir();
 }
 
+function backupDir(): string {
+  if (process.env.EM_BACKUP_DIR) return process.env.EM_BACKUP_DIR;
+  return defaultBackupDir();
+}
+
 function ensureDir(dir: string, mode = 0o755): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true, mode });
   }
+}
+
+/** バックアップ／復元／リセット用。絶対パスを返す（必要ならディレクトリを作成）。 */
+export function getDataDir(): string {
+  ensureDir(dataDir());
+  return dataDir();
+}
+
+export function getSecureDataDir(): string {
+  ensureDir(secureDataDir(), 0o700);
+  return secureDataDir();
+}
+
+export function getBackupDir(): string {
+  ensureDir(backupDir());
+  return backupDir();
 }
 
 export function loadJSON<T>(filename: string, fallback: T): T {

@@ -22,6 +22,18 @@ export function getDb(): DatabaseSync {
   return db;
 }
 
+/** 復元／リセット前に呼ぶ。開いている SQLite 接続を閉じ、次の getDb() で再オープンできるようにする。 */
+export function closeDb(): void {
+  if (!db) return;
+  const current = db;
+  db = undefined;
+  try {
+    current.close();
+  } catch {
+    // 既に閉じている等は無視
+  }
+}
+
 // `next build`はページデータ収集を複数ワーカー（別プロセス）で並行実行し、それぞれが
 // このファイルを独立にimportして`getDb()`を呼ぶため、複数プロセスがほぼ同時に
 // 同じ`.data/app.db`へマイグレーションを試みることがある。事前にcolumnExists()で

@@ -11,11 +11,13 @@ export function setupIsolatedStoreEnv(): string {
   const dir = mkdtempSync(join(tmpdir(), "emther-test-"));
   process.env.EM_DATA_DIR = join(dir, "data");
   process.env.EM_SECURE_DATA_DIR = join(dir, "secure");
+  process.env.EM_BACKUP_DIR = join(dir, "backups");
   return dir;
 }
 
 export function teardownIsolatedStoreEnv(dir: string): void {
   delete process.env.EM_DATA_DIR;
   delete process.env.EM_SECURE_DATA_DIR;
+  delete process.env.EM_BACKUP_DIR;
   rmSync(dir, { recursive: true, force: true });
 }
