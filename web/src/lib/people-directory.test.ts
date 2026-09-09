@@ -288,6 +288,15 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
     );
   });
 
+  it("複数テキストでもローカルNERは1回だけ呼ぶ", async () => {
+    mockPeople = [];
+    const { runLocalChat } = await import("@/lib/local-model");
+    const pd = await loadModule();
+    vi.mocked(runLocalChat).mockClear();
+    await pd.ensureNameCandidatesAllowed(["理由の文", "内容の文", "方法の文"]);
+    expect(runLocalChat).toHaveBeenCalledTimes(1);
+  });
+
   it("許可すると acknowledge し、再検出されない", async () => {
     mockPeople = ["Bさん"];
     const pd = await loadModule();

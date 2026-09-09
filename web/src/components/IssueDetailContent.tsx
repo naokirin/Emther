@@ -129,24 +129,27 @@ export function IssueDetailContent({ id }: { id: string }) {
   const [actionItemText, setActionItemText] = useState("");
   // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
   const [logText, setLogText] = useState("");
-  const [logSubmitting, setLogSubmitting] = useState(false);
-  const [logError, setLogError] = useState<string | null>(null);
+  const [logPending, setLogPending] = useState(false);
+  const [logPendingError, setLogPendingError] = useState<{ message: string; retry: () => void } | null>(null);
 
   // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
   // titleEditingはEMのクリックで開始する（issueの非同期取得を待つ必要はなく、編集ボタン
   // 自体issueが揃ってから初めて描画されるため、レンダー中の同期は不要）。
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [titleSaving, setTitleSaving] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
+  // Journalと同様、ローカルNERを含む保存完了をフォーム上で待たず、対象箇所にスピナーを出す。
+  const [titlePending, setTitlePending] = useState(false);
+  const [titlePendingError, setTitlePendingError] = useState<{ message: string; retry: () => void } | null>(null);
 
   // docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。titleEditingと同じ
   // パターン。textarea群は非制御（defaultValue）で、charterEditingがfalseの間は
   // アンマウントされているため、キャンセル時に個別のdraft巻き戻しは不要
   // （再度開けば必ずissue.charterの現在値から始まる）。
   const [charterEditing, setCharterEditing] = useState(false);
-  const [charterSaving, setCharterSaving] = useState(false);
   const [charterError, setCharterError] = useState<string | null>(null);
+  const [charterPending, setCharterPending] = useState(false);
+  const [charterPendingError, setCharterPendingError] = useState<{ message: string; retry: () => void } | null>(null);
   const whyRef = useRef<HTMLTextAreaElement | null>(null);
   const whatRef = useRef<HTMLTextAreaElement | null>(null);
   const howRef = useRef<HTMLTextAreaElement | null>(null);
@@ -213,21 +216,17 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   function startEditingTitle() {
-    if (!issue) return;
+    if (!issue || titlePending) return;
     setTitleDraft(issue.title);
     setTitleError(null);
+    setTitlePendingError(null);
     setTitleEditing(true);
   }
 
-  async function handleSaveTitle() {
+  async function sendTitlePatch(trimmed: string, retry: () => void) {
     if (!issue) return;
-    const trimmed = titleDraft.trim();
-    if (!trimmed) {
-      setTitleError("タイトルは必須です");
-      return;
-    }
-    setTitleSaving(true);
-    setTitleError(null);
+    setTitlePending(true);
+    setTitlePendingError(null);
     try {
       const { res, data } = await fetchWithNameConfirm(
         `/api/issues/${issue.id}`,
@@ -235,51 +234,72 @@ export function IssueDetailContent({ id }: { id: string }) {
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
-      await refreshIssue();
-      await refreshIssues();
-      setTitleEditing(false);
+      await Promise.all([refreshIssue(), refreshIssues()]);
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
-        setTitleError((err as Error).message);
+        setTitlePendingError({ message: (err as Error).message, retry });
       }
     } finally {
-      setTitleSaving(false);
+      setTitlePending(false);
     }
   }
 
-  async function handleSaveCharter() {
+  function handleSaveTitle() {
     if (!issue) return;
-    setCharterSaving(true);
-    setCharterError(null);
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      setTitleError("タイトルは必須です");
+      return;
+    }
+    setTitleError(null);
+    setTitleEditing(false);
+    const retry = () => {
+      void sendTitlePatch(trimmed, retry);
+    };
+    void sendTitlePatch(trimmed, retry);
+  }
+
+  async function sendCharterPatch(body: Record<string, unknown>, retry: () => void) {
+    if (!issue) return;
+    setCharterPending(true);
+    setCharterPendingError(null);
     try {
       const { res, data } = await fetchWithNameConfirm(
         `/api/issues/${issue.id}`,
-        {
-          method: "PATCH",
-          body: {
-            why: whyRef.current?.value ?? "",
-            what: whatRef.current?.value ?? "",
-            how: howRef.current?.value ?? "",
-            tags: (tagsRef.current?.value ?? "").split(",").map((t) => t.trim()).filter(Boolean),
-          },
-        },
+        { method: "PATCH", body },
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
-      await refreshIssue();
-      await refreshRuns();
-      setCharterEditing(false);
+      await Promise.all([refreshIssue(), refreshRuns()]);
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
-        setCharterError((err as Error).message);
+        setCharterPendingError({ message: (err as Error).message, retry });
       }
     } finally {
-      setCharterSaving(false);
+      setCharterPending(false);
     }
   }
 
-  function startEditingCharter() {
+  function handleSaveCharter() {
+    if (!issue) return;
+    const body = {
+      why: whyRef.current?.value ?? "",
+      what: whatRef.current?.value ?? "",
+      how: howRef.current?.value ?? "",
+      tags: (tagsRef.current?.value ?? "").split(",").map((t) => t.trim()).filter(Boolean),
+    };
     setCharterError(null);
+    setCharterEditing(false);
+    const retry = () => {
+      void sendCharterPatch(body, retry);
+    };
+    void sendCharterPatch(body, retry);
+  }
+
+  function startEditingCharter() {
+    if (charterPending) return;
+    setCharterError(null);
+    setCharterPendingError(null);
     setCharterEditing(true);
   }
 
@@ -379,26 +399,36 @@ export function IssueDetailContent({ id }: { id: string }) {
 
   // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
   // Action Itemsと同じ「1件ずつ即追記」の作りだが、done等の状態は持たない自由記述ログ。
-  async function handleAddLogEntry() {
-    if (!issue || !logText.trim()) return;
-    setLogSubmitting(true);
-    setLogError(null);
+  // ローカルNER込みの保存は完了を待たず、入力欄を空けて裏で処理する。
+  async function sendLogPatch(text: string, retry: () => void) {
+    if (!issue) return;
+    setLogPending(true);
+    setLogPendingError(null);
     try {
       const { res, data } = await fetchWithNameConfirm(
         `/api/issues/${issue.id}/log`,
-        { method: "POST", body: { text: logText } },
+        { method: "POST", body: { text } },
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "記録に失敗しました");
-      setLogText("");
       await Promise.all([refreshIssue(), refreshRuns()]);
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
-        setLogError((err as Error).message);
+        setLogPendingError({ message: (err as Error).message, retry });
       }
     } finally {
-      setLogSubmitting(false);
+      setLogPending(false);
     }
+  }
+
+  function handleAddLogEntry() {
+    if (!issue || !logText.trim() || logPending) return;
+    const text = logText.trim();
+    setLogText("");
+    const retry = () => {
+      void sendLogPatch(text, retry);
+    };
+    void sendLogPatch(text, retry);
   }
 
   const [actionItemsSubmitting, setActionItemsSubmitting] = useState(false);
@@ -544,14 +574,13 @@ export function IssueDetailContent({ id }: { id: string }) {
                 aria-label="タイトル"
                 value={titleDraft}
                 onChange={(e) => setTitleDraft(e.target.value)}
-                disabled={titleSaving}
                 autoFocus
               />
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={titleSaving} onClick={handleSaveTitle}>
-                  {titleSaving ? "保存中…" : "保存"}
+                <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTitle}>
+                  保存
                 </button>
-                <button className={styles.btnOutline} disabled={titleSaving} onClick={() => setTitleEditing(false)}>
+                <button className={styles.btnOutline} onClick={() => setTitleEditing(false)}>
                   キャンセル
                 </button>
               </div>
@@ -564,13 +593,34 @@ export function IssueDetailContent({ id }: { id: string }) {
           ) : (
             <>
               <h2 style={{ display: "inline" }}>{issue.title}</h2>{" "}
-              <button
-                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                onClick={startEditingTitle}
-              >
-                編集
-              </button>
+              {!titlePending && (
+                <button
+                  className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                  onClick={startEditingTitle}
+                >
+                  編集
+                </button>
+              )}
               <br />
+              {titlePending && (
+                <p className={styles.subtitle} role="status">
+                  <span className={styles.spinner} aria-hidden="true" />
+                  タイトルを保存中…
+                </p>
+              )}
+              {titlePendingError && (
+                <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                  <span className={styles.errorText} role="alert">
+                    ⚠️ タイトルの保存に失敗しました: {titlePendingError.message}
+                  </span>
+                  <button className={styles.btnOutline} onClick={titlePendingError.retry}>
+                    再試行
+                  </button>
+                  <button className={styles.btnOutline} onClick={() => setTitlePendingError(null)}>
+                    閉じる
+                  </button>
+                </div>
+              )}
               <IssueStatusBadge status={issue.status} />{" "}
               {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
               {issue.archived && (
@@ -618,6 +668,7 @@ export function IssueDetailContent({ id }: { id: string }) {
             value={logText}
             onChange={(e) => setLogText(e.target.value)}
             placeholder="例: Bチームと調整し、割り込み受付時間を14〜15時に限定することで合意"
+            disabled={logPending}
             onKeyDown={(e) => {
               // 日本語IMEの変換確定Enterでは保存しない（isComposing / keyCode 229）
               if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
@@ -629,16 +680,30 @@ export function IssueDetailContent({ id }: { id: string }) {
             className={styles.primaryBtn}
             style={{ width: "auto" }}
             type="button"
-            disabled={logSubmitting || !logText.trim()}
+            disabled={logPending || !logText.trim()}
             onClick={handleAddLogEntry}
           >
-            {logSubmitting ? "記録中…" : "記録"}
+            記録
           </button>
         </div>
-        {logError && (
-          <p className={styles.errorText} role="alert">
-            {logError}
+        {logPending && (
+          <p className={styles.subtitle} style={{ marginTop: 8 }} role="status">
+            <span className={styles.spinner} aria-hidden="true" />
+            経過ログを保存中…
           </p>
+        )}
+        {logPendingError && (
+          <div className={styles.tagRow} style={{ marginTop: 8 }}>
+            <span className={styles.errorText} role="alert">
+              ⚠️ 経過ログの保存に失敗しました: {logPendingError.message}
+            </span>
+            <button className={styles.btnOutline} onClick={logPendingError.retry}>
+              再試行
+            </button>
+            <button className={styles.btnOutline} onClick={() => setLogPendingError(null)}>
+              閉じる
+            </button>
+          </div>
         )}
         {issue.logEntries.length === 0 ? (
           <p className={styles.subtitle} style={{ marginTop: 10 }}>
@@ -777,18 +842,44 @@ export function IssueDetailContent({ id }: { id: string }) {
 
         {/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。デフォルトは
             入力フォームを持たない閲覧モード。テキストクリックまたは「編集」ボタンで
-            編集モードへ切り替える（titleEditingと同じ思想）。 */}
+            編集モードへ切り替える（titleEditingと同じ思想）。
+            保存はJournalと同様にフォームを閉じて裏で処理し、対象パネルにスピナーを出す。 */}
+        {charterPending && (
+          <p className={styles.subtitle} style={{ marginBottom: 10 }} role="status">
+            <span className={styles.spinner} aria-hidden="true" />
+            Why/What/How・タグを保存中…
+          </p>
+        )}
+        {charterPendingError && (
+          <div className={styles.tagRow} style={{ marginBottom: 10 }}>
+            <span className={styles.errorText} role="alert">
+              ⚠️ 保存に失敗しました: {charterPendingError.message}
+            </span>
+            <button className={styles.btnOutline} onClick={charterPendingError.retry}>
+              再試行
+            </button>
+            <button className={styles.btnOutline} onClick={() => setCharterPendingError(null)}>
+              閉じる
+            </button>
+          </div>
+        )}
         {!charterEditing ? (
           <>
             {CHARTER_VIEW_FIELDS.map(({ key, label }) => (
               <div key={key} className={styles.charterField}>
                 <span className={styles.fieldCaption}>{label}</span>
                 {issue.charter[key] ? (
-                  <div className={styles.editableTextView} onClick={startEditingCharter}>
+                  <div
+                    className={styles.editableTextView}
+                    onClick={charterPending ? undefined : startEditingCharter}
+                  >
                     <MarkdownView text={issue.charter[key]} />
                   </div>
                 ) : (
-                  <div className={styles.charterEmptyView} onClick={startEditingCharter}>
+                  <div
+                    className={styles.charterEmptyView}
+                    onClick={charterPending ? undefined : startEditingCharter}
+                  >
                     未整理（クリックして記入）
                   </div>
                 )}
@@ -810,9 +901,11 @@ export function IssueDetailContent({ id }: { id: string }) {
               </div>
             )}
 
-            <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={startEditingCharter}>
-              編集
-            </button>
+            {!charterPending && (
+              <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={startEditingCharter}>
+                編集
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -908,10 +1001,10 @@ export function IssueDetailContent({ id }: { id: string }) {
             )}
             {charterError && <p className={styles.errorText} role="alert">{charterError}</p>}
             <div style={{ display: "flex", gap: 8 }}>
-              <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={charterSaving} onClick={handleSaveCharter}>
-                {charterSaving ? "保存中…" : "Why/What/How・タグを保存"}
+              <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveCharter}>
+                Why/What/How・タグを保存
               </button>
-              <button className={styles.btnOutline} disabled={charterSaving} onClick={handleCancelCharter}>
+              <button className={styles.btnOutline} onClick={handleCancelCharter}>
                 キャンセル
               </button>
             </div>

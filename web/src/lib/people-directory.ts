@@ -398,11 +398,12 @@ export async function detectUnregisteredNameCandidates(text: string): Promise<st
 
 /** 複数テキストから未確認候補を集め、未許可なら UnconfirmedNameCandidatesError を投げる。 */
 export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOptions = {}): Promise<void> {
-  const found = new Set<string>();
-  for (const text of texts) {
-    for (const c of await detectUnregisteredNameCandidates(text)) found.add(c);
-  }
-  const candidates = [...found];
+  // 空を除き、同一文面の重複検出を避ける。複数フィールド（Why/What/How等）は
+  // ローカルNERへ1回だけ渡す——フィールドごとの直列呼び出しは保存を数倍遅くし、
+  // 同一モデルへの並行呼び出しは低メモリ環境で不安定なため結合する。
+  const nonEmpty = [...new Set(texts.map((t) => t.trim()).filter(Boolean))];
+  if (nonEmpty.length === 0) return;
+  const candidates = await detectUnregisteredNameCandidates(nonEmpty.join("\n"));
   if (candidates.length === 0) return;
   // 登録してマスクする方が未マスク許可より安全なため、両方指定時は登録を優先する
   if (opts.registerNameCandidates) {
