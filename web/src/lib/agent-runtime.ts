@@ -9,7 +9,7 @@ import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEv
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
-import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type YieldKind } from "@/lib/types";
+import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type PendingAgentStart, type PendingAgentStartKind, type YieldKind } from "@/lib/types";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -475,8 +475,17 @@ export function originLabel(origin: AgentRun["origin"]): string {
 
 // Issue Why/What/How・経過ログの連打保存でコストが爆発しないよう、同一Issueは
 // デバウンスしてから1回だけ分析する（朝サマリーと同系の軽量実装）。
-const ISSUE_UPDATE_DEBOUNCE_MS = 45_000;
-const pendingIssueUpdateJobs = new Map<string, ReturnType<typeof setTimeout>>();
+// デバウンス中は listPendingAgentStarts() でUIへ「あとN秒で起動」を公開する。
+export const ISSUE_UPDATE_DEBOUNCE_MS = 45_000;
+
+export type { PendingAgentStart, PendingAgentStartKind };
+
+type PendingIssueUpdateJob = {
+  timer: ReturnType<typeof setTimeout>;
+  pending: PendingAgentStart;
+};
+
+const pendingIssueUpdateJobs = new Map<string, PendingIssueUpdateJob>();
 
 // テストからデバウンスを bypass するためのフック（本番は常にデバウンスする）。
 let issueUpdateDebounceMs = ISSUE_UPDATE_DEBOUNCE_MS;
@@ -484,18 +493,41 @@ export function setIssueUpdateDebounceMsForTest(ms: number): void {
   issueUpdateDebounceMs = ms;
 }
 
-function scheduleDebouncedIssueUpdate(issueId: string, run: () => void): void {
+export function listPendingAgentStarts(): PendingAgentStart[] {
+  return [...pendingIssueUpdateJobs.values()]
+    .map((j) => j.pending)
+    .sort((a, b) => a.firesAt - b.firesAt);
+}
+
+function scheduleDebouncedIssueUpdate(
+  issueId: string,
+  meta: { label: string; issueTitle: string; detail: string },
+  run: () => void,
+): void {
   const existing = pendingIssueUpdateJobs.get(issueId);
-  if (existing) clearTimeout(existing);
+  if (existing) clearTimeout(existing.timer);
+
   if (issueUpdateDebounceMs <= 0) {
+    pendingIssueUpdateJobs.delete(issueId);
     run();
     return;
   }
+
+  const firesAt = Date.now() + issueUpdateDebounceMs;
+  const pending: PendingAgentStart = {
+    id: `issue-update:${issueId}`,
+    kind: "issue-update",
+    label: meta.label,
+    firesAt,
+    issueId,
+    issueTitle: meta.issueTitle,
+    detail: meta.detail,
+  };
   const timer = setTimeout(() => {
     pendingIssueUpdateJobs.delete(issueId);
     run();
   }, issueUpdateDebounceMs);
-  pendingIssueUpdateJobs.set(issueId, timer);
+  pendingIssueUpdateJobs.set(issueId, { timer, pending });
 }
 
 function buildIssueUpdateTask(
@@ -534,7 +566,8 @@ async function executeIssueUpdateAnalysis(
 
   if (linkedRun) {
     if (linkedRun.status === "active" || linkedRun.status === "queued") {
-      // 実行中なら今回は見送る。次の更新（またはデバウンス後の別トリガー）で再試行される。
+      // 実行中なら完了後に再試行するよう再度デバウンスする（カウントダウン表示も続く）。
+      reactToIssueUpdate(issueId, trigger, detail);
       return;
     }
     await decideRun(linkedRun.id, task);
@@ -552,11 +585,23 @@ export function reactToIssueUpdate(
   detail: string,
 ): void {
   if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
-  scheduleDebouncedIssueUpdate(issueId, () => {
-    void executeIssueUpdateAnalysis(issueId, trigger, detail).catch(() => {
-      // 自動分析の起動失敗でIssue更新自体は失敗させない。
-    });
-  });
+  const issue = getIssue(issueId);
+  if (!issue || issue.archived) return;
+
+  const label = trigger === "charter" ? "課題の更新分析（Why/What/How）" : "課題の更新分析（経過ログ）";
+  scheduleDebouncedIssueUpdate(
+    issueId,
+    {
+      label,
+      issueTitle: unmaskNames(issue.title),
+      detail: trigger === "charter" ? detail : unmaskNames(detail),
+    },
+    () => {
+      void executeIssueUpdateAnalysis(issueId, trigger, detail).catch(() => {
+        // 自動分析の起動失敗でIssue更新自体は失敗させない。
+      });
+    },
+  );
 }
 
 export function matchesJournalAutoFilters(

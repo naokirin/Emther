@@ -529,7 +529,7 @@ export default function SettingsPage() {
                     checked={draft.autoIssueUpdateAnalysisEnabled}
                     onChange={(e) => setDraft({ ...draft, autoIssueUpdateAnalysisEnabled: e.target.checked })}
                   />
-                  Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス）
+                  Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス。待ち時間中は「あとN秒で起動」と表示）
                 </label>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>朝のサマリー（バッチ）</h3>

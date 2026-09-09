@@ -145,6 +145,20 @@ export const CLI_LABELS: Record<CliName, string> = {
   cursor: "Cursor CLI",
 };
 
+// デバウンス待ちの自動エージェント起動予定（Issue更新分析など）。
+// agent-runtimeが発行し、GET /api/agents経由でUIへ公開する。
+export type PendingAgentStartKind = "issue-update";
+export type PendingAgentStart = {
+  id: string;
+  kind: PendingAgentStartKind;
+  /** UI向け短い説明（例: 「課題の更新分析」） */
+  label: string;
+  firesAt: number;
+  issueId?: string;
+  issueTitle?: string;
+  detail?: string;
+};
+
 export type RulesAndConstraints = {
   teamWindowDays: number;
   minEntriesForJudgement: number;

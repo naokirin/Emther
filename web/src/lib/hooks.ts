@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { timestampToDateInputValue } from "@/lib/journal-date-parser";
-import { truncateForTitle } from "@/lib/types";
+import { truncateForTitle, type PendingAgentStart } from "@/lib/types";
 import type {
   EmCheckin,
   EmReflectionNote,
@@ -145,12 +145,18 @@ export function useGoToRunIssue(issues: Issue[]) {
 }
 
 export function useRuns(intervalMs = 1500) {
-  const { data, setData, loaded, refresh } = usePolling<{ runs: AgentRun[] }>(
+  const { data, setData, loaded, refresh } = usePolling<{ runs: AgentRun[]; pendingAgentStarts: PendingAgentStart[] }>(
     "/api/agents",
-    { runs: [] },
+    { runs: [], pendingAgentStarts: [] },
     intervalMs,
   );
-  return { runs: data.runs, setRuns: (runs: AgentRun[]) => setData({ runs }), runsLoaded: loaded, refreshRuns: refresh };
+  return {
+    runs: data.runs,
+    pendingAgentStarts: data.pendingAgentStarts ?? [],
+    setRuns: (runs: AgentRun[]) => setData({ ...data, runs }),
+    runsLoaded: loaded,
+    refreshRuns: refresh,
+  };
 }
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents画面のInbox一覧専用。
