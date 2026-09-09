@@ -96,6 +96,32 @@ describe("charter / title / action items / log entries", () => {
     expect(updated?.charter).toEqual({ why: "旧why", what: "新しいwhat", how: "" });
   });
 
+  it("updateIssueCharterは未変更フィールドでローカルNERを走らせない", async () => {
+    const { runLocalChat } = await import("@/lib/local-model");
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
+    vi.mocked(runLocalChat).mockClear();
+
+    const updated = await store.updateIssueCharter(issue.id, { why: "理由", what: "内容", how: "方法" });
+    expect(updated?.charter).toEqual({ why: "理由", what: "内容", how: "方法" });
+    expect(runLocalChat).not.toHaveBeenCalled();
+  });
+
+  it("updateIssueCharterは変更フィールドだけをまとめて1回NERする", async () => {
+    const { runLocalChat } = await import("@/lib/local-model");
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
+    vi.mocked(runLocalChat).mockClear();
+
+    const updated = await store.updateIssueCharter(issue.id, {
+      why: "理由",
+      what: "新しい内容",
+      how: "方法",
+    });
+    expect(updated?.charter.what).toBe("新しい内容");
+    expect(runLocalChat).toHaveBeenCalledTimes(1);
+  });
+
   it("setIssueTitleは空文字を拒否する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
@@ -107,6 +133,16 @@ describe("charter / title / action items / log entries", () => {
     const issue = await store.createIssue("Issue A");
     const updated = await store.setIssueTitle(issue.id, "Issue A改題");
     expect(updated?.title).toBe("Issue A改題");
+  });
+
+  it("setIssueTitleは未変更ならローカルNERを走らせない", async () => {
+    const { runLocalChat } = await import("@/lib/local-model");
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    vi.mocked(runLocalChat).mockClear();
+    const updated = await store.setIssueTitle(issue.id, "Issue A");
+    expect(updated?.title).toBe("Issue A");
+    expect(runLocalChat).not.toHaveBeenCalled();
   });
 
   it("addActionItem/toggleActionItemで完了状態を切り替えられる", async () => {

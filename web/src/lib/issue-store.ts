@@ -6,9 +6,10 @@ import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 
 // 個人情報の分離（ユーザー指摘対応）: title・charter（why/what/how）はEMが自由記述する
 // フィールドで人物名を含み得るため、保存前にensureNameCandidatesAllowed（未登録候補の確認）と
-// maskForStorage（既登録名のPERSON_n置換）を通す。tagsは構造的なラベル（例: "技術的負債"）であり
-// 個人名ではないため対象外。EM向けの表示（Dashboard等）は、これを返すAPIルート側で
-// unmaskNamesを通してから応答する。
+// maskForStorage（既登録名のPERSON_n置換）を通す。未変更フィールドは表示値比較でスキップし、
+// 複数フィールドのNERは1回にまとめる。tagsは構造的なラベル（例: "技術的負債"）であり
+// 個人名ではないため対象外（既知名の軽量maskNamesのみ）。EM向けの表示（Dashboard等）は、
+// これを返すAPIルート側でunmaskNamesを通してから応答する。
 
 // docs 3.7「双方向のIssueトラッキング基盤」の最小実装。
 // v5設計書はIssueが独自の実行計画・ロードマップを持つ想定だが、MVPでは
@@ -181,23 +182,29 @@ export async function createIssue(
     }
   }
 
-  const texts = [
-    title.trim(),
-    charter?.why?.trim() ?? "",
-    charter?.what?.trim() ?? "",
-    charter?.how?.trim() ?? "",
-  ].filter(Boolean);
-  await ensureNameCandidatesAllowed(texts, opts);
+  const titleTrimmed = title.trim();
+  const whyTrimmed = charter?.why?.trim() ?? "";
+  const whatTrimmed = charter?.what?.trim() ?? "";
+  const howTrimmed = charter?.how?.trim() ?? "";
+  await ensureNameCandidatesAllowed([titleTrimmed, whyTrimmed, whatTrimmed, howTrimmed], opts);
+
+  // maskForStorageは既知名の同期置換のみなので並列化してよい（NERは上で1回済）。
+  const [maskedTitle, maskedWhy, maskedWhat, maskedHow] = await Promise.all([
+    maskForStorage(titleTrimmed),
+    whyTrimmed ? maskForStorage(whyTrimmed) : Promise.resolve(""),
+    whatTrimmed ? maskForStorage(whatTrimmed) : Promise.resolve(""),
+    howTrimmed ? maskForStorage(howTrimmed) : Promise.resolve(""),
+  ]);
 
   const now = Date.now();
   const issue: Issue = {
     id: randomUUID(),
-    title: await maskForStorage(title.trim()),
+    title: maskedTitle,
     agentRunId,
     charter: {
-      why: charter?.why ? await maskForStorage(charter.why.trim()) : "",
-      what: charter?.what ? await maskForStorage(charter.what.trim()) : "",
-      how: charter?.how ? await maskForStorage(charter.how.trim()) : "",
+      why: maskedWhy,
+      what: maskedWhat,
+      how: maskedHow,
     },
     actionItems: [],
     logEntries: [],
@@ -236,22 +243,27 @@ export async function createParentIssue(
     throw new Error("このIssueには既に子Issueがあるため、上位Issueを作ると2階層を超えてしまいます");
   }
 
-  const texts = [
-    title.trim(),
-    charter?.why?.trim() ?? "",
-    charter?.what?.trim() ?? "",
-    charter?.how?.trim() ?? "",
-  ].filter(Boolean);
-  await ensureNameCandidatesAllowed(texts, opts);
+  const titleTrimmed = title.trim();
+  const whyTrimmed = charter?.why?.trim() ?? "";
+  const whatTrimmed = charter?.what?.trim() ?? "";
+  const howTrimmed = charter?.how?.trim() ?? "";
+  await ensureNameCandidatesAllowed([titleTrimmed, whyTrimmed, whatTrimmed, howTrimmed], opts);
+
+  const [maskedTitle, maskedWhy, maskedWhat, maskedHow] = await Promise.all([
+    maskForStorage(titleTrimmed),
+    whyTrimmed ? maskForStorage(whyTrimmed) : Promise.resolve(""),
+    whatTrimmed ? maskForStorage(whatTrimmed) : Promise.resolve(""),
+    howTrimmed ? maskForStorage(howTrimmed) : Promise.resolve(""),
+  ]);
 
   const now = Date.now();
   const parent: Issue = {
     id: randomUUID(),
-    title: await maskForStorage(title.trim()),
+    title: maskedTitle,
     charter: {
-      why: charter?.why ? await maskForStorage(charter.why.trim()) : "",
-      what: charter?.what ? await maskForStorage(charter.what.trim()) : "",
-      how: charter?.how ? await maskForStorage(charter.how.trim()) : "",
+      why: maskedWhy,
+      what: maskedWhat,
+      how: maskedHow,
     },
     actionItems: [],
     logEntries: [],
@@ -295,32 +307,47 @@ export async function updateIssueCharter(
 ): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
-  const texts = [
-    patch.why !== undefined ? patch.why.trim() : "",
-    patch.what !== undefined ? patch.what.trim() : "",
-    patch.how !== undefined ? patch.how.trim() : "",
-  ].filter(Boolean);
-  if (texts.length > 0) await ensureNameCandidatesAllowed(texts, opts);
 
-  const next: IssueCharter = {
-    why: patch.why !== undefined ? await maskForStorage(patch.why.trim()) : issue.charter.why,
-    what: patch.what !== undefined ? await maskForStorage(patch.what.trim()) : issue.charter.what,
-    how: patch.how !== undefined ? await maskForStorage(patch.how.trim()) : issue.charter.how,
-  };
+  // 表示値（unmask後）と比較して未変更のフィールドはローカルNERも再マスクもスキップする。
+  // Why/What/How・タグの一括保存では多くのフィールドが無変更のまま送られるため、ここが体感速度の本体。
+  const charterKeys = Object.keys(CHARTER_FIELD_LABEL) as (keyof IssueCharter)[];
+  const changedIncoming: Partial<Record<keyof IssueCharter, string>> = {};
+  for (const key of charterKeys) {
+    if (patch[key] === undefined) continue;
+    const trimmed = patch[key]!.trim();
+    if (trimmed === unmaskNames(issue.charter[key])) continue;
+    changedIncoming[key] = trimmed;
+  }
+
+  const textsToCheck = Object.values(changedIncoming).filter(Boolean);
+  if (textsToCheck.length > 0) await ensureNameCandidatesAllowed(textsToCheck, opts);
+
+  const maskedEntries = await Promise.all(
+    (Object.keys(changedIncoming) as (keyof IssueCharter)[]).map(async (key) => {
+      const trimmed = changedIncoming[key]!;
+      return [key, trimmed ? await maskForStorage(trimmed) : ""] as const;
+    }),
+  );
+
+  const next: IssueCharter = { ...issue.charter };
+  for (const [key, masked] of maskedEntries) {
+    next[key] = masked;
+  }
+
   // 実際に値が変わったフィールドだけを変更履歴に残す（無変化の保存操作でノイズを増やさない）。
-  const changedFields = (Object.keys(next) as (keyof IssueCharter)[]).filter((k) => next[k] !== issue.charter[k]);
+  const changedFields = charterKeys.filter((k) => next[k] !== issue.charter[k]);
+  if (changedFields.length === 0) return issue;
+
   issue.charter = next;
   issue.updatedAt = Date.now();
   persist();
-  if (changedFields.length > 0) {
-    recordChangeEvent(
-      "issue",
-      issue.id,
-      `${changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・")}を更新しました`,
-    );
-    const detail = changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・");
-    await scheduleIssueUpdateAnalysis(issue.id, "charter", detail);
-  }
+  recordChangeEvent(
+    "issue",
+    issue.id,
+    `${changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・")}を更新しました`,
+  );
+  const detail = changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・");
+  await scheduleIssueUpdateAnalysis(issue.id, "charter", detail);
   return issue;
 }
 
@@ -336,6 +363,8 @@ export async function setIssueTitle(
   if (!issue) return undefined;
   const trimmed = title.trim();
   if (!trimmed) throw new Error("titleは必須です");
+  // 表示値と同一ならNER・再マスクをスキップ（無変更の再保存を軽くする）。
+  if (trimmed === unmaskNames(issue.title)) return issue;
   await ensureNameCandidatesAllowed([trimmed], opts);
   const masked = await maskForStorage(trimmed);
   if (masked === issue.title) return issue;
