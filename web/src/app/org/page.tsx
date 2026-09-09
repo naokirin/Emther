@@ -95,9 +95,9 @@ function ObjectiveTeamTreeView({
 }
 
 export default function OrgContextPage() {
-  const { strategy, refreshStrategy } = useOrgStrategy();
-  const { objectives, refreshObjectives } = useObjectives();
-  const { teams } = useTeams();
+  const { strategy, strategyLoaded, refreshStrategy } = useOrgStrategy();
+  const { objectives, objectivesLoaded, refreshObjectives } = useObjectives();
+  const { teams, teamsLoaded } = useTeams();
   const activeTeams = teams.filter((t) => !t.archived);
   const teamOptions = activeTeams.map((t) => ({ value: t.id, label: teamDisplayName(t.name) }));
 
@@ -106,11 +106,19 @@ export default function OrgContextPage() {
   const [strategyDraft, setStrategyDraft] = useState<OrgStrategy>(strategy);
   const [strategySaving, setStrategySaving] = useState(false);
 
+  // SettingsのrulesLoaded/seededと同じ。初回フェッチ完了前の空fallbackを
+  // 編集ドラフトに載せない（未入力のまま保存する事故を防ぐ）。
+  const [strategySeeded, setStrategySeeded] = useState(false);
+  if (strategyLoaded && !strategySeeded) {
+    setStrategySeeded(true);
+    setStrategyDraft(strategy);
+  }
+
   // ポーリングで取得したstrategyは、Strategyノードをクリックした瞬間にだけ
   // 編集用ドラフトへコピーする（effectで継続的に同期すると、EMが編集中の内容を
   // 次のポーリングが上書きしてしまうため）。
   function selectStrategy() {
-    setStrategyDraft(strategy);
+    if (strategyLoaded) setStrategyDraft(strategy);
     setSelection({ kind: "strategy" });
   }
 
@@ -291,7 +299,11 @@ export default function OrgContextPage() {
             </div>
           </form>
           {objectiveError && <p className={styles.errorText} role="alert">{objectiveError}</p>}
-          {objectives.length === 0 && <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>}
+          {!objectivesLoaded ? (
+            <p className={styles.subtitle}>読み込み中…</p>
+          ) : (
+            objectives.length === 0 && <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>
+          )}
 
           {/* ユーザー指摘「組織全体のOKRが入力の下にそのまま置かれていてわかりにくい」対応。
               チームのOKR（📁 チーム名の下にネスト）と同じ見た目にするため、組織全体の目標
@@ -322,7 +334,7 @@ export default function OrgContextPage() {
           <>
             <div className={styles.editorPath}>
               <code>/Strategy</code>
-              <button className={styles.primaryBtn} onClick={handleSaveStrategy} disabled={strategySaving}>
+              <button className={styles.primaryBtn} onClick={handleSaveStrategy} disabled={strategySaving || !strategySeeded}>
                 {strategySaving ? "保存中…" : "保存"}
               </button>
             </div>
@@ -361,7 +373,9 @@ export default function OrgContextPage() {
               組織全体のMVVを受けて、各チームが自分たちのMission・制約をどう定めているかの一覧です（Mission・制約のどちらかを設定しているチームのみ表示）。
             </p>
             {teamsWithCharter.length === 0 ? (
-              <p className={styles.subtitle}>Mission・制約を設定しているチームはまだありません。</p>
+              <p className={styles.subtitle}>
+                {!teamsLoaded ? "読み込み中…" : "Mission・制約を設定しているチームはまだありません。"}
+              </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {teamsWithCharter.map((t) => (

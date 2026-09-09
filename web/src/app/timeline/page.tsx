@@ -35,7 +35,7 @@ export default function TimelinePage() {
 }
 
 function TimelinePageInner() {
-  const { entries } = useTimeline();
+  const { entries, timelineLoaded } = useTimeline();
   const groups = groupByDate(entries);
   // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。TimelineのIssueエントリだけ、
   // 一覧・詳細の他画面と同じ仕組みでスライドオーバー表示にする。Team/Objectiveは
@@ -52,7 +52,11 @@ function TimelinePageInner() {
         </p>
         <p className={styles.subtitle} style={{ marginBottom: 12 }}>🗓 週次の儀式でOK。毎日見る必要はありません。</p>
         {groups.length === 0 ? (
-          <p className={styles.subtitle}>まだ変更履歴はありません。Issueの起票やチーム編集などを行うとここに記録されます。</p>
+          <p className={styles.subtitle}>
+            {!timelineLoaded
+              ? "読み込み中…"
+              : "まだ変更履歴はありません。Issueの起票やチーム編集などを行うとここに記録されます。"}
+          </p>
         ) : (
           groups.map((group) => (
             <div key={group.date} style={{ marginTop: 18 }}>

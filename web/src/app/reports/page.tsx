@@ -134,7 +134,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
 
 export default function ReportsPage() {
   const [periodFilter, setPeriodFilter] = useState<ReportPeriodType | "">("");
-  const { reports, setReports, refreshReports } = useReports(periodFilter);
+  const { reports, setReports, reportsLoaded, refreshReports } = useReports(periodFilter);
   const [generating, setGenerating] = useState<ReportPeriodType | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -207,7 +207,9 @@ export default function ReportsPage() {
       </label>
 
       {reports.length === 0 ? (
-        <p className={styles.subtitle}>まだレポートがありません。上のボタンから作成してください。</p>
+        <p className={styles.subtitle}>
+          {!reportsLoaded ? "読み込み中…" : "まだレポートがありません。上のボタンから作成してください。"}
+        </p>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>

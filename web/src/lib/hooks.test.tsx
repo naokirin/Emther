@@ -28,7 +28,9 @@ describe("usePolling（useIssuesを代表として検証）", () => {
 
   it("マウント時に即座にfetchし、結果をstateへ反映する", async () => {
     const { result } = renderHook(() => useIssues(100_000));
+    expect(result.current.issuesLoaded).toBe(false);
     await waitFor(() => expect(result.current.issues).toEqual([{ id: "1" }]));
+    expect(result.current.issuesLoaded).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith("/api/issues");
   });
 

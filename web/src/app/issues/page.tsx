@@ -47,7 +47,7 @@ function IssuesPageInner() {
   const searchParams = useSearchParams();
   // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。
   const peek = usePeekParam("issue");
-  const { issues, refreshIssues } = useIssues();
+  const { issues, issuesLoaded, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
   const { objectives } = useObjectives();
   const { teams } = useTeams();
@@ -261,7 +261,7 @@ function IssuesPageInner() {
               {filteredIssues.length === 0 && (
                 <tr>
                   <td colSpan={6} className={styles.tableEmpty}>
-                    条件に一致するIssueはありません。
+                    {!issuesLoaded ? "読み込み中…" : "条件に一致するIssueはありません。"}
                   </td>
                 </tr>
               )}

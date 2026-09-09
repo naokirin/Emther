@@ -35,8 +35,8 @@ export default function ChatPage() {
 function ChatPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { runs, refreshRuns } = useRuns();
-  const { issues, refreshIssues } = useIssues();
+  const { runs, runsLoaded, refreshRuns } = useRuns();
+  const { issues, issuesLoaded, refreshIssues } = useIssues();
   const { rules } = useSettingsRules();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
@@ -46,6 +46,7 @@ function ChatPageInner() {
   const chatRuns = runs
     .filter((r) => r.agentName === "Lead Agent" && !issues.some((i) => i.agentRunId === r.id))
     .sort((a, b) => b.updatedAt - a.updatedAt);
+  const chatHistoryLoaded = runsLoaded && issuesLoaded;
 
   // docs/first_implession 3.6/3.7対応。Dashboardの「次にすべきこと」からAI自動起動runへ
   // ?runId=で直接遷移できるようにする（最初のポーリング結果が届いた時点で一度だけ選択する）。
@@ -183,7 +184,9 @@ function ChatPageInner() {
           ＋ 新しい相談を始める
         </button>
         <div className={styles.runList}>
-          {chatRuns.length === 0 && <p className={styles.subtitle}>まだ相談履歴はありません。</p>}
+          {chatRuns.length === 0 && (
+            <p className={styles.subtitle}>{!chatHistoryLoaded ? "読み込み中…" : "まだ相談履歴はありません。"}</p>
+          )}
           {chatRuns.map((r) => (
             <button
               key={r.id}

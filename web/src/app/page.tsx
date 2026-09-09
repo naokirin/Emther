@@ -144,20 +144,24 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const { runs, refreshRuns } = useRuns();
-  const { issues } = useIssues();
+  const { runs, runsLoaded, refreshRuns } = useRuns();
+  const { issues, issuesLoaded } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
-  const { vitals } = useVitals();
-  const { journalEntries, setJournalEntries } = useJournal();
+  const { vitals, vitalsLoaded } = useVitals();
+  const { journalEntries, setJournalEntries, journalLoaded } = useJournal();
   // 改修依頼「今日の振り返りに、今日記録されていない場合のアラートを出す」対応。
-  const { checkins } = useEmCheckins();
+  const { checkins, checkinsLoaded } = useEmCheckins();
   const { rules } = useSettingsRules();
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。
-  const { strategy } = useOrgStrategy();
-  const { teams } = useTeams();
-  const { objectives } = useObjectives();
+  const { strategy, strategyLoaded } = useOrgStrategy();
+  const { teams, teamsLoaded } = useTeams();
+  const { objectives, objectivesLoaded } = useObjectives();
   // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
-  const { people } = usePeople();
+  const { people, peopleLoaded } = usePeople();
+  // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
+  // SettingsのrulesLoadedと同じ考え方（usePollingのloaded）。
+  const setupLoaded = strategyLoaded && teamsLoaded && objectivesLoaded;
+  const nextActionsLoaded = runsLoaded && issuesLoaded && vitalsLoaded && journalLoaded && peopleLoaded;
 
   // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
   // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する。
@@ -694,11 +698,13 @@ export default function DashboardPage() {
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
   // 走らないよう、MVV/Team/Objectiveが揃うまでセットアップ導線を出す。新規ウィザード画面は
   // 増やさず、既存の/orgへの案内に留める（EMが明示的に消せるものではなく、実際に揃うと
-  // 自然に消える）。
+  // 自然に消える）。未ロード中は空fallbackを「未設定」と誤認しないよう計算しない。
   const setupGaps: string[] = [];
-  if (!strategy.mission && !strategy.vision && !strategy.values) setupGaps.push("MVV未設定");
-  if (teams.length === 0) setupGaps.push(`Team ${teams.length}件`);
-  if (objectives.length === 0) setupGaps.push(`Objective ${objectives.length}件`);
+  if (setupLoaded) {
+    if (!strategy.mission && !strategy.vision && !strategy.values) setupGaps.push("MVV未設定");
+    if (teams.length === 0) setupGaps.push(`Team ${teams.length}件`);
+    if (objectives.length === 0) setupGaps.push(`Objective ${objectives.length}件`);
+  }
 
   // docs/em_human_story_and_ux.md P0-5対応。先頭を「今日の組織の問い」1文へ圧縮する。
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
@@ -713,8 +719,10 @@ export default function DashboardPage() {
   const laneLimit = LANE_LIMITS[laneFilter];
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   // 絞り込みは下のタブだけで行う（見出し内の件数はクリックできない、ただの要約）。
-  const headline =
-    nextActions.length === 0
+  // 未ロード中は「課題はありません」と断定しない（空fallbackを実データと誤認させない）。
+  const headline = !nextActionsLoaded
+    ? "読み込み中…"
+    : nextActions.length === 0
       ? "✅ 今日、判断待ちの組織課題はありません。"
       : `🧭 今日: 判断待ち${laneCounts.decision}件・観測不足${laneCounts.observation}件・整備${laneCounts.maintenance}件`;
 
@@ -772,10 +780,14 @@ export default function DashboardPage() {
       {dayPhase === "evening" && (
         <div className={styles.panel}>
           <h2>今日の振り返り</h2>
-          {!hasCheckinToday && (
-            <div className={styles.charterWarnBanner}>
-              ⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス）を記録していません。
-            </div>
+          {!checkinsLoaded ? (
+            <p className={styles.subtitle}>読み込み中…</p>
+          ) : (
+            !hasCheckinToday && (
+              <div className={styles.charterWarnBanner}>
+                ⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス）を記録していません。
+              </div>
+            )
           )}
           <button className={styles.btnOutline} onClick={() => router.push("/growth")}>
             EMの成長へ →
@@ -823,7 +835,9 @@ export default function DashboardPage() {
           </p>
         )}
 
-        {visibleActions.length === 0 ? (
+        {!nextActionsLoaded ? (
+          <p className={styles.subtitle}>読み込み中…</p>
+        ) : visibleActions.length === 0 ? (
           <p className={styles.subtitle}>✅ このレーンに対応が必要な項目はありません。</p>
         ) : (
           <>
@@ -903,7 +917,8 @@ export default function DashboardPage() {
         </div>
 
         <div className={styles.vitalsGrid}>
-          {vitals.teams.map((v) => (
+          {!vitalsLoaded && <p className={styles.subtitle}>読み込み中…</p>}
+          {vitalsLoaded && vitals.teams.map((v) => (
             <div key={v.teamId} className={`${styles.vitalCard} ${styles[`vital-${v.status}`]}`}>
               <div className={styles.vitalLabel}>{v.teamName}</div>
               <div className={styles.vitalValue}>
@@ -933,6 +948,7 @@ export default function DashboardPage() {
             </div>
           ))}
 
+          {vitalsLoaded && (
           <div className={`${styles.vitalCard} ${styles[`vital-${vitals.oneOnOneCoverage.status}`]}`}>
             <div className={styles.vitalLabel}>1on1 Coverage (30日)</div>
             <div className={styles.vitalValue}>
@@ -956,8 +972,9 @@ export default function DashboardPage() {
                 </div>
               )}
           </div>
+          )}
 
-          {vitals.teams.length === 0 && (
+          {vitalsLoaded && vitals.teams.length === 0 && (
             <p className={styles.subtitle}>
               チームが登録されていません。
               <button className={styles.detailToggle} onClick={() => router.push("/teams")}>
@@ -1086,9 +1103,9 @@ export default function DashboardPage() {
           </label>
         )}
         {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
-          <p className={styles.subtitle}>まだジャーナルはありません。</p>
+          <p className={styles.subtitle}>{journalLoaded ? "まだジャーナルはありません。" : "読み込み中…"}</p>
         )}
-        {journalEntries.length > 0 && visibleJournalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
+        {journalLoaded && journalEntries.length > 0 && visibleJournalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
           <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
         )}
         {pendingJournalDrafts.map((draft) => (
