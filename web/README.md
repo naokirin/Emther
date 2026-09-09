@@ -9,7 +9,7 @@
 - **Settings（新設）** — Team Vitalsの判定閾値（Rules_and_Constraints）はOrganization Contextから分離し、`/settings`という独立の設定画面として持つ
 - Agent Fleetステータス表示 — エージェント種別ごとの直近の稼働状況を信号機で表示
 - **3.7 双方向Issueトラッキング（最小版）** — Issue Workspace
-- ローカルファイルへの簡易永続化 — `.data/*.json`。プロセス再起動でデータが消える問題を解消
+- ローカルファイルへの簡易永続化 — 既定は `~/.local/state/em-ai-team/{data,secure}`（`docs/packaging.md`）。プロセス再起動でデータが消える問題を解消
 - **3.5 構造化された提案** — yieldしない完了時も「結論/参照ファクト/判断ロジック/棄却した代替案」を必ず構造化させる
 - **3.3 階層型マルチエージェント（最小版）** — Lead Agentが専門エージェントに実際に相談し、その回答を踏まえて結論を出す
 - UI再構成 — `docs/first_implession/em_ui_wireframe_v5.html` に合わせて、Dashboard / Issue一覧 / Issue詳細 / Organization Contextを実URLの別画面に再編
@@ -242,15 +242,15 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 
 ### 永続化
 
-- 小さく低頻度更新なストア（teams, issues, org-strategy, settings-rules, people-directory）は引き続き`web/src/lib/persistence.ts`の`loadJSON`/`saveJSON`で`.data/*.json`へベタ書きする。複数ワーカーや同時書き込みは想定しない、シングルプロセス前提の最小実装。
-- `.data/people-directory.json`には実名⇔`PERSON_n`の対応表が保存される。これはローカルディスク上のファイルであり、外部LLMには一切送信されないので、memo.mdが要求する「ローカルのみが読める場所」という条件は保ったままである。
-- `.data/`は`.gitignore`済み（ジャーナルの生テキストや実名を含みうるため、コミット対象にしない）。
+- 小さく低頻度更新なストア（teams, issues, org-strategy, settings-rules）は引き続き`web/src/lib/persistence.ts`の`loadJSON`/`saveJSON`でデータディレクトリ配下の`*.json`へベタ書きする。複数ワーカーや同時書き込みは想定しない、シングルプロセス前提の最小実装。
+- 既定のデータ根は`~/.local/state/em-ai-team/data`（業務）と`.../secure`（people-directory）。`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`で上書き可能。詳細は`docs/packaging.md`。
+- people-directory（実名⇔`PERSON_n`）は secure 配下のみ。ローカルディスク上のファイルであり外部LLMには一切送信されない。
 
 ### 永続化データモデルの再設計 Phase 1（イベントソーシング＋バイテンポラル、SQLite移行）
 
 `docs/memo.md`のTODO（優先度再検討の議論より、「H」として着手）。単調に増え続けるデータ（Journal、Agent Runの実行ログ）を、書き込みのたびにファイル全体を書き直すJSON配列でずっと持ち続けるのは半年〜1年単位の運用で破綻すると判断し、以下の設計に更新した。
 
-- **ストレージ**: Node 24 LTSに組み込まれている`node:sqlite`（`DatabaseSync`）を採用。追加npm依存はゼロ。単一ローカルユーザー・単一プロセス前提で、数百万レコード規模に達するには何年もかかる想定のため、分散DBや専用サーバープロセスは導入しない（`web/src/lib/db.ts`）。`.data/app.db`（WAL）に、`agent_runs`/`agent_run_logs`と`knowledge_events`の3テーブルを持つ。
+- **ストレージ**: Node 24 LTSに組み込まれている`node:sqlite`（`DatabaseSync`）を採用。追加npm依存はゼロ。単一ローカルユーザー・単一プロセス前提で、数百万レコード規模に達するには何年もかかる想定のため、分散DBや専用サーバープロセスは導入しない（`web/src/lib/db.ts`）。データディレクトリの`app.db`（WAL）に、`agent_runs`/`agent_run_logs`と`knowledge_events`の3テーブルを持つ。
 - **ファクトと解釈の分離＋バイテンポラル**: `web/src/lib/knowledge-store.ts`に`KnowledgeEvent`を新設。`kind: "fact"`（起きた出来事そのもの、例:「Aさんが『辞めたい』と言った」）と`kind: "interpretation"`（そこから導いた長期的な解釈、例:「Aさんはリーダー志向がある」）を明確に分け、`occurredAt`（実世界でその内容が真だった時点）と`recordedAt`（システムが記録した時点）の2軸を持つ。`context`（official/observation/casual/complaint/profile）と`ttlDays`（現在の判断にどれだけの期間重みを持たせるか、未指定＝長期有効）も全イベントに付与する。**イベントは削除しない**——TTLは「重み」の話であり「履歴からの消去」の話ではない。
 - **Journalの統合**: `journal-store.ts`は`journal.json`という別ファイルを持たず、Journal投稿はそのまま`kind: "fact", entityType: "journal"`のKnowledgeEventとしてSQLiteに記録される（二重管理をしない）。`JournalEntry`型・`listJournalEntries()`/`addJournalEntry()`のシグネチャは変更していないため、UI・Agent Runtime側は無改修。TTLは`Settings`の`journalFactTtlDays`（既定90日）から適用される。
 - **長期プロファイルの記録口**: `POST /api/knowledge/interpretations`（`{person, text}`）で「Aさんはリーダー志向がある」のような長期的な解釈を記録できる。Dashboard Quick Journalパネル下部に専用の小さな入力欄を追加した（Journalとは別枠、TTLなし）。
@@ -383,7 +383,7 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 
 ユーザー指摘への対応。従来の設計は「実名を生のまま保存し、クラウドへ送る直前にマスクする」（send-time masking）方式だったため、安全性が「送信直前に必ずマスク関数を呼ぶ」という規律だけに依存していた。実際、このセッション中に発見・修正したmaskNames/unmaskNamesの自己破壊バグ（Phase 3）は、この設計の脆さの証拠でもあった。そこで「保存する時点でマスクする」（write-time masking）方式に変更し、クラウド送信コードパスが構造的に実名へ到達できないようにした。
 
-- **原則**: 実名を保持するのは`.data/people-directory.json`（`people-directory.ts`）だけ。SQLite（`app.db`）・その他の`.data/*.json`には常にPERSON_n IDでマスクされた状態を保存する。実名への復元は、EM向けのAPI応答を組み立てる境界（各APIルートの`toXxxView()`関数）でだけ行う。
+- **原則**: 実名を保持するのは secure 配下の`people-directory.json`（`people-directory.ts`）だけ。SQLite（`app.db`）・その他の業務JSONには常にPERSON_n IDでマスクされた状態を保存する。実名への復元は、EM向けのAPI応答を組み立てる境界（各APIルートの`toXxxView()`関数）でだけ行う。
 - `people-directory.ts`に`maskForStorage(text)`（ローカルNERで新規の名前を検出・登録し、既知の名前をすべてIDに置換する）を新設し、`agent-runtime.ts`に重複していたNER実装を統合した。ついでに非破壊の`getPersonId(name)`（登録済みかどうかの参照のみ、GETリクエストの副作用を防ぐ）も追加。
 - **保存前にマスクする対象**: Journal（本文・要約・タグ・登場人物）、Issue（タイトル・Why/What/How・タグ・Action Item）、Team（メンバー一覧）、Organization Strategy（Mission/Vision/Values/OKR）、Agent Run（タスク文・ログ・yield理由・proposal・提案Action Items）、長期プロファイル（interpretations）、Issue/Teamの変更履歴（監査ログ）。チーム名・タグの構造自体（「技術的負債」等のラベル）は個人名ではないため対象外——ただしローカルモデルの抽出精度の限界で人物名が紛れ込むケースに備え、tagsも軽量なmaskNames（部分一致置換、新規検出はしない）は必ず通す。
 - `KnowledgeEvent.people`・`Team.members`は、実名の配列ではなく`PERSON_n` ID配列として保存する契約に変更した（`listActiveFactsForPerson`/`listInterpretationsForPerson`も実名ではなくIDで検索する）。
@@ -409,7 +409,7 @@ Phase 1で導入した`knowledge_events`テーブルを、Issue/Teamの構造変
 
 - **発見**: `cursor-agent`の`--workspace`サンドボックスは、絶対パス指定のファイル読み取りを一切防がないことを実機で確認した。専用の空ディレクトリを`--workspace`に指定した状態で、`.data/people-directory.json`の絶対パスを直接指示したところ、`cursor-agent`は実際にファイルを読み取り、内容（実名）をそのまま返した。ツール呼び出しの結果はCursor社のバックエンドとの対話ループの一部としてそちらに送信されるため、この読み取りは`agent-runtime.ts`側のどんなコード（`assertNoRealNamesLeaked`を含む）でも検知・阻止できない——このガードは「こちらが構築して送信するプロンプト」だけを検査するものであり、cursor-agentプロセス自身が実行するツール呼び出しの結果までは見えないため。README内の以前の記述（`--workspace`で見えないようにしている）は誤りだったので訂正する。
 - **OSレベルのユーザー分離を試みたが、この環境では機能しないことを実機で確認**: 制限付きのLinuxユーザーを作成し、`sudo -u`経由でファイル読み取りを試したところ、`/proc/self/status`で実際に別UIDで動作していることを確認した上でなお、`chmod 600`のファイルを読めてしまった。原因を`/proc/mounts`で調査したところ、このリポジトリ（`~/repos/...`）は**virtiofs**（Lima VMの共有フォルダ）上にあり、そこではUnixパーミッションがゲスト内のUID単位では実効的に機能しないことが判明した。`cursor-agent --sandbox enabled`（OSレベルの本物のサンドボックス）も"AppArmor configuration"を理由に起動できず、bubblewrap（`bwrap`）による名前空間分離も権限エラーで失敗した。この検証用に作成したLinuxユーザーは、有効な保護になっていないことを確認した上で完全に削除している。
-- **実際に導入した対策**: `~/.local/state/`配下（virtiofsではない、ホームディレクトリ直下の通常のローカルファイルシステム）が実際にパーミッションを尊重することを`sudo -u nobody`での読み取り拒否で確認した上で、`people-directory.json`の保存先を`.data/people-directory.json`（プロジェクトディレクトリ配下）から`~/.local/state/em-ai-team-secure/people-directory.json`（プロジェクトディレクトリの外、ディレクトリ0700・ファイル0600）へ移設した（`persistence.ts`に`loadSecureJSON`/`saveSecureJSON`を新設）。これにより、cursor-agent/agyの`--workspace`／作業ディレクトリの木構造から完全に切り離され、相対パスの探索やプロジェクト内ファイルの列挙では到達できなくなる。ただし、これは「絶対パスを明示的に指示された場合の読み取り」自体を防ぐものではない（実機で確認済みの`cursor-agent`の限界は解消していない）——あくまで、通常のタスク遂行の過程で偶然・自発的に発見される可能性を実質的に排除するものである。
+- **実際に導入した対策**: `~/.local/state/`配下（virtiofsではない、ホームディレクトリ直下の通常のローカルファイルシステム）が実際にパーミッションを尊重することを`sudo -u nobody`での読み取り拒否で確認した上で、`people-directory.json`の保存先をプロジェクト配下からホーム配下へ移設した（現在は`~/.local/state/em-ai-team/secure/`、`persistence.ts`の`loadSecureJSON`/`saveSecureJSON`）。これにより、cursor-agent/agyの`--workspace`／作業ディレクトリの木構造から完全に切り離され、相対パスの探索やプロジェクト内ファイルの列挙では到達できなくなる。ただし、これは「絶対パスを明示的に指示された場合の読み取り」自体を防ぐものではない（実機で確認済みの`cursor-agent`の限界は解消していない）——あくまで、通常のタスク遂行の過程で偶然・自発的に発見される可能性を実質的に排除するものである。
 - **claude/agyは元々この種のリスクに晒されていない**: claudeは`--tools ""`で構造的にツール自体を持たない。agyはヘッドレス実行時のツール承認要求をアプリケーション層で自動拒否する（ファイルパーミッションに依存しない仕組み）ため、virtiofsの制約に影響されない。今回の絶対パス読み取りの実害が確認されたのは`cursor-agent`のみである。
 - 実機検証: 新しい保存先への移設後、既存の登録済み名前（`花子さん`等）が引き続き正しくアンマスクされてAPI応答に現れること、新規の名前（`三郎さん`）が新しい保存先ファイルに正しく追記されること、旧`.data/people-directory.json`が再作成されないこと、Journal投稿が引き続き`.data/app.db`側では`PERSON_n`形式でマスクされたまま保存されることをすべて確認した。
 - **既知の制約（正直な評価）**: `cursor-agent`について、実名を含む可能性のあるファイルへの絶対パスでの意図的な読み取りを技術的に禁止する仕組みは、この環境では確立できていない。物理的な配置分離は「見つかりにくくする」対策であり、「見つけられても読めなくする」対策ではない。真に後者を実現するには、OSレベルのユーザー分離（`sudo -u`経由での制限ユーザーでの実行）が必要だが、これは(1) virtiofsではない場所で完結する構成にする、(2) `agy`（実体はGoogle Antigravity CLIで`~/.gemini/antigravity-cli/`配下に認証・会話状態を持つ）と`cursor-agent`（`~/.cursor/`・`~/.config/cursor/`・`~/.local/share/cursor-agent/`に認証状態を持つ）それぞれの認証状態を制限ユーザーからも利用可能にしつつ本アプリのデータには到達させない、という2点の作り込みが必要で、影響範囲・脆弱性の作り込みリスクの大きさから、ユーザーとの合意のもと今回は見送った。cursor-agentフォールバックを実際に有効化する場合は、このリスク（EM自身が明示的にIssue/Journal等に書いた内容を超えて、ファイルシステム上の他の情報が意図的な絶対パス指定によって読み取られうること）を理解した上で判断すること。

@@ -1,29 +1,124 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
-// MVPの永続化: `.data/*.json`へのベタ書き。複数ワーカー/同時書き込みは想定しない
-// （このアプリは単一Node.jsプロセスのシングルユーザー利用が前提）。
-// Core Context DB / Daily Logs DBとしての本実装（v5設計書）はまだ先の話で、
-// これはあくまで「プロセス再起動でデータが消える」問題への最小限の対処。
-//
-// EM_DATA_DIR/EM_SECURE_DATA_DIRは自動テスト専用のオーバーライド（テストが実データの
-// `.data/`・SECURE_DATA_DIRへ書き込んでしまわないよう、一時ディレクトリへ差し替えるため）。
-// 呼び出しのたびに`process.env`を読むのは、テストがモジュールをリセットせずに
+// 単一Node.jsプロセス・シングルユーザー前提のローカル永続化。
+// デフォルト配置は XDG 準拠でリポジトリ外（docs/packaging.md）。
+// EM_DATA_DIR / EM_SECURE_DATA_DIR はテスト・Docker・明示上書き用。
+// 呼び出しのたびに process.env を読むのは、テストがモジュールをリセットせずに
 // 環境変数だけを差し替えても正しく反映されるようにするため。
-function dataDir(): string {
-  return process.env.EM_DATA_DIR || join(process.cwd(), ".data");
+
+const APP_STATE_ROOT = join(homedir(), ".local", "state", "em-ai-team");
+
+export function defaultDataDir(): string {
+  return join(APP_STATE_ROOT, "data");
 }
 
-// 個人情報の分離（ユーザー指摘対応）: people-directory.json専用の、プロジェクト
-// ディレクトリ（`.data/`）とは物理的に別のディレクトリ木。このリポジトリは
-// virtiofs（Lima VM共有フォルダ）上にあり、そこではUnixパーミッションが実効的に
-// 機能しないことを実機検証済みのため、「プロジェクトの外・ホームディレクトリ直下の
-// 非virtiofsな場所」に置くことで、(1) cursor-agentのworkspace探索・相対パス推測から
-// 完全に切り離し、(2) 将来的にOSユーザー分離（chmodによるアクセス制御）を追加する場合に
-// 実効性のある場所にしている。
+export function defaultSecureDataDir(): string {
+  return join(APP_STATE_ROOT, "secure");
+}
+
+function legacyDataDir(): string {
+  return process.env.EM_LEGACY_DATA_DIR || join(process.cwd(), ".data");
+}
+
+function legacySecureDataDir(): string {
+  return process.env.EM_LEGACY_SECURE_DATA_DIR || join(homedir(), ".local", "state", "em-ai-team-secure");
+}
+
+function dirHasEntries(dir: string): boolean {
+  if (!existsSync(dir)) return false;
+  try {
+    return readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** 旧配置 → XDG への一度きり移行。テストからも呼ぶ。 */
+export function migrateLegacyLocations(options: {
+  dataDir: string;
+  secureDataDir: string;
+  legacyDataDir: string;
+  legacySecureDataDir: string;
+}): { migratedData: boolean; migratedSecure: boolean } {
+  return {
+    migratedData: moveLegacyDirIfNeeded(options.legacyDataDir, options.dataDir),
+    migratedSecure: moveLegacyDirIfNeeded(options.legacySecureDataDir, options.secureDataDir),
+  };
+}
+
+function moveLegacyDirIfNeeded(from: string, to: string): boolean {
+  if (!dirHasEntries(from)) return false;
+  if (dirHasEntries(to)) return false;
+  if (from === to) return false;
+
+  try {
+    mkdirSync(dirname(to), { recursive: true, mode: 0o755 });
+    // 宛先が空ディレクトリとして先に作られている場合は除いてから rename する
+    if (existsSync(to) && !dirHasEntries(to)) {
+      rmSync(to, { recursive: true, force: true });
+    }
+    renameSync(from, to);
+    return true;
+  } catch {
+    try {
+      mkdirSync(to, { recursive: true, mode: 0o755 });
+      cpSync(from, to, { recursive: true });
+      writeFileSync(join(from, ".migrated-to"), `${to}\n`, "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+let migratedThisProcess = false;
+
+function ensureLegacyMigratedForDefaults(): void {
+  if (migratedThisProcess) return;
+  if (process.env.EM_DATA_DIR || process.env.EM_SECURE_DATA_DIR) {
+    // 明示オーバーライド時は自動移行しない（テスト・Docker）
+    migratedThisProcess = true;
+    return;
+  }
+  migratedThisProcess = true;
+  migrateLegacyLocations({
+    dataDir: defaultDataDir(),
+    secureDataDir: defaultSecureDataDir(),
+    legacyDataDir: legacyDataDir(),
+    legacySecureDataDir: legacySecureDataDir(),
+  });
+}
+
+/** テスト用: プロセス内の移行済みフラグをリセットする */
+export function resetMigrationGuardForTests(): void {
+  migratedThisProcess = false;
+}
+
+function dataDir(): string {
+  if (process.env.EM_DATA_DIR) return process.env.EM_DATA_DIR;
+  ensureLegacyMigratedForDefaults();
+  return defaultDataDir();
+}
+
+// 個人情報の分離: people-directory 専用。業務データ（data）とは別ディレクトリ木。
+// プロジェクト／virtiofs 外に置き、(1) agent CLI の相対探索から切り離し、
+// (2) chmod によるアクセス制御が実効的な場所にする。
 function secureDataDir(): string {
-  return process.env.EM_SECURE_DATA_DIR || join(homedir(), ".local", "state", "em-ai-team-secure");
+  if (process.env.EM_SECURE_DATA_DIR) return process.env.EM_SECURE_DATA_DIR;
+  ensureLegacyMigratedForDefaults();
+  return defaultSecureDataDir();
 }
 
 function ensureDir(dir: string, mode = 0o755): void {
@@ -51,15 +146,12 @@ export function saveJSON(filename: string, data: unknown): void {
   }
 }
 
-// SQLite（`@/lib/db`）等、loadJSON/saveJSONを使わない永続化先が`.data/`配下に
-// ファイルを置きたい場合のためのパス解決ヘルパー。
+// SQLite（`@/lib/db`）等、loadJSON/saveJSONを使わない永続化先のためのパス解決。
 export function dataFilePath(filename: string): string {
   ensureDir(dataDir());
   return join(dataDir(), filename);
 }
 
-// 個人情報の分離（ユーザー指摘対応）: people-directory.json専用。SECURE_DATA_DIR
-// （プロジェクトディレクトリの外）へ、所有者のみ読み書き可能な権限（0700/0600）で保存する。
 export function loadSecureJSON<T>(filename: string, fallback: T): T {
   try {
     const path = join(secureDataDir(), filename);
