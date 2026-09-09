@@ -68,9 +68,10 @@ export type Issue = {
   priority: IssuePriority;
   focusOrder?: number;
   archived: boolean;
-  // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻
-  // （unarchiveするとundefinedに戻す）。介入前後比較の起点として使う。
+  // docs/issue_tracker_contract.md §3。archived=追わない（一覧退避）。効果測定には使わない。
   archivedAt?: number;
+  // docs/issue_tracker_contract.md §3／案α。status=done になった時刻。介入効果の起点。
+  doneAt?: number;
   tags: string[];
   // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKeyResultに
   // 貢献するかの紐付け（任意）。IDのみ保持し、実体（Objective/KeyResult）は
@@ -96,25 +97,37 @@ function normalizeTags(tags: string[]): string[] {
 }
 
 // docs/em_ui_ux_issue.md 4節対応。statusフィールド追加前のIssueには、既存の事実
-// （archived/actionItems/logEntries）から機械的に推定した初期値を補う。
+// （actionItems/logEntries）から機械的に推定した初期値を補う。
+// docs/issue_tracker_contract.md §3: archived は done を意味しない。ただし status 未設定の
+// 旧データで archived だけ立っているものは、当時の「アーカイブ＝閉じる」語義のため done とみなす。
 function inferStatus(issue: Issue): IssueStatus {
+  if (issue.status) return issue.status;
   if (issue.archived) return "done";
   if (issue.actionItems.some((a) => a.done) || issue.logEntries.length > 0) return "in_progress";
   return "not_started";
 }
 
+function normalizeIssue(raw: Issue): Issue {
+  const status = raw.status ?? inferStatus(raw);
+  // doneAt 欠落の done Issue は効果窓が消えないよう archivedAt/updatedAt で補完する。
+  const doneAt =
+    status === "done" ? (raw.doneAt ?? raw.archivedAt ?? raw.updatedAt) : undefined;
+  return {
+    ...raw,
+    charter: raw.charter ?? emptyCharter(),
+    archived: raw.archived ?? false,
+    tags: raw.tags ?? [],
+    logEntries: raw.logEntries ?? [],
+    status,
+    doneAt,
+    priority: raw.priority ?? "normal",
+    focusOrder: (raw.priority ?? "normal") === "focus" ? (raw.focusOrder ?? 0) : undefined,
+  };
+}
+
 // 永続化ファイルに旧バージョン（charter/tagsフィールド追加前）のIssueが残っていても
 // 壊れないよう、読み込み時に補完する。
-const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
-  ...issue,
-  charter: issue.charter ?? emptyCharter(),
-  archived: issue.archived ?? false,
-  tags: issue.tags ?? [],
-  logEntries: issue.logEntries ?? [],
-  status: issue.status ?? inferStatus(issue),
-  priority: issue.priority ?? "normal",
-  focusOrder: (issue.priority ?? "normal") === "focus" ? (issue.focusOrder ?? 0) : undefined,
-}));
+const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map(normalizeIssue);
 
 // focus 同士の focusOrder を読み込み時に連番へ正規化する（旧データの重複0対策）。
 {
@@ -523,11 +536,17 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
 
 // docs/em_ui_ux_issue.md 4節対応。statusはEMがカンバン・詳細画面から明示的に切り替える
 // （blocked/doneは事実から自動推定しない。§2.4の思想と同じ）。
+// docs/issue_tracker_contract.md §3: done への遷移で doneAt を立て、離脱で消す（介入効果の起点）。
 export function setIssueStatus(issueId: string, status: IssueStatus): Issue | undefined {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   if (issue.status === status) return issue;
   issue.status = status;
+  if (status === "done") {
+    issue.doneAt = Date.now();
+  } else {
+    issue.doneAt = undefined;
+  }
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `ステータスを変更しました: ${status}`);
@@ -604,17 +623,8 @@ export function setIssueArchived(issueId: string, archived: boolean): Issue | un
   if (!issue) return undefined;
   if (issue.archived === archived) return issue;
   issue.archived = archived;
-  // docs/memo.md「L. 介入の閉ループ」対応。updatedAtは他の編集でも動くため、
-  // 「いつアーカイブされたか」を正確に知るための専用フィールドを持つ
-  // （介入の前後比較の起点として使う）。
+  // docs/issue_tracker_contract.md §3: archived は「追わない」であり status/doneAt を触らない。
   issue.archivedAt = archived ? Date.now() : undefined;
-  // docs/em_ui_ux_issue.md 4節対応。archivedとstatusの機械的な整合を保つ
-  // （EMが個別にstatusを戻し忘れないようにする）。
-  if (archived) {
-    issue.status = "done";
-  } else if (issue.status === "done") {
-    issue.status = "in_progress";
-  }
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, archived ? "アーカイブしました" : "アーカイブを解除しました");

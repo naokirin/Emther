@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   charterFilledCount,
   compareIssuesByPriority,
+  isIssueActive,
   isIssueStalled,
   isJournalEntryResolved,
   isRunStale,
@@ -116,14 +117,26 @@ describe("issueProgress", () => {
     expect(issueProgress(issue)).toEqual({ done: 1, total: 2 });
   });
 
-  it("子Issueの完了（status:doneまたはarchived）も合算する", () => {
+  it("子Issueの完了（status:done）を合算し、archivedな子は分母からも外す", () => {
     const issue = baseIssue();
-    const children = [baseIssue({ id: "c1", status: "done" }), baseIssue({ id: "c2", archived: true }), baseIssue({ id: "c3" })];
-    expect(issueProgress(issue, children)).toEqual({ done: 2, total: 3 });
+    const children = [
+      baseIssue({ id: "c1", status: "done" }),
+      baseIssue({ id: "c2", archived: true, status: "in_progress" }),
+      baseIssue({ id: "c3" }),
+    ];
+    expect(issueProgress(issue, children)).toEqual({ done: 1, total: 2 });
   });
 
   it("項目が無ければ0/0", () => {
     expect(issueProgress(baseIssue())).toEqual({ done: 0, total: 0 });
+  });
+});
+
+describe("isIssueActive", () => {
+  it("archivedまたはdoneなら非アクティブ", () => {
+    expect(isIssueActive(baseIssue())).toBe(true);
+    expect(isIssueActive(baseIssue({ archived: true }))).toBe(false);
+    expect(isIssueActive(baseIssue({ status: "done" }))).toBe(false);
   });
 });
 

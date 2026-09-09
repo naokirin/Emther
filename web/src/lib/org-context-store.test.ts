@@ -202,7 +202,23 @@ describe("objectives", () => {
     expect(removed?.keyResults).toHaveLength(0);
   });
 
-  it("listObjectivesWithProgressはKeyResultに紐づくIssueの完了数から進捗を計算する", async () => {
+  it("listObjectivesWithProgressはKeyResultに紐づくIssueのdone数（!archived）から進捗を計算する", async () => {
+    const orgStore = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+
+    const objective = await orgStore.addObjective("売上を伸ばす");
+    const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
+    const krId = withKr!.keyResults[0].id;
+
+    const issue1 = await issueStore.createIssue("契約A", undefined, undefined, undefined, undefined, krId);
+    await issueStore.createIssue("契約B", undefined, undefined, undefined, undefined, krId);
+    issueStore.setIssueStatus(issue1.id, "done");
+
+    const progress = orgStore.listObjectivesWithProgress();
+    expect(progress[0].progress[0]).toEqual({ keyResultId: krId, total: 2, done: 1 });
+  });
+
+  it("listObjectivesWithProgressはarchivedなIssueを分母からも除外する", async () => {
     const orgStore = await loadModule();
     const issueStore = await import("@/lib/issue-store");
 
@@ -215,7 +231,7 @@ describe("objectives", () => {
     issueStore.setIssueArchived(issue1.id, true);
 
     const progress = orgStore.listObjectivesWithProgress();
-    expect(progress[0].progress[0]).toEqual({ keyResultId: krId, total: 2, done: 1 });
+    expect(progress[0].progress[0]).toEqual({ keyResultId: krId, total: 1, done: 0 });
   });
 
   it("toObjectiveViewはPERSON_n IDでマスクされたtitleを実名復元する", async () => {

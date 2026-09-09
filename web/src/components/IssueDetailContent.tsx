@@ -47,8 +47,8 @@ export function IssueDetailContent({ id }: { id: string }) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const { objectives } = useObjectives();
   const { teams } = useTeams();
-  // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssueでのみ
-  // 意味を持つため、その場合だけポーリングする。
+  // docs/memo.md「L」＋ docs/issue_tracker_contract.md §6。チーム紐付きIssueで介入前後比較を出す
+  // （完了窓は status=done／doneAt。進行中も暫定比較を返す）。
   const { impact, impactLoaded } = useIssueImpact(id, !!issue?.teamId);
   const { rules } = useSettingsRules();
   // eslint-disable-next-line react-hooks/purity -- 「停滞中」表示にのみ使う
@@ -742,8 +742,13 @@ export function IssueDetailContent({ id }: { id: string }) {
             </>
           )}
         </div>
-        <button className={styles.btnOutline} onClick={handleToggleArchived} disabled={archiving}>
-          {issue.archived ? "アーカイブを解除" : "アーカイブする"}
+        <button
+          className={styles.btnOutline}
+          onClick={handleToggleArchived}
+          disabled={archiving}
+          title="解決（ステータス完了）とは別です。追う必要がなくなったときに一覧から外します。"
+        >
+          {issue.archived ? "アーカイブを解除" : "アーカイブする（追わない）"}
         </button>
       </div>
 
@@ -784,7 +789,7 @@ export function IssueDetailContent({ id }: { id: string }) {
         </div>
       )}
       <div className={styles.field} style={{ maxWidth: 260 }}>
-        <span className={styles.fieldCaption}>進捗（Action Items + サブIssue）</span>
+        <span className={styles.fieldCaption}>進捗（Action Items + サブIssue。アーカイブした子は除外）</span>
         <ProgressBar {...issueProgress(issue, childIssues)} />
       </div>
 
@@ -864,10 +869,8 @@ export function IssueDetailContent({ id }: { id: string }) {
           <h2>介入の効果（{teams.find((t) => t.id === issue.teamId)?.name ?? "関連チーム"}）{impact?.inProgress && "・進行中"}</h2>
           <p className={styles.subtitle}>
             {impact?.inProgress
-              ? // docs/em_human_story_and_ux.md P2-15対応。完了（アーカイブ）を待たずに、
-                // 「介入を始めてから、そもそも観測できているか」を確認できるようにする。
-                "「感覚」ではなく観測に基づいて判断できるよう、このIssueの介入開始前とその後（現在まで）でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。アーカイブ前の暫定値です。"
-              : "「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueのアーカイブ前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。"}
+              ? "「感覚」ではなく観測に基づいて判断できるよう、このIssueの介入開始前とその後（現在まで）でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。解決（ステータス完了）前の暫定値です。"
+              : "「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueの解決（ステータス完了）前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。"}
           </p>
           {!impactLoaded ? (
             <p className={styles.subtitle}>読み込み中…</p>
@@ -876,13 +879,13 @@ export function IssueDetailContent({ id }: { id: string }) {
           ) : (
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <div className={styles.vitalCard} style={{ minWidth: 220 }}>
-                <div className={styles.vitalLabel}>{impact.inProgress ? "介入開始前" : "アーカイブ前"} 直近{impact.windowDays}日間</div>
+                <div className={styles.vitalLabel}>{impact.inProgress ? "介入開始前" : "解決前"} 直近{impact.windowDays}日間</div>
                 <div className={styles.vitalValue}>
                   Journal {impact.before.total}件（🙂{impact.before.positive} 🙁{impact.before.negative}）
                 </div>
               </div>
               <div className={styles.vitalCard} style={{ minWidth: 220 }}>
-                <div className={styles.vitalLabel}>{impact.inProgress ? "介入開始〜現在" : `アーカイブ後 直近${impact.windowDays}日間`}</div>
+                <div className={styles.vitalLabel}>{impact.inProgress ? "介入開始〜現在" : `解決後 直近${impact.windowDays}日間`}</div>
                 <div className={styles.vitalValue}>
                   Journal {impact.after.total}件（🙂{impact.after.positive} 🙁{impact.after.negative}）
                 </div>
@@ -893,7 +896,7 @@ export function IssueDetailContent({ id }: { id: string }) {
             <p className={styles.subtitle} style={{ marginTop: 8 }}>
               {impact.inProgress
                 ? "介入開始後、このチームに関するJournalの記録がまだありません。効果測定のためにも、関連するJournalを記録してください。"
-                : "アーカイブ後まだ観測期間が経過していない、またはJournalの記録がありません。しばらく経ってから確認してください。"}
+                : "解決後まだ観測期間が経過していない、またはJournalの記録がありません。しばらく経ってから確認してください。"}
             </p>
           )}
         </div>

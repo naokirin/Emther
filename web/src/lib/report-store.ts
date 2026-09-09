@@ -29,10 +29,13 @@ export type ReportJournalStats = {
 
 export type ReportIssueStats = {
   createdCount: number;
+  // docs/issue_tracker_contract.md §3: done=解決、archived=追わない（別集計）。
+  doneCount: number;
   archivedCount: number;
   // 現在時点のスナップショット（期間で絞らない）。Dashboardの「Issue未整理」と同じ定義。
   openIncompleteCount: number;
   createdTitles: { id: string; title: string }[];
+  doneTitles: { id: string; title: string }[];
   archivedTitles: { id: string; title: string }[];
 };
 
@@ -125,15 +128,20 @@ function computeJournalStats(periodStart: number, periodEnd: number): ReportJour
 function computeIssueStats(periodStart: number, periodEnd: number): ReportIssueStats {
   const issues = listIssues();
   const created = issues.filter((i) => i.createdAt >= periodStart && i.createdAt < periodEnd);
+  const done = issues.filter((i) => i.doneAt && i.doneAt >= periodStart && i.doneAt < periodEnd);
   const archived = issues.filter((i) => i.archivedAt && i.archivedAt >= periodStart && i.archivedAt < periodEnd);
   // Dashboardの「Issue未整理」（issueNeedsCharter）と同じ定義。期間ではなく現在の状態。
-  const openIncomplete = issues.filter((i) => !i.parentId && !i.archived && charterFilledCount(i.charter) < 3);
+  const openIncomplete = issues.filter(
+    (i) => !i.parentId && !i.archived && i.status !== "done" && charterFilledCount(i.charter) < 3,
+  );
 
   return {
     createdCount: created.length,
+    doneCount: done.length,
     archivedCount: archived.length,
     openIncompleteCount: openIncomplete.length,
     createdTitles: created.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
+    doneTitles: done.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
     archivedTitles: archived.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
   };
 }
@@ -218,6 +226,7 @@ export function toReportView(report: Report): Report {
       issues: {
         ...report.stats.issues,
         createdTitles: report.stats.issues.createdTitles.map((i) => ({ ...i, title: unmaskNames(i.title) })),
+        doneTitles: (report.stats.issues.doneTitles ?? []).map((i) => ({ ...i, title: unmaskNames(i.title) })),
         archivedTitles: report.stats.issues.archivedTitles.map((i) => ({ ...i, title: unmaskNames(i.title) })),
       },
     },

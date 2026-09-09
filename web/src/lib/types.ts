@@ -104,8 +104,8 @@ export type OrgStrategy = {
 
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述1本の`okr`文字列だった
 // OKRを、Objective（目標）ごとにKeyResult（主要な結果）を持つ最小構造に置き換える。
-// 進捗は手動入力ではなく、KeyResultへ紐付いたIssueの完了（archived）数から機械的に出す
-// （Team Vitalsと同じ「観測から出す」考え方）。
+// 進捗は手動入力ではなく、KeyResultへ紐付いたIssueのうち active（!archived）の
+// status=done 件数から機械的に出す（docs/issue_tracker_contract.md §4）。
 export type KeyResult = {
   id: string;
   title: string;
@@ -306,7 +306,7 @@ export const ISSUE_STATUS_META: Record<IssueStatus, { icon: string; label: strin
   not_started: { icon: "⚪️", label: "未着手" },
   in_progress: { icon: "🔵", label: "進行中" },
   blocked: { icon: "🟡", label: "ブロッカーあり(Waiting)" },
-  done: { icon: "✅", label: "完了" },
+  done: { icon: "✅", label: "完了（解決）" },
 };
 
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
@@ -349,8 +349,10 @@ export type Issue = {
   // focus 同士の順序（小さいほど先）。priority !== "focus" のときは未定義。
   focusOrder?: number;
   archived: boolean;
-  // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻。
+  // docs/issue_tracker_contract.md §3。archived=追わない（一覧退避）。効果測定には使わない。
   archivedAt?: number;
+  // docs/issue_tracker_contract.md §3／案α。status=done になった時刻。介入効果の起点。
+  doneAt?: number;
   tags: string[];
   // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKey Resultに
   // 貢献するかの紐付け（任意）。
@@ -381,20 +383,27 @@ export function charterFilledCount(charter: IssueCharter): number {
   return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
 }
 
-// docs/em_ui_ux_issue.md 4節「進捗の視覚化」対応。Action Itemsの完了数に、子Issueの完了数
-// （status:"done"またはarchived）を合算した進捗を返す。0/0のときは「項目なし」であって
-// 「100%完了」ではないため、呼び出し側で区別して表示すること（Team Vitalsの評価不能と同じ思想）。
+// docs/issue_tracker_contract.md §3。朝キュー・ボード・停滞の共通定義。
+export function isIssueActive(issue: Pick<Issue, "archived" | "status">): boolean {
+  return !issue.archived && issue.status !== "done";
+}
+
+// docs/em_ui_ux_issue.md 4節「進捗の視覚化」＋ docs/issue_tracker_contract.md §4。
+// Action Items の完了数に、子 Issue のうち !archived かつ status=done を合算する。
+// アーカイブした子は分母からも外す（追わない＝進捗対象外）。suggested* はここには来ない。
+// 0/0 のときは「項目なし」であって「100%完了」ではないため、呼び出し側で区別すること。
 export function issueProgress(issue: Issue, childIssues: Issue[] = []): { done: number; total: number } {
   const actionDone = issue.actionItems.filter((a) => a.done).length;
-  const childDone = childIssues.filter((c) => c.status === "done" || c.archived).length;
-  return { done: actionDone + childDone, total: issue.actionItems.length + childIssues.length };
+  const activeChildren = childIssues.filter((c) => !c.archived);
+  const childDone = activeChildren.filter((c) => c.status === "done").length;
+  return { done: actionDone + childDone, total: issue.actionItems.length + activeChildren.length };
 }
 
 // docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。旧page.tsxのstaleInterventions
 // ロジック（14日間動きが無い介入の検知）を共有ヘルパーへ切り出し、一覧・ボード双方の
 // 表示から再利用できるようにする。着手前（charter未整理かつAction Item無し）は対象外。
 export function isIssueStalled(issue: Issue, now: number, staleDays: number): boolean {
-  if (issue.archived || issue.parentId) return false;
+  if (!isIssueActive(issue) || issue.parentId) return false;
   if (charterFilledCount(issue.charter) === 0 && issue.actionItems.length === 0) return false;
   return now - issue.updatedAt > staleDays * 24 * 60 * 60 * 1000;
 }
@@ -601,9 +610,11 @@ export type ReportJournalStats = {
 
 export type ReportIssueStats = {
   createdCount: number;
+  doneCount?: number;
   archivedCount: number;
   openIncompleteCount: number;
   createdTitles: { id: string; title: string }[];
+  doneTitles?: { id: string; title: string }[];
   archivedTitles: { id: string; title: string }[];
 };
 

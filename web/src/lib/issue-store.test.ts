@@ -249,16 +249,31 @@ describe("charter / title / action items / log entries", () => {
 });
 
 describe("archive / keyResult / team / tags", () => {
-  it("setIssueArchivedはarchivedAtを設定・解除する", async () => {
+  it("setIssueArchivedはstatusを変えずarchivedAtだけを設定・解除する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
+    expect(issue.status).toBe("not_started");
     const archived = store.setIssueArchived(issue.id, true);
     expect(archived?.archived).toBe(true);
     expect(archived?.archivedAt).toBeDefined();
+    expect(archived?.status).toBe("not_started");
+    expect(archived?.doneAt).toBeUndefined();
 
     const unarchived = store.setIssueArchived(issue.id, false);
     expect(unarchived?.archived).toBe(false);
     expect(unarchived?.archivedAt).toBeUndefined();
+    expect(unarchived?.status).toBe("not_started");
+  });
+
+  it("setIssueStatus(done)はdoneAtを立て、離脱で消す", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    const done = store.setIssueStatus(issue.id, "done");
+    expect(done?.status).toBe("done");
+    expect(done?.doneAt).toBeDefined();
+    const reopened = store.setIssueStatus(issue.id, "in_progress");
+    expect(reopened?.status).toBe("in_progress");
+    expect(reopened?.doneAt).toBeUndefined();
   });
 
   it("setIssueKeyResult/setIssueTeamはnullで解除できる", async () => {
@@ -353,11 +368,13 @@ describe("status", () => {
     expect(updated?.status).toBe("blocked");
   });
 
-  it("setIssueArchived(true)でstatusがdoneになり、解除するとin_progressに戻る", async () => {
+  it("setIssueArchivedはstatusを変えない（doneとは独立）", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
+    store.setIssueStatus(issue.id, "in_progress");
     const archived = store.setIssueArchived(issue.id, true);
-    expect(archived?.status).toBe("done");
+    expect(archived?.status).toBe("in_progress");
+    expect(archived?.doneAt).toBeUndefined();
     const unarchived = store.setIssueArchived(issue.id, false);
     expect(unarchived?.status).toBe("in_progress");
   });
