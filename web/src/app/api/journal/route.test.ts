@@ -55,8 +55,10 @@ describe("POST /api/journal", () => {
     expect(res.status).toBe(400);
   });
 
-  it("記録できる（201）", async () => {
+  it("記録できる（201）。抽出peopleは登録済みの人物だけ紐付く（自動登録しない）", async () => {
     mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive", summary: "良かった" };
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/api/journal", "POST", { text: "Aさんと1on1した" }));
     expect(res.status).toBe(201);
@@ -64,6 +66,22 @@ describe("POST /api/journal", () => {
     expect(json.entry.tags).toEqual(["1on1"]);
     expect(json.entry.people).toEqual(["Aさん"]); // 実名復元済み
     expect(json.entry.confirmed).toBe(false);
+  });
+
+  it("未登録の抽出peopleは自動登録せず空のまま", async () => {
+    mockExtraction = { tags: ["1on1"], people: ["新人さん"], urgency: "low", sentiment: "neutral", summary: "1on1した" };
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/journal", "POST", {
+        text: "新人さんと1on1した",
+        allowUnmaskedNameCandidates: true,
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.entry.people).toEqual([]);
+    const peopleDirectory = await import("@/lib/people-directory");
+    expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
   it("occurredAtDateを指定すると日付レベルで記録される", async () => {

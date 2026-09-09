@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { getPersonId, maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import { getPersonId, ensureNameCandidatesAllowed, maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 import {
   recordEvent,
   listEvents,
@@ -21,8 +22,9 @@ import { getIssue, toIssueView } from "@/lib/issue-store";
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
 // ONNX Runtime）で完結させる。docs 3.2「サニタイズ（秘匿化）」および業務要求3「情報の壁と
 // セキュリティ」に対応するための必須要件であり、コストや速度のための最適化ではない。
-// 抽出したpeopleはpeople-directory.tsに登録し、Agent Runtime（クラウド）に送る際の
-// 匿名化（docs/memo.md）に再利用する。
+// 抽出したpeopleのうち、既にpeople-directoryへ登録済みの人物だけを紐付ける。
+// ローカルLLMの新規検出結果では自動登録しない（誤登録対策）。未登録の人名らしい語句は
+// 保存前にEMへ「未マスクのまま進めてよいか」を確認する。
 //
 // 永続化: docs/memo.md「H: 永続化データモデルの設計」対応で、Journalの投稿は
 // `knowledge-store.ts`のKnowledgeEvent（kind: "fact", entityType: "journal"）として
@@ -128,7 +130,13 @@ function isSentiment(v: unknown): v is Sentiment {
 // addJournalEntriesBulk（まとめ入力、1行ずつ同じ処理を回す）の両方から呼ぶ共通処理として
 // 切り出してある。occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら
 // 「まとめ投入した時刻」ではなく行ごとに解決した「出来事があった日」を渡す——後述）。
-async function createJournalEventFromText(rawText: string, occurredAt: number): Promise<KnowledgeEvent> {
+async function createJournalEventFromText(
+  rawText: string,
+  occurredAt: number,
+  opts: MaskOptions = {},
+): Promise<KnowledgeEvent> {
+  await ensureNameCandidatesAllowed([rawText], opts);
+
   const content = await runLocalChat(
     [
       { role: "system", content: SYSTEM_PROMPT },
@@ -154,12 +162,18 @@ async function createJournalEventFromText(rawText: string, occurredAt: number): 
     throw new Error("ローカルモデルの出力が不正なJSONでした");
   }
 
-  // 個人情報の分離（ユーザー指摘対応）: peopleはPERSON_n ID配列として保存する
-  // （registerNameは新規なら発行・既存なら既存IDを返す）。
+  // 既登録の人物だけを紐付ける。ローカル抽出の新規名は自動登録しない
+  // （EMが校正時にpeople欄へ明示したときだけregisterNameする）。
   const peopleNames: string[] = Array.isArray(structured.people)
     ? structured.people.filter((p: unknown): p is string => typeof p === "string")
     : [];
-  const people = peopleNames.map((p) => registerName(p));
+  const people = [
+    ...new Set(
+      peopleNames
+        .map((p) => getPersonId(p))
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
@@ -212,8 +226,12 @@ async function createJournalEventFromText(rawText: string, occurredAt: number): 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。occurredAtは
 // 既定でDate.now()（＝これまでの単発投稿と同じ挙動）。EMが「今日ではなく先日の話」だと
 // 分かっている場合だけ、呼び出し側（APIルート）が日付レベルの値を渡せるようにする。
-export async function addJournalEntry(rawText: string, occurredAt: number = Date.now()): Promise<JournalEntry> {
-  const event = await createJournalEventFromText(rawText, occurredAt);
+export async function addJournalEntry(
+  rawText: string,
+  occurredAt: number = Date.now(),
+  opts: MaskOptions = {},
+): Promise<JournalEntry> {
+  const event = await createJournalEventFromText(rawText, occurredAt, opts);
 
   // docs/em_human_story_and_ux.md P1-9対応（旧実装からの変更）。以前はここ（登録直後、
   // ローカルモデルの生の抽出結果に対して）で自動検知を起動していたが、ローカルモデルの
@@ -238,7 +256,7 @@ export type BulkJournalResult = { entries: JournalEntry[]; skippedLines: number 
 // - 抽出結果はいずれも未確認（confirmed:false）のまま返る。自動検知はupdateJournalEntry
 //   （EMが確認した後）側でしか起動しないため、まとめ入力で「偽の緊急事態」が連鎖的に
 //   自動起動する心配はない。
-export async function addJournalEntriesBulk(rawText: string): Promise<BulkJournalResult> {
+export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions = {}): Promise<BulkJournalResult> {
   const now = Date.now();
   const MAX_LINES = 40;
   const allLines = rawText
@@ -251,13 +269,22 @@ export async function addJournalEntriesBulk(rawText: string): Promise<BulkJourna
   const parsed = parseBulkJournalText(rawText, now, MAX_LINES);
   const skippedLines = Math.max(0, totalContentLines - parsed.length);
 
+  // まとめ入力は1件目で確認が要ると途中保存が残るのを避けるため、先に全行の候補を集約する。
+  await ensureNameCandidatesAllowed(
+    parsed.map((line) => line.text),
+    opts,
+  );
+
   const entries: JournalEntry[] = [];
   // ローカルモデル（WASM上の単一インスタンス）を前提にしており、並行実行の安全性が
   // 保証できないため、あえて逐次実行にしている（件数が多いほど時間はかかるが、
   // 「一括入力で疲弊しない」の主眼は連続クリックを無くすことにあり、待ち時間そのものは
   // 許容範囲と判断）。
   for (const line of parsed) {
-    const event = await createJournalEventFromText(line.text, line.occurredAt);
+    // 上で一括確認済みなので、各行では再検出をスキップする（allow付きで通す）。
+    const event = await createJournalEventFromText(line.text, line.occurredAt, {
+      allowUnmaskedCandidates: true,
+    });
     entries.push(eventToJournalEntry(event));
   }
   return { entries, skippedLines };
@@ -353,10 +380,12 @@ export async function updateJournalEntry(
     resolvedIssueId?: string | null;
     resolutionNote?: string | null;
   },
+  opts: MaskOptions = {},
 ): Promise<JournalEntry | undefined> {
   const original = getEventById(id);
   if (!original || original.entityType !== "journal") return undefined;
 
+  // EMが校正フォームで明示した人物名は登録してよい（ローカルLLMの自動登録とは別経路）。
   const people = patch.people !== undefined ? patch.people.map((p) => registerName(p)) : original.people;
   const tags = patch.tags !== undefined ? patch.tags.map((t) => maskNames(t)) : original.tags;
   const urgency = patch.urgency !== undefined && isUrgency(patch.urgency) ? patch.urgency : original.urgency ?? "mid";
@@ -366,6 +395,13 @@ export async function updateJournalEntry(
   const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : original.occurredAt;
   const resolvedIssueId =
     patch.resolvedIssueId !== undefined ? (patch.resolvedIssueId ?? undefined) : original.resolvedIssueId;
+
+  const textsToCheck: string[] = [];
+  const rawTextInput = patch.rawText?.trim();
+  if (rawTextInput !== undefined) textsToCheck.push(rawTextInput);
+  if (patch.resolutionNote !== undefined && patch.resolutionNote) textsToCheck.push(patch.resolutionNote.trim());
+  if (textsToCheck.length > 0) await ensureNameCandidatesAllowed(textsToCheck, opts);
+
   const resolutionNote =
     patch.resolutionNote !== undefined
       ? patch.resolutionNote
@@ -376,8 +412,7 @@ export async function updateJournalEntry(
   // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
   // 記録時の言い間違い等の訂正用であり、tags/people/urgency/summaryの再抽出は行わない
   // （EMが必要なら別途手動で合わせて調整する）。新しい文面から新規の人物名が出てくる
-  // 可能性があるため、初回記録時と同じくmaskForStorage（NER検出＋マスク）を通す。
-  const rawTextInput = patch.rawText?.trim();
+  // 可能性があるため、候補確認のうえ既知名のみマスクする。
   const text = rawTextInput !== undefined ? await maskForStorage(rawTextInput) : original.text;
   let embedding = original.embedding;
   if (rawTextInput !== undefined) {

@@ -12,6 +12,7 @@ import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
+import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueCharter, type IssueStatus } from "@/lib/types";
 
 // docs/em_ui_ux_issue.md 7節対応。閲覧モードのWhy/What/Howのラベル（編集モードのlabel文言と揃える）。
@@ -31,6 +32,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   const { history } = useEntityHistory("issue", id);
   const { issues, refreshIssues } = useIssues();
   const { runs, pendingAgentStarts, refreshRuns } = useRuns();
+  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const { objectives } = useObjectives();
   const { teams } = useTeams();
   // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssueでのみ
@@ -71,13 +73,15 @@ export function IssueDetailContent({ id }: { id: string }) {
     setHSubmitting(true);
     setHError(null);
     try {
-      const res = await fetch("/api/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: hTitle, why: hWhy, what: hWhat, how: hHow, parentId: issue.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "サブIssueの作成に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        "/api/issues",
+        {
+          method: "POST",
+          body: { title: hTitle, why: hWhy, what: hWhat, how: hHow, parentId: issue.id },
+        },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "サブIssueの作成に失敗しました");
       // 改修依頼「一覧と入力の分離によるアクション→一覧のフローの分断」対応。以前は
       // 作成直後に新しいサブIssue自身の詳細画面へ遷移しており、いま開いていた親Issueの
       // 「サブIssue（分解した子Issue）」一覧にそのまま反映される様子を見られなかった。
@@ -86,7 +90,9 @@ export function IssueDetailContent({ id }: { id: string }) {
       closeHierarchyDialog();
       await refreshIssues();
     } catch (err) {
-      setHError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setHError((err as Error).message);
+      }
     } finally {
       setHSubmitting(false);
     }
@@ -98,18 +104,19 @@ export function IssueDetailContent({ id }: { id: string }) {
     setHSubmitting(true);
     setHError(null);
     try {
-      const res = await fetch(`/api/issues/${issue.id}/parent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: hTitle, why: hWhy, what: hWhat, how: hHow }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "上位Issueの作成に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/issues/${issue.id}/parent`,
+        { method: "POST", body: { title: hTitle, why: hWhy, what: hWhat, how: hHow } },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "上位Issueの作成に失敗しました");
       closeHierarchyDialog();
       await refreshIssues();
-      router.push(`/issues/${data.issue.id}`);
+      router.push(`/issues/${(data as { issue: { id: string } }).issue.id}`);
     } catch (err) {
-      setHError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setHError((err as Error).message);
+      }
     } finally {
       setHSubmitting(false);
     }
@@ -222,20 +229,19 @@ export function IssueDetailContent({ id }: { id: string }) {
     setTitleSaving(true);
     setTitleError(null);
     try {
-      const res = await fetch(`/api/issues/${issue.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: trimmed }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "保存に失敗しました");
-      }
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/issues/${issue.id}`,
+        { method: "PATCH", body: { title: trimmed } },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
       await refreshIssue();
       await refreshIssues();
       setTitleEditing(false);
     } catch (err) {
-      setTitleError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setTitleError((err as Error).message);
+      }
     } finally {
       setTitleSaving(false);
     }
@@ -246,25 +252,27 @@ export function IssueDetailContent({ id }: { id: string }) {
     setCharterSaving(true);
     setCharterError(null);
     try {
-      const res = await fetch(`/api/issues/${issue.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          why: whyRef.current?.value ?? "",
-          what: whatRef.current?.value ?? "",
-          how: howRef.current?.value ?? "",
-          tags: (tagsRef.current?.value ?? "").split(",").map((t) => t.trim()).filter(Boolean),
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "保存に失敗しました");
-      }
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/issues/${issue.id}`,
+        {
+          method: "PATCH",
+          body: {
+            why: whyRef.current?.value ?? "",
+            what: whatRef.current?.value ?? "",
+            how: howRef.current?.value ?? "",
+            tags: (tagsRef.current?.value ?? "").split(",").map((t) => t.trim()).filter(Boolean),
+          },
+        },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
       await refreshIssue();
       await refreshRuns();
       setCharterEditing(false);
     } catch (err) {
-      setCharterError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setCharterError((err as Error).message);
+      }
     } finally {
       setCharterSaving(false);
     }
@@ -323,18 +331,19 @@ export function IssueDetailContent({ id }: { id: string }) {
     setDeciding(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${linkedRun.id}/decide`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "送信に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/agents/${linkedRun.id}/decide`,
+        { method: "POST", body: { message: text } },
+        "送信する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "送信に失敗しました");
       setMessage("");
       setSelectedOptionId(null);
       await refreshRuns();
     } catch (err) {
-      setDecideError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setDecideError((err as Error).message);
+      }
     } finally {
       setDeciding(false);
     }
@@ -354,17 +363,17 @@ export function IssueDetailContent({ id }: { id: string }) {
   async function handleAddActionItem() {
     if (!issue || !actionItemText.trim()) return;
     try {
-      const res = await fetch(`/api/issues/${issue.id}/action-items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: actionItemText }),
-      });
+      const { res } = await fetchWithNameConfirm(
+        `/api/issues/${issue.id}/action-items`,
+        { method: "POST", body: { text: actionItemText } },
+        "保存する",
+      );
       if (res.ok) {
         setActionItemText("");
         await refreshIssue();
       }
     } catch {
-      // 失敗時は次回のポーリングで状態が揃う
+      // キャンセル・失敗時は次回のポーリングで状態が揃う
     }
   }
 
@@ -375,17 +384,18 @@ export function IssueDetailContent({ id }: { id: string }) {
     setLogSubmitting(true);
     setLogError(null);
     try {
-      const res = await fetch(`/api/issues/${issue.id}/log`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: logText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/issues/${issue.id}/log`,
+        { method: "POST", body: { text: logText } },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "記録に失敗しました");
       setLogText("");
       await Promise.all([refreshIssue(), refreshRuns()]);
     } catch (err) {
-      setLogError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setLogError((err as Error).message);
+      }
     } finally {
       setLogSubmitting(false);
     }
@@ -469,11 +479,11 @@ export function IssueDetailContent({ id }: { id: string }) {
     if (!issue || !linkedRun) return;
     setCharterSubmitting(true);
     try {
-      await fetch(`/api/issues/${issue.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(charter),
-      });
+      await fetchWithNameConfirm(
+        `/api/issues/${issue.id}`,
+        { method: "PATCH", body: charter },
+        "保存する",
+      );
       await fetch(`/api/agents/${linkedRun.id}/charter/dismiss`, { method: "POST" });
       await Promise.all([refreshIssue(), refreshRuns()]);
     } finally {
@@ -1029,6 +1039,7 @@ export function IssueDetailContent({ id }: { id: string }) {
           </form>
         </Modal>
       )}
+      {nameCandidateDialog}
     </>
   );
 }

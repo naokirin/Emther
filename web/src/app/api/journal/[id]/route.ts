@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
+import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
 
 // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
 // EMがその場で校正するためのエンドポイント。内部的には新しいイベントをsupersedesで
@@ -44,19 +45,27 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
           ? body.resolutionNote
           : undefined;
 
-  const entry = await updateJournalEntry(id, {
-    rawText: typeof body?.rawText === "string" && body.rawText.trim() ? body.rawText : undefined,
-    tags: Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined,
-    people: Array.isArray(body?.people)
-      ? body.people.filter((p: unknown): p is string => typeof p === "string")
-      : undefined,
-    urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
-    occurredAt,
-    resolvedIssueId,
-    resolutionNote,
-  });
-  if (!entry) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
+  try {
+    const entry = await updateJournalEntry(
+      id,
+      {
+        rawText: typeof body?.rawText === "string" && body.rawText.trim() ? body.rawText : undefined,
+        tags: Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined,
+        people: Array.isArray(body?.people)
+          ? body.people.filter((p: unknown): p is string => typeof p === "string")
+          : undefined,
+        urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
+        occurredAt,
+        resolvedIssueId,
+        resolutionNote,
+      },
+      { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) },
+    );
+    if (!entry) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+    return NextResponse.json({ entry: toJournalEntryView(entry) });
+  } catch (err) {
+    return jsonFromUnknownError(err);
   }
-  return NextResponse.json({ entry: toJournalEntryView(entry) });
 }

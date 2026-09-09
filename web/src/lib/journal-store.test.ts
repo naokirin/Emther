@@ -65,8 +65,10 @@ async function loadModule() {
 }
 
 describe("addJournalEntry", () => {
-  it("ローカルモデルの抽出結果でtags/people/urgency/sentiment/summaryを埋める", async () => {
+  it("ローカルモデルの抽出結果でtags/people/urgency/sentiment/summaryを埋める（登録済み人物のみpeopleへ）", async () => {
     mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive", summary: "良い1on1だった" };
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("Aさんと1on1した。とても良かった");
 
@@ -170,6 +172,9 @@ describe("listJournalEntriesPage", () => {
   });
 
   it("personは実名で渡すとPERSON_n IDへ変換して絞り込む", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
+    peopleDirectory.registerName("Bさん");
     mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral", summary: "" };
     const store = await loadModule();
     await store.addJournalEntry("Aさんと1on1した");

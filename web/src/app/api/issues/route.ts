@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createIssue, listIssues, toIssueView } from "@/lib/issue-store";
-import { buildIssueDraftTask, markRunReviewed, startRun } from "@/lib/agent-runtime";
+import { buildIssueDraftTask, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
+import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
+import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
 
 export async function GET() {
   return NextResponse.json({ issues: listIssues().map(toIssueView) });
@@ -32,20 +34,36 @@ export async function POST(request: Request) {
     what: typeof body?.what === "string" ? body.what : undefined,
     how: typeof body?.how === "string" ? body.how : undefined,
   };
+  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
 
   try {
-    const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId);
+    const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, opts);
     if (agentRunId) {
       markRunReviewed(agentRunId);
     } else {
+      const task = buildIssueDraftTask(title, charter);
       try {
-        await startRun("Lead Agent", buildIssueDraftTask(title, charter), "manual", issue.id);
-      } catch {
-        // AIチームの分析起動に失敗しても、Issueの起票自体は失敗させない（あくまで補助機能）。
+        await startRun("Lead Agent", task, "manual", issue.id, opts);
+      } catch (err) {
+        if (isUnconfirmedNameCandidatesError(err)) {
+          parkPendingUnmaskedSend({
+            id: `unmasked-start:${issue.id}:${Date.now()}`,
+            kind: "start-run",
+            candidates: err.candidates,
+            label: "起票直後の分析送信確認",
+            issueId: issue.id,
+            issueTitle: title,
+            agentName: "Lead Agent",
+            task,
+            origin: "manual",
+            linkedIssueId: issue.id,
+          });
+        }
+        // その他の起動失敗でもIssue起票自体は失敗させない。
       }
     }
     return NextResponse.json({ issue: toIssueView(issue) }, { status: 201 });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 400 });
+    return jsonFromUnknownError(err, 400);
   }
 }

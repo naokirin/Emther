@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { timestampToDateInputValue } from "@/lib/journal-date-parser";
-import { truncateForTitle, type PendingAgentStart } from "@/lib/types";
+import { truncateForTitle, type PendingAgentStart, type PendingUnmaskedSend } from "@/lib/types";
+import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import type {
   EmCheckin,
   EmReflectionNote,
@@ -145,14 +146,15 @@ export function useGoToRunIssue(issues: Issue[]) {
 }
 
 export function useRuns(intervalMs = 1500) {
-  const { data, setData, loaded, refresh } = usePolling<{ runs: AgentRun[]; pendingAgentStarts: PendingAgentStart[] }>(
-    "/api/agents",
-    { runs: [], pendingAgentStarts: [] },
-    intervalMs,
-  );
+  const { data, setData, loaded, refresh } = usePolling<{
+    runs: AgentRun[];
+    pendingAgentStarts: PendingAgentStart[];
+    pendingUnmaskedSends: PendingUnmaskedSend[];
+  }>("/api/agents", { runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }, intervalMs);
   return {
     runs: data.runs,
     pendingAgentStarts: data.pendingAgentStarts ?? [],
+    pendingUnmaskedSends: data.pendingUnmaskedSends ?? [],
     setRuns: (runs: AgentRun[]) => setData({ ...data, runs }),
     runsLoaded: loaded,
     refreshRuns: refresh,
@@ -266,6 +268,7 @@ export function useJournalEditing(
   journalEntries: JournalEntry[],
   setJournalEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) => void,
 ) {
+  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
   const [editRawText, setEditRawText] = useState("");
@@ -353,20 +356,21 @@ export function useJournalEditing(
     setPendingEntryIds((prev) => new Set(prev).add(entryId));
     dismissPendingError(entryId);
     try {
-      const res = await fetch(`/api/journal/${entryId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/journal/${entryId}`,
+        { method: "PATCH", body },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "更新に失敗しました");
       // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
       // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。関数形式の
       // 更新を使い、待っている間にポーリングで変わった最新の配列を起点にする。
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry : e)));
-      return data.entry as JournalEntry;
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      return (data as { entry: JournalEntry }).entry;
     } catch (err) {
-      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+      }
       return undefined;
     } finally {
       setPendingEntryIds((prev) => {
@@ -414,35 +418,47 @@ export function useJournalEditing(
     setEditSubmitting(true);
     setEditError(null);
     try {
-      const issueRes = await fetch("/api/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: truncateForTitle(entry.summary || entry.rawText),
-          why: entry.rawText,
-          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
-        }),
-      });
-      const issueData = await issueRes.json();
-      if (!issueRes.ok) throw new Error(issueData.error ?? "Issueの起票に失敗しました");
+      const { res: issueRes, data: issueData } = await fetchWithNameConfirm(
+        "/api/issues",
+        {
+          method: "POST",
+          body: {
+            title: truncateForTitle(entry.summary || entry.rawText),
+            why: entry.rawText,
+            tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+          },
+        },
+        "保存する",
+      );
+      if (!issueRes.ok) {
+        throw new Error((issueData as { error?: string } | null)?.error ?? "Issueの起票に失敗しました");
+      }
 
       // 意図的にsendJournalPatchは使わない。Issueは既に作成済みのため、この後の
       // 紐付け保存が失敗した場合の「再試行」はIssue作成をやり直さず紐付けだけ
       // やり直す必要があり、sendJournalPatch共通のretry（新規Issueをまた作ってしまう）
       // とは意味が異なる。ここは既存どおりeditError/editSubmittingで扱い、
       // フォームを開いたまま結果を待つ。
-      const res = await fetch(`/api/journal/${entry.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...currentEditPatch(), resolvedIssueId: issueData.issue.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Issueへの紐付けに失敗しました（Issue自体は作成されています）");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? data.entry : e)));
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/journal/${entry.id}`,
+        {
+          method: "PATCH",
+          body: { ...currentEditPatch(), resolvedIssueId: (issueData as { issue: { id: string } }).issue.id },
+        },
+        "保存する",
+      );
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string } | null)?.error ?? "Issueへの紐付けに失敗しました（Issue自体は作成されています）",
+        );
+      }
+      setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? (data as { entry: JournalEntry }).entry : e)));
       setEditingEntryId(null);
-      return issueData.issue.id as string;
+      return (issueData as { issue: { id: string } }).issue.id;
     } catch (err) {
-      setEditError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setEditError((err as Error).message);
+      }
       return undefined;
     } finally {
       setEditSubmitting(false);
@@ -458,16 +474,20 @@ export function useJournalEditing(
     setEditSubmitting(true);
     setEditError(null);
     try {
-      const res = await fetch(`/api/journal/${entryId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...currentEditPatch(), resolvedIssueId: null, resolutionNote: null }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry : e)));
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/journal/${entryId}`,
+        {
+          method: "PATCH",
+          body: { ...currentEditPatch(), resolvedIssueId: null, resolutionNote: null },
+        },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "更新に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
     } catch (err) {
-      setEditError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setEditError((err as Error).message);
+      }
     } finally {
       setEditSubmitting(false);
     }
@@ -501,6 +521,7 @@ export function useJournalEditing(
     isEntryPending,
     pendingEntryErrors,
     dismissPendingError,
+    nameCandidateDialog,
   };
 }
 

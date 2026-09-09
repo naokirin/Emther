@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createParentIssue, toIssueView } from "@/lib/issue-store";
-import { buildIssueDraftTask, startRun } from "@/lib/agent-runtime";
+import { buildIssueDraftTask, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
+import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
+import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
 
 // 既存Issueの上位に新しいIssueを作り、既存Issueをその子として付け替える（ズームアウト）。
 export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]/parent">) {
@@ -17,19 +19,34 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
     what: typeof body?.what === "string" ? body.what : undefined,
     how: typeof body?.how === "string" ? body.how : undefined,
   };
+  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
 
   try {
-    const parent = await createParentIssue(id, title, charter);
+    const parent = await createParentIssue(id, title, charter, opts);
     // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
     // 対応。上位Issueも新規に起票される「素のIssue」のため、/api/issuesのPOSTと同じく
     // Lead Agentの分析Runを自動で紐づける。
+    const task = buildIssueDraftTask(title, charter);
     try {
-      await startRun("Lead Agent", buildIssueDraftTask(title, charter), "manual", parent.id);
-    } catch {
-      // AIチームの分析起動に失敗しても、Issueの起票自体は失敗させない（あくまで補助機能）。
+      await startRun("Lead Agent", task, "manual", parent.id, opts);
+    } catch (err) {
+      if (isUnconfirmedNameCandidatesError(err)) {
+        parkPendingUnmaskedSend({
+          id: `unmasked-start:${parent.id}:${Date.now()}`,
+          kind: "start-run",
+          candidates: err.candidates,
+          label: "上位Issue起票直後の分析送信確認",
+          issueId: parent.id,
+          issueTitle: title,
+          agentName: "Lead Agent",
+          task,
+          origin: "manual",
+          linkedIssueId: parent.id,
+        });
+      }
     }
     return NextResponse.json({ issue: toIssueView(parent) }, { status: 201 });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 400 });
+    return jsonFromUnknownError(err, 400);
   }
 }

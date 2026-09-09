@@ -159,6 +159,23 @@ export type PendingAgentStart = {
   detail?: string;
 };
 
+// 未登録の人名候補があり、登録せず未マスクのまま外部送信してよいかEM確認待ち。
+export type PendingUnmaskedSendKind = "start-run" | "decide-run";
+export type PendingUnmaskedSend = {
+  id: string;
+  kind: PendingUnmaskedSendKind;
+  candidates: string[];
+  label: string;
+  issueId?: string;
+  issueTitle?: string;
+  agentName?: string;
+  task?: string;
+  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  linkedIssueId?: string;
+  runId?: string;
+  message?: string;
+};
+
 export type RulesAndConstraints = {
   teamWindowDays: number;
   minEntriesForJudgement: number;
