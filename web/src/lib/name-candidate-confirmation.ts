@@ -5,7 +5,7 @@
 export const NAME_CANDIDATE_CONFIRMATION_CODE = "NAME_CANDIDATE_CONFIRMATION_REQUIRED" as const;
 
 export const NAME_CANDIDATE_CONFIRMATION_MESSAGE =
-  "未登録の人名らしい語句があります。人名として登録はせず、このまま進めてよいですか？後でAIが外部へ送信する可能性があります。";
+  "未登録の人名らしい語句があります。人名として登録するか、未マスクのまま進めてよいですか？後でAIが外部へ送信する可能性があります。";
 
 export type NameCandidateConfirmationBody = {
   code: typeof NAME_CANDIDATE_CONFIRMATION_CODE;
@@ -16,6 +16,8 @@ export type NameCandidateConfirmationBody = {
 export type MaskOptions = {
   /** trueのとき、検出された未登録候補を許可リストへ入れたうえで既知名のみマスクして進める */
   allowUnmaskedCandidates?: boolean;
+  /** trueのとき、検出された未登録候補を人名として登録し、マスクして進める */
+  registerNameCandidates?: boolean;
 };
 
 export class UnconfirmedNameCandidatesError extends Error {
@@ -33,7 +35,7 @@ export function formatNameCandidateConfirmationMessage(candidates: string[]): st
     candidates.length > 0
       ? candidates.map((c) => `「${c}」`).join("、")
       : "（候補の取得に失敗しました）";
-  return `次の語句が人名の可能性があり、マスクされずに残ります: ${listed}。人名として登録はせず、このまま進めてよいですか？後でAIが外部へ送信する可能性があります。`;
+  return `次の語句が人名の可能性があり、マスクされずに残ります: ${listed}。人名として登録するか、未マスクのまま進めてよいですか？後でAIが外部へ送信する可能性があります。`;
 }
 
 export function isUnconfirmedNameCandidatesError(err: unknown): err is UnconfirmedNameCandidatesError {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createParentIssue, toIssueView } from "@/lib/issue-store";
 import { buildIssueDraftTask, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
 import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 // 既存Issueの上位に新しいIssueを作り、既存Issueをその子として付け替える（ズームアウト）。
 export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]/parent">) {
@@ -19,7 +19,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
     what: typeof body?.what === "string" ? body.what : undefined,
     how: typeof body?.how === "string" ? body.how : undefined,
   };
-  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
+  const opts = maskOptionsFromBody(body);
 
   try {
     const parent = await createParentIssue(id, title, charter, opts);

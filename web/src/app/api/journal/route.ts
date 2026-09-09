@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { addJournalEntry, listJournalEntries, toJournalEntryView } from "@/lib/journal-store";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET() {
   return NextResponse.json({ entries: listJournalEntries().map(toJournalEntryView) });
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
+  const opts = maskOptionsFromBody(body);
 
   try {
     const entry =

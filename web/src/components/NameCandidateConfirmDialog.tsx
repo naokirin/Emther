@@ -2,11 +2,14 @@
 
 import styles from "@/app/page.module.css";
 
+export type NameCandidateDecision = "allow" | "register";
+
 export function NameCandidateConfirmDialog({
   candidates,
   actionLabel,
   busy,
   onAllow,
+  onRegister,
   onCancel,
 }: {
   candidates: string[];
@@ -14,6 +17,8 @@ export function NameCandidateConfirmDialog({
   actionLabel: string;
   busy?: boolean;
   onAllow: () => void;
+  /** 候補を人名として登録してから進める */
+  onRegister: () => void;
   onCancel: () => void;
 }) {
   const unique = [...new Set(candidates.map((c) => c.trim()).filter(Boolean))];
@@ -31,7 +36,7 @@ export function NameCandidateConfirmDialog({
         </div>
 
         <p style={{ margin: "0 0 12px", fontSize: "0.9rem", lineHeight: 1.5 }}>
-          次の語句が人名の可能性があり、マスクされずに残ります。人名として登録はせず、このまま進めてよいですか？後でAIが外部へ送信する可能性があります。
+          次の語句が人名の可能性があり、このままではマスクされずに残ります。人名として登録するか、未マスクのまま進めるか選んでください。後でAIが外部へ送信する可能性があります。
         </p>
 
         {unique.length === 0 ? (
@@ -49,15 +54,17 @@ export function NameCandidateConfirmDialog({
         )}
 
         <p style={{ margin: "0 0 16px", fontSize: "0.8rem", lineHeight: 1.5, color: "var(--text-muted)" }}>
-          「このまま{actionLabel}」を選ぶと上記を人名登録せず未マスクのまま進めます。人名として扱いたい場合はキャンセルし、People
-          や Journal の人物欄で登録してから再試行してください。
+          「人名として登録して{actionLabel}」は People に登録しマスクして進めます。「このまま{actionLabel}」は登録せず未マスクのまま進めます。
         </p>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
           <button type="button" className={styles.btnOutline} onClick={onCancel} disabled={busy}>
             キャンセル
           </button>
-          <button type="button" className={styles.primaryBtn} onClick={onAllow} disabled={busy || unique.length === 0}>
+          <button type="button" className={styles.btnOutline} onClick={onAllow} disabled={busy || unique.length === 0}>
             {busy ? "処理中…" : `このまま${actionLabel}`}
+          </button>
+          <button type="button" className={styles.primaryBtn} onClick={onRegister} disabled={busy || unique.length === 0}>
+            {busy ? "処理中…" : `人名として登録して${actionLabel}`}
           </button>
         </div>
       </div>

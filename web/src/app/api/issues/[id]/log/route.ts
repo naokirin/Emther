@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addLogEntry, toIssueView } from "@/lib/issue-store";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
 export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]/log">) {
@@ -14,7 +14,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
 
   try {
     const issue = await addLogEntry(id, text, {
-      allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body),
+      ...maskOptionsFromBody(body),
     });
     if (!issue) {
       return NextResponse.json({ error: "not found" }, { status: 404 });

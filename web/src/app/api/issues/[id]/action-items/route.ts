@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addActionItem, toIssueView } from "@/lib/issue-store";
-import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]/action-items">) {
   const { id } = await ctx.params;
@@ -13,7 +13,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
 
   try {
     const issue = await addActionItem(id, text, {
-      allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body),
+      ...maskOptionsFromBody(body),
     });
     if (!issue) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
