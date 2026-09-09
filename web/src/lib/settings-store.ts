@@ -1,4 +1,5 @@
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import type { ModelTier } from "@/lib/types";
 
 // docs 3.1.1「判定閾値およびデータ欠如とみなす期間はCore Context（Rules_and_Constraints）
 // 側で定義」に対応するパラメータ群。ただしこれは「組織のMVV/体制」のような
@@ -59,6 +60,11 @@ export type RulesAndConstraints = {
   // 「観測不足」として朝キューに再浮上させるかの閾値。既定14日は過去のP1-10対応での
   // チューニング値を維持し、EMが好みに応じて短くできるようにする。
   staleInterventionDays: number;
+  // ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。AGENT_OPTIONSの
+  // 値をキーにした、エージェント種別ごとのモデル系統（claude CLIの--modelが受け付ける
+  // エイリアス。バージョンは固定しない）指定。キーが無い（または空文字列の）エージェントは
+  // claude CLIの既定モデルのまま動く（既定は全エージェント未設定＝既存の挙動を変えない）。
+  agentModelTiers: Partial<Record<string, ModelTier>>;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -81,6 +87,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   decisionQueueLimit: 3,
   observationQueueLimit: 6,
   staleInterventionDays: 14,
+  agentModelTiers: {},
 };
 
 let rules: RulesAndConstraints = {

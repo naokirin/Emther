@@ -78,6 +78,119 @@ describe("recordEvent / getEventById / listEvents", () => {
   });
 });
 
+describe("listEventsPage", () => {
+  it("LIMIT/OFFSETでページングし、totalはフィルタ後の全件数を返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    for (let i = 0; i < 5; i++) {
+      knowledgeStore.recordEvent({
+        kind: "fact",
+        context: "observation",
+        entityType: "journal",
+        people: [],
+        text: `entry-${i}`,
+        tags: [],
+        occurredAt: i,
+      });
+    }
+    const page1 = knowledgeStore.listEventsPage({ entityType: "journal" }, { limit: 2, offset: 0 });
+    expect(page1.events.map((e) => e.text)).toEqual(["entry-4", "entry-3"]);
+    expect(page1.total).toBe(5);
+
+    const page2 = knowledgeStore.listEventsPage({ entityType: "journal" }, { limit: 2, offset: 2 });
+    expect(page2.events.map((e) => e.text)).toEqual(["entry-2", "entry-1"]);
+  });
+
+  it("textQueryは部分一致（text/summary/tags_json/people_json）でフィルタする", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "リファクタリングの話", tags: [], occurredAt: 1 });
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "無関係な話", tags: ["リファクタリング"], occurredAt: 2 });
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "全く別件", tags: [], occurredAt: 3 });
+
+    const { events, total } = knowledgeStore.listEventsPage({ textQuery: "リファクタリング" }, { limit: 10, offset: 0 });
+    expect(total).toBe(2);
+    expect(events.map((e) => e.text).sort()).toEqual(["リファクタリングの話", "無関係な話"].sort());
+  });
+
+  it("tagExact/personExactは完全一致で絞り込む（部分文字列を誤って一致させない）", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["P1"], text: "a", tags: ["1on1"], occurredAt: 1 });
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["P2"], text: "b", tags: ["1on1計画"], occurredAt: 2 });
+
+    const byTag = knowledgeStore.listEventsPage({ tagExact: "1on1" }, { limit: 10, offset: 0 });
+    expect(byTag.total).toBe(1);
+    expect(byTag.events[0].tags).toEqual(["1on1"]);
+
+    const byPerson = knowledgeStore.listEventsPage({ personExact: "P1" }, { limit: 10, offset: 0 });
+    expect(byPerson.total).toBe(1);
+    expect(byPerson.events[0].people).toEqual(["P1"]);
+  });
+
+  it("excludeResolvedはresolved_issue_id/resolution_noteが無いものだけ返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "未解決", tags: [], occurredAt: 1 });
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "解決済み",
+      tags: [],
+      occurredAt: 2,
+      resolvedIssueId: "issue-1",
+    });
+
+    const { events, total } = knowledgeStore.listEventsPage({ excludeResolved: true }, { limit: 10, offset: 0 });
+    expect(total).toBe(1);
+    expect(events[0].text).toBe("未解決");
+  });
+
+  it("excludeSupersededはsupersedesで置き換えられた版を除外する", async () => {
+    const { knowledgeStore } = await loadModules();
+    const original = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "旧版", tags: [], occurredAt: 1 });
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "新版",
+      tags: [],
+      occurredAt: 1,
+      supersedes: original.id,
+    });
+
+    const { events, total } = knowledgeStore.listEventsPage({ excludeSuperseded: true }, { limit: 10, offset: 0 });
+    expect(total).toBe(1);
+    expect(events[0].text).toBe("新版");
+  });
+});
+
+describe("findEventOffset", () => {
+  it("同じfilter・並び順で対象イベントが何件目（0-indexed）に位置するかを返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({ id: "e0", kind: "fact", context: "observation", entityType: "journal", people: [], text: "a", tags: [], occurredAt: 3 });
+    const target = knowledgeStore.recordEvent({ id: "e1", kind: "fact", context: "observation", entityType: "journal", people: [], text: "b", tags: [], occurredAt: 2 });
+    knowledgeStore.recordEvent({ id: "e2", kind: "fact", context: "observation", entityType: "journal", people: [], text: "c", tags: [], occurredAt: 1 });
+
+    const offset = knowledgeStore.findEventOffset(
+      { occurredAt: target.occurredAt, recordedAt: target.recordedAt },
+      { entityType: "journal" },
+    );
+    expect(offset).toBe(1);
+  });
+});
+
+describe("listEventFacets", () => {
+  it("tags_json/people_jsonから重複排除した一覧を返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["P1"], text: "a", tags: ["t1", "t2"], occurredAt: 1 });
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["P1", "P2"], text: "b", tags: ["t2"], occurredAt: 2 });
+
+    const facets = knowledgeStore.listEventFacets({ entityType: "journal" });
+    expect(facets.tags.sort()).toEqual(["t1", "t2"]);
+    expect(facets.people.sort()).toEqual(["P1", "P2"]);
+  });
+});
+
 describe("isEventExpired", () => {
   it("ttlDaysが無ければ常に有効", async () => {
     const { knowledgeStore } = await loadModules();

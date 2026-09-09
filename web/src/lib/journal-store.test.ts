@@ -139,6 +139,77 @@ describe("listJournalEntries", () => {
   });
 });
 
+describe("listJournalEntriesPage", () => {
+  it("ページング・totalを返し、置き換えられた旧バージョンは除外する", async () => {
+    const store = await loadModule();
+    const e1 = await store.addJournalEntry("1件目", 1);
+    await store.addJournalEntry("2件目", 2);
+    await store.updateJournalEntry(e1.id, { rawText: "1件目（訂正）" });
+
+    const { entries, total } = store.listJournalEntriesPage({}, { limit: 1, offset: 0 });
+    expect(total).toBe(2);
+    expect(entries).toHaveLength(1);
+  });
+
+  it("queryは実名のまま渡してもマスク後の保存内容と一致する", async () => {
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral", summary: "" };
+    const store = await loadModule();
+    const created = await store.addJournalEntry("Aさんと1on1した");
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    await store.addJournalEntry("無関係な話", 2);
+
+    const { entries, total } = store.listJournalEntriesPage({ query: "Aさん" }, { limit: 10, offset: 0 });
+    expect(total).toBe(1);
+    expect(entries[0].id).toBe(created.id);
+  });
+
+  it("personは実名で渡すとPERSON_n IDへ変換して絞り込む", async () => {
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral", summary: "" };
+    const store = await loadModule();
+    await store.addJournalEntry("Aさんと1on1した");
+    mockExtraction = { tags: [], people: ["Bさん"], urgency: "mid", sentiment: "neutral", summary: "" };
+    await store.addJournalEntry("Bさんと話した", 2);
+
+    const { total } = store.listJournalEntriesPage({ person: "Aさん" }, { limit: 10, offset: 0 });
+    expect(total).toBe(1);
+  });
+
+  it("未登録の人物名を渡した場合は該当なし（新規登録はしない）", async () => {
+    const store = await loadModule();
+    await store.addJournalEntry("何か書いた");
+    const { total } = store.listJournalEntriesPage({ person: "未登録さん" }, { limit: 10, offset: 0 });
+    expect(total).toBe(0);
+  });
+});
+
+describe("findJournalEntryOffset", () => {
+  it("同じフィルタでの位置（0-indexed）を返す", async () => {
+    const store = await loadModule();
+    await store.addJournalEntry("新しい方", 2);
+    const older = await store.addJournalEntry("古い方", 1);
+    expect(store.findJournalEntryOffset(older.id, {})).toBe(1);
+  });
+
+  it("journal以外のentityTypeや存在しないIDはundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(store.findJournalEntryOffset("missing", {})).toBeUndefined();
+  });
+});
+
+describe("listJournalFacets", () => {
+  it("実名・実タグへ復元したタグ・人物の一覧を返す（置き換えられた旧版は除外）", async () => {
+    mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "mid", sentiment: "neutral", summary: "" };
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("Aさんと1on1した");
+    mockExtraction = { tags: ["振り返り"], people: ["Bさん"], urgency: "mid", sentiment: "neutral", summary: "" };
+    await store.updateJournalEntry(entry.id, { tags: ["振り返り"], people: ["Bさん"] });
+
+    const facets = store.listJournalFacets();
+    expect(facets.tags).toEqual(["振り返り"]);
+    expect(facets.people).toEqual(["Bさん"]);
+  });
+});
+
 describe("updateJournalEntry", () => {
   it("存在しないIDはundefinedを返す", async () => {
     const store = await loadModule();
