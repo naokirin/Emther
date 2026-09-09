@@ -293,14 +293,19 @@ export default function OrgContextPage() {
           {objectiveError && <p className={styles.errorText} role="alert">{objectiveError}</p>}
           {objectives.length === 0 && <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>}
 
-          {/* 組織全体の目標（teamId未設定）をトップレベルに、その下にチーム階層と同じ構造で
-              各チーム自身の目標をネスト表示する——上位目標→下位目標のカスケードを一望できるように。 */}
+          {/* ユーザー指摘「組織全体のOKRが入力の下にそのまま置かれていてわかりにくい」対応。
+              チームのOKR（📁 チーム名の下にネスト）と同じ見た目にするため、組織全体の目標
+              （teamId未設定）も「📁 組織全体」フォルダの下に並べる。その下にチーム階層と
+              同じ構造で各チーム自身の目標をネスト表示し、上位目標→下位目標のカスケードを
+              一望できるようにする。 */}
+          <div className={styles.treeFolder} style={{ marginTop: 4 }}>📁 組織全体</div>
           {orgWideObjectives.map((o) => (
             <div
               key={o.id}
               className={`${styles.treeFile} ${
                 selection?.kind === "objective" && selection.id === o.id ? styles.treeFileSelected : ""
               }`}
+              style={{ paddingLeft: 20 }}
               onClick={() => selectObjective(o)}
             >
               📄 {o.title}（KR {o.keyResults.length}件）
