@@ -11,7 +11,10 @@ export function parseAllowUnmaskedCandidates(body: unknown): boolean {
 
 export function jsonFromUnknownError(err: unknown, fallbackStatus = 500): NextResponse {
   if (isUnconfirmedNameCandidatesError(err)) {
-    return NextResponse.json(nameCandidateConfirmationBody(err.candidates), { status: 409 });
+    const candidates = err.candidates.filter((c) => typeof c === "string" && c.trim());
+    return NextResponse.json(nameCandidateConfirmationBody(candidates), { status: 409 });
   }
+  // duck-typing でも拾えないが message だけ一致するケース向けの最後の手段は設けない
+  // （誤って通常エラーを確認ダイアログ化しない）。
   return NextResponse.json({ error: (err as Error).message }, { status: fallbackStatus });
 }

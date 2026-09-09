@@ -22,21 +22,33 @@ export class UnconfirmedNameCandidatesError extends Error {
   readonly candidates: string[];
 
   constructor(candidates: string[]) {
-    super(NAME_CANDIDATE_CONFIRMATION_MESSAGE);
+    super(formatNameCandidateConfirmationMessage(candidates));
     this.name = "UnconfirmedNameCandidatesError";
     this.candidates = candidates;
   }
 }
 
+export function formatNameCandidateConfirmationMessage(candidates: string[]): string {
+  const listed =
+    candidates.length > 0
+      ? candidates.map((c) => `「${c}」`).join("、")
+      : "（候補の取得に失敗しました）";
+  return `次の語句が人名の可能性があり、マスクされずに残ります: ${listed}。人名として登録はせず、このまま進めてよいですか？後でAIが外部へ送信する可能性があります。`;
+}
+
 export function isUnconfirmedNameCandidatesError(err: unknown): err is UnconfirmedNameCandidatesError {
-  return err instanceof UnconfirmedNameCandidatesError;
+  if (err instanceof UnconfirmedNameCandidatesError) return true;
+  // Next.js のモジュール分割で instanceof が外れることがあるため、名前と candidates でも判定する。
+  if (!err || typeof err !== "object") return false;
+  const e = err as { name?: unknown; candidates?: unknown };
+  return e.name === "UnconfirmedNameCandidatesError" && Array.isArray(e.candidates);
 }
 
 export function nameCandidateConfirmationBody(candidates: string[]): NameCandidateConfirmationBody {
   return {
     code: NAME_CANDIDATE_CONFIRMATION_CODE,
     candidates,
-    message: NAME_CANDIDATE_CONFIRMATION_MESSAGE,
+    message: formatNameCandidateConfirmationMessage(candidates),
   };
 }
 
@@ -46,6 +58,7 @@ export function isNameCandidateConfirmation(data: unknown): data is NameCandidat
   return (
     d.code === NAME_CANDIDATE_CONFIRMATION_CODE &&
     Array.isArray(d.candidates) &&
-    d.candidates.every((c) => typeof c === "string")
+    d.candidates.every((c) => typeof c === "string") &&
+    d.candidates.length > 0
   );
 }

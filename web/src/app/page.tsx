@@ -692,7 +692,7 @@ export default function DashboardPage() {
       lane: "decision",
       icon: "🪪",
       kindLabel: "送信前確認",
-      text: `${pending.label}: ${pending.candidates.join("、")}`,
+      text: `${pending.label} — マスクされない候補: ${pending.candidates.map((c) => `「${c}」`).join("、")}`,
       onSelect: () => setConfirmingUnmasked(pending),
       since: now,
     });
