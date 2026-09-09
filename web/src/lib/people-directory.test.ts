@@ -83,8 +83,8 @@ describe("listPeople / getPersonId / deletePerson", () => {
     pd.registerName("Bさん");
     expect(pd.listPeople()).toEqual(
       expect.arrayContaining([
-        { id: "PERSON_1", name: "Aさん" },
-        { id: "PERSON_2", name: "Bさん" },
+        { id: "PERSON_1", name: "Aさん", aliases: [] },
+        { id: "PERSON_2", name: "Bさん", aliases: [] },
       ]),
     );
   });
@@ -107,6 +107,99 @@ describe("listPeople / getPersonId / deletePerson", () => {
   it("存在しないIDのdeletePersonはfalseを返す", async () => {
     const pd = await loadModule();
     expect(pd.deletePerson("PERSON_999")).toBe(false);
+  });
+});
+
+// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
+describe("addAlias / removeAlias", () => {
+  it("別名を追加すると、その別名でもmaskNamesで同じIDへ変換される", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    expect(pd.addAlias(id, "田中")).toEqual({ ok: true });
+    expect(pd.maskNames("田中と話した")).toBe(`${id}と話した`);
+    // 「田中さん」（正式名、4文字）は「田中」（別名、2文字）より長いため、
+    // replaceAllAtOnceの「重なり合う候補は長い方を優先」により正式名側が一致する。
+    expect(pd.maskNames("田中さんと話した")).toBe(`${id}と話した`);
+  });
+
+  it("listPeopleは別名を重複した人物としてではなく、正式名のaliasesとして返す", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    pd.addAlias(id, "田中");
+    expect(pd.listPeople()).toEqual([{ id, name: "田中さん", aliases: ["田中"] }]);
+  });
+
+  it("既に別の人物として登録済みの名前はエラーになる（統合を促す）", async () => {
+    const pd = await loadModule();
+    const idA = pd.registerName("Aさん");
+    pd.registerName("Bさん");
+    const result = pd.addAlias(idA, "Bさん");
+    expect(result.ok).toBe(false);
+  });
+
+  it("正式名と同じ名前はエラーになる", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("Aさん");
+    expect(pd.addAlias(id, "Aさん")).toEqual({ ok: false, error: "正式名と同じです" });
+  });
+
+  it("存在しない人物IDはエラーになる", async () => {
+    const pd = await loadModule();
+    expect(pd.addAlias("PERSON_999", "誰か")).toEqual({ ok: false, error: "対象の人物が見つかりません" });
+  });
+
+  it("removeAliasで別名を取り消せる。正式名はremoveAliasでは消せない", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    pd.addAlias(id, "田中");
+    expect(pd.removeAlias(id, "田中")).toBe(true);
+    expect(pd.listPeople()[0].aliases).toEqual([]);
+    expect(pd.removeAlias(id, "田中さん")).toBe(false);
+  });
+
+  it("deletePersonは正式名だけでなく別名もすべて削除する", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    pd.addAlias(id, "田中");
+    expect(pd.deletePerson(id)).toBe(true);
+    expect(pd.getPersonId("田中")).toBeUndefined();
+    expect(pd.getPersonId("田中さん")).toBeUndefined();
+  });
+});
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+describe("mergePersons", () => {
+  it("統合元の正式名は統合先の別名になり、以後同じIDへマスクされる", async () => {
+    const pd = await loadModule();
+    const fromId = pd.registerName("たなかさん");
+    const toId = pd.registerName("田中さん");
+    expect(pd.mergePersons(fromId, toId)).toEqual({ ok: true });
+
+    expect(pd.listPeople()).toEqual([{ id: toId, name: "田中さん", aliases: ["たなかさん"] }]);
+    expect(pd.maskNames("たなかさんと話した")).toBe(`${toId}と話した`);
+    expect(pd.unmaskNames(fromId)).toBe(fromId); // 統合元のIDはもう実名に戻らない
+  });
+
+  it("統合元が既に別名を持っていた場合、それも統合先の別名として引き継がれる", async () => {
+    const pd = await loadModule();
+    const fromId = pd.registerName("たなかさん");
+    pd.addAlias(fromId, "Tanaka");
+    const toId = pd.registerName("田中さん");
+    pd.mergePersons(fromId, toId);
+    expect(pd.listPeople()[0].aliases.sort()).toEqual(["Tanaka", "たなかさん"].sort());
+  });
+
+  it("同じ人物同士の統合はエラーになる", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("Aさん");
+    expect(pd.mergePersons(id, id)).toEqual({ ok: false, error: "同じ人物です" });
+  });
+
+  it("存在しないIDを指定するとエラーになる", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("Aさん");
+    expect(pd.mergePersons("PERSON_999", id)).toEqual({ ok: false, error: "統合元の人物が見つかりません" });
+    expect(pd.mergePersons(id, "PERSON_999")).toEqual({ ok: false, error: "統合先の人物が見つかりません" });
   });
 });
 
@@ -137,7 +230,7 @@ describe("maskForStorage", () => {
     const pd = await loadModule();
     const result = await pd.maskForStorage("Bさんと1on1した");
     expect(result).toBe("PERSON_1と1on1した");
-    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "Bさん" }]);
+    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "Bさん", aliases: [] }]);
   });
 
   it("予約語（NPS, 1on1等）はNER検出結果でも登録しない", async () => {

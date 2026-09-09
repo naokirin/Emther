@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
+import { TagInput } from "@/components/TagInput";
 import { useEntityHistory, useIssues, useJournal, useObjectives, useOrgStrategy, useTeams } from "@/lib/hooks";
 import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type ObjectiveWithProgress, type OrgStrategy, type Team } from "@/lib/types";
 
@@ -127,6 +128,8 @@ export default function OrgContextPage() {
   const [editConstraints, setEditConstraints] = useState("");
   // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   const [editManagedByEm, setEditManagedByEm] = useState(true);
+  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
+  const [editAliases, setEditAliases] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
@@ -137,6 +140,7 @@ export default function OrgContextPage() {
     setEditMission(team.charter.mission);
     setEditConstraints(team.charter.constraints);
     setEditManagedByEm(team.managedByEm);
+    setEditAliases(team.aliases);
     setEditError(null);
     setSelection({ kind: "team", id: team.id });
   }
@@ -150,7 +154,14 @@ export default function OrgContextPage() {
       const res = await fetch(`/api/teams/${selectedTeam.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, members, mission: editMission, constraints: editConstraints, managedByEm: editManagedByEm }),
+        body: JSON.stringify({
+          name: editName,
+          members,
+          mission: editMission,
+          constraints: editConstraints,
+          managedByEm: editManagedByEm,
+          aliases: editAliases,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
@@ -645,6 +656,19 @@ export default function OrgContextPage() {
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
               OFFにすると、このチームのメンバーはPeople一覧で「部下」ではなく「その他」に分類され、1on1
               Coverageの集計対象からも外れます（パートナーチーム・ステークホルダーチームなど、EMが主体的に1on1・Issueを扱わないチーム向け）。他のチームにも所属している場合は、そちらがONであれば「部下」として扱われます。
+            </p>
+            <div className={styles.field}>
+              <span className={styles.fieldCaption}>別名（表記揺れ）</span>
+              <TagInput
+                values={editAliases}
+                onAdd={(v) => setEditAliases((prev) => [...prev, v])}
+                onRemove={(v) => setEditAliases((prev) => prev.filter((a) => a !== v))}
+                placeholder="略称・旧名など"
+                label="別名"
+              />
+            </div>
+            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+              EMの自由記述からどのチームの話かを推定する際（相談・Agent Run起動時）、正式名だけでなくここに登録した別名も一致対象になります。
             </p>
             {editError && <p className={styles.errorText} role="alert">{editError}</p>}
             <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTeam} disabled={editSaving || !editName.trim()}>

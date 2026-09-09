@@ -59,6 +59,16 @@ describe("teams", () => {
     expect(same?.updatedAt).toBe(updated?.updatedAt);
   });
 
+  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
+  it("addTeamはaliases:[]で作成し、updateTeamで別名を設定・重複排除・空文字除去できる", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", []);
+    expect(team.aliases).toEqual([]);
+
+    const updated = await store.updateTeam(team.id, { aliases: ["エンジニアリングチーム", "  ", "エンジニアリングチーム"] });
+    expect(updated?.aliases).toEqual(["エンジニアリングチーム"]);
+  });
+
   it("toTeamViewはmembersを実名へ復元する", async () => {
     const store = await loadModule();
     const team = store.addTeam("Team A", ["Aさん"]);
@@ -97,6 +107,30 @@ describe("teams", () => {
     expect(store.removeTeam(team.id)).toBe(true);
     expect(store.getTeam(team.id)).toBeUndefined();
     expect(store.removeTeam(team.id)).toBe(false);
+  });
+
+  // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+  it("reassignPersonIdInTeamsはfromIdをtoIdへ置き換える", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", ["Aさん"]); // PERSON_1
+    store.reassignPersonIdInTeams("PERSON_1", "PERSON_2");
+    expect(store.getTeam(team.id)?.members).toEqual(["PERSON_2"]);
+  });
+
+  it("統合先が既にメンバーなら、統合元は重複させず取り除くだけにする", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", ["Aさん", "Bさん"]); // PERSON_1, PERSON_2
+    store.reassignPersonIdInTeams("PERSON_1", "PERSON_2");
+    expect(store.getTeam(team.id)?.members).toEqual(["PERSON_2"]);
+  });
+
+  it("対象を含まないチームには影響しない", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", ["Aさん"]);
+    const before = store.getTeam(team.id)!.updatedAt;
+    store.reassignPersonIdInTeams("PERSON_999", "PERSON_2");
+    expect(store.getTeam(team.id)?.members).toEqual(["PERSON_1"]);
+    expect(store.getTeam(team.id)?.updatedAt).toBe(before);
   });
 });
 

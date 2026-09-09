@@ -287,8 +287,8 @@ describe("isAgyFallbackEnabled / isCursorFallbackEnabled", () => {
 });
 
 describe("relevantTeams", () => {
-  const teamA = { id: "t1", name: "Engineering", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, createdAt: 0, updatedAt: 0 };
-  const teamB = { id: "t2", name: "Sales", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, createdAt: 0, updatedAt: 0 };
+  const teamA = { id: "t1", name: "Engineering", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, aliases: ["エンジニアリングチーム"], createdAt: 0, updatedAt: 0 };
+  const teamB = { id: "t2", name: "Sales", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, aliases: [], createdAt: 0, updatedAt: 0 };
 
   it("手がかりが無ければ全チームを返す", async () => {
     const rt = await loadModule();
@@ -298,6 +298,12 @@ describe("relevantTeams", () => {
   it("rawTextにチーム名の言及があれば絞り込む", async () => {
     const rt = await loadModule();
     expect(rt.relevantTeams([teamA, teamB], undefined, "Engineeringの状況について")).toEqual([teamA]);
+  });
+
+  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
+  it("rawTextに正式名ではなく別名の言及があっても絞り込む", async () => {
+    const rt = await loadModule();
+    expect(rt.relevantTeams([teamA, teamB], undefined, "エンジニアリングチームの状況について")).toEqual([teamA]);
   });
 
   it("rawTextに何もヒットしなければ全チームにフォールバックする", async () => {

@@ -302,6 +302,74 @@ describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () 
   });
 });
 
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+describe("reassignPersonId", () => {
+  it("text/summary/resolution_note内の埋め込みIDを置換する", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({
+      id: "e1",
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_2"],
+      text: "PERSON_2と話した",
+      summary: "PERSON_2の件",
+      tags: [],
+      occurredAt: 1,
+      resolvedIssueId: undefined,
+      resolutionNote: "PERSON_2が対応した",
+    });
+    const updated = knowledgeStore.reassignPersonId("PERSON_2", "PERSON_1");
+    expect(updated).toBe(1);
+    const event = knowledgeStore.getEventById("e1")!;
+    expect(event.text).toBe("PERSON_1と話した");
+    expect(event.summary).toBe("PERSON_1の件");
+    expect(event.resolutionNote).toBe("PERSON_1が対応した");
+    expect(event.people).toEqual(["PERSON_1"]);
+  });
+
+  it("people_json/tags_jsonにtoIdが既に含まれていれば重複させず1件にまとめる", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({
+      id: "e1",
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1", "PERSON_2"],
+      text: "2人で話した",
+      tags: [],
+      occurredAt: 1,
+    });
+    knowledgeStore.reassignPersonId("PERSON_2", "PERSON_1");
+    const event = knowledgeStore.getEventById("e1")!;
+    expect(event.people).toEqual(["PERSON_1"]);
+  });
+
+  it("番号の異なる似たIDを誤って置換しない（PERSON_2とPERSON_20の混同防止）", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({
+      id: "e1",
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_20"],
+      text: "PERSON_20と話した",
+      tags: [],
+      occurredAt: 1,
+    });
+    knowledgeStore.reassignPersonId("PERSON_2", "PERSON_1");
+    const event = knowledgeStore.getEventById("e1")!;
+    expect(event.text).toBe("PERSON_20と話した");
+    expect(event.people).toEqual(["PERSON_20"]);
+  });
+
+  it("該当が無ければ何も更新しない（戻り値0）", async () => {
+    const { knowledgeStore } = await loadModules();
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "無関係", tags: [], occurredAt: 1 });
+    expect(knowledgeStore.reassignPersonId("PERSON_99", "PERSON_1")).toBe(0);
+  });
+});
+
 describe("searchSimilarEvents", () => {
   it("埋め込みを持つイベントだけを対象に類似度順で返す", async () => {
     const { knowledgeStore } = await loadModules();

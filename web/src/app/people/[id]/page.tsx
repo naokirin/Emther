@@ -5,13 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
-import { usePersonProfile, useTeams } from "@/lib/hooks";
+import { MultiSelectAutocomplete, type MultiSelectOption } from "@/components/MultiSelectAutocomplete";
+import { Select } from "@/components/Select";
+import { TagInput } from "@/components/TagInput";
+import { usePeople, usePersonProfile, useTeams } from "@/lib/hooks";
 import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatus, teamDisplayName, type Team } from "@/lib/types";
 
 // ユーザー要望「メンバーの詳細画面からチームを設定できるようにしたい」対応。従来は
 // Organization Context画面でチームを選んでからメンバー一覧を編集する必要があったが、
 // 人物視点でチーム所属をその場で切り替えられるようにする。既存のチーム編集API
 // （PATCH /api/teams/:id、members配列を丸ごと置き換える）をそのまま使い、新規APIは追加しない。
+//
+// ユーザー指摘「チームが増えるとメンバー詳細にチーム名の選択肢が大量に並ぶ」対応。
+// 全チームを常に並べるチップ切り替えではなく、入力して部分一致した候補だけを出す
+// マルチセレクトオートコンプリート（選択済みはタグ表示・✕で解除）に変更する。
 function TeamMembershipEditor({
   personName,
   teams,
@@ -21,22 +28,36 @@ function TeamMembershipEditor({
   teams: Team[];
   onChanged: () => void;
 }) {
-  const [pendingTeamId, setPendingTeamId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const activeTeams = teams.filter((t) => !t.archived);
+  const currentTeamIds = activeTeams.filter((t) => t.members.includes(personName)).map((t) => t.id);
+  const options: MultiSelectOption[] = activeTeams.map((t) => ({
+    value: t.id,
+    label: `${teamDisplayName(t.name)}${t.managedByEm ? "" : "（管理外）"}`,
+  }));
 
-  async function toggleMembership(team: Team) {
-    setPendingTeamId(team.id);
-    const isMember = team.members.includes(personName);
-    const nextMembers = isMember ? team.members.filter((m) => m !== personName) : [...team.members, personName];
+  async function handleChange(nextTeamIds: string[]) {
+    const added = nextTeamIds.filter((id) => !currentTeamIds.includes(id));
+    const removed = currentTeamIds.filter((id) => !nextTeamIds.includes(id));
+    if (added.length === 0 && removed.length === 0) return;
+    setSaving(true);
     try {
-      await fetch(`/api/teams/${team.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ members: nextMembers }),
-      });
+      await Promise.all(
+        [...added, ...removed].map((teamId) => {
+          const team = activeTeams.find((t) => t.id === teamId)!;
+          const nextMembers = added.includes(teamId)
+            ? [...team.members, personName]
+            : team.members.filter((m) => m !== personName);
+          return fetch(`/api/teams/${teamId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ members: nextMembers }),
+          });
+        }),
+      );
       onChanged();
     } finally {
-      setPendingTeamId(null);
+      setSaving(false);
     }
   }
 
@@ -47,25 +68,108 @@ function TeamMembershipEditor({
   }
 
   return (
-    <div role="group" aria-label="所属チーム" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {activeTeams.map((team) => {
-        const isMember = team.members.includes(personName);
-        return (
-          <button
-            key={team.id}
-            type="button"
-            className={`${styles.typeChip} ${isMember ? styles.typeChipSelected : ""}`}
-            onClick={() => toggleMembership(team)}
-            disabled={pendingTeamId === team.id}
-            aria-pressed={isMember}
-          >
-            {isMember ? "✓ " : ""}
-            {teamDisplayName(team.name)}
-            {!team.managedByEm && "（管理外）"}
-          </button>
-        );
-      })}
-    </div>
+    <MultiSelectAutocomplete
+      values={currentTeamIds}
+      onChange={handleChange}
+      options={options}
+      placeholder="チーム名で検索…"
+      label="所属チーム"
+      disabled={saving}
+    />
+  );
+}
+
+// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。別名を追加・
+// 取り消しするたびに即座にPATCH /api/people/:idへ反映する（チーム所属エディタと
+// 同じ「都度保存」パターン。このページに「保存」ボタンは無い）。
+function AliasEditor({ personId, aliases, onChanged }: { personId: string; aliases: string[]; onChanged: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function patch(body: Record<string, string>) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/people/${personId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      onChanged();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <TagInput
+        values={aliases}
+        onAdd={(name) => patch({ addAlias: name })}
+        onRemove={(name) => patch({ removeAlias: name })}
+        placeholder="別の呼び方（表記揺れ）を入力"
+        label="別名"
+        disabled={saving}
+      />
+      {error && <p className={styles.errorText} role="alert">{error}</p>}
+    </>
+  );
+}
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+// 統合すると、選んだ人物（重複側）の記録・チーム所属がすべてこの画面の人物へ移り、
+// 重複側の名前は以後この人物の別名として認識される。
+function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: string; personName: string; onMerged: () => void }) {
+  const { people } = usePeople();
+  const [duplicateId, setDuplicateId] = useState("");
+  const [merging, setMerging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const candidates = people.filter((p) => p.id !== personId);
+  const options = candidates.map((p) => ({ value: p.id, label: p.name }));
+
+  async function handleMerge() {
+    if (!duplicateId) return;
+    setMerging(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/people/${personId}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duplicateId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "統合に失敗しました");
+      setDuplicateId("");
+      onMerged();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setMerging(false);
+    }
+  }
+
+  if (candidates.length === 0) {
+    return <p className={styles.subtitle}>統合できる他の人物がいません。</p>;
+  }
+
+  return (
+    <>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <Select value={duplicateId} onChange={setDuplicateId} options={options} placeholder="重複している人物を選ぶ" label="統合元の人物" disabled={merging} />
+        <button className={styles.btnOutline} onClick={handleMerge} disabled={merging || !duplicateId}>
+          {merging ? "統合中…" : `${personName}へ統合する`}
+        </button>
+      </div>
+      <p className={styles.subtitle} style={{ marginTop: 6 }}>
+        選んだ人物の記録・チーム所属はすべて{personName}へ移り、選んだ人物のエントリは消えます（その名前は以後{personName}の別名として認識されます）。元に戻す操作はありません。
+      </p>
+      {error && <p className={styles.errorText} role="alert">{error}</p>}
+    </>
   );
 }
 
@@ -131,10 +235,23 @@ export function PersonDetailContent({ id }: { id: string }) {
 
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>所属チーム</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        クリックで所属のON/OFFを切り替えられます。「（管理外）」は自分が管理していないチーム（Organization Contextで設定）です。
+        チーム名の一部を入力すると候補が出ます。選ぶと所属に追加され、タグの✕で解除できます。「（管理外）」は自分が管理していないチーム（Organization Contextで設定）です。
       </p>
       <div style={{ marginBottom: 10 }}>
         <TeamMembershipEditor personName={person.name} teams={teams} onChanged={handleTeamsChanged} />
+      </div>
+
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>別名（表記揺れ）</h3>
+      <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+        この人物の別の呼ばれ方（漢字表記・略称等）を登録しておくと、以後Journal等の自由記述にその別名が出てきても同じ人物として認識されます。
+      </p>
+      <div style={{ marginBottom: 10 }}>
+        <AliasEditor personId={person.id} aliases={person.aliases} onChanged={refreshPerson} />
+      </div>
+
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>重複を統合</h3>
+      <div style={{ marginBottom: 10 }}>
+        <MergeDuplicatePerson personId={person.id} personName={person.name} onMerged={refreshPerson} />
       </div>
 
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>

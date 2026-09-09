@@ -66,6 +66,8 @@ export type Team = {
   // 既存チームの移行はorg-context-store.ts側で読み込み時に`?? true`を補う（既定を
   // 変えずに済むよう、無指定は「自分のチーム」として扱う）。
   managedByEm: boolean;
+  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
+  aliases: string[];
   createdAt: number;
   updatedAt: number;
 };
@@ -404,6 +406,8 @@ export const PERSON_VITAL_LABEL: Record<VitalStatus, string> = {
 export type PersonSummary = {
   id: string;
   name: string;
+  // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
+  aliases: string[];
   teamNames: string[];
   trend: PersonTrend;
   factCount: number;

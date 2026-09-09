@@ -351,10 +351,15 @@ export function listRecentChangeEvents(limit = 100): KnowledgeEvent[] {
     .slice(0, limit);
 }
 
-// Issue/Teamの変更履歴（Phase 2）記録用の薄いヘルパー。変更は「起きた出来事そのもの」
-// なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"で固定する。
-// 変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
-export function recordChangeEvent(entityType: "issue" | "team" | "org", entityId: string, text: string, tags: string[] = []): void {
+// Issue/Team/人物の変更履歴（Phase 2、人物統合は後日追加）記録用の薄いヘルパー。変更は
+// 「起きた出来事そのもの」なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"
+// で固定する。変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
+export function recordChangeEvent(
+  entityType: "issue" | "team" | "org" | "person",
+  entityId: string,
+  text: string,
+  tags: string[] = [],
+): void {
   recordEvent({
     kind: "fact",
     context: "official",
@@ -365,6 +370,53 @@ export function recordChangeEvent(entityType: "issue" | "team" | "org", entityId
     tags,
     occurredAt: Date.now(),
   });
+}
+
+// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
+// people-directory.ts（対応表）の付け替えだけでは不十分で、既にSQLiteへ保存済みの
+// KnowledgeEvent（Journalのtext/summary/tags/people、Issueへの解決メモ等）に埋め込まれた
+// fromId（PERSON_n）をtoIdへ書き換える必要がある。text/summary/resolution_noteは
+// 自由記述への埋め込み置換（同じ文中に元々fromId/toId両方への言及があった場合、
+// 書き換え後は同じ人物への言及が重複するだけで、内容としては正しい）。
+// tags_json/people_jsonはID配列なので、置換後にtoIdが重複しうる（元々fromId/toId両方が
+// 含まれていた場合）ため、配列としてパースし直して重複排除する。
+function replaceIdInJsonArray(json: string, pattern: RegExp, toId: string): string {
+  const replaced = json.replace(pattern, toId);
+  try {
+    const arr = JSON.parse(replaced) as string[];
+    return JSON.stringify(Array.from(new Set(arr)));
+  } catch {
+    return replaced;
+  }
+}
+
+export function reassignPersonId(fromId: string, toId: string): number {
+  const pattern = new RegExp(`\\b${fromId}\\b`, "g");
+  const rows = getDb()
+    .prepare("SELECT id, text, summary, tags_json, people_json, resolution_note FROM knowledge_events")
+    .all() as { id: string; text: string; summary: string | null; tags_json: string; people_json: string; resolution_note: string | null }[];
+  const stmt = getDb().prepare(
+    "UPDATE knowledge_events SET text = ?, summary = ?, tags_json = ?, people_json = ?, resolution_note = ? WHERE id = ?",
+  );
+  let updated = 0;
+  for (const row of rows) {
+    const nextText = row.text.replace(pattern, toId);
+    const nextSummary = row.summary !== null ? row.summary.replace(pattern, toId) : row.summary;
+    const nextTags = replaceIdInJsonArray(row.tags_json, pattern, toId);
+    const nextPeople = replaceIdInJsonArray(row.people_json, pattern, toId);
+    const nextNote = row.resolution_note !== null ? row.resolution_note.replace(pattern, toId) : row.resolution_note;
+    if (
+      nextText !== row.text ||
+      nextSummary !== row.summary ||
+      nextTags !== row.tags_json ||
+      nextPeople !== row.people_json ||
+      nextNote !== row.resolution_note
+    ) {
+      stmt.run(nextText, nextSummary, nextTags, nextPeople, nextNote, row.id);
+      updated++;
+    }
+  }
+  return updated;
 }
 
 // docs/memo.md「H: Phase 3」ローカル完結の意味的検索。埋め込みを持つイベントに限定して

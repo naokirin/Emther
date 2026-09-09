@@ -548,7 +548,9 @@ export function relevantTeams(teams: Team[], runId: string | undefined, rawText:
 
   if (rawText) {
     for (const t of teams) {
-      const segments = [t.name, ...teamPathSegments(t.name)];
+      // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。正式名・
+      // 階層セグメントに加え、登録済みの別名（略称・旧名等）も照合対象にする。
+      const segments = [t.name, ...teamPathSegments(t.name), ...t.aliases];
       if (segments.some((seg) => seg && rawText.includes(seg))) relevantIds.add(t.id);
     }
   }

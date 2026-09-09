@@ -1801,6 +1801,80 @@
   color: var(--blue-text);
 }
 
+/* ユーザー指摘「チームが増えるとメンバー詳細にチーム名の選択肢が大量に並ぶ」対応。
+   MultiSelectAutocomplete.tsx用。ドロップダウン部分は.customSelectList等をそのまま
+   流用し、ここでは「選択済みタグ＋入力欄」の見た目だけを追加する。 */
+.multiSelectField {
+  position: relative;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.multiSelectInputWrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 2.25rem;
+  background-color: var(--panel);
+  color: var(--foreground);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+.multiSelectInputWrap:focus-within {
+  border-color: var(--blue);
+}
+
+.multiSelectInputWrapDisabled {
+  opacity: 0.5;
+}
+
+.multiSelectInput {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.multiSelectTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 9px;
+  border-radius: 12px;
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border: 1px solid var(--blue);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.multiSelectTagRemove {
+  /* WCAG 2.2 2.5.8 Target Size対応。24x24px未満にならないよう余白を確保する。 */
+  min-width: 22px;
+  min-height: 22px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  border-radius: 50%;
+}
+
+.multiSelectTagRemove:hover {
+  background: rgba(127, 127, 127, 0.2);
+}
+
 /* ---------- People: 円形バイタルバッジ（改修依頼「どのくらい気をかけるべきかの
    バイタル表示にしたい」対応。Team Vitalsと同じ状態アイコンを円の中に大きく表示する） ---------- */
 .personScoreBadge {

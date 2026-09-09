@@ -17,6 +17,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/teams/[id]
     mission: typeof body?.mission === "string" ? body.mission : undefined,
     constraints: typeof body?.constraints === "string" ? body.constraints : undefined,
     managedByEm: typeof body?.managedByEm === "boolean" ? body.managedByEm : undefined,
+    aliases: Array.isArray(body?.aliases)
+      ? body.aliases.filter((a: unknown): a is string => typeof a === "string")
+      : undefined,
   });
   if (!team) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
