@@ -1,4 +1,4 @@
-# EM Support System: UI/UX改善およびIssue進捗管理 要件定義
+# Emther (EM Support System): UI/UX改善およびIssue進捗管理 要件定義
 
 関連: `docs/em_human_story_and_ux.md` / `docs/agent_specialization.md` / `docs/dashboard_ui_readability.md`  
 方針決定（2026-09-08）: トリアージはAI主導（EMは例外上書き）／計画の本体反映あり／人・優先順位に触れる介入は常にYield

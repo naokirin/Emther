@@ -3,11 +3,12 @@
 //   ID:名前の対応表はローカルのみが読める場所に持ち、外部送信前にIDへ置換、
 //   表示時にはプログラムでID→名前に戻す」
 //
-// この対応表は`~/.local/state/em-ai-team/secure/people-directory.json`（所有者のみ
+// この対応表は`~/.local/state/emther/secure/people-directory.json`（所有者のみ
 // 読み書き可能、0700/0600）にのみ存在し、外部LLM（claude -p 等）には絶対に渡さない。
 // 個人情報の分離（ユーザー指摘対応）: 当初はプロジェクト配下の`.data/`、次いで
-// `~/.local/state/em-ai-team-secure/` に置いていたが、配布方針（docs/packaging.md）に
-// 合わせ業務データと同根の `em-ai-team/secure` へ移した（旧配置からは自動移行）。
+// `~/.local/state/em-ai-team-secure/`、その後 `em-ai-team/secure` に置いていたが、
+// 配布方針（docs/packaging.md）に合わせ業務データと同根の `emther/secure` へ移した
+// （旧配置からは自動移行）。
 // virtiofs 上では Unix パーミッションが実効的でないこと、cursor-agent の
 // `--workspace` が絶対パス読み取りを防げないことは実機検証済みのため、
 // プロジェクト外・権限が効く場所に置く方針は維持する。

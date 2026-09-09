@@ -1,6 +1,6 @@
-# EM Support System
+# Emther
 
-個人のエンジニアリングマネージャー（EM）向けのローカル実行ツールです。  
+**EM Support System** — 個人のエンジニアリングマネージャー（EM）向けのローカル実行ツールです。  
 組織の Journal / Issue / Agent 支援などを **自分のマシン上** で動かします。npm 公開はしません。
 
 機微データ（実名対応表・Journal 等）はリポジトリ外の XDG パスに置きます。詳細は [`docs/packaging.md`](docs/packaging.md)。
@@ -16,10 +16,10 @@
 ### A. ソースから（いつでも使える主経路）
 
 ```bash
-git clone <このリポジトリの URL>
-cd em_ai_team
-./scripts/em-ai-team install
-em-ai-team start
+git clone https://github.com/naokirin/Emther.git
+cd Emther
+./scripts/emther install
+emther start
 ```
 
 ### B. GitHub Release の tarball から（タグ `v*` の CI 成果物）
@@ -27,33 +27,36 @@ em-ai-team start
 OS/CPU に合った資産を GitHub の Releases から取得します（onnx 等はプラットフォーム固有です）。
 
 ```bash
-tar -xzf em-ai-team-vX.Y.Z-<platform>.tar.gz
-./em-ai-team/install.sh
-# または: em-ai-team install-release em-ai-team-vX.Y.Z-<platform>.tar.gz
-em-ai-team doctor
-em-ai-team start
+tar -xzf emther-vX.Y.Z-<platform>.tar.gz
+./emther/install.sh
+# または: emther install-release emther-vX.Y.Z-<platform>.tar.gz
+emther doctor
+emther start
 ```
 
 ブラウザで http://127.0.0.1:3000 を開きます（既定は localhost のみ）。
 
 ```bash
-em-ai-team doctor    # 環境チェック
-em-ai-team status
-em-ai-team stop
-em-ai-team backup    # data + secure を tar.gz に（個人情報を含む）
-em-ai-team restore ~/.local/state/em-ai-team/backups/em-ai-team-state-YYYYMMDD-HHMMSS.tar.gz
+emther doctor    # 環境チェック
+emther status
+emther stop
+emther backup    # data + secure を tar.gz に（個人情報を含む）
+emther restore ~/.local/state/emther/backups/emther-state-YYYYMMDD-HHMMSS.tar.gz
 ```
 
-`~/.local/bin` が PATH に無い場合は、シェル設定に追加するか `./scripts/em-ai-team …` を直接使ってください。
+`~/.local/bin` が PATH に無い場合は、シェル設定に追加するか `./scripts/emther …` を直接使ってください。  
+（旧コマンド名 `em-ai-team` は互換ラッパーが残りますが、今後は `emther` を使ってください。）
 
 ## データの場所
 
 | 内容 | パス |
 | --- | --- |
-| 業務データ（SQLite / JSON） | `~/.local/state/em-ai-team/data` |
-| 実名対応表 | `~/.local/state/em-ai-team/secure`（0700） |
-| アプリ本体 | `~/.local/share/em-ai-team/app` |
-| バックアップ | `~/.local/state/em-ai-team/backups` |
+| 業務データ（SQLite / JSON） | `~/.local/state/emther/data` |
+| 実名対応表 | `~/.local/state/emther/secure`（0700） |
+| アプリ本体 | `~/.local/share/emther/app` |
+| バックアップ | `~/.local/state/emther/backups` |
+
+旧配置（`~/.local/state/em-ai-team/` 等）からは、宛先が空のとき一度だけ自動移行します。
 
 ## Docker（隔離実行）
 

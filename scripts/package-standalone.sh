@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Next.js standalone をステージング／tarball 化する（docs/packaging.md Phase 3）
-# em-ai-team build と GitHub Actions Release の両方から使う。
+# emther build と GitHub Actions Release の両方から使う。
 #
 # Usage:
-#   ./scripts/package-standalone.sh --dest ~/.local/share/em-ai-team/app
-#   ./scripts/package-standalone.sh --tarball dist/em-ai-team-v0.1.0-linux-x64.tar.gz
+#   ./scripts/package-standalone.sh --dest ~/.local/share/emther/app
+#   ./scripts/package-standalone.sh --tarball dist/emther-v0.1.0-linux-x64.tar.gz
 #   ./scripts/package-standalone.sh --dest /tmp/app --skip-build   # 既存 .next/standalone を使う
 set -euo pipefail
 
@@ -24,7 +24,7 @@ Usage: package-standalone.sh [options]
 
 Options:
   --dest DIR         Stage app files into DIR (replaces contents)
-  --tarball PATH     Write release tarball (contains app/ + bin/em-ai-team)
+  --tarball PATH     Write release tarball (contains app/ + bin/emther)
   --skip-build       Reuse existing web/.next/standalone (do not npm ci / build)
   --root DIR         Repository root (default: parent of scripts/, or EM_SOURCE_ROOT)
   --version VER      Embedded VERSION string (default: EM_PACKAGE_VERSION or "dev")
@@ -170,36 +170,36 @@ if [[ -n "$TARBALL" ]]; then
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" EXIT
-  mkdir -p "$tmp/em-ai-team/app" "$tmp/em-ai-team/bin"
-  stage_app_into "$tmp/em-ai-team/app"
-  cp -a "$ROOT/scripts/em-ai-team" "$tmp/em-ai-team/bin/em-ai-team"
-  chmod +x "$tmp/em-ai-team/bin/em-ai-team"
+  mkdir -p "$tmp/emther/app" "$tmp/emther/bin"
+  stage_app_into "$tmp/emther/app"
+  cp -a "$ROOT/scripts/emther" "$tmp/emther/bin/emther"
+  chmod +x "$tmp/emther/bin/emther"
   if [[ -f "$ROOT/scripts/install-release.sh" ]]; then
-    cp -a "$ROOT/scripts/install-release.sh" "$tmp/em-ai-team/install.sh"
-    chmod +x "$tmp/em-ai-team/install.sh"
+    cp -a "$ROOT/scripts/install-release.sh" "$tmp/emther/install.sh"
+    chmod +x "$tmp/emther/install.sh"
   fi
   {
     echo "version=$VERSION"
     echo "platform=$PLATFORM"
     echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  } >"$tmp/em-ai-team/VERSION"
-  cat >"$tmp/em-ai-team/README.txt" <<EOF
-EM Support System — prebuilt package ($VERSION / $PLATFORM)
+  } >"$tmp/emther/VERSION"
+  cat >"$tmp/emther/README.txt" <<EOF
+Emther (EM Support System) — prebuilt package ($VERSION / $PLATFORM)
 
 Install:
   ./install.sh
-  # or:  ./bin/em-ai-team is copied to ~/.local/bin by install.sh
+  # or:  ./bin/emther is copied to ~/.local/bin by install.sh
 
 Then:
-  em-ai-team doctor
-  em-ai-team start
+  emther doctor
+  emther start
 
-Requires Node.js 24+ on PATH. Data stays under ~/.local/state/em-ai-team/.
+Requires Node.js 24+ on PATH. Data stays under ~/.local/state/emther/.
 See this repository's README.md for details.
 EOF
 
   mkdir -p "$(dirname "$TARBALL")"
-  tar -C "$tmp" -czf "$TARBALL" em-ai-team
+  tar -C "$tmp" -czf "$TARBALL" emther
   echo "tarball: $TARBALL"
 fi
 

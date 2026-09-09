@@ -60,9 +60,9 @@ describe("dataFilePath", () => {
 });
 
 describe("default paths", () => {
-  it("デフォルトは ~/.local/state/em-ai-team/{data,secure}", () => {
-    expect(defaultDataDir()).toMatch(/\.local[/\\]state[/\\]em-ai-team[/\\]data$/);
-    expect(defaultSecureDataDir()).toMatch(/\.local[/\\]state[/\\]em-ai-team[/\\]secure$/);
+  it("デフォルトは ~/.local/state/emther/{data,secure}", () => {
+    expect(defaultDataDir()).toMatch(/\.local[/\\]state[/\\]emther[/\\]data$/);
+    expect(defaultSecureDataDir()).toMatch(/\.local[/\\]state[/\\]emther[/\\]secure$/);
   });
 });
 

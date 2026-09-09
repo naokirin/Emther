@@ -5,7 +5,7 @@ set -euo pipefail
 mkdir -p "${EM_DATA_DIR:-/data}" "${EM_SECURE_DATA_DIR:-/secure}"
 chmod 700 "${EM_SECURE_DATA_DIR:-/secure}" 2>/dev/null || true
 
-echo "==> EM Support System (Docker)"
+echo "==> Emther / EM Support System (Docker)"
 echo "    EM_DATA_DIR=${EM_DATA_DIR:-/data}"
 echo "    EM_SECURE_DATA_DIR=${EM_SECURE_DATA_DIR:-/secure}"
 

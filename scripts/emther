@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# EM Support System — ホスト向けランチャー（docs/packaging.md）
+# Emther (EM Support System) — ホスト向けランチャー（docs/packaging.md）
 # 使い方:
-#   ./scripts/em-ai-team install
-#   em-ai-team start|stop|status|doctor|backup|restore
-#   em-ai-team build
+#   ./scripts/emther install
+#   emther start|stop|status|doctor|backup|restore
+#   emther build
 set -euo pipefail
 
-APP_NAME="em-ai-team"
+APP_NAME="emther"
 
 SHARE_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -29,6 +29,62 @@ PORT="${EM_PORT:-3000}"
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
+# 旧プロダクト名（em-ai-team）からの一度きり移行用。
+PREV_APP_NAME="em-ai-team"
+PREV_SHARE="$SHARE_HOME/$PREV_APP_NAME"
+PREV_STATE="$STATE_HOME/$PREV_APP_NAME"
+
+dir_has_entries() {
+  local d="$1"
+  [[ -d "$d" ]] || return 1
+  local any
+  any="$(find "$d" -mindepth 1 -maxdepth 1 2>/dev/null | head -1 || true)"
+  [[ -n "$any" ]]
+}
+
+move_dir_if_needed() {
+  local from="$1" to="$2"
+  dir_has_entries "$from" || return 0
+  dir_has_entries "$to" && return 0
+  [[ "$from" == "$to" ]] && return 0
+  mkdir -p "$(dirname "$to")"
+  if [[ -d "$to" ]] && ! dir_has_entries "$to"; then
+    rmdir "$to" 2>/dev/null || rm -rf "$to"
+  fi
+  if mv "$from" "$to" 2>/dev/null; then
+    echo "==> migrated $from → $to"
+    return 0
+  fi
+  mkdir -p "$to"
+  cp -a "$from"/. "$to"/
+  echo "==> copied (fallback) $from → $to"
+}
+
+# 旧 ~/.local/{share,state}/em-ai-team を emther へ寄せる（空のときだけ）。
+migrate_previous_app_layout() {
+  if [[ -z "${EM_APP_DIR:-}" ]]; then
+    move_dir_if_needed "$PREV_SHARE/app" "$APP_DIR"
+  fi
+  if [[ -z "${EM_DATA_DIR:-}" ]]; then
+    move_dir_if_needed "$PREV_STATE/data" "$DATA_DIR"
+  fi
+  if [[ -z "${EM_SECURE_DATA_DIR:-}" ]]; then
+    move_dir_if_needed "$PREV_STATE/secure" "$SECURE_DIR"
+  fi
+  if [[ -z "${EM_BACKUP_DIR:-}" ]]; then
+    move_dir_if_needed "$PREV_STATE/backups" "$BACKUP_DIR"
+  fi
+  if [[ ! -f "$SOURCE_ROOT_FILE" && -f "$PREV_SHARE/source-root" ]]; then
+    mkdir -p "$META_DIR"
+    mv "$PREV_SHARE/source-root" "$SOURCE_ROOT_FILE"
+    echo "==> migrated source-root → $SOURCE_ROOT_FILE"
+  fi
+  if [[ ! -f "$META_DIR/VERSION" && -f "$PREV_SHARE/VERSION" ]]; then
+    mkdir -p "$META_DIR"
+    mv "$PREV_SHARE/VERSION" "$META_DIR/VERSION"
+  fi
+}
+
 resolve_source_root() {
   if [[ -n "${EM_SOURCE_ROOT:-}" ]]; then
     echo "$EM_SOURCE_ROOT"
@@ -50,7 +106,7 @@ resolve_source_root() {
 
 usage() {
   cat <<EOF
-Usage: em-ai-team <command>
+Usage: emther <command>
 
 Commands:
   install          Build the standalone app, record source path, install launcher to ${BIN_HOME}
@@ -108,7 +164,7 @@ require_source() {
   local root
   if ! root="$(resolve_source_root)"; then
     echo "error: ソースツリー（web/package.json）が見つかりません。" >&2
-    echo "       clone したリポジトリで ./scripts/em-ai-team install を実行するか、" >&2
+    echo "       clone したリポジトリで ./scripts/emther install を実行するか、" >&2
     echo "       EM_SOURCE_ROOT を設定してください。" >&2
     exit 1
   fi
@@ -134,7 +190,8 @@ doctor_fail() {
 
 cmd_doctor() {
   DOCTOR_FAILED=0
-  echo "==> em-ai-team doctor"
+  migrate_previous_app_layout
+  echo "==> emther doctor"
   echo "HOST=${HOST} PORT=${PORT}"
   echo "APP_DIR=${APP_DIR}"
   echo "EM_DATA_DIR=${DATA_DIR}"
@@ -158,14 +215,14 @@ cmd_doctor() {
   if echo ":$PATH:" | grep -q ":$BIN_HOME:"; then
     doctor_ok "PATH に ${BIN_HOME} あり"
   else
-    doctor_warn "PATH に ${BIN_HOME} がありません（em-ai-team コマンドを使うなら追加）"
+    doctor_warn "PATH に ${BIN_HOME} がありません（emther コマンドを使うなら追加）"
   fi
 
   # App
   if [[ -f "$APP_DIR/server.js" ]]; then
     doctor_ok "アプリインストール済み ($APP_DIR/server.js)"
   else
-    doctor_fail "アプリ未インストール — ./scripts/em-ai-team install を実行"
+    doctor_fail "アプリ未インストール — ./scripts/emther install を実行"
   fi
 
   # Data dirs
@@ -252,13 +309,14 @@ cmd_doctor() {
 }
 
 cmd_backup() {
+  migrate_previous_app_layout
   mkdir -p "$BACKUP_DIR" "$DATA_DIR"
   mkdir -p "$SECURE_DIR"
   chmod 700 "$SECURE_DIR" 2>/dev/null || true
 
   local stamp archive tmp
   stamp="$(date +%Y%m%d-%H%M%S)"
-  archive="$BACKUP_DIR/em-ai-team-state-${stamp}.tar.gz"
+  archive="$BACKUP_DIR/emther-state-${stamp}.tar.gz"
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" EXIT
@@ -266,28 +324,33 @@ cmd_backup() {
   echo "==> backup（個人情報を含みます。取り扱いに注意）"
   echo "    data:   $DATA_DIR"
   echo "    secure: $SECURE_DIR"
-  mkdir -p "$tmp/em-ai-team/data" "$tmp/em-ai-team/secure"
+  mkdir -p "$tmp/emther/data" "$tmp/emther/secure"
   if [[ -d "$DATA_DIR" ]]; then
-    cp -a "$DATA_DIR"/. "$tmp/em-ai-team/data/" 2>/dev/null || true
+    cp -a "$DATA_DIR"/. "$tmp/emther/data/" 2>/dev/null || true
   fi
   if [[ -d "$SECURE_DIR" ]]; then
-    cp -a "$SECURE_DIR"/. "$tmp/em-ai-team/secure/" 2>/dev/null || true
+    cp -a "$SECURE_DIR"/. "$tmp/emther/secure/" 2>/dev/null || true
   fi
-  printf '%s\n' "$stamp" >"$tmp/em-ai-team/BACKUP_META.txt"
-  printf 'data=%s\nsecure=%s\n' "$DATA_DIR" "$SECURE_DIR" >>"$tmp/em-ai-team/BACKUP_META.txt"
+  printf '%s\n' "$stamp" >"$tmp/emther/BACKUP_META.txt"
+  printf 'data=%s\nsecure=%s\n' "$DATA_DIR" "$SECURE_DIR" >>"$tmp/emther/BACKUP_META.txt"
 
-  tar -C "$tmp" -czf "$archive" em-ai-team
+  tar -C "$tmp" -czf "$archive" emther
   chmod 600 "$archive" 2>/dev/null || true
   echo "作成しました: $archive"
-  echo "復元: em-ai-team restore $archive"
+  echo "復元: emther restore $archive"
 }
 
 cmd_restore() {
   local archive="${1:-}"
+  migrate_previous_app_layout
   if [[ -z "$archive" ]]; then
-    echo "Usage: em-ai-team restore <backup.tar.gz>" >&2
+    echo "Usage: emther restore <backup.tar.gz>" >&2
     echo "最近のバックアップ:" >&2
-    ls -1t "$BACKUP_DIR"/em-ai-team-state-*.tar.gz 2>/dev/null | head -5 >&2 || echo "  （なし）" >&2
+    {
+      ls -1t "$BACKUP_DIR"/emther-state-*.tar.gz 2>/dev/null || true
+      ls -1t "$BACKUP_DIR"/em-ai-team-state-*.tar.gz 2>/dev/null || true
+      ls -1t "$PREV_STATE/backups"/em-ai-team-state-*.tar.gz 2>/dev/null || true
+    } | head -5 >&2 || echo "  （なし）" >&2
     exit 1
   fi
   if [[ ! -f "$archive" ]]; then
@@ -300,13 +363,17 @@ cmd_restore() {
     cmd_stop
   fi
 
-  local tmp
+  local tmp root_in_archive
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" EXIT
   tar -C "$tmp" -xzf "$archive"
-  if [[ ! -d "$tmp/em-ai-team/data" || ! -d "$tmp/em-ai-team/secure" ]]; then
-    echo "error: アーカイブ形式が不正です（em-ai-team/{data,secure} が必要）" >&2
+  if [[ -d "$tmp/emther/data" && -d "$tmp/emther/secure" ]]; then
+    root_in_archive="emther"
+  elif [[ -d "$tmp/em-ai-team/data" && -d "$tmp/em-ai-team/secure" ]]; then
+    root_in_archive="em-ai-team"
+  else
+    echo "error: アーカイブ形式が不正です（emther/{data,secure} または旧 em-ai-team/{data,secure} が必要）" >&2
     exit 1
   fi
 
@@ -315,16 +382,17 @@ cmd_restore() {
   # 既存を空にしてからコピー（部分混在を避ける）
   find "$DATA_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
   find "$SECURE_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  cp -a "$tmp/em-ai-team/data"/. "$DATA_DIR/"
-  cp -a "$tmp/em-ai-team/secure"/. "$SECURE_DIR/"
+  cp -a "$tmp/$root_in_archive/data"/. "$DATA_DIR/"
+  cp -a "$tmp/$root_in_archive/secure"/. "$SECURE_DIR/"
   chmod 700 "$SECURE_DIR" 2>/dev/null || true
   # secure 内ファイルを 0600 に寄せる（ベストエフォート）
   find "$SECURE_DIR" -type f -exec chmod 600 {} + 2>/dev/null || true
-  echo "復元しました。 em-ai-team start で起動できます。"
+  echo "復元しました。 emther start で起動できます。"
 }
 
 cmd_build() {
   ensure_node
+  migrate_previous_app_layout
   local root packager
   root="$(require_source)"
   packager="$SCRIPT_DIR/package-standalone.sh"
@@ -349,7 +417,7 @@ cmd_install_release() {
   local archive="${1:-}"
   local installer="$SCRIPT_DIR/install-release.sh"
   if [[ -z "$archive" ]]; then
-    echo "Usage: em-ai-team install-release <em-ai-team-*.tar.gz>" >&2
+    echo "Usage: emther install-release <emther-*.tar.gz>" >&2
     exit 1
   fi
   if [[ ! -f "$installer" ]]; then
@@ -367,31 +435,40 @@ cmd_install_release() {
 
 install_launcher() {
   mkdir -p "$BIN_HOME"
-  local target="$BIN_HOME/em-ai-team"
+  local target="$BIN_HOME/emther"
   # start/stop/status は APP_DIR だけで動くよう、スクリプト本体をコピーする
   cp -a "$SCRIPT_PATH" "$target"
   chmod +x "$target"
   echo "ランチャーを配置しました: $target"
+  # 旧コマンド名向けの薄い互換ラッパー（警告のうえ emther に委譲）
+  cat >"$BIN_HOME/em-ai-team" <<'EOF'
+#!/usr/bin/env bash
+echo "warning: 'em-ai-team' は 'emther' に改名されました。今後は emther を使ってください。" >&2
+exec emther "$@"
+EOF
+  chmod +x "$BIN_HOME/em-ai-team"
   if ! echo ":$PATH:" | grep -q ":$BIN_HOME:"; then
     echo "注意: $BIN_HOME が PATH にありません。シェル設定に追加してください。"
   fi
 }
 
 cmd_install() {
+  migrate_previous_app_layout
   cmd_build
   install_launcher
   echo ""
   echo "次のコマンドで起動できます:"
-  echo "  em-ai-team start"
-  echo "  em-ai-team doctor"
+  echo "  emther start"
+  echo "  emther doctor"
   echo "  （または） $SCRIPT_PATH start"
 }
 
 cmd_start() {
   ensure_node
+  migrate_previous_app_layout
   if [[ ! -f "$APP_DIR/server.js" ]]; then
     echo "error: アプリが未インストールです: $APP_DIR/server.js" >&2
-    echo "       clone したリポジトリで ./scripts/em-ai-team install を実行してください。" >&2
+    echo "       clone したリポジトリで ./scripts/emther install を実行してください。" >&2
     exit 1
   fi
   if is_running; then
@@ -459,6 +536,7 @@ cmd_stop() {
 }
 
 cmd_status() {
+  migrate_previous_app_layout
   echo "APP_DIR=$APP_DIR"
   echo "EM_DATA_DIR=$DATA_DIR"
   echo "EM_SECURE_DATA_DIR=$SECURE_DIR"

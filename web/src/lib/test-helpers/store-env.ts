@@ -8,7 +8,7 @@ import { join } from "node:path";
 // (2)vi.resetModules()でモジュールキャッシュを捨てて再import、という手順で
 // 実データに触れずに毎回まっさらな状態からテストできるようにする。
 export function setupIsolatedStoreEnv(): string {
-  const dir = mkdtempSync(join(tmpdir(), "em-ai-team-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "emther-test-"));
   process.env.EM_DATA_DIR = join(dir, "data");
   process.env.EM_SECURE_DATA_DIR = join(dir, "secure");
   return dir;

@@ -26,8 +26,8 @@ import { AppShell, StoryBanner, TopNav } from "@/components/TopNav";
 // 数値表示に広げる（走査しやすさのための機能的な選択で、装飾目的の等幅化ではない）。
 
 export const metadata: Metadata = {
-  title: "EM Support System",
-  description: "エージェント駆動型EMサポートシステム",
+  title: "Emther",
+  description: "Emther — EM Support System。組織のトリアージとAIエージェントの監督",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -42,10 +42,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <div className={styles.page}>
           <div className={styles.header}>
-            <h1 className={styles.title}>EM Support System</h1>
-            {/* docs/dashboard_ui_readability.md U2-1対応。全画面共通のタグラインが英語のみ
-                だったため、他の見出しと揃えて日本語にする。 */}
-            <p className={styles.subtitle}>組織のトリアージとAIエージェントの監督</p>
+            <h1 className={styles.title}>Emther</h1>
+            <p className={styles.subtitle}>EM Support System</p>
           </div>
           <TopNav />
           <StoryBanner />

@@ -18,7 +18,8 @@ import { dirname, join } from "node:path";
 // 呼び出しのたびに process.env を読むのは、テストがモジュールをリセットせずに
 // 環境変数だけを差し替えても正しく反映されるようにするため。
 
-const APP_STATE_ROOT = join(homedir(), ".local", "state", "em-ai-team");
+const APP_STATE_ROOT = join(homedir(), ".local", "state", "emther");
+const PREVIOUS_APP_STATE_ROOT = join(homedir(), ".local", "state", "em-ai-team");
 
 export function defaultDataDir(): string {
   return join(APP_STATE_ROOT, "data");
@@ -26,6 +27,14 @@ export function defaultDataDir(): string {
 
 export function defaultSecureDataDir(): string {
   return join(APP_STATE_ROOT, "secure");
+}
+
+function previousDataDir(): string {
+  return join(PREVIOUS_APP_STATE_ROOT, "data");
+}
+
+function previousSecureDataDir(): string {
+  return join(PREVIOUS_APP_STATE_ROOT, "secure");
 }
 
 function legacyDataDir(): string {
@@ -45,7 +54,7 @@ function dirHasEntries(dir: string): boolean {
   }
 }
 
-/** 旧配置 → XDG への一度きり移行。テストからも呼ぶ。 */
+/** 旧配置 → 現行パスへの一度きり移行。テストからも呼ぶ。 */
 export function migrateLegacyLocations(options: {
   dataDir: string;
   secureDataDir: string;
@@ -93,6 +102,14 @@ function ensureLegacyMigratedForDefaults(): void {
     return;
   }
   migratedThisProcess = true;
+  // 1) 旧プロダクト名 em-ai-team → emther
+  migrateLegacyLocations({
+    dataDir: defaultDataDir(),
+    secureDataDir: defaultSecureDataDir(),
+    legacyDataDir: previousDataDir(),
+    legacySecureDataDir: previousSecureDataDir(),
+  });
+  // 2) さらに古い配置（cwd/.data・em-ai-team-secure）→ emther（まだ空なら）
   migrateLegacyLocations({
     dataDir: defaultDataDir(),
     secureDataDir: defaultSecureDataDir(),

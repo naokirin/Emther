@@ -1,4 +1,4 @@
-# EM Support System — コンテナ完結イメージ
+# Emther (EM Support System) — コンテナ完結イメージ
 # Node 24 LTS（node:sqlite）+ Claude / agy / cursor-agent CLI を同梱する。
 # 認証情報はイメージに焼き込まず、実行時の named volume に保存する。
 
