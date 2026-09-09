@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
-import { YIELD_KIND_META, type YieldKind } from "@/lib/types";
+import { YIELD_KIND_META, ISSUE_PRIORITY_META, type IssuePriority, type YieldKind } from "@/lib/types";
 
 // "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
 // CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
@@ -33,6 +33,11 @@ export type Proposal = {
   rejectedAlternatives: RejectedAlternative[];
 };
 
+export type SuggestedSubIssue = {
+  title: string;
+  priority?: IssuePriority;
+};
+
 export type AgentRun = {
   id: string;
   agentName: string;
@@ -43,8 +48,9 @@ export type AgentRun = {
   yieldRequest?: { reason: string; options: YieldOption[]; kind?: YieldKind };
   proposal?: Proposal;
   suggestedActionItems?: string[];
-  suggestedSubIssues?: string[];
+  suggestedSubIssues?: SuggestedSubIssue[];
   suggestedCharter?: { why?: string; what?: string; how?: string };
+  suggestedPriority?: IssuePriority;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -148,6 +154,9 @@ export function ExecutionState({
   onAdoptCharter,
   onDismissCharter,
   charterSubmitting,
+  onAdoptPriority,
+  onDismissPriority,
+  prioritySubmitting,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -160,12 +169,15 @@ export function ExecutionState({
   onAdoptActionItems?: (items: string[]) => void;
   onDismissActionItems?: () => void;
   actionItemsSubmitting?: boolean;
-  onAdoptSubIssues?: (items: string[]) => void;
+  onAdoptSubIssues?: (items: SuggestedSubIssue[]) => void;
   onDismissSubIssues?: () => void;
   subIssuesSubmitting?: boolean;
   onAdoptCharter?: (charter: { why?: string; what?: string; how?: string }) => void;
   onDismissCharter?: () => void;
   charterSubmitting?: boolean;
+  onAdoptPriority?: (priority: IssuePriority) => void;
+  onDismissPriority?: () => void;
+  prioritySubmitting?: boolean;
 }) {
   const CHARTER_FIELD_LABEL: Record<"why" | "what" | "how", string> = {
     why: "Why（生む価値・誰のため・なぜ今か）",
@@ -251,9 +263,15 @@ export function ExecutionState({
           {run.suggestedActionItems && run.suggestedActionItems.length > 0 && (
             <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
               <strong>💡 AIが提案するAction Items</strong>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                採用すると先頭の1件が「次の一手」、残りは「あとでやる」に入ります。
+              </p>
               <ul style={{ margin: "6px 0 8px 18px", fontSize: "0.75rem" }}>
                 {run.suggestedActionItems.map((item, i) => (
-                  <li key={i}>{item}</li>
+                  <li key={i}>
+                    {i === 0 ? <strong>次の一手: </strong> : null}
+                    {item}
+                  </li>
                 ))}
               </ul>
               <div className={styles.yieldActions}>
@@ -263,7 +281,7 @@ export function ExecutionState({
                   disabled={actionItemsSubmitting}
                   onClick={() => onAdoptActionItems?.(run.suggestedActionItems ?? [])}
                 >
-                  採用してAction Itemsに追加
+                  採用する（先頭を次の一手に）
                 </button>
                 <button className={styles.btnOutline} disabled={actionItemsSubmitting} onClick={onDismissActionItems}>
                   却下する
@@ -276,12 +294,22 @@ export function ExecutionState({
             <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
               <strong>🔭 AIが提案する分解案（サブIssue）</strong>
               <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                このIssueが抽象的なため、具体的な子Issueへの分解を提案しています。採用すると実際にサブIssueが作成されます。
+                独自の Why/What/How を持つ別の介入として切り出す案です。この介入の「次の一手」なら Action Item のままにしてください。採用すると実際にサブIssueが作成されます（優先度も一緒に反映）。
               </p>
               <ul style={{ margin: "6px 0 8px 18px", fontSize: "0.75rem" }}>
-                {run.suggestedSubIssues.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
+                {run.suggestedSubIssues.map((item, i) => {
+                  const p = item.priority ? ISSUE_PRIORITY_META[item.priority] : undefined;
+                  return (
+                    <li key={i}>
+                      {item.title}
+                      {p ? (
+                        <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>
+                          {p.icon} {p.label}
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
               <div className={styles.yieldActions}>
                 <button
@@ -293,6 +321,34 @@ export function ExecutionState({
                   採用してサブIssueを作成
                 </button>
                 <button className={styles.btnOutline} disabled={subIssuesSubmitting} onClick={onDismissSubIssues}>
+                  却下する
+                </button>
+              </div>
+            </div>
+          )}
+
+          {run.suggestedPriority && (
+            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
+              <strong>🔥 AIが提案する優先度</strong>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                今週〜今月の介入ポートフォリオ上の位置づけです。採用するとIssueの優先度に反映されます。
+              </p>
+              <p style={{ fontSize: "0.8125rem", marginTop: 6 }}>
+                {ISSUE_PRIORITY_META[run.suggestedPriority].icon} {ISSUE_PRIORITY_META[run.suggestedPriority].label}
+                <span style={{ color: "var(--text-muted)", marginLeft: 8 }}>
+                  — {ISSUE_PRIORITY_META[run.suggestedPriority].hint}
+                </span>
+              </p>
+              <div className={styles.yieldActions}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={prioritySubmitting}
+                  onClick={() => onAdoptPriority?.(run.suggestedPriority!)}
+                >
+                  採用して優先度に反映
+                </button>
+                <button className={styles.btnOutline} disabled={prioritySubmitting} onClick={onDismissPriority}>
                   却下する
                 </button>
               </div>

@@ -22,6 +22,15 @@ async function loadModule() {
 }
 
 describe("createIssue", () => {
+  it("createIssueのopts.priorityでフォーカス優先度を付けられる", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("重要介入", undefined, undefined, undefined, undefined, undefined, undefined, {
+      priority: "focus",
+    });
+    expect(issue.priority).toBe("focus");
+    expect(issue.focusOrder).toBe(0);
+  });
+
   it("タイトル・空のcharter/actionItems/logEntriesで作成する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("障害対応プロセスの整理");
@@ -163,6 +172,52 @@ describe("charter / title / action items / log entries", () => {
     const issue = await store.createIssue("Issue A");
     const result = await store.addActionItem(issue.id, "   ");
     expect(result?.actionItems).toHaveLength(0);
+  });
+
+  it("asNextで先頭に挿入し、setActionItemAsNextで繰り上げできる", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    await store.addActionItem(issue.id, "後で");
+    const withNext = await store.addActionItem(issue.id, "今やる", { asNext: true });
+    expect(withNext!.actionItems.map((a) => a.text)).toEqual(["今やる", "後で"]);
+
+    const moved = store.setActionItemAsNext(issue.id, withNext!.actionItems[1].id);
+    expect(moved!.actionItems.map((a) => a.text)).toEqual(["後で", "今やる"]);
+  });
+
+  it("promoteActionItemToChildIssueは子Issueを作り元を完了にする", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("親Issue");
+    const withItem = await store.addActionItem(issue.id, "別介入として切り出す");
+    const itemId = withItem!.actionItems[0].id;
+    const result = await store.promoteActionItemToChildIssue(issue.id, itemId);
+    expect(result?.child.parentId).toBe(issue.id);
+    expect(result?.child.title).toBe("別介入として切り出す");
+    expect(result?.parent.actionItems[0].done).toBe(true);
+  });
+
+  it("子Issueからは昇格できない", async () => {
+    const store = await loadModule();
+    const parent = await store.createIssue("親");
+    const child = await store.createIssue("子", undefined, undefined, parent.id);
+    const withItem = await store.addActionItem(child.id, "一手");
+    await expect(store.promoteActionItemToChildIssue(child.id, withItem!.actionItems[0].id)).rejects.toThrow(/1階層/);
+  });
+
+  it("setIssuePriorityでfocusになり、moveFocusIssueで順序が入れ替わる", async () => {
+    const store = await loadModule();
+    const a = await store.createIssue("A");
+    const b = await store.createIssue("B");
+    store.setIssuePriority(a.id, "focus");
+    store.setIssuePriority(b.id, "focus");
+    expect(store.getIssue(a.id)?.focusOrder).toBe(0);
+    expect(store.getIssue(b.id)?.focusOrder).toBe(1);
+    store.moveFocusIssue(b.id, "up");
+    expect(store.getIssue(a.id)?.focusOrder).toBe(1);
+    expect(store.getIssue(b.id)?.focusOrder).toBe(0);
+    store.setIssuePriority(b.id, "parked");
+    expect(store.getIssue(b.id)?.focusOrder).toBeUndefined();
+    expect(store.getIssue(a.id)?.focusOrder).toBe(0);
   });
 
   it("addLogEntryは自由記述ログを積み上げる", async () => {

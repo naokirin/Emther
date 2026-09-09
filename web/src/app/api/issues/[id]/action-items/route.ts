@@ -6,6 +6,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
+  const asNext = body?.asNext === true;
 
   if (!text) {
     return NextResponse.json({ error: "textは必須です" }, { status: 400 });
@@ -14,6 +15,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/issues/[id]
   try {
     const issue = await addActionItem(id, text, {
       ...maskOptionsFromBody(body),
+      asNext,
     });
     if (!issue) {
       return NextResponse.json({ error: "not found" }, { status: 404 });

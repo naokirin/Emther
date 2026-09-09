@@ -23,9 +23,12 @@ import {
 } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import {
+  INTERVENTION_NEXT_ACTION_LIMIT,
   charterFilledCount,
+  compareIssuesByPriority,
   isJournalEntryResolved,
   isRunStale,
+  issueNextAction,
   type Issue,
   type JournalEntry,
   type PendingUnmaskedSend,
@@ -598,6 +601,48 @@ export default function DashboardPage() {
       onSelect: () => router.push(`/issues/${issue.id}`),
       // 停滞検知自体が「長期間動きが無いこと」なので、常に新着扱いにはしない。
       since: 0,
+    });
+  }
+
+  // Action Items進行管理: 進行中・Waiting の介入の「次の一手」を横断表示（上限N件）。
+  // parked は朝キュー外。並びは focus（focusOrder）→ normal。未設定は整備レーンへ。
+  const activeInterventions = issues
+    .filter(
+      (i) =>
+        !i.archived &&
+        !i.parentId &&
+        (i.status === "in_progress" || i.status === "blocked") &&
+        (i.priority ?? "normal") !== "parked",
+    )
+    .sort(compareIssuesByPriority);
+  const withNext = activeInterventions.filter((i) => issueNextAction(i)).slice(0, INTERVENTION_NEXT_ACTION_LIMIT);
+  for (const issue of withNext) {
+    const next = issueNextAction(issue)!;
+    const isFocus = (issue.priority ?? "normal") === "focus";
+    nextActions.push({
+      id: `next-action-${issue.id}`,
+      severity: issue.status === "blocked" ? "urgent" : "warn",
+      lane: "decision",
+      icon: issue.status === "blocked" ? "🟡" : isFocus ? "🔥" : "👉",
+      kindLabel: isFocus ? "フォーカスの次の一手" : "介入の次の一手",
+      text: `「${issue.title}」— ${next.text.slice(0, 40)}`,
+      onSelect: () => router.push(`/issues/${issue.id}`),
+      since: issue.updatedAt,
+    });
+  }
+  const missingNext = activeInterventions
+    .filter((i) => !issueNextAction(i) && (i.priority ?? "normal") === "focus")
+    .slice(0, INTERVENTION_NEXT_ACTION_LIMIT);
+  for (const issue of missingNext) {
+    nextActions.push({
+      id: `missing-next-${issue.id}`,
+      severity: "warn",
+      lane: "maintenance",
+      icon: "📋",
+      kindLabel: "次の一手未設定",
+      text: `フォーカス「${issue.title}」の次の一手が未設定です`,
+      onSelect: () => router.push(`/issues/${issue.id}`),
+      since: issue.updatedAt,
     });
   }
 

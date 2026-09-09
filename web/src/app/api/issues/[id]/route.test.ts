@@ -102,6 +102,40 @@ describe("PATCH /api/issues/[id]", () => {
     expect(res.status).toBe(400);
   });
 
+  it("priorityとmoveFocusを更新できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const a = await issueStore.createIssue("A");
+    const b = await issueStore.createIssue("B");
+    const route = await import("./route");
+    const resA = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${a.id}`, "PATCH", { priority: "focus" }),
+      routeCtx({ id: a.id }),
+    );
+    expect(resA.status).toBe(200);
+    expect((await resA.json()).issue.priority).toBe("focus");
+    await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${b.id}`, "PATCH", { priority: "focus" }),
+      routeCtx({ id: b.id }),
+    );
+    const moved = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${b.id}`, "PATCH", { moveFocus: "up" }),
+      routeCtx({ id: b.id }),
+    );
+    expect(moved.status).toBe(200);
+    expect((await moved.json()).issue.focusOrder).toBe(0);
+  });
+
+  it("不正なpriorityは400", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${issue.id}`, "PATCH", { priority: "urgent" }),
+      routeCtx({ id: issue.id }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("keyResultId/teamIdにnullを渡すと解除できる（キー自体が無ければ変更しない）", async () => {
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("Issue");

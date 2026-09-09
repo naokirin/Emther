@@ -4,16 +4,28 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "@/components/RunDetail";
+import { CopilotChat, ExecutionState, StatusBadge, type AgentRun, type SuggestedSubIssue } from "@/components/RunDetail";
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueStatusBadge, IssueStatusSelector } from "@/components/IssueStatus";
+import { IssueStatusBadge, IssueStatusSelector, IssuePrioritySelector } from "@/components/IssueStatus";
 import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, issueProgress, isRunStale, type IssueCharter, type IssueStatus } from "@/lib/types";
+import {
+  ACTION_ITEM_VS_SUB_ISSUE_HELP,
+  INTERVENTION_TYPES,
+  charterFilledCount,
+  isIssueStalled,
+  issueBacklogActionItems,
+  issueNextAction,
+  issueProgress,
+  isRunStale,
+  type IssueCharter,
+  type IssuePriority,
+  type IssueStatus,
+} from "@/lib/types";
 
 // docs/em_ui_ux_issue.md 7節対応。閲覧モードのWhy/What/Howのラベル（編集モードのlabel文言と揃える）。
 const CHARTER_VIEW_FIELDS: { key: keyof IssueCharter; label: string }[] = [
@@ -310,6 +322,7 @@ export function IssueDetailContent({ id }: { id: string }) {
 
   const [archiving, setArchiving] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [prioritySaving, setPrioritySaving] = useState(false);
 
   // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。カンバンのドラッグ&ドロップは
   // 実装しないため、列（ステータス）の切り替えはここから行う。
@@ -325,6 +338,36 @@ export function IssueDetailContent({ id }: { id: string }) {
       if (res.ok) await refreshIssue();
     } finally {
       setStatusSaving(false);
+    }
+  }
+
+  async function handleChangePriority(priority: IssuePriority) {
+    if (!issue) return;
+    setPrioritySaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority }),
+      });
+      if (res.ok) await Promise.all([refreshIssue(), refreshIssues()]);
+    } finally {
+      setPrioritySaving(false);
+    }
+  }
+
+  async function handleMoveFocus(direction: "up" | "down") {
+    if (!issue) return;
+    setPrioritySaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moveFocus: direction }),
+      });
+      if (res.ok) await Promise.all([refreshIssue(), refreshIssues()]);
+    } finally {
+      setPrioritySaving(false);
     }
   }
 
@@ -436,15 +479,16 @@ export function IssueDetailContent({ id }: { id: string }) {
   // docs/first_implession 3.8対応。AIが提案したAction Itemsを、実際にIssue.actionItemsへ
   // 追加するかどうかはEMが選ぶ（採用/却下いずれの場合も提案自体はrunから消し、
   // 同じ提案が表示され続けないようにする）。
+  // 先頭1件だけ asNext で「次の一手」にし、残りは backlog へ追加する。
   async function handleAdoptSuggestedActionItems(items: string[]) {
     if (!issue || !linkedRun) return;
     setActionItemsSubmitting(true);
     try {
-      for (const text of items) {
+      for (let i = 0; i < items.length; i++) {
         await fetch(`/api/issues/${issue.id}/action-items`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: items[i], asNext: i === 0 }),
         });
       }
       await fetch(`/api/agents/${linkedRun.id}/action-items/dismiss`, { method: "POST" });
@@ -470,15 +514,15 @@ export function IssueDetailContent({ id }: { id: string }) {
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案した子Issue分解案を、
   // 実際にサブIssueとして作成するかどうかはEMが選ぶ（既存のサブIssue作成APIをそのまま
   // 複数回叩くだけで、新しい起票経路は増やさない）。
-  async function handleAdoptSuggestedSubIssues(items: string[]) {
+  async function handleAdoptSuggestedSubIssues(items: SuggestedSubIssue[]) {
     if (!issue || !linkedRun) return;
     setSubIssuesSubmitting(true);
     try {
-      for (const title of items) {
+      for (const item of items) {
         await fetch("/api/issues", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, parentId: issue.id }),
+          body: JSON.stringify({ title: item.title, parentId: issue.id, priority: item.priority }),
         });
       }
       await fetch(`/api/agents/${linkedRun.id}/sub-issues/dismiss`, { method: "POST" });
@@ -500,6 +544,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   const [charterSubmitting, setCharterSubmitting] = useState(false);
+  const [prioritySubmitting, setPrioritySubmitting] = useState(false);
 
   // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
   // 対応。AIが提案したWhy/What/Howの埋め合わせ案を、実際にIssue.charterへ反映するか
@@ -532,6 +577,33 @@ export function IssueDetailContent({ id }: { id: string }) {
     }
   }
 
+  async function handleAdoptSuggestedPriority(priority: IssuePriority) {
+    if (!issue || !linkedRun) return;
+    setPrioritySubmitting(true);
+    try {
+      await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority }),
+      });
+      await fetch(`/api/agents/${linkedRun.id}/priority/dismiss`, { method: "POST" });
+      await Promise.all([refreshIssue(), refreshIssues(), refreshRuns()]);
+    } finally {
+      setPrioritySubmitting(false);
+    }
+  }
+
+  async function handleDismissSuggestedPriority() {
+    if (!linkedRun) return;
+    setPrioritySubmitting(true);
+    try {
+      await fetch(`/api/agents/${linkedRun.id}/priority/dismiss`, { method: "POST" });
+      await refreshRuns();
+    } finally {
+      setPrioritySubmitting(false);
+    }
+  }
+
   async function handleToggleActionItem(itemId: string) {
     if (!issue) return;
     try {
@@ -539,6 +611,40 @@ export function IssueDetailContent({ id }: { id: string }) {
       if (res.ok) await refreshIssue();
     } catch {
       // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  async function handleSetActionItemAsNext(itemId: string) {
+    if (!issue) return;
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/action-items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asNext: true }),
+      });
+      if (res.ok) await refreshIssue();
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  const [promotingItemId, setPromotingItemId] = useState<string | null>(null);
+
+  // Action Item → 子Issue。独自の介入物語として切り出す（1階層制限はAPI側でも拒否）。
+  async function handlePromoteActionItem(itemId: string) {
+    if (!issue || issue.parentId) return;
+    setPromotingItemId(itemId);
+    try {
+      const { res } = await fetchWithNameConfirm(
+        `/api/issues/${issue.id}/action-items/${itemId}/promote`,
+        { method: "POST", body: {} },
+        "子Issueとして作成する",
+      );
+      if (res.ok) await Promise.all([refreshIssue(), refreshIssues()]);
+    } catch {
+      // キャンセル・失敗時は次回のポーリングで状態が揃う
+    } finally {
+      setPromotingItemId(null);
     }
   }
 
@@ -645,6 +751,38 @@ export function IssueDetailContent({ id }: { id: string }) {
         <span className={styles.fieldCaption}>ステータス</span>
         <IssueStatusSelector status={issue.status} onChange={handleChangeStatus} disabled={statusSaving} />
       </div>
+      {!issue.parentId && (
+        <div className={styles.field}>
+          <span className={styles.fieldCaption}>優先度（今週〜今月の見通し / 今日の順）</span>
+          <IssuePrioritySelector
+            priority={issue.priority ?? "normal"}
+            onChange={handleChangePriority}
+            disabled={prioritySaving}
+          />
+          {issue.priority === "focus" && (
+            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem" }}
+                disabled={prioritySaving}
+                onClick={() => handleMoveFocus("up")}
+              >
+                ↑ フォーカス順を前へ
+              </button>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem" }}
+                disabled={prioritySaving}
+                onClick={() => handleMoveFocus("down")}
+              >
+                ↓ フォーカス順を後へ
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className={styles.field} style={{ maxWidth: 260 }}>
         <span className={styles.fieldCaption}>進捗（Action Items + サブIssue）</span>
         <ProgressBar {...issueProgress(issue, childIssues)} />
@@ -1049,6 +1187,9 @@ export function IssueDetailContent({ id }: { id: string }) {
               onAdoptCharter={handleAdoptSuggestedCharter}
               onDismissCharter={handleDismissSuggestedCharter}
               charterSubmitting={charterSubmitting}
+              onAdoptPriority={handleAdoptSuggestedPriority}
+              onDismissPriority={handleDismissSuggestedPriority}
+              prioritySubmitting={prioritySubmitting}
             />
           ) : (
             <p className={styles.subtitle}>
@@ -1057,24 +1198,111 @@ export function IssueDetailContent({ id }: { id: string }) {
             </p>
           )}
 
-          <h2 style={{ marginTop: 16 }}>Action Items (Draft)</h2>
-          {issue.actionItems.length === 0 && <p className={styles.subtitle}>まだありません。</p>}
-          <ul style={{ listStyle: "none", marginBottom: 10 }}>
-            {issue.actionItems.map((item) => (
-              <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 6 }}>
-                <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
-                  <input type="checkbox" checked={item.done} onChange={() => handleToggleActionItem(item.id)} />
-                  <span style={{ textDecoration: item.done ? "line-through" : "none", color: item.done ? "var(--text-muted)" : "inherit" }}>
-                    {item.text}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <h2 style={{ marginTop: 16 }}>Action Items</h2>
+          <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+            {ACTION_ITEM_VS_SUB_ISSUE_HELP}
+          </p>
+          {(() => {
+            const nextItem = issueNextAction(issue);
+            const backlog = issueBacklogActionItems(issue);
+            const doneItems = issue.actionItems.filter((a) => a.done);
+            return (
+              <>
+                <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>次の一手</h3>
+                {!nextItem ? (
+                  <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+                    未設定です。下から追加するか、あとでやる一覧から「次の一手にする」を選んでください。
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: "0.8125rem",
+                      marginBottom: 12,
+                      padding: "8px 10px",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      background: "var(--surface-raised, transparent)",
+                    }}
+                  >
+                    <label style={{ display: "flex", gap: 6, alignItems: "flex-start", cursor: "pointer" }}>
+                      <input type="checkbox" checked={false} onChange={() => handleToggleActionItem(nextItem.id)} style={{ marginTop: 2 }} />
+                      <span style={{ flex: 1 }}>{nextItem.text}</span>
+                    </label>
+                    {!issue.parentId && (
+                      <button
+                        type="button"
+                        className={styles.btnOutline}
+                        style={{ marginTop: 8, fontSize: "0.75rem" }}
+                        disabled={promotingItemId === nextItem.id}
+                        onClick={() => handlePromoteActionItem(nextItem.id)}
+                      >
+                        {promotingItemId === nextItem.id ? "昇格中…" : "子Issueに昇格"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {backlog.length > 0 && (
+                  <>
+                    <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>あとでやる</h3>
+                    <ul style={{ listStyle: "none", marginBottom: 10 }}>
+                      {backlog.map((item) => (
+                        <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 8 }}>
+                          <label style={{ display: "flex", gap: 6, alignItems: "flex-start", cursor: "pointer" }}>
+                            <input type="checkbox" checked={false} onChange={() => handleToggleActionItem(item.id)} style={{ marginTop: 2 }} />
+                            <span style={{ flex: 1 }}>{item.text}</span>
+                          </label>
+                          <div style={{ display: "flex", gap: 6, marginTop: 4, marginLeft: 22 }}>
+                            <button
+                              type="button"
+                              className={styles.btnOutline}
+                              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                              onClick={() => handleSetActionItemAsNext(item.id)}
+                            >
+                              次の一手にする
+                            </button>
+                            {!issue.parentId && (
+                              <button
+                                type="button"
+                                className={styles.btnOutline}
+                                style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                                disabled={promotingItemId === item.id}
+                                onClick={() => handlePromoteActionItem(item.id)}
+                              >
+                                {promotingItemId === item.id ? "昇格中…" : "子Issueに昇格"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {doneItems.length > 0 && (
+                  <>
+                    <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>完了</h3>
+                    <ul style={{ listStyle: "none", marginBottom: 10 }}>
+                      {doneItems.map((item) => (
+                        <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 6 }}>
+                          <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+                            <input type="checkbox" checked onChange={() => handleToggleActionItem(item.id)} />
+                            <span style={{ textDecoration: "line-through", color: "var(--text-muted)" }}>{item.text}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {issue.actionItems.length === 0 && <p className={styles.subtitle}>まだありません。</p>}
+              </>
+            );
+          })()}
           <div className={styles.chatRow}>
             <input
               type="text"
-              placeholder="Action Itemを追加…"
+              placeholder="Action Itemを追加（あとでやるへ）…"
               value={actionItemText}
               onChange={(e) => setActionItemText(e.target.value)}
               onKeyDown={(e) => {

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   charterFilledCount,
+  compareIssuesByPriority,
   isIssueStalled,
   isJournalEntryResolved,
   isRunStale,
+  issueBacklogActionItems,
+  issueNextAction,
   issueProgress,
   normalizeTeamName,
   personVitalStatus,
@@ -93,6 +96,7 @@ function baseIssue(overrides: Partial<Issue> = {}): Issue {
     actionItems: [],
     logEntries: [],
     status: "not_started",
+    priority: "normal",
     archived: false,
     tags: [],
     createdAt: 0,
@@ -120,6 +124,42 @@ describe("issueProgress", () => {
 
   it("項目が無ければ0/0", () => {
     expect(issueProgress(baseIssue())).toEqual({ done: 0, total: 0 });
+  });
+});
+
+describe("issueNextAction / issueBacklogActionItems", () => {
+  it("未完了の先頭が次の一手", () => {
+    const issue = baseIssue({
+      actionItems: [
+        { id: "1", text: "done", done: true },
+        { id: "2", text: "next", done: false },
+        { id: "3", text: "later", done: false },
+      ],
+    });
+    expect(issueNextAction(issue)).toEqual({ id: "2", text: "next", done: false });
+    expect(issueBacklogActionItems(issue)).toEqual([{ id: "3", text: "later", done: false }]);
+  });
+
+  it("未完了が無ければundefined / 空", () => {
+    const issue = baseIssue({ actionItems: [{ id: "1", text: "a", done: true }] });
+    expect(issueNextAction(issue)).toBeUndefined();
+    expect(issueBacklogActionItems(issue)).toEqual([]);
+  });
+});
+
+describe("compareIssuesByPriority", () => {
+  it("focus → normal → parked の順で並べる", () => {
+    const parked = baseIssue({ id: "p", priority: "parked", updatedAt: 100 });
+    const normal = baseIssue({ id: "n", priority: "normal", updatedAt: 50 });
+    const focus = baseIssue({ id: "f", priority: "focus", focusOrder: 0, updatedAt: 10 });
+    expect([parked, normal, focus].sort(compareIssuesByPriority).map((i) => i.id)).toEqual(["f", "n", "p"]);
+  });
+
+  it("focus同士はfocusOrder昇順", () => {
+    const a = baseIssue({ id: "a", priority: "focus", focusOrder: 2, updatedAt: 100 });
+    const b = baseIssue({ id: "b", priority: "focus", focusOrder: 0, updatedAt: 50 });
+    const c = baseIssue({ id: "c", priority: "focus", focusOrder: 1, updatedAt: 200 });
+    expect([a, b, c].sort(compareIssuesByPriority).map((i) => i.id)).toEqual(["b", "c", "a"]);
   });
 });
 

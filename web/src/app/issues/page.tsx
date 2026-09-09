@@ -7,13 +7,26 @@ import { StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDe
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueStatusBadge } from "@/components/IssueStatus";
+import { IssueStatusBadge, IssuePriorityBadge } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
 import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
-import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, isRunStale, issueProgress, truncateForTitle } from "@/lib/types";
+import {
+  INTERVENTION_TYPES,
+  ISSUE_PRIORITY_META,
+  ISSUE_STATUS_META,
+  charterFilledCount,
+  compareIssuesByPriority,
+  isIssueStalled,
+  isRunStale,
+  issueNextAction,
+  issueProgress,
+  truncateForTitle,
+  type IssuePriority,
+  type IssueStatus,
+} from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
 const RUNS_PAGE_SIZE = 5;
@@ -75,7 +88,11 @@ function IssuesPageInner() {
   const [showArchived, setShowArchived] = useState(false);
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  // 進行中の介入ポートフォリオ既定: 未着手・完了を除き、動いている介入に焦点を当てる。
+  const [statusFilter, setStatusFilter] = useState<"active" | "all" | IssueStatus>("active");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | IssuePriority>("all");
   const [promoteError, setPromoteError] = useState<string | null>(null);
+  const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
   // 子Issue（parentIdあり）は親の詳細画面（サブIssue欄）で見る形にし、
@@ -86,11 +103,20 @@ function IssuesPageInner() {
 
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
   const allTags = Array.from(new Set(topLevelIssues.flatMap((i) => i.tags))).sort((a, b) => a.localeCompare(b, "ja"));
-  const filteredIssues = topLevelIssues.filter((i) => {
-    if (tagFilter && !i.tags.includes(tagFilter)) return false;
-    if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
-    return true;
-  });
+  const filteredIssues = topLevelIssues
+    .filter((i) => {
+      if (tagFilter && !i.tags.includes(tagFilter)) return false;
+      if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
+      if (statusFilter === "active") {
+        if (i.status !== "in_progress" && i.status !== "blocked") return false;
+      } else if (statusFilter !== "all" && i.status !== statusFilter) {
+        return false;
+      }
+      if (priorityFilter !== "all" && (i.priority ?? "normal") !== priorityFilter) return false;
+      return true;
+    })
+    .slice()
+    .sort(compareIssuesByPriority);
   const issuesPagination = usePagination(filteredIssues, ISSUES_PAGE_SIZE);
   const runsPagination = usePagination(unlinkedRuns, RUNS_PAGE_SIZE);
 
@@ -180,6 +206,20 @@ function IssuesPageInner() {
     }
   }
 
+  async function handleMoveFocus(issueId: string, direction: "up" | "down") {
+    setFocusMovingId(issueId);
+    try {
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moveFocus: direction }),
+      });
+      if (res.ok) await refreshIssues();
+    } finally {
+      setFocusMovingId(null);
+    }
+  }
+
   return (
     <div className={styles.screen}>
       {/* 改修依頼「セクションの区切りがわかりにくい」対応。ページ全体がフラットな
@@ -190,7 +230,7 @@ function IssuesPageInner() {
           <div>
             <h2 style={{ margin: 0 }}>進行中の介入ポートフォリオ</h2>
             <p className={styles.subtitle} style={{ marginTop: 4 }}>
-              実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。
+              実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。優先度（フォーカス／通常／保留）とフォーカス順で、今週〜今月の見通しと今日の順を揃えます。
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -226,6 +266,37 @@ function IssuesPageInner() {
             Why/What/How未整理のみ
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            ステータス:
+            <Select
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as "active" | "all" | IssueStatus)}
+              options={[
+                { value: "active", label: "進行中・Waiting" },
+                { value: "all", label: "すべて" },
+                ...Object.entries(ISSUE_STATUS_META).map(([value, meta]) => ({
+                  value,
+                  label: `${meta.icon} ${meta.label}`,
+                })),
+              ]}
+              style={{ minWidth: 160 }}
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            優先度:
+            <Select
+              value={priorityFilter}
+              onChange={(v) => setPriorityFilter(v as "all" | IssuePriority)}
+              options={[
+                { value: "all", label: "すべて" },
+                ...Object.entries(ISSUE_PRIORITY_META).map(([value, meta]) => ({
+                  value,
+                  label: `${meta.icon} ${meta.label}`,
+                })),
+              ]}
+              style={{ minWidth: 140 }}
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
             タグで絞り込み:
             <Select
               value={tagFilter}
@@ -251,6 +322,8 @@ function IssuesPageInner() {
               <tr>
                 <th>タイトル</th>
                 <th>ステータス</th>
+                <th>優先度</th>
+                <th>次の一手</th>
                 <th>型・関連</th>
                 <th>Why/What/How</th>
                 <th>進捗</th>
@@ -260,7 +333,7 @@ function IssuesPageInner() {
             <tbody>
               {filteredIssues.length === 0 && (
                 <tr>
-                  <td colSpan={6} className={styles.tableEmpty}>
+                  <td colSpan={8} className={styles.tableEmpty}>
                     {!issuesLoaded ? "読み込み中…" : "条件に一致するIssueはありません。"}
                   </td>
                 </tr>
@@ -276,6 +349,8 @@ function IssuesPageInner() {
                 const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
                 const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
                 const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
+                const nextAction = issueNextAction(issue);
+                const priority = issue.priority ?? "normal";
                 return (
                   <tr key={issue.id} style={issue.archived ? { opacity: 0.6 } : undefined}>
                     <td>
@@ -300,6 +375,40 @@ function IssuesPageInner() {
                     </td>
                     <td>
                       <IssueStatusBadge status={issue.status} />
+                    </td>
+                    <td>
+                      <IssuePriorityBadge priority={priority} />
+                      {priority === "focus" && (
+                        <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                          <button
+                            type="button"
+                            className={styles.btnOutline}
+                            style={{ fontSize: "0.7rem", padding: "1px 6px" }}
+                            disabled={focusMovingId === issue.id}
+                            onClick={() => handleMoveFocus(issue.id, "up")}
+                            title="フォーカス順を前へ"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.btnOutline}
+                            style={{ fontSize: "0.7rem", padding: "1px 6px" }}
+                            disabled={focusMovingId === issue.id}
+                            onClick={() => handleMoveFocus(issue.id, "down")}
+                            title="フォーカス順を後へ"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className={styles.tableMuted} style={{ maxWidth: 220 }}>
+                      {nextAction ? (
+                        <span title={nextAction.text}>{nextAction.text.length > 48 ? `${nextAction.text.slice(0, 48)}…` : nextAction.text}</span>
+                      ) : (
+                        <span style={{ opacity: 0.7 }}>未設定</span>
+                      )}
                     </td>
                     {/* docs/em_human_story_and_ux.md P1-7対応。型・関連チーム・今期のKRを一覧の時点で
                         見せ、「実装タスク箱」ではなく「介入のポートフォリオ」として読めるようにする。 */}

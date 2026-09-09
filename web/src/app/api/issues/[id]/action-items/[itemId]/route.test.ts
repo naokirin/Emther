@@ -31,6 +31,22 @@ describe("PATCH /api/issues/[id]/action-items/[itemId]", () => {
     expect((await res.json()).issue.actionItems[0].done).toBe(true);
   });
 
+  it("asNext:trueで次の一手に繰り上げできる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    await issueStore.addActionItem(issue.id, "先");
+    const withSecond = await issueStore.addActionItem(issue.id, "後");
+    const secondId = withSecond!.actionItems[1].id;
+    const { jsonRequest } = await import("@/lib/test-helpers/api-route");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", { asNext: true }),
+      routeCtx({ id: issue.id, itemId: secondId }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).issue.actionItems.map((a: { text: string }) => a.text)).toEqual(["後", "先"]);
+  });
+
   it("存在しないissue/itemIdは404", async () => {
     const route = await import("./route");
     const res = await route.PATCH(new Request("http://localhost/x", { method: "PATCH" }), routeCtx({ id: "missing", itemId: "missing" }));

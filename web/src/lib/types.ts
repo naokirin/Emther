@@ -272,6 +272,24 @@ export type ActionItem = {
   done: boolean;
 };
 
+// Action Items進行管理（Next Action）: 未完了のうち配列先頭が「次の一手」。
+// 残り未完了は backlog、完了済みは完了リスト。タスクトラッカー化せず、介入の焦点を1件に絞る。
+export function issueNextAction(issue: Issue): ActionItem | undefined {
+  return issue.actionItems.find((a) => !a.done);
+}
+
+export function issueBacklogActionItems(issue: Issue): ActionItem[] {
+  const next = issueNextAction(issue);
+  return issue.actionItems.filter((a) => !a.done && a.id !== next?.id);
+}
+
+// Dashboard横断表示の上限。朝キューを増やしすぎない（docs/em_ui_ux_issue.md §2）。
+export const INTERVENTION_NEXT_ACTION_LIMIT = 3;
+
+// Action Item（この介入の一手）と子Issue（別の介入物語）の境界。UIヘルプとAIプロンプトで共有する。
+export const ACTION_ITEM_VS_SUB_ISSUE_HELP =
+  "判断の目安: 「この介入の次の一手か？」→ Action Item。「独自の Why/What/How を持つ別の介入か？」→ 子Issue。";
+
 // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。archived（2値）だけでは
 // 「進行中」と「ブロッカーあり」を区別できないため、別軸のステータスを持たせる。
 // blocked/doneへの遷移はEMの明示操作を主とし、not_started→in_progressだけは
@@ -302,6 +320,16 @@ export type IssueCharter = {
   how: string;
 };
 
+export type IssuePriority = "focus" | "normal" | "parked";
+
+export const ISSUE_PRIORITIES: IssuePriority[] = ["focus", "normal", "parked"];
+
+export const ISSUE_PRIORITY_META: Record<IssuePriority, { icon: string; label: string; hint: string }> = {
+  focus: { icon: "🔥", label: "フォーカス", hint: "今週〜今月で進める介入。朝の次の一手の主対象" },
+  normal: { icon: "➖", label: "通常", hint: "進行中だが、いまの主戦場ではない" },
+  parked: { icon: "🅿️", label: "保留", hint: "様子見・後回し。朝キューには載せない" },
+};
+
 export type Issue = {
   id: string;
   title: string;
@@ -311,11 +339,16 @@ export type Issue = {
   logEntries: IssueLogEntry[];
   parentId?: string;
   status: IssueStatus;
+  // 介入ポートフォリオの優先帯。focus=今週〜今月の主戦場、parked=朝キュー外。
+  // 未設定の旧データは normal 扱い（issue-store の読み込み補完）。
+  priority: IssuePriority;
+  // focus 同士の順序（小さいほど先）。priority !== "focus" のときは未定義。
+  focusOrder?: number;
   archived: boolean;
   // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻。
   archivedAt?: number;
   tags: string[];
-  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKeyResultに
+  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKey Resultに
   // 貢献するかの紐付け（任意）。
   keyResultId?: string;
   // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
@@ -325,6 +358,20 @@ export type Issue = {
   createdAt: number;
   updatedAt: number;
 };
+
+// 一覧・Dashboard横断の並び: focus（focusOrder）→ normal（更新新しい順）→ parked。
+export function compareIssuesByPriority(a: Issue, b: Issue): number {
+  const rank: Record<IssuePriority, number> = { focus: 0, normal: 1, parked: 2 };
+  const pa = a.priority ?? "normal";
+  const pb = b.priority ?? "normal";
+  if (rank[pa] !== rank[pb]) return rank[pa] - rank[pb];
+  if (pa === "focus" && pb === "focus") {
+    const oa = a.focusOrder ?? Number.MAX_SAFE_INTEGER;
+    const ob = b.focusOrder ?? Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+  }
+  return b.updatedAt - a.updatedAt;
+}
 
 export function charterFilledCount(charter: IssueCharter): number {
   return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
