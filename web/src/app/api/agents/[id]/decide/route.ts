@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { decideRun, toRunView } from "@/lib/agent-runtime";
+import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/agents/[id]/decide">) {
   const { id } = await ctx.params;
@@ -11,12 +12,14 @@ export async function POST(request: Request, ctx: RouteContext<"/api/agents/[id]
   }
 
   try {
-    const run = await decideRun(id, message);
+    const run = await decideRun(id, message, {
+      allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body),
+    });
     if (!run) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
     return NextResponse.json({ run: toRunView(run) });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 409 });
+    return jsonFromUnknownError(err, 409);
   }
 }

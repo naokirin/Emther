@@ -45,7 +45,7 @@ describe("GET /api/agents", () => {
   it("空なら空配列とpendingAgentStarts", async () => {
     const route = await import("./route");
     const res = await route.GET();
-    expect(await res.json()).toEqual({ runs: [], pendingAgentStarts: [] });
+    expect(await res.json()).toEqual({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] });
   });
 });
 

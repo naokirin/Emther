@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isRunStale, truncateForTitle } from "@/lib/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
@@ -39,6 +40,7 @@ function ChatPageInner() {
   const { runs, runsLoaded, refreshRuns } = useRuns();
   const { issues, issuesLoaded, refreshIssues } = useIssues();
   const { rules } = useSettingsRules();
+  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
@@ -79,17 +81,21 @@ function ChatPageInner() {
     setReviewSubmitting(true);
     setReviewError(null);
     try {
-      const res = await fetch("/api/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(selectedRun)), agentRunId: selectedRun.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Issue化に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        "/api/issues",
+        {
+          method: "POST",
+          body: { title: truncateForTitle(runFallbackTitle(selectedRun)), agentRunId: selectedRun.id },
+        },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "Issue化に失敗しました");
       await refreshIssues();
-      router.push(`/issues/${data.issue.id}`);
+      router.push(`/issues/${(data as { issue: { id: string } }).issue.id}`);
     } catch (err) {
-      setReviewError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setReviewError((err as Error).message);
+      }
     } finally {
       setReviewSubmitting(false);
     }
@@ -120,18 +126,19 @@ function ChatPageInner() {
     setStarting(true);
     setStartError(null);
     try {
-      const res = await fetch("/api/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentName: "Lead Agent", task }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "開始に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        "/api/agents",
+        { method: "POST", body: { agentName: "Lead Agent", task } },
+        "送信する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
       setTask("");
-      setSelectedId(data.run.id);
+      setSelectedId((data as { run: { id: string } }).run.id);
       await refreshRuns();
     } catch (err) {
-      setStartError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setStartError((err as Error).message);
+      }
     } finally {
       setStarting(false);
     }
@@ -142,18 +149,19 @@ function ChatPageInner() {
     setDeciding(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/decide`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "送信に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/agents/${selectedRun.id}/decide`,
+        { method: "POST", body: { message: text } },
+        "送信する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "送信に失敗しました");
       setMessage("");
       setSelectedOptionId(null);
       await refreshRuns();
     } catch (err) {
-      setDecideError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setDecideError((err as Error).message);
+      }
     } finally {
       setDeciding(false);
     }
@@ -274,6 +282,7 @@ function ChatPageInner() {
           </>
         )}
       </div>
+      {nameCandidateDialog}
     </div>
   );
 }

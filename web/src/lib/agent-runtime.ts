@@ -2,14 +2,15 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dataFilePath, loadJSON, saveJSON } from "@/lib/persistence";
-import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
+import { assertNoRealNamesLeaked, ensureNameCandidatesAllowed, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
 import { getIssue, getIssueByRunId, linkIssueRun, type IssueCharter } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
-import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type PendingAgentStart, type PendingAgentStartKind, type YieldKind } from "@/lib/types";
+import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
+import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -478,7 +479,7 @@ export function originLabel(origin: AgentRun["origin"]): string {
 // デバウンス中は listPendingAgentStarts() でUIへ「あとN秒で起動」を公開する。
 export const ISSUE_UPDATE_DEBOUNCE_MS = 45_000;
 
-export type { PendingAgentStart, PendingAgentStartKind };
+export type { PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend };
 
 type PendingIssueUpdateJob = {
   timer: ReturnType<typeof setTimeout>;
@@ -486,6 +487,7 @@ type PendingIssueUpdateJob = {
 };
 
 const pendingIssueUpdateJobs = new Map<string, PendingIssueUpdateJob>();
+const pendingUnmaskedSends = new Map<string, PendingUnmaskedSend>();
 
 // テストからデバウンスを bypass するためのフック（本番は常にデバウンスする）。
 let issueUpdateDebounceMs = ISSUE_UPDATE_DEBOUNCE_MS;
@@ -497,6 +499,38 @@ export function listPendingAgentStarts(): PendingAgentStart[] {
   return [...pendingIssueUpdateJobs.values()]
     .map((j) => j.pending)
     .sort((a, b) => a.firesAt - b.firesAt);
+}
+
+export function listPendingUnmaskedSends(): PendingUnmaskedSend[] {
+  return [...pendingUnmaskedSends.values()];
+}
+
+export function parkPendingUnmaskedSend(pending: PendingUnmaskedSend): void {
+  pendingUnmaskedSends.set(pending.id, pending);
+}
+
+export function dismissPendingUnmaskedSend(id: string): boolean {
+  return pendingUnmaskedSends.delete(id);
+}
+
+export async function confirmPendingUnmaskedSend(id: string): Promise<AgentRun | undefined> {
+  const pending = pendingUnmaskedSends.get(id);
+  if (!pending) return undefined;
+  pendingUnmaskedSends.delete(id);
+  const allow: MaskOptions = { allowUnmaskedCandidates: true };
+  if (pending.kind === "decide-run" && pending.runId && pending.message) {
+    return decideRun(pending.runId, pending.message, allow);
+  }
+  if (pending.kind === "start-run" && pending.agentName && pending.task) {
+    return startRun(
+      pending.agentName,
+      pending.task,
+      pending.origin ?? "manual",
+      pending.linkedIssueId,
+      allow,
+    );
+  }
+  return undefined;
 }
 
 function scheduleDebouncedIssueUpdate(
@@ -563,6 +597,7 @@ async function executeIssueUpdateAnalysis(
 
   const task = buildIssueUpdateTask(trigger, detail, issue.title);
   const linkedRun = issue.agentRunId ? runs.get(issue.agentRunId) : undefined;
+  const issueTitle = unmaskNames(issue.title);
 
   if (linkedRun) {
     if (linkedRun.status === "active" || linkedRun.status === "queued") {
@@ -570,11 +605,43 @@ async function executeIssueUpdateAnalysis(
       reactToIssueUpdate(issueId, trigger, detail);
       return;
     }
-    await decideRun(linkedRun.id, task);
+    try {
+      await decideRun(linkedRun.id, task);
+    } catch (err) {
+      if (isUnconfirmedNameCandidatesError(err)) {
+        parkPendingUnmaskedSend({
+          id: `unmasked-decide:${linkedRun.id}:${Date.now()}`,
+          kind: "decide-run",
+          candidates: err.candidates,
+          label: "課題の更新分析の送信確認",
+          issueId,
+          issueTitle,
+          runId: linkedRun.id,
+          message: task,
+        });
+      }
+    }
     return;
   }
 
-  await startRun("Lead Agent", task, "auto-issue-update", issueId);
+  try {
+    await startRun("Lead Agent", task, "auto-issue-update", issueId);
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) {
+      parkPendingUnmaskedSend({
+        id: `unmasked-start:${issueId}:${Date.now()}`,
+        kind: "start-run",
+        candidates: err.candidates,
+        label: "課題の更新分析の送信確認",
+        issueId,
+        issueTitle,
+        agentName: "Lead Agent",
+        task,
+        origin: "auto-issue-update",
+        linkedIssueId: issueId,
+      });
+    }
+  }
 }
 
 // Issueの重要更新（Why/What/How・経過ログ）をきっかけにAgentチームを起こす。
@@ -612,18 +679,31 @@ export function matchesJournalAutoFilters(
 }
 
 // Journal校正後の自動分析。フィルタ（緊急度・感情）はSettingsで調整する。
-export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRun> {
-  return startRun(
-    "Lead Agent",
-    [
-      "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
-      "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
-      "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
-      "",
-      `対象のJournalエントリ: "${rawText}"`,
-    ].join("\n"),
-    "auto-anomaly",
-  );
+export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRun | undefined> {
+  const task = [
+    "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
+    "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
+    "",
+    `対象のJournalエントリ: "${rawText}"`,
+  ].join("\n");
+  try {
+    return await startRun("Lead Agent", task, "auto-anomaly");
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) {
+      parkPendingUnmaskedSend({
+        id: `unmasked-journal:${Date.now()}`,
+        kind: "start-run",
+        candidates: err.candidates,
+        label: "Journal自動分析の送信確認",
+        agentName: "Lead Agent",
+        task,
+        origin: "auto-anomaly",
+      });
+      return undefined;
+    }
+    throw err;
+  }
 }
 
 let watchdogStarted = false;
@@ -1895,7 +1975,10 @@ export async function startRun(
   rawTask: string,
   origin: AgentRun["origin"] = "manual",
   linkedIssueId?: string,
+  opts: MaskOptions = {},
 ): Promise<AgentRun> {
+  await ensureNameCandidatesAllowed([rawTask], opts);
+
   const run: AgentRun = {
     id: randomUUID(),
     agentName,
@@ -1938,12 +2021,17 @@ export function buildIssueDraftTask(title: string, charter: { why?: string; what
   return lines.join("\n");
 }
 
-export async function decideRun(id: string, rawMessage: string): Promise<AgentRun | undefined> {
+export async function decideRun(
+  id: string,
+  rawMessage: string,
+  opts: MaskOptions = {},
+): Promise<AgentRun | undefined> {
   const run = runs.get(id);
   if (!run) return undefined;
   if (run.status === "active" || run.status === "queued") {
     throw new Error("エージェントが実行中または順番待ちのため、今は入力を受け付けられません");
   }
+  await ensureNameCandidatesAllowed([rawMessage], opts);
   const maskedMessage = await sanitizeForCloud(run, rawMessage);
   appendLog(run, "meta", `EMからの入力: ${maskedMessage}`);
   void runClaudeTurn(run, rawMessage, true, maskedMessage);

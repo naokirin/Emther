@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
-import { maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
+import { ensureNameCandidatesAllowed, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
+import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 
 // 個人情報の分離（ユーザー指摘対応）: title・charter（why/what/how）はEMが自由記述する
-// フィールドで人物名を含み得るため、保存前にmaskForStorage（ローカルNER検出＋PERSON_n
-// 置換）を通す。tagsは構造的なラベル（例: "技術的負債"）であり個人名ではないため対象外。
-// EM向けの表示（Dashboard等）は、これを返すAPIルート側でunmaskNamesを通してから応答する。
+// フィールドで人物名を含み得るため、保存前にensureNameCandidatesAllowed（未登録候補の確認）と
+// maskForStorage（既登録名のPERSON_n置換）を通す。tagsは構造的なラベル（例: "技術的負債"）であり
+// 個人名ではないため対象外。EM向けの表示（Dashboard等）は、これを返すAPIルート側で
+// unmaskNamesを通してから応答する。
 
 // docs 3.7「双方向のIssueトラッキング基盤」の最小実装。
 // v5設計書はIssueが独自の実行計画・ロードマップを持つ想定だが、MVPでは
@@ -167,6 +169,7 @@ export async function createIssue(
   tags?: string[],
   keyResultId?: string,
   teamId?: string,
+  opts: MaskOptions = {},
 ): Promise<Issue> {
   if (parentId) {
     const parent = getIssue(parentId);
@@ -177,6 +180,14 @@ export async function createIssue(
       throw new Error("この親Issue自体が子Issueのため、これ以上下に分解できません（親子関係は1階層まで）");
     }
   }
+
+  const texts = [
+    title.trim(),
+    charter?.why?.trim() ?? "",
+    charter?.what?.trim() ?? "",
+    charter?.how?.trim() ?? "",
+  ].filter(Boolean);
+  await ensureNameCandidatesAllowed(texts, opts);
 
   const now = Date.now();
   const issue: Issue = {
@@ -208,7 +219,12 @@ export async function createIssue(
 // 既存のIssueの「上位」に新しいIssueを作り、既存のIssueをその子として付け替える
 // （＝ズームアウト。大きな課題として括り直す）。既存のIssueが既に子（親を持つ）か、
 // 既に自分の子を持っている場合は2階層を超えてしまうため拒否する。
-export async function createParentIssue(childId: string, title: string, charter?: Partial<IssueCharter>): Promise<Issue> {
+export async function createParentIssue(
+  childId: string,
+  title: string,
+  charter?: Partial<IssueCharter>,
+  opts: MaskOptions = {},
+): Promise<Issue> {
   const child = getIssue(childId);
   if (!child) {
     throw new Error("対象のIssueが見つかりません");
@@ -219,6 +235,14 @@ export async function createParentIssue(childId: string, title: string, charter?
   if (issues.some((i) => i.parentId === childId)) {
     throw new Error("このIssueには既に子Issueがあるため、上位Issueを作ると2階層を超えてしまいます");
   }
+
+  const texts = [
+    title.trim(),
+    charter?.why?.trim() ?? "",
+    charter?.what?.trim() ?? "",
+    charter?.how?.trim() ?? "",
+  ].filter(Boolean);
+  await ensureNameCandidatesAllowed(texts, opts);
 
   const now = Date.now();
   const parent: Issue = {
@@ -264,9 +288,20 @@ async function scheduleIssueUpdateAnalysis(
   }
 }
 
-export async function updateIssueCharter(issueId: string, patch: Partial<IssueCharter>): Promise<Issue | undefined> {
+export async function updateIssueCharter(
+  issueId: string,
+  patch: Partial<IssueCharter>,
+  opts: MaskOptions = {},
+): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
+  const texts = [
+    patch.why !== undefined ? patch.why.trim() : "",
+    patch.what !== undefined ? patch.what.trim() : "",
+    patch.how !== undefined ? patch.how.trim() : "",
+  ].filter(Boolean);
+  if (texts.length > 0) await ensureNameCandidatesAllowed(texts, opts);
+
   const next: IssueCharter = {
     why: patch.why !== undefined ? await maskForStorage(patch.why.trim()) : issue.charter.why,
     what: patch.what !== undefined ? await maskForStorage(patch.what.trim()) : issue.charter.what,
@@ -292,11 +327,16 @@ export async function updateIssueCharter(issueId: string, patch: Partial<IssueCh
 // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
 // 起票後に文脈が変わった・言葉を整えたい場合の訂正用。空文字は拒否する（Issueのタイトルは
 // 一覧・Timeline・関連Issue表示等、常に何らかの見出しとして参照されるため）。
-export async function setIssueTitle(issueId: string, title: string): Promise<Issue | undefined> {
+export async function setIssueTitle(
+  issueId: string,
+  title: string,
+  opts: MaskOptions = {},
+): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const trimmed = title.trim();
   if (!trimmed) throw new Error("titleは必須です");
+  await ensureNameCandidatesAllowed([trimmed], opts);
   const masked = await maskForStorage(trimmed);
   if (masked === issue.title) return issue;
   const previousTitle = issue.title;
@@ -314,11 +354,16 @@ function bumpToInProgressIfNotStarted(issue: Issue): void {
   if (issue.status === "not_started") issue.status = "in_progress";
 }
 
-export async function addActionItem(issueId: string, text: string): Promise<Issue | undefined> {
+export async function addActionItem(
+  issueId: string,
+  text: string,
+  opts: MaskOptions = {},
+): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const trimmed = text.trim();
   if (!trimmed) return issue;
+  await ensureNameCandidatesAllowed([trimmed], opts);
   const masked = await maskForStorage(trimmed);
   issue.actionItems.push({ id: randomUUID(), text: masked, done: false });
   bumpToInProgressIfNotStarted(issue);
@@ -332,11 +377,16 @@ export async function addActionItem(issueId: string, text: string): Promise<Issu
 // addActionItemと同じ最小限の作りだが、done等の状態を持たない単純な追記のみ（種別を
 // 分けない自由記述のため、後から編集・削除もしない——イベントソーシング的な記録として
 // 積み上げるだけにする）。recordChangeEventも呼ぶため、Timelineにも自然に現れる。
-export async function addLogEntry(issueId: string, text: string): Promise<Issue | undefined> {
+export async function addLogEntry(
+  issueId: string,
+  text: string,
+  opts: MaskOptions = {},
+): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const trimmed = text.trim();
   if (!trimmed) return issue;
+  await ensureNameCandidatesAllowed([trimmed], opts);
   const masked = await maskForStorage(trimmed);
   issue.logEntries.push({ id: randomUUID(), text: masked, createdAt: Date.now() });
   bumpToInProgressIfNotStarted(issue);

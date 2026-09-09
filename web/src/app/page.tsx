@@ -6,6 +6,7 @@ import styles from "./page.module.css";
 import { runKindLabel } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
+import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
 import {
   useEmCheckins,
   useGoToRunIssue,
@@ -20,12 +21,14 @@ import {
   useTeams,
   useVitals,
 } from "@/lib/hooks";
+import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import {
   charterFilledCount,
   isJournalEntryResolved,
   isRunStale,
   type Issue,
   type JournalEntry,
+  type PendingUnmaskedSend,
 } from "@/lib/types";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
@@ -149,7 +152,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const { runs, pendingAgentStarts, runsLoaded, refreshRuns } = useRuns();
+  const { runs, pendingAgentStarts, pendingUnmaskedSends, runsLoaded, refreshRuns } = useRuns();
   const { issues, issuesLoaded } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
   const { vitals, vitalsLoaded } = useVitals();
@@ -194,6 +197,9 @@ export default function DashboardPage() {
   // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
   // ロジック自体はJournal一覧画面（/journal）と共有するため@/lib/hooksに切り出してある。
   const journalEditing = useJournalEditing(journalEntries, setJournalEntries);
+  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
+  const [confirmingUnmasked, setConfirmingUnmasked] = useState<PendingUnmaskedSend | null>(null);
+  const [confirmingUnmaskedBusy, setConfirmingUnmaskedBusy] = useState(false);
 
   // docs/memo.md「H: 永続化データモデルの設計」対応。Quick Journal（一時的なfact）とは
   // 別に、長期的な解釈（interpretation、TTLなし）を記録する口。「Aさんはリーダー志向がある」
@@ -328,16 +334,19 @@ export default function DashboardPage() {
 
     (async () => {
       try {
-        const res = await fetch("/api/journal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, occurredAtDate }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "タグ付けに失敗しました");
-        setJournalEntries((prev) => [data.entry, ...prev]);
+        const { res, data } = await fetchWithNameConfirm(
+          "/api/journal",
+          { method: "POST", body: { text, occurredAtDate } },
+          "保存する",
+        );
+        if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "タグ付けに失敗しました");
+        setJournalEntries((prev) => [(data as { entry: JournalEntry }).entry, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
       } catch (err) {
+        if ((err as Error).message === "人名候補の確認をキャンセルしました") {
+          setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+          return;
+        }
         setPendingJournalDrafts((prev) =>
           prev.map((d) =>
             d.tempId === tempId
@@ -374,22 +383,27 @@ export default function DashboardPage() {
 
     (async () => {
       try {
-        const res = await fetch("/api/journal/bulk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "まとめ記録に失敗しました");
-        const newEntries = data.entries as JournalEntry[];
+        const { res, data } = await fetchWithNameConfirm(
+          "/api/journal/bulk",
+          { method: "POST", body: { text } },
+          "保存する",
+        );
+        if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "まとめ記録に失敗しました");
+        const newEntries = (data as { entries: JournalEntry[]; skippedLines: number }).entries;
         setJournalEntries((prev) => [...newEntries, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
         setBulkResultMessage(
           `${newEntries.length}件を記録しました（いずれも未確認）。内容と発生日を確認してください。${
-            data.skippedLines > 0 ? ` ※${data.skippedLines}行は上限を超えたため処理していません。` : ""
+            (data as { skippedLines: number }).skippedLines > 0
+              ? ` ※${(data as { skippedLines: number }).skippedLines}行は上限を超えたため処理していません。`
+              : ""
           }`,
         );
       } catch (err) {
+        if ((err as Error).message === "人名候補の確認をキャンセルしました") {
+          setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+          return;
+        }
         setPendingJournalDrafts((prev) =>
           prev.map((d) => (d.tempId === tempId ? { ...d, error: (err as Error).message, retry: () => submitBulkDraft(text) } : d)),
         );
@@ -667,6 +681,20 @@ export default function DashboardPage() {
         if (pending.issueId) router.push(`/issues/${pending.issueId}`);
       },
       since: pending.firesAt,
+    });
+  }
+
+  // 未登録人名候補のまま外部送信してよいかの確認待ち（自動起動が止まった状態）。
+  for (const pending of pendingUnmaskedSends) {
+    nextActions.push({
+      id: `pending-unmasked-${pending.id}`,
+      severity: "urgent",
+      lane: "decision",
+      icon: "🪪",
+      kindLabel: "送信前確認",
+      text: `${pending.label}: ${pending.candidates.join("、")}`,
+      onSelect: () => setConfirmingUnmasked(pending),
+      since: now,
     });
   }
 
@@ -1282,6 +1310,43 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      {nameCandidateDialog}
+      {journalEditing.nameCandidateDialog}
+      {confirmingUnmasked && (
+        <NameCandidateConfirmDialog
+          candidates={confirmingUnmasked.candidates}
+          actionLabel="送信する"
+          busy={confirmingUnmaskedBusy}
+          onCancel={async () => {
+            setConfirmingUnmaskedBusy(true);
+            try {
+              await fetch(`/api/agents/pending-unmasked/${encodeURIComponent(confirmingUnmasked.id)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "dismiss" }),
+              });
+              await refreshRuns();
+            } finally {
+              setConfirmingUnmaskedBusy(false);
+              setConfirmingUnmasked(null);
+            }
+          }}
+          onAllow={async () => {
+            setConfirmingUnmaskedBusy(true);
+            try {
+              await fetch(`/api/agents/pending-unmasked/${encodeURIComponent(confirmingUnmasked.id)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "confirm" }),
+              });
+              await refreshRuns();
+            } finally {
+              setConfirmingUnmaskedBusy(false);
+              setConfirmingUnmasked(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

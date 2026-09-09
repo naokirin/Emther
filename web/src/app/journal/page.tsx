@@ -230,6 +230,7 @@ function JournalListPageInner() {
           onChange={setPage}
         />
       </div>
+      {editing.nameCandidateDialog}
     </div>
   );
 }

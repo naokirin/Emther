@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addJournalEntry, listJournalEntries, toJournalEntryView } from "@/lib/journal-store";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
+import { jsonFromUnknownError, parseAllowUnmaskedCandidates } from "@/app/api/name-candidate-response";
 
 export async function GET() {
   return NextResponse.json({ entries: listJournalEntries().map(toJournalEntryView) });
@@ -25,10 +26,15 @@ export async function POST(request: Request) {
     }
   }
 
+  const opts = { allowUnmaskedCandidates: parseAllowUnmaskedCandidates(body) };
+
   try {
-    const entry = occurredAt !== undefined ? await addJournalEntry(text, occurredAt) : await addJournalEntry(text);
+    const entry =
+      occurredAt !== undefined
+        ? await addJournalEntry(text, occurredAt, opts)
+        : await addJournalEntry(text, Date.now(), opts);
     return NextResponse.json({ entry: toJournalEntryView(entry) }, { status: 201 });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    return jsonFromUnknownError(err);
   }
 }
