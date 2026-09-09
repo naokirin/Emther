@@ -97,7 +97,7 @@ Cursor は `CURSOR_API_KEY` を `.env` に置く方法でも認証できます�
 ## 構成ファイル
 
 - `docker-compose.yml` — サービス定義と volume
-- `web/Dockerfile` — Node 22 + アプリ + CLI
+- `web/Dockerfile` — Node 24 + アプリ + CLI
 - `web/docker-entrypoint.sh` — 起動時の未認証警告
 - `.env.docker.example` — ポート / API キー例
 

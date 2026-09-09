@@ -1,13 +1,13 @@
 # EM Support System — コンテナ完結イメージ
-# Node 22+（node:sqlite）+ Claude / agy / cursor-agent CLI を同梱する。
+# Node 24 LTS（node:sqlite）+ Claude / agy / cursor-agent CLI を同梱する。
 # 認証情報はイメージに焼き込まず、実行時の named volume に保存する。
 
-FROM node:22-bookworm AS deps
+FROM node:24-bookworm AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
-FROM node:22-bookworm AS builder
+FROM node:24-bookworm AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -16,7 +16,7 @@ RUN npm run build
 # 本番実行に不要な devDependencies を落とす（transformers / onnx の native は残る）
 RUN npm prune --omit=dev
 
-FROM node:22-bookworm AS runner
+FROM node:24-bookworm AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

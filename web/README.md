@@ -250,7 +250,7 @@ Issueは重要な意思決定の単位であり、計画・実行の前に「Why
 
 `docs/memo.md`のTODO（優先度再検討の議論より、「H」として着手）。単調に増え続けるデータ（Journal、Agent Runの実行ログ）を、書き込みのたびにファイル全体を書き直すJSON配列でずっと持ち続けるのは半年〜1年単位の運用で破綻すると判断し、以下の設計に更新した。
 
-- **ストレージ**: Node 22+に組み込まれている`node:sqlite`（`DatabaseSync`）を採用。追加npm依存はゼロ。単一ローカルユーザー・単一プロセス前提で、数百万レコード規模に達するには何年もかかる想定のため、分散DBや専用サーバープロセスは導入しない（`web/src/lib/db.ts`）。`.data/app.db`（WAL）に、`agent_runs`/`agent_run_logs`と`knowledge_events`の3テーブルを持つ。
+- **ストレージ**: Node 24 LTSに組み込まれている`node:sqlite`（`DatabaseSync`）を採用。追加npm依存はゼロ。単一ローカルユーザー・単一プロセス前提で、数百万レコード規模に達するには何年もかかる想定のため、分散DBや専用サーバープロセスは導入しない（`web/src/lib/db.ts`）。`.data/app.db`（WAL）に、`agent_runs`/`agent_run_logs`と`knowledge_events`の3テーブルを持つ。
 - **ファクトと解釈の分離＋バイテンポラル**: `web/src/lib/knowledge-store.ts`に`KnowledgeEvent`を新設。`kind: "fact"`（起きた出来事そのもの、例:「Aさんが『辞めたい』と言った」）と`kind: "interpretation"`（そこから導いた長期的な解釈、例:「Aさんはリーダー志向がある」）を明確に分け、`occurredAt`（実世界でその内容が真だった時点）と`recordedAt`（システムが記録した時点）の2軸を持つ。`context`（official/observation/casual/complaint/profile）と`ttlDays`（現在の判断にどれだけの期間重みを持たせるか、未指定＝長期有効）も全イベントに付与する。**イベントは削除しない**——TTLは「重み」の話であり「履歴からの消去」の話ではない。
 - **Journalの統合**: `journal-store.ts`は`journal.json`という別ファイルを持たず、Journal投稿はそのまま`kind: "fact", entityType: "journal"`のKnowledgeEventとしてSQLiteに記録される（二重管理をしない）。`JournalEntry`型・`listJournalEntries()`/`addJournalEntry()`のシグネチャは変更していないため、UI・Agent Runtime側は無改修。TTLは`Settings`の`journalFactTtlDays`（既定90日）から適用される。
 - **長期プロファイルの記録口**: `POST /api/knowledge/interpretations`（`{person, text}`）で「Aさんはリーダー志向がある」のような長期的な解釈を記録できる。Dashboard Quick Journalパネル下部に専用の小さな入力欄を追加した（Journalとは別枠、TTLなし）。
