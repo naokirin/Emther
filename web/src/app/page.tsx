@@ -734,9 +734,21 @@ export default function DashboardPage() {
           }}
         >
           <span style={{ fontSize: "0.8125rem" }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
-          <button className={styles.btnOutline} style={{ flexShrink: 0 }} onClick={() => router.push("/org")}>
-            Organization Contextへ
-          </button>
+          {/* ユーザー要望「チーム・メンバータブにチームの追加・編集を統合したい」対応。チームの
+              追加は/teams（チーム・メンバータブの「チーム」）へ、MVV/Objectiveの設定は
+              方針・目標タブへ、と行き先が分かれたためボタンも分ける（不足している方だけ出す）。 */}
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {teams.length === 0 && (
+              <button className={styles.btnOutline} onClick={() => router.push("/teams")}>
+                チームへ
+              </button>
+            )}
+            {(!strategy.mission && !strategy.vision && !strategy.values) || objectives.length === 0 ? (
+              <button className={styles.btnOutline} onClick={() => router.push("/org")}>
+                方針・目標へ
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -948,8 +960,8 @@ export default function DashboardPage() {
           {vitals.teams.length === 0 && (
             <p className={styles.subtitle}>
               チームが登録されていません。
-              <button className={styles.detailToggle} onClick={() => router.push("/org")}>
-                Organization Contextから追加
+              <button className={styles.detailToggle} onClick={() => router.push("/teams")}>
+                チームから追加
               </button>
             </p>
           )}

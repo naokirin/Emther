@@ -81,7 +81,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
     return {
       teamId: team.id,
       teamName: teamDisplayName(team.name),
-      ...withIssueEscalation("unknown", "メンバーが登録されていません。Organization Contextでメンバーを追加してください。"),
+      ...withIssueEscalation("unknown", "メンバーが登録されていません。メンバータブでチームにメンバーを追加してください。"),
       members: team.members,
       managedByEm: team.managedByEm,
     };

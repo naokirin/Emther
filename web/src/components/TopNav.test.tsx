@@ -37,11 +37,19 @@ describe("TopNav", () => {
   });
 
   // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応の回帰テスト。
-  it("/peopleは「課題」ではなく独立した「メンバー」タブがactiveになる", () => {
+  it("/peopleは「課題」ではなく独立した「チーム・メンバー」タブがactiveになる", () => {
     mockPathname = "/people";
     render(<TopNav />);
-    expect(screen.getByRole("link", { name: "メンバー" }).className).toContain("tabBtnActive");
+    expect(screen.getByRole("link", { name: "チーム・メンバー" }).className).toContain("tabBtnActive");
     expect(screen.getByRole("link", { name: "課題" }).className).not.toContain("tabBtnActive");
+  });
+
+  // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
+  // 切り替えられるようにしたい」対応の回帰テスト。
+  it("/teamsも「チーム・メンバー」タブがactiveになる", () => {
+    mockPathname = "/teams";
+    render(<TopNav />);
+    expect(screen.getByRole("link", { name: "チーム・メンバー" }).className).toContain("tabBtnActive");
   });
 });
 
@@ -58,10 +66,13 @@ describe("StoryBanner", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("課題から分離した単一画面グループ（メンバー）では見出しを表示する", () => {
+  // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
+  // 切り替えられるようにしたい」対応。複数画面グループになったため、サイドメニューの
+  // 見出しと重複させないよう表示しない（相談グループと同じ扱い）。
+  it("複数画面を持つグループになった「チーム・メンバー」では表示しない", () => {
     mockPathname = "/people";
-    render(<StoryBanner />);
-    expect(screen.getByText(/メンバー/)).toBeInTheDocument();
+    const { container } = render(<StoryBanner />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("どのグループにも属さないパスでは表示しない", () => {
@@ -96,14 +107,18 @@ describe("AppShell", () => {
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
-  // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応の回帰テスト。
-  it("課題から分離した単一画面グループ（メンバー、/people）ではサイドメニューを表示しない", () => {
+  // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
+  // 切り替えられるようにしたい」対応の回帰テスト。
+  it("複数画面グループになった「チーム・メンバー」（/people, /teams）ではサイドメニューを表示する", () => {
     mockPathname = "/people";
     render(
       <AppShell>
         <div>page content</div>
       </AppShell>,
     );
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "メンバー" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "チーム" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "メンバー" }).className).toContain("sideNavItemActive");
+    expect(screen.getByRole("link", { name: "チーム" }).className).not.toContain("sideNavItemActive");
   });
 });

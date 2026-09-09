@@ -63,7 +63,7 @@ function TeamMembershipEditor({
 
   if (activeTeams.length === 0) {
     return (
-      <p className={styles.subtitle}>登録されているチームがありません。Organization Contextでチームを作成してください。</p>
+      <p className={styles.subtitle}>登録されているチームがありません。「チーム・メンバー」タブの「チーム」でチームを作成してください。</p>
     );
   }
 
@@ -235,7 +235,7 @@ export function PersonDetailContent({ id }: { id: string }) {
 
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>所属チーム</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        チーム名の一部を入力すると候補が出ます。選ぶと所属に追加され、タグの✕で解除できます。「（管理外）」は自分が管理していないチーム（Organization Contextで設定）です。
+        チーム名の一部を入力すると候補が出ます。選ぶと所属に追加され、タグの✕で解除できます。「（管理外）」は自分が管理していないチーム（「チーム・メンバー」タブの「チーム」で設定）です。
       </p>
       <div style={{ marginBottom: 10 }}>
         <TeamMembershipEditor personName={person.name} teams={teams} onChanged={handleTeamsChanged} />

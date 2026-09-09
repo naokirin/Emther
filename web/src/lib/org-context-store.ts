@@ -272,6 +272,12 @@ export type KeyResult = {
 export type Objective = {
   id: string;
   title: string;
+  // ユーザー要望「目標は組織内でカスケーディングされるもの(上位組織の目標達成のために
+  // 下位組織の目標がある)なので、それを意識した構成にしたい」対応。未指定＝組織全体の
+  // トップレベル目標、指定時はそのチーム自身の目標（＝上位の組織目標を達成するための
+  // 下位目標）であることを表す。チームの親子関係はTeam.name（"/"区切り）にそのまま乗る
+  // ため、Objective側に別途parentObjectiveId等は持たせない。
+  teamId?: string;
   keyResults: KeyResult[];
   createdAt: number;
   updatedAt: number;
@@ -291,11 +297,12 @@ export function getObjective(id: string): Objective | undefined {
   return objectives.find((o) => o.id === id);
 }
 
-export async function addObjective(title: string): Promise<Objective> {
+export async function addObjective(title: string, teamId?: string): Promise<Objective> {
   const now = Date.now();
   const objective: Objective = {
     id: randomUUID(),
     title: await maskForStorage(title.trim()),
+    teamId,
     keyResults: [],
     createdAt: now,
     updatedAt: now,
@@ -306,16 +313,35 @@ export async function addObjective(title: string): Promise<Objective> {
   return objective;
 }
 
-export async function renameObjective(id: string, title: string): Promise<Objective | undefined> {
+// ユーザー要望「目標のカスケーディング構成」対応。renameObjectiveをtitle/teamId両方の
+// 部分更新に拡張した（updateTeamと同じ、変更のあったフィールドだけ更新する規約）。
+// teamId: undefined＝変更しない、null＝組織全体の目標に戻す、string＝そのチームの目標にする
+// （updateJournalEntryのresolvedIssueIdと同じ3値の意味付け）。
+export async function updateObjective(
+  id: string,
+  patch: { title?: string; teamId?: string | null },
+): Promise<Objective | undefined> {
   const objective = getObjective(id);
   if (!objective) return undefined;
-  const nextTitle = await maskForStorage(title.trim());
-  if (nextTitle === objective.title) return objective;
-  const prevTitle = objective.title;
-  objective.title = nextTitle;
+  const changes: string[] = [];
+  if (patch.title !== undefined) {
+    const nextTitle = await maskForStorage(patch.title.trim());
+    if (nextTitle && nextTitle !== objective.title) {
+      changes.push(`名前: 「${objective.title}」→「${nextTitle}」`);
+      objective.title = nextTitle;
+    }
+  }
+  if (patch.teamId !== undefined) {
+    const nextTeamId = patch.teamId ?? undefined;
+    if (nextTeamId !== objective.teamId) {
+      changes.push(nextTeamId ? "所属チームを設定しました" : "組織全体の目標に変更しました");
+      objective.teamId = nextTeamId;
+    }
+  }
+  if (changes.length === 0) return objective;
   objective.updatedAt = Date.now();
   persistObjectives();
-  recordChangeEvent("org", objective.id, `Objective名を変更: 「${prevTitle}」→「${nextTitle}」`);
+  recordChangeEvent("org", objective.id, changes.join(" / "));
   return objective;
 }
 

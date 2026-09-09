@@ -48,4 +48,19 @@ describe("POST /api/org/objectives", () => {
     expect(res.status).toBe(201);
     expect((await res.json()).objective.title).toBe("新しいObjective");
   });
+
+  // ユーザー要望「目標のカスケーディング構成」対応。
+  it("teamIdを指定するとそのチームの目標として作成できる", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const team = orgStore.addTeam("Team A", []);
+    const route = await import("./route");
+    const res = await route.POST(jsonRequest("http://localhost/x", "POST", { title: "チーム目標", teamId: team.id }));
+    expect((await res.json()).objective.teamId).toBe(team.id);
+  });
+
+  it("teamIdを省略すると組織全体の目標になる", async () => {
+    const route = await import("./route");
+    const res = await route.POST(jsonRequest("http://localhost/x", "POST", { title: "組織目標" }));
+    expect((await res.json()).objective.teamId).toBeUndefined();
+  });
 });
