@@ -24,12 +24,14 @@ import {
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import {
   INTERVENTION_NEXT_ACTION_LIMIT,
+  ISSUE_PRIORITY_META,
   charterFilledCount,
   compareIssuesByPriority,
   isJournalEntryResolved,
   isRunStale,
   issueNextAction,
   type Issue,
+  type IssuePriority,
   type JournalEntry,
   type PendingUnmaskedSend,
 } from "@/lib/types";
@@ -181,7 +183,7 @@ export default function DashboardPage() {
   }, []);
 
   const { runs, pendingAgentStarts, pendingUnmaskedSends, runsLoaded, refreshRuns } = useRuns();
-  const { issues, issuesLoaded } = useIssues();
+  const { issues, issuesLoaded, refreshIssues } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
   const { vitals, vitalsLoaded } = useVitals();
   const { journalEntries, setJournalEntries, journalLoaded } = useJournal();
@@ -324,6 +326,9 @@ export default function DashboardPage() {
   // docs/em_human_story_and_ux.md P0-1対応。既定は「判断待ち」だけを見せ、他レーンは
   // タブで切り替える（3種類を同じリストに混在させない）。
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
+  // 次の1手を「判断」（Yield等）と「実行」（Action Itemの次の一手）に分ける。
+  const [handMode, setHandMode] = useState<"decide" | "execute">("decide");
+  const [completingActionKey, setCompletingActionKey] = useState<string | null>(null);
   // レーンごとの「もっと見る」で追加表示した件数。初期上限（設定 or NEXT_ACTIONS_LIMIT）
   // を超えた分だけをここに積む。タブ切替後もレーン別に覚える。
   const [laneExtraVisible, setLaneExtraVisible] = useState<Record<Lane, number>>({
@@ -331,6 +336,7 @@ export default function DashboardPage() {
     observation: 0,
     maintenance: 0,
   });
+  const [executeExtraVisible, setExecuteExtraVisible] = useState(0);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   // docs/dashboard_ui_readability.md U4-1対応。Quick Journalと長期プロファイルが
   // 同一パネル内で「入力が2種類」に見えないよう、長期プロファイルは既定で畳んでおく。
@@ -645,8 +651,8 @@ export default function DashboardPage() {
     });
   }
 
-  // Action Items進行管理: 進行中・Waiting の介入の「次の一手」を横断表示（上限N件）。
-  // parked は朝キュー外。並びは focus（focusOrder）→ normal。未設定は整備レーンへ。
+  // Action Items進行管理: 進行中・Waiting の介入。parked は朝の実行キュー外。
+  // 「次の一手」本体は判断レーンに混ぜず、実行モード専用リストへ載せる。
   const activeInterventions = issues
     .filter(
       (i) =>
@@ -656,21 +662,21 @@ export default function DashboardPage() {
         (i.priority ?? "normal") !== "parked",
     )
     .sort(compareIssuesByPriority);
-  const withNext = activeInterventions.filter((i) => issueNextAction(i)).slice(0, INTERVENTION_NEXT_ACTION_LIMIT);
-  for (const issue of withNext) {
-    const next = issueNextAction(issue)!;
-    const isFocus = (issue.priority ?? "normal") === "focus";
-    nextActions.push({
-      id: `next-action-${issue.id}`,
-      severity: issue.status === "blocked" ? "urgent" : "warn",
-      lane: "decision",
-      icon: issue.status === "blocked" ? "🟡" : isFocus ? "🔥" : "👉",
-      kindLabel: isFocus ? "フォーカスの次の一手" : "介入の次の一手",
-      text: `「${issue.title}」— ${next.text.slice(0, 40)}`,
-      onSelect: () => router.push(`/issues/${issue.id}`),
-      since: issue.updatedAt,
-    });
-  }
+  const executionMoves = activeInterventions.flatMap((issue) => {
+    const next = issueNextAction(issue);
+    if (!next) return [];
+    return [
+      {
+        issueId: issue.id,
+        issueTitle: issue.title,
+        priority: (issue.priority ?? "normal") as IssuePriority,
+        itemId: next.id,
+        itemText: next.text,
+        blocked: issue.status === "blocked",
+        updatedAt: issue.updatedAt,
+      },
+    ];
+  });
   const missingNext = activeInterventions
     .filter((i) => !issueNextAction(i) && (i.priority ?? "normal") === "focus")
     .slice(0, INTERVENTION_NEXT_ACTION_LIMIT);
@@ -871,13 +877,29 @@ export default function DashboardPage() {
   const laneLimit = LANE_LIMITS[laneFilter] + laneExtraVisible[laneFilter];
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   const hiddenActionCount = Math.max(0, laneActionsForFilter.length - laneLimit);
+  const executeLimit = INTERVENTION_NEXT_ACTION_LIMIT + executeExtraVisible;
+  const visibleExecutionMoves = executionMoves.slice(0, executeLimit);
+  const hiddenExecutionCount = Math.max(0, executionMoves.length - executeLimit);
   // 未ロード中は「課題はありません」と断定しない（空fallbackを実データと誤認させない）。
   const headline = !nextActionsLoaded
     ? "読み込み中…"
-    : heroAction
-      ? "次の1手"
-      : "✅ 今日、判断待ちの組織課題はありません。";
+    : handMode === "execute"
+      ? "進める次の一手"
+      : heroAction
+        ? "次の1手"
+        : "✅ 今日、判断待ちの組織課題はありません。";
   const restCount = restActions.length;
+
+  async function handleCompleteExecutionMove(issueId: string, itemId: string) {
+    const key = `${issueId}:${itemId}`;
+    setCompletingActionKey(key);
+    try {
+      const res = await fetch(`/api/issues/${issueId}/action-items/${itemId}`, { method: "PATCH" });
+      if (res.ok) await refreshIssues();
+    } finally {
+      setCompletingActionKey(null);
+    }
+  }
 
   return (
     <div className={styles.screen}>
@@ -948,7 +970,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 「次の1手」をヒーローに固定。他のレーン一覧は従属。Fleet/Activityは /agents。 */}
+      {/* 「次の1手」をヒーローに固定。判断（Yield等）と実行（Next Action）をモードで分ける。 */}
       <div className={styles.dashColumns}>
       <div className={`${styles.panel} ${styles.heroPanel}`}>
         <h2 className={styles.heroHeadline}>{headline}</h2>
@@ -970,103 +992,183 @@ export default function DashboardPage() {
           </p>
         )}
 
-        {!nextActionsLoaded ? (
-          <p className={styles.subtitle}>読み込み中…</p>
-        ) : heroAction ? (
-          <div
-            className={`${styles.runItem} ${heroAction.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
-            style={{
-              display: "block",
-              padding: "14px 16px",
-              marginBottom: 12,
-              cursor: "pointer",
-              borderWidth: 2,
-            }}
-            onClick={heroAction.onSelect}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                heroAction.onSelect();
-              }
-            }}
-            role="button"
-            tabIndex={0}
+        <div className={styles.tabs} style={{ margin: "0 0 12px" }}>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${handMode === "decide" ? styles.tabBtnActive : ""}`}
+            onClick={() => setHandMode("decide")}
+            title="Yield・起票待ち・異常など、人の判断が要るもの"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-              <span className={styles.badge}>{heroAction.kindLabel}</span>
-              {lastSeenAt !== null && heroAction.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                {LANE_META[heroAction.lane].label}
-              </span>
-            </div>
-            <div className={styles.runItemTask} style={{ fontSize: "1rem", lineHeight: 1.45, marginBottom: 12 }}>
-              {heroAction.icon} {heroAction.text}
-            </div>
-            <button
-              type="button"
-              className={styles.primaryBtn}
-              style={{ width: "auto" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                heroAction.onSelect();
-              }}
-            >
-              {heroAction.ctaLabel ?? "開く"}
-            </button>
-          </div>
-        ) : (
-          <p className={styles.subtitle}>✅ 今すぐ決めるべき次の1手はありません。</p>
-        )}
+            判断{nextActionsLoaded ? `（${nextActions.length}）` : ""}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${handMode === "execute" ? styles.tabBtnActive : ""}`}
+            onClick={() => setHandMode("execute")}
+            title="介入の次の一手をフォーカス順で進める"
+          >
+            実行{issuesLoaded ? `（${executionMoves.length}）` : ""}
+          </button>
+        </div>
 
-        {restCount > 0 && (
+        {handMode === "decide" ? (
           <>
-            <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
-              他に {restCount} 件（判断待ち{restLaneCounts.decision}・観測{restLaneCounts.observation}・整備{restLaneCounts.maintenance}）
-            </p>
-            <div className={styles.tabs} style={{ margin: "0 0 10px" }}>
-              {(Object.keys(LANE_META) as Lane[]).map((lane) => (
+            {!nextActionsLoaded ? (
+              <p className={styles.subtitle}>読み込み中…</p>
+            ) : heroAction ? (
+              <div
+                className={`${styles.runItem} ${heroAction.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                style={{
+                  display: "block",
+                  padding: "14px 16px",
+                  marginBottom: 12,
+                  cursor: "pointer",
+                  borderWidth: 2,
+                }}
+                onClick={heroAction.onSelect}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    heroAction.onSelect();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                  <span className={styles.badge}>{heroAction.kindLabel}</span>
+                  {lastSeenAt !== null && heroAction.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                    {LANE_META[heroAction.lane].label}
+                  </span>
+                </div>
+                <div className={styles.runItemTask} style={{ fontSize: "1rem", lineHeight: 1.45, marginBottom: 12 }}>
+                  {heroAction.icon} {heroAction.text}
+                </div>
                 <button
-                  key={lane}
-                  className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""}`}
-                  onClick={() => setLaneFilter(lane)}
-                  title={LANE_META[lane].hint}
+                  type="button"
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    heroAction.onSelect();
+                  }}
                 >
-                  {LANE_META[lane].label}（{restLaneCounts[lane]}）
+                  {heroAction.ctaLabel ?? "開く"}
                 </button>
-              ))}
-            </div>
-            {visibleActions.length === 0 ? (
-              <p className={styles.subtitle}>このレーンの残りはありません。</p>
+              </div>
             ) : (
+              <p className={styles.subtitle}>✅ 今すぐ決めるべき次の1手はありません。</p>
+            )}
+
+            {restCount > 0 && (
               <>
-                <div className={styles.runList} style={{ maxHeight: "none" }}>
-                  {visibleActions.map((a) => (
+                <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
+                  他に {restCount} 件（判断待ち{restLaneCounts.decision}・観測{restLaneCounts.observation}・整備{restLaneCounts.maintenance}）
+                </p>
+                <div className={styles.tabs} style={{ margin: "0 0 10px" }}>
+                  {(Object.keys(LANE_META) as Lane[]).map((lane) => (
                     <button
-                      key={a.id}
-                      className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                      onClick={a.onSelect}
+                      key={lane}
+                      className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""}`}
+                      onClick={() => setLaneFilter(lane)}
+                      title={LANE_META[lane].hint}
                     >
-                      <span className={styles.badge}>{a.kindLabel}</span>
-                      {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
-                      <div className={styles.runItemTask}>{a.text}</div>
+                      {LANE_META[lane].label}（{restLaneCounts[lane]}）
                     </button>
                   ))}
                 </div>
-                {hiddenActionCount > 0 && (
-                  <button
-                    className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                    style={{ marginTop: 8 }}
-                    onClick={() =>
-                      setLaneExtraVisible((prev) => ({
-                        ...prev,
-                        [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
-                      }))
-                    }
-                  >
-                    もっと見る（残り{hiddenActionCount}件）
-                  </button>
+                {visibleActions.length === 0 ? (
+                  <p className={styles.subtitle}>このレーンの残りはありません。</p>
+                ) : (
+                  <>
+                    <div className={styles.runList} style={{ maxHeight: "none" }}>
+                      {visibleActions.map((a) => (
+                        <button
+                          key={a.id}
+                          className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                          onClick={a.onSelect}
+                        >
+                          <span className={styles.badge}>{a.kindLabel}</span>
+                          {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
+                          <div className={styles.runItemTask}>{a.text}</div>
+                        </button>
+                      ))}
+                    </div>
+                    {hiddenActionCount > 0 && (
+                      <button
+                        className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                        style={{ marginTop: 8 }}
+                        onClick={() =>
+                          setLaneExtraVisible((prev) => ({
+                            ...prev,
+                            [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
+                          }))
+                        }
+                      >
+                        もっと見る（残り{hiddenActionCount}件）
+                      </button>
+                    )}
+                  </>
                 )}
               </>
+            )}
+          </>
+        ) : !issuesLoaded ? (
+          <p className={styles.subtitle}>読み込み中…</p>
+        ) : executionMoves.length === 0 ? (
+          <p className={styles.subtitle}>✅ 進める次の一手はありません。</p>
+        ) : (
+          <>
+            <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
+              介入の優先度順（フォーカス → 通常）。完了すると次の未完了が繰り上がります。
+            </p>
+            <div className={styles.runList} style={{ maxHeight: "none" }}>
+              {visibleExecutionMoves.map((move) => {
+                const key = `${move.issueId}:${move.itemId}`;
+                const priorityMeta = ISSUE_PRIORITY_META[move.priority];
+                return (
+                  <div
+                    key={key}
+                    className={`${styles.runItem} ${move.blocked ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 10, textAlign: "left" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      disabled={completingActionKey === key}
+                      aria-label={`「${move.itemText}」を完了`}
+                      onChange={() => void handleCompleteExecutionMove(move.issueId, move.itemId)}
+                      style={{ marginTop: 4, flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                        <span className={styles.badge}>
+                          {priorityMeta.icon} {priorityMeta.label}
+                        </span>
+                        {move.blocked && <span className={styles.badge}>Waiting</span>}
+                        <button
+                          type="button"
+                          className={styles.tableRowLink}
+                          onClick={() => router.push(`/issues/${move.issueId}`)}
+                        >
+                          {move.issueTitle}
+                        </button>
+                      </div>
+                      <div className={styles.runItemTask}>{move.itemText}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {hiddenExecutionCount > 0 && (
+              <button
+                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                style={{ marginTop: 8 }}
+                onClick={() => setExecuteExtraVisible((n) => n + LANE_EXPAND_STEP)}
+              >
+                もっと見る（残り{hiddenExecutionCount}件）
+              </button>
             )}
           </>
         )}

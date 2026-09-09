@@ -72,7 +72,9 @@ function IssuesPageInner() {
   );
 
   // docs/em_ui_ux_issue.md 4節「ビューの切り替え機能」対応。
-  const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  // Action Itemsビュー: Issue横断で「次の一手」だけを優先度順に捌く（週〜月の見通し）。
+  const [viewMode, setViewMode] = useState<"list" | "board" | "actions">("list");
+  const [completingActionKey, setCompletingActionKey] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
   const [issueRunId, setIssueRunId] = useState("");
@@ -119,6 +121,22 @@ function IssuesPageInner() {
     .sort(compareIssuesByPriority);
   const issuesPagination = usePagination(filteredIssues, ISSUES_PAGE_SIZE);
   const runsPagination = usePagination(unlinkedRuns, RUNS_PAGE_SIZE);
+  // Action Itemsビュー: フィルタ済み介入のうち「次の一手」があるものだけ（優先度順は filteredIssues と同じ）。
+  const actionRows = filteredIssues.flatMap((issue) => {
+    const next = issueNextAction(issue);
+    if (!next) return [];
+    return [
+      {
+        issueId: issue.id,
+        issueTitle: issue.title,
+        priority: (issue.priority ?? "normal") as IssuePriority,
+        status: issue.status,
+        itemId: next.id,
+        itemText: next.text,
+      },
+    ];
+  });
+  const actionsPagination = usePagination(actionRows, ISSUES_PAGE_SIZE);
 
   // docs/memo.md「G. Issueに『介入の型』を足す」対応。型は既存tagsへそのまま追加/削除するだけで、
   // 新規フィールドは持たない。最後に選んだ型のwhy/what/howをプレースホルダーとして見せる
@@ -220,6 +238,17 @@ function IssuesPageInner() {
     }
   }
 
+  async function handleCompleteActionItem(issueId: string, itemId: string) {
+    const key = `${issueId}:${itemId}`;
+    setCompletingActionKey(key);
+    try {
+      const res = await fetch(`/api/issues/${issueId}/action-items/${itemId}`, { method: "PATCH" });
+      if (res.ok) await refreshIssues();
+    } finally {
+      setCompletingActionKey(null);
+    }
+  }
+
   return (
     <div className={styles.screen}>
       {/* 改修依頼「セクションの区切りがわかりにくい」対応。ページ全体がフラットな
@@ -248,6 +277,14 @@ function IssuesPageInner() {
                 onClick={() => setViewMode("board")}
               >
                 ボード
+              </button>
+              <button
+                type="button"
+                className={`${styles.tabBtn} ${viewMode === "actions" ? styles.tabBtnActive : ""}`}
+                onClick={() => setViewMode("actions")}
+                title="各介入の次の一手を横断表示"
+              >
+                アクション
               </button>
             </div>
             <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={() => setDialogOpen(true)}>
@@ -315,6 +352,68 @@ function IssuesPageInner() {
             staleInterventionDays={rules.staleInterventionDays}
             onSelect={(id) => peek.open(id)}
           />
+        ) : viewMode === "actions" ? (
+          <>
+            <p className={styles.subtitle} style={{ margin: "0 0 10px" }}>
+              各介入の「次の一手」だけを優先度順に表示します。完了すると次の未完了が繰り上がります。あとでやる一覧は Issue 詳細で確認できます。
+            </p>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}>完了</th>
+                    <th>次の一手</th>
+                    <th>優先度</th>
+                    <th>ステータス</th>
+                    <th>Issue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {actionRows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className={styles.tableEmpty}>
+                        {!issuesLoaded
+                          ? "読み込み中…"
+                          : "条件に一致する次の一手はありません（未設定の介入はリストで確認してください）。"}
+                      </td>
+                    </tr>
+                  )}
+                  {actionsPagination.pageItems.map((row) => {
+                    const key = `${row.issueId}:${row.itemId}`;
+                    return (
+                      <tr key={key}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={false}
+                            disabled={completingActionKey === key}
+                            aria-label={`「${row.itemText}」を完了`}
+                            onChange={() => void handleCompleteActionItem(row.issueId, row.itemId)}
+                          />
+                        </td>
+                        <td>
+                          <button type="button" className={styles.tableRowLink} onClick={() => peek.open(row.issueId)}>
+                            {row.itemText}
+                          </button>
+                        </td>
+                        <td>
+                          <IssuePriorityBadge priority={row.priority} />
+                        </td>
+                        <td>
+                          <IssueStatusBadge status={row.status} />
+                        </td>
+                        <td>
+                          <button type="button" className={styles.tableRowLink} onClick={() => peek.open(row.issueId)}>
+                            {row.issueTitle}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -455,6 +554,16 @@ function IssuesPageInner() {
           rangeStart={issuesPagination.rangeStart}
           rangeEnd={issuesPagination.rangeEnd}
           onChange={issuesPagination.setPage}
+        />
+        )}
+        {viewMode === "actions" && (
+        <PaginationControls
+          page={actionsPagination.page}
+          totalPages={actionsPagination.totalPages}
+          total={actionsPagination.total}
+          rangeStart={actionsPagination.rangeStart}
+          rangeEnd={actionsPagination.rangeEnd}
+          onChange={actionsPagination.setPage}
         />
         )}
       </div>
