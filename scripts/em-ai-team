@@ -1,0 +1,310 @@
+#!/usr/bin/env bash
+# EM Support System — ホスト向けランチャー（docs/packaging.md Phase 1）
+# 使い方:
+#   ./scripts/em-ai-team install   # ビルドして ~/.local へ配置
+#   em-ai-team start|stop|status
+#   em-ai-team build               # アプリ本体だけ再ビルド／配置（ソースツリーが必要）
+set -euo pipefail
+
+APP_NAME="em-ai-team"
+
+SHARE_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+BIN_HOME="${XDG_BIN_HOME:-$HOME/.local/bin}"
+
+APP_DIR="${EM_APP_DIR:-$SHARE_HOME/$APP_NAME/app}"
+STATE_DIR="$STATE_HOME/$APP_NAME"
+RUN_DIR="$STATE_DIR/run"
+META_DIR="$SHARE_HOME/$APP_NAME"
+SOURCE_ROOT_FILE="$META_DIR/source-root"
+DATA_DIR="${EM_DATA_DIR:-$STATE_DIR/data}"
+SECURE_DIR="${EM_SECURE_DATA_DIR:-$STATE_DIR/secure}"
+PID_FILE="$RUN_DIR/server.pid"
+LOG_FILE="$RUN_DIR/server.log"
+HOST="${EM_HOST:-127.0.0.1}"
+PORT="${EM_PORT:-3000}"
+
+# このファイルの実体（symlink 解消）。リポジトリ内 scripts/ から実行されたとき用。
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+resolve_source_root() {
+  if [[ -n "${EM_SOURCE_ROOT:-}" ]]; then
+    echo "$EM_SOURCE_ROOT"
+    return
+  fi
+  if [[ -f "$SOURCE_ROOT_FILE" ]]; then
+    cat "$SOURCE_ROOT_FILE"
+    return
+  fi
+  # リポジトリの scripts/ から直接実行された場合
+  local candidate
+  candidate="$(cd "$SCRIPT_DIR/.." && pwd)"
+  if [[ -f "$candidate/web/package.json" ]]; then
+    echo "$candidate"
+    return
+  fi
+  return 1
+}
+
+usage() {
+  cat <<EOF
+Usage: em-ai-team <command>
+
+Commands:
+  install   Build the standalone app, record source path, install launcher to ${BIN_HOME}
+  build     Build and install the app to ${APP_DIR}
+  start     Start the installed app (binds ${HOST}:${PORT})
+  stop      Stop the running app
+  status    Show process / paths / URL
+  help      Show this help
+
+Environment:
+  EM_APP_DIR            App install dir (default: ${SHARE_HOME}/${APP_NAME}/app)
+  EM_DATA_DIR           Business data dir (default: ${STATE_DIR}/data)
+  EM_SECURE_DATA_DIR    People-directory dir (default: ${STATE_DIR}/secure)
+  EM_SOURCE_ROOT        Git clone path (for build/install; else read from ${SOURCE_ROOT_FILE})
+  EM_HOST               Bind host (default: 127.0.0.1)
+  EM_PORT               Bind port (default: 3000)
+EOF
+}
+
+ensure_node() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "error: node が見つかりません（Node 24 以上が必要です）" >&2
+    exit 1
+  fi
+  local major
+  major="$(node -p "process.versions.node.split('.')[0]")"
+  if [[ "$major" -lt 24 ]]; then
+    echo "error: Node 24 以上が必要です（現在: $(node -v)）" >&2
+    exit 1
+  fi
+}
+
+is_running() {
+  if [[ ! -f "$PID_FILE" ]]; then
+    return 1
+  fi
+  local pid
+  pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+  if [[ -z "${pid}" ]]; then
+    return 1
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+  rm -f "$PID_FILE"
+  return 1
+}
+
+require_source() {
+  local root
+  if ! root="$(resolve_source_root)"; then
+    echo "error: ソースツリー（web/package.json）が見つかりません。" >&2
+    echo "       clone したリポジトリで ./scripts/em-ai-team install を実行するか、" >&2
+    echo "       EM_SOURCE_ROOT を設定してください。" >&2
+    exit 1
+  fi
+  if [[ ! -f "$root/web/package.json" ]]; then
+    echo "error: $root/web/package.json がありません" >&2
+    exit 1
+  fi
+  echo "$root"
+}
+
+cmd_build() {
+  ensure_node
+  local root web_dir standalone
+  root="$(require_source)"
+  web_dir="$root/web"
+
+  echo "==> source: $root"
+  echo "==> dependencies (web/)"
+  (
+    cd "$web_dir"
+    if [[ -f package-lock.json ]]; then
+      npm ci
+    else
+      npm install
+    fi
+  )
+
+  echo "==> standalone build (webpack; transformers/onnx を含めるため)"
+  (
+    cd "$web_dir"
+    npm run build:standalone
+  )
+
+  standalone="$web_dir/.next/standalone"
+  if [[ ! -f "$standalone/server.js" ]]; then
+    echo "error: $standalone/server.js がありません。ビルド結果を確認してください。" >&2
+    exit 1
+  fi
+
+  echo "==> install app → $APP_DIR"
+  mkdir -p "$APP_DIR"
+  find "$APP_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -a "$standalone"/. "$APP_DIR"/
+
+  mkdir -p "$APP_DIR/.next"
+  rm -rf "$APP_DIR/.next/static"
+  cp -a "$web_dir/.next/static" "$APP_DIR/.next/static"
+
+  if [[ -d "$web_dir/public" ]]; then
+    rm -rf "$APP_DIR/public"
+    cp -a "$web_dir/public" "$APP_DIR/public"
+  fi
+
+  # serverExternalPackages の取りこぼしに備え、ネイティブ依存を明示コピー
+  for pkg in @huggingface/transformers onnxruntime-node onnxruntime-common; do
+    if [[ -e "$web_dir/node_modules/$pkg" ]]; then
+      mkdir -p "$APP_DIR/node_modules/$(dirname "$pkg")"
+      rm -rf "$APP_DIR/node_modules/$pkg"
+      cp -a "$web_dir/node_modules/$pkg" "$APP_DIR/node_modules/$pkg"
+    fi
+  done
+
+  mkdir -p "$META_DIR"
+  printf '%s\n' "$root" >"$SOURCE_ROOT_FILE"
+  echo "アプリを配置しました: $APP_DIR"
+}
+
+install_launcher() {
+  mkdir -p "$BIN_HOME"
+  local target="$BIN_HOME/em-ai-team"
+  # start/stop/status は APP_DIR だけで動くよう、スクリプト本体をコピーする
+  cp -a "$SCRIPT_PATH" "$target"
+  chmod +x "$target"
+  echo "ランチャーを配置しました: $target"
+  if ! echo ":$PATH:" | grep -q ":$BIN_HOME:"; then
+    echo "注意: $BIN_HOME が PATH にありません。シェル設定に追加してください。"
+  fi
+}
+
+cmd_install() {
+  cmd_build
+  install_launcher
+  echo ""
+  echo "次のコマンドで起動できます:"
+  echo "  em-ai-team start"
+  echo "  （または） $SCRIPT_PATH start"
+}
+
+cmd_start() {
+  ensure_node
+  if [[ ! -f "$APP_DIR/server.js" ]]; then
+    echo "error: アプリが未インストールです: $APP_DIR/server.js" >&2
+    echo "       clone したリポジトリで ./scripts/em-ai-team install を実行してください。" >&2
+    exit 1
+  fi
+  if is_running; then
+    echo "すでに起動しています (pid $(cat "$PID_FILE"))"
+    echo "URL: http://${HOST}:${PORT}"
+    exit 0
+  fi
+
+  mkdir -p "$RUN_DIR" "$DATA_DIR"
+  mkdir -p "$SECURE_DIR"
+  chmod 700 "$SECURE_DIR" 2>/dev/null || true
+
+  echo "==> starting on http://${HOST}:${PORT}"
+  echo "    APP_DIR=$APP_DIR"
+  echo "    EM_DATA_DIR=$DATA_DIR"
+  echo "    EM_SECURE_DATA_DIR=$SECURE_DIR"
+  echo "    log: $LOG_FILE"
+
+  (
+    cd "$APP_DIR"
+    # HOSTNAME/PORT は Next standalone server.js が参照する
+    nohup env \
+      NODE_ENV=production \
+      HOSTNAME="$HOST" \
+      PORT="$PORT" \
+      EM_DATA_DIR="$DATA_DIR" \
+      EM_SECURE_DATA_DIR="$SECURE_DIR" \
+      node server.js \
+      >>"$LOG_FILE" 2>&1 &
+    echo $! >"$PID_FILE"
+  )
+
+  sleep 1
+  if ! is_running; then
+    echo "error: 起動に失敗した可能性があります。ログを確認してください: $LOG_FILE" >&2
+    tail -n 40 "$LOG_FILE" >&2 || true
+    exit 1
+  fi
+  echo "起動しました (pid $(cat "$PID_FILE"))"
+  echo "URL: http://${HOST}:${PORT}"
+}
+
+cmd_stop() {
+  if ! is_running; then
+    echo "停止しています"
+    rm -f "$PID_FILE"
+    exit 0
+  fi
+  local pid
+  pid="$(cat "$PID_FILE")"
+  echo "==> stopping pid $pid"
+  kill "$pid" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.3
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "通常終了しないため SIGKILL します"
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE"
+  echo "停止しました"
+}
+
+cmd_status() {
+  echo "APP_DIR=$APP_DIR"
+  echo "EM_DATA_DIR=$DATA_DIR"
+  echo "EM_SECURE_DATA_DIR=$SECURE_DIR"
+  echo "URL=http://${HOST}:${PORT}"
+  if [[ -f "$APP_DIR/server.js" ]]; then
+    echo "app=installed"
+  else
+    echo "app=missing"
+  fi
+  if root="$(resolve_source_root 2>/dev/null)"; then
+    echo "source=$root"
+  else
+    echo "source=unknown"
+  fi
+  if is_running; then
+    echo "process=running pid=$(cat "$PID_FILE")"
+  else
+    echo "process=stopped"
+  fi
+  if command -v claude >/dev/null 2>&1; then
+    echo "claude=found ($(command -v claude))"
+  else
+    echo "claude=missing"
+  fi
+}
+
+main() {
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    install) cmd_install "$@" ;;
+    build) cmd_build "$@" ;;
+    start) cmd_start "$@" ;;
+    stop) cmd_stop "$@" ;;
+    status) cmd_status "$@" ;;
+    help|-h|--help) usage ;;
+    *)
+      echo "unknown command: $cmd" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

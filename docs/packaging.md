@@ -2,15 +2,15 @@
 
 個人の EM サポートツールとして、**GitHub 公開リポジトリから入手でき、利用者のマシン上にだけ機微データが残る**ことを目標にする。npm レジストリへの公開はしない。
 
-関連実装: `web/src/lib/persistence.ts`（データパス）、`docs/docker.md`（隔離プロファイル）。
+関連実装: `web/src/lib/persistence.ts`（データパス）、`scripts/em-ai-team`（ランチャー）、`docs/docker.md`（隔離プロファイル）。
 
 ## 製品像
 
 | レイヤ | 置き場所 | 備考 |
 | --- | --- | --- |
-| ソース | GitHub（公開） | clone / Release から取得 |
-| アプリ本体（将来） | `~/.local/share/em-ai-team/app` | standalone ビルド＋ランチャー |
-| 起動コマンド（将来） | `~/.local/bin/em-ai-team` | `start` / `stop` / `doctor` / `backup` 等 |
+| ソース | GitHub（公開） | clone して `./scripts/em-ai-team install` |
+| アプリ本体 | `~/.local/share/em-ai-team/app` | Next.js standalone（webpack ビルド） |
+| 起動コマンド | `~/.local/bin/em-ai-team` | `install` / `build` / `start` / `stop` / `status` |
 | 業務データ | `~/.local/state/em-ai-team/data` | SQLite・JSON。リポジトリ外必須 |
 | 実名対応表 | `~/.local/state/em-ai-team/secure` | 0700 / 0600。data と兄弟だが権限分離 |
 | モデルキャッシュ | `~/.cache/huggingface` 等（将来は `~/.cache/em-ai-team` も検討） | アプリ本体に同梱しない |
@@ -19,14 +19,33 @@
 
 **同梱しないもの:** API キー、people-directory、モデル重み。認証と初回ダウンロードは利用者各自。
 
+## ホストインストール（Phase 1・現行）
+
+前提: Node 24+、（Agent Run を使うなら）ホストに `claude` CLI。
+
+```bash
+git clone <このリポジトリの URL>
+cd em_ai_team
+./scripts/em-ai-team install
+em-ai-team start
+# ブラウザで http://127.0.0.1:3000
+em-ai-team status
+em-ai-team stop
+```
+
+- 既定で **127.0.0.1** のみにバインドする（LAN 公開しない）。
+- standalone ビルドは `npm run build:standalone`（`next build --webpack`）。Turbopack 既定ビルドだと `serverExternalPackages`（transformers / onnx）が欠ける既知問題があるため。
+- UI フォントは `@fontsource/*` を npm 同梱し、ビルド時に Google Fonts へネットワークしない。
+- Docker 用の `npm run build` はそのまま（フル `node_modules` + `next start`）。standalone 成果物は使わない。
+
 ## 入手チャネル
 
-1. **主経路（予定）:** 公開リポジトリの README → install スクリプト、または `git clone` + ビルド手順
-2. **GitHub Releases:** 将来、standalone 成果物と checksum を添付
+1. **主経路:** 公開リポジトリを clone → `./scripts/em-ai-team install`
+2. **GitHub Releases:** 将来、standalone 成果物と checksum を添付（Phase 3）
 3. **npm 公開:** しない（`npx` も主経路にしない）
 4. **Docker:** セカンドクラス。手順は `docs/docker.md`
 
-## データパス規約（Phase 0・現行）
+## データパス規約（Phase 0）
 
 デフォルト（環境変数未設定時）:
 
@@ -45,9 +64,9 @@
 
 | Phase | 内容 | 状態 |
 | --- | --- | --- |
-| 0 | デフォルトデータパスの XDG 化＋旧配置からの移行 | 実装済み（本ドキュメントと同時） |
-| 1 | Next.js `output: "standalone"` ＋ `em-ai-team` ランチャー | 未着手 |
-| 2 | `doctor` / `backup` / install スクリプト＋短い配布 README | 未着手 |
+| 0 | デフォルトデータパスの XDG 化＋旧配置からの移行 | 実装済み |
+| 1 | Next.js `output: "standalone"` ＋ `em-ai-team` ランチャー | 実装済み |
+| 2 | `doctor` / `backup` / 短い配布 README の整備 | 未着手 |
 | 3 | CI から GitHub Release 成果物を作成 | 未着手 |
 
 ## 明示的にやらないこと
@@ -59,4 +78,4 @@
 
 - `.env`・認証ディレクトリ・state 配下はコミットしない（既存の ignore を維持）。
 - バックアップ対象は主に `~/.local/state/em-ai-team/`（secure を含む）。取り扱いに注意。
-- 本番インターネット公開は想定しない（認証なしの単一ユーザー向け）。
+- 本番インターネット公開は想定しない（認証なしの単一ユーザー向け）。ランチャー既定も localhost のみ。

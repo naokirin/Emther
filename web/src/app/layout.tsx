@@ -1,5 +1,16 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Zen_Kaku_Gothic_New } from "next/font/google";
+// 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の
+// @fontsource を使う（docs/packaging.md / ローカル実行前提）。
+import "@fontsource/zen-kaku-gothic-new/japanese-400.css";
+import "@fontsource/zen-kaku-gothic-new/japanese-500.css";
+import "@fontsource/zen-kaku-gothic-new/japanese-700.css";
+import "@fontsource/zen-kaku-gothic-new/japanese-900.css";
+import "@fontsource/zen-kaku-gothic-new/latin-400.css";
+import "@fontsource/zen-kaku-gothic-new/latin-500.css";
+import "@fontsource/zen-kaku-gothic-new/latin-700.css";
+import "@fontsource/zen-kaku-gothic-new/latin-900.css";
+import "@fontsource/jetbrains-mono/latin-400.css";
+import "@fontsource/jetbrains-mono/latin-600.css";
 import "./globals.css";
 import styles from "./page.module.css";
 import { LocalModelDownloadBanner } from "@/components/LocalModelDownloadBanner";
@@ -13,17 +24,6 @@ import { AppShell, StoryBanner, TopNav } from "@/components/TopNav";
 // 件数・比率・時刻など数値だけはJetBrains Monoの等幅数字にし、既存のエージェントログ
 // コンソール（.terminal、SF Mono系）が持っていた「数字は等幅」という前提をアプリ全体の
 // 数値表示に広げる（走査しやすさのための機能的な選択で、装飾目的の等幅化ではない）。
-const zenKakuGothicNew = Zen_Kaku_Gothic_New({
-  variable: "--font-jp-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-});
 
 export const metadata: Metadata = {
   title: "EM Support System",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ja" className={`${zenKakuGothicNew.variable} ${jetbrainsMono.variable}`}>
+    <html lang="ja">
       <body>
         {/* WCAG 2.2 2.4.1 Bypass Blocks対応。キーボード利用者がグローバルメニュー
             （7項目）＋サイドメニューを毎回タブ移動せずに本文へ飛べるようにする。

@@ -11,7 +11,7 @@ import { IssueStatusBadge } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
 import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
-import { IssueDetailContent } from "@/app/issues/[id]/page";
+import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import { INTERVENTION_TYPES, charterFilledCount, isIssueStalled, isRunStale, issueProgress, truncateForTitle } from "@/lib/types";
 

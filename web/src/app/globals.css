@@ -45,6 +45,10 @@
   --blue-text: #7fb0ff;
 
   --terminal-bg: #1b2230;
+
+  /* layout.tsx が @fontsource で同梱する書体名。ビルド時に Google へ取りに行かない。 */
+  --font-jp-sans: "Zen Kaku Gothic New";
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 html {
@@ -65,9 +69,8 @@ body {
   background: var(--background);
   /* デザイン見直し（frontend-design）対応。以前はnext/font/googleでGeistを読み込みながら
      ここで参照しておらず、実際には素のOSシステムフォントで描画されていた。
-     --font-jp-sansはlayout.tsxのZen Kaku Gothic Newが<html>のclassName経由で供給する
-     （フォールバックはvar()自体が未解決の場合の保険）。 */
-  font-family: var(--font-jp-sans, "Zen Kaku Gothic New"), -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+     --font-jp-sans / --font-mono は :root で定義し、@fontsource が @font-face を供給する。 */
+  font-family: var(--font-jp-sans), -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
