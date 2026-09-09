@@ -174,6 +174,8 @@ export type PendingUnmaskedSend = {
   linkedIssueId?: string;
   runId?: string;
   message?: string;
+  /** Issue更新分析のdecide-run確認時に、チーム先行並列を行うか */
+  teamParallelKickoff?: boolean;
 };
 
 export type RulesAndConstraints = {
@@ -200,6 +202,8 @@ export type RulesAndConstraints = {
   // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
   // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
   maxParallelAgentRuns: number;
+  // Issue紐付きLead起動時に関連specialistを先行並列起動し、Leadが統合する（既定ON）。
+  teamParallelKickoffEnabled: boolean;
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
   // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
   // 超過分は非表示にはせず、「もっと見る」で追加表示できる。

@@ -55,6 +55,9 @@ export type RulesAndConstraints = {
   // 不安定になる。ここで同時に「実行中」にできるCLI子プロセス数の上限を設け、
   // 超過分はキューイングして順番に起動する（agent-runtime.tsのacquireRunSlot）。
   maxParallelAgentRuns: number;
+  // Issue紐付きのLead起動時、関連specialistを先に並列起動し、その結果をLeadが統合する。
+  // 既定ON（チーム分析の本筋）。OFFにすると従来どおりLead単独起動＋任意consult。
+  teamParallelKickoffEnabled: boolean;
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
   // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
   // 超過分は非表示にはせず、「もっと見る」で追加表示できる。
@@ -105,6 +108,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
   maxParallelAgentRuns: 2,
+  teamParallelKickoffEnabled: true,
   decisionQueueLimit: 3,
   observationQueueLimit: 3,
   staleInterventionDays: 14,

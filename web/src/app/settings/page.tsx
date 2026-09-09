@@ -255,6 +255,20 @@ export default function SettingsPage() {
                   /></label>
                 </div>
 
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Issue分析時のチーム先行並列</h3>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  Issueに紐づくLead Agentの起動時、関連する専門エージェント（People / Process / Tech / Product）を先に並列起動し、その結果をLeadが統合します。
+                  介入型タグがあれば主担当・副担当を選び、タグが無ければ4体すべてを起動します。コストが増えるため、Lead単独＋任意consultに戻したい場合はOFFにしてください。
+                </p>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={draft.teamParallelKickoffEnabled}
+                    onChange={(e) => setDraft({ ...draft, teamParallelKickoffEnabled: e.target.checked })}
+                  />
+                  関連specialistを先行並列起動し、Leadが最終判断する（既定ON）
+                </label>
+
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
                   「動いていると思ったら止まっていた」を防ぐための閾値です。statusが稼働中のままログ更新が無い時間で判定します。

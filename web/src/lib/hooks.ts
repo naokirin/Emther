@@ -575,6 +575,7 @@ export function useSettingsRules(intervalMs = 8000) {
       autoMorningSummaryEnabled: false,
       autoMorningSummaryHour: 7,
       maxParallelAgentRuns: 2,
+      teamParallelKickoffEnabled: true,
       decisionQueueLimit: 3,
       observationQueueLimit: 3,
       staleInterventionDays: 14,

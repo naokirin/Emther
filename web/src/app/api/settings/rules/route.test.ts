@@ -19,6 +19,7 @@ describe("GET /api/settings/rules", () => {
     const res = await route.GET();
     const json = await res.json();
     expect(json.rules.maxParallelAgentRuns).toBe(2);
+    expect(json.rules.teamParallelKickoffEnabled).toBe(true);
   });
 });
 
@@ -73,6 +74,14 @@ describe("PATCH /api/settings/rules", () => {
     expect(json.rules.autoJournalUrgencyFilter).toBe("mid_or_higher");
     expect(json.rules.autoJournalSentimentFilter).toBe("negative_only");
     expect(json.rules.autoIssueUpdateAnalysisEnabled).toBe(true);
+  });
+
+  it("teamParallelKickoffEnabledを更新できる", async () => {
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", { teamParallelKickoffEnabled: false }),
+    );
+    expect((await res.json()).rules.teamParallelKickoffEnabled).toBe(false);
   });
 
   it("不正なJournalフィルタ値は無視する", async () => {

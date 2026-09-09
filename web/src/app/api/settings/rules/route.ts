@@ -110,6 +110,7 @@ export async function PATCH(request: Request) {
     autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
     autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
     maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
+    teamParallelKickoffEnabled: bool(body?.teamParallelKickoffEnabled),
     decisionQueueLimit: positiveInt(body?.decisionQueueLimit),
     observationQueueLimit: positiveInt(body?.observationQueueLimit),
     staleInterventionDays: positiveInt(body?.staleInterventionDays),

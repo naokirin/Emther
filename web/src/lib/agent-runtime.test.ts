@@ -1289,7 +1289,10 @@ describe("reactToIssueUpdate", () => {
 
   it("ONかつ紐付きRunが無ければauto-issue-updateでLeadを起動しIssueに紐づける", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    settingsStore.updateRulesAndConstraints({
+      autoIssueUpdateAnalysisEnabled: true,
+      teamParallelKickoffEnabled: false,
+    });
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(0);
     const issueStore = await import("@/lib/issue-store");
@@ -1313,7 +1316,10 @@ describe("reactToIssueUpdate", () => {
 
   it("ONかつ紐付きRunがidleならdecideRunで継続する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    settingsStore.updateRulesAndConstraints({
+      autoIssueUpdateAnalysisEnabled: true,
+      teamParallelKickoffEnabled: false,
+    });
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(0);
     const issueStore = await import("@/lib/issue-store");
@@ -1362,5 +1368,124 @@ describe("reactToIssueUpdate", () => {
     expect(again).toHaveLength(1);
     expect(again[0].firesAt).toBeGreaterThanOrEqual(firstFiresAt);
     expect(again[0].label).toContain("経過ログ");
+  });
+});
+
+describe("selectRelatedSpecialists", () => {
+  it("タグが無ければ全specialistを返す", async () => {
+    const rt = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題");
+    expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
+      "People Agent",
+      "Process Agent",
+      "Tech Agent",
+      "Product Agent",
+    ]);
+  });
+
+  it("介入型タグから主担当・副担当を選ぶ", async () => {
+    const rt = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, ["1on1設計"]);
+    expect(rt.selectRelatedSpecialists(issue.id)).toEqual(["People Agent", "Process Agent"]);
+  });
+
+  it("複数タグは重複除去しつつSPECIALIST順を保つ", async () => {
+    const rt = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, [
+      "優先順位／スコープ",
+      "1on1設計",
+    ]);
+    expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
+      "People Agent",
+      "Process Agent",
+      "Product Agent",
+    ]);
+  });
+});
+
+describe("チーム先行並列（runTeamParallelKickoff）", () => {
+  it("Issue紐付きLead起動でspecialistを先行し、Leadが統合proposalを出す", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      teamParallelKickoffEnabled: true,
+      maxParallelAgentRuns: 4,
+    });
+    const rt = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, ["1on1設計"]);
+
+    const leadRun = await rt.startRun("Lead Agent", "メンバーの1on1設計を見直したい", "manual", issue.id);
+
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 3) throw new Error("specialist runs not created yet");
+    });
+    const peopleRun = rt.listRuns().find((r) => r.agentName === "People Agent")!;
+    const processRun = rt.listRuns().find((r) => r.agentName === "Process Agent")!;
+    expect(peopleRun.consultedBy).toBe(leadRun.id);
+    expect(processRun.consultedBy).toBe(leadRun.id);
+    expect(rt.getRun(leadRun.id)?.log.some((l) => l.text.includes("[チーム先行並列]"))).toBe(true);
+
+    // LeadはまだCLIを起動せず、specialist 2件が先にspawnされる
+    await waitForSpawnCount(2);
+    expect(spawnCalls).toHaveLength(2);
+
+    emitAssistantText(spawnCalls[0].child, "People Agentとしての先行回答");
+    emitClaudeResult(spawnCalls[0].child, { text: "People Agentとしての先行回答" });
+    closeChild(spawnCalls[0].child, 0);
+    emitAssistantText(spawnCalls[1].child, "Process Agentとしての先行回答");
+    emitClaudeResult(spawnCalls[1].child, { text: "Process Agentとしての先行回答" });
+    closeChild(spawnCalls[1].child, 0);
+
+    await waitForSpawnCount(3);
+    const leadCall = spawnCalls[2];
+    expect(leadCall.command).toBe("claude");
+    const leadPrompt = leadCall.args[leadCall.args.indexOf("-p") + 1];
+    expect(leadPrompt).toContain("People Agentとしての先行回答");
+    expect(leadPrompt).toContain("Process Agentとしての先行回答");
+    expect(leadPrompt).toContain("追加の専門エージェントへの相談はできません");
+
+    emitClaudeResult(leadCall.child, {
+      text: '```proposal\n{ "conclusion": "チーム見解を統合した結論", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(leadCall.child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(leadRun.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(leadRun.id)?.status).toBe("idle");
+    expect(rt.getRun(leadRun.id)?.proposal?.conclusion).toBe("チーム見解を統合した結論");
+    expect(spawnCalls).toHaveLength(3);
+  });
+
+  it("teamParallelKickoffEnabledがOFFならIssue紐付きでもLead単独起動", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ teamParallelKickoffEnabled: false });
+    const rt = await loadModule();
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題");
+
+    await rt.startRun("Lead Agent", "単独で分析", "manual", issue.id);
+    await waitForSpawnCount(1);
+    expect(rt.listRuns()).toHaveLength(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "ok", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+  });
+
+  it("Issue未紐付きのLeadは先行並列しない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ teamParallelKickoffEnabled: true });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "雑談相談");
+    await waitForSpawnCount(1);
+    expect(rt.listRuns()).toHaveLength(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "ok", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
   });
 });
