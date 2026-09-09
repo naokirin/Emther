@@ -744,7 +744,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.status).toBe("idle");
     expect(finished.agyConversationId).toBe("agy-conv-1");
     expect(finished.proposal?.conclusion).toBe("agy経由の結論");
-    expect(finished.log.some((l) => l.text.includes("agy経由でGeminiモデルにこのターンをフォールバック"))).toBe(true);
+    expect(finished.log.some((l) => l.text.includes("Claude Code CLIが利用できなかったため、agy（Gemini）にこのターンをフォールバック"))).toBe(true);
   });
 
   it("claude失敗→agy無効→cursorフォールバックが有効なら起動し、成功すればidleになる", async () => {
@@ -768,7 +768,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     const finished = rt.getRun(run.id)!;
     expect(finished.status).toBe("idle");
     expect(finished.cursorSessionId).toBe("cursor-sess-1");
-    expect(finished.log.some((l) => l.text.includes("Cursor CLI経由でこのターンをフォールバック"))).toBe(true);
+    expect(finished.log.some((l) => l.text.includes("Claude Code CLIが利用できなかったため、Cursor CLIにこのターンをフォールバック"))).toBe(true);
   });
 
   it("claude失敗→agyも失敗→cursorが有効なら3段目として起動し成功する", async () => {
@@ -792,6 +792,61 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
       if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
     });
     expect(rt.getRun(run.id)?.status).toBe("idle");
+  });
+
+  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
+  it("cliPriorityOrderでcursorをclaudeより先に試すよう設定すると、cursorが最初に起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      cursorFallbackAgents: ["Lead Agent"],
+      cliPriorityOrder: ["cursor", "claude", "agy"],
+    });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "タスク");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].command).toBe("cursor-agent");
+  });
+
+  it("cliPriorityOrderで並べ替えても、有効化されていないCLIは候補から除かれる", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    // agy/cursorともフォールバック未有効のまま、優先順位だけ入れ替える。
+    settingsStore.updateRulesAndConstraints({ cliPriorityOrder: ["cursor", "agy", "claude"] });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "タスク");
+
+    await waitForSpawnCount(1);
+    // claudeには無効化トグルが無いため、他が候補から外れれば結局claudeが最初になる。
+    expect(spawnCalls[0].command).toBe("claude");
+  });
+
+  it("cursorを先頭にして失敗した場合、次の候補（有効な場合のagy）へフォールバックする", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      agyFallbackAgents: ["Lead Agent"],
+      cursorFallbackAgents: ["Lead Agent"],
+      cliPriorityOrder: ["cursor", "agy", "claude"],
+    });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "落ちるタスク");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].command).toBe("cursor-agent");
+    closeChild(spawnCalls[0].child, 1);
+
+    await waitForSpawnCount(2);
+    expect(spawnCalls[1].command).toBe("agy");
+    emitAgyResult(spawnCalls[1].child, { text: "agyで復旧" });
+    closeChild(spawnCalls[1].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    const finished = rt.getRun(run.id)!;
+    expect(finished.status).toBe("idle");
+    expect(finished.log.some((l) => l.text.includes("Cursor CLIが利用できなかったため、agy（Gemini）にこのターンをフォールバック"))).toBe(
+      true,
+    );
   });
 
   it("claude/agy/cursorすべて失敗すればerrorのまま確定する", async () => {

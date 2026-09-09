@@ -132,6 +132,18 @@ export type ObjectiveWithProgress = Objective & {
   progress: KeyResultProgress[];
 };
 
+// ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
+// claude→agy→cursorの順が固定だったが、この並びを設定で入れ替えられるようにする。
+// claudeには既存のagyFallbackAgents/cursorFallbackAgentsのような無効化トグルは無く、
+// 常に候補に含まれる（agy/cursorはエージェント種別ごとに引き続きopt-inが必要）。
+export const CLI_OPTIONS = ["claude", "agy", "cursor"] as const;
+export type CliName = (typeof CLI_OPTIONS)[number];
+export const CLI_LABELS: Record<CliName, string> = {
+  claude: "Claude Code CLI",
+  agy: "agy（Gemini）",
+  cursor: "Cursor CLI",
+};
+
 export type RulesAndConstraints = {
   teamWindowDays: number;
   minEntriesForJudgement: number;
@@ -164,6 +176,10 @@ export type RulesAndConstraints = {
   // AGENT_OPTIONSの値をキーにした、エージェント種別ごとのモデル系統指定。キーが無い
   // （または値が空文字列の）エージェントはclaude CLIの既定モデルのまま動く。
   agentModelTiers: Partial<Record<string, ModelTier>>;
+  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
+  // CLI_OPTIONSの並べ替え（重複無し・全件含む）。既定は["claude","agy","cursor"]
+  // （既存の固定順と同じ＝挙動を変えない既定値）。
+  cliPriorityOrder: CliName[];
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。

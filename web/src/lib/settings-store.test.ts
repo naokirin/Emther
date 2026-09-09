@@ -22,6 +22,9 @@ describe("getRulesAndConstraints", () => {
     expect(rules.decisionQueueLimit).toBe(3);
     expect(rules.observationQueueLimit).toBe(6);
     expect(rules.staleInterventionDays).toBe(14);
+    // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
+    // 既定は既存の固定順（claude→agy→cursor）と同じにする。
+    expect(rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
   });
 });
 

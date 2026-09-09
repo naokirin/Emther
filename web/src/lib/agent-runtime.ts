@@ -9,7 +9,7 @@ import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEv
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints } from "@/lib/settings-store";
-import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type YieldKind } from "@/lib/types";
+import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type YieldKind } from "@/lib/types";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -1158,6 +1158,24 @@ async function withRunSlot<T>(run: AgentRun, fn: () => Promise<T>): Promise<T> {
 // ため、既にマスク済みのテキストを持っている——同じテキストに対して二重にローカルNERを
 // 走らせる（コスト増）だけでなく、既にPERSON_n ID化された文字列を再度NERにかけると
 // 誤検出のリスクもあるため、呼び出し側の結果をそのまま使う。
+// ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
+// claude以外（agy/cursor）は引き続きエージェント種別ごとのopt-in（agyFallbackAgents/
+// cursorFallbackAgents）が候補に入るための前提条件。claudeには無効化トグルが無く、
+// 常に候補になる。
+function isCliApplicable(cli: CliName, agentName: string): boolean {
+  if (cli === "claude") return true;
+  if (cli === "agy") return isAgyFallbackEnabled(agentName);
+  return isCursorFallbackEnabled(agentName);
+}
+
+// 戻り値は呼び出し側では使わない（run.statusを見て次の候補へ進むかを判断するため）。
+// runClaudeCliAttemptだけPromise<boolean>を返す非対称な型のため、Promise<unknown>にしている。
+function runCliAttempt(cli: CliName, run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<unknown> {
+  if (cli === "claude") return withRunSlot(run, () => runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult));
+  if (cli === "agy") return withRunSlot(run, () => runAgyCliAttempt(run, prompt, systemPrompt, allowConsult));
+  return withRunSlot(run, () => runCursorCliAttempt(run, prompt, systemPrompt, allowConsult));
+}
+
 async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true, precomputedPrompt?: string): Promise<void> {
   // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
   // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
@@ -1170,24 +1188,30 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt);
 
-  const claudeFailed = await withRunSlot(run, () => runClaudeCliAttempt(run, prompt, systemPrompt, allowConsult));
+  // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」・
+  // 「サポートするAIエージェントCLIにCursor CLIを追加する」対応を、Settingsの
+  // cliPriorityOrderで並び替え可能にしたもの。以前はclaude→agy→cursorの順が固定
+  // だったが、このエージェント種別で候補になっているCLI（claudeは常に候補、agy/cursorは
+  // 引き続きopt-in）を、設定された優先順位の順に、失敗（run.statusが"error"）する限り
+  // 次の候補へ進む。agyは`--conversation`で会話継続できるため、run.agyConversationIdが
+  // あればそのまま引き継げる（claudeのsessionIdとは別のID空間で管理している）。
+  const priorityOrder = getRulesAndConstraints().cliPriorityOrder;
+  const candidates = priorityOrder.filter((cli) => isCliApplicable(cli, run.agentName));
+  // 設定が万一壊れていても（本来はAPI側のバリデーションで防ぐ）runが何も試さず終わる
+  // ことが無いようにする最後の砦。
+  const clisToTry: CliName[] = candidates.length > 0 ? candidates : ["claude"];
 
-  // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
-  // claude CLIの実行失敗・予算/レート制限のいずれでも（run.statusが"error"になっていれば）
-  // トリガーとする。フォールバックはこのエージェント種別で明示的に有効化されている場合のみ。
-  // agyは`--conversation`で会話継続できるため、run.agyConversationIdがあればそのまま
-  // 引き継げる（claudeのsessionIdとは別のID空間で管理している）。
-  if (claudeFailed && isAgyFallbackEnabled(run.agentName)) {
-    appendLog(run, "system", "⚠️ claude CLIが利用できなかったため、agy経由でGeminiモデルにこのターンをフォールバックします。");
-    await withRunSlot(run, () => runAgyCliAttempt(run, prompt, systemPrompt, allowConsult));
-  }
-
-  // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
-  // claude→agyの順で試した結果、依然として"error"のまま（agyが未有効 or agyも失敗）で、
-  // かつこのエージェント種別でCursorフォールバックが有効な場合のみ、最後にcursor-agentを試す。
-  if ((run.status as AgentStatus) === "error" && isCursorFallbackEnabled(run.agentName)) {
-    appendLog(run, "system", "⚠️ 他のCLIも利用できなかったため、Cursor CLI経由でこのターンをフォールバックします。");
-    await withRunSlot(run, () => runCursorCliAttempt(run, prompt, systemPrompt, allowConsult));
+  for (let i = 0; i < clisToTry.length; i++) {
+    const cli = clisToTry[i];
+    if (i > 0) {
+      appendLog(
+        run,
+        "system",
+        `⚠️ ${CLI_LABELS[clisToTry[i - 1]]}が利用できなかったため、${CLI_LABELS[cli]}にこのターンをフォールバックします。`,
+      );
+    }
+    await runCliAttempt(cli, run, prompt, systemPrompt, allowConsult);
+    if ((run.status as AgentStatus) !== "error") break;
   }
 
   if (run.pendingConsult) {

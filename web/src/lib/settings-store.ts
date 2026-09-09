@@ -1,5 +1,5 @@
 import { loadJSON, saveJSON } from "@/lib/persistence";
-import type { ModelTier } from "@/lib/types";
+import type { CliName, ModelTier } from "@/lib/types";
 
 // docs 3.1.1「判定閾値およびデータ欠如とみなす期間はCore Context（Rules_and_Constraints）
 // 側で定義」に対応するパラメータ群。ただしこれは「組織のMVV/体制」のような
@@ -65,6 +65,11 @@ export type RulesAndConstraints = {
   // エイリアス。バージョンは固定しない）指定。キーが無い（または空文字列の）エージェントは
   // claude CLIの既定モデルのまま動く（既定は全エージェント未設定＝既存の挙動を変えない）。
   agentModelTiers: Partial<Record<string, ModelTier>>;
+  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
+  // claude→agy→cursorの順が固定だったが、この並びを設定で入れ替えられるようにする
+  // （agy/cursorは引き続きagyFallbackAgents/cursorFallbackAgentsでのopt-inが必要で、
+  // この設定は「候補の中でどの順に試すか」だけを決める）。既定は既存の固定順と同じ。
+  cliPriorityOrder: CliName[];
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -88,6 +93,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   observationQueueLimit: 6,
   staleInterventionDays: 14,
   agentModelTiers: {},
+  cliPriorityOrder: ["claude", "agy", "cursor"],
 };
 
 let rules: RulesAndConstraints = {
