@@ -269,23 +269,6 @@ describe("todayDateString", () => {
   });
 });
 
-describe("isAgyFallbackEnabled / isCursorFallbackEnabled", () => {
-  it("設定で明示的に有効化されたエージェントだけtrueを返す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"], cursorFallbackAgents: [] });
-    const rt = await loadModule();
-    expect(rt.isAgyFallbackEnabled("Lead Agent")).toBe(true);
-    expect(rt.isAgyFallbackEnabled("People Agent")).toBe(false);
-    expect(rt.isCursorFallbackEnabled("Lead Agent")).toBe(false);
-  });
-
-  it("既定では全エージェント無効", async () => {
-    const rt = await loadModule();
-    expect(rt.isAgyFallbackEnabled("Lead Agent")).toBe(false);
-    expect(rt.isCursorFallbackEnabled("Lead Agent")).toBe(false);
-  });
-});
-
 describe("relevantTeams", () => {
   const teamA = { id: "t1", name: "Engineering", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, aliases: ["エンジニアリングチーム"], createdAt: 0, updatedAt: 0 };
   const teamB = { id: "t2", name: "Sales", members: [], charter: { mission: "", constraints: "" }, archived: false, managedByEm: true, aliases: [], createdAt: 0, updatedAt: 0 };
@@ -720,9 +703,9 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run.id)?.log.some((l) => l.text.includes("プロセスが結果を返さずに終了しました"))).toBe(true);
   });
 
-  it("claude失敗→agyフォールバックが有効なら起動し、成功すればidleになる", async () => {
+  it("claude失敗→agyが候補に含まれていれば起動し、成功すればidleになる", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -747,9 +730,9 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.log.some((l) => l.text.includes("Claude Code CLIが利用できなかったため、agy（Gemini）にこのターンをフォールバック"))).toBe(true);
   });
 
-  it("claude失敗→agy無効→cursorフォールバックが有効なら起動し、成功すればidleになる", async () => {
+  it("claude失敗→agyを含まずcursorが候補に含まれていれば起動し、成功すればidleになる", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ cursorFallbackAgents: ["Lead Agent"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -771,9 +754,9 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.log.some((l) => l.text.includes("Claude Code CLIが利用できなかったため、Cursor CLIにこのターンをフォールバック"))).toBe(true);
   });
 
-  it("claude失敗→agyも失敗→cursorが有効なら3段目として起動し成功する", async () => {
+  it("claude失敗→agyも失敗→cursorが候補にあれば3段目として起動し成功する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"], cursorFallbackAgents: ["Lead Agent"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -794,13 +777,33 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run.id)?.status).toBe("idle");
   });
 
-  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
-  it("cliPriorityOrderでcursorをclaudeより先に試すよう設定すると、cursorが最初に起動する", async () => {
+  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
+  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
+  // 「claude codeが外せないようになっている」対応。cliPriorityOrder（全エージェント
+  // 共通の並び順）とagyFallbackAgents/cursorFallbackAgents（エージェント種別ごとの
+  // ON/OFF）をcliOrder（全エージェント共通の単一のCLI優先順位リスト）に統合し、
+  // claudeも他の2つと同様に除外できるようにした後の挙動を検証する。
+  it("cliOrderにclaudeを含めなければ、claudeは一度も起動されずagyから始まる", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({
-      cursorFallbackAgents: ["Lead Agent"],
-      cliPriorityOrder: ["cursor", "claude", "agy"],
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["agy", "cursor"] });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "タスク");
+
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].command).toBe("agy");
+    emitAgyResult(spawnCalls[0].child, { text: "agyの結論" });
+    closeChild(spawnCalls[0].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
     });
+    expect(rt.getRun(run.id)?.status).toBe("idle");
+    expect(spawnCalls.every((c) => c.command !== "claude")).toBe(true);
+  });
+
+  it("cliOrderでcursorをclaudeより先に並べると、cursorが最初に起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "claude", "agy"] });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "タスク");
 
@@ -808,25 +811,19 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(spawnCalls[0].command).toBe("cursor-agent");
   });
 
-  it("cliPriorityOrderで並べ替えても、有効化されていないCLIは候補から除かれる", async () => {
+  it("cliOrderは全エージェント種別に共通で適用される", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    // agy/cursorともフォールバック未有効のまま、優先順位だけ入れ替える。
-    settingsStore.updateRulesAndConstraints({ cliPriorityOrder: ["cursor", "agy", "claude"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "agy", "claude"] });
     const rt = await loadModule();
-    await rt.startRun("Lead Agent", "タスク");
+    await rt.startRun("People Agent", "タスク");
 
     await waitForSpawnCount(1);
-    // claudeには無効化トグルが無いため、他が候補から外れれば結局claudeが最初になる。
-    expect(spawnCalls[0].command).toBe("claude");
+    expect(spawnCalls[0].command).toBe("cursor-agent");
   });
 
-  it("cursorを先頭にして失敗した場合、次の候補（有効な場合のagy）へフォールバックする", async () => {
+  it("cursorを先頭にして失敗した場合、次の候補（agy）へフォールバックする", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({
-      agyFallbackAgents: ["Lead Agent"],
-      cursorFallbackAgents: ["Lead Agent"],
-      cliPriorityOrder: ["cursor", "agy", "claude"],
-    });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "agy", "claude"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -854,7 +851,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   it("agentAgyModelsでこのエージェント種別のモデルを指定すると、agy起動時にそのモデルを渡す", async () => {
     const settingsStore = await import("@/lib/settings-store");
     settingsStore.updateRulesAndConstraints({
-      agyFallbackAgents: ["Lead Agent"],
+      cliOrder: ["claude", "agy"],
       agentAgyModels: { "Lead Agent": "gemini-custom-model" },
     });
     const rt = await loadModule();
@@ -869,7 +866,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
 
   it("agentAgyModelsが未設定のエージェントは既定モデルのままagyを起動する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy"] });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -882,7 +879,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   it("agentCursorModelsでこのエージェント種別のモデルを指定すると、cursor-agent起動時にそのモデルを渡す", async () => {
     const settingsStore = await import("@/lib/settings-store");
     settingsStore.updateRulesAndConstraints({
-      cursorFallbackAgents: ["Lead Agent"],
+      cliOrder: ["claude", "cursor"],
       agentCursorModels: { "Lead Agent": "gpt-custom" },
     });
     const rt = await loadModule();
@@ -897,7 +894,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
 
   it("claude/agy/cursorすべて失敗すればerrorのまま確定する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ agyFallbackAgents: ["Lead Agent"], cursorFallbackAgents: ["Lead Agent"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "全滅するタスク");
 

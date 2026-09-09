@@ -134,8 +134,9 @@ export type ObjectiveWithProgress = Objective & {
 
 // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
 // claude→agy→cursorの順が固定だったが、この並びを設定で入れ替えられるようにする。
-// claudeには既存のagyFallbackAgents/cursorFallbackAgentsのような無効化トグルは無く、
-// 常に候補に含まれる（agy/cursorはエージェント種別ごとに引き続きopt-inが必要）。
+// ユーザー指摘「claude codeが外せないようになっているので外せるようにしておいて
+// ほしい」対応で、claudeも他の2つと同様に除外できる（最低1つは候補として残す
+// 必要があり、配列を空にはできない）。
 export const CLI_OPTIONS = ["claude", "agy", "cursor"] as const;
 export type CliName = (typeof CLI_OPTIONS)[number];
 export const CLI_LABELS: Record<CliName, string> = {
@@ -155,8 +156,6 @@ export type RulesAndConstraints = {
   agentStaleAfterSeconds: number;
   agentKillAfterSeconds: number;
   journalFactTtlDays: number;
-  agyFallbackAgents: string[];
-  cursorFallbackAgents: string[];
   autoAnomalyDetectionEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
@@ -183,10 +182,18 @@ export type RulesAndConstraints = {
   // 空文字列の）エージェントはagent-runtime.tsの既定モデル定数のまま動く。
   agentAgyModels: Partial<Record<string, string>>;
   agentCursorModels: Partial<Record<string, string>>;
-  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
-  // CLI_OPTIONSの並べ替え（重複無し・全件含む）。既定は["claude","agy","cursor"]
-  // （既存の固定順と同じ＝挙動を変えない既定値）。
-  cliPriorityOrder: CliName[];
+  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が発生
+  // している」対応。以前はcliPriorityOrder（全エージェント共通の並び順）と
+  // agyFallbackAgents/cursorFallbackAgents（エージェント種別ごとのON/OFF）という
+  // 2つの設定が別々に存在し、「順番を変えたのに反映されない（OFFのままだから）」
+  // といった混乱を招いていた。ユーザー指摘「エージェントごとに設定できる必要はない、
+  // 全体で1つで大丈夫」対応で、エージェント種別ごとではなく全エージェント共通の
+  // 単一のCLI優先順位リストへ統合する——配列に含まれるCLIだけが候補になり
+  // （＝「除外」は配列から外すことで表現する）、含まれる順が試行順になる
+  // （＝「優先度」）。ユーザー指摘「claude codeが外せないようになっている」対応で、
+  // claudeも他の2つと同様に除外できる（配列を空にはできず、最低1つは必ず候補に残す）。
+  // 既定["claude"]（＝agy/cursorは無効、既存の挙動を変えない）。
+  cliOrder: CliName[];
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。

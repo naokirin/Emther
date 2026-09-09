@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useSettingsRules } from "@/lib/hooks";
-import { AGENT_OPTIONS, CLI_LABELS, MODEL_TIER_OPTIONS, type ModelTier, type RulesAndConstraints } from "@/lib/types";
+import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@/lib/types";
 
 // Rules_and_Constraints（Team Vitalsの判定閾値）はOrganization Context（組織のMVVや
 // 体制などの「不動の前提」）とは性質が異なり、アプリの挙動を調整する設定値なので、
@@ -67,6 +67,28 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
+  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」対応。
+  // 以前のcliPriorityOrder（全エージェント共通の並び順）+ agyFallbackAgents/
+  // cursorFallbackAgents（エージェント種別ごとのON/OFF）という別々の2設定を、
+  // 全エージェント共通の単一のCLI優先順位リストへ統合した。
+
+  // チェックONで末尾（最も優先度低い）に追加、チェックOFFで除外する。claudeは
+  // 無効化トグルが無い（常に含まれる）ため、ここへは渡さない。
+  function toggleCli(cli: CliName, checked: boolean) {
+    const current = draft.cliOrder;
+    // 候補ゼロを防ぐ最後の砦（UI側のdisabledと二重）。最後の1つは外せない。
+    if (!checked && current.length === 1) return;
+    const next = checked ? (current.includes(cli) ? current : [...current, cli]) : current.filter((c) => c !== cli);
+    setDraft({ ...draft, cliOrder: next });
+  }
+
+  function moveCli(from: number, to: number) {
+    const next = [...draft.cliOrder];
+    [next[from], next[to]] = [next[to], next[from]];
+    setDraft({ ...draft, cliOrder: next });
   }
 
   return (
@@ -256,7 +278,80 @@ export default function SettingsPage() {
 
             {activeGroup === "aiTools" && (
               <>
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>エージェント種別ごとのモデル系統（claude）</h3>
+                {/* ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との
+                    競合が発生している」「エージェントごとに設定できる必要はない、全体で
+                    1つで大丈夫」対応。以前は「利用するAIツールの優先順位」（全エージェント
+                    共通の並び順）と「agy/Cursorフォールバック」（エージェント種別ごとの
+                    ON/OFF）が別々の設定として存在し、片方だけ変えても反映されない
+                    （OFFのままだから）といった混乱があった。全エージェント共通で、
+                    チェックで候補に入れる/外す（＝除外）・↑↓で試す順（＝優先度）を同じ
+                    1つのリストで決められるようにする。
+                    ユーザー指摘「AIツール設定の先頭に持ってきておきたい」対応で、
+                    エージェント種別ごとのモデル設定より前に置く。
+                    ユーザー指摘「claude codeが外せないようになっている」対応で、
+                    claudeも他の2つと同様に除外できるようにする（最後の1つは
+                    候補ゼロを防ぐため外せない）。 */}
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  Agent Runの各ターンで、チェックした順にCLIを試します（1つ失敗したら次の候補へ進みます）。
+                  チェックを外したCLIは候補から除外されます（最後の1つは候補ゼロを防ぐため外せません）。
+                  agyは会話継続（`--conversation`）、Cursor CLIは会話継続（`--resume`）に対応しているため、フォールバック後も壁打ちの複数ターンを続けられます。
+                  Cursor CLIはこのアプリのソース・データが見えない専用の空ディレクトリをワークスペースに指定して実行します。
+                </p>
+                {(() => {
+                  const order = draft.cliOrder;
+                  const excluded = CLI_OPTIONS.filter((c) => !order.includes(c));
+                  return (
+                    <ol style={{ listStyle: "none", margin: 0, padding: 0, maxWidth: 340, marginBottom: 12 }}>
+                      {order.map((cli, index) => (
+                        <li key={cli} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8125rem" }}>
+                          <span style={{ width: 16, color: "var(--text-muted)" }}>{index + 1}.</span>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                            <input
+                              type="checkbox"
+                              checked
+                              disabled={order.length === 1}
+                              onChange={(e) => toggleCli(cli, e.target.checked)}
+                            />
+                            {CLI_LABELS[cli]}
+                          </label>
+                          <button
+                            type="button"
+                            className={styles.btnOutline}
+                            onClick={() => moveCli(index, index - 1)}
+                            disabled={index === 0}
+                            aria-label={`${CLI_LABELS[cli]}を上へ`}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.btnOutline}
+                            onClick={() => moveCli(index, index + 1)}
+                            disabled={index === order.length - 1}
+                            aria-label={`${CLI_LABELS[cli]}を下へ`}
+                          >
+                            ↓
+                          </button>
+                        </li>
+                      ))}
+                      {excluded.map((cli) => (
+                        <li
+                          key={cli}
+                          style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}
+                        >
+                          <span style={{ width: 16 }} />
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                            <input type="checkbox" checked={false} onChange={(e) => toggleCli(cli, e.target.checked)} />
+                            {CLI_LABELS[cli]}（除外）
+                          </label>
+                        </li>
+                      ))}
+                    </ol>
+                  );
+                })()}
+
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル系統（claude）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
                   claude CLIが呼び出すモデルの系統をエージェント種別ごとに事前に決めておけます。モデルは日々更新されるため、
                   特定バージョンではなく系統名（sonnet/opus/fable/haiku）で指定します。「（CLIの既定のまま）」を選ぶと、
@@ -341,94 +436,6 @@ export default function SettingsPage() {
                       }}
                     /></label>
                   </div>
-                ))}
-
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>利用するAIツールの優先順位</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Agent Runの各ターンで、この順にCLIを試します（1つ失敗したら次の候補へ進みます）。claudeには無効化の設定は無く常に候補になります。agy・Cursor
-                  CLIは下の各フォールバック設定でONにしたエージェント種別でのみ候補になります（未ONのCLIはここで何番目でも候補から外れます）。
-                </p>
-                <ol style={{ listStyle: "none", margin: 0, padding: 0, maxWidth: 300, marginBottom: 12 }}>
-                  {draft.cliPriorityOrder.map((cli, index) => (
-                    <li key={cli} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8125rem" }}>
-                      <span style={{ width: 16, color: "var(--text-muted)" }}>{index + 1}.</span>
-                      <span style={{ flex: 1 }}>{CLI_LABELS[cli]}</span>
-                      <button
-                        type="button"
-                        className={styles.btnOutline}
-                        onClick={() => {
-                          const next = [...draft.cliPriorityOrder];
-                          [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                          setDraft({ ...draft, cliPriorityOrder: next });
-                        }}
-                        disabled={index === 0}
-                        aria-label={`${CLI_LABELS[cli]}を上へ`}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.btnOutline}
-                        onClick={() => {
-                          const next = [...draft.cliPriorityOrder];
-                          [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                          setDraft({ ...draft, cliPriorityOrder: next });
-                        }}
-                        disabled={index === draft.cliPriorityOrder.length - 1}
-                        aria-label={`${CLI_LABELS[cli]}を下へ`}
-                      >
-                        ↓
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  claude CLIの実行が失敗した場合（起動失敗・予算/レート制限超過など）、ここでONにしたエージェント種別に限り、
-                  `agy`（複数モデル対応CLI）経由でGeminiモデルへフォールバックします。既定は全エージェントOFF（明示的にONにしたものだけ対象）。
-                  agyは会話継続（`--conversation`）に対応しているため、フォールバック後も壁打ちの複数ターンを続けられます。
-                </p>
-                {AGENT_OPTIONS.map((name) => (
-                  <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
-                    <input
-                      type="checkbox"
-                      checked={draft.agyFallbackAgents.includes(name)}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          agyFallbackAgents: e.target.checked
-                            ? [...draft.agyFallbackAgents, name]
-                            : draft.agyFallbackAgents.filter((n) => n !== name),
-                        })
-                      }
-                    />
-                    {name}
-                  </label>
-                ))}
-
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Cursor CLIフォールバック</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  ここでONにしたエージェント種別に限り、`cursor-agent`（Cursor
-                  CLI）経由でのフォールバックを候補にします（実際にいつ試すかは上の「利用するAIツールの優先順位」次第です）。既定は全エージェントOFF。読み取り専用ツールを勝手に実行しないよう、
-                  このアプリのソース・データが見えない専用の空ディレクトリをワークスペースに指定して実行します。会話継続（`--resume`）にも対応しています。
-                </p>
-                {AGENT_OPTIONS.map((name) => (
-                  <label key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
-                    <input
-                      type="checkbox"
-                      checked={draft.cursorFallbackAgents.includes(name)}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          cursorFallbackAgents: e.target.checked
-                            ? [...draft.cursorFallbackAgents, name]
-                            : draft.cursorFallbackAgents.filter((n) => n !== name),
-                        })
-                      }
-                    />
-                    {name}
-                  </label>
                 ))}
               </>
             )}
