@@ -26,7 +26,8 @@ describe("GET /api/org/objectives", () => {
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
     const krId = withKr!.keyResults[0].id;
     const issue = await issueStore.createIssue("契約A", undefined, undefined, undefined, undefined, krId);
-    issueStore.setIssueArchived(issue.id, true);
+    // docs/issue_tracker_contract.md: 進捗は status=done（archived ではない）で数える。
+    issueStore.setIssueStatus(issue.id, "done");
 
     const route = await import("./route");
     const res = await route.GET();

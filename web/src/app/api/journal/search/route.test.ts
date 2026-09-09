@@ -74,6 +74,9 @@ describe("GET /api/journal/search", () => {
   });
 
   it("urgency/sentimentクエリで絞り込み、facetsに実名・実タグが載る", async () => {
+    // ローカル抽出の人物は既登録のみ紐付く（自動登録しない）ため、先に名簿へ載せる。
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
     await addEntry("Aさんと1on1した", { extraction: { tags: ["1on1"], people: ["Aさん"], urgency: "high", sentiment: "positive" } });
     await addEntry("普通の話", { extraction: { tags: [], people: [], urgency: "low", sentiment: "neutral" } });
     const route = await import("./route");
