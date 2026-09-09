@@ -5,8 +5,69 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
-import { usePersonProfile } from "@/lib/hooks";
-import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatus } from "@/lib/types";
+import { usePersonProfile, useTeams } from "@/lib/hooks";
+import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatus, teamDisplayName, type Team } from "@/lib/types";
+
+// ユーザー要望「メンバーの詳細画面からチームを設定できるようにしたい」対応。従来は
+// Organization Context画面でチームを選んでからメンバー一覧を編集する必要があったが、
+// 人物視点でチーム所属をその場で切り替えられるようにする。既存のチーム編集API
+// （PATCH /api/teams/:id、members配列を丸ごと置き換える）をそのまま使い、新規APIは追加しない。
+function TeamMembershipEditor({
+  personName,
+  teams,
+  onChanged,
+}: {
+  personName: string;
+  teams: Team[];
+  onChanged: () => void;
+}) {
+  const [pendingTeamId, setPendingTeamId] = useState<string | null>(null);
+  const activeTeams = teams.filter((t) => !t.archived);
+
+  async function toggleMembership(team: Team) {
+    setPendingTeamId(team.id);
+    const isMember = team.members.includes(personName);
+    const nextMembers = isMember ? team.members.filter((m) => m !== personName) : [...team.members, personName];
+    try {
+      await fetch(`/api/teams/${team.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members: nextMembers }),
+      });
+      onChanged();
+    } finally {
+      setPendingTeamId(null);
+    }
+  }
+
+  if (activeTeams.length === 0) {
+    return (
+      <p className={styles.subtitle}>登録されているチームがありません。Organization Contextでチームを作成してください。</p>
+    );
+  }
+
+  return (
+    <div role="group" aria-label="所属チーム" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {activeTeams.map((team) => {
+        const isMember = team.members.includes(personName);
+        return (
+          <button
+            key={team.id}
+            type="button"
+            className={`${styles.typeChip} ${isMember ? styles.typeChipSelected : ""}`}
+            onClick={() => toggleMembership(team)}
+            disabled={pendingTeamId === team.id}
+            aria-pressed={isMember}
+          >
+            {isMember ? "✓ " : ""}
+            {teamDisplayName(team.name)}
+            {!team.managedByEm && "（管理外）"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。中身をidベースの
 // コンポーネントに切り出し、フルページ（本ファイル末尾のPersonDetailPage）と
@@ -17,9 +78,16 @@ import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatu
 // 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ（このページ自体はEMの
 // 「介入」を行う場所ではなく、辿るための入口——実際の記録・起票は既存の各画面で行う）。
 export function PersonDetailContent({ id }: { id: string }) {
-  const { person } = usePersonProfile(id);
+  const { person, refreshPerson } = usePersonProfile(id);
+  const { teams, refreshTeams } = useTeams();
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+
+  // チーム所属を変えるとisDirectReport・teamNamesも変わるため、両方のポーリング先を
+  // 更新して画面上の表示（部下/その他ラベル・所属チーム名の一覧）をすぐ反映させる。
+  async function handleTeamsChanged() {
+    await Promise.all([refreshTeams(), refreshPerson()]);
+  }
 
   // docs/em_human_story_and_ux.md P2-12対応。ローカルNERが自由記述中の一般語や
   // チーム名を人物として誤登録した場合の削除導線（フィルタでは防ぎきれない誤登録の
@@ -59,6 +127,14 @@ export function PersonDetailContent({ id }: { id: string }) {
             {person.hasConcerningIssue && " ／ ⚠️ 停滞・ブロッカーありの関連Issueがあります"}
           </p>
         </div>
+      </div>
+
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>所属チーム</h3>
+      <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+        クリックで所属のON/OFFを切り替えられます。「（管理外）」は自分が管理していないチーム（Organization Contextで設定）です。
+      </p>
+      <div style={{ marginBottom: 10 }}>
+        <TeamMembershipEditor personName={person.name} teams={teams} onChanged={handleTeamsChanged} />
       </div>
 
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
