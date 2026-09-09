@@ -26,8 +26,8 @@ describe("EmCheckinWidget", () => {
 
   it("記録が無ければ「まだ記録がありません」と表示する", async () => {
     render(<EmCheckinWidget />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(screen.getByText("まだ記録がありません。")).toBeInTheDocument();
+    expect(screen.getByText("読み込み中…")).toBeInTheDocument();
+    expect(await screen.findByText("まだ記録がありません。")).toBeInTheDocument();
   });
 
   it("記録するボタンでPOSTし、一覧に反映する", async () => {

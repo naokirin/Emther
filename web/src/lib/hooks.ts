@@ -145,12 +145,12 @@ export function useGoToRunIssue(issues: Issue[]) {
 }
 
 export function useRuns(intervalMs = 1500) {
-  const { data, setData, refresh } = usePolling<{ runs: AgentRun[] }>(
+  const { data, setData, loaded, refresh } = usePolling<{ runs: AgentRun[] }>(
     "/api/agents",
     { runs: [] },
     intervalMs,
   );
-  return { runs: data.runs, setRuns: (runs: AgentRun[]) => setData({ runs }), refreshRuns: refresh };
+  return { runs: data.runs, setRuns: (runs: AgentRun[]) => setData({ runs }), runsLoaded: loaded, refreshRuns: refresh };
 }
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents画面のInbox一覧専用。
@@ -165,21 +165,21 @@ export function useRunsInbox(filter: { status: string; showDismissed: boolean },
 
   type Result = { runs: AgentRun[]; total: number; page: number; pageSize: number };
   const fallback: Result = { runs: [], total: 0, page: 1, pageSize };
-  const { data, refresh } = usePolling<Result>(`/api/agents/inbox?${params.toString()}`, fallback, intervalMs);
-  return { runs: data.runs, total: data.total, refreshInbox: refresh };
+  const { data, loaded, refresh } = usePolling<Result>(`/api/agents/inbox?${params.toString()}`, fallback, intervalMs);
+  return { runs: data.runs, total: data.total, inboxLoaded: loaded, refreshInbox: refresh };
 }
 
 export function useIssues(intervalMs = 3000) {
-  const { data, setData, refresh } = usePolling<{ issues: Issue[] }>(
+  const { data, setData, loaded, refresh } = usePolling<{ issues: Issue[] }>(
     "/api/issues",
     { issues: [] },
     intervalMs,
   );
-  return { issues: data.issues, setIssues: (issues: Issue[]) => setData({ issues }), refreshIssues: refresh };
+  return { issues: data.issues, setIssues: (issues: Issue[]) => setData({ issues }), issuesLoaded: loaded, refreshIssues: refresh };
 }
 
 export function useJournal(intervalMs = 5000) {
-  const { data, setData, refresh } = usePolling<{ entries: JournalEntry[] }>(
+  const { data, setData, loaded, refresh } = usePolling<{ entries: JournalEntry[] }>(
     "/api/journal",
     { entries: [] },
     intervalMs,
@@ -192,6 +192,7 @@ export function useJournal(intervalMs = 5000) {
     // ようにし、常に最新のstateを起点に反映できるようにする。
     setJournalEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) =>
       setData((prev) => ({ entries: typeof entries === "function" ? entries(prev.entries) : entries })),
+    journalLoaded: loaded,
     refreshJournal: refresh,
   };
 }
@@ -237,7 +238,7 @@ export function useJournalSearch(
     facets: { tags: string[]; people: string[] };
   };
   const fallback: Result = { entries: [], total: 0, page: 1, pageSize, facets: { tags: [], people: [] } };
-  const { data, setData, refresh } = usePolling<Result>(`/api/journal/search?${params.toString()}`, fallback, intervalMs);
+  const { data, setData, loaded, refresh } = usePolling<Result>(`/api/journal/search?${params.toString()}`, fallback, intervalMs);
   return {
     entries: data.entries,
     total: data.total,
@@ -247,6 +248,7 @@ export function useJournalSearch(
     // 関数形式（前回値を起点に更新）でも呼ぶため、useJournal()の実装と同じ形にしておく。
     setEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) =>
       setData((prev) => ({ ...prev, entries: typeof entries === "function" ? entries(prev.entries) : entries })),
+    searchLoaded: loaded,
     refreshSearch: refresh,
   };
 }
@@ -497,12 +499,12 @@ export function useJournalEditing(
 }
 
 export function useTeams(intervalMs = 5000) {
-  const { data, setData, refresh } = usePolling<{ teams: Team[] }>(
+  const { data, setData, loaded, refresh } = usePolling<{ teams: Team[] }>(
     "/api/teams",
     { teams: [] },
     intervalMs,
   );
-  return { teams: data.teams, setTeams: (teams: Team[]) => setData({ teams }), refreshTeams: refresh };
+  return { teams: data.teams, setTeams: (teams: Team[]) => setData({ teams }), teamsLoaded: loaded, refreshTeams: refresh };
 }
 
 export function useVitals(intervalMs = 5000) {
@@ -510,20 +512,20 @@ export function useVitals(intervalMs = 5000) {
     teams: [],
     oneOnOneCoverage: { status: "unknown", covered: 0, total: 0, reason: "", uncoveredMembers: [] },
   };
-  const { data, refresh } = usePolling<OrgVitals>("/api/vitals", fallback, intervalMs);
-  return { vitals: data, refreshVitals: refresh };
+  const { data, loaded, refresh } = usePolling<OrgVitals>("/api/vitals", fallback, intervalMs);
+  return { vitals: data, vitalsLoaded: loaded, refreshVitals: refresh };
 }
 
 export function useOrgStrategy(intervalMs = 8000) {
   const fallback: { strategy: OrgStrategy } = { strategy: { mission: "", vision: "", values: "" } };
-  const { data, refresh } = usePolling<{ strategy: OrgStrategy }>("/api/org/strategy", fallback, intervalMs);
-  return { strategy: data.strategy, refreshStrategy: refresh };
+  const { data, loaded, refresh } = usePolling<{ strategy: OrgStrategy }>("/api/org/strategy", fallback, intervalMs);
+  return { strategy: data.strategy, strategyLoaded: loaded, refreshStrategy: refresh };
 }
 
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。
 export function useObjectives(intervalMs = 5000) {
-  const { data, refresh } = usePolling<{ objectives: ObjectiveWithProgress[] }>("/api/org/objectives", { objectives: [] }, intervalMs);
-  return { objectives: data.objectives, refreshObjectives: refresh };
+  const { data, loaded, refresh } = usePolling<{ objectives: ObjectiveWithProgress[] }>("/api/org/objectives", { objectives: [] }, intervalMs);
+  return { objectives: data.objectives, objectivesLoaded: loaded, refreshObjectives: refresh };
 }
 
 export function useSettingsRules(intervalMs = 8000) {
@@ -559,60 +561,60 @@ export function useSettingsRules(intervalMs = 8000) {
 // 単一Issue詳細ページ用。Issue一覧のポーリングとは別に、そのIssue1件だけを取得する。
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。
 export function useTimeline(intervalMs = 10000) {
-  const { data, refresh } = usePolling<{ entries: TimelineEntry[] }>("/api/timeline", { entries: [] }, intervalMs);
-  return { entries: data.entries, refreshTimeline: refresh };
+  const { data, loaded, refresh } = usePolling<{ entries: TimelineEntry[] }>("/api/timeline", { entries: [] }, intervalMs);
+  return { entries: data.entries, timelineLoaded: loaded, refreshTimeline: refresh };
 }
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。
 export function usePeople(intervalMs = 5000) {
-  const { data, refresh } = usePolling<{ people: PersonSummary[] }>("/api/people", { people: [] }, intervalMs);
-  return { people: data.people, refreshPeople: refresh };
+  const { data, loaded, refresh } = usePolling<{ people: PersonSummary[] }>("/api/people", { people: [] }, intervalMs);
+  return { people: data.people, peopleLoaded: loaded, refreshPeople: refresh };
 }
 
 export function usePersonProfile(id: string, intervalMs = 5000) {
-  const { data, refresh } = usePolling<{ person: PersonProfile | null }>(`/api/people/${id}`, { person: null }, intervalMs);
-  return { person: data.person, refreshPerson: refresh };
+  const { data, loaded, refresh } = usePolling<{ person: PersonProfile | null }>(`/api/people/${id}`, { person: null }, intervalMs);
+  return { person: data.person, personLoaded: loaded, refreshPerson: refresh };
 }
 
 // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssue
 // でのみ意味を持つため、呼び出し側がenabledで制御する（無駄なポーリングを避ける）。
 export function useIssueImpact(id: string, enabled: boolean, intervalMs = 10000) {
-  const { data, refresh } = usePolling<{ impact: IssueImpact | null }>(`/api/issues/${id}/impact`, { impact: null }, intervalMs, enabled);
-  return { impact: data.impact, refreshImpact: refresh };
+  const { data, loaded, refresh } = usePolling<{ impact: IssueImpact | null }>(`/api/issues/${id}/impact`, { impact: null }, intervalMs, enabled);
+  return { impact: data.impact, impactLoaded: loaded, refreshImpact: refresh };
 }
 
 export function useIssue(id: string, intervalMs = 2000) {
-  const { data, setData, refresh } = usePolling<{ issue: Issue | null }>(
+  const { data, setData, loaded, refresh } = usePolling<{ issue: Issue | null }>(
     `/api/issues/${id}`,
     { issue: null },
     intervalMs,
   );
-  return { issue: data.issue, setIssue: (issue: Issue | null) => setData({ issue }), refreshIssue: refresh };
+  return { issue: data.issue, setIssue: (issue: Issue | null) => setData({ issue }), issueLoaded: loaded, refreshIssue: refresh };
 }
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する。
 // entityIdが未確定（null）の間はfetchしない。
 export function useEntityHistory(entityType: "issue" | "team" | "org", entityId: string | null, intervalMs = 5000) {
   const url = `/api/knowledge/events?entityType=${entityType}&entityId=${entityId ?? ""}`;
-  const { data, refresh } = usePolling<{ events: KnowledgeEvent[] }>(url, { events: [] }, intervalMs, entityId !== null);
-  return { history: data.events, refreshHistory: refresh };
+  const { data, loaded, refresh } = usePolling<{ events: KnowledgeEvent[] }>(url, { events: [] }, intervalMs, entityId !== null);
+  return { history: data.events, historyLoaded: loaded, refreshHistory: refresh };
 }
 
 // docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする」対応。
 export function useReports(periodType: ReportPeriodType | "" = "", intervalMs = 15000) {
   const url = periodType ? `/api/reports?periodType=${periodType}` : "/api/reports";
-  const { data, setData, refresh } = usePolling<{ reports: Report[] }>(url, { reports: [] }, intervalMs);
-  return { reports: data.reports, setReports: (reports: Report[]) => setData({ reports }), refreshReports: refresh };
+  const { data, setData, loaded, refresh } = usePolling<{ reports: Report[] }>(url, { reports: [] }, intervalMs);
+  return { reports: data.reports, setReports: (reports: Report[]) => setData({ reports }), reportsLoaded: loaded, refreshReports: refresh };
 }
 
 // docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る」対応。
 export function useEmCheckins(intervalMs = 15000) {
-  const { data, setData, refresh } = usePolling<{ checkins: EmCheckin[] }>("/api/em-self/checkins", { checkins: [] }, intervalMs);
-  return { checkins: data.checkins, setCheckins: (checkins: EmCheckin[]) => setData({ checkins }), refreshCheckins: refresh };
+  const { data, setData, loaded, refresh } = usePolling<{ checkins: EmCheckin[] }>("/api/em-self/checkins", { checkins: [] }, intervalMs);
+  return { checkins: data.checkins, setCheckins: (checkins: EmCheckin[]) => setData({ checkins }), checkinsLoaded: loaded, refreshCheckins: refresh };
 }
 
 export function useReflectionNotes(intervalMs = 15000) {
-  const { data, setData, refresh } = usePolling<{ notes: EmReflectionNote[] }>(
+  const { data, setData, loaded, refresh } = usePolling<{ notes: EmReflectionNote[] }>(
     "/api/em-self/reflection-notes",
     { notes: [] },
     intervalMs,
@@ -620,6 +622,7 @@ export function useReflectionNotes(intervalMs = 15000) {
   return {
     notes: data.notes,
     setNotes: (notes: EmReflectionNote[]) => setData({ notes }),
+    notesLoaded: loaded,
     refreshNotes: refresh,
   };
 }

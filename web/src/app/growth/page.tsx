@@ -57,7 +57,7 @@ function groupNotesByWeek(notes: EmReflectionNote[]): WeekGroup[] {
 // これはEM自身についての自己申告であり、本人の申告そのものが根拠になるため、良好/要注意といった
 // アルゴリズム判定は行わず、数値と履歴をそのまま見せる。
 export default function GrowthPage() {
-  const { notes, setNotes } = useReflectionNotes();
+  const { notes, setNotes, notesLoaded } = useReflectionNotes();
 
   const [noteType, setNoteType] = useState<ReflectionNoteType>("keep");
   const [noteText, setNoteText] = useState("");
@@ -105,7 +105,9 @@ export default function GrowthPage() {
             <p className={styles.subtitle}>{formatDate(latestTryNote.createdAt)}のTryメモより</p>
           </>
         ) : (
-          <p className={styles.subtitle}>まだTryメモが記録されていません。気づいた時に下のフォームからメモしておきましょう。</p>
+          <p className={styles.subtitle}>
+            {!notesLoaded ? "読み込み中…" : "まだTryメモが記録されていません。気づいた時に下のフォームからメモしておきましょう。"}
+          </p>
         )}
       </div>
 
@@ -161,7 +163,7 @@ export default function GrowthPage() {
 
           {weekGroups.length === 0 ? (
             <p className={styles.subtitle} style={{ marginTop: 12 }}>
-              まだ気づきメモがありません。
+              {!notesLoaded ? "読み込み中…" : "まだ気づきメモがありません。"}
             </p>
           ) : (
             <div className={styles.tableWrap}>

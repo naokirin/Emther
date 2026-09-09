@@ -49,7 +49,7 @@ function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (
 }
 
 function PeoplePageInner() {
-  const { people } = usePeople();
+  const { people, peopleLoaded } = usePeople();
   const peek = usePeekParam("person");
   const sorted = [...people].sort((a, b) => b.factCount - a.factCount || a.name.localeCompare(b.name, "ja"));
   const reports = sorted.filter((p) => p.isDirectReport);
@@ -70,7 +70,11 @@ function PeoplePageInner() {
           円は本人に関するJournalの傾向・関連Issueの状況（停滞・ブロッカー）から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。🟢安定　🟡やや注意　🔴要注意　⚪️評価不能（件数不足）
         </p>
         {sorted.length === 0 ? (
-          <p className={styles.subtitle}>まだ誰も登録されていません。Quick Journalに記録するか、左メニューの「チーム」でメンバーを追加すると、ここに表示されます。</p>
+          <p className={styles.subtitle}>
+            {!peopleLoaded
+              ? "読み込み中…"
+              : "まだ誰も登録されていません。Quick Journalに記録するか、左メニューの「チーム」でメンバーを追加すると、ここに表示されます。"}
+          </p>
         ) : (
           <>
             <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>部下（自分が管理するチームのメンバー）</h3>

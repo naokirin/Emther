@@ -46,7 +46,7 @@ function ScalePicker({ label, value, onChange }: { label: string; value: number;
 // docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
 // 入力・改善方針機能を作る」対応。/growthのEM自身のバイタル（自己チェックイン）フォーム＋履歴。
 export function EmCheckinWidget() {
-  const { checkins, setCheckins } = useEmCheckins();
+  const { checkins, setCheckins, checkinsLoaded } = useEmCheckins();
 
   const [mood, setMood] = useState(3);
   const [energy, setEnergy] = useState(3);
@@ -113,7 +113,7 @@ export function EmCheckinWidget() {
 
       {checkins.length === 0 ? (
         <p className={styles.subtitle} style={{ marginTop: 12 }}>
-          まだ記録がありません。
+          {!checkinsLoaded ? "読み込み中…" : "まだ記録がありません。"}
         </p>
       ) : (
         <div className={styles.tableWrap}>

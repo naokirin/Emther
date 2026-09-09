@@ -48,7 +48,7 @@ function formatActivityTimestamp(ts: number): string {
 
 export default function AgentsPage() {
   const router = useRouter();
-  const { runs, refreshRuns } = useRuns();
+  const { runs, runsLoaded, refreshRuns } = useRuns();
   const { issues } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
   const { rules } = useSettingsRules();
@@ -73,7 +73,7 @@ export default function AgentsPage() {
   // サーバーへ渡し、そのページ分のrunsだけを受け取る（Fleet状態・Activity Streamは
   // 引き続き上のuseRuns()＝全件取得のまま。今回のスコープ外）。
   const [inboxPage, setInboxPage] = useState(1);
-  const { runs: inboxRuns, total: inboxTotal } = useRunsInbox(
+  const { runs: inboxRuns, total: inboxTotal, inboxLoaded } = useRunsInbox(
     { status: statusFilter, showDismissed: showDismissedRuns },
     inboxPage,
     INBOX_PAGE_SIZE,
@@ -182,7 +182,7 @@ export default function AgentsPage() {
         </div>
         {activityLines.length === 0 ? (
           <p className={styles.subtitle} style={{ marginTop: 12 }}>
-            まだ直近の動きはありません。
+            {!runsLoaded ? "読み込み中…" : "まだ直近の動きはありません。"}
           </p>
         ) : (
           <div className={styles.activityStream} style={{ marginTop: 12 }}>
@@ -268,7 +268,7 @@ export default function AgentsPage() {
               {inboxTotal === 0 && (
                 <tr>
                   <td colSpan={4} className={styles.tableEmpty}>
-                    条件に一致するエージェントはありません。
+                    {!inboxLoaded ? "読み込み中…" : "条件に一致するエージェントはありません。"}
                   </td>
                 </tr>
               )}

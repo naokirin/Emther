@@ -76,7 +76,7 @@ function JournalListPageInner() {
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
   const activeFocusId = focusId && focusId !== appliedFocusId ? focusId : null;
 
-  const { entries, total, resolvedPage, facets, setEntries } = useJournalSearch(
+  const { entries, total, resolvedPage, facets, setEntries, searchLoaded } = useJournalSearch(
     {
       query,
       tag: tagFilter,
@@ -187,7 +187,7 @@ function JournalListPageInner() {
 
       <div className={styles.panel} style={{ marginTop: 16 }}>
         {entries.length === 0 ? (
-          <p className={styles.subtitle}>条件に一致するJournalはありません。</p>
+          <p className={styles.subtitle}>{!searchLoaded ? "読み込み中…" : "条件に一致するJournalはありません。"}</p>
         ) : (
           entries.map((entry) => (
             <div key={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>

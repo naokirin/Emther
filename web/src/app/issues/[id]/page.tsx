@@ -25,7 +25,7 @@ const CHARTER_VIEW_FIELDS: { key: keyof IssueCharter; label: string }[] = [
 // 一覧側のSlideOver（issues/page.tsx）の両方から同じロジック・JSXを使う。
 export function IssueDetailContent({ id }: { id: string }) {
   const router = useRouter();
-  const { issue, refreshIssue } = useIssue(id);
+  const { issue, issueLoaded, refreshIssue } = useIssue(id);
   const { history } = useEntityHistory("issue", id);
   const { issues, refreshIssues } = useIssues();
   const { runs, refreshRuns } = useRuns();
@@ -33,7 +33,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   const { teams } = useTeams();
   // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssueでのみ
   // 意味を持つため、その場合だけポーリングする。
-  const { impact } = useIssueImpact(id, !!issue?.teamId);
+  const { impact, impactLoaded } = useIssueImpact(id, !!issue?.teamId);
   const { rules } = useSettingsRules();
   // eslint-disable-next-line react-hooks/purity -- 「停滞中」表示にのみ使う
   const now = Date.now();
@@ -499,7 +499,11 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   if (!issue) {
-    return <p className={styles.subtitle}>読み込み中、またはIssueが見つかりません。</p>;
+    return (
+      <p className={styles.subtitle}>
+        {!issueLoaded ? "読み込み中…" : "Issueが見つかりません。"}
+      </p>
+    );
   }
 
   // docs/em_ui_ux_issue.md 7節対応。閲覧モードでチーム・Key Resultを文字列表示するための
@@ -643,8 +647,10 @@ export function IssueDetailContent({ id }: { id: string }) {
                 "「感覚」ではなく観測に基づいて判断できるよう、このIssueの介入開始前とその後（現在まで）でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。アーカイブ前の暫定値です。"
               : "「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueのアーカイブ前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。"}
           </p>
-          {!impact ? (
+          {!impactLoaded ? (
             <p className={styles.subtitle}>読み込み中…</p>
+          ) : !impact ? (
+            <p className={styles.subtitle}>介入の効果を算出できる状態ではありません。</p>
           ) : (
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <div className={styles.vitalCard} style={{ minWidth: 220 }}>

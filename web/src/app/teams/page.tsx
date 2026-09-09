@@ -83,7 +83,7 @@ function TeamTreeView({
 }
 
 export default function TeamsPage() {
-  const { teams, refreshTeams } = useTeams();
+  const { teams, teamsLoaded, refreshTeams } = useTeams();
   const { issues } = useIssues();
   const { journalEntries } = useJournal();
 
@@ -307,7 +307,9 @@ export default function TeamsPage() {
             <input type="checkbox" checked={showArchivedTeams} onChange={(e) => setShowArchivedTeams(e.target.checked)} />
             アーカイブ済みも表示する
           </label>
-          {visibleTeams.length === 0 && <p className={styles.subtitle}>まだチームが登録されていません。</p>}
+          {visibleTeams.length === 0 && (
+            <p className={styles.subtitle}>{!teamsLoaded ? "読み込み中…" : "まだチームが登録されていません。"}</p>
+          )}
           <TeamTreeView nodes={teamTree} depth={0} selectedTeamId={selectedTeamId} onSelect={selectTeam} />
         </div>
       </div>

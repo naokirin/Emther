@@ -182,7 +182,7 @@ function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: st
 // 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ（このページ自体はEMの
 // 「介入」を行う場所ではなく、辿るための入口——実際の記録・起票は既存の各画面で行う）。
 export function PersonDetailContent({ id }: { id: string }) {
-  const { person, refreshPerson } = usePersonProfile(id);
+  const { person, personLoaded, refreshPerson } = usePersonProfile(id);
   const { teams, refreshTeams } = useTeams();
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -208,7 +208,11 @@ export function PersonDetailContent({ id }: { id: string }) {
   }
 
   if (!person) {
-    return <p className={styles.subtitle}>読み込み中、または該当する人物が見つかりませんでした。</p>;
+    return (
+      <p className={styles.subtitle}>
+        {!personLoaded ? "読み込み中…" : "該当する人物が見つかりませんでした。"}
+      </p>
+    );
   }
 
   return (
