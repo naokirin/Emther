@@ -78,9 +78,12 @@ describe("POST /api/issues/[id]/parent", () => {
 
     const agentRuntime = await import("@/lib/agent-runtime");
     const runs = agentRuntime.listRuns();
-    expect(runs).toHaveLength(1);
-    expect(runs[0].agentName).toBe("Lead Agent");
-    expect(runs[0].task).toContain("上位Issue");
-    expect(json.issue.agentRunId).toBe(runs[0].id);
+    // チーム先行並列（既定ON）: Lead + 関連specialist（タグ無しなら4体）= 5
+    expect(runs).toHaveLength(5);
+    const lead = runs.find((r) => r.agentName === "Lead Agent");
+    expect(lead).toBeDefined();
+    expect(lead!.task).toContain("上位Issue");
+    expect(json.issue.agentRunId).toBe(lead!.id);
+    expect(runs.filter((r) => r.consultedBy === lead!.id)).toHaveLength(4);
   });
 });

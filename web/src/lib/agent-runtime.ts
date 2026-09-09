@@ -541,7 +541,10 @@ export async function confirmPendingUnmaskedSend(
     registerNameCandidates: opts.registerNameCandidates,
   };
   if (pending.kind === "decide-run" && pending.runId && pending.message) {
-    return decideRun(pending.runId, pending.message, allow);
+    return decideRun(pending.runId, pending.message, {
+      ...allow,
+      teamParallelKickoff: pending.teamParallelKickoff,
+    });
   }
   if (pending.kind === "start-run" && pending.agentName && pending.task) {
     return startRun(
@@ -596,7 +599,7 @@ function buildIssueUpdateTask(
       "IssueのWhy/What/Howが更新されました。最新の整理内容を踏まえ、チームとして再分析してください。",
       `タイトル: ${title}`,
       `更新された項目: ${detail}`,
-      "不足している観点・リスク・次の一手（Action Itemsや子Issue分解）があれば提案し、複数の専門性にまたがる論点なら専門エージェントに相談してください。",
+      "不足している観点・リスク・次の一手（Action Itemsや子Issue分解）があれば提案してください。",
       "判断や介入の実行が必要ならYieldしてください。Issue本体の直接変更は提案に留め、EMの採用を待ってください。",
     ].join("\n");
   }
@@ -604,7 +607,7 @@ function buildIssueUpdateTask(
     "Issueに経過ログが追加されました。進捗・ピボット要否・次の一手をチームとして判断してください。",
     `タイトル: ${title}`,
     `追加された経過: ${detail}`,
-    "必要ならAction Itemsや子Issue分解、専門エージェントへの相談を行い、判断が必要ならYieldしてください。",
+    "必要ならAction Itemsや子Issue分解を提案し、判断が必要ならYieldしてください。",
   ].join("\n");
 }
 
@@ -628,7 +631,9 @@ async function executeIssueUpdateAnalysis(
       return;
     }
     try {
-      await decideRun(linkedRun.id, task);
+      await decideRun(linkedRun.id, task, {
+        teamParallelKickoff: getRulesAndConstraints().teamParallelKickoffEnabled,
+      });
     } catch (err) {
       if (isUnconfirmedNameCandidatesError(err)) {
         parkPendingUnmaskedSend({
@@ -640,6 +645,7 @@ async function executeIssueUpdateAnalysis(
           issueTitle,
           runId: linkedRun.id,
           message: task,
+          teamParallelKickoff: getRulesAndConstraints().teamParallelKickoffEnabled,
         });
       }
     }
@@ -1911,6 +1917,103 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
   });
 }
 
+// Issueの介入型タグから関連specialistを選ぶ。タグが無い／介入型に該当しない場合は
+// 全specialist（People/Process/Tech/Product）を返す。
+export function selectRelatedSpecialists(issueId: string): string[] {
+  const issue = getIssue(issueId);
+  if (!issue || issue.tags.length === 0) return [...SPECIALIST_AGENTS];
+
+  const selected = new Set<string>();
+  for (const tag of issue.tags) {
+    const mapping = INTERVENTION_TYPE_AGENTS[tag];
+    if (!mapping) continue;
+    for (const agent of mapping.primary) {
+      if (SPECIALIST_AGENTS.includes(agent)) selected.add(agent);
+    }
+    for (const agent of mapping.secondary) {
+      if (SPECIALIST_AGENTS.includes(agent)) selected.add(agent);
+    }
+  }
+  if (selected.size === 0) return [...SPECIALIST_AGENTS];
+  return SPECIALIST_AGENTS.filter((a) => selected.has(a));
+}
+
+function buildSpecialistKickoffQuestion(task: string): string {
+  return [
+    task,
+    "",
+    "【依頼】あなたの専門領域の観点だけで分析し、proposal（または情報不足ならyield）を出してください。",
+    "他象限の本論には踏み込まないでください。",
+  ].join("\n");
+}
+
+// Issue紐付きLead起動時のチーム先行並列: 関連specialistを先に並行実行し、
+// その回答をLeadが統合する。統合ターンでは再consultを禁止する（allowConsult=false）。
+async function runTeamParallelKickoff(
+  leadRun: AgentRun,
+  rawTask: string,
+  maskedTask: string,
+  issueId: string,
+): Promise<void> {
+  const agents = selectRelatedSpecialists(issueId);
+  appendLog(
+    leadRun,
+    "system",
+    `[チーム先行並列] ${agents.join("・")} に分析を依頼し、その後Leadが統合判断します`,
+  );
+
+  const specialistMasked = buildSpecialistKickoffQuestion(maskedTask);
+  const specialistRaw = buildSpecialistKickoffQuestion(rawTask);
+
+  const specialistRuns = agents.map((agentName) => {
+    const specialistRun: AgentRun = {
+      id: randomUUID(),
+      agentName,
+      task: specialistMasked,
+      status: "active",
+      log: [],
+      totalCostUsd: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      consultedBy: leadRun.id,
+      origin: leadRun.origin,
+      reviewed: leadRun.reviewed,
+    };
+    runs.set(specialistRun.id, specialistRun);
+    appendLog(specialistRun, "meta", `${leadRun.agentName}からのチーム先行分析依頼`);
+    return specialistRun;
+  });
+
+  await Promise.all(specialistRuns.map((r) => runClaudeTurn(r, specialistRaw, false, specialistMasked)));
+
+  const answers = specialistRuns.map((r) => {
+    const lastAgentLine = [...r.log].reverse().find((l) => l.channel === "agent");
+    return {
+      agentName: r.agentName,
+      answerText: lastAgentLine?.text ?? "(専門エージェントから回答を取得できませんでした)",
+    };
+  });
+
+  for (const { agentName, answerText } of answers) {
+    appendLog(leadRun, "agent", `[${agentName}からの回答]\n${answerText}`);
+  }
+
+  const followUp = [
+    "元のタスク:",
+    maskedTask,
+    "",
+    `${agents.join("・")}による先行分析の結果は以下の通りです。`,
+    "",
+    ...answers.map(({ agentName, answerText }) => `【${agentName}】\n${answerText}`),
+    "",
+    agents.length > 1
+      ? "これらを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。追加の専門エージェントへの相談はできません。回答の間で見解が割れている場合は、判断ロジックの中でどちらを重視したか・なぜかを明記してください。"
+      : "これを踏まえて、最終的な結論をproposalブロック（追加でEMの判断が必要ならyieldブロック）として出力してください。追加の専門エージェントへの相談はできません。",
+  ].join("\n");
+
+  await runClaudeTurn(leadRun, followUp, false, followUp);
+}
+
 // docs 3.3「階層型マルチエージェント」/ docs/memo.md「M. AIエージェント“チーム”の
 // 本格協働」: Lead Agentからの相談を1体以上の専門エージェントへ並行して委譲し、
 // 全員の回答をLead Agent自身の会話（--resumeで同一セッション）に返して最終的な結論を
@@ -2084,7 +2187,15 @@ export async function startRun(
     "meta",
     origin === "manual" ? `タスクを受理: ${maskedTask}` : `AIによる自動起動（${originLabel(origin)}）: ${maskedTask}`,
   );
-  void runClaudeTurn(run, rawTask, true, maskedTask);
+  const shouldTeamKickoff =
+    agentName === "Lead Agent" &&
+    !!linkedIssueId &&
+    getRulesAndConstraints().teamParallelKickoffEnabled;
+  if (shouldTeamKickoff && linkedIssueId) {
+    void runTeamParallelKickoff(run, rawTask, maskedTask, linkedIssueId);
+  } else {
+    void runClaudeTurn(run, rawTask, true, maskedTask);
+  }
   return run;
 }
 
@@ -2100,7 +2211,7 @@ export function buildIssueDraftTask(title: string, charter: { why?: string; what
   if (charter.what) lines.push(`What（記録時点）: ${charter.what}`);
   if (charter.how) lines.push(`How（記録時点）: ${charter.how}`);
   lines.push(
-    "Why/What/Howのうち未整理な項目があれば埋める提案をし、今週〜今月の介入ポートフォリオ上の優先帯（focus/normal/parked）もpriorityブロックで提案してください。そのうえで改善の方向性を判断してください。次にやるべき具体的なAction Itemsや、課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。複数の専門性にまたがる論点なら、該当する専門エージェントに相談してください。",
+    "Why/What/Howのうち未整理な項目があれば埋める提案をし、今週〜今月の介入ポートフォリオ上の優先帯（focus/normal/parked）もpriorityブロックで提案してください。そのうえで改善の方向性を判断してください。次にやるべき具体的なAction Itemsや、課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。",
   );
   return lines.join("\n");
 }
@@ -2108,16 +2219,26 @@ export function buildIssueDraftTask(title: string, charter: { why?: string; what
 export async function decideRun(
   id: string,
   rawMessage: string,
-  opts: MaskOptions = {},
+  opts: MaskOptions & { teamParallelKickoff?: boolean } = {},
 ): Promise<AgentRun | undefined> {
   const run = runs.get(id);
   if (!run) return undefined;
   if (run.status === "active" || run.status === "queued") {
     throw new Error("エージェントが実行中または順番待ちのため、今は入力を受け付けられません");
   }
-  await ensureNameCandidatesAllowed([rawMessage], opts);
+  const { teamParallelKickoff, ...maskOpts } = opts;
+  await ensureNameCandidatesAllowed([rawMessage], maskOpts);
   const maskedMessage = await sanitizeForCloud(run, rawMessage);
   appendLog(run, "meta", `EMからの入力: ${maskedMessage}`);
+
+  if (teamParallelKickoff && run.agentName === "Lead Agent") {
+    const linkedIssue = getIssueByRunId(id);
+    if (linkedIssue) {
+      void runTeamParallelKickoff(run, rawMessage, maskedMessage, linkedIssue.id);
+      return run;
+    }
+  }
+
   void runClaudeTurn(run, rawMessage, true, maskedMessage);
   return run;
 }
