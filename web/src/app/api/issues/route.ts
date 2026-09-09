@@ -3,6 +3,7 @@ import { createIssue, listIssues, toIssueView } from "@/lib/issue-store";
 import { buildIssueDraftTask, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
 import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { ISSUE_PRIORITIES, type IssuePriority } from "@/lib/types";
 
 export async function GET() {
   return NextResponse.json({ issues: listIssues().map(toIssueView) });
@@ -29,6 +30,10 @@ export async function POST(request: Request) {
     : undefined;
   const keyResultId = typeof body?.keyResultId === "string" && body.keyResultId ? body.keyResultId : undefined;
   const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
+  const priority =
+    typeof body?.priority === "string" && ISSUE_PRIORITIES.includes(body.priority as IssuePriority)
+      ? (body.priority as IssuePriority)
+      : undefined;
   const charter = {
     why: typeof body?.why === "string" ? body.why : undefined,
     what: typeof body?.what === "string" ? body.what : undefined,
@@ -37,7 +42,10 @@ export async function POST(request: Request) {
   const opts = maskOptionsFromBody(body);
 
   try {
-    const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, opts);
+    const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, {
+      ...opts,
+      priority,
+    });
     if (agentRunId) {
       markRunReviewed(agentRunId);
     } else {

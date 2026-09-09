@@ -52,4 +52,18 @@ describe("POST /api/issues/[id]/action-items", () => {
     expect(json.issue.actionItems).toHaveLength(1);
     expect(json.issue.actionItems[0].text).toBe("レビュー依頼");
   });
+
+  it("asNext:trueで先頭に追加できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    await issueStore.addActionItem(issue.id, "既存");
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest(`http://localhost/api/issues/${issue.id}/action-items`, "POST", { text: "次の一手", asNext: true }),
+      routeCtx({ id: issue.id }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.issue.actionItems.map((a: { text: string }) => a.text)).toEqual(["次の一手", "既存"]);
+  });
 });

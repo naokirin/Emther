@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import {
   getIssue,
+  moveFocusIssue,
   setIssueKeyResult,
+  setIssuePriority,
   setIssueStatus,
   setIssueTags,
   setIssueTeam,
   setIssueTitle,
   toIssueView,
   updateIssueCharter,
+  type IssuePriority,
   type IssueStatus,
 } from "@/lib/issue-store";
-import { ISSUE_STATUSES } from "@/lib/types";
+import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@/lib/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]">) {
@@ -34,6 +37,12 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。
   if ("status" in (body ?? {}) && !ISSUE_STATUSES.includes(body.status)) {
     return NextResponse.json({ error: "statusの値が不正です" }, { status: 400 });
+  }
+  if ("priority" in (body ?? {}) && !ISSUE_PRIORITIES.includes(body.priority)) {
+    return NextResponse.json({ error: "priorityの値が不正です" }, { status: 400 });
+  }
+  if ("moveFocus" in (body ?? {}) && body.moveFocus !== "up" && body.moveFocus !== "down") {
+    return NextResponse.json({ error: "moveFocusは up または down です" }, { status: 400 });
   }
 
   try {
@@ -66,6 +75,12 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
     }
     if ("status" in (body ?? {})) {
       issue = setIssueStatus(id, body.status as IssueStatus) ?? issue;
+    }
+    if ("priority" in (body ?? {})) {
+      issue = setIssuePriority(id, body.priority as IssuePriority) ?? issue;
+    }
+    if (body?.moveFocus === "up" || body?.moveFocus === "down") {
+      issue = moveFocusIssue(id, body.moveFocus) ?? issue;
     }
     return NextResponse.json({ issue: toIssueView(issue) });
   } catch (err) {

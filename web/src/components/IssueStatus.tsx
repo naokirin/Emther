@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { ISSUE_STATUSES, ISSUE_STATUS_META, type IssueStatus } from "@/lib/types";
+import { ISSUE_STATUSES, ISSUE_STATUS_META, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, type IssuePriority, type IssueStatus } from "@/lib/types";
 
 const STATUS_CLS: Record<IssueStatus, string> = {
   not_started: styles.issueStatusNotStarted,
@@ -15,6 +15,15 @@ export function IssueStatusBadge({ status }: { status: IssueStatus }) {
   const meta = ISSUE_STATUS_META[status];
   return (
     <span className={`${styles.issueStatusBadge} ${STATUS_CLS[status]}`}>
+      {meta.icon} {meta.label}
+    </span>
+  );
+}
+
+export function IssuePriorityBadge({ priority }: { priority: IssuePriority }) {
+  const meta = ISSUE_PRIORITY_META[priority];
+  return (
+    <span className={styles.issueStatusBadge} title={meta.hint}>
       {meta.icon} {meta.label}
     </span>
   );
@@ -42,6 +51,36 @@ export function IssueStatusSelector({
             className={`${styles.typeChip} ${status === s ? styles.typeChipSelected : ""}`}
             disabled={disabled || status === s}
             onClick={() => onChange(s)}
+          >
+            {meta.icon} {meta.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function IssuePrioritySelector({
+  priority,
+  onChange,
+  disabled,
+}: {
+  priority: IssuePriority;
+  onChange: (priority: IssuePriority) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div role="group" aria-label="優先度" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {ISSUE_PRIORITIES.map((p) => {
+        const meta = ISSUE_PRIORITY_META[p];
+        return (
+          <button
+            key={p}
+            type="button"
+            className={`${styles.typeChip} ${priority === p ? styles.typeChipSelected : ""}`}
+            disabled={disabled || priority === p}
+            title={meta.hint}
+            onClick={() => onChange(p)}
           >
             {meta.icon} {meta.label}
           </button>

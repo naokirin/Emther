@@ -155,6 +155,9 @@ function migrate(database: DatabaseSync): void {
   // suggested_action_items_json/suggested_sub_issues_jsonと同じHuman-in-the-Loop設計）。
   addColumnIfMissing(database, "agent_runs", "suggested_charter_json", "TEXT");
 
+  // AIが提案する介入優先度（focus/normal/parked）の下書き。採用までIssue本体へは反映しない。
+  addColumnIfMissing(database, "agent_runs", "suggested_priority_json", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

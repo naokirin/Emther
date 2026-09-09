@@ -13,6 +13,7 @@ function baseIssue(overrides: Partial<Issue> = {}): Issue {
     actionItems: [],
     logEntries: [],
     status: "not_started",
+    priority: "normal",
     archived: false,
     tags: [],
     createdAt: 0,

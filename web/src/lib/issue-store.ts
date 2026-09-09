@@ -28,6 +28,9 @@ export type ActionItem = {
 // 同じ内容（他のIssue関連型と同じく意図的に型を分離している）。
 export type IssueStatus = "not_started" | "in_progress" | "blocked" | "done";
 
+// 介入ポートフォリオの優先帯（@/lib/types の IssuePriority と同じ。型は意図的に分離）。
+export type IssuePriority = "focus" | "normal" | "parked";
+
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
 // Action Items（やる/やった）とは別に、進行中に思いついた時点でひとこと書き足すだけの
 // 自由記述ログ。構造化フォーム（考えたこと欄／アクション欄／結果欄を分ける）にすると
@@ -62,6 +65,8 @@ export type Issue = {
   logEntries: IssueLogEntry[];
   parentId?: string;
   status: IssueStatus;
+  priority: IssuePriority;
+  focusOrder?: number;
   archived: boolean;
   // docs/memo.md「L. 介入の閉ループ」対応。直近でarchived: trueになった時刻
   // （unarchiveするとundefinedに戻す）。介入前後比較の起点として使う。
@@ -107,7 +112,19 @@ const issues: Issue[] = loadJSON<Issue[]>("issues.json", []).map((issue) => ({
   tags: issue.tags ?? [],
   logEntries: issue.logEntries ?? [],
   status: issue.status ?? inferStatus(issue),
+  priority: issue.priority ?? "normal",
+  focusOrder: (issue.priority ?? "normal") === "focus" ? (issue.focusOrder ?? 0) : undefined,
 }));
+
+// focus 同士の focusOrder を読み込み時に連番へ正規化する（旧データの重複0対策）。
+{
+  const focus = issues
+    .filter((i) => i.priority === "focus")
+    .sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
+  focus.forEach((i, idx) => {
+    i.focusOrder = idx;
+  });
+}
 
 function persist(): void {
   saveJSON("issues.json", issues);
@@ -170,7 +187,7 @@ export async function createIssue(
   tags?: string[],
   keyResultId?: string,
   teamId?: string,
-  opts: MaskOptions = {},
+  opts: MaskOptions & { priority?: IssuePriority } = {},
 ): Promise<Issue> {
   if (parentId) {
     const parent = getIssue(parentId);
@@ -182,11 +199,12 @@ export async function createIssue(
     }
   }
 
+  const { priority: requestedPriority, ...maskOpts } = opts;
   const titleTrimmed = title.trim();
   const whyTrimmed = charter?.why?.trim() ?? "";
   const whatTrimmed = charter?.what?.trim() ?? "";
   const howTrimmed = charter?.how?.trim() ?? "";
-  await ensureNameCandidatesAllowed([titleTrimmed, whyTrimmed, whatTrimmed, howTrimmed], opts);
+  await ensureNameCandidatesAllowed([titleTrimmed, whyTrimmed, whatTrimmed, howTrimmed], maskOpts);
 
   // maskForStorageは既知名の同期置換のみなので並列化してよい（NERは上で1回済）。
   const [maskedTitle, maskedWhy, maskedWhat, maskedHow] = await Promise.all([
@@ -210,6 +228,7 @@ export async function createIssue(
     logEntries: [],
     parentId,
     status: "not_started",
+    priority: "normal",
     archived: false,
     tags: normalizeTags(tags ?? []),
     keyResultId,
@@ -220,6 +239,9 @@ export async function createIssue(
   issues.push(issue);
   persist();
   recordChangeEvent("issue", issue.id, `Issueを起票: 「${issue.title}」${parentId ? "（サブIssue）" : ""}`);
+  if (requestedPriority && requestedPriority !== "normal") {
+    return setIssuePriority(issue.id, requestedPriority) ?? issue;
+  }
   return issue;
 }
 
@@ -268,6 +290,7 @@ export async function createParentIssue(
     actionItems: [],
     logEntries: [],
     status: "not_started",
+    priority: "normal",
     archived: false,
     tags: [],
     createdAt: now,
@@ -383,23 +406,82 @@ function bumpToInProgressIfNotStarted(issue: Issue): void {
   if (issue.status === "not_started") issue.status = "in_progress";
 }
 
+export type AddActionItemOptions = MaskOptions & {
+  // trueのとき配列先頭へ挿入し、未完了の「次の一手」（issueNextAction）にする。
+  asNext?: boolean;
+};
+
 export async function addActionItem(
   issueId: string,
   text: string,
-  opts: MaskOptions = {},
+  opts: AddActionItemOptions = {},
 ): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const trimmed = text.trim();
   if (!trimmed) return issue;
-  await ensureNameCandidatesAllowed([trimmed], opts);
+  const { asNext, ...maskOpts } = opts;
+  await ensureNameCandidatesAllowed([trimmed], maskOpts);
   const masked = await maskForStorage(trimmed);
-  issue.actionItems.push({ id: randomUUID(), text: masked, done: false });
+  const item = { id: randomUUID(), text: masked, done: false };
+  if (asNext) {
+    issue.actionItems.unshift(item);
+  } else {
+    issue.actionItems.push(item);
+  }
   bumpToInProgressIfNotStarted(issue);
   issue.updatedAt = Date.now();
   persist();
-  recordChangeEvent("issue", issue.id, `Action Itemを追加: 「${masked}」`);
+  recordChangeEvent(
+    "issue",
+    issue.id,
+    asNext ? `次の一手としてAction Itemを追加: 「${masked}」` : `Action Itemを追加: 「${masked}」`,
+  );
   return issue;
+}
+
+// 指定した未完了Action Itemを配列先頭へ移し、次の一手にする。
+export function setActionItemAsNext(issueId: string, itemId: string): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const index = issue.actionItems.findIndex((a) => a.id === itemId);
+  if (index < 0) return undefined;
+  const [item] = issue.actionItems.splice(index, 1);
+  if (item.done) {
+    // 完了済みを次の一手にはできない——元の位置へ戻す。
+    issue.actionItems.splice(index, 0, item);
+    return undefined;
+  }
+  issue.actionItems.unshift(item);
+  bumpToInProgressIfNotStarted(issue);
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `「${item.text}」を次の一手にしました`);
+  return issue;
+}
+
+// Action Itemを子Issueへ昇格する。親が既に子Issueの場合は1階層制限で拒否。
+// 元のAction Itemは完了にし、二重管理（親のチェックと子のstatus）を避ける。
+export async function promoteActionItemToChildIssue(
+  issueId: string,
+  itemId: string,
+  opts: MaskOptions = {},
+): Promise<{ parent: Issue; child: Issue } | undefined> {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  if (issue.parentId) {
+    throw new Error("子IssueのAction Itemはさらに子Issueへ昇格できません（親子関係は1階層まで）");
+  }
+  const item = issue.actionItems.find((a) => a.id === itemId);
+  if (!item) return undefined;
+
+  const child = await createIssue(item.text, undefined, undefined, issueId, undefined, undefined, undefined, opts);
+  item.done = true;
+  bumpToInProgressIfNotStarted(issue);
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を子Issueへ昇格しました`);
+  return { parent: issue, child };
 }
 
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
@@ -449,6 +531,67 @@ export function setIssueStatus(issueId: string, status: IssueStatus): Issue | un
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `ステータスを変更しました: ${status}`);
+  return issue;
+}
+
+function compactFocusOrders(): void {
+  const focus = issues
+    .filter((i) => i.priority === "focus")
+    .sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
+  focus.forEach((i, idx) => {
+    i.focusOrder = idx;
+  });
+}
+
+const PRIORITY_LABEL: Record<IssuePriority, string> = {
+  focus: "フォーカス",
+  normal: "通常",
+  parked: "保留",
+};
+
+// 週〜月の見通し（B）と今日のフォーカス順（A）。focus 同士は focusOrder で並べる。
+export function setIssuePriority(issueId: string, priority: IssuePriority): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  if (issue.priority === priority) return issue;
+  const prev = issue.priority;
+  if (priority === "focus") {
+    const maxOrder = Math.max(
+      -1,
+      ...issues.filter((i) => i.priority === "focus").map((i) => i.focusOrder ?? 0),
+    );
+    issue.priority = "focus";
+    issue.focusOrder = maxOrder + 1;
+  } else {
+    issue.priority = priority;
+    issue.focusOrder = undefined;
+    if (prev === "focus") compactFocusOrders();
+  }
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `優先度を変更しました: ${PRIORITY_LABEL[priority]}`);
+  return issue;
+}
+
+// フォーカス帯の中だけで前後入れ替え（今日の介入順）。
+export function moveFocusIssue(issueId: string, direction: "up" | "down"): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue || issue.priority !== "focus") return undefined;
+  compactFocusOrders();
+  const focus = issues
+    .filter((i) => i.priority === "focus")
+    .sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
+  const idx = focus.findIndex((i) => i.id === issueId);
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= focus.length) return issue;
+  const tmp = focus[idx].focusOrder;
+  focus[idx].focusOrder = focus[swapIdx].focusOrder;
+  focus[swapIdx].focusOrder = tmp;
+  const now = Date.now();
+  focus[idx].updatedAt = now;
+  focus[swapIdx].updatedAt = now;
+  persist();
+  recordChangeEvent("issue", issue.id, `フォーカス順を${direction === "up" ? "前" : "後"}へ動かしました`);
   return issue;
 }
 

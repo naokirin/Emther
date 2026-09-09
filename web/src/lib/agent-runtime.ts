@@ -10,7 +10,7 @@ import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
-import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
+import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -60,6 +60,12 @@ export type ConsultRequest = {
   agents: string[];
   question: string;
   questions?: Record<string, string>;
+};
+
+// 子Issue分解案。文字列のみの旧形式もパース時に { title } へ正規化する。
+export type SuggestedSubIssue = {
+  title: string;
+  priority?: IssuePriority;
 };
 
 // docs/memo.md「F. Product Agentの追加」対応。Lead Agentの相談先候補にProduct Agentを含める。
@@ -197,12 +203,14 @@ export type AgentRun = {
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルIssueが
   // 抽象的すぎると判断した場合にAIが提案する、具体的な子Issue案の下書き。EMが個別に
   // 「採用」するまで実際のサブIssueは作られない（action_itemsと同じHuman-in-the-Loop）。
-  suggestedSubIssues?: string[];
+  suggestedSubIssues?: SuggestedSubIssue[];
   // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
   // 対応。紐づくIssueのWhy/What/Howのうち未整理の項目をAIが埋める提案の下書き。
   // suggestedActionItems/suggestedSubIssuesと同じくEMが「採用」するまでIssue.charterへは
   // 反映しない（Human-in-the-Loopを維持）。埋める提案がある項目のみキーを持つ。
   suggestedCharter?: Partial<IssueCharter>;
+  // 介入の優先帯（focus/normal/parked）の提案。採用までIssue.priorityへは反映しない。
+  suggestedPriority?: IssuePriority;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -252,6 +260,7 @@ type AgentRunRow = {
   suggested_action_items_json: string | null;
   suggested_sub_issues_json: string | null;
   suggested_charter_json: string | null;
+  suggested_priority_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -279,8 +288,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -291,6 +300,7 @@ function persistRunMeta(run: AgentRun): void {
          suggested_action_items_json = excluded.suggested_action_items_json,
          suggested_sub_issues_json = excluded.suggested_sub_issues_json,
          suggested_charter_json = excluded.suggested_charter_json,
+         suggested_priority_json = excluded.suggested_priority_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -310,6 +320,7 @@ function persistRunMeta(run: AgentRun): void {
       run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
       run.suggestedSubIssues ? JSON.stringify(run.suggestedSubIssues) : null,
       run.suggestedCharter ? JSON.stringify(run.suggestedCharter) : null,
+      run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -353,8 +364,13 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
       proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
       suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
-      suggestedSubIssues: row.suggested_sub_issues_json ? JSON.parse(row.suggested_sub_issues_json) : undefined,
+      suggestedSubIssues: row.suggested_sub_issues_json
+        ? normalizeSuggestedSubIssues(JSON.parse(row.suggested_sub_issues_json))
+        : undefined,
       suggestedCharter: row.suggested_charter_json ? JSON.parse(row.suggested_charter_json) : undefined,
+      suggestedPriority: row.suggested_priority_json
+        ? parseSuggestedPriority(JSON.parse(row.suggested_priority_json))
+        : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -995,8 +1011,10 @@ export function buildSystemPrompt(
     runId && getIssueByRunId(runId)
       ? [
           "- このタスクはIssueに紐づいています。結論を踏まえて次にやるべき具体的な作業（Action Item）があれば、proposalブロックの直後に以下の形式でaction_itemsブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと）。",
+          "- Action Itemは「この介入の次の一手」（数日〜短期間で閉じられる具体作業）です。配列の先頭がEMの「次の一手」になるため、最も今やるべき1件を先頭に書いてください。",
+          "- 独自のWhy/What/Howを持つ別の介入物語に切り出すべきものはAction Itemにせず、下のsub_issuesを使ってください（両方出す場合は、分解が主ならsub_issuesのみとし、親の手は『どの子から着手するか』1件だけをaction_itemsに含めてください）。",
           "```action_items",
-          '["具体的な作業1", "具体的な作業2"]',
+          '["今やるべき次の一手", "あとでやる作業2"]',
           "```",
           "",
         ]
@@ -1011,8 +1029,10 @@ export function buildSystemPrompt(
     linkedIssueForSubIssues && !linkedIssueForSubIssues.parentId
       ? [
           "- このタスクが紐づくIssueが抽象的で、複数の具体的な子Issueに分解した方が計画・実行しやすいと判断した場合は、proposal/action_itemsブロックに続けて以下の形式でsub_issuesブロックを追加してください（分解の必要が無ければ省略して構いません。yieldする場合は出力しないこと）。",
+          "- 子Issueは「独自のWhy/What/Howを持つ別の介入」です。親の次の一手にすぎない具体作業はsub_issuesではなくaction_itemsへ書いてください。",
+          "- 各子Issueには、今週〜今月の見通しとして priority（focus / normal / parked）を付けてください。focus=今期の主戦場、parked=様子見。",
           "```sub_issues",
-          '["具体的な子Issue案1", "具体的な子Issue案2"]',
+          '[{ "title": "具体的な子Issue案1", "priority": "focus" }, { "title": "具体的な子Issue案2", "priority": "normal" }]',
           "```",
           "",
         ]
@@ -1036,6 +1056,19 @@ export function buildSystemPrompt(
           "",
         ]
       : [];
+
+  // 介入ポートフォリオの優先帯提案。紐づくIssueがある場合は原則提案する（EMが採用するまで本体は不変）。
+  const linkedIssueForPriority = runId ? getIssueByRunId(runId) : undefined;
+  const priorityRule = linkedIssueForPriority
+    ? [
+        "- このタスクが紐づくIssueについて、今週〜今月の介入ポートフォリオ上の優先帯を提案してください（yieldする場合は出力しないこと）。",
+        `- focus=今週〜今月の主戦場（朝の次の一手の主対象）、normal=進行中だが主戦場ではない、parked=様子見・後回し。現在の優先帯は「${linkedIssueForPriority.priority ?? "normal"}」（${ISSUE_PRIORITY_META[linkedIssueForPriority.priority ?? "normal"].label}）です。`,
+        "```priority",
+        '"focus"',
+        "```",
+        "",
+      ]
+    : [];
 
   const roleBlockLines = ROLE_BLOCKS[agentName] ?? [];
   const roleBlock =
@@ -1065,6 +1098,7 @@ export function buildSystemPrompt(
     ...actionItemsRule,
     ...subIssuesRule,
     ...charterRule,
+    ...priorityRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき（kind: \"decide\"）",
@@ -1181,17 +1215,52 @@ export function extractActionItems(resultText: string): string[] | undefined {
 
 // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案。
 // extractActionItemsと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
-export function extractSubIssues(resultText: string): string[] | undefined {
+// 要素は文字列、または { title, priority? }。旧DBの文字列配列も normalize で吸収する。
+export function extractSubIssues(resultText: string): SuggestedSubIssue[] | undefined {
   const match = resultText.match(/```sub_issues\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
     const parsed = JSON.parse(match[1].trim());
-    if (Array.isArray(parsed)) {
-      const items = parsed.filter((i: unknown): i is string => typeof i === "string" && i.trim().length > 0);
-      return items.length > 0 ? items : undefined;
-    }
+    return normalizeSuggestedSubIssues(parsed);
   } catch {
     // 不正なsub_issuesブロックは「提案なし」として扱う
+  }
+  return undefined;
+}
+
+function parseSuggestedPriority(value: unknown): IssuePriority | undefined {
+  return typeof value === "string" && (ISSUE_PRIORITIES as string[]).includes(value)
+    ? (value as IssuePriority)
+    : undefined;
+}
+
+export function normalizeSuggestedSubIssues(parsed: unknown): SuggestedSubIssue[] | undefined {
+  if (!Array.isArray(parsed)) return undefined;
+  const items: SuggestedSubIssue[] = [];
+  for (const entry of parsed) {
+    if (typeof entry === "string" && entry.trim()) {
+      items.push({ title: entry.trim() });
+      continue;
+    }
+    if (!entry || typeof entry !== "object") continue;
+    const title = (entry as { title?: unknown }).title;
+    if (typeof title !== "string" || !title.trim()) continue;
+    const priority = parseSuggestedPriority((entry as { priority?: unknown }).priority);
+    items.push(priority ? { title: title.trim(), priority } : { title: title.trim() });
+  }
+  return items.length > 0 ? items : undefined;
+}
+
+// 介入の優先帯提案。`"focus"` または `{ "priority": "focus" }` を受理する。
+export function extractPriority(resultText: string): IssuePriority | undefined {
+  const match = resultText.match(/```priority\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (typeof parsed === "string") return parseSuggestedPriority(parsed);
+    if (parsed && typeof parsed === "object") return parseSuggestedPriority((parsed as { priority?: unknown }).priority);
+  } catch {
+    // 不正なpriorityブロックは「提案なし」として扱う
   }
   return undefined;
 }
@@ -1336,6 +1405,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.suggestedActionItems = undefined;
     run.suggestedSubIssues = undefined;
     run.suggestedCharter = undefined;
+    run.suggestedPriority = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
@@ -1344,6 +1414,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.suggestedActionItems = run.proposal ? extractActionItems(resultText) : undefined;
     run.suggestedSubIssues = run.proposal ? extractSubIssues(resultText) : undefined;
     run.suggestedCharter = run.proposal ? extractCharter(resultText) : undefined;
+    run.suggestedPriority = run.proposal ? extractPriority(resultText) : undefined;
     appendLog(
       run,
       "system",
@@ -1357,6 +1428,9 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     }
     if (run.suggestedCharter) {
       appendLog(run, "system", `[Why/What/How提案] ${Object.keys(run.suggestedCharter).length}件`);
+    }
+    if (run.suggestedPriority) {
+      appendLog(run, "system", `[優先度提案] ${run.suggestedPriority}`);
     }
   }
 }
@@ -1927,7 +2001,10 @@ export function toRunView(run: AgentRun): AgentRun {
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
-    suggestedSubIssues: run.suggestedSubIssues?.map(unmaskNames),
+    suggestedSubIssues: run.suggestedSubIssues?.map((s) => ({
+      title: unmaskNames(s.title),
+      priority: s.priority,
+    })),
     suggestedCharter: run.suggestedCharter
       ? {
           why: run.suggestedCharter.why !== undefined ? unmaskNames(run.suggestedCharter.why) : undefined,
@@ -1935,6 +2012,7 @@ export function toRunView(run: AgentRun): AgentRun {
           how: run.suggestedCharter.how !== undefined ? unmaskNames(run.suggestedCharter.how) : undefined,
         }
       : run.suggestedCharter,
+    suggestedPriority: run.suggestedPriority,
   };
 }
 
@@ -2022,7 +2100,7 @@ export function buildIssueDraftTask(title: string, charter: { why?: string; what
   if (charter.what) lines.push(`What（記録時点）: ${charter.what}`);
   if (charter.how) lines.push(`How（記録時点）: ${charter.how}`);
   lines.push(
-    "Why/What/Howのうち未整理な項目があれば埋める提案をし、そのうえで改善の方向性を判断してください。次にやるべき具体的なAction Itemsや、課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。複数の専門性にまたがる論点なら、該当する専門エージェントに相談してください。",
+    "Why/What/Howのうち未整理な項目があれば埋める提案をし、今週〜今月の介入ポートフォリオ上の優先帯（focus/normal/parked）もpriorityブロックで提案してください。そのうえで改善の方向性を判断してください。次にやるべき具体的なAction Itemsや、課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。複数の専門性にまたがる論点なら、該当する専門エージェントに相談してください。",
   );
   return lines.join("\n");
 }
@@ -2095,6 +2173,14 @@ export function clearSuggestedCharter(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
   run.suggestedCharter = undefined;
+  persistRunMeta(run);
+  return run;
+}
+
+export function clearSuggestedPriority(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.suggestedPriority = undefined;
   persistRunMeta(run);
   return run;
 }

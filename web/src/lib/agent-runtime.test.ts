@@ -209,7 +209,23 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   it("extractSubIssuesも同様にパースする", async () => {
     const rt = await loadModule();
     const text = '```sub_issues\n["子課題A", "子課題B"]\n```';
-    expect(rt.extractSubIssues(text)).toEqual(["子課題A", "子課題B"]);
+    expect(rt.extractSubIssues(text)).toEqual([{ title: "子課題A" }, { title: "子課題B" }]);
+  });
+
+  it("extractSubIssuesはpriority付きオブジェクトもパースする", async () => {
+    const rt = await loadModule();
+    const text = '```sub_issues\n[{ "title": "子A", "priority": "focus" }, { "title": "子B" }]\n```';
+    expect(rt.extractSubIssues(text)).toEqual([
+      { title: "子A", priority: "focus" },
+      { title: "子B" },
+    ]);
+  });
+
+  it("extractPriorityはfocus/normal/parkedをパースする", async () => {
+    const rt = await loadModule();
+    expect(rt.extractPriority('```priority\n"focus"\n```')).toBe("focus");
+    expect(rt.extractPriority('```priority\n{ "priority": "parked" }\n```')).toBe("parked");
+    expect(rt.extractPriority('```priority\n"urgent"\n```')).toBeUndefined();
   });
 
   it("extractCharterはwhy/what/howのうち有効な値だけをパースする", async () => {
@@ -423,13 +439,24 @@ describe("buildSystemPrompt", () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
     expect(prompt).toContain("```action_items");
+    expect(prompt).toContain("次の一手");
   });
 
   it("トップレベルIssueに紐づくrunにはsub_issuesブロックの説明が付く", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("トップレベルIssue", "run-1");
     const rt = await loadModule();
-    expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).toContain("```sub_issues");
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
+    expect(prompt).toContain("```sub_issues");
+    expect(prompt).toContain("独自のWhy/What/How");
+    expect(prompt).toContain("```priority");
+  });
+
+  it("Issueに紐づくrunにはpriorityブロックの説明が付く", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    await issueStore.createIssue("Issue", "run-1");
+    const rt = await loadModule();
+    expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).toContain("```priority");
   });
 
   it("子Issueに紐づくrunにはsub_issuesブロックの説明が付かない（1階層制限）", async () => {
@@ -440,11 +467,12 @@ describe("buildSystemPrompt", () => {
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```sub_issues");
   });
 
-  it("Issueに紐づかないrunにはaction_items/sub_issuesの説明が付かない", async () => {
+  it("Issueに紐づかないrunにはaction_items/sub_issues/priorityの説明が付かない", async () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-without-issue");
     expect(prompt).not.toContain("```action_items");
     expect(prompt).not.toContain("```sub_issues");
+    expect(prompt).not.toContain("```priority");
   });
 
   it("Why/What/Howが未整理のIssueに紐づくrunにはcharterブロックの説明が付く（子Issueでも同様）", async () => {
@@ -484,6 +512,8 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
       proposal_json: null,
       suggested_action_items_json: null,
       suggested_sub_issues_json: null,
+      suggested_charter_json: null,
+      suggested_priority_json: null,
       total_cost_usd: 0,
       created_at: 1000,
       updated_at: 1000,
@@ -496,8 +526,8 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     };
     db.prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_priority_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
     ).run(base);
   }
 
@@ -610,10 +640,23 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     });
     const rt = await loadModule();
     expect(rt.getRun("run-1")?.suggestedActionItems).toEqual(["a"]);
+    expect(rt.getRun("run-1")?.suggestedSubIssues).toEqual([{ title: "b" }]);
     rt.clearSuggestedActionItems("run-1");
     expect(rt.getRun("run-1")?.suggestedActionItems).toBeUndefined();
     rt.clearSuggestedSubIssues("run-1");
     expect(rt.getRun("run-1")?.suggestedSubIssues).toBeUndefined();
+  });
+
+  it("clearSuggestedPriorityは優先度提案を消す", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_priority_json: JSON.stringify("focus"),
+    });
+    const rt = await loadModule();
+    expect(rt.getRun("run-1")?.suggestedPriority).toBe("focus");
+    rt.clearSuggestedPriority("run-1");
+    expect(rt.getRun("run-1")?.suggestedPriority).toBeUndefined();
   });
 
   it("存在しないIDへの操作はundefinedを返す", async () => {

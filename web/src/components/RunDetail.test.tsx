@@ -173,7 +173,7 @@ describe("ExecutionState", () => {
         onDismissActionItems={onDismissActionItems}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "採用してAction Itemsに追加" }));
+    await user.click(screen.getByRole("button", { name: "採用する（先頭を次の一手に）" }));
     expect(onAdoptActionItems).toHaveBeenCalledWith(["やること1"]);
     await user.click(screen.getByRole("button", { name: "却下する" }));
     expect(onDismissActionItems).toHaveBeenCalledTimes(1);
