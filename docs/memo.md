@@ -57,3 +57,4 @@
 * Organization Contextの動的ロードを「対象Issueに関連するチームのみ」に絞る（上記TODO対応。`agent-runtime.ts`の`buildOrgContextBlock`に`relevantTeams`を追加し、紐づくIssueの`teamId`、またはタスク本文中のチーム名の言及（`/`区切りの階層セグメント単位も含む）を手がかりに関連チームへ絞り込む。手がかりが一つも無い場合のみ、MVP当初の方針どおり全チーム注入にフォールバック。Lead⇔専門エージェントのconsultパスも同じ`runClaudeTurn`経由のため追加変更なしで対象になる。詳細は`docs/em_human_story_and_ux.md` P2-13）
 * 配布方針 Phase 0（`docs/packaging.md`）— GitHub公開・npm非公開を前提に、既定データパスを`~/.local/state/em-ai-team/{data,secure}`へ。旧`cwd/.data`および`~/.local/state/em-ai-team-secure`からは宛先が空のとき一度だけ自動移行。Dockerは隔離用プロファイルとして維持
 * 配布方針 Phase 1 — Next.js `output: "standalone"` と `scripts/em-ai-team`（install/build/start/stop/status）。standalone は `build:standalone`（webpack）で作成し `~/.local/share/em-ai-team/app` へ配置。既定バインドは 127.0.0.1
+* 配布方針 Phase 2 — `em-ai-team doctor` / `backup` / `restore` とリポジトリ直下の配布用 `README.md`（詳細方針は `docs/packaging.md`）
