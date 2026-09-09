@@ -58,6 +58,36 @@ describe("PATCH /api/settings/rules", () => {
     expect(json.rules.staleInterventionDays).toBe(3);
   });
 
+  it("Journal/Issue自動分析のフィルタとフラグを更新できる", async () => {
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", {
+        autoAnomalyDetectionEnabled: true,
+        autoJournalUrgencyFilter: "mid_or_higher",
+        autoJournalSentimentFilter: "negative_only",
+        autoIssueUpdateAnalysisEnabled: true,
+      }),
+    );
+    const json = await res.json();
+    expect(json.rules.autoAnomalyDetectionEnabled).toBe(true);
+    expect(json.rules.autoJournalUrgencyFilter).toBe("mid_or_higher");
+    expect(json.rules.autoJournalSentimentFilter).toBe("negative_only");
+    expect(json.rules.autoIssueUpdateAnalysisEnabled).toBe(true);
+  });
+
+  it("不正なJournalフィルタ値は無視する", async () => {
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", {
+        autoJournalUrgencyFilter: "bogus",
+        autoJournalSentimentFilter: "positive_only",
+      }),
+    );
+    const json = await res.json();
+    expect(json.rules.autoJournalUrgencyFilter).toBe("high_only");
+    expect(json.rules.autoJournalSentimentFilter).toBe("all");
+  });
+
   it("型が不正な値は無視する（既定値のまま）", async () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { teamWindowDays: "not-a-number" }));

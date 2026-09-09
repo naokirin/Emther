@@ -49,7 +49,7 @@ export type AgentRun = {
   createdAt: number;
   updatedAt: number;
   consultedBy?: string;
-  origin: "manual" | "auto-anomaly" | "auto-summary";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
   triageAt?: number;
@@ -120,8 +120,9 @@ export function runKindLabel(run: AgentRun): string {
     const kind = resolveYieldKind(run.yieldRequest.kind, run.yieldRequest.options.length);
     return YIELD_KIND_META[kind].label;
   }
-  if (run.origin === "auto-anomaly") return "異常検知";
+  if (run.origin === "auto-anomaly") return "Journal自動分析";
   if (run.origin === "auto-summary") return "朝のサマリー";
+  if (run.origin === "auto-issue-update") return "Issue更新分析";
   if (run.status === "yield") return "Yield";
   return "手動";
 }

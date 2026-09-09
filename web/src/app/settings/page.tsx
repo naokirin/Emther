@@ -457,19 +457,82 @@ export default function SettingsPage() {
 
             {activeGroup === "automation" && (
               <>
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    border: "1px solid var(--yellow-border)",
+                    background: "var(--yellow-bg)",
+                    color: "var(--yellow-fg)",
+                    fontSize: "0.8125rem",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong>推奨:</strong>{" "}
+                  Emtherの価値は「重要な情報が更新されたらAgentチームが自律的に分析・提案する」ことにあります。
+                  チャットで指示しなくてもチームが動くよう、下の自動起動をONにすることをおすすめします（コストが発生するため既定はOFFです）。
+                </div>
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動（イベント駆動・バッチ駆動）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  既定はどちらもOFFです。ONにすると、EMが何も指示していなくてもLead Agentが自動的に起動しコストが発生します（Human-in-the-Loopの原則上、既定を勝手に有効化することはしません）。
-                  自動起動されたRunはDashboardの「次にすべきこと」に🤖マーク付きで表示され、EMが内容を確認する（または却下する）までそこに残り続けます。
+                  既定はOFFです。ONにすると、EMが何も指示していなくてもLead Agentが自動的に起動しコストが発生します。
+                  自動起動されたRunはDashboardの「次にすべきこと」に表示され、EMが内容を確認する（または却下する）までそこに残り続けます。
                 </p>
+
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
                   <input
                     type="checkbox"
                     checked={draft.autoAnomalyDetectionEnabled}
                     onChange={(e) => setDraft({ ...draft, autoAnomalyDetectionEnabled: e.target.checked })}
                   />
-                  Journalに緊急度highのエントリが追加されたら、Lead Agentが自動で分析しIssue化すべきか判断する
+                  Journalを校正したとき、条件に合うエントリをLead Agentが自動分析する
                 </label>
+                <div className={styles.field} style={{ maxWidth: 280, opacity: draft.autoAnomalyDetectionEnabled ? 1 : 0.5 }}>
+                  <label>自動起動する緊急度
+                  <select
+                    value={draft.autoJournalUrgencyFilter}
+                    disabled={!draft.autoAnomalyDetectionEnabled}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        autoJournalUrgencyFilter: e.target.value as RulesAndConstraints["autoJournalUrgencyFilter"],
+                      })
+                    }
+                  >
+                    <option value="all">すべて</option>
+                    <option value="mid_or_higher">mid以上</option>
+                    <option value="high_only">highのみ</option>
+                  </select></label>
+                </div>
+                <div className={styles.field} style={{ maxWidth: 280, opacity: draft.autoAnomalyDetectionEnabled ? 1 : 0.5 }}>
+                  <label>自動起動する感情（pos/neg）
+                  <select
+                    value={draft.autoJournalSentimentFilter}
+                    disabled={!draft.autoAnomalyDetectionEnabled}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        autoJournalSentimentFilter: e.target.value as RulesAndConstraints["autoJournalSentimentFilter"],
+                      })
+                    }
+                  >
+                    <option value="all">すべて</option>
+                    <option value="negative_only">negativeのみ</option>
+                  </select></label>
+                </div>
+
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>Issue更新時の自動分析</h3>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={draft.autoIssueUpdateAnalysisEnabled}
+                    onChange={(e) => setDraft({ ...draft, autoIssueUpdateAnalysisEnabled: e.target.checked })}
+                  />
+                  Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス）
+                </label>
+
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>朝のサマリー（バッチ）</h3>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
                   <input
                     type="checkbox"

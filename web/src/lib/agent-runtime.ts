@@ -4,11 +4,11 @@ import { mkdirSync } from "node:fs";
 import { dataFilePath, loadJSON, saveJSON } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
-import { getIssueByRunId, linkIssueRun, type IssueCharter } from "@/lib/issue-store";
+import { getIssue, getIssueByRunId, linkIssueRun, type IssueCharter } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { CLI_LABELS, INTERVENTION_TYPES, teamDisplayName, teamPathSegments, type CliName, type YieldKind } from "@/lib/types";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
@@ -213,11 +213,12 @@ export type AgentRun = {
   consultedBy?: string;
   pendingConsult?: ConsultRequest;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
-  // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はJournalの高緊急度
-  // エントリをきっかけにした自動分析、"auto-summary"は朝のバッチサマリー。
+  // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はJournal校正を
+  // きっかけにした自動分析、"auto-summary"は朝のバッチサマリー、"auto-issue-update"は
+  // IssueのWhy/What/How・経過ログ更新をきっかけにした再分析。
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
-  origin: "manual" | "auto-anomaly" | "auto-summary";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
   reviewed: boolean;
   // docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。reviewed（bool）だけでは
   // 「様子見」（追跡は続けるが緊急ではない）と「却下」（対応不要）を区別できないため、
@@ -462,6 +463,122 @@ export function checkMorningSummary(): void {
   ).catch(() => {
     // 自動サマリーの起動失敗は無視する（次のwatchdog tickで日付が変わらない限り再試行はしない）。
   });
+}
+
+// 自動起動originの表示名。Dashboard/Inbox/ログの語彙を揃える。
+export function originLabel(origin: AgentRun["origin"]): string {
+  if (origin === "auto-anomaly") return "Journal自動分析";
+  if (origin === "auto-summary") return "朝のサマリー";
+  if (origin === "auto-issue-update") return "Issue更新分析";
+  return "手動";
+}
+
+// Issue Why/What/How・経過ログの連打保存でコストが爆発しないよう、同一Issueは
+// デバウンスしてから1回だけ分析する（朝サマリーと同系の軽量実装）。
+const ISSUE_UPDATE_DEBOUNCE_MS = 45_000;
+const pendingIssueUpdateJobs = new Map<string, ReturnType<typeof setTimeout>>();
+
+// テストからデバウンスを bypass するためのフック（本番は常にデバウンスする）。
+let issueUpdateDebounceMs = ISSUE_UPDATE_DEBOUNCE_MS;
+export function setIssueUpdateDebounceMsForTest(ms: number): void {
+  issueUpdateDebounceMs = ms;
+}
+
+function scheduleDebouncedIssueUpdate(issueId: string, run: () => void): void {
+  const existing = pendingIssueUpdateJobs.get(issueId);
+  if (existing) clearTimeout(existing);
+  if (issueUpdateDebounceMs <= 0) {
+    run();
+    return;
+  }
+  const timer = setTimeout(() => {
+    pendingIssueUpdateJobs.delete(issueId);
+    run();
+  }, issueUpdateDebounceMs);
+  pendingIssueUpdateJobs.set(issueId, timer);
+}
+
+function buildIssueUpdateTask(
+  trigger: "charter" | "log",
+  detail: string,
+  title: string,
+): string {
+  if (trigger === "charter") {
+    return [
+      "IssueのWhy/What/Howが更新されました。最新の整理内容を踏まえ、チームとして再分析してください。",
+      `タイトル: ${title}`,
+      `更新された項目: ${detail}`,
+      "不足している観点・リスク・次の一手（Action Itemsや子Issue分解）があれば提案し、複数の専門性にまたがる論点なら専門エージェントに相談してください。",
+      "判断や介入の実行が必要ならYieldしてください。Issue本体の直接変更は提案に留め、EMの採用を待ってください。",
+    ].join("\n");
+  }
+  return [
+    "Issueに経過ログが追加されました。進捗・ピボット要否・次の一手をチームとして判断してください。",
+    `タイトル: ${title}`,
+    `追加された経過: ${detail}`,
+    "必要ならAction Itemsや子Issue分解、専門エージェントへの相談を行い、判断が必要ならYieldしてください。",
+  ].join("\n");
+}
+
+async function executeIssueUpdateAnalysis(
+  issueId: string,
+  trigger: "charter" | "log",
+  detail: string,
+): Promise<void> {
+  if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
+  const issue = getIssue(issueId);
+  if (!issue || issue.archived) return;
+
+  const task = buildIssueUpdateTask(trigger, detail, issue.title);
+  const linkedRun = issue.agentRunId ? runs.get(issue.agentRunId) : undefined;
+
+  if (linkedRun) {
+    if (linkedRun.status === "active" || linkedRun.status === "queued") {
+      // 実行中なら今回は見送る。次の更新（またはデバウンス後の別トリガー）で再試行される。
+      return;
+    }
+    await decideRun(linkedRun.id, task);
+    return;
+  }
+
+  await startRun("Lead Agent", task, "auto-issue-update", issueId);
+}
+
+// Issueの重要更新（Why/What/How・経過ログ）をきっかけにAgentチームを起こす。
+// 既定OFF。呼び出し側（issue-store）は失敗しても本体の保存を失敗させない。
+export function reactToIssueUpdate(
+  issueId: string,
+  trigger: "charter" | "log",
+  detail: string,
+): void {
+  if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
+  scheduleDebouncedIssueUpdate(issueId, () => {
+    void executeIssueUpdateAnalysis(issueId, trigger, detail).catch(() => {
+      // 自動分析の起動失敗でIssue更新自体は失敗させない。
+    });
+  });
+}
+
+export function matchesJournalAutoFilters(
+  urgency: "low" | "mid" | "high",
+  sentiment: "positive" | "negative" | "neutral",
+): boolean {
+  return settingsMatchesJournalAutoFilters(urgency, sentiment);
+}
+
+// Journal校正後の自動分析。フィルタ（緊急度・感情）はSettingsで調整する。
+export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRun> {
+  return startRun(
+    "Lead Agent",
+    [
+      "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+      "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
+      "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
+      "",
+      `対象のJournalエントリ: "${rawText}"`,
+    ].join("\n"),
+    "auto-anomaly",
+  );
 }
 
 let watchdogStarted = false;
@@ -1753,9 +1870,7 @@ export async function startRun(
   appendLog(
     run,
     "meta",
-    origin === "manual"
-      ? `タスクを受理: ${maskedTask}`
-      : `AIによる自動起動（${origin === "auto-anomaly" ? "異常検知" : "朝のサマリー"}）: ${maskedTask}`,
+    origin === "manual" ? `タスクを受理: ${maskedTask}` : `AIによる自動起動（${originLabel(origin)}）: ${maskedTask}`,
   );
   void runClaudeTurn(run, rawTask, true, maskedTask);
   return run;

@@ -267,6 +267,12 @@ export async function updateIssueCharter(issueId: string, patch: Partial<IssueCh
       issue.id,
       `${changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・")}を更新しました`,
     );
+    // SettingsでONなら、Why/What/How更新をきっかけにAgentチームを起こす。
+    // agent-runtime ↔ issue-storeの循環参照を避けるため動的importにする。
+    const detail = changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・");
+    void import("@/lib/agent-runtime")
+      .then((m) => m.reactToIssueUpdate(issue.id, "charter", detail))
+      .catch(() => {});
   }
   return issue;
 }
@@ -325,6 +331,10 @@ export async function addLogEntry(issueId: string, text: string): Promise<Issue 
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `経過ログを追加: 「${masked}」`);
+  // SettingsでONなら、経過ログ追加をきっかけにAgentチームを起こす。
+  void import("@/lib/agent-runtime")
+    .then((m) => m.reactToIssueUpdate(issue.id, "log", masked))
+    .catch(() => {});
   return issue;
 }
 

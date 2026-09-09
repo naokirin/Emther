@@ -12,8 +12,8 @@ import {
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
-import { getRulesAndConstraints } from "@/lib/settings-store";
-import { startRun } from "@/lib/agent-runtime";
+import { getRulesAndConstraints, matchesJournalAutoFilters } from "@/lib/settings-store";
+import { startJournalAutoAnalysis } from "@/lib/agent-runtime";
 import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
 import { getIssue, toIssueView } from "@/lib/issue-store";
 
@@ -411,19 +411,10 @@ export async function updateJournalEntry(
   // docs/em_human_story_and_ux.md P1-9対応。自動検知は「EMが確認・校正した後」にだけ
   // 起動する。original.supersedes===undefinedは「まだ一度も確認されていない、記録直後の
   // 生の抽出結果」であることの目印（校正済みの版をさらに直すような後続の編集では
-  // 再度起動しない）。
-  if (urgency === "high" && original.supersedes === undefined && getRulesAndConstraints().autoAnomalyDetectionEnabled) {
-    void startRun(
-      "Lead Agent",
-      [
-        "Journalに緊急度highのエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
-        "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
-        "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
-        "",
-        `対象のJournalエントリ: "${original.text}"`,
-      ].join("\n"),
-      "auto-anomaly",
-    ).catch(() => {
+  // 再度起動しない）。緊急度・感情の閾値はSettingsのフィルタで調整する。
+  const sentiment = (event.sentiment as Sentiment) ?? "neutral";
+  if (original.supersedes === undefined && matchesJournalAutoFilters(urgency, sentiment)) {
+    void startJournalAutoAnalysis(original.text).catch(() => {
       // 自動分析の起動失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
     });
   }

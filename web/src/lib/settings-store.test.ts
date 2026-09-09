@@ -19,6 +19,9 @@ describe("getRulesAndConstraints", () => {
     expect(rules.teamWindowDays).toBe(14);
     expect(rules.maxParallelAgentRuns).toBe(2);
     expect(rules.autoAnomalyDetectionEnabled).toBe(false);
+    expect(rules.autoJournalUrgencyFilter).toBe("high_only");
+    expect(rules.autoJournalSentimentFilter).toBe("all");
+    expect(rules.autoIssueUpdateAnalysisEnabled).toBe(false);
     expect(rules.decisionQueueLimit).toBe(3);
     expect(rules.observationQueueLimit).toBe(3);
     expect(rules.staleInterventionDays).toBe(14);

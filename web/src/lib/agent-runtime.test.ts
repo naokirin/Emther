@@ -1201,3 +1201,96 @@ describe("watchdog: checkMorningSummary", () => {
     expect(spawnCalls).toHaveLength(1);
   });
 });
+
+describe("matchesJournalAutoFilters", () => {
+  it("既定（OFF）ではどのurgencyでもfalse", async () => {
+    const rt = await loadModule();
+    expect(rt.matchesJournalAutoFilters("high", "negative")).toBe(false);
+  });
+
+  it("ONかつhigh_onlyならmidはfalse・highはtrue", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      autoAnomalyDetectionEnabled: true,
+      autoJournalUrgencyFilter: "high_only",
+      autoJournalSentimentFilter: "all",
+    });
+    const rt = await loadModule();
+    expect(rt.matchesJournalAutoFilters("mid", "negative")).toBe(false);
+    expect(rt.matchesJournalAutoFilters("high", "positive")).toBe(true);
+  });
+
+  it("negative_onlyならpositiveはfalse", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      autoAnomalyDetectionEnabled: true,
+      autoJournalUrgencyFilter: "all",
+      autoJournalSentimentFilter: "negative_only",
+    });
+    const rt = await loadModule();
+    expect(rt.matchesJournalAutoFilters("low", "positive")).toBe(false);
+    expect(rt.matchesJournalAutoFilters("low", "negative")).toBe(true);
+  });
+});
+
+describe("reactToIssueUpdate", () => {
+  it("autoIssueUpdateAnalysisEnabledが既定(false)なら起動しない", async () => {
+    const rt = await loadModule();
+    rt.setIssueUpdateDebounceMsForTest(0);
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題");
+    rt.reactToIssueUpdate(issue.id, "charter", "Why");
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("ONかつ紐付きRunが無ければauto-issue-updateでLeadを起動しIssueに紐づける", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    const rt = await loadModule();
+    rt.setIssueUpdateDebounceMsForTest(0);
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("課題");
+
+    rt.reactToIssueUpdate(issue.id, "charter", "Why・What");
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    const run = rt.listRuns()[0];
+    expect(run.origin).toBe("auto-issue-update");
+    expect(run.agentName).toBe("Lead Agent");
+    expect(issueStore.getIssue(issue.id)?.agentRunId).toBe(run.id);
+
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "ok", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+  });
+
+  it("ONかつ紐付きRunがidleならdecideRunで継続する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    const rt = await loadModule();
+    rt.setIssueUpdateDebounceMsForTest(0);
+    const issueStore = await import("@/lib/issue-store");
+
+    const run = await rt.startRun("Lead Agent", "初期分析", "manual");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "初回", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status !== "idle") throw new Error("not idle yet");
+    });
+
+    const issue = await issueStore.createIssue("課題", run.id);
+    const spawnBefore = spawnCalls.length;
+    rt.reactToIssueUpdate(issue.id, "log", "対応を始めた");
+    await waitForSpawnCount(spawnBefore + 1);
+    expect(rt.listRuns()).toHaveLength(1);
+    const logText = rt.getRun(run.id)?.log.map((l) => l.text).join("\n") ?? "";
+    expect(logText).toContain("経過ログ");
+  });
+});
