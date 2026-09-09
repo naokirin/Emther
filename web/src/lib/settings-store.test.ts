@@ -20,7 +20,7 @@ describe("getRulesAndConstraints", () => {
     expect(rules.maxParallelAgentRuns).toBe(2);
     expect(rules.autoAnomalyDetectionEnabled).toBe(false);
     expect(rules.decisionQueueLimit).toBe(3);
-    expect(rules.observationQueueLimit).toBe(6);
+    expect(rules.observationQueueLimit).toBe(3);
     expect(rules.staleInterventionDays).toBe(14);
     // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
     // できるようにしたい」対応。既定は全エージェント未設定。

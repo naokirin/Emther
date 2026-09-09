@@ -165,7 +165,7 @@ export type RulesAndConstraints = {
   maxParallelAgentRuns: number;
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
   // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
-  // 超過分は非表示にはせず、既存の折りたたみ展開で引き続き確認できる。
+  // 超過分は非表示にはせず、「もっと見る」で追加表示できる。
   decisionQueueLimit: number;
   observationQueueLimit: number;
   // docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。介入（Issue）が何日動きが無ければ

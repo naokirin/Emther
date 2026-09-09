@@ -495,7 +495,7 @@ export default function SettingsPage() {
               <>
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>Morning Modeの上限件数（AI主導トリアージ）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  docs/em_ui_ux_issue.md 2.2/4節対応。「今日の判断待ち」を朝の主作業にしないため、Morning Modeで前面に出す件数に上限を設けます。超過分は非表示ではなく折りたたみに回り、いつでも確認できます。
+                  docs/em_ui_ux_issue.md 2.2/4節対応。「今日の判断待ち」を朝の主作業にしないため、Morning Modeで前面に出す件数に上限を設けます。超過分は「もっと見る」で3件ずつ追加表示できます。
                 </p>
                 <div className={styles.field} style={{ maxWidth: 160 }}>
                   <label>判断待ち（decision）レーンの上限件数

@@ -546,7 +546,7 @@ export function useSettingsRules(intervalMs = 8000) {
       autoMorningSummaryHour: 7,
       maxParallelAgentRuns: 2,
       decisionQueueLimit: 3,
-      observationQueueLimit: 6,
+      observationQueueLimit: 3,
       staleInterventionDays: 14,
       agentModelTiers: {},
       agentAgyModels: {},

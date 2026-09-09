@@ -28,7 +28,11 @@ import {
 } from "@/lib/types";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
-const NEXT_ACTIONS_LIMIT = 6;
+// 整備レーンの初期表示件数。判断待ち・観測不足は設定（decisionQueueLimit /
+// observationQueueLimit）で変えられるが、整備は設定項目が無いため定数で揃える。
+const NEXT_ACTIONS_LIMIT = 3;
+// 「もっと見る」を押すたびに追加で前面に出す件数。
+const LANE_EXPAND_STEP = 3;
 // docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
 // で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
 // 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
@@ -285,6 +289,13 @@ export default function DashboardPage() {
   // docs/em_human_story_and_ux.md P0-1対応。既定は「判断待ち」だけを見せ、他レーンは
   // タブで切り替える（3種類を同じリストに混在させない）。
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
+  // レーンごとの「もっと見る」で追加表示した件数。初期上限（設定 or NEXT_ACTIONS_LIMIT）
+  // を超えた分だけをここに積む。タブ切替後もレーン別に覚える。
+  const [laneExtraVisible, setLaneExtraVisible] = useState<Record<Lane, number>>({
+    decision: 0,
+    observation: 0,
+    maintenance: 0,
+  });
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   // docs/dashboard_ui_readability.md U4-1対応。Quick Journalと長期プロファイルが
   // 同一パネル内で「入力が2種類」に見えないよう、長期プロファイルは既定で畳んでおく。
@@ -434,13 +445,15 @@ export default function DashboardPage() {
         since: run.updatedAt,
       });
     } else if (run.status === "yield") {
+      // Yieldカードは badge に種別だけ出すと1行目の情報量が薄い。Agent名を1行目へ寄せ、
+      // 2行目は理由（または task）に専念させる。
       nextActions.push({
         id: `yield-${run.id}`,
         severity: "urgent",
         lane: "decision",
         icon: "🟡",
-        kindLabel: isUnreviewedAuto ? runKindLabel(run) : "Yield",
-        text: `${isUnreviewedAuto ? `${autoLabel}: ` : `${run.agentName}が判断待ちです: `}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
+        kindLabel: isUnreviewedAuto ? runKindLabel(run) : `Yield · ${run.agentName}`,
+        text: `${isUnreviewedAuto ? `${autoLabel}: ` : ""}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
         onSelect: isLeadUnlinked ? onSelectAuto : () => goToRunIssue(run),
         since: run.updatedAt,
       });
@@ -708,16 +721,17 @@ export default function DashboardPage() {
 
   // docs/em_human_story_and_ux.md P0-5対応。先頭を「今日の組織の問い」1文へ圧縮する。
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
-  // 上限を分ける（判断待ちは特に少数に絞る）。超過分は非表示にせず、下の案内から
-  // Issue一覧・Organization Contextで確認できる（情報を失わない）。
+  // 初期上限を分ける。超過分は非表示にせず、「もっと見る」で +LANE_EXPAND_STEP 件ずつ
+  // 同じリストに追加表示する（情報を失わない）。
   const LANE_LIMITS: Record<Lane, number> = {
     decision: rules.decisionQueueLimit,
     observation: rules.observationQueueLimit,
     maintenance: NEXT_ACTIONS_LIMIT,
   };
   const laneActionsForFilter = nextActions.filter((a) => a.lane === laneFilter);
-  const laneLimit = LANE_LIMITS[laneFilter];
+  const laneLimit = LANE_LIMITS[laneFilter] + laneExtraVisible[laneFilter];
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
+  const hiddenActionCount = Math.max(0, laneActionsForFilter.length - laneLimit);
   // 絞り込みは下のタブだけで行う（見出し内の件数はクリックできない、ただの要約）。
   // 未ロード中は「課題はありません」と断定しない（空fallbackを実データと誤認させない）。
   const headline = !nextActionsLoaded
@@ -859,10 +873,19 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            {laneActionsForFilter.length > laneLimit && (
-              <p className={styles.subtitle} style={{ marginTop: 8 }}>
-                このレーンに他{laneActionsForFilter.length - laneLimit}件（Issue一覧・Organization Contextから確認できます）
-              </p>
+            {hiddenActionCount > 0 && (
+              <button
+                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                style={{ marginTop: 8 }}
+                onClick={() =>
+                  setLaneExtraVisible((prev) => ({
+                    ...prev,
+                    [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
+                  }))
+                }
+              >
+                もっと見る（残り{hiddenActionCount}件）
+              </button>
             )}
           </>
         )}
