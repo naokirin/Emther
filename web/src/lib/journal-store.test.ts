@@ -36,8 +36,13 @@ const startRunMock = vi.fn(async (agentName: string, rawTask: string, origin?: s
   void origin;
   return {};
 });
+const startJournalAutoAnalysisMock = vi.fn(async (rawText: string) => {
+  void rawText;
+  return {};
+});
 vi.mock("@/lib/agent-runtime", () => ({
-  startRun: startRunMock,
+  startRun: (...args: unknown[]) => startRunMock(...(args as [string, string, string?])),
+  startJournalAutoAnalysis: (...args: unknown[]) => startJournalAutoAnalysisMock(...(args as [string])),
 }));
 
 let dir: string;
@@ -48,6 +53,7 @@ beforeEach(() => {
   mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
   mockNerPeople = [];
   startRunMock.mockClear();
+  startJournalAutoAnalysisMock.mockClear();
 });
 
 afterEach(() => {
@@ -243,15 +249,14 @@ describe("updateJournalEntry", () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
     await store.updateJournalEntry(entry.id, { urgency: "high" });
-    expect(startRunMock).toHaveBeenCalledTimes(1);
-    expect(startRunMock).toHaveBeenCalledWith("Lead Agent", expect.any(String), "auto-anomaly");
+    expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
   });
 
   it("autoAnomalyDetectionEnabledが既定(false)ならLead Agentを起動しない", async () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
     await store.updateJournalEntry(entry.id, { urgency: "high" });
-    expect(startRunMock).not.toHaveBeenCalled();
+    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
   });
 
   it("2回目以降の校正では自動検知を再起動しない（supersedesが既にある場合）", async () => {
@@ -260,9 +265,36 @@ describe("updateJournalEntry", () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
     const first = await store.updateJournalEntry(entry.id, { urgency: "high" });
-    startRunMock.mockClear();
+    startJournalAutoAnalysisMock.mockClear();
     await store.updateJournalEntry(first!.id, { tags: ["再校正"] });
-    expect(startRunMock).not.toHaveBeenCalled();
+    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
+  });
+
+  it("mid_or_higherフィルタならurgency:midでも起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      autoAnomalyDetectionEnabled: true,
+      autoJournalUrgencyFilter: "mid_or_higher",
+    });
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("気になる出来事");
+    await store.updateJournalEntry(entry.id, { urgency: "mid" });
+    expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("negative_onlyフィルタならpositiveでは起動しない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({
+      autoAnomalyDetectionEnabled: true,
+      autoJournalUrgencyFilter: "all",
+      autoJournalSentimentFilter: "negative_only",
+    });
+    mockExtraction = { tags: [], people: [], urgency: "high", sentiment: "positive", summary: "" };
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("良い出来事");
+    await store.updateJournalEntry(entry.id, { urgency: "high" });
+    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
   });
 });
 

@@ -6,6 +6,14 @@ import type { CliName, ModelTier } from "@/lib/types";
 // ナレッジ（Organization Context）ではなく、アプリの動作を調整する設定値の性質が強いため、
 // org-context-store（Organization Context）とは分離し、独立したSettingsとして持つ。
 
+// Journal自動分析の緊急度フィルタ。「すべて」「mid以上」「highのみ」。
+export type AutoJournalUrgencyFilter = "all" | "mid_or_higher" | "high_only";
+// Journal自動分析の感情フィルタ。「すべて」「negativeのみ」。
+export type AutoJournalSentimentFilter = "all" | "negative_only";
+
+export const AUTO_JOURNAL_URGENCY_FILTERS = ["all", "mid_or_higher", "high_only"] as const;
+export const AUTO_JOURNAL_SENTIMENT_FILTERS = ["all", "negative_only"] as const;
+
 export type RulesAndConstraints = {
   teamWindowDays: number;
   minEntriesForJudgement: number;
@@ -28,8 +36,15 @@ export type RulesAndConstraints = {
   journalFactTtlDays: number;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動」対応。
   // どちらも既定OFF（EMの明示opt-inが必須。自律実行によるコスト発生を勝手に始めない）。
-  // イベント駆動: Journalに緊急度highのエントリが追加された時、Lead Agentへ自動で分析タスクを投げる。
+  // イベント駆動: Journal校正時、下記の緊急度・感情フィルタに合うエントリならLead Agentへ分析を投げる。
   autoAnomalyDetectionEnabled: boolean;
+  // Journal自動分析の緊急度フィルタ。既定は従来互換の high_only。
+  autoJournalUrgencyFilter: AutoJournalUrgencyFilter;
+  // Journal自動分析の感情フィルタ。既定は all（従来互換＝感情で絞らない）。
+  autoJournalSentimentFilter: AutoJournalSentimentFilter;
+  // IssueのWhy/What/How・経過ログが実質更新されたとき、紐付きRunの継続分析 or 新規Lead起動。
+  // 既定OFF（コスト発生のopt-in）。
+  autoIssueUpdateAnalysisEnabled: boolean;
   // バッチ駆動: 毎日この時刻（EMのブラウザではなくサーバーのローカル時刻）以降、最初のwatchdog
   // tickで一度だけLead Agentへ朝のサマリー作成タスクを投げる。
   autoMorningSummaryEnabled: boolean;
@@ -84,6 +99,9 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
   autoAnomalyDetectionEnabled: false,
+  autoJournalUrgencyFilter: "high_only",
+  autoJournalSentimentFilter: "all",
+  autoIssueUpdateAnalysisEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
   maxParallelAgentRuns: 2,
@@ -113,4 +131,24 @@ export function updateRulesAndConstraints(patch: Partial<RulesAndConstraints>): 
   rules = { ...rules, ...patch };
   persistRules();
   return rules;
+}
+
+/** Journal自動分析の緊急度・感情フィルタに現在のエントリが合うか。 */
+export function matchesJournalAutoFilters(
+  urgency: "low" | "mid" | "high",
+  sentiment: "positive" | "negative" | "neutral",
+): boolean {
+  const { autoAnomalyDetectionEnabled, autoJournalUrgencyFilter, autoJournalSentimentFilter } = rules;
+  if (!autoAnomalyDetectionEnabled) return false;
+
+  const urgencyOk =
+    autoJournalUrgencyFilter === "all"
+      ? true
+      : autoJournalUrgencyFilter === "mid_or_higher"
+        ? urgency === "mid" || urgency === "high"
+        : urgency === "high";
+  if (!urgencyOk) return false;
+
+  if (autoJournalSentimentFilter === "negative_only" && sentiment !== "negative") return false;
+  return true;
 }

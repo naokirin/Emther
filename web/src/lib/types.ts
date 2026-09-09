@@ -157,6 +157,12 @@ export type RulesAndConstraints = {
   agentKillAfterSeconds: number;
   journalFactTtlDays: number;
   autoAnomalyDetectionEnabled: boolean;
+  // Journal自動分析の緊急度フィルタ（settings-storeと同義）。
+  autoJournalUrgencyFilter: "all" | "mid_or_higher" | "high_only";
+  // Journal自動分析の感情フィルタ（settings-storeと同義）。
+  autoJournalSentimentFilter: "all" | "negative_only";
+  // Issue Why/What/How・経過ログ更新時の自動分析（既定OFF）。
+  autoIssueUpdateAnalysisEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で

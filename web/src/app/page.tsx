@@ -424,7 +424,12 @@ export default function DashboardPage() {
     // 通常のgoToRunIssue（即Issue化）ではなく、EMが中身を見てからIssue化/却下を選べる
     // /chatへ寄せる。
     const isUnreviewedAuto = run.origin !== "manual" && !run.reviewed;
-    const autoLabel = run.origin === "auto-anomaly" ? "AIが異常を検知" : "朝のサマリー";
+    const autoLabel =
+      run.origin === "auto-anomaly"
+        ? "Journal自動分析"
+        : run.origin === "auto-issue-update"
+          ? "Issue更新分析"
+          : "朝のサマリー";
     const onSelectAuto = () => router.push(`/chat?runId=${run.id}`);
     // docs/em_human_story_and_ux.md P0-2対応（修正）。自動検知drafts（isUnreviewedAuto）だけ
     // でなく、まだIssueに紐付いていないLead Agent run全般（手動で始めた「何でも相談」が

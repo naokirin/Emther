@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { getRulesAndConstraints, updateRulesAndConstraints } from "@/lib/settings-store";
+import {
+  AUTO_JOURNAL_SENTIMENT_FILTERS,
+  AUTO_JOURNAL_URGENCY_FILTERS,
+  getRulesAndConstraints,
+  updateRulesAndConstraints,
+  type AutoJournalSentimentFilter,
+  type AutoJournalUrgencyFilter,
+} from "@/lib/settings-store";
 import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@/lib/types";
 
 export async function GET() {
@@ -12,6 +19,18 @@ function num(value: unknown): number | undefined {
 
 function bool(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function autoJournalUrgencyFilter(value: unknown): AutoJournalUrgencyFilter | undefined {
+  return typeof value === "string" && (AUTO_JOURNAL_URGENCY_FILTERS as readonly string[]).includes(value)
+    ? (value as AutoJournalUrgencyFilter)
+    : undefined;
+}
+
+function autoJournalSentimentFilter(value: unknown): AutoJournalSentimentFilter | undefined {
+  return typeof value === "string" && (AUTO_JOURNAL_SENTIMENT_FILTERS as readonly string[]).includes(value)
+    ? (value as AutoJournalSentimentFilter)
+    : undefined;
 }
 
 // maxParallelAgentRunsが0以下だと、どのエージェントも永久にキューから出られなくなる
@@ -85,6 +104,9 @@ export async function PATCH(request: Request) {
     agentKillAfterSeconds: num(body?.agentKillAfterSeconds),
     journalFactTtlDays: num(body?.journalFactTtlDays),
     autoAnomalyDetectionEnabled: bool(body?.autoAnomalyDetectionEnabled),
+    autoJournalUrgencyFilter: autoJournalUrgencyFilter(body?.autoJournalUrgencyFilter),
+    autoJournalSentimentFilter: autoJournalSentimentFilter(body?.autoJournalSentimentFilter),
+    autoIssueUpdateAnalysisEnabled: bool(body?.autoIssueUpdateAnalysisEnabled),
     autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
     autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
     maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),

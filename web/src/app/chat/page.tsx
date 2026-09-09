@@ -9,8 +9,9 @@ import { isRunStale, truncateForTitle } from "@/lib/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
-  "auto-anomaly": "異常検知",
+  "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
+  "auto-issue-update": "Issue更新分析",
 };
 
 const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {
