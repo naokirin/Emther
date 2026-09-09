@@ -1,21 +1,34 @@
-import { pipeline } from "@huggingface/transformers";
+import { pipeline, type ProgressCallback } from "@huggingface/transformers";
 
 // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索。埋め込みも外部送信せず、
 // local-model.ts（チャット生成）とは別に、文埋め込み専用の小さなモデルをロードする。
 // 日本語を含む多言語の意味的類似度が必要なため、英語専用のall-MiniLMではなく
 // 多言語対応のparaphrase-multilingual-MiniLM-L12-v2を採用（実機で日本語の類似/非類似
 // ペアの区別ができることを確認済み）。量子化(q8)で約118MBに抑えている。
-const EMBEDDING_MODEL_ID = "Xenova/paraphrase-multilingual-MiniLM-L12-v2";
-const EMBEDDING_DTYPE = "q8";
+//
+// 未キャッシュ時の起動ダウンロード＋進捗表示は model-loader.ts が担う。
+export const EMBEDDING_MODEL = {
+  task: "feature-extraction" as const,
+  id: "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+  dtype: "q8" as const,
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let embedderPromise: Promise<any> | null = null;
 
-function getEmbedder() {
+export function getEmbedder(progress_callback?: ProgressCallback) {
   if (!embedderPromise) {
-    embedderPromise = pipeline("feature-extraction", EMBEDDING_MODEL_ID, { dtype: EMBEDDING_DTYPE });
+    embedderPromise = pipeline(EMBEDDING_MODEL.task, EMBEDDING_MODEL.id, {
+      dtype: EMBEDDING_MODEL.dtype,
+      progress_callback,
+    });
   }
   return embedderPromise;
+}
+
+/** pipeline() 失敗後に再試行できるよう、拒否済み Promise を捨てる。 */
+export function clearEmbedderCache() {
+  embedderPromise = null;
 }
 
 export async function embedText(text: string): Promise<number[]> {

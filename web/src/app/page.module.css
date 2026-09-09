@@ -1976,3 +1976,84 @@
   margin-bottom: 4px;
 }
 
+/* 未キャッシュのローカルモデル（チャット／埋め込み）の起動時ダウンロード進捗 */
+.modelDownloadBanner {
+  background: var(--blue-bg);
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  color: var(--foreground);
+}
+
+.modelDownloadBannerHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.modelDownloadBannerHead strong {
+  font-size: 0.875rem;
+}
+
+.modelDownloadBannerNote {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.modelDownloadList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modelDownloadItemMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  margin-bottom: 4px;
+}
+
+.modelDownloadModelId {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.modelDownloadItemStatus {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.modelDownloadError {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--red-fg);
+}
+
+.modelDownloadActions {
+  margin-top: 10px;
+}
+
+.modelDownloadRetryBtn {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.modelDownloadRetryBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+

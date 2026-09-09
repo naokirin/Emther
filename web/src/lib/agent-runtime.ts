@@ -468,7 +468,7 @@ const PER_TURN_BUDGET_USD = "0.5";
 // agy（複数モデル対応CLI）経由でのGeminiフォールバックに使うモデル。agyのモデル一覧は
 // バージョン付きの名前（例: gemini-3.6-flash-medium）でしか指定できず、汎用エイリアスは
 // 無いことを実機で確認済み。将来モデルが更新されたら定数を差し替える想定
-// （local-model.tsのMODEL_ID/MODEL_DTYPEと同じ考え方）。
+// （local-model.tsのLOCAL_CHAT_MODELと同じ考え方）。
 const AGY_GEMINI_MODEL = "gemini-3.6-flash-medium";
 
 // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。

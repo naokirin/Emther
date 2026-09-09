@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
 import styles from "./page.module.css";
+import { LocalModelDownloadBanner } from "@/components/LocalModelDownloadBanner";
 import { AppShell, StoryBanner, TopNav } from "@/components/TopNav";
 
 // デザイン見直し（frontend-design）対応。従来はnext/font/googleでGeistを読み込みながら
@@ -48,6 +49,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </div>
           <TopNav />
           <StoryBanner />
+          {/* 未キャッシュのローカルモデルがあるときだけ進捗を出す（キャッシュ済みなら何も出さない）。 */}
+          <LocalModelDownloadBanner />
           {/* tabIndex={-1}: スキップリンクの遷移先としてプログラム的にフォーカスできる
               ようにする（アンカージャンプだけでは次のTabがbody先頭に戻ってしまうため）。 */}
           <main id="main-content" tabIndex={-1}>
