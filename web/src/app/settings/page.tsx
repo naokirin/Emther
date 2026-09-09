@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useSettingsRules } from "@/lib/hooks";
-import { AGENT_OPTIONS, MODEL_TIER_OPTIONS, type ModelTier, type RulesAndConstraints } from "@/lib/types";
+import { AGENT_OPTIONS, CLI_LABELS, MODEL_TIER_OPTIONS, type ModelTier, type RulesAndConstraints } from "@/lib/types";
 
 // Rules_and_Constraints（Team Vitalsの判定閾値）はOrganization Context（組織のMVVや
 // 体制などの「不動の前提」）とは性質が異なり、アプリの挙動を調整する設定値なので、
@@ -196,6 +196,46 @@ export default function SettingsPage() {
             </label>
           </div>
         ))}
+
+        <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>利用するAIツールの優先順位</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          Agent Runの各ターンで、この順にCLIを試します（1つ失敗したら次の候補へ進みます）。claudeには無効化の設定は無く常に候補になります。agy・Cursor
+          CLIは下の各フォールバック設定でONにしたエージェント種別でのみ候補になります（未ONのCLIはここで何番目でも候補から外れます）。
+        </p>
+        <ol style={{ listStyle: "none", margin: 0, padding: 0, maxWidth: 300, marginBottom: 12 }}>
+          {draft.cliPriorityOrder.map((cli, index) => (
+            <li key={cli} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8125rem" }}>
+              <span style={{ width: 16, color: "var(--text-muted)" }}>{index + 1}.</span>
+              <span style={{ flex: 1 }}>{CLI_LABELS[cli]}</span>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                onClick={() => {
+                  const next = [...draft.cliPriorityOrder];
+                  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                  setDraft({ ...draft, cliPriorityOrder: next });
+                }}
+                disabled={index === 0}
+                aria-label={`${CLI_LABELS[cli]}を上へ`}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                onClick={() => {
+                  const next = [...draft.cliPriorityOrder];
+                  [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                  setDraft({ ...draft, cliPriorityOrder: next });
+                }}
+                disabled={index === draft.cliPriorityOrder.length - 1}
+                aria-label={`${CLI_LABELS[cli]}を下へ`}
+              >
+                ↓
+              </button>
+            </li>
+          ))}
+        </ol>
 
         <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Gemini CLI（agy経由）フォールバック</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>

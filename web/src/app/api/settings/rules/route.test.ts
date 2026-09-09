@@ -65,4 +65,35 @@ describe("PATCH /api/settings/rules", () => {
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { teamWindowDays: "not-a-number" }));
     expect((await res.json()).rules.teamWindowDays).toBe(14);
   });
+
+  // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
+  describe("cliPriorityOrder", () => {
+    it("claude/agy/cursorの並び替えを更新できる", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "claude", "agy"] }));
+      expect((await res.json()).rules.cliPriorityOrder).toEqual(["cursor", "claude", "agy"]);
+    });
+
+    it("要素が不足していると無視する（既定値のまま）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "claude"] }));
+      expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+    });
+
+    it("重複した値があると無視する（既定値のまま）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(
+        jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "cursor", "claude"] }),
+      );
+      expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+    });
+
+    it("知らない値が含まれると無視する（既定値のまま）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(
+        jsonRequest("http://localhost/x", "PATCH", { cliPriorityOrder: ["cursor", "claude", "bogus"] }),
+      );
+      expect((await res.json()).rules.cliPriorityOrder).toEqual(["claude", "agy", "cursor"]);
+    });
+  });
 });

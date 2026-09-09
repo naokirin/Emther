@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRulesAndConstraints, updateRulesAndConstraints } from "@/lib/settings-store";
-import { AGENT_OPTIONS, MODEL_TIER_OPTIONS, type ModelTier } from "@/lib/types";
+import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@/lib/types";
 
 export async function GET() {
   return NextResponse.json({ rules: getRulesAndConstraints() });
@@ -36,6 +36,19 @@ function agentModelTiers(value: unknown): Partial<Record<string, ModelTier>> | u
   return result;
 }
 
+// ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。
+// CLI_OPTIONSの並べ替え（重複無し・過不足無し）でなければ黙って落とす（不正な設定で
+// runClaudeTurnが候補ゼロになってrunが何も試さず終わる、といった事態を防ぐ）。
+function cliPriorityOrder(value: unknown): CliName[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const names = value.filter((v): v is string => typeof v === "string");
+  if (names.length !== CLI_OPTIONS.length) return undefined;
+  const unique = new Set(names);
+  if (unique.size !== CLI_OPTIONS.length) return undefined;
+  if (!CLI_OPTIONS.every((c) => unique.has(c))) return undefined;
+  return names as CliName[];
+}
+
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
   const patch = {
@@ -63,6 +76,7 @@ export async function PATCH(request: Request) {
     observationQueueLimit: positiveInt(body?.observationQueueLimit),
     staleInterventionDays: positiveInt(body?.staleInterventionDays),
     agentModelTiers: agentModelTiers(body?.agentModelTiers),
+    cliPriorityOrder: cliPriorityOrder(body?.cliPriorityOrder),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);
