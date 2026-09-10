@@ -107,6 +107,13 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(pushMock).toHaveBeenCalledWith("/issues/issue-1");
   });
 
+  it("sourceConsultRunIdがあれば「相談を開く」を表示しクリックで相談へ遷移する", async () => {
+    const user = userEvent.setup();
+    render(<JournalEntryCard {...baseProps({ entry: baseEntry({ sourceConsultRunId: "run-1" }) })} />);
+    await user.click(screen.getByRole("button", { name: "💬 相談を開く" }));
+    expect(pushMock).toHaveBeenCalledWith("/chat?runId=run-1");
+  });
+
   it("編集ボタンでonStartEditを呼ぶ", async () => {
     const onStartEdit = vi.fn();
     const user = userEvent.setup();
@@ -178,6 +185,22 @@ describe("JournalEntryCard（編集モード）", () => {
     render(<JournalEntryCard {...baseProps({ editing: true, onResolveWithNote })} />);
     await user.click(screen.getByRole("button", { name: "メモを残して解決にする" }));
     expect(onResolveWithNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("sourceConsultRunIdがあれば編集中でも相談へのリンクを出す", async () => {
+    const user = userEvent.setup();
+    render(
+      <JournalEntryCard
+        {...baseProps({
+          editing: true,
+          entry: baseEntry({ sourceConsultRunId: "run-1", resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }),
+        })}
+      />,
+    );
+    expect(screen.getByText(/このJournalから相談が生まれています/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Issueを開く" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "相談を開く" }));
+    expect(pushMock).toHaveBeenCalledWith("/chat?runId=run-1");
   });
 
   it("解決済み(resolutionNote)の場合はメモ内容を表示し、取り消しボタンを出す", async () => {

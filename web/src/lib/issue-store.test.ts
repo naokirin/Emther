@@ -337,6 +337,20 @@ describe("listIssues / listChildIssues / getIssueByRunId", () => {
     const store = await loadModule();
     expect(store.linkIssueRun("missing", "run-456")).toBeUndefined();
   });
+
+  it("createIssueはsourceJournalIdとsourceRunIdを保存する", async () => {
+    const store = await loadModule();
+    const withBoth = await store.createIssue("A", "run-1", undefined, undefined, undefined, undefined, undefined, {
+      sourceJournalId: "j-1",
+      sourceRunId: "run-1",
+    });
+    expect(withBoth.sourceJournalId).toBe("j-1");
+    expect(withBoth.sourceRunId).toBe("run-1");
+
+    const fromRun = await store.createIssue("B", "run-2");
+    expect(fromRun.sourceRunId).toBe("run-2");
+    expect(fromRun.sourceJournalId).toBeUndefined();
+  });
 });
 
 describe("status", () => {

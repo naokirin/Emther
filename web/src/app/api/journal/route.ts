@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { addJournalEntry, listJournalEntries, toJournalEntryView } from "@/lib/journal-store";
+import { addJournalEntry, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET() {
-  return NextResponse.json({ entries: listJournalEntries().map(toJournalEntryView) });
+  return NextResponse.json({ entries: toJournalEntryViews(listJournalEntries()) });
 }
 
 export async function POST(request: Request) {

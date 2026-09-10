@@ -251,6 +251,8 @@ export type AgentRun = {
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
   origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
+  sourceJournalId?: string;
   reviewed: boolean;
   // docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。reviewed（bool）だけでは
   // 「様子見」（追跡は続けるが緊急ではない）と「却下」（対応不要）を区別できないため、
@@ -288,6 +290,7 @@ type AgentRunRow = {
   created_at: number;
   updated_at: number;
   consulted_by: string | null;
+  source_journal_id: string | null;
   origin: string;
   reviewed: number;
   triage_status: string | null;
@@ -311,8 +314,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -348,6 +351,7 @@ function persistRunMeta(run: AgentRun): void {
       run.createdAt,
       run.updatedAt,
       run.consultedBy ?? null,
+      run.sourceJournalId ?? null,
       run.origin,
       run.reviewed ? 1 : 0,
       run.triageStatus ?? null,
@@ -398,6 +402,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       consultedBy: row.consulted_by ?? undefined,
+      sourceJournalId: row.source_journal_id ?? undefined,
       origin: (row.origin as AgentRun["origin"]) ?? "manual",
       reviewed: !!row.reviewed,
       triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
@@ -575,7 +580,7 @@ export async function confirmPendingUnmaskedSend(
       pending.task,
       pending.origin ?? "manual",
       pending.linkedIssueId,
-      allow,
+      { ...allow, sourceJournalId: pending.sourceJournalId },
     );
   }
   return undefined;
@@ -737,7 +742,7 @@ export function matchesJournalAutoFilters(
 }
 
 // Journal校正後の自動分析。フィルタ（緊急度・感情）はSettingsで調整する。
-export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRun | undefined> {
+export async function startJournalAutoAnalysis(rawText: string, journalId?: string): Promise<AgentRun | undefined> {
   const task = [
     "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
@@ -746,7 +751,7 @@ export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRu
     `対象のJournalエントリ: "${rawText}"`,
   ].join("\n");
   try {
-    return await startRun("Lead Agent", task, "auto-anomaly");
+    return await startRun("Lead Agent", task, "auto-anomaly", undefined, { sourceJournalId: journalId });
   } catch (err) {
     if (isUnconfirmedNameCandidatesError(err)) {
       parkPendingUnmaskedSend({
@@ -757,6 +762,7 @@ export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRu
         agentName: "Lead Agent",
         task,
         origin: "auto-anomaly",
+        sourceJournalId: journalId,
       });
       return undefined;
     }
@@ -2020,6 +2026,7 @@ async function runTeamParallelKickoff(
       consultedBy: leadRun.id,
       origin: leadRun.origin,
       reviewed: leadRun.reviewed,
+      sourceJournalId: leadRun.sourceJournalId,
     };
     runs.set(specialistRun.id, specialistRun);
     appendLog(specialistRun, "meta", `${leadRun.agentName}からのチーム先行分析依頼`);
@@ -2078,6 +2085,7 @@ async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promis
       consultedBy: leadRun.id,
       origin: leadRun.origin,
       reviewed: leadRun.reviewed,
+      sourceJournalId: leadRun.sourceJournalId,
     };
     runs.set(specialistRun.id, specialistRun);
     // consult.question(s)はLead Agentの応答（クラウド由来、既にPERSON_n IDでマスク済み）から
@@ -2205,9 +2213,10 @@ export async function startRun(
   rawTask: string,
   origin: AgentRun["origin"] = "manual",
   linkedIssueId?: string,
-  opts: MaskOptions = {},
+  opts: MaskOptions & { sourceJournalId?: string } = {},
 ): Promise<AgentRun> {
-  await ensureNameCandidatesAllowed([rawTask], opts);
+  const { sourceJournalId, ...maskOpts } = opts;
+  await ensureNameCandidatesAllowed([rawTask], maskOpts);
 
   const run: AgentRun = {
     id: randomUUID(),
@@ -2220,6 +2229,7 @@ export async function startRun(
     updatedAt: Date.now(),
     origin,
     reviewed: origin === "manual",
+    sourceJournalId,
   };
   const maskedTask = await sanitizeForCloud(run, rawTask);
   run.task = maskedTask;

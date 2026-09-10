@@ -24,6 +24,7 @@
 | U8 | P2 | 完了 | Journal の「対応済み」は Issue 化しただけには強すぎる |
 | U9 | P2 | 完了 | 文章量のある入力欄が1行 input になっている |
 | U10 | P0 | 完了 | GitHub Releases の tarball から `install.sh` で入れられない |
+| U11 | P1 | 完了 | Journal → 相談、相談 → Issue の生成元が見えない |
 
 ---
 
@@ -129,6 +130,16 @@
 
 ---
 
+## U11. Journal・相談から生まれた相談・Issueの生成元が見えない
+
+**現象:** Journal自動分析で相談が立ったり、相談をIssue化したりしても、先に開いた側から「なぜこれが生まれたか」が分からない。originラベル（「Journal自動分析」）はあるが、元の入力とリンクが無い。
+
+**原因:** Journal → 相談は `origin=auto-anomaly` と task 内の本文引用だけで、Journal ID を保存していなかった。相談 → Issue は `agentRunId` があるが、更新分析で差し替わり、生成元としては表示していなかった。Issue → Journal の逆リンク表示も無かった。
+
+**方針:** `AgentRun.sourceJournalId` と `Issue.sourceJournalId` / `sourceRunId` を保存する。相談詳細・Issue詳細に「なぜ生まれたか」（本文抜粋＋リンク）を出す。Journalカードからも生成された相談へ辿れるようにする。相談からIssue化したときは元Journalへ `resolvedIssueId` も付ける。
+
+---
+
 ## 今回入れた対応の要点
 
 - **U1** `journal-store.ts`: 抽出失敗・モデル例外でも raw 本文を未確認エントリとして保存
@@ -140,3 +151,4 @@
 - **U8** Issue 化は「対応済み/Issue化済み」
 - **U9** Journal / 経過ログ / Action Item / 成長メモ / 壁打ち / 解決メモ / 長期プロファイルを textarea 化（Ctrl/Cmd+Enter で送信）
 - **U10** `install.sh` は隣の `app/` からインストール。tar.gz 引数経路は維持
+- **U11** 相談・Issue詳細に生成元（Journal / 相談の本文とリンク）を表示。Journalカードから相談へも辿る。`sourceJournalId` / `sourceRunId` を保存

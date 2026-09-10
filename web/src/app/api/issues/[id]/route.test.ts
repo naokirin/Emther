@@ -6,6 +6,10 @@ vi.mock("@/lib/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
+vi.mock("@/lib/embeddings", () => ({
+  embedText: vi.fn(async () => [1, 0, 0]),
+  cosineSimilarity: () => 0,
+}));
 
 let dir: string;
 
@@ -32,6 +36,19 @@ describe("GET /api/issues/[id]", () => {
     const res = await route.GET(new Request(`http://localhost/api/issues/${issue.id}`), routeCtx({ id: issue.id }));
     expect(res.status).toBe(200);
     expect((await res.json()).issue.title).toBe("既存Issue");
+  });
+
+  it("sourceJournalsにresolvedIssueIdで紐づくJournalを含める", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const journalStore = await import("@/lib/journal-store");
+    const issue = await issueStore.createIssue("既存Issue");
+    const entry = await journalStore.addJournalEntry("現場の問題");
+    await journalStore.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
+    const route = await import("./route");
+    const res = await route.GET(new Request(`http://localhost/api/issues/${issue.id}`), routeCtx({ id: issue.id }));
+    const json = await res.json();
+    expect(json.sourceJournals).toHaveLength(1);
+    expect(json.sourceJournals[0].rawText).toBe("現場の問題");
   });
 });
 

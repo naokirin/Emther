@@ -9,12 +9,14 @@ import {
   findEventOffset,
   listEventFacets,
   getEventById,
+  getEventHeadById,
+  listEventLineageIds,
   type EventPageFilter,
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints, matchesJournalAutoFilters } from "@/lib/settings-store";
-import { startJournalAutoAnalysis } from "@/lib/agent-runtime";
+import { listRuns, startJournalAutoAnalysis } from "@/lib/agent-runtime";
 import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
 import { getIssue, toIssueView } from "@/lib/issue-store";
 
@@ -52,6 +54,8 @@ export type JournalEntry = {
   resolvedIssueId?: string;
   resolvedIssueTitle?: string;
   resolutionNote?: string;
+  // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
+  sourceConsultRunId?: string;
 };
 
 // 個人情報の分離（ユーザー指摘対応）: KnowledgeEventのtext/summary/peopleはPERSON_n ID
@@ -73,8 +77,9 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
   };
 }
 
-export function toJournalEntryView(entry: JournalEntry): JournalEntry {
+export function toJournalEntryView(entry: JournalEntry, consultIndex?: Map<string, string>): JournalEntry {
   const resolvedIssue = entry.resolvedIssueId ? getIssue(entry.resolvedIssueId) : undefined;
+  const index = consultIndex ?? buildSourceConsultIndex();
   return {
     ...entry,
     rawText: unmaskNames(entry.rawText),
@@ -83,7 +88,31 @@ export function toJournalEntryView(entry: JournalEntry): JournalEntry {
     tags: entry.tags.map(unmaskNames),
     resolvedIssueTitle: resolvedIssue ? toIssueView(resolvedIssue).title : undefined,
     resolutionNote: entry.resolutionNote ? unmaskNames(entry.resolutionNote) : undefined,
+    sourceConsultRunId: index.get(entry.id),
   };
+}
+
+export function toJournalEntryViews(entries: JournalEntry[]): JournalEntry[] {
+  const index = buildSourceConsultIndex();
+  return entries.map((entry) => toJournalEntryView(entry, index));
+}
+
+export function buildSourceConsultIndex(): Map<string, string> {
+  const best = new Map<string, { runId: string; updatedAt: number }>();
+  for (const run of listRuns()) {
+    if (run.agentName !== "Lead Agent" || !run.sourceJournalId) continue;
+    for (const journalId of listEventLineageIds(run.sourceJournalId)) {
+      const prev = best.get(journalId);
+      if (!prev || run.updatedAt > prev.updatedAt) {
+        best.set(journalId, { runId: run.id, updatedAt: run.updatedAt });
+      }
+    }
+  }
+  const index = new Map<string, string>();
+  for (const [journalId, value] of best) {
+    index.set(journalId, value.runId);
+  }
+  return index;
 }
 
 const SYSTEM_PROMPT = [
@@ -366,6 +395,32 @@ export function listJournalFacets(): { tags: string[]; people: string[] } {
   };
 }
 
+export function getCurrentJournalEntry(id: string): JournalEntry | undefined {
+  const event = getEventHeadById(id);
+  if (!event || event.entityType !== "journal") return undefined;
+  return eventToJournalEntry(event);
+}
+
+export function listSourceJournalsForIssue(issueId: string, sourceJournalId?: string): JournalEntry[] {
+  const byResolved = listJournalEntries().filter((e) => e.resolvedIssueId === issueId);
+  const fromId = sourceJournalId ? getCurrentJournalEntry(sourceJournalId) : undefined;
+  const map = new Map<string, JournalEntry>();
+  for (const entry of byResolved) map.set(entry.id, entry);
+  if (fromId) map.set(fromId.id, fromId);
+  return [...map.values()];
+}
+
+export async function linkJournalToIssue(
+  journalId: string,
+  issueId: string,
+  opts: MaskOptions = {},
+): Promise<JournalEntry | undefined> {
+  const current = getCurrentJournalEntry(journalId);
+  if (!current) return undefined;
+  if (current.resolvedIssueId === issueId) return current;
+  return updateJournalEntry(current.id, { resolvedIssueId: issueId }, opts);
+}
+
 // docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、
 // EMがtags/people/urgencyをその場で校正できないと「AI抽出のまま組織の事実になる」ことに
 // なってしまう。イベントソーシングの不変性は保ったまま、新しいfactイベントを
@@ -453,7 +508,7 @@ export async function updateJournalEntry(
   // 再度起動しない）。緊急度・感情の閾値はSettingsのフィルタで調整する。
   const sentiment = (event.sentiment as Sentiment) ?? "neutral";
   if (original.supersedes === undefined && matchesJournalAutoFilters(urgency, sentiment)) {
-    void startJournalAutoAnalysis(original.text).catch(() => {
+    void startJournalAutoAnalysis(event.text, event.id).catch(() => {
       // 自動分析の起動失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
     });
   }

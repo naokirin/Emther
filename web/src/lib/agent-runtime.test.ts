@@ -738,6 +738,13 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run.id)?.reviewed).toBe(true);
   });
 
+  it("startJournalAutoAnalysisはsourceJournalIdを保存する", async () => {
+    const rt = await loadModule();
+    const run = await rt.startJournalAutoAnalysis("現場が疲弊している", "journal-1");
+    expect(run?.sourceJournalId).toBe("journal-1");
+    expect(rt.getRun(run!.id)?.sourceJournalId).toBe("journal-1");
+  });
+
   it("設定でエージェント種別にモデル系統が指定されていれば--modelを渡す", async () => {
     const settingsStore = await import("@/lib/settings-store");
     settingsStore.updateRulesAndConstraints({ agentModelTiers: { "Lead Agent": "opus" } });

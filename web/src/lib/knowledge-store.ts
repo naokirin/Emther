@@ -148,6 +148,47 @@ export function getEventById(id: string): KnowledgeEvent | undefined {
   return row ? rowToEvent(row) : undefined;
 }
 
+// supersedes チェーンの先頭（いま一覧に出る版）を返す。生成元リンクが古い版の ID を
+// 指していても、EM が開く先は現行エントリである必要がある。
+export function getEventHeadById(id: string): KnowledgeEvent | undefined {
+  let current = getEventById(id);
+  if (!current) return undefined;
+  const stmt = getDb().prepare(
+    "SELECT * FROM knowledge_events WHERE supersedes = ? ORDER BY recorded_at DESC LIMIT 1",
+  );
+  while (true) {
+    const next = stmt.get(current.id) as Row | undefined;
+    if (!next) return current;
+    current = rowToEvent(next);
+  }
+}
+
+export function listEventLineageIds(id: string): string[] {
+  const start = getEventById(id);
+  if (!start) return [];
+  let root = start;
+  const seen = new Set<string>([root.id]);
+  while (root.supersedes) {
+    const prev = getEventById(root.supersedes);
+    if (!prev || seen.has(prev.id)) break;
+    seen.add(prev.id);
+    root = prev;
+  }
+  const ids = [root.id];
+  let current = root;
+  const stmt = getDb().prepare(
+    "SELECT * FROM knowledge_events WHERE supersedes = ? ORDER BY recorded_at DESC LIMIT 1",
+  );
+  while (true) {
+    const next = stmt.get(current.id) as Row | undefined;
+    if (!next) return ids;
+    const event = rowToEvent(next);
+    if (ids.includes(event.id)) return ids;
+    ids.push(event.id);
+    current = event;
+  }
+}
+
 export function listEvents(filter?: { entityType?: KnowledgeEntityType; kind?: KnowledgeKind }): KnowledgeEvent[] {
   const conditions: string[] = [];
   const params: string[] = [];

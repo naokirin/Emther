@@ -26,6 +26,7 @@ vi.mock("@/lib/embeddings", () => ({
 
 vi.mock("@/lib/agent-runtime", () => ({
   startRun: vi.fn(async () => ({})),
+  listRuns: () => [],
 }));
 
 let dir: string;
@@ -99,5 +100,23 @@ describe("PATCH /api/journal/[id]", () => {
       routeCtx({ id: withResolutionJson.entry.id }),
     );
     expect((await untouched.json()).entry.resolvedIssueId).toBe("issue-1");
+  });
+});
+
+describe("GET /api/journal/[id]", () => {
+  it("現行版を返す（supersedesされた旧IDでも）", async () => {
+    const journalStore = await import("@/lib/journal-store");
+    const entry = await journalStore.addJournalEntry("元のテキスト");
+    const updated = await journalStore.updateJournalEntry(entry.id, { tags: ["確認済み"] });
+    const route = await import("./route");
+    const res = await route.GET(new Request("http://localhost/x"), routeCtx({ id: entry.id }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).entry.id).toBe(updated!.id);
+  });
+
+  it("存在しないIDは404", async () => {
+    const route = await import("./route");
+    const res = await route.GET(new Request("http://localhost/x"), routeCtx({ id: "missing" }));
+    expect(res.status).toBe(404);
   });
 });

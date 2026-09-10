@@ -254,6 +254,8 @@ describe("useJournalEditing", () => {
     expect(result.current.entries[0].resolvedIssueId).toBe("new-issue-1");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toBe(`/api/journal/${entry.id}`);
+    const issueBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(issueBody.sourceJournalId).toBe(entry.id);
   });
 
   it("resolveWithNewIssueはIssue作成自体が失敗すればeditErrorを出し紐付けは試みない", async () => {

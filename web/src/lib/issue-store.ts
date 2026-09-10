@@ -60,6 +60,10 @@ export type Issue = {
   id: string;
   title: string;
   agentRunId?: string;
+  // 相談から昇格したときの元 Run。agentRunId は更新分析で差し替わるため、生成元は別フィールドで残す。
+  sourceRunId?: string;
+  // Journal から直接起票、または Journal 由来の相談から昇格したときの元エントリ。
+  sourceJournalId?: string;
   charter: IssueCharter;
   actionItems: ActionItem[];
   logEntries: IssueLogEntry[];
@@ -200,7 +204,7 @@ export async function createIssue(
   tags?: string[],
   keyResultId?: string,
   teamId?: string,
-  opts: MaskOptions & { priority?: IssuePriority } = {},
+  opts: MaskOptions & { priority?: IssuePriority; sourceJournalId?: string; sourceRunId?: string } = {},
 ): Promise<Issue> {
   if (parentId) {
     const parent = getIssue(parentId);
@@ -212,7 +216,7 @@ export async function createIssue(
     }
   }
 
-  const { priority: requestedPriority, ...maskOpts } = opts;
+  const { priority: requestedPriority, sourceJournalId, sourceRunId, ...maskOpts } = opts;
   const titleTrimmed = title.trim();
   const whyTrimmed = charter?.why?.trim() ?? "";
   const whatTrimmed = charter?.what?.trim() ?? "";
@@ -232,6 +236,8 @@ export async function createIssue(
     id: randomUUID(),
     title: maskedTitle,
     agentRunId,
+    sourceRunId: sourceRunId ?? agentRunId,
+    sourceJournalId,
     charter: {
       why: maskedWhy,
       what: maskedWhat,

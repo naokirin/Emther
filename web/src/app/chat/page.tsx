@@ -4,9 +4,11 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
-import { useIssues, useRuns, useSettingsRules } from "@/lib/hooks";
+import { OriginTrace } from "@/components/OriginTrace";
+import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isRunStale, truncateForTitle } from "@/lib/types";
+import { consultExcerpt, journalExcerptFromTask } from "@/lib/origin-trace";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
@@ -84,6 +86,8 @@ function ChatPageInner() {
 
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const queryJournalId = searchParams.get("journalId");
+  const { entry: sourceJournal } = useJournalEntry(selectedRun?.sourceJournalId);
 
   async function handlePromoteToIssue() {
     if (!selectedRun) return;
@@ -137,7 +141,7 @@ function ChatPageInner() {
     try {
       const { res, data } = await fetchWithNameConfirm(
         "/api/agents",
-        { method: "POST", body: { agentName: "Lead Agent", task } },
+        { method: "POST", body: { agentName: "Lead Agent", task, sourceJournalId: queryJournalId || undefined } },
         "送信する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
@@ -217,7 +221,14 @@ function ChatPageInner() {
                 {r.origin !== "manual" && !r.reviewed && <span style={{ marginLeft: 6 }}>🤖 未確認</span>}
                 {r.triageStatus && <span style={{ marginLeft: 6 }}>{TRIAGE_LABEL[r.triageStatus]}</span>}
               </div>
-              <div>{r.task.slice(0, 50)}</div>
+              <div>
+                {journalExcerptFromTask(r.task) || consultExcerpt(r.task).slice(0, 50)}
+              </div>
+              {(r.sourceJournalId || r.origin === "auto-anomaly") && (
+                <div className={styles.subtitle} style={{ marginTop: 4 }}>
+                  📝 Journalから
+                </div>
+              )}
             </button>
           ))}
         </div>
@@ -227,6 +238,27 @@ function ChatPageInner() {
         {selectedRun ? (
           <>
             <h2>Lead Agentへの相談</h2>
+            <OriginTrace
+              journals={
+                sourceJournal
+                  ? [sourceJournal]
+                  : selectedRun.sourceJournalId
+                    ? [
+                        {
+                          id: selectedRun.sourceJournalId,
+                          rawText: journalExcerptFromTask(selectedRun.task) ?? "",
+                        },
+                      ]
+                    : journalExcerptFromTask(selectedRun.task)
+                      ? [
+                          {
+                            id: "",
+                            rawText: journalExcerptFromTask(selectedRun.task) ?? "",
+                          },
+                        ]
+                      : []
+              }
+            />
             <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
               {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
                 <>

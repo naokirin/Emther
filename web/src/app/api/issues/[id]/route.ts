@@ -15,6 +15,7 @@ import {
 } from "@/lib/issue-store";
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@/lib/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]">) {
   const { id } = await ctx.params;
@@ -22,7 +23,10 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]
   if (!issue) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  return NextResponse.json({ issue: toIssueView(issue) });
+  return NextResponse.json({
+    issue: toIssueView(issue),
+    sourceJournals: toJournalEntryViews(listSourceJournalsForIssue(id, issue.sourceJournalId)),
+  });
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id]">) {
