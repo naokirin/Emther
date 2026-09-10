@@ -58,6 +58,8 @@ function ChatPageInner() {
   // docs/usage_issues U6。runs+issuesの両方が揃ってから runId を選択する。
   // 蒸留など巨大taskの旧runは /api/agents 全件に載らない／遅延することがあるため、
   // 一覧に無いときは GET /api/agents/[id] で1件だけ拾って履歴へピン留めする。
+  // 選択の同期は queryRunId 変化時のみ（runs ポーリング依存にすると、履歴クリック直後に
+  // URL の runId＝先頭付近の相談へ選択が引き戻される）。
   const queryRunId = searchParams.get("runId");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pinnedRun, setPinnedRun] = useState<AgentRun | null>(null);
@@ -66,6 +68,16 @@ function ChatPageInner() {
   useEffect(() => {
     if (!queryRunId || !chatHistoryLoaded) return;
     setSelectedId(queryRunId);
+  }, [queryRunId, chatHistoryLoaded]);
+
+  useEffect(() => {
+    if (!queryRunId || !chatHistoryLoaded) {
+      if (!queryRunId) {
+        setPinnedRun(null);
+        setPinError(null);
+      }
+      return;
+    }
     const inList = runs.find((r) => r.id === queryRunId);
     if (inList) {
       setPinnedRun(inList);
@@ -96,6 +108,28 @@ function ChatPageInner() {
       cancelled = true;
     };
   }, [queryRunId, chatHistoryLoaded, runs]);
+
+  function replaceChatQuery(mutate: (params: URLSearchParams) => void) {
+    const params = new URLSearchParams(searchParams.toString());
+    mutate(params);
+    const qs = params.toString();
+    router.replace(qs ? `/chat?${qs}` : "/chat", { scroll: false });
+  }
+
+  function selectHistoryRun(id: string) {
+    setSelectedId(id);
+    replaceChatQuery((params) => {
+      params.set("runId", id);
+    });
+  }
+
+  function clearHistorySelection() {
+    setSelectedId(null);
+    setStartError(null);
+    replaceChatQuery((params) => {
+      params.delete("runId");
+    });
+  }
 
   // URLで指定されたLead runが一覧フィルタ外でも履歴に出す（Issue化済みや取得遅延の保険）。
   const historyRuns = (() => {
@@ -191,7 +225,7 @@ function ChatPageInner() {
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
       setTask("");
-      setSelectedId((data as { run: { id: string } }).run.id);
+      selectHistoryRun((data as { run: { id: string } }).run.id);
       await refreshRuns();
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
@@ -274,13 +308,7 @@ function ChatPageInner() {
       <div className={styles.panel}>
         <h2>相談履歴</h2>
         <p className={styles.subtitle}>Issueに起票していない、Lead Agentとの横断的な相談だけがここに並びます。</p>
-        <button
-          className={styles.primaryBtn}
-          onClick={() => {
-            setSelectedId(null);
-            setStartError(null);
-          }}
-        >
+        <button className={styles.primaryBtn} onClick={clearHistorySelection}>
           ＋ 新しい相談を始める
         </button>
         <div className={styles.runList}>
@@ -298,7 +326,7 @@ function ChatPageInner() {
               run={r}
               selected={selectedId === r.id}
               stale={staleRunIds.has(r.id)}
-              onSelect={() => setSelectedId(r.id)}
+              onSelect={() => selectHistoryRun(r.id)}
             />
           ))}
         </div>
