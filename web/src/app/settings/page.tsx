@@ -578,6 +578,46 @@ export default function SettingsPage() {
                     onChange={(e) => setDraft({ ...draft, autoMorningSummaryHour: Number(e.target.value) })}
                   /></label>
                 </div>
+
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>状況の蒸留（週次バッチ）</h3>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  Journal・Issue・既存テーマから「根本課題の見立て」をLead Agentが候補として出します。採用するまでIssue壁打ちの前提には入りません（docs/knowledge_distillation.md）。
+                </p>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={draft.autoDistillationEnabled}
+                    onChange={(e) => setDraft({ ...draft, autoDistillationEnabled: e.target.checked })}
+                  />
+                  毎週、指定曜日・時刻以降に自動で状況蒸留を起動する
+                </label>
+                <div className={styles.field} style={{ maxWidth: 200, opacity: draft.autoDistillationEnabled ? 1 : 0.5 }}>
+                  <label>曜日（サーバーのローカル時刻）
+                  <select
+                    disabled={!draft.autoDistillationEnabled}
+                    value={draft.autoDistillationWeekday}
+                    onChange={(e) => setDraft({ ...draft, autoDistillationWeekday: Number(e.target.value) })}
+                  >
+                    <option value={0}>日曜</option>
+                    <option value={1}>月曜</option>
+                    <option value={2}>火曜</option>
+                    <option value={3}>水曜</option>
+                    <option value={4}>木曜</option>
+                    <option value={5}>金曜</option>
+                    <option value={6}>土曜</option>
+                  </select></label>
+                </div>
+                <div className={styles.field} style={{ maxWidth: 160, opacity: draft.autoDistillationEnabled ? 1 : 0.5 }}>
+                  <label>時刻（0〜23時）
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    disabled={!draft.autoDistillationEnabled}
+                    value={draft.autoDistillationHour}
+                    onChange={(e) => setDraft({ ...draft, autoDistillationHour: Number(e.target.value) })}
+                  /></label>
+                </div>
               </>
             )}
 

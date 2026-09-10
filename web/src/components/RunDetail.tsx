@@ -39,6 +39,17 @@ export type SuggestedSubIssue = {
   priority?: IssuePriority;
 };
 
+export type SuggestedTheme = {
+  title: string;
+  summary: string;
+  rationale: string;
+  facts: string[];
+  rootCause?: string;
+  suggestedDirection?: string;
+  evidenceJournalIds?: string[];
+  evidenceIssueIds?: string[];
+};
+
 export type AgentRun = {
   id: string;
   agentName: string;
@@ -52,11 +63,12 @@ export type AgentRun = {
   suggestedSubIssues?: SuggestedSubIssue[];
   suggestedCharter?: { why?: string; what?: string; how?: string };
   suggestedPriority?: IssuePriority;
+  suggestedThemes?: SuggestedTheme[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
   consultedBy?: string;
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
   sourceJournalId?: string;
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
@@ -131,6 +143,7 @@ export function runKindLabel(run: AgentRun): string {
   if (run.origin === "auto-anomaly") return "Journal自動分析";
   if (run.origin === "auto-summary") return "朝のサマリー";
   if (run.origin === "auto-issue-update") return "Issue更新分析";
+  if (run.origin === "auto-distill") return "状況蒸留";
   if (run.status === "yield") return "Yield";
   return "手動";
 }
@@ -196,6 +209,9 @@ export function ExecutionState({
   onAdoptPriority,
   onDismissPriority,
   prioritySubmitting,
+  onAdoptThemes,
+  onDismissThemes,
+  themesSubmitting,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -217,6 +233,9 @@ export function ExecutionState({
   onAdoptPriority?: (priority: IssuePriority) => void;
   onDismissPriority?: () => void;
   prioritySubmitting?: boolean;
+  onAdoptThemes?: () => void;
+  onDismissThemes?: () => void;
+  themesSubmitting?: boolean;
 }) {
   const CHARTER_FIELD_LABEL: Record<"why" | "what" | "how", string> = {
     why: "Why（生む価値・誰のため・なぜ今か）",
@@ -420,6 +439,58 @@ export function ExecutionState({
                 </button>
                 <button className={styles.btnOutline} disabled={charterSubmitting} onClick={onDismissCharter}>
                   却下する
+                </button>
+              </div>
+            </div>
+          )}
+
+          {run.suggestedThemes && run.suggestedThemes.length > 0 && (
+            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
+              <strong>🧭 AIが提案するテーマ解釈（状況蒸留）</strong>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+                組織の上段課題の見立てです。採用するとIssue壁打ちの前提に入ります。誤りや不足はチャットで壁打ちしてから再提案させるか、採用後に編集できます。
+              </p>
+              {run.suggestedThemes.map((theme, i) => (
+                <div key={i} style={{ fontSize: "0.75rem", marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                  <strong>{theme.title}</strong>
+                  <p style={{ margin: "4px 0" }}>{theme.summary}</p>
+                  <strong style={{ display: "block", marginTop: 4 }}>なぜこの結果に至ったか</strong>
+                  <p style={{ color: "var(--text-muted)", margin: "2px 0 4px" }}>{theme.rationale}</p>
+                  {theme.facts.length > 0 && (
+                    <ul style={{ margin: "4px 0 4px 16px" }}>
+                      {theme.facts.map((f, fi) => (
+                        <li key={fi}>{f}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {theme.rootCause && (
+                    <p style={{ margin: "4px 0" }}>
+                      <strong>根本原因: </strong>
+                      {theme.rootCause}
+                    </p>
+                  )}
+                  {theme.suggestedDirection && (
+                    <p style={{ margin: "4px 0" }}>
+                      <strong>解決の方向性: </strong>
+                      {theme.suggestedDirection}
+                    </p>
+                  )}
+                </div>
+              ))}
+              <div className={styles.yieldActions}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={themesSubmitting}
+                  onClick={() => onAdoptThemes?.()}
+                >
+                  採用してテーマにする
+                </button>
+                <button className={styles.btnOutline} disabled={themesSubmitting} onClick={onDismissThemes}>
+                  却下する
+                </button>
+                <button className={styles.btnOutline} onClick={onFocusChat}>
+                  壁打ちで訂正する
                 </button>
               </div>
             </div>

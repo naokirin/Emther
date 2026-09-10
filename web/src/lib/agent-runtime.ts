@@ -4,13 +4,22 @@ import { mkdirSync } from "node:fs";
 import { dataFilePath, loadJSON, saveJSON } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, ensureNameCandidatesAllowed, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
-import { getIssue, getIssueByRunId, linkIssueRun, type IssueCharter } from "@/lib/issue-store";
+import { getIssue, getIssueByRunId, linkIssueRun, listIssues, type IssueCharter } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
+import { listJournalEntries } from "@/lib/journal-store";
+import {
+  adoptTheme,
+  createThemeCandidate,
+  listAdoptedThemes,
+  type SuggestedTheme,
+} from "@/lib/theme-store";
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
+
+export type { SuggestedTheme };
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -234,6 +243,9 @@ export type AgentRun = {
   suggestedCharter?: Partial<IssueCharter>;
   // 介入の優先帯（focus/normal/parked）の提案。採用までIssue.priorityへは反映しない。
   suggestedPriority?: IssuePriority;
+  // docs/knowledge_distillation.md。状況蒸留で提案するテーマ解釈の下書き。
+  // EMが「採用」するまで OrgTheme(adopted) にはならない。
+  suggestedThemes?: SuggestedTheme[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -247,10 +259,11 @@ export type AgentRun = {
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
   // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はJournal校正を
   // きっかけにした自動分析、"auto-summary"は朝のバッチサマリー、"auto-issue-update"は
-  // IssueのWhy/What/How・経過ログ更新をきっかけにした再分析。
+  // IssueのWhy/What/How・経過ログ更新をきっかけにした再分析、"auto-distill"は週次／手動の
+  // 状況蒸留（テーマ解釈候補）。
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
   // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
   sourceJournalId?: string;
   reviewed: boolean;
@@ -286,6 +299,7 @@ type AgentRunRow = {
   suggested_sub_issues_json: string | null;
   suggested_charter_json: string | null;
   suggested_priority_json: string | null;
+  suggested_themes_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -314,8 +328,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -327,6 +341,7 @@ function persistRunMeta(run: AgentRun): void {
          suggested_sub_issues_json = excluded.suggested_sub_issues_json,
          suggested_charter_json = excluded.suggested_charter_json,
          suggested_priority_json = excluded.suggested_priority_json,
+         suggested_themes_json = excluded.suggested_themes_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -347,6 +362,7 @@ function persistRunMeta(run: AgentRun): void {
       run.suggestedSubIssues ? JSON.stringify(run.suggestedSubIssues) : null,
       run.suggestedCharter ? JSON.stringify(run.suggestedCharter) : null,
       run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
+      run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -398,6 +414,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       suggestedPriority: row.suggested_priority_json
         ? parseSuggestedPriority(JSON.parse(row.suggested_priority_json))
         : undefined,
+      suggestedThemes: row.suggested_themes_json ? JSON.parse(row.suggested_themes_json) : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -510,11 +527,146 @@ export function checkMorningSummary(): void {
   });
 }
 
+// docs/knowledge_distillation.md。週次の状況蒸留。朝サマリーと同様に watchdog へ相乗りし、
+// ISO 週キーを永続化して二重起動を防ぐ。
+function loadLastAutoDistillationWeek(): string | null {
+  return loadJSON<{ week: string | null }>("auto-distillation.json", { week: null }).week;
+}
+
+function saveLastAutoDistillationWeek(week: string): void {
+  saveJSON("auto-distillation.json", { week });
+}
+
+let lastAutoDistillationWeek: string | null = loadLastAutoDistillationWeek();
+
+/** ローカル日付の ISO 週キー（例: 2026-W37）。週次バッチの二重起動ガードに使う。 */
+export function isoWeekKey(now: Date): string {
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+const DISTILL_JOURNAL_LIMIT = 25;
+const DISTILL_ISSUE_LIMIT = 20;
+
+/** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildDistillationContextBlock へ。 */
+export const DISTILLATION_TASK =
+  "直近の組織状況（Journal・未完了Issue・採用済みテーマ）を統括し、より根本の課題のテーマ解釈を蒸留してください。proposalとthemesブロックを出力してください。";
+
+// docs/knowledge_distillation.md。蒸留の材料は run.task に載せない（巨大な task だと
+// /api/agents 全件取得が重くなり、相談タブの履歴に載らない／開けない不具合の原因になる）。
+// origin=auto-distill のときシステムプロンプトへ動的注入する。
+export function buildDistillationContextBlock(): string {
+  const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const journals = listJournalEntries()
+    .filter((e) => e.createdAt >= since)
+    .slice(0, DISTILL_JOURNAL_LIMIT);
+  const openIssues = listIssues()
+    .filter((i) => !i.archived && i.status !== "done")
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, DISTILL_ISSUE_LIMIT);
+  const adopted = listAdoptedThemes().slice(0, 10);
+
+  const journalLines =
+    journals.length > 0
+      ? journals.map((e) => {
+          const snippet = (e.summary || e.rawText).slice(0, 160);
+          return `- [${e.id}] ${snippet}${e.tags.length ? `（タグ: ${e.tags.join(", ")}）` : ""}`;
+        })
+      : ["- （直近30日のJournalなし）"];
+  const issueLines =
+    openIssues.length > 0
+      ? openIssues.map((i) => {
+          const why = i.charter.why ? ` Why: ${i.charter.why.slice(0, 80)}` : "";
+          return `- [${i.id}] ${i.title}${why}`;
+        })
+      : ["- （未完了のIssueなし）"];
+  const themeLines =
+    adopted.length > 0
+      ? adopted.map((t) => `- ${t.title}: ${t.summary.slice(0, 120)}`)
+      : ["- （採用済みテーマなし）"];
+
+  return [
+    "状況蒸留の材料（このタスク専用。個別1件対応ではなく、繰り返しや横断から見える上段の解釈を出すこと）:",
+    "proposalブロックでは全体の見立て（結論・参照ファクト・判断ロジック・棄却した代替案）を述べてください。",
+    "加えて、採用候補となるテーマを themes ブロックで1〜5件出してください（無ければ空配列でも可）。",
+    "各テーマには title / summary（根本課題の見立て）/ rationale（なぜこの結果に至ったか）/ facts（根拠）を必須とし、任意で rootCause・suggestedDirection・evidenceJournalIds・evidenceIssueIds（下記一覧のID）を付けてください。",
+    "```themes",
+    '[{ "title": "…", "summary": "…", "rationale": "…", "facts": ["…"], "rootCause": "…", "suggestedDirection": "…", "evidenceJournalIds": [], "evidenceIssueIds": [] }]',
+    "```",
+    "",
+    "【直近Journal（最大25件）】",
+    ...journalLines,
+    "",
+    "【未完了Issue（最大20件）】",
+    ...issueLines,
+    "",
+    "【既に採用されているテーマ解釈】",
+    ...themeLines,
+  ].join("\n");
+}
+
+/** @deprecated 互換用。短いタスク文を返す。材料は buildDistillationContextBlock。 */
+export function buildDistillationTask(): string {
+  return DISTILLATION_TASK;
+}
+
+export async function startDistillationAnalysis(
+  opts: MaskOptions & { manual?: boolean } = {},
+): Promise<AgentRun | undefined> {
+  const { manual, ...maskOpts } = opts;
+  const task = DISTILLATION_TASK;
+  try {
+    // 手動も origin は auto-distill（Inboxラベルを揃える）。manual 時は reviewed=true 相当に
+    // したいが startRun は origin!==manual で reviewed=false。手動起動は EM が明示起動した
+    // ので reviewed=true にする。
+    const run = await startRun("Lead Agent", task, "auto-distill", undefined, maskOpts);
+    if (manual) {
+      run.reviewed = true;
+      persistRunMeta(run);
+    }
+    return run;
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) {
+      parkPendingUnmaskedSend({
+        id: `unmasked-distill:${Date.now()}`,
+        kind: "start-run",
+        candidates: err.candidates,
+        label: "状況蒸留の送信確認",
+        agentName: "Lead Agent",
+        task,
+        origin: "auto-distill",
+      });
+      return undefined;
+    }
+    throw err;
+  }
+}
+
+export function checkWeeklyDistillation(): void {
+  const { autoDistillationEnabled, autoDistillationWeekday, autoDistillationHour } = getRulesAndConstraints();
+  if (!autoDistillationEnabled) return;
+  const now = new Date();
+  if (now.getDay() !== autoDistillationWeekday) return;
+  if (now.getHours() < autoDistillationHour) return;
+  const week = isoWeekKey(now);
+  if (lastAutoDistillationWeek === week) return;
+  lastAutoDistillationWeek = week;
+  saveLastAutoDistillationWeek(week);
+  void startDistillationAnalysis().catch(() => {
+    // 週次蒸留の起動失敗は無視（次週まで再試行しない）。
+  });
+}
+
 // 自動起動originの表示名。Dashboard/Inbox/ログの語彙を揃える。
 export function originLabel(origin: AgentRun["origin"]): string {
   if (origin === "auto-anomaly") return "Journal自動分析";
   if (origin === "auto-summary") return "朝のサマリー";
   if (origin === "auto-issue-update") return "Issue更新分析";
+  if (origin === "auto-distill") return "状況蒸留";
   return "手動";
 }
 
@@ -777,6 +929,7 @@ function ensureWatchdogStarted(): void {
   setInterval(() => {
     checkStaleRuns();
     checkMorningSummary();
+    checkWeeklyDistillation();
   }, WATCHDOG_INTERVAL_MS);
 }
 ensureWatchdogStarted();
@@ -849,6 +1002,24 @@ export function buildObjectivesBlock(agentName: string): string {
     return `- ${o.title} — ${krs}`;
   });
   return [objectivesBlockIntro(agentName), ...lines].join("\n");
+}
+
+// docs/knowledge_distillation.md。採用済みテーマ解釈のみを絶対の前提として注入する。
+// 候補・却下は載せない（EM未承認の見立てで推論を汚さない）。
+export function buildThemesContextBlock(): string {
+  const themes = listAdoptedThemes();
+  if (themes.length === 0) return "";
+  const lines = themes.map((t) => {
+    const parts = [`- ${t.title}: ${t.summary}`];
+    if (t.rootCause) parts.push(`  根本原因の見立て: ${t.rootCause}`);
+    if (t.suggestedDirection) parts.push(`  解決の方向性: ${t.suggestedDirection}`);
+    parts.push(`  なぜこの解釈か: ${t.rationale}`);
+    return parts.join("\n");
+  });
+  return [
+    "組織の採用済みテーマ解釈（状況蒸留の成果、絶対の前提として扱うこと。個別Issueはこれらの具体化・矛盾・例外として読め）:",
+    ...lines,
+  ].join("\n");
 }
 
 // docs/em_human_story_and_ux.md P2-13（docs 3.1「動的ロード」の残件）対応。
@@ -1167,8 +1338,12 @@ export function buildSystemPrompt(
   const orgContext = buildOrgContextBlock(runId, rawText);
   const strategyContext = buildStrategyBlock();
   const objectivesContext = buildObjectivesBlock(agentName);
+  const themesContext = buildThemesContextBlock();
+  // 状況蒸留: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
+  const distillContext = runId && runs.get(runId)?.origin === "auto-distill" ? buildDistillationContextBlock() : "";
   return [
     base,
+    distillContext,
     issueContext,
     interventionTypeGuidance,
     teamCharterContext,
@@ -1176,6 +1351,7 @@ export function buildSystemPrompt(
     orgContext,
     strategyContext,
     objectivesContext,
+    themesContext,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -1311,6 +1487,61 @@ export function extractPriority(resultText: string): IssuePriority | undefined {
     // 不正なpriorityブロックは「提案なし」として扱う
   }
   return undefined;
+}
+
+// docs/knowledge_distillation.md。状況蒸留のテーマ候補。
+export function extractThemes(resultText: string): SuggestedTheme[] | undefined {
+  const match = resultText.match(/```themes\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!Array.isArray(parsed)) return undefined;
+    const items: SuggestedTheme[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") continue;
+      const title = (entry as { title?: unknown }).title;
+      const summary = (entry as { summary?: unknown }).summary;
+      const rationale = (entry as { rationale?: unknown }).rationale;
+      if (typeof title !== "string" || !title.trim()) continue;
+      if (typeof summary !== "string" || !summary.trim()) continue;
+      if (typeof rationale !== "string" || !rationale.trim()) continue;
+      const factsRaw = (entry as { facts?: unknown }).facts;
+      const facts = Array.isArray(factsRaw)
+        ? factsRaw.filter((f): f is string => typeof f === "string" && f.trim().length > 0)
+        : [];
+      const rootCause =
+        typeof (entry as { rootCause?: unknown }).rootCause === "string"
+          ? (entry as { rootCause: string }).rootCause.trim() || undefined
+          : undefined;
+      const suggestedDirection =
+        typeof (entry as { suggestedDirection?: unknown }).suggestedDirection === "string"
+          ? (entry as { suggestedDirection: string }).suggestedDirection.trim() || undefined
+          : undefined;
+      const evidenceJournalIds = Array.isArray((entry as { evidenceJournalIds?: unknown }).evidenceJournalIds)
+        ? ((entry as { evidenceJournalIds: unknown[] }).evidenceJournalIds.filter(
+            (id): id is string => typeof id === "string",
+          ) as string[])
+        : undefined;
+      const evidenceIssueIds = Array.isArray((entry as { evidenceIssueIds?: unknown }).evidenceIssueIds)
+        ? ((entry as { evidenceIssueIds: unknown[] }).evidenceIssueIds.filter(
+            (id): id is string => typeof id === "string",
+          ) as string[])
+        : undefined;
+      items.push({
+        title: title.trim(),
+        summary: summary.trim(),
+        rationale: rationale.trim(),
+        facts,
+        ...(rootCause ? { rootCause } : {}),
+        ...(suggestedDirection ? { suggestedDirection } : {}),
+        ...(evidenceJournalIds ? { evidenceJournalIds } : {}),
+        ...(evidenceIssueIds ? { evidenceIssueIds } : {}),
+      });
+    }
+    return items.length > 0 ? items : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
@@ -1454,6 +1685,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.suggestedSubIssues = undefined;
     run.suggestedCharter = undefined;
     run.suggestedPriority = undefined;
+    run.suggestedThemes = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
@@ -1463,6 +1695,7 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     run.suggestedSubIssues = run.proposal ? extractSubIssues(resultText) : undefined;
     run.suggestedCharter = run.proposal ? extractCharter(resultText) : undefined;
     run.suggestedPriority = run.proposal ? extractPriority(resultText) : undefined;
+    run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
     appendLog(
       run,
       "system",
@@ -1479,6 +1712,9 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     }
     if (run.suggestedPriority) {
       appendLog(run, "system", `[優先度提案] ${run.suggestedPriority}`);
+    }
+    if (run.suggestedThemes) {
+      appendLog(run, "system", `[テーマ解釈提案] ${run.suggestedThemes.length}件`);
     }
     // docs/usage_issues U2。Journal自動分析が追跡不要と明示したときだけ自動却下する。
     // 手動相談やIssue更新分析はEMのトリアージ対象のまま残す。
@@ -2167,6 +2403,16 @@ export function toRunView(run: AgentRun): AgentRun {
         }
       : run.suggestedCharter,
     suggestedPriority: run.suggestedPriority,
+    suggestedThemes: run.suggestedThemes?.map((t) => ({
+      title: unmaskNames(t.title),
+      summary: unmaskNames(t.summary),
+      rationale: unmaskNames(t.rationale),
+      facts: t.facts.map(unmaskNames),
+      rootCause: t.rootCause !== undefined ? unmaskNames(t.rootCause) : undefined,
+      suggestedDirection: t.suggestedDirection !== undefined ? unmaskNames(t.suggestedDirection) : undefined,
+      evidenceJournalIds: t.evidenceJournalIds,
+      evidenceIssueIds: t.evidenceIssueIds,
+    })),
   };
 }
 
@@ -2368,4 +2614,30 @@ export function clearSuggestedPriority(id: string): AgentRun | undefined {
   run.suggestedPriority = undefined;
   persistRunMeta(run);
   return run;
+}
+
+export function clearSuggestedThemes(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.suggestedThemes = undefined;
+  persistRunMeta(run);
+  return run;
+}
+
+// docs/knowledge_distillation.md。suggestedThemes を OrgTheme(candidate→adopted) として確定する。
+export async function adoptSuggestedThemesFromRun(
+  id: string,
+): Promise<{ run: AgentRun; themes: Awaited<ReturnType<typeof createThemeCandidate>>[] } | undefined> {
+  const run = runs.get(id);
+  if (!run?.suggestedThemes?.length) return undefined;
+  const created = [];
+  for (const suggested of run.suggestedThemes) {
+    const candidate = await createThemeCandidate({ ...suggested, sourceRunId: run.id });
+    const adopted = await adoptTheme(candidate.id);
+    if (adopted) created.push(adopted);
+  }
+  run.suggestedThemes = undefined;
+  run.reviewed = true;
+  persistRunMeta(run);
+  return { run, themes: created };
 }

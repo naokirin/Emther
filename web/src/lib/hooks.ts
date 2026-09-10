@@ -15,6 +15,7 @@ import type {
   KnowledgeEvent,
   ObjectiveWithProgress,
   OrgStrategy,
+  OrgTheme,
   OrgVitals,
   PersonProfile,
   PersonSummary,
@@ -585,6 +586,9 @@ export function useSettingsRules(intervalMs = 8000) {
       autoIssueUpdateAnalysisEnabled: false,
       autoMorningSummaryEnabled: false,
       autoMorningSummaryHour: 7,
+      autoDistillationEnabled: false,
+      autoDistillationWeekday: 1,
+      autoDistillationHour: 8,
       maxParallelAgentRuns: 2,
       teamParallelKickoffEnabled: true,
       decisionQueueLimit: 3,
@@ -611,6 +615,11 @@ export function useTimeline(intervalMs = 10000) {
 export function usePeople(intervalMs = 5000) {
   const { data, loaded, refresh } = usePolling<{ people: PersonSummary[] }>("/api/people", { people: [] }, intervalMs);
   return { people: data.people, peopleLoaded: loaded, refreshPeople: refresh };
+}
+
+export function useThemes(intervalMs = 8000) {
+  const { data, loaded, refresh } = usePolling<{ themes: OrgTheme[] }>("/api/themes", { themes: [] }, intervalMs);
+  return { themes: data.themes, themesLoaded: loaded, refreshThemes: refresh };
 }
 
 export function usePersonProfile(id: string, intervalMs = 5000) {
