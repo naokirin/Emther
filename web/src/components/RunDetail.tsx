@@ -31,6 +31,7 @@ export type Proposal = {
   facts: string[];
   logic: string;
   rejectedAlternatives: RejectedAlternative[];
+  recommendation?: "issue" | "dismiss" | "watch";
 };
 
 export type SuggestedSubIssue = {
@@ -131,6 +132,20 @@ export function runKindLabel(run: AgentRun): string {
   if (run.origin === "auto-issue-update") return "Issue更新分析";
   if (run.status === "yield") return "Yield";
   return "手動";
+}
+
+/**
+ * ダッシュボードの「次の1手」から外す run。
+ * 専門Agentへの相談子run、EMが却下したもの、紐づくIssueがアーカイブ済みのもの。
+ * 様子見は呼び出し側で別扱い（期限内は非表示、期限切れは再浮上）。
+ */
+export function shouldOmitRunFromNextActions(
+  run: Pick<AgentRun, "id" | "consultedBy" | "triageStatus">,
+  issues: { agentRunId?: string; archived: boolean }[],
+): boolean {
+  if (run.consultedBy) return true;
+  if (run.triageStatus === "dismissed") return true;
+  return issues.some((i) => i.agentRunId === run.id && i.archived);
 }
 
 /** 自動起動かつ未トリアージ（起票／様子見／却下前）のドラフト。Issue行ではなく AgentRun が正。 */
@@ -508,14 +523,17 @@ export function CopilotChat({
 
       {run.status !== "active" && run.status !== "queued" && (
         <div className={styles.chatRow}>
-          <input
+          <textarea
             id={inputId}
-            type="text"
             placeholder={run.status === "yield" ? "別の案をチャットで壁打ち…" : "追加で相談する…"}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            rows={3}
             onKeyDown={(e) => {
-              if (e.key === "Enter") onDecide(message);
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                e.preventDefault();
+                onDecide(message);
+              }
             }}
           />
           <button

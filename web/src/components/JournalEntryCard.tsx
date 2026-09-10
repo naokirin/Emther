@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { MarkdownView } from "@/components/MarkdownView";
-import { isJournalEntryResolved, URGENCY_LABEL, type JournalEntry } from "@/lib/types";
+import { isJournalEntryResolved, journalResolutionLabel, URGENCY_LABEL, type JournalEntry } from "@/lib/types";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
 // 訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、常に
@@ -251,12 +251,12 @@ export function JournalEntryCard({
                 Issueを起票してこの件を追跡する
               </button>
               <div style={{ display: "flex", gap: 6 }}>
-                <input
-                  type="text"
+                <textarea
                   aria-label="解決メモ"
                   value={resolutionNoteDraft}
                   onChange={(e) => onChangeResolutionNoteDraft(e.target.value)}
                   placeholder="例: 本人と話して解消済み"
+                  rows={2}
                   style={{ flex: 1 }}
                 />
                 <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleResolveWithNote}>
@@ -283,7 +283,7 @@ export function JournalEntryCard({
           本文を読み始める前に一目で分かるよう先頭に軽量なラベルを添える。 */}
       {isResolved && (
         <span className={`${styles.tag} ${styles.tagPos}`} style={{ marginRight: 6 }}>
-          対応済み
+          {journalResolutionLabel(entry)}
         </span>
       )}
       {/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。本文はMarkdownで

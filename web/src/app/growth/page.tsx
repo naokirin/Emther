@@ -144,10 +144,10 @@ export default function GrowthPage() {
               </div>
             </div>
             <div className={styles.journalInputRow}>
-              <input
-                type="text"
+              <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
+                rows={3}
                 placeholder="例: 割り込み対応が多くて計画的な仕事に時間を割けなかった"
               />
               <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={noteSubmitting || !noteText.trim()}>

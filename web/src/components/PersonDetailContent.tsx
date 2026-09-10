@@ -184,9 +184,14 @@ function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: st
 // 「介入」を行う場所ではなく、辿るための入口——実際の記録・起票は既存の各画面で行う）。
 export function PersonDetailContent({ id }: { id: string }) {
   const { person, personLoaded, refreshPerson } = usePersonProfile(id);
+  const { refreshPeople } = usePeople();
   const { teams, refreshTeams } = useTeams();
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   // チーム所属を変えるとisDirectReport・teamNamesも変わるため、両方のポーリング先を
   // 更新して画面上の表示（部下/その他ラベル・所属チーム名の一覧）をすぐ反映させる。
@@ -208,6 +213,33 @@ export function PersonDetailContent({ id }: { id: string }) {
     }
   }
 
+  async function handleRename() {
+    if (!person) return;
+    const next = nameDraft.trim();
+    if (!next || next === person.name) {
+      setRenaming(false);
+      setNameError(null);
+      return;
+    }
+    setNameSaving(true);
+    setNameError(null);
+    try {
+      const res = await fetch(`/api/people/${person.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "名前の変更に失敗しました");
+      setRenaming(false);
+      await Promise.all([refreshPerson(), refreshPeople()]);
+    } catch (err) {
+      setNameError((err as Error).message);
+    } finally {
+      setNameSaving(false);
+    }
+  }
+
   if (!person) {
     return (
       <p className={styles.subtitle}>
@@ -222,7 +254,44 @@ export function PersonDetailContent({ id }: { id: string }) {
         <PersonScoreBadge trend={person.trend} factCount={person.factCount} hasConcerningIssue={person.hasConcerningIssue} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-            <h2 style={{ margin: 0 }}>{person.name}</h2>
+            {renaming ? (
+              <div className={styles.field} style={{ flex: 1, margin: 0 }}>
+                <label>
+                  表示名
+                  <input
+                    type="text"
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    autoFocus
+                    disabled={nameSaving}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  <button className={styles.primaryBtn} style={{ width: "auto" }} type="button" disabled={nameSaving || !nameDraft.trim()} onClick={handleRename}>
+                    {nameSaving ? "保存中…" : "保存"}
+                  </button>
+                  <button className={styles.btnOutline} type="button" disabled={nameSaving} onClick={() => { setRenaming(false); setNameError(null); }}>
+                    キャンセル
+                  </button>
+                </div>
+                {nameError && <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>{nameError}</p>}
+              </div>
+            ) : (
+              <div>
+                <h2 style={{ margin: 0 }}>{person.name}</h2>
+                <button
+                  className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                  type="button"
+                  onClick={() => {
+                    setNameDraft(person.name);
+                    setNameError(null);
+                    setRenaming(true);
+                  }}
+                >
+                  名前を変更
+                </button>
+              </div>
+            )}
             <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
               {deleting ? "削除中…" : "誤登録として削除"}
             </button>

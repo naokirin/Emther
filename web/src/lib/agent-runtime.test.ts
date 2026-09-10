@@ -181,6 +181,12 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     });
   });
 
+  it("extractProposalはrecommendationを拾う", async () => {
+    const rt = await loadModule();
+    const text = '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "recommendation": "dismiss" }\n```';
+    expect(rt.extractProposal(text)?.recommendation).toBe("dismiss");
+  });
+
   it("extractProposalはconclusion/logicが文字列でなければundefined", async () => {
     const rt = await loadModule();
     expect(rt.extractProposal('```proposal\n{ "facts": [] }\n```')).toBeUndefined();
@@ -362,11 +368,11 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
     expect(rt.buildIssueContextBlock("missing-run")).toBe("");
   });
 
-  it("charterが全て空でtagsも無ければ空文字列", async () => {
+  it("charterが空でもタイトルは含める", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("Issue", "run-1");
     const rt = await loadModule();
-    expect(rt.buildIssueContextBlock("run-1")).toBe("");
+    expect(rt.buildIssueContextBlock("run-1")).toContain("タイトル: Issue");
   });
 
   it("charterが埋まっていればWhy/What/Howを含める", async () => {
@@ -631,6 +637,17 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(updated?.triageAt).toBeDefined();
   });
 
+  it("setRunTriageStatusはconsult子runにも同じトリアージを伝播する", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "lead-1", reviewed: 0 });
+    insertRunRow(getDb(), { id: "spec-1", agent_name: "People Agent", consulted_by: "lead-1", reviewed: 0 });
+    const rt = await loadModule();
+    rt.setRunTriageStatus("lead-1", "dismissed");
+    expect(rt.getRun("lead-1")?.triageStatus).toBe("dismissed");
+    expect(rt.getRun("spec-1")?.triageStatus).toBe("dismissed");
+    expect(rt.getRun("spec-1")?.reviewed).toBe(true);
+  });
+
   it("clearSuggestedActionItems/clearSuggestedSubIssuesは提案を消す", async () => {
     const { getDb } = await import("@/lib/db");
     insertRunRow(getDb(), {
@@ -666,6 +683,16 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.clearSuggestedActionItems("missing")).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();
   });
+
+  it("専門Agent runはconsultedByの親Issueコンテキストを使う", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    await issueStore.createIssue("障害対応", "lead-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "lead-1" });
+    insertRunRow(getDb(), { id: "spec-1", agent_name: "People Agent", consulted_by: "lead-1" });
+    const rt = await loadModule();
+    expect(rt.buildIssueContextBlock("spec-1")).toContain("Why（生む価値・誰のため・なぜ今か）: 顧客影響を止める");
+  });
 });
 
 describe("startRun（CLI起動・claude→agy→cursorのフォールバック連鎖）", () => {
@@ -695,6 +722,20 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.totalCostUsd).toBeCloseTo(0.02);
     expect(finished.proposal?.conclusion).toBe("対応を継続");
     expect(finished.log.some((l) => l.channel === "agent" && l.text === "検討しています…")).toBe(true);
+  });
+
+  it("auto-anomalyでrecommendation:dismissなら自動却下する", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "Journalの内容", "auto-anomaly");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "一時的な感情なので追跡不要", "facts": [], "logic": "l", "rejectedAlternatives": [], "recommendation": "dismiss" }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.triageStatus !== "dismissed") throw new Error("not dismissed");
+    });
+    expect(rt.getRun(run.id)?.reviewed).toBe(true);
   });
 
   it("設定でエージェント種別にモデル系統が指定されていれば--modelを渡す", async () => {

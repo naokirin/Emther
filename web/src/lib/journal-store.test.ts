@@ -22,7 +22,7 @@ vi.mock("@/lib/local-model", () => ({
     }
     return JSON.stringify(mockExtraction);
   }),
-  extractFirstJsonObject: (text: string) => text,
+  extractFirstJsonObject: vi.fn((text: string) => text),
 }));
 
 vi.mock("@/lib/embeddings", () => ({
@@ -102,6 +102,28 @@ describe("addJournalEntry", () => {
     const entry = await store.addJournalEntry("テキスト");
     expect(entry.urgency).toBe("mid");
     expect(entry.sentiment).toBe("neutral");
+  });
+
+  it("ローカルモデルがJSONを返さなくても本文は未確認エントリとして保存される", async () => {
+    const { extractFirstJsonObject } = await import("@/lib/local-model");
+    vi.mocked(extractFirstJsonObject).mockReturnValueOnce(undefined);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("JSONにならないメモ");
+    expect(entry.rawText).toBe("JSONにならないメモ");
+    expect(entry.confirmed).toBe(false);
+    expect(entry.tags).toEqual([]);
+    expect(entry.urgency).toBe("mid");
+    expect(entry.sentiment).toBe("neutral");
+    expect(entry.summary).toBe("");
+  });
+
+  it("ローカルモデル呼び出しが失敗しても本文は保存される", async () => {
+    const { runLocalChat } = await import("@/lib/local-model");
+    vi.mocked(runLocalChat).mockRejectedValueOnce(new Error("model unavailable"));
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("モデル落ちても残す");
+    expect(entry.rawText).toBe("モデル落ちても残す");
+    expect(entry.confirmed).toBe(false);
   });
 });
 

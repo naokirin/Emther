@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addPersonAlias, getPersonProfile, removePersonAlias } from "@/lib/people-hub";
-import { deletePerson } from "@/lib/people-directory";
+import { deletePerson, renamePerson } from "@/lib/people-directory";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/people/[id]">) {
   const { id } = await ctx.params;
@@ -18,15 +18,19 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/people/[id
   const body = await request.json().catch(() => null);
   const addAliasName = typeof body?.addAlias === "string" ? body.addAlias : undefined;
   const removeAliasName = typeof body?.removeAlias === "string" ? body.removeAlias : undefined;
+  const newName = typeof body?.name === "string" ? body.name : undefined;
 
-  if (addAliasName !== undefined) {
+  if (newName !== undefined) {
+    const result = renamePerson(id, newName);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+  } else if (addAliasName !== undefined) {
     const result = addPersonAlias(id, addAliasName);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   } else if (removeAliasName !== undefined) {
     const removed = removePersonAlias(id, removeAliasName);
     if (!removed) return NextResponse.json({ error: "指定された別名が見つかりません" }, { status: 400 });
   } else {
-    return NextResponse.json({ error: "addAliasまたはremoveAliasが必要です" }, { status: 400 });
+    return NextResponse.json({ error: "name、addAlias、removeAliasのいずれかが必要です" }, { status: 400 });
   }
 
   const profile = getPersonProfile(id);

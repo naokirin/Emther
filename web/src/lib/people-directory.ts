@@ -213,6 +213,25 @@ export function addAlias(id: string, aliasName: string): { ok: true } | { ok: fa
   return { ok: true };
 }
 
+// docs/usage_issues U7。正式名を差し替え、旧表記は別名として残す（過去のJournalが
+// マスクされ続けるようにする）。
+export function renamePerson(id: string, newName: string): { ok: true } | { ok: false; error: string } {
+  const trimmed = newName.trim();
+  if (!trimmed) return { ok: false, error: "名前を入力してください" };
+  const current = idToName.get(id);
+  if (current === undefined) return { ok: false, error: "対象の人物が見つかりません" };
+  if (current === trimmed) return { ok: true };
+  const existingOwner = findIdByAnyForm(trimmed);
+  if (existingOwner !== undefined && existingOwner !== id) {
+    return { ok: false, error: "この名前は既に別の人物として登録されています。「重複を統合」を使ってください。" };
+  }
+  idToName.set(id, trimmed);
+  nameToId.set(trimmed, id);
+  if (!nameToId.has(current)) nameToId.set(current, id);
+  persist();
+  return { ok: true };
+}
+
 // 誤って登録した別名を取り消す（正式名自体はdeletePersonでのみ削除できる——ここでは
 // 「対応表から人物を消す」ことと「別名を1件取り消す」ことを明確に分ける）。
 export function removeAlias(id: string, aliasName: string): boolean {

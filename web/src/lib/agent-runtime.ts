@@ -40,11 +40,16 @@ export type RejectedAlternative = {
   reason: string;
 };
 
+export type ProposalRecommendation = "issue" | "dismiss" | "watch";
+
 export type Proposal = {
   conclusion: string;
   facts: string[];
   logic: string;
   rejectedAlternatives: RejectedAlternative[];
+  // docs/usage_issues U2。Journal自動分析など「追跡要否」を聞かれたときだけ使う。
+  // 未指定の従来出力は手動トリアージのまま。
+  recommendation?: ProposalRecommendation;
 };
 
 // docs/memo.md「M. AIエージェント“チーム”の本格協働」対応。以前は専門エージェント
@@ -155,9 +160,27 @@ const INTERVENTION_TYPE_AGENTS: Record<string, { primary: string[]; secondary: s
 // 紐づくIssueのtagsに介入の型が含まれ、かつそのagentNameが主担当／副担当に該当する場合、
 // 「この介入型を主軸に」という一文を足す。該当しない場合はブロック自体を省略する
 // （無関係な介入型の指示で専門性をブレさせないため）。
+// docs/usage_issues U3。専門AgentのrunはIssueに直接紐付かない（consultedByだけが親Leadを指す）。
+// getIssueByRunId(そのrun)だとWhy/What/Howが空になり、「分からない」Yieldの原因になる。
+function resolveIssueForRun(runId: string) {
+  const direct = getIssueByRunId(runId);
+  if (direct) return direct;
+  const seen = new Set<string>();
+  let currentId: string | undefined = runId;
+  while (currentId && !seen.has(currentId)) {
+    seen.add(currentId);
+    currentId = runs.get(currentId)?.consultedBy;
+    if (currentId) {
+      const viaParent = getIssueByRunId(currentId);
+      if (viaParent) return viaParent;
+    }
+  }
+  return undefined;
+}
+
 export function buildInterventionTypeGuidance(runId: string | undefined, agentName: string): string {
   if (!runId) return "";
-  const issue = getIssueByRunId(runId);
+  const issue = resolveIssueForRun(runId);
   if (!issue || issue.tags.length === 0) return "";
 
   const validLabels = new Set(INTERVENTION_TYPES.map((t) => t.label));
@@ -592,20 +615,27 @@ function scheduleDebouncedIssueUpdate(
 function buildIssueUpdateTask(
   trigger: "charter" | "log",
   detail: string,
-  title: string,
+  issue: { title: string; charter: { why?: string; what?: string; how?: string } },
 ): string {
+  const charterLines = [
+    issue.charter.why ? `Why（最新）: ${issue.charter.why}` : "",
+    issue.charter.what ? `What（最新）: ${issue.charter.what}` : "",
+    issue.charter.how ? `How（最新）: ${issue.charter.how}` : "",
+  ].filter(Boolean);
   if (trigger === "charter") {
     return [
       "IssueのWhy/What/Howが更新されました。最新の整理内容を踏まえ、チームとして再分析してください。",
-      `タイトル: ${title}`,
-      `更新された項目: ${detail}`,
+      `タイトル: ${issue.title}`,
+      ...charterLines,
+      `今回更新された項目: ${detail}`,
       "不足している観点・リスク・次の一手（Action Itemsや子Issue分解）があれば提案してください。",
       "判断や介入の実行が必要ならYieldしてください。Issue本体の直接変更は提案に留め、EMの採用を待ってください。",
     ].join("\n");
   }
   return [
     "Issueに経過ログが追加されました。進捗・ピボット要否・次の一手をチームとして判断してください。",
-    `タイトル: ${title}`,
+    `タイトル: ${issue.title}`,
+    ...charterLines,
     `追加された経過: ${detail}`,
     "必要ならAction Itemsや子Issue分解を提案し、判断が必要ならYieldしてください。",
   ].join("\n");
@@ -620,7 +650,7 @@ async function executeIssueUpdateAnalysis(
   const issue = getIssue(issueId);
   if (!issue || issue.archived || issue.status === "done") return;
 
-  const task = buildIssueUpdateTask(trigger, detail, issue.title);
+  const task = buildIssueUpdateTask(trigger, detail, issue);
   const linkedRun = issue.agentRunId ? runs.get(issue.agentRunId) : undefined;
   const issueTitle = unmaskNames(issue.title);
 
@@ -711,7 +741,7 @@ export async function startJournalAutoAnalysis(rawText: string): Promise<AgentRu
   const task = [
     "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
-    "単なる一時的な感情の吐露などで追跡不要と判断した場合は、その旨を簡潔に述べてください（無理にIssue化を勧めないこと）。",
+    "単なる一時的な感情の吐露などで追跡不要と判断した場合は、proposalの recommendation を \"dismiss\" にし、その旨を結論に書いてください（無理にIssue化を勧めないこと）。Issue化すべきなら recommendation は \"issue\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
   ].join("\n");
@@ -825,7 +855,7 @@ export function buildObjectivesBlock(agentName: string): string {
 export function relevantTeams(teams: Team[], runId: string | undefined, rawText: string | undefined): Team[] {
   const relevantIds = new Set<string>();
 
-  const linkedTeamId = runId ? getIssueByRunId(runId)?.teamId : undefined;
+  const linkedTeamId = runId ? resolveIssueForRun(runId)?.teamId : undefined;
   if (linkedTeamId) relevantIds.add(linkedTeamId);
 
   if (rawText) {
@@ -855,14 +885,14 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
 // docs 3.1「動的ロード」: そのrunがIssueに紐づいている場合、Issueのタイトルと
 // charter（Why/What/How）を「絶対の前提」としてエージェントに渡す。docs/first_implession
 // のIssue Workspaceが目指していた「壁打ちがIssueの文脈を踏まえる」ことの実体化。
-// charterが3項目とも空（未整理）のIssueなら、渡す情報が無いのでブロック自体を省略する
-// （空の前提を渡して混乱させないため）。
 export function buildIssueContextBlock(runId: string): string {
-  const issue = getIssueByRunId(runId);
+  const issue = resolveIssueForRun(runId);
   if (!issue) return "";
   const { why, what, how } = issue.charter;
-  if (!why && !what && !how && issue.tags.length === 0) return "";
 
+  // docs/usage_issues U3。charterが空でもタイトルは渡す（タイトルだけのIssueで
+  // 「Why/What/Howが分からない」とYieldされるのを防ぐ）。専門AgentはconsultedBy経由で
+  // 親LeadのIssueを解決する。
   // issue-store.tsはtitle/charterをPERSON_n IDでマスクした状態で保持しているため、
   // ここでmaskNamesを呼ぶ必要は無い（既に安全）。
   const lines = ["このタスクが紐づくIssueの前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
@@ -879,7 +909,7 @@ export function buildIssueContextBlock(runId: string): string {
 // 対象Issueに関連するチームのみに絞る」に対応する部分）。Mission/制約が両方未設定なら
 // 渡す情報が無いのでブロック自体を省略する。
 export function buildTeamCharterBlock(runId: string): string {
-  const issue = getIssueByRunId(runId);
+  const issue = resolveIssueForRun(runId);
   if (!issue?.teamId) return "";
   const team = getTeam(issue.teamId);
   if (!team) return "";
@@ -1097,7 +1127,8 @@ export function buildSystemPrompt(
     '  "conclusion": "結論（一文で）",',
     '  "facts": ["判断の根拠にした参照ファクト（与えられた情報の中から）"],',
     '  "logic": "その結論に至った判断ロジック",',
-    '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ]',
+    '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
+    '  "recommendation": "issue | dismiss | watch  （任意。追跡要否を判断する課題のときだけ。不要なら dismiss）"',
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
@@ -1183,6 +1214,10 @@ export function extractProposal(resultText: string): Proposal | undefined {
   try {
     const parsed = JSON.parse(match[1].trim());
     if (parsed && typeof parsed.conclusion === "string" && typeof parsed.logic === "string") {
+      const recommendation =
+        parsed.recommendation === "dismiss" || parsed.recommendation === "issue" || parsed.recommendation === "watch"
+          ? parsed.recommendation
+          : undefined;
       return {
         conclusion: parsed.conclusion,
         facts: Array.isArray(parsed.facts) ? parsed.facts.filter((f: unknown) => typeof f === "string") : [],
@@ -1193,6 +1228,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
                 typeof r === "object" && r !== null && typeof (r as RejectedAlternative).option === "string",
             )
           : [],
+        ...(recommendation ? { recommendation } : {}),
       };
     }
   } catch {
@@ -1437,6 +1473,12 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
     }
     if (run.suggestedPriority) {
       appendLog(run, "system", `[優先度提案] ${run.suggestedPriority}`);
+    }
+    // docs/usage_issues U2。Journal自動分析が追跡不要と明示したときだけ自動却下する。
+    // 手動相談やIssue更新分析はEMのトリアージ対象のまま残す。
+    if (run.origin === "auto-anomaly" && run.proposal?.recommendation === "dismiss") {
+      setRunTriageStatus(run.id, "dismissed");
+      appendLog(run, "system", "AIが追跡不要と判断したため、自動で却下しました。");
     }
   }
 }
@@ -2101,6 +2143,7 @@ export function toRunView(run: AgentRun): AgentRun {
             option: unmaskNames(r.option),
             reason: unmaskNames(r.reason),
           })),
+          ...(run.proposal.recommendation ? { recommendation: run.proposal.recommendation } : {}),
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
@@ -2259,11 +2302,22 @@ export function markRunReviewed(id: string): AgentRun | undefined {
 export function setRunTriageStatus(id: string, status: "watching" | "dismissed"): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
+  applyTriageStatus(run, status);
+  persistRunMeta(run);
+  // docs/usage_issues U4。親Leadを却下してもconsult子runが判断待ちに残らないよう伝播する。
+  for (const child of runs.values()) {
+    if (child.consultedBy === id) {
+      applyTriageStatus(child, status);
+      persistRunMeta(child);
+    }
+  }
+  return run;
+}
+
+function applyTriageStatus(run: AgentRun, status: "watching" | "dismissed"): void {
   run.reviewed = true;
   run.triageStatus = status;
   run.triageAt = Date.now();
-  persistRunMeta(run);
-  return run;
 }
 
 // docs/first_implession 3.8対応。AIが提案したAction Itemsを、EMが採用した後（実際の
