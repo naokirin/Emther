@@ -292,6 +292,18 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(prompt).not.toContain("与えられたタスクの文脈だけを判断材料とし");
   });
 
+  it("朝サマリーの材料は実名をPERSON_nにマスクしてから返す", async () => {
+    const pd = await import("@/lib/people-directory");
+    const orgStore = await import("@/lib/org-context-store");
+    pd.registerName("漏洩太郎");
+    // チーム名に実名が含まれると、Vitals理由文にも載る（送信前 assert の発火源になり得る）。
+    orgStore.addTeam("漏洩太郎チーム", []);
+    const rt = await loadModule();
+    const ctx = rt.buildMorningSummaryContextBlock();
+    expect(ctx).not.toContain("漏洩太郎");
+    expect(ctx).toMatch(/PERSON_\d+/);
+  });
+
   it("extractJournalAutoAnalysisTextは対象エントリ本文を取り出す", async () => {
     const rt = await loadModule();
     const task = [
