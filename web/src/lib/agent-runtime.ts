@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { dataFilePath, loadJSON, saveJSON } from "@/lib/persistence";
+import { dataFilePath, getDataDir, loadJSON, saveJSON } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, ensureNameCandidatesAllowed, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
 import { getIssue, getIssueByRunId, linkIssueRun, listIssues, type IssueCharter } from "@/lib/issue-store";
@@ -489,13 +489,16 @@ export function killLiveAgentProcesses(): void {
 
 // docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
 // 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
-// ユーザー指摘「朝のサマリーのログが大量に並んでいる」対応（原因調査の結果）:
-// 以前はこの「今日はもう作った」ガードをモジュール内の変数だけで持っていたため、
-// サーバー再起動はもちろん、開発サーバー（next dev）がファイル変更のたびに
-// このモジュールをホットリロードするだけでもガードがリセットされ、リロードのたびに
-// 朝のサマリーRunが重複生成されてしまっていた。`.data/auto-morning-summary.json`へ
-// 永続化することで、再起動・ホットリロードをまたいでも「今日は既に生成済み」を
-// 正しく覚えておくようにする。
+//
+// 二重起動ガードは次の3層:
+// 1) globalThis 上のクレーム（同一プロセス内の HMR でも共有）
+// 2) auto-morning-summary.json の永続化（プロセス再起動後）
+// 3) 当日の origin=auto-summary が DB/メモリに既にあれば起動しない
+//
+// (1) だけだと next dev の HMR でモジュール変数がリセットされ、かつ setInterval が
+// クリアされずに積み上がると、指定時刻直後に複数 tick がほぼ同時に走りレースする
+// （実機: 2026-09-11 07:00 に約3秒で9件）。ファイル永続化だけでは「全員が未クレームを
+// 読んでから書く」レースを止められないため、globalThis 単一化 + 既存 run の有無確認が必要。
 function loadLastAutoMorningSummaryDate(): string | null {
   return loadJSON<{ date: string | null }>("auto-morning-summary.json", { date: null }).date;
 }
@@ -504,10 +507,38 @@ function saveLastAutoMorningSummaryDate(date: string): void {
   saveJSON("auto-morning-summary.json", { date });
 }
 
-let lastAutoMorningSummaryDate: string | null = loadLastAutoMorningSummaryDate();
-
 export function todayDateString(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/** ローカル暦日 YYYY-MM-DD の [start, end) ミリ秒（サーバーローカル TZ）。 */
+export function localDayBoundsMs(date: string): { start: number; end: number } {
+  const [y, m, d] = date.split("-").map(Number);
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  return { start, end: start + 24 * 60 * 60 * 1000 };
+}
+
+function hasOriginRunOnLocalDate(origin: AgentRun["origin"], date: string): boolean {
+  const { start, end } = localDayBoundsMs(date);
+  for (const run of runs.values()) {
+    if (run.origin === origin && run.createdAt >= start && run.createdAt < end) return true;
+  }
+  const row = getDb()
+    .prepare("SELECT 1 AS ok FROM agent_runs WHERE origin = ? AND created_at >= ? AND created_at < ? LIMIT 1")
+    .get(origin, start, end) as { ok: number } | undefined;
+  return !!row;
+}
+
+function hasOriginRunInIsoWeek(origin: AgentRun["origin"], week: string): boolean {
+  for (const run of runs.values()) {
+    if (run.origin === origin && isoWeekKey(new Date(run.createdAt)) === week) return true;
+  }
+  // 週境界の厳密スキャンは重いので、直近14日の DB 行だけ見て判定する。
+  const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const rows = getDb()
+    .prepare("SELECT created_at FROM agent_runs WHERE origin = ? AND created_at >= ?")
+    .all(origin, since) as Array<{ created_at: number }>;
+  return rows.some((r) => isoWeekKey(new Date(r.created_at)) === week);
 }
 
 export function checkMorningSummary(): void {
@@ -516,8 +547,16 @@ export function checkMorningSummary(): void {
   const now = new Date();
   if (now.getHours() < autoMorningSummaryHour) return;
   const today = todayDateString(now);
-  if (lastAutoMorningSummaryDate === today) return;
-  lastAutoMorningSummaryDate = today;
+  const guard = getAutoBatchGuardState();
+  if (guard.lastAutoMorningSummaryDate === today) return;
+  // ディスク／既存 run を再同期（HMR 前インスタンスや他経路が既にクレーム済みの場合）。
+  if (loadLastAutoMorningSummaryDate() === today || hasOriginRunOnLocalDate("auto-summary", today)) {
+    guard.lastAutoMorningSummaryDate = today;
+    saveLastAutoMorningSummaryDate(today);
+    return;
+  }
+  // 先にクレームしてから startRun（並行 tick が同じ窓に入っても2件目は上のガードで弾く）。
+  guard.lastAutoMorningSummaryDate = today;
   saveLastAutoMorningSummaryDate(today);
   void startRun(
     "Lead Agent",
@@ -537,8 +576,6 @@ function loadLastAutoDistillationWeek(): string | null {
 function saveLastAutoDistillationWeek(week: string): void {
   saveJSON("auto-distillation.json", { week });
 }
-
-let lastAutoDistillationWeek: string | null = loadLastAutoDistillationWeek();
 
 /** ローカル日付の ISO 週キー（例: 2026-W37）。週次バッチの二重起動ガードに使う。 */
 export function isoWeekKey(now: Date): string {
@@ -654,8 +691,14 @@ export function checkWeeklyDistillation(): void {
   if (now.getDay() !== autoDistillationWeekday) return;
   if (now.getHours() < autoDistillationHour) return;
   const week = isoWeekKey(now);
-  if (lastAutoDistillationWeek === week) return;
-  lastAutoDistillationWeek = week;
+  const guard = getAutoBatchGuardState();
+  if (guard.lastAutoDistillationWeek === week) return;
+  if (loadLastAutoDistillationWeek() === week || hasOriginRunInIsoWeek("auto-distill", week)) {
+    guard.lastAutoDistillationWeek = week;
+    saveLastAutoDistillationWeek(week);
+    return;
+  }
+  guard.lastAutoDistillationWeek = week;
   saveLastAutoDistillationWeek(week);
   void startDistillationAnalysis().catch(() => {
     // 週次蒸留の起動失敗は無視（次週まで再試行しない）。
@@ -923,15 +966,61 @@ export async function startJournalAutoAnalysis(rawText: string, journalId?: stri
   }
 }
 
-let watchdogStarted = false;
+// watchdog とバッチクレームは globalThis に置き、next dev の HMR でモジュールが
+// 再評価されても interval が増殖しない・クレームがリセットされないようにする。
+// テストは EM_DATA_DIR を差し替えるので、dataDir が変わったら interval を張り直し、
+// クレームもそのディレクトリの JSON から読み直す。
+type AutoBatchGuardState = {
+  dataDir: string;
+  interval: ReturnType<typeof setInterval> | null;
+  tick: () => void;
+  lastAutoMorningSummaryDate: string | null;
+  lastAutoDistillationWeek: string | null;
+};
+
+const AUTO_BATCH_GUARD_KEY = Symbol.for("emther.agentRuntime.autoBatchGuard");
+
+function getAutoBatchGuardState(): AutoBatchGuardState {
+  const g = globalThis as typeof globalThis & { [AUTO_BATCH_GUARD_KEY]?: AutoBatchGuardState };
+  if (!g[AUTO_BATCH_GUARD_KEY]) {
+    g[AUTO_BATCH_GUARD_KEY] = {
+      dataDir: "",
+      interval: null,
+      tick: () => {},
+      lastAutoMorningSummaryDate: null,
+      lastAutoDistillationWeek: null,
+    };
+  }
+  return g[AUTO_BATCH_GUARD_KEY];
+}
+
+/** テスト用: クレームだけ忘れた状態を再現する（既存 run / ファイルは触らない）。 */
+export function clearAutoBatchClaimsForTest(): void {
+  const guard = getAutoBatchGuardState();
+  guard.lastAutoMorningSummaryDate = null;
+  guard.lastAutoDistillationWeek = null;
+}
+
 function ensureWatchdogStarted(): void {
-  if (watchdogStarted) return;
-  watchdogStarted = true;
-  setInterval(() => {
+  const guard = getAutoBatchGuardState();
+  const dataDir = getDataDir();
+  // 常に最新モジュールの check* を呼ぶ（HMR 後も古いクロージャに閉じない）。
+  guard.tick = () => {
     checkStaleRuns();
     checkMorningSummary();
     checkWeeklyDistillation();
-  }, WATCHDOG_INTERVAL_MS);
+  };
+  if (guard.dataDir !== dataDir) {
+    if (guard.interval) {
+      clearInterval(guard.interval);
+      guard.interval = null;
+    }
+    guard.dataDir = dataDir;
+    guard.lastAutoMorningSummaryDate = loadLastAutoMorningSummaryDate();
+    guard.lastAutoDistillationWeek = loadLastAutoDistillationWeek();
+  }
+  if (guard.interval) return;
+  guard.interval = setInterval(() => guard.tick(), WATCHDOG_INTERVAL_MS);
 }
 ensureWatchdogStarted();
 
