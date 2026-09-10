@@ -172,7 +172,7 @@
 2. `auto-summary` は蒸留と違い、Team Vitals / Yield / 未整理 Issue 等のスナップショットをシステムプロンプトへ注入していなかった（短い task 指示のみ）。
 3. 再開時の Journal／関連検索クエリが追加入力だけになり、元 `run.task` が落ちていた。
 
-**方針（今回 A）:** `buildMorningSummaryContextBlock` を `auto-summary` で毎ターン注入。プロンプト文言を「注入ナレッジを使え」に変更。再開時は `run.task` をクエリに結合。
+**方針（今回 A）:** `buildMorningSummaryContextBlock` を `auto-summary` で毎ターン注入。プロンプト文言を「注入ナレッジを使え」に変更。再開時は `run.task` をクエリに結合。注入ブロックと組織名簿は `maskNames` してから渡し、チーム名と人物名の衝突で送信直前 assert に落ちないようにする。
 
 **今後必須（C）:** Claude / agy / cursor のすべてが `…/emther/data`（マスク済み業務データ）を読み取れるようにする。`secure`（実名対応表）は引き続き除外。A の合成シグナル注入は C 実現後も残す。
 

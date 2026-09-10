@@ -634,25 +634,27 @@ export function buildMorningSummaryContextBlock(): string {
         })
       : ["- （Why/What/How 未整理の Issue なし）"];
 
-  return [
-    "朝のサマリーの材料（このタスク専用。下記はシステムが業務データから組み立てたスナップショット。無視して「材料が無い」としないこと）:",
-    "今日EMがまず確認・判断すべきことを優先度順に簡潔に整理し、proposalブロックで結論を出してください。",
-    "",
-    "【Team Vitals】",
-    ...teamLines,
-    "",
-    "【1on1 Coverage】",
-    coverageLine,
-    "",
-    "【判断待ち Yield】",
-    ...yieldLines,
-    "",
-    "【エラーの Agent Run】",
-    ...errorLines,
-    "",
-    "【Why/What/How 未整理の Issue】",
-    ...charterLines,
-  ].join("\n");
+  return maskNames(
+    [
+      "朝のサマリーの材料（このタスク専用。下記はシステムが業務データから組み立てたスナップショット。無視して「材料が無い」としないこと）:",
+      "今日EMがまず確認・判断すべきことを優先度順に簡潔に整理し、proposalブロックで結論を出してください。",
+      "",
+      "【Team Vitals】",
+      ...teamLines,
+      "",
+      "【1on1 Coverage】",
+      coverageLine,
+      "",
+      "【判断待ち Yield】",
+      ...yieldLines,
+      "",
+      "【エラーの Agent Run】",
+      ...errorLines,
+      "",
+      "【Why/What/How 未整理の Issue】",
+      ...charterLines,
+    ].join("\n"),
+  );
 }
 
 // docs/knowledge_distillation.md。週次の状況蒸留。朝サマリーと同様に watchdog へ相乗りし、
@@ -1261,7 +1263,9 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
   const scoped = relevantTeams(teams, runId, rawText);
 
   const lines = scoped.map((t) => `- ${teamDisplayName(t.name)}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
-  return ["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n");
+  // メンバーは PERSON_n 済みだが、チーム名が人物名と一致／部分一致するケース
+  // （NER誤登録や、人名チーム）がある。送信直前 assert で落ちないよう maskNames する。
+  return maskNames(["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n"));
 }
 
 // docs 3.1「動的ロード」: そのrunがIssueに紐づいている場合、Issueのタイトルと
