@@ -1,7 +1,7 @@
 # 組織状況の蒸留（Knowledge Distillation）
 
 作成日: 2026-09-10  
-関連: `docs/improvement_v1.md`（H/L/N） / `docs/agent_specialization.md` / `web/src/lib/theme-store.ts` / `web/src/lib/agent-runtime.ts`
+関連: `docs/improvement_v1.md`（H/L/N） / `docs/agent_specialization.md` / `web/src/lib/theme-store.ts` / `web/src/lib/related-context.ts` / `web/src/lib/agent-runtime.ts`
 
 ## 0. 目的
 
@@ -12,18 +12,19 @@ EM の本領である次の問いに、AI チームが材料を出し、人間�
 - それを**どう解決するか**（方向性）
 
 Journal 自動分析や Issue 壁打ちは「個別の類似度検索」だけでは足りない。  
-**明示的な蒸留成果物（テーマ解釈）**を持ち、採用済みのものだけを壁打ち前提に注入する。
+**明示的な蒸留成果物（テーマ解釈）**を持ち、採用済みのものだけを壁打ち前提に注入する。  
+あわせて Issue / Journal の**関連束**（ベクトル類似＋繰り返しカウント）を個別判断の材料にする。
 
 ## 1. スコープ（本実装）
 
-優先順の **3 → 4** を実装する（1・2 は後続）。
+優先順の **3 → 4 → 1 → 2** を実装する。
 
 | # | 内容 | 本実装 |
 |---|---|---|
 | 3 | テーマ解釈候補の生成（手動＋週次）と EM 採用 UI | する |
 | 4 | Issue 壁打ちへ採用済みテーマを注入 | する |
-| 1 | Issue embedding・関連束 | 後続 |
-| 2 | Journal 自動分析への関連束・繰り返しカウント | 後続 |
+| 1 | Issue embedding・関連束 | する |
+| 2 | Journal 自動分析への関連束・繰り返しカウント | する |
 
 追加要件:
 
@@ -44,6 +45,8 @@ Journal 自動分析や Issue 壁打ちは「個別の類似度検索」だけ�
 - `sourceRunId`（生成した Agent Run）
 - `embedding`（ローカル、横断検索用）
 - `supersedes`（訂正時の版チェーン）
+
+`Issue.embedding`（`issue-store.ts`）: title + Why/What/How（＋タグ）のローカル埋め込み。起票・charter/タイトル更新時に再計算（`updatedAt` は変えない）。API 応答には載せない。
 
 fact は消さない。蒸留結果は interpretation 相当として版管理する。
 
@@ -82,8 +85,20 @@ flowchart LR
 `buildThemesContextBlock()` が **adopted** テーマのみをシステムプロンプトへ載せる。  
 候補・却下は載せない（EM 未承認の見立てで推論を汚さない）。
 
-## 6. 後続（1・2）
+## 6. 関連束（1・2）
 
-- Issue charter embedding と関連 Journal/Issue 束
-- Journal 自動分析への関連束・繰り返しシグナル
-- 採用テーマを Journal 分析の「構造課題 vs 単発」判断材料にする
+`related-context.ts` / `buildRelatedContextForRun()`:
+
+| 場面 | クエリ | 注入内容 |
+|---|---|---|
+| Issue 紐づき Run（壁打ち・更新分析など） | Issue の title+charter | 類似の未完了 Issue・Journal |
+| `origin=auto-anomaly`（Journal 自動分析） | 対象 Journal 本文 | 同上 ＋ **繰り返しシグナル**（TTL 内の類似 Journal 件数） |
+
+- 類似度閾値は `RELATED_SIMILARITY_THRESHOLD`（0.4）
+- 材料はシステムプロンプトへ注入（`run.task` には載せない）
+- 2 件以上の繰り返しで「構造課題・既存 Issue の続き」を優先検討するよう指示
+
+## 7. 後続
+
+- 採用テーマを Journal 分析の「構造課題 vs 単発」判断材料にする（テーマ注入の拡張）
+- sqlite-vec 等によるスケール改善

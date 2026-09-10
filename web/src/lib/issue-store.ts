@@ -84,6 +84,8 @@ export type Issue = {
   // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
   // 紐付け（任意）。
   teamId?: string;
+  // docs/knowledge_distillation.md 後続1。title+charter のローカル埋め込み（横断類似検索用）。
+  embedding?: number[];
   createdAt: number;
   updatedAt: number;
 };
@@ -147,6 +149,15 @@ function persist(): void {
   saveJSON("issues.json", issues);
 }
 
+/** embedding だけ更新する（updatedAt は触らない）。related-context から呼ぶ。 */
+export function persistIssueEmbedding(issueId: string, embedding: number[]): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  issue.embedding = embedding;
+  persist();
+  return issue;
+}
+
 // 個人情報の分離（ユーザー指摘対応）: 上のCRUD関数・listIssues/getIssue等はマスクされた
 // （PERSON_n ID化された）テキストを返す内部表現。EM向けのAPI応答を組み立てる境界だけで、
 // この関数を通して実名へ復元する（agent-runtime.tsから呼んではいけない）。
@@ -162,7 +173,19 @@ export function toIssueView(issue: Issue): Issue {
     actionItems: issue.actionItems.map((a) => ({ ...a, text: unmaskNames(a.text) })),
     logEntries: issue.logEntries.map((l) => ({ ...l, text: unmaskNames(l.text) })),
     tags: issue.tags.map(unmaskNames),
+    // 埋め込みはローカル検索用の内部データ。API応答には載せない。
+    embedding: undefined,
   };
+}
+
+// agent-runtime ↔ related-context の循環を避けつつ、起票・charter/タイトル更新後に embedding を更新する。
+async function scheduleIssueEmbedding(issueId: string): Promise<void> {
+  try {
+    const { refreshIssueEmbedding } = await import("@/lib/related-context");
+    await refreshIssueEmbedding(issueId);
+  } catch {
+    // 埋め込みは補助。Issue 本体の保存を止めない。
+  }
 }
 
 export function listIssues(): Issue[] {
@@ -258,10 +281,12 @@ export async function createIssue(
   issues.push(issue);
   persist();
   recordChangeEvent("issue", issue.id, `Issueを起票: 「${issue.title}」${parentId ? "（サブIssue）" : ""}`);
+  let result = issue;
   if (requestedPriority && requestedPriority !== "normal") {
-    return setIssuePriority(issue.id, requestedPriority) ?? issue;
+    result = setIssuePriority(issue.id, requestedPriority) ?? issue;
   }
-  return issue;
+  await scheduleIssueEmbedding(result.id);
+  return getIssue(result.id) ?? result;
 }
 
 // 既存のIssueの「上位」に新しいIssueを作り、既存のIssueをその子として付け替える
@@ -321,7 +346,8 @@ export async function createParentIssue(
   persist();
   recordChangeEvent("issue", parent.id, `Issueを起票: 「${parent.title}」（「${child.title}」の上位Issueとして）`);
   recordChangeEvent("issue", child.id, `上位Issue「${parent.title}」の下に再編されました`);
-  return parent;
+  await scheduleIssueEmbedding(parent.id);
+  return getIssue(parent.id) ?? parent;
 }
 
 const CHARTER_FIELD_LABEL: Record<keyof IssueCharter, string> = { why: "Why", what: "What", how: "How" };
@@ -389,8 +415,9 @@ export async function updateIssueCharter(
     `${changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・")}を更新しました`,
   );
   const detail = changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・");
+  await scheduleIssueEmbedding(issue.id);
   await scheduleIssueUpdateAnalysis(issue.id, "charter", detail);
-  return issue;
+  return getIssue(issue.id) ?? issue;
 }
 
 // docs/em_human_story_and_ux.md 改修依頼「Issueのタイトルを変更できるようにする」対応。
@@ -415,7 +442,8 @@ export async function setIssueTitle(
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `タイトルを変更しました:「${previousTitle}」→「${masked}」`);
-  return issue;
+  await scheduleIssueEmbedding(issue.id);
+  return getIssue(issue.id) ?? issue;
 }
 
 // docs/em_ui_ux_issue.md 4節対応。「未着手」のまま実際に着手の事実（Action Item・経過ログの

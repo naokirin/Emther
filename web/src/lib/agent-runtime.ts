@@ -15,6 +15,7 @@ import {
 } from "@/lib/theme-store";
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
+import { buildRelatedBundleBlock, issueEmbedSource } from "@/lib/related-context";
 import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
@@ -1022,6 +1023,33 @@ export function buildThemesContextBlock(): string {
   ].join("\n");
 }
 
+/** Journal自動分析の task から対象エントリ本文を取り出す。取れなければ task 全体。 */
+export function extractJournalAutoAnalysisText(task: string): string {
+  const match = task.match(/対象のJournalエントリ:\s*"([\s\S]*)"\s*$/);
+  return match ? match[1] : task;
+}
+
+// docs/knowledge_distillation.md 後続 1・2。
+// Issue 壁打ち・Journal 自動分析向けに関連 Journal/Issue 束をシステムプロンプトへ載せる。
+// run.task には載せない（U13）。
+export async function buildRelatedContextForRun(run: AgentRun, rawText?: string): Promise<string> {
+  try {
+    if (run.origin === "auto-anomaly") {
+      const queryText = extractJournalAutoAnalysisText(rawText ?? run.task);
+      return await buildRelatedBundleBlock({ queryText, mode: "journal-analysis" });
+    }
+    const issue = getIssueByRunId(run.id) ?? (run.id ? resolveIssueForRun(run.id) : undefined);
+    if (!issue) return "";
+    return await buildRelatedBundleBlock({
+      queryText: issueEmbedSource(issue),
+      excludeIssueId: issue.id,
+      mode: "issue-wallbash",
+    });
+  } catch {
+    return "";
+  }
+}
+
 // docs/em_human_story_and_ux.md P2-13（docs 3.1「動的ロード」の残件）対応。
 // チーム憲法（buildTeamCharterBlock）は既にIssue単位でスコープ済みだが、チーム名簿
 // （名前＋メンバー一覧）自体は「チーム数が少ない前提」で常に全件注入していた。
@@ -1200,6 +1228,7 @@ export function buildSystemPrompt(
   runId?: string,
   journalContext?: string,
   rawText?: string,
+  relatedContext?: string,
 ): string {
   const consultRule =
     agentName === "Lead Agent" && allowConsult
@@ -1345,6 +1374,7 @@ export function buildSystemPrompt(
     base,
     distillContext,
     issueContext,
+    relatedContext,
     interventionTypeGuidance,
     teamCharterContext,
     journalContext,
@@ -1789,8 +1819,9 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   const journalContext = await buildJournalContextBlock(rawPrompt, run.agentName);
+  const relatedContext = await buildRelatedContextForRun(run, rawPrompt);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
-  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt);
+  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt, relatedContext);
 
   // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」・
   // 「サポートするAIエージェントCLIにCursor CLIを追加する」対応を、Settingsの
