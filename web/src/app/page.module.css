@@ -541,6 +541,36 @@
   white-space: nowrap;
 }
 
+/* 相談履歴一覧。状態バッジではなく「何の話か」を先に読ませる。 */
+.runItemTitle {
+  font-weight: 700;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.runItemSecondary {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.runItemMeta {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* デザイン見直し（frontend-design）対応。丸ピルの反復をやめ、左の太い縁で状態色を
    示す「計器の表示灯」の見た目に統一する（.issueStatusBadgeと同じ言語）。 */
 .badge {
