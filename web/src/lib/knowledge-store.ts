@@ -460,20 +460,65 @@ export function reassignPersonId(fromId: string, toId: string): number {
   return updated;
 }
 
+type SearchCandidateRow = {
+  id: string;
+  occurred_at: number;
+  ttl_days: number | null;
+  embedding_json: string;
+};
+
+// 意味的検索のスコアリング用。text/summary 等の重い列は読まず、embedding だけを走査する。
+function listSearchCandidateRows(filter?: { kind?: KnowledgeKind }): SearchCandidateRow[] {
+  const conditions = ["embedding_json IS NOT NULL"];
+  const params: string[] = [];
+  if (filter?.kind) {
+    conditions.push("kind = ?");
+    params.push(filter.kind);
+  }
+  const where = `WHERE ${conditions.join(" AND ")}`;
+  return getDb()
+    .prepare(`SELECT id, occurred_at, ttl_days, embedding_json FROM knowledge_events ${where}`)
+    .all(...params) as SearchCandidateRow[];
+}
+
+function isSearchCandidateExpired(row: SearchCandidateRow, now = Date.now()): boolean {
+  if (row.ttl_days === null) return false;
+  return row.occurred_at + row.ttl_days * 24 * 60 * 60 * 1000 < now;
+}
+
+function getEventsByIds(ids: string[]): KnowledgeEvent[] {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = getDb()
+    .prepare(`SELECT * FROM knowledge_events WHERE id IN (${placeholders})`)
+    .all(...ids) as Row[];
+  const byId = new Map(rows.map((row) => [row.id, rowToEvent(row)]));
+  return ids.map((id) => byId.get(id)).filter((e): e is KnowledgeEvent => e !== undefined);
+}
+
 // docs/memo.md「H: Phase 3」ローカル完結の意味的検索。埋め込みを持つイベントに限定して
 // ブルートフォースでコサイン類似度を計算し、上位を返す。単一ローカルユーザー規模
 // （数百万件に達するには何年もかかる想定）ではこれで十分高速なため、専用のベクトル
 // インデックス（sqlite-vec等）は導入しない。TTL切れのfactは除外する（意味的に近くても、
 // 現在の判断への重みを失った一時的な情報を混ぜないため）。
+// スコアリングは embedding 列だけを読み、上位候補の本文等は結果確定後にまとめて取得する。
 export function searchSimilarEvents(
   queryEmbedding: number[],
   opts?: { kind?: KnowledgeKind; limit?: number; excludeExpired?: boolean },
 ): Array<KnowledgeEvent & { similarity: number }> {
   const limit = opts?.limit ?? 5;
-  const candidates = listEvents({ kind: opts?.kind }).filter((e) => e.embedding !== undefined);
-  const scored = candidates
-    .filter((e) => !(opts?.excludeExpired ?? true) || !isEventExpired(e))
-    .map((e) => ({ ...e, similarity: cosineSimilarity(queryEmbedding, e.embedding!) }))
-    .sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, limit);
+  const excludeExpired = opts?.excludeExpired ?? true;
+  const scored: Array<{ id: string; similarity: number }> = [];
+  for (const row of listSearchCandidateRows({ kind: opts?.kind })) {
+    if (excludeExpired && isSearchCandidateExpired(row)) continue;
+    const embedding = JSON.parse(row.embedding_json) as number[];
+    scored.push({ id: row.id, similarity: cosineSimilarity(queryEmbedding, embedding) });
+  }
+  scored.sort((a, b) => b.similarity - a.similarity);
+  const top = scored.slice(0, limit);
+  const similarityById = new Map(top.map((item) => [item.id, item.similarity]));
+  return getEventsByIds(top.map((item) => item.id)).map((event) => ({
+    ...event,
+    similarity: similarityById.get(event.id)!,
+  }));
 }

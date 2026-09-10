@@ -11,6 +11,8 @@ import { getRulesAndConstraints } from "@/lib/settings-store";
 export const RELATED_SIMILARITY_THRESHOLD = 0.4;
 const RELATED_JOURNAL_LIMIT = 5;
 const RELATED_ISSUE_LIMIT = 5;
+/** 関連束の繰り返しカウント用。表示用 journals より広く走査するが、1クエリにまとめる。 */
+const RELATED_FACT_SCAN_LIMIT = 50;
 
 export function issueEmbedSource(issue: Pick<Issue, "title" | "charter" | "tags">): string {
   const parts = [
@@ -73,14 +75,16 @@ export async function gatherRelatedBundle(opts: {
     return empty;
   }
 
-  const journals = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: RELATED_JOURNAL_LIMIT }).filter(
-    (e) => e.entityType === "journal" && e.similarity >= RELATED_SIMILARITY_THRESHOLD,
-  );
+  // 表示用（上位5件）と繰り返しカウント（上位50件）を1回の検索にまとめる。
+  const scoredFacts = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: RELATED_FACT_SCAN_LIMIT });
 
-  // 繰り返し: TTL 内の類似 Journal を多めに数える（表示用の journals より広く）。
+  const journals = scoredFacts
+    .slice(0, RELATED_JOURNAL_LIMIT)
+    .filter((e) => e.entityType === "journal" && e.similarity >= RELATED_SIMILARITY_THRESHOLD);
+
   const recurrenceWindowDays = getRulesAndConstraints().journalFactTtlDays;
   const since = Date.now() - recurrenceWindowDays * 24 * 60 * 60 * 1000;
-  const recurrenceCount = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: 50 }).filter(
+  const recurrenceCount = scoredFacts.filter(
     (e) =>
       e.entityType === "journal" &&
       e.similarity >= RELATED_SIMILARITY_THRESHOLD &&
