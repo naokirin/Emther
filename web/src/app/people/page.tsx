@@ -17,10 +17,9 @@ import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@/lib
 // テーブルではなくスコアバッジ付きカードのグリッドにし、クリックでSlideOverを開く
 // （usePeekParamはuseSearchParamsを使うため<Suspense>で包む必要がある）。
 //
-// ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
-// 切り替えられるようにしたい」対応。チーム管理は@/app/teams/page.tsxへ分離した
-// （TopNav.tsxの「members」グループへ2画面目として追加し、既存のサイドメニュー機構に
-// そのまま乗せている）。
+// ユーザー要望「メンバータブを『チーム・メンバー』とし、グループ内タブでチーム・
+// メンバーを切り替えられるようにしてほしい」対応。チーム管理は@/app/teams/page.tsxへ分離した
+// （TopNav.tsxの「members」グループへ2画面目として追加し、AppShellのサブナビに乗せる）。
 export default function PeoplePage() {
   return (
     <Suspense fallback={null}>

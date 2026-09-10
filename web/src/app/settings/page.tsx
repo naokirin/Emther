@@ -135,10 +135,8 @@ export default function SettingsPage() {
 
       <div className={styles.appBody} style={{ marginTop: 16 }}>
         <nav className={styles.sideNav}>
-          {/* ユーザー指摘「サイドメニューのデザインがほかタブと異なる」対応。他タブの
-              サイドメニュー（TopNav.tsxのAppShell、相談・振り返り・チーム・メンバー等）は
-              先頭に「📍 グループ名」の見出しを持つが、ここに無かったため見た目が揃って
-              いなかった。同じ.sideNavHintクラスで揃える。 */}
+          {/* 設定画面内のカテゴリ切替。グローバルなグループ内ナビは横タブに揃えたが、
+              ここは同一URL内のセクション切替のため、従来の.sideNavを残す。 */}
           <div className={styles.sideNavHint} title="設定項目のカテゴリを選ぶ">
             📍 設定
           </div>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { EmCheckinWidget } from "@/components/EmCheckinWidget";
+import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "@/components/EmCheckinWidget";
 import { useReflectionNotes } from "@/lib/hooks";
 import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
 
@@ -14,6 +14,12 @@ const NOTE_TYPE_LABEL: Record<ReflectionNoteType, string> = {
   keep: "👍 Keep（続けたいこと）",
   problem: "⚠️ Problem（気になること）",
   try: "🔧 Try（次にやってみたいこと）",
+};
+
+const NOTE_TYPE_SHORT: Record<ReflectionNoteType, string> = {
+  keep: "Keep",
+  problem: "Problem",
+  try: "Try",
 };
 
 function formatDate(ts: number): string {
@@ -58,6 +64,7 @@ function groupNotesByWeek(notes: EmReflectionNote[]): WeekGroup[] {
 // アルゴリズム判定は行わず、数値と履歴をそのまま見せる。
 export default function GrowthPage() {
   const { notes, setNotes, notesLoaded } = useReflectionNotes();
+  const checkin = useEmCheckinController();
 
   const [noteType, setNoteType] = useState<ReflectionNoteType>("keep");
   const [noteText, setNoteText] = useState("");
@@ -117,7 +124,7 @@ export default function GrowthPage() {
           <p className={styles.subtitle} style={{ marginBottom: 10 }}>
             チームの状態と同じく、EM自身のコンディションも記録しなければ見えなくなります。気分・エネルギー・ストレスを自己申告で記録します（他者からの推測ではなく、あなた自身の申告そのものが根拠です）。
           </p>
-          <EmCheckinWidget />
+          <EmCheckinForm controller={checkin} />
         </div>
 
         <div className={styles.panel}>
@@ -160,54 +167,62 @@ export default function GrowthPage() {
               {noteError}
             </p>
           )}
-
-          {weekGroups.length === 0 ? (
-            <p className={styles.subtitle} style={{ marginTop: 12 }}>
-              {!notesLoaded ? "読み込み中…" : "まだ気づきメモがありません。"}
-            </p>
-          ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>週</th>
-                    <th>{NOTE_TYPE_LABEL.keep}</th>
-                    <th>{NOTE_TYPE_LABEL.problem}</th>
-                    <th>{NOTE_TYPE_LABEL.try}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {weekGroupPagination.pageItems.map((g) => (
-                    <tr key={g.weekStart}>
-                      <td className={styles.tableMuted} style={{ whiteSpace: "nowrap" }}>
-                        {formatDate(g.weekStart)} 〜 {formatDate(g.weekEnd)}
-                      </td>
-                      {(["keep", "problem", "try"] as const).map((type) => (
-                        <td key={type}>
-                          {g.notesByType[type].length > 0 && (
-                            <ul style={{ margin: 0, paddingLeft: 16 }}>
-                              {g.notesByType[type].map((n) => (
-                                <li key={n.id}>{n.text}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <PaginationControls
-            page={weekGroupPagination.page}
-            totalPages={weekGroupPagination.totalPages}
-            total={weekGroupPagination.total}
-            rangeStart={weekGroupPagination.rangeStart}
-            rangeEnd={weekGroupPagination.rangeEnd}
-            onChange={weekGroupPagination.setPage}
-          />
         </div>
+      </div>
+
+      <div className={styles.panel}>
+        <h2>チェックイン履歴</h2>
+        <EmCheckinHistory controller={checkin} />
+      </div>
+
+      <div className={styles.panel}>
+        <h2>週次のKPT</h2>
+        {weekGroups.length === 0 ? (
+          <p className={styles.subtitle}>
+            {!notesLoaded ? "読み込み中…" : "まだ気づきメモがありません。"}
+          </p>
+        ) : (
+          <div className={styles.tableWrap} style={{ marginTop: 0 }}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>週</th>
+                  <th>{NOTE_TYPE_SHORT.keep}</th>
+                  <th>{NOTE_TYPE_SHORT.problem}</th>
+                  <th>{NOTE_TYPE_SHORT.try}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weekGroupPagination.pageItems.map((g) => (
+                  <tr key={g.weekStart}>
+                    <td className={styles.tableMuted} style={{ whiteSpace: "nowrap" }}>
+                      {formatDate(g.weekStart)} 〜 {formatDate(g.weekEnd)}
+                    </td>
+                    {(["keep", "problem", "try"] as const).map((type) => (
+                      <td key={type}>
+                        {g.notesByType[type].length > 0 && (
+                          <ul style={{ margin: 0, paddingLeft: 16 }}>
+                            {g.notesByType[type].map((n) => (
+                              <li key={n.id}>{n.text}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <PaginationControls
+          page={weekGroupPagination.page}
+          totalPages={weekGroupPagination.totalPages}
+          total={weekGroupPagination.total}
+          rangeStart={weekGroupPagination.rangeStart}
+          rangeEnd={weekGroupPagination.rangeEnd}
+          onChange={weekGroupPagination.setPage}
+        />
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="ja">
       <body>
         {/* WCAG 2.2 2.4.1 Bypass Blocks対応。キーボード利用者がグローバルメニュー
-            （7項目）＋サイドメニューを毎回タブ移動せずに本文へ飛べるようにする。
+            （8項目）＋グループ内タブを毎回タブ移動せずに本文へ飛べるようにする。
             通常は視覚的に隠し、フォーカス時だけ表示する。 */}
         <a href="#main-content" className={styles.skipLink}>
           本文へスキップ

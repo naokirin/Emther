@@ -6,7 +6,7 @@
 }
 
 /* WCAG 2.2 2.4.1 Bypass Blocks対応。キーボードでTabした時だけ画面に現れ、
-   グローバルメニュー＋サイドメニューを毎回通らずに本文へ飛べるようにする。 */
+   グローバルメニュー＋グループ内タブを毎回通らずに本文へ飛べるようにする。 */
 .skipLink {
   position: absolute;
   top: -40px;
@@ -117,10 +117,9 @@
   }
 }
 
-/* ---------- Side navigation（グローバルメニュー配下のグループ内メニュー） ---------- */
-/* 改修依頼「グローバルメニュー＋サイドメニューのグルーピング」対応。複数画面を持つ
-   グループ（介入／振り返り）でだけ、TopNav（グループ単位）の下にこのサイドメニューを
-   出し、グループ内の画面を選ばせる。 */
+/* ---------- Side navigation（設定画面内のカテゴリ切替） ---------- */
+/* グローバルなグループ内ナビは.subTabsに揃えた。ここは同一URL内のセクション切替
+   （設定ページのRules / Data）用にサイドメニューを残す。 */
 .appBody {
   display: flex;
   align-items: flex-start;
@@ -187,6 +186,37 @@
 .appContent {
   min-width: 0;
   flex: 1;
+}
+
+/* 複数画面グループ用。グローバルナビの下に横タブを置く。グローバルの.tabs
+   （箱＋ピル）とは見た目を分け、下線で現在地を示す。 */
+.subTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.subTabBtn {
+  display: inline-block;
+  padding: 8px 12px 10px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.subTabBtn:hover {
+  color: var(--foreground);
+}
+
+.subTabBtnActive,
+.subTabBtnActive:hover {
+  color: var(--blue-text);
+  font-weight: 600;
+  border-bottom-color: var(--blue);
 }
 
 @media (max-width: 860px) {

@@ -44,8 +44,12 @@ describe("TopNav", () => {
     expect(screen.getByRole("link", { name: "課題" }).className).not.toContain("tabBtnActive");
   });
 
-  // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
-  // 切り替えられるようにしたい」対応の回帰テスト。
+  it("振り返りタブの既定先はEMの成長", () => {
+    mockPathname = "/";
+    render(<TopNav />);
+    expect(screen.getByRole("link", { name: "振り返り" })).toHaveAttribute("href", "/growth");
+  });
+
   it("/teamsも「チーム・メンバー」タブがactiveになる", () => {
     mockPathname = "/teams";
     render(<TopNav />);
@@ -60,15 +64,15 @@ describe("StoryBanner", () => {
     expect(screen.getByText(/現場メモ/)).toBeInTheDocument();
   });
 
-  it("複数画面を持つグループ（相談）では表示しない（サイドメニュー見出しと重複するため）", () => {
+  it("複数画面を持つグループ（相談）では表示しない（サブタブと重複するため）", () => {
     mockPathname = "/chat";
     const { container } = render(<StoryBanner />);
     expect(container).toBeEmptyDOMElement();
   });
 
   // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
-  // 切り替えられるようにしたい」対応。複数画面グループになったため、サイドメニューの
-  // 見出しと重複させないよう表示しない（相談グループと同じ扱い）。
+  // 切り替えられるようにしたい」対応。複数画面グループになったため、サブナビと
+  // 見出しを重複させないよう表示しない（相談グループと同じ扱い）。
   it("複数画面を持つグループになった「チーム・メンバー」では表示しない", () => {
     mockPathname = "/people";
     const { container } = render(<StoryBanner />);
@@ -83,20 +87,22 @@ describe("StoryBanner", () => {
 });
 
 describe("AppShell", () => {
-  it("複数画面グループでは配下画面へのサイドメニューを表示する", () => {
+  it("複数画面グループでは配下画面への横タブを表示する", () => {
     mockPathname = "/chat";
     render(
       <AppShell>
         <div>page content</div>
       </AppShell>,
     );
-    expect(screen.getByRole("link", { name: "何でも相談" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "エージェント" }).className).not.toContain("sideNavItemActive");
-    expect(screen.getByRole("link", { name: "何でも相談" }).className).toContain("sideNavItemActive");
+    const subNav = screen.getByRole("navigation", { name: "相談" });
+    expect(subNav.className).toContain("subTabs");
+    expect(screen.getByRole("link", { name: "何でも相談" }).className).toContain("subTabBtnActive");
+    expect(screen.getByRole("link", { name: "エージェント" }).className).toContain("subTabBtn");
+    expect(screen.getByRole("link", { name: "エージェント" }).className).not.toContain("subTabBtnActive");
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
-  it("単一画面グループではサイドメニューを表示しない", () => {
+  it("単一画面グループではサブナビを表示しない", () => {
     mockPathname = "/journal";
     render(
       <AppShell>
@@ -107,18 +113,32 @@ describe("AppShell", () => {
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
-  // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
-  // 切り替えられるようにしたい」対応の回帰テスト。
-  it("複数画面グループになった「チーム・メンバー」（/people, /teams）ではサイドメニューを表示する", () => {
+  it("複数画面グループになった「チーム・メンバー」（/people, /teams）では横タブを表示する", () => {
     mockPathname = "/people";
     render(
       <AppShell>
         <div>page content</div>
       </AppShell>,
     );
-    expect(screen.getByRole("link", { name: "メンバー" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "チーム" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "メンバー" }).className).toContain("sideNavItemActive");
-    expect(screen.getByRole("link", { name: "チーム" }).className).not.toContain("sideNavItemActive");
+    expect(screen.getByRole("navigation", { name: "チーム・メンバー" }).className).toContain("subTabs");
+    expect(screen.getByRole("link", { name: "メンバー" }).className).toContain("subTabBtnActive");
+    expect(screen.getByRole("link", { name: "チーム" }).className).toContain("subTabBtn");
+    expect(screen.getByRole("link", { name: "チーム" }).className).not.toContain("subTabBtnActive");
+  });
+
+  it("振り返りグループでは横タブを表示し、EMの成長が先頭になる", () => {
+    mockPathname = "/growth";
+    render(
+      <AppShell>
+        <div>page content</div>
+      </AppShell>,
+    );
+    const subNav = screen.getByRole("navigation", { name: "振り返り" });
+    expect(subNav.className).toContain("subTabs");
+    const links = screen.getAllByRole("link");
+    expect(links.map((el) => el.textContent)).toEqual(["EMの成長", "タイムライン", "レポート"]);
+    expect(screen.getByRole("link", { name: "EMの成長" }).className).toContain("subTabBtnActive");
+    expect(screen.queryByText("📍 振り返り")).not.toBeInTheDocument();
+    expect(screen.getByText("page content")).toBeInTheDocument();
   });
 });
