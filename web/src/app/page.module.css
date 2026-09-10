@@ -1272,6 +1272,13 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
+/* 440pxは確認・人名追加など短い入力向け。Issue起票は Why/What/How の本文欄があり、
+   PCでも440pxだとプレースホルダが折り返されて読みにくいので、フォーム用に広げる。
+   狭い画面では .modalBox の width:100% が効くので、max-widthだけ上書きする。 */
+.modalBoxWide {
+  max-width: 720px;
+}
+
 .modalHeader {
   display: flex;
   justify-content: space-between;

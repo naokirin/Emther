@@ -608,7 +608,7 @@ function IssuesPageInner() {
       </div>
 
       {dialogOpen && (
-        <Modal title="新しいIssueを起票" onClose={() => setDialogOpen(false)}>
+        <Modal title="新しいIssueを起票" size="wide" onClose={() => setDialogOpen(false)}>
           <form onSubmit={handleCreateIssue}>
             <div className={styles.field}>
               <label>タイトル
