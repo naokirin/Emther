@@ -7,9 +7,9 @@ import { TagInput } from "@/components/TagInput";
 import { useEntityHistory, useIssues, useJournal, useTeams } from "@/lib/hooks";
 import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type Team } from "@/lib/types";
 
-// ユーザー要望「メンバータブを『チーム・メンバー』とし、コンテンツを左メニューでチーム・
+// ユーザー要望「メンバータブを『チーム・メンバー』とし、コンテンツをグループ内タブでチーム・
 // メンバーと切り替えられるようにしてほしい」対応。TopNav.tsxの「members」グループへ
-// 2画面目として追加し、既存のAppShellのサイドメニュー機構（複数画面を持つグループで
+// 2画面目として追加し、AppShellのサブナビ機構（複数画面を持つグループで
 // 自動的に出る）にそのまま乗せる。チーム管理のロジック自体はpeople/page.tsxから
 // この専用ページへ移設しただけで変更していない。
 

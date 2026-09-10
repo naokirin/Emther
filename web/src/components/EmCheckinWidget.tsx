@@ -43,9 +43,10 @@ function ScalePicker({ label, value, onChange }: { label: string; value: number;
   );
 }
 
-// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
-// 入力・改善方針機能を作る」対応。/growthのEM自身のバイタル（自己チェックイン）フォーム＋履歴。
-export function EmCheckinWidget() {
+export type EmCheckinController = ReturnType<typeof useEmCheckinController>;
+
+// /growth では入力と履歴を別パネルに置くため、同じ状態をフォーム／履歴で共有する。
+export function useEmCheckinController() {
   const { checkins, setCheckins, checkinsLoaded } = useEmCheckins();
 
   const [mood, setMood] = useState(3);
@@ -59,7 +60,6 @@ export function EmCheckinWidget() {
   const avgMood = average(recentCheckins.map((c) => c.mood));
   const avgEnergy = average(recentCheckins.map((c) => c.energy));
   const avgStress = average(recentCheckins.map((c) => c.stress));
-
   const checkinPagination = usePagination(checkins, CHECKIN_PAGE_SIZE);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -83,6 +83,47 @@ export function EmCheckinWidget() {
     }
   }
 
+  return {
+    mood,
+    setMood,
+    energy,
+    setEnergy,
+    stress,
+    setStress,
+    note,
+    setNote,
+    submitting,
+    error,
+    handleSubmit,
+    recentCheckins,
+    avgMood,
+    avgEnergy,
+    avgStress,
+    checkinPagination,
+    checkins,
+    checkinsLoaded,
+  };
+}
+
+export function EmCheckinForm({ controller }: { controller: EmCheckinController }) {
+  const {
+    mood,
+    setMood,
+    energy,
+    setEnergy,
+    stress,
+    setStress,
+    note,
+    setNote,
+    submitting,
+    error,
+    handleSubmit,
+    recentCheckins,
+    avgMood,
+    avgEnergy,
+    avgStress,
+  } = controller;
+
   return (
     <>
       <form onSubmit={handleSubmit}>
@@ -104,13 +145,20 @@ export function EmCheckinWidget() {
           {error}
         </p>
       )}
-
       {recentCheckins.length > 0 && (
         <p className={styles.subtitle} style={{ marginTop: 10 }}>
           直近{recentCheckins.length}件の平均: 気分 {avgMood?.toFixed(1)} / エネルギー {avgEnergy?.toFixed(1)} / ストレス {avgStress?.toFixed(1)}
         </p>
       )}
+    </>
+  );
+}
 
+export function EmCheckinHistory({ controller }: { controller: EmCheckinController }) {
+  const { checkins, checkinsLoaded, checkinPagination } = controller;
+
+  return (
+    <>
       {checkins.length === 0 ? (
         <p className={styles.subtitle} style={{ marginTop: 12 }}>
           {!checkinsLoaded ? "読み込み中…" : "まだ記録がありません。"}
@@ -149,6 +197,18 @@ export function EmCheckinWidget() {
         rangeEnd={checkinPagination.rangeEnd}
         onChange={checkinPagination.setPage}
       />
+    </>
+  );
+}
+
+// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
+// 入力・改善方針機能を作る」対応。/growthのEM自身のバイタル（自己チェックイン）フォーム＋履歴。
+export function EmCheckinWidget() {
+  const controller = useEmCheckinController();
+  return (
+    <>
+      <EmCheckinForm controller={controller} />
+      <EmCheckinHistory controller={controller} />
     </>
   );
 }

@@ -8,7 +8,7 @@ import styles from "@/app/page.module.css";
 // docs/em_human_story_and_ux.md P1-6「画面／ナビで今どの物語にいるかを一文で示す。
 // タブ群のグルーピングも検討」対応。約10画面をEMの役割の4層＋振り返り（憲法／感知／相談／
 // 介入／振り返り）でグルーピングする。グローバルメニューはグループ単位だけを
-// 見せ、複数画面を持つグループだけサイドメニューでその中の画面を選ばせる2階層構成にする。
+// 見せ、複数画面を持つグループは横タブでその中の画面を選ばせる2階層構成にする。
 // 新しいURLは増やさず、既存の10画面をグルーピングし直すだけ。
 //
 // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応。Peopleは元々「介入」の
@@ -18,7 +18,7 @@ import styles from "@/app/page.module.css";
 // 改修依頼「グローバルナビのラベルを『画面で何をするか』が分かる語に揃える」対応。
 // 上記の物語語（起点／感知／介入／憲法）はメタファーが強く画面の中身が伝わりにくいため、
 // タブの主ラベル（label）は実務語（今日／現場メモ／課題／方針・目標）に変え、物語語は
-// hint（📍バナー・サイド見出しのツールチップ）側にのみ短く残す。相談／振り返り／設定は
+// hint（📍バナー・サブタブのツールチップ）側にのみ短く残す。相談／振り返り／設定は
 // 元から実務語だったため据え置き。
 type NavItem = { href: string; label: string };
 type StoryGroup = {
@@ -45,7 +45,7 @@ const STORY_GROUPS: StoryGroup[] = [
     //
     // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
     // 切り替えられるようにしたい」対応。複数画面グループにすると、AppShellが自動的に
-    // サイドメニューを出す既存の仕組み（相談・振り返りグループと同じ）にそのまま乗る。
+    // サブナビを出す。後から左メニューは全グループ共通で横タブに揃えた。
     // 既定の遷移先（タブ本体クリック時）は従来通りの/people（日々の確認頻度が高い方）。
     key: "members",
     label: "チーム・メンバー",
@@ -74,10 +74,11 @@ const STORY_GROUPS: StoryGroup[] = [
     key: "reflection",
     label: "振り返り",
     hint: "組織と自分の変化を読む（週次でよい・毎日必須ではない）",
+    // 既定の遷移先はEMの成長（書く）。タイムライン／レポートは読む用として横タブで選ぶ。
     items: [
+      { href: "/growth", label: "EMの成長" },
       { href: "/timeline", label: "タイムライン" },
       { href: "/reports", label: "レポート" },
-      { href: "/growth", label: "EMの成長" },
     ],
   },
   {
@@ -99,8 +100,8 @@ function findActiveGroup(pathname: string): StoryGroup | undefined {
   return STORY_GROUPS.find((g) => g.items.some((i) => isItemActive(i.href, pathname)));
 }
 
-// グローバルメニュー: グループ単位（7個）だけを並べる。クリックはそのグループの
-// 最初の画面へ遷移する（複数画面を持つグループの中身はサイドメニュー側で選ぶ）。
+// グローバルメニュー: グループ単位（8個）だけを並べる。クリックはそのグループの
+// 最初の画面へ遷移する（複数画面を持つグループの中身は横タブ側で選ぶ）。
 export function TopNav() {
   const pathname = usePathname();
   const activeGroup = findActiveGroup(pathname);
@@ -122,8 +123,8 @@ export function TopNav() {
 }
 
 // docs/em_human_story_and_ux.md P1-6対応。現在地のURLから「今どの物語にいるか」を
-// 1文で示す。サイドメニューが出ているグループ（複数画面）ではサイドメニューの見出しが
-// 同じ役割を果たすため、単一画面のグループでだけ表示する（同じ文言の重複を避ける）。
+// 1文で示す。横タブが出ているグループ（複数画面）ではサブナビが同じ役割を果たすため、
+// 単一画面のグループでだけ表示する（同じ文言の重複を避ける）。
 export function StoryBanner() {
   const pathname = usePathname();
   const group = findActiveGroup(pathname);
@@ -136,33 +137,31 @@ export function StoryBanner() {
 }
 
 // docs/em_human_story_and_ux.md 改修依頼「グローバルメニュー＋サイドメニューのグルーピング」
-// 対応。複数画面を持つグループ（介入／振り返り）でだけ、そのグループ内の画面を選ぶ
-// サイドメニューを出す。単一画面のグループでは何も表示しない（無駄な空カラムを作らない）。
+// 対応。複数画面を持つグループで、グループ内の画面を選ぶサブナビを出す。
+// 本文幅を確保するため、全グループ共通で横タブにする（設定画面内のカテゴリ切替だけ
+// 従来のサイドメニューを残す）。単一画面のグループでは何も表示しない。
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const group = findActiveGroup(pathname);
-  const showSideNav = !!group && group.items.length > 1;
+  const showSubNav = !!group && group.items.length > 1;
 
-  if (!showSideNav) {
+  if (!showSubNav || !group) {
     return <>{children}</>;
   }
 
   return (
-    <div className={styles.appBody}>
-      <nav className={styles.sideNav}>
-        <div className={styles.sideNavHint} title={group.hint}>
-          📍 {group.label}
-        </div>
+    <div>
+      <nav className={styles.subTabs} aria-label={group.label} title={group.hint}>
         {group.items.map((item) => {
           const isActive = isItemActive(item.href, pathname);
           return (
-            <Link key={item.href} href={item.href} className={`${styles.sideNavItem} ${isActive ? styles.sideNavItemActive : ""}`}>
+            <Link key={item.href} href={item.href} className={`${styles.subTabBtn} ${isActive ? styles.subTabBtnActive : ""}`}>
               {item.label}
             </Link>
           );
         })}
       </nav>
-      <div className={styles.appContent}>{children}</div>
+      {children}
     </div>
   );
 }
