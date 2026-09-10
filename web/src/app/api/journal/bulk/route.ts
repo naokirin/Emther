@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addJournalEntriesBulk, toJournalEntryView } from "@/lib/journal-store";
+import { addJournalEntriesBulk, toJournalEntryViews } from "@/lib/journal-store";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。EMが忙しくて
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const { entries, skippedLines } = await addJournalEntriesBulk(text, {
       ...maskOptionsFromBody(body),
     });
-    return NextResponse.json({ entries: entries.map(toJournalEntryView), skippedLines }, { status: 201 });
+    return NextResponse.json({ entries: toJournalEntryViews(entries), skippedLines }, { status: 201 });
   } catch (err) {
     return jsonFromUnknownError(err);
   }

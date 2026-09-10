@@ -25,6 +25,7 @@ vi.mock("@/lib/embeddings", () => ({
 
 vi.mock("@/lib/agent-runtime", () => ({
   startRun: vi.fn(async () => ({})),
+  listRuns: () => [],
 }));
 
 let dir: string;

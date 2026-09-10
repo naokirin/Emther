@@ -461,6 +461,8 @@ function IssuesPageInner() {
                         {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
                         {childCount > 0 && <span className={styles.tableMuted}>🧩 子Issue: {childCount}件</span>}
                         {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
+                        {issue.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
+                        {issue.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
                       </div>
                       {topicTags.length > 0 && (
                         <div className={styles.tagRow} style={{ marginTop: 4 }}>

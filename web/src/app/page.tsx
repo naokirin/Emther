@@ -559,7 +559,10 @@ export default function DashboardPage() {
         icon: "📝",
         kindLabel: "要注目Journal",
         text: (entry.summary || entry.rawText).slice(0, 44),
-        onSelect: () => router.push(`/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}`),
+        onSelect: () =>
+          router.push(
+            `/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}&journalId=${encodeURIComponent(entry.id)}`,
+          ),
         since: entry.createdAt,
       });
     } else if (entry.urgency === "high" && !entry.confirmed) {

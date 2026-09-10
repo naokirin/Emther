@@ -57,6 +57,7 @@ export type AgentRun = {
   updatedAt: number;
   consultedBy?: string;
   origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  sourceJournalId?: string;
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
   triageAt?: number;

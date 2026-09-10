@@ -205,6 +205,16 @@ export function useJournal(intervalMs = 5000) {
   };
 }
 
+export function useJournalEntry(id: string | undefined, intervalMs = 10000) {
+  const { data, loaded } = usePolling<{ entry: JournalEntry | null }>(
+    id ? `/api/journal/${id}` : "/api/journal",
+    { entry: null },
+    intervalMs,
+    !!id,
+  );
+  return { entry: data.entry, entryLoaded: loaded };
+}
+
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
 // 専用。useJournal()（全件取得、Dashboard・Organization Context画面のチームVitals集計用に
 // 据え置き）とは別に、フィルタ・ページ番号をクエリパラメータとして都度APIへ渡し、
@@ -426,6 +436,7 @@ export function useJournalEditing(
             title: truncateForTitle(entry.summary || entry.rawText),
             why: entry.rawText,
             tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+            sourceJournalId: entry.id,
           },
         },
         "保存する",
@@ -615,12 +626,18 @@ export function useIssueImpact(id: string, enabled: boolean, intervalMs = 10000)
 }
 
 export function useIssue(id: string, intervalMs = 2000) {
-  const { data, setData, loaded, refresh } = usePolling<{ issue: Issue | null }>(
+  const { data, setData, loaded, refresh } = usePolling<{ issue: Issue | null; sourceJournals?: JournalEntry[] }>(
     `/api/issues/${id}`,
-    { issue: null },
+    { issue: null, sourceJournals: [] },
     intervalMs,
   );
-  return { issue: data.issue, setIssue: (issue: Issue | null) => setData({ issue }), issueLoaded: loaded, refreshIssue: refresh };
+  return {
+    issue: data.issue,
+    sourceJournals: data.sourceJournals ?? [],
+    setIssue: (issue: Issue | null) => setData((prev) => ({ ...prev, issue })),
+    issueLoaded: loaded,
+    refreshIssue: refresh,
+  };
 }
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する。

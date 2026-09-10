@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
-import { toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
+import { getCurrentJournalEntry, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+
+export async function GET(_request: Request, ctx: RouteContext<"/api/journal/[id]">) {
+  const { id } = await ctx.params;
+  const entry = getCurrentJournalEntry(id);
+  if (!entry) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  return NextResponse.json({ entry: toJournalEntryView(entry) });
+}
 
 // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
 // EMがその場で校正するためのエンドポイント。内部的には新しいイベントをsupersedesで

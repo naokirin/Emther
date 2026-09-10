@@ -158,6 +158,10 @@ function migrate(database: DatabaseSync): void {
   // AIが提案する介入優先度（focus/normal/parked）の下書き。採用までIssue本体へは反映しない。
   addColumnIfMissing(database, "agent_runs", "suggested_priority_json", "TEXT");
 
+  // Journal自動分析・Journalからの手動相談で、生成元Journalへ戻れるようにする。
+  // origin=auto-anomaly だけでは ID が残らず、相談画面で「なぜ生まれたか」が分からなかった。
+  addColumnIfMissing(database, "agent_runs", "source_journal_id", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

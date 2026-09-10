@@ -3,7 +3,7 @@ import {
   findJournalEntryOffset,
   listJournalEntriesPage,
   listJournalFacets,
-  toJournalEntryView,
+  toJournalEntryViews,
   type JournalListFilter,
   type Sentiment,
   type Urgency,
@@ -57,5 +57,5 @@ export async function GET(request: Request) {
 
   const { entries, total } = listJournalEntriesPage(filter, { limit: pageSize, offset: (page - 1) * pageSize });
   const facets = listJournalFacets();
-  return NextResponse.json({ entries: entries.map(toJournalEntryView), total, page, pageSize, facets });
+  return NextResponse.json({ entries: toJournalEntryViews(entries), total, page, pageSize, facets });
 }

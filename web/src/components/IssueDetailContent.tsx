@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, type AgentRun, type SuggestedSubIssue } from "@/components/RunDetail";
+import { OriginTrace } from "@/components/OriginTrace";
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssueStatusSelector, IssuePrioritySelector } from "@/components/IssueStatus";
@@ -26,6 +27,7 @@ import {
   type IssuePriority,
   type IssueStatus,
 } from "@/lib/types";
+import { journalExcerptFromTask, resolveSourceConsultRun } from "@/lib/origin-trace";
 
 // docs/em_ui_ux_issue.md 7節対応。閲覧モードのWhy/What/Howのラベル（編集モードのlabel文言と揃える）。
 const CHARTER_VIEW_FIELDS: { key: keyof IssueCharter; label: string }[] = [
@@ -40,7 +42,7 @@ const CHARTER_VIEW_FIELDS: { key: keyof IssueCharter; label: string }[] = [
 // 生成型チェックに弾かれるため、コンポーネントファイルへ分離している。
 export function IssueDetailContent({ id }: { id: string }) {
   const router = useRouter();
-  const { issue, issueLoaded, refreshIssue } = useIssue(id);
+  const { issue, sourceJournals, issueLoaded, refreshIssue } = useIssue(id);
   const { history } = useEntityHistory("issue", id);
   const { issues, refreshIssues } = useIssues();
   const { runs, pendingAgentStarts, refreshRuns } = useRuns();
@@ -387,6 +389,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   const linkedRun: AgentRun | null = issue ? runs.find((r) => r.id === issue.agentRunId) ?? null : null;
+  const sourceConsult = issue ? resolveSourceConsultRun(issue, runs) : undefined;
   const pendingStart = pendingAgentStarts.find((p) => p.issueId === id) ?? null;
 
   async function sendDecision(text: string) {
@@ -662,6 +665,12 @@ export function IssueDetailContent({ id }: { id: string }) {
   const krLabel = issue.keyResultId
     ? objectives.flatMap((o) => o.keyResults.map((kr) => ({ objTitle: o.title, kr }))).find((x) => x.kr.id === issue.keyResultId)
     : undefined;
+  const originJournals =
+    sourceJournals.length > 0
+      ? sourceJournals
+      : issue.sourceJournalId
+        ? [{ id: issue.sourceJournalId, rawText: journalExcerptFromTask(sourceConsult?.task ?? linkedRun?.task ?? "") ?? "" }]
+        : [];
 
   return (
     <>
@@ -670,6 +679,7 @@ export function IssueDetailContent({ id }: { id: string }) {
           ⬆ 上位Issue: {parentIssue.title}
         </Link>
       )}
+      <OriginTrace journals={originJournals} consult={sourceConsult ?? null} />
 
       <div className={styles.issueTitleRow}>
         <div style={{ flex: 1, minWidth: 0 }}>

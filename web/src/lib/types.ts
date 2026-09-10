@@ -29,6 +29,8 @@ export type JournalEntry = {
   resolvedIssueId?: string;
   resolvedIssueTitle?: string;
   resolutionNote?: string;
+  // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
+  sourceConsultRunId?: string;
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {
@@ -178,6 +180,7 @@ export type PendingUnmaskedSend = {
   task?: string;
   origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
   linkedIssueId?: string;
+  sourceJournalId?: string;
   runId?: string;
   message?: string;
   /** Issue更新分析のdecide-run確認時に、チーム先行並列を行うか */
@@ -344,6 +347,10 @@ export type Issue = {
   id: string;
   title: string;
   agentRunId?: string;
+  // 相談から昇格したときの元 Run。agentRunId は更新分析で差し替わるため、生成元は別フィールドで残す。
+  sourceRunId?: string;
+  // Journal から直接起票、または Journal 由来の相談から昇格したときの元エントリ。
+  sourceJournalId?: string;
   charter: IssueCharter;
   actionItems: ActionItem[];
   logEntries: IssueLogEntry[];

@@ -162,6 +162,58 @@ describe("listEventsPage", () => {
     expect(total).toBe(1);
     expect(events[0].text).toBe("新版");
   });
+
+  it("getEventHeadByIdはsupersedesチェーンの先頭を返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    const original = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "旧版",
+      tags: [],
+      occurredAt: 1,
+    });
+    const head = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "新版",
+      tags: [],
+      occurredAt: 1,
+      supersedes: original.id,
+    });
+    expect(knowledgeStore.getEventHeadById(original.id)?.id).toBe(head.id);
+    expect(knowledgeStore.getEventHeadById(head.id)?.id).toBe(head.id);
+    expect(knowledgeStore.getEventHeadById("missing")).toBeUndefined();
+  });
+
+  it("listEventLineageIdsはsupersedesチェーン上の全IDを返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    const original = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "旧版",
+      tags: [],
+      occurredAt: 1,
+    });
+    const head = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "新版",
+      tags: [],
+      occurredAt: 1,
+      supersedes: original.id,
+    });
+    expect(knowledgeStore.listEventLineageIds(original.id)).toEqual([original.id, head.id]);
+    expect(knowledgeStore.listEventLineageIds(head.id)).toEqual([original.id, head.id]);
+    expect(knowledgeStore.listEventLineageIds("missing")).toEqual([]);
+  });
 });
 
 describe("findEventOffset", () => {

@@ -14,6 +14,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const agentName = typeof body?.agentName === "string" ? body.agentName.trim() : "";
   const task = typeof body?.task === "string" ? body.task.trim() : "";
+  const sourceJournalId =
+    typeof body?.sourceJournalId === "string" && body.sourceJournalId.trim() ? body.sourceJournalId.trim() : undefined;
 
   if (!agentName || !task) {
     return NextResponse.json({ error: "agentNameとtaskは必須です" }, { status: 400 });
@@ -22,6 +24,7 @@ export async function POST(request: Request) {
   try {
     const run = await startRun(agentName, task, "manual", undefined, {
       ...maskOptionsFromBody(body),
+      sourceJournalId,
     });
     return NextResponse.json({ run: toRunView(run) }, { status: 201 });
   } catch (err) {

@@ -130,6 +130,39 @@ describe("POST /api/issues", () => {
     expect(agentRuntime.listRuns()).toHaveLength(1);
   });
 
+  it("相談のrunにsourceJournalIdがあればIssueへコピーしJournalも紐付ける", async () => {
+    const knowledgeStore = await import("@/lib/knowledge-store");
+    knowledgeStore.recordEvent({
+      id: "j-fixed",
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "現場の問題",
+      tags: [],
+      occurredAt: Date.now(),
+    });
+    const dbModule = await import("@/lib/db");
+    dbModule
+      .getDb()
+      .prepare(
+        `INSERT INTO agent_runs (id, agent_name, task, status, total_cost_usd, created_at, updated_at, origin, reviewed, source_journal_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run("run-src", "Lead Agent", "task", "idle", 0, 1, 1, "auto-anomaly", 0, "j-fixed");
+
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/issues", "POST", { title: "AI起点のIssue", agentRunId: "run-src" }),
+    );
+    const json = await res.json();
+    expect(json.issue.sourceJournalId).toBe("j-fixed");
+    expect(json.issue.sourceRunId).toBe("run-src");
+
+    const journalStore = await import("@/lib/journal-store");
+    expect(journalStore.getCurrentJournalEntry("j-fixed")?.resolvedIssueId).toBe(json.issue.id);
+  });
+
   it("agentRunIdを渡さない場合はLead Agentの分析Runを自動で起動し、Issueに紐づける", async () => {
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "Journal起点のIssue", why: "本文" }));

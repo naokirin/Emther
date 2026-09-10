@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createIssue, listIssues, toIssueView } from "@/lib/issue-store";
-import { buildIssueDraftTask, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
+import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
 import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { linkJournalToIssue } from "@/lib/journal-store";
 import { ISSUE_PRIORITIES, type IssuePriority } from "@/lib/types";
 
 export async function GET() {
@@ -40,18 +41,31 @@ export async function POST(request: Request) {
     how: typeof body?.how === "string" ? body.how : undefined,
   };
   const opts = maskOptionsFromBody(body);
+  const sourceRun = agentRunId ? getRun(agentRunId) : undefined;
+  const sourceJournalId =
+    typeof body?.sourceJournalId === "string" && body.sourceJournalId.trim()
+      ? body.sourceJournalId.trim()
+      : sourceRun?.sourceJournalId;
+  const sourceRunId = agentRunId;
 
   try {
     const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, {
       ...opts,
       priority,
+      sourceJournalId,
+      sourceRunId,
     });
     if (agentRunId) {
       markRunReviewed(agentRunId);
+      if (sourceJournalId) {
+        await linkJournalToIssue(sourceJournalId, issue.id, opts).catch(() => {
+          // Journal 紐付けの失敗で Issue 起票自体は失敗させない。
+        });
+      }
     } else {
       const task = buildIssueDraftTask(title, charter);
       try {
-        await startRun("Lead Agent", task, "manual", issue.id, opts);
+        await startRun("Lead Agent", task, "manual", issue.id, { ...opts, sourceJournalId });
       } catch (err) {
         if (isUnconfirmedNameCandidatesError(err)) {
           parkPendingUnmaskedSend({
@@ -65,6 +79,7 @@ export async function POST(request: Request) {
             task,
             origin: "manual",
             linkedIssueId: issue.id,
+            sourceJournalId,
           });
         }
         // その他の起動失敗でもIssue起票自体は失敗させない。

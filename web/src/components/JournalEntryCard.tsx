@@ -224,6 +224,19 @@ export function JournalEntryCard({
             ようにする。 */}
         <div className={styles.field} style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
           <span className={styles.fieldCaption}>解決 / 追跡</span>
+          {entry.sourceConsultRunId && (
+            <div style={{ marginBottom: 10 }}>
+              <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
+                💬 このJournalから相談が生まれています。
+              </p>
+              <button
+                className={styles.btnOutline}
+                onClick={() => router.push(`/chat?runId=${entry.sourceConsultRunId}`)}
+              >
+                相談を開く
+              </button>
+            </div>
+          )}
           {isResolved ? (
             <div>
               <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
@@ -322,6 +335,15 @@ export function JournalEntryCard({
         <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
         {/* docs/em_human_story_and_ux.md 改修依頼対応。urgencyは記録のまま変えないため、
             「今どこで管理されているか」をurgencyバッジとは別に見せる。 */}
+        {entry.sourceConsultRunId && (
+          <button
+            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+            title="このJournalから生まれた相談"
+            onClick={() => router.push(`/chat?runId=${entry.sourceConsultRunId}`)}
+          >
+            💬 相談を開く
+          </button>
+        )}
         {entry.resolvedIssueId ? (
           <button
             className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn}`}

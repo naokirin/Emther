@@ -64,4 +64,14 @@ describe("POST /api/agents", () => {
     expect(json.run.agentName).toBe("Lead Agent");
     expect(json.run.status).toBe("active");
   });
+
+  it("sourceJournalIdを渡すとrunに保存する", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", { agentName: "Lead Agent", task: "タスク", sourceJournalId: "j-1" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.run.sourceJournalId).toBe("j-1");
+  });
 });

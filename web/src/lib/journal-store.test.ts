@@ -36,13 +36,16 @@ const startRunMock = vi.fn(async (agentName: string, rawTask: string, origin?: s
   void origin;
   return {};
 });
-const startJournalAutoAnalysisMock = vi.fn(async (rawText: string) => {
+const startJournalAutoAnalysisMock = vi.fn(async (rawText: string, journalId?: string) => {
   void rawText;
+  void journalId;
   return {};
 });
+const listRunsMock = vi.fn(() => [] as Array<{ id: string; agentName: string; sourceJournalId?: string; updatedAt: number }>);
 vi.mock("@/lib/agent-runtime", () => ({
   startRun: (...args: unknown[]) => startRunMock(...(args as [string, string, string?])),
-  startJournalAutoAnalysis: (...args: unknown[]) => startJournalAutoAnalysisMock(...(args as [string])),
+  startJournalAutoAnalysis: (...args: unknown[]) => startJournalAutoAnalysisMock(...(args as [string, string?])),
+  listRuns: () => listRunsMock(),
 }));
 
 let dir: string;
@@ -54,6 +57,7 @@ beforeEach(() => {
   mockNerPeople = [];
   startRunMock.mockClear();
   startJournalAutoAnalysisMock.mockClear();
+  listRunsMock.mockReset();
 });
 
 afterEach(() => {
@@ -275,8 +279,9 @@ describe("updateJournalEntry", () => {
     settingsStore.updateRulesAndConstraints({ autoAnomalyDetectionEnabled: true });
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
-    await store.updateJournalEntry(entry.id, { urgency: "high" });
+    const updated = await store.updateJournalEntry(entry.id, { urgency: "high" });
     expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
+    expect(startJournalAutoAnalysisMock).toHaveBeenCalledWith("問題発生", updated!.id);
   });
 
   it("autoAnomalyDetectionEnabledが既定(false)ならLead Agentを起動しない", async () => {
@@ -334,5 +339,50 @@ describe("toJournalEntryView", () => {
     const updated = await store.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
     const view = store.toJournalEntryView(updated!);
     expect(view.resolvedIssueTitle).toBe("追跡中のIssue");
+  });
+
+  it("sourceJournalIdが一致するLead相談をsourceConsultRunIdに載せる", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("問題発生");
+    const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
+    listRunsMock.mockReturnValue([
+      { id: "run-consult", agentName: "Lead Agent", sourceJournalId: confirmed!.id, updatedAt: 10 },
+    ]);
+    expect(store.toJournalEntryView(confirmed!).sourceConsultRunId).toBe("run-consult");
+
+    const edited = await store.updateJournalEntry(confirmed!.id, { tags: ["再校正"] });
+    expect(store.toJournalEntryView(edited!).sourceConsultRunId).toBe("run-consult");
+  });
+});
+
+describe("getCurrentJournalEntry / listSourceJournalsForIssue", () => {
+  it("supersedesされた旧IDからも現行版を返す", async () => {
+    const store = await loadModule();
+    const original = await store.addJournalEntry("旧本文");
+    const updated = await store.updateJournalEntry(original.id, { tags: ["確認済み"] });
+    const current = store.getCurrentJournalEntry(original.id);
+    expect(current?.id).toBe(updated!.id);
+    expect(current?.rawText).toBe("旧本文");
+  });
+
+  it("resolvedIssueIdとsourceJournalIdの両方から重複なく集める", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const store = await loadModule();
+    const issue = await issueStore.createIssue("追跡");
+    const entry = await store.addJournalEntry("問題発生");
+    const linked = await store.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
+    const listed = store.listSourceJournalsForIssue(issue.id, entry.id);
+    expect(listed).toHaveLength(1);
+    expect(listed[0].id).toBe(linked!.id);
+  });
+
+  it("linkJournalToIssueは現行版へresolvedIssueIdを付ける", async () => {
+    const store = await loadModule();
+    const original = await store.addJournalEntry("問題発生");
+    const confirmed = await store.updateJournalEntry(original.id, { tags: ["確認済み"] });
+    const linked = await store.linkJournalToIssue(original.id, "issue-9");
+    expect(linked?.id).not.toBe(confirmed!.id);
+    expect(linked?.resolvedIssueId).toBe("issue-9");
+    expect(store.getCurrentJournalEntry(original.id)?.resolvedIssueId).toBe("issue-9");
   });
 });
