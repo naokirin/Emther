@@ -271,6 +271,27 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(ctx).toContain("```themes");
   });
 
+  it("朝サマリーの材料はcontextブロックに載り、buildSystemPromptへ注入される", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const issueStore = await import("@/lib/issue-store");
+    orgStore.addTeam("Morning Team", ["Aさん"]);
+    const issue = await issueStore.createIssue("未整理の課題");
+    const rt = await loadModule();
+
+    const ctx = rt.buildMorningSummaryContextBlock();
+    expect(ctx).toContain("Team Vitals");
+    expect(ctx).toContain("1on1 Coverage");
+    expect(ctx).toContain("未整理の課題");
+    expect(ctx).toContain(issue.id);
+    expect(rt.MORNING_SUMMARY_TASK.length).toBeLessThan(200);
+
+    const run = await rt.startRun("Lead Agent", rt.MORNING_SUMMARY_TASK, "auto-summary");
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, run.id);
+    expect(prompt).toContain("朝のサマリーの材料");
+    expect(prompt).toContain("注入済みのナレッジブロック");
+    expect(prompt).not.toContain("与えられたタスクの文脈だけを判断材料とし");
+  });
+
   it("extractJournalAutoAnalysisTextは対象エントリ本文を取り出す", async () => {
     const rt = await loadModule();
     const task = [
