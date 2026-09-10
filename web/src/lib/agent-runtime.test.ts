@@ -1344,6 +1344,44 @@ describe("watchdog: checkMorningSummary", () => {
     expect(rt.listRuns()).toHaveLength(1);
     expect(spawnCalls).toHaveLength(1);
   });
+
+  it("メモリ上のクレームを忘れていても、当日の既存auto-summaryがあれば再起動しない", async () => {
+    // 実機の HMR レース: クレーム変数は消えたが DB に今日の run が残っている状態。
+    const settingsStore = await import("@/lib/settings-store");
+    const { saveJSON } = await import("@/lib/persistence");
+    settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
+    const rt = await loadModule();
+
+    rt.checkMorningSummary();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    expect(rt.listRuns()).toHaveLength(1);
+
+    // ファイルクレームとメモリクレームを消すが、run はそのまま。
+    saveJSON("auto-morning-summary.json", { date: null });
+    rt.clearAutoBatchClaimsForTest();
+
+    rt.checkMorningSummary();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(1);
+    expect(spawnCalls).toHaveLength(1);
+  });
+
+  it("連続で呼び出しても当日は1件しか作らない（クレームの先取り）", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
+    const rt = await loadModule();
+
+    rt.checkMorningSummary();
+    rt.checkMorningSummary();
+    rt.checkMorningSummary();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(rt.listRuns().filter((r) => r.origin === "auto-summary")).toHaveLength(1);
+  });
 });
 
 describe("matchesJournalAutoFilters", () => {
