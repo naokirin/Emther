@@ -3,12 +3,13 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { CopilotChat, ExecutionState, StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
+import { CopilotChat, ExecutionState, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
+import { ConsultHistoryItem } from "@/components/ConsultHistoryItem";
 import { OriginTrace } from "@/components/OriginTrace";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isRunStale, truncateForTitle } from "@/lib/types";
-import { consultExcerpt, journalExcerptFromTask } from "@/lib/origin-trace";
+import { journalExcerptFromTask } from "@/lib/origin-trace";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
@@ -210,26 +211,13 @@ function ChatPageInner() {
             <p className={styles.subtitle}>{!chatHistoryLoaded ? "読み込み中…" : "まだ相談履歴はありません。"}</p>
           )}
           {chatRuns.map((r) => (
-            <button
+            <ConsultHistoryItem
               key={r.id}
-              id={`chat-history-${r.id}`}
-              className={`${styles.runItem} ${selectedId === r.id ? styles.selected : ""}`}
-              onClick={() => setSelectedId(r.id)}
-            >
-              <div style={{ marginBottom: 4 }}>
-                <StatusBadge status={r.status} stale={staleRunIds.has(r.id)} />
-                {r.origin !== "manual" && !r.reviewed && <span style={{ marginLeft: 6 }}>🤖 未確認</span>}
-                {r.triageStatus && <span style={{ marginLeft: 6 }}>{TRIAGE_LABEL[r.triageStatus]}</span>}
-              </div>
-              <div>
-                {journalExcerptFromTask(r.task) || consultExcerpt(r.task).slice(0, 50)}
-              </div>
-              {(r.sourceJournalId || r.origin === "auto-anomaly") && (
-                <div className={styles.subtitle} style={{ marginTop: 4 }}>
-                  📝 Journalから
-                </div>
-              )}
-            </button>
+              run={r}
+              selected={selectedId === r.id}
+              stale={staleRunIds.has(r.id)}
+              onSelect={() => setSelectedId(r.id)}
+            />
           ))}
         </div>
       </div>
