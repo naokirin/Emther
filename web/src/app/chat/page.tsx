@@ -62,45 +62,60 @@ function ChatPageInner() {
   // URL の runId＝先頭付近の相談へ選択が引き戻される）。
   const queryRunId = searchParams.get("runId");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pinnedRun, setPinnedRun] = useState<AgentRun | null>(null);
-  const [pinError, setPinError] = useState<string | null>(null);
+  const [selectionSyncKey, setSelectionSyncKey] = useState(`${queryRunId ?? ""}:${chatHistoryLoaded}`);
+  const nextSelectionSyncKey = `${queryRunId ?? ""}:${chatHistoryLoaded}`;
+  // URL / ロード完了に合わせて選択を揃える（effect 内 setState は lint 禁止のため render 時に調整）。
+  if (selectionSyncKey !== nextSelectionSyncKey) {
+    setSelectionSyncKey(nextSelectionSyncKey);
+    if (queryRunId && chatHistoryLoaded) {
+      setSelectedId(queryRunId);
+    }
+  }
+
+  const listedPin = queryRunId ? (runs.find((r) => r.id === queryRunId) ?? null) : null;
+  const [remotePin, setRemotePin] = useState<{
+    queryRunId: string;
+    run: AgentRun | null;
+    error: string | null;
+  } | null>(null);
+
+  const pinnedRun: AgentRun | null =
+    !queryRunId || !chatHistoryLoaded
+      ? null
+      : (listedPin ?? (remotePin?.queryRunId === queryRunId ? remotePin.run : null));
+  const pinError: string | null =
+    !queryRunId || !chatHistoryLoaded || listedPin
+      ? null
+      : remotePin?.queryRunId === queryRunId
+        ? remotePin.error
+        : null;
 
   useEffect(() => {
     if (!queryRunId || !chatHistoryLoaded) return;
-    setSelectedId(queryRunId);
-  }, [queryRunId, chatHistoryLoaded]);
+    if (runs.some((r) => r.id === queryRunId)) return;
 
-  useEffect(() => {
-    if (!queryRunId || !chatHistoryLoaded) {
-      if (!queryRunId) {
-        setPinnedRun(null);
-        setPinError(null);
-      }
-      return;
-    }
-    const inList = runs.find((r) => r.id === queryRunId);
-    if (inList) {
-      setPinnedRun(inList);
-      setPinError(null);
-      return;
-    }
     let cancelled = false;
-    setPinError(null);
     void (async () => {
       try {
         const res = await fetch(`/api/agents/${queryRunId}`);
         const data = await res.json().catch(() => null);
         if (cancelled) return;
         if (!res.ok || !data?.run) {
-          setPinnedRun(null);
-          setPinError("指定された相談が見つかりませんでした。");
+          setRemotePin({
+            queryRunId,
+            run: null,
+            error: "指定された相談が見つかりませんでした。",
+          });
           return;
         }
-        setPinnedRun(data.run as AgentRun);
+        setRemotePin({ queryRunId, run: data.run as AgentRun, error: null });
       } catch {
         if (!cancelled) {
-          setPinnedRun(null);
-          setPinError("相談の取得に失敗しました。");
+          setRemotePin({
+            queryRunId,
+            run: null,
+            error: "相談の取得に失敗しました。",
+          });
         }
       }
     })();
