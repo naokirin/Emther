@@ -7,12 +7,23 @@ import styles from "@/app/page.module.css";
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-// Issueの起票など、画面遷移を伴わない短い入力のためのシンプルなダイアログ。
+// 画面遷移を伴わない入力のためのシンプルなダイアログ。
+// size="wide" は Why/What/How など本文欄のある起票フォーム向け（既定の440pxだとPCでも狭い）。
 // WCAG 2.2対応: role="dialog"+aria-modal+aria-labelledbyでスクリーンリーダーに
 // 役割と名前を伝え、開いた瞬間にダイアログ内へフォーカスを移し、閉じたら元々
 // フォーカスのあった要素（開くボタン等）へ戻す。Tab/Shift+Tabはダイアログ内だけを
 // 巡回させる（背後のページへフォーカスが漏れる「フォーカストラップの欠如」を防ぐ）。
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({
+  title,
+  onClose,
+  children,
+  size = "default",
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  size?: "default" | "wide";
+}) {
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -52,7 +63,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     <div className={styles.modalOverlay} onClick={onClose}>
       <div
         ref={boxRef}
-        className={styles.modalBox}
+        className={size === "wide" ? `${styles.modalBox} ${styles.modalBoxWide}` : styles.modalBox}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

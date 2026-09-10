@@ -1337,6 +1337,7 @@ export function IssueDetailContent({ id }: { id: string }) {
       {hierarchyDialog && (
         <Modal
           title={hierarchyDialog === "child" ? "サブIssueを追加" : "上位Issueを作る"}
+          size="wide"
           onClose={closeHierarchyDialog}
         >
           <form onSubmit={hierarchyDialog === "child" ? handleCreateChild : handleCreateParent}>

@@ -5,6 +5,22 @@ import userEvent from "@testing-library/user-event";
 import { Modal } from "./Modal";
 
 describe("Modal", () => {
+  it("size=wideのとき幅広クラスを付ける", () => {
+    const { rerender } = render(
+      <Modal title="タイトル" onClose={vi.fn()}>
+        <p>本文</p>
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog").className).not.toMatch(/modalBoxWide/);
+
+    rerender(
+      <Modal title="タイトル" size="wide" onClose={vi.fn()}>
+        <p>本文</p>
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog").className).toMatch(/modalBoxWide/);
+  });
+
   it("role=dialog・aria-modal・タイトルとの紐付けを持つ", () => {
     render(
       <Modal title="Issueを起票" onClose={vi.fn()}>
