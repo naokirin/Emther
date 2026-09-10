@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
-import { draftKindLabel, isDraftAwaitingTriage, runKindLabel } from "@/components/RunDetail";
+import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
@@ -458,14 +458,9 @@ export default function DashboardPage() {
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
-    // ユーザー指摘「却下したのに『今日』の判断待ちに残り続ける」対応。agent-runtime.tsの
-    // setRunTriageStatusは「様子見/却下どちらもreviewed=trueになり次にすべきことの
-    // 緊急度から外れる」設計だが、下のstale/yield/error分岐にはreviewed/triageStatusの
-    // チェックが無く、statusがyield/error/無応答のままだと却下後も表示され続けてしまって
-    // いた（idle分岐のisUnreviewedAutoだけが正しくガードされていた）。EMが明示的に
-    // 様子見／却下を選んだrunは、statusに関わらずここでは扱わない
-    // （様子見は下のwatchingItemsで別途表示、却下は対応不要として消える）。
-    if (run.triageStatus === "watching" || run.triageStatus === "dismissed") continue;
+    // docs/usage_issues U4/U5。consult子run・却下済み・アーカイブ済みIssueに紐づくrunは出さない。
+    if (shouldOmitRunFromNextActions(run, issues)) continue;
+    if (run.triageStatus === "watching") continue;
 
     // AI主導（イベント駆動・バッチ駆動）で自動起動されたrunは、EMがまだ内容を確認して
     // いない間は「ドラフトIssue（起票待ち）」としてここに残す。クリック先は即Issue化せず
@@ -741,7 +736,9 @@ export default function DashboardPage() {
   // docs/em_human_story_and_ux.md P0-3対応。「様子見」のまま一定期間が過ぎたrunは
   // 判断待ちレーンへ再浮上させ、「様子見＝忘れられる」にしない。期限内のものは
   // watchingItemsとして別途一覧できるようにする（新画面は増やさない）。
-  const watchingItems = runs.filter((r) => r.triageStatus === "watching");
+  const watchingItems = runs.filter(
+    (r) => r.triageStatus === "watching" && !shouldOmitRunFromNextActions(r, issues),
+  );
   for (const run of watchingItems) {
     const watchedAt = run.triageAt ?? run.updatedAt;
     if (now - watchedAt <= WATCH_RESURFACE_AFTER_MS) continue;
@@ -1310,12 +1307,18 @@ export default function DashboardPage() {
         </div>
         <form onSubmit={handleJournalSubmit}>
           <div className={styles.journalInputRow}>
-            <input
+            <textarea
               id="quick-journal-input"
-              type="text"
               value={journalText}
               onChange={(e) => setJournalText(e.target.value)}
+              rows={3}
               placeholder="例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                  e.preventDefault();
+                  (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
+                }
+              }}
             />
             <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={!journalText.trim()}>
               Submit
@@ -1405,7 +1408,7 @@ export default function DashboardPage() {
               checked={excludeResolvedJournal}
               onChange={(e) => setExcludeResolvedJournal(e.target.checked)}
             />
-            ✅ 対応済みを除外
+            ✅ 対応済み/Issue化済みを除外
           </label>
         )}
         {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (
@@ -1498,10 +1501,10 @@ export default function DashboardPage() {
                     placeholder="対象（例: Aさん）"
                     style={{ maxWidth: 140 }}
                   />
-                  <input
-                    type="text"
+                  <textarea
                     value={profileText}
                     onChange={(e) => setProfileText(e.target.value)}
+                    rows={2}
                     placeholder="例: Aさんはリーダー志向がある"
                   />
                   <button

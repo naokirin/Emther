@@ -137,29 +137,33 @@ async function createJournalEventFromText(
 ): Promise<KnowledgeEvent> {
   await ensureNameCandidatesAllowed([rawText], opts);
 
-  const content = await runLocalChat(
-    [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...FEW_SHOT_EXAMPLES.flatMap((ex) => [
-        { role: "user" as const, content: ex.user },
-        { role: "assistant" as const, content: ex.assistant },
-      ]),
-      { role: "user", content: rawText },
-    ],
-    200,
-  );
-
-  const jsonText = extractFirstJsonObject(content);
-  if (!jsonText) {
-    throw new Error("ローカルモデルの出力からJSONを抽出できませんでした");
-  }
-
+  // docs/usage_issues U1: 構造化抽出は補助。モデルがJSONを返さない・呼び出し自体が
+  // 失敗しても、本文の保存（Journalの主目的）は止めない。失敗時は未確認のまま既定値で残し、
+  // EMが後から校正できる。
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let structured: any;
+  let structured: any = {};
   try {
-    structured = JSON.parse(jsonText);
+    const content = await runLocalChat(
+      [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...FEW_SHOT_EXAMPLES.flatMap((ex) => [
+          { role: "user" as const, content: ex.user },
+          { role: "assistant" as const, content: ex.assistant },
+        ]),
+        { role: "user", content: rawText },
+      ],
+      200,
+    );
+    const jsonText = extractFirstJsonObject(content);
+    if (jsonText) {
+      try {
+        structured = JSON.parse(jsonText);
+      } catch {
+        structured = {};
+      }
+    }
   } catch {
-    throw new Error("ローカルモデルの出力が不正なJSONでした");
+    structured = {};
   }
 
   // 既登録の人物だけを紐付ける。ローカル抽出の新規名は自動登録しない

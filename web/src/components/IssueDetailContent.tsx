@@ -806,15 +806,15 @@ export function IssueDetailContent({ id }: { id: string }) {
           考えたこと・取ったアクション・分かった結果を、思いついた時にひとことずつ書き足してください。まとめて振り返る必要はありません。
         </p>
         <div className={styles.journalInputRow}>
-          <input
-            type="text"
+          <textarea
             value={logText}
             onChange={(e) => setLogText(e.target.value)}
+            rows={3}
             placeholder="例: Bチームと調整し、割り込み受付時間を14〜15時に限定することで合意"
             disabled={logPending}
             onKeyDown={(e) => {
-              // 日本語IMEの変換確定Enterでは保存しない（isComposing / keyCode 229）
-              if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                e.preventDefault();
                 handleAddLogEntry();
               }
             }}
@@ -1303,14 +1303,14 @@ export function IssueDetailContent({ id }: { id: string }) {
             );
           })()}
           <div className={styles.chatRow}>
-            <input
-              type="text"
+            <textarea
               placeholder="Action Itemを追加（あとでやるへ）…"
               value={actionItemText}
               onChange={(e) => setActionItemText(e.target.value)}
+              rows={2}
               onKeyDown={(e) => {
-                // 日本語IMEの変換確定Enterでは追加しない（isComposing / keyCode 229）
-                if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                  e.preventDefault();
                   handleAddActionItem();
                 }
               }}

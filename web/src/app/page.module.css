@@ -713,14 +713,22 @@
   display: flex;
   gap: 8px;
   margin-top: 12px;
+  align-items: flex-end;
 }
 
-.chatRow input {
+.chatRow input,
+.chatRow textarea {
   flex: 1;
   border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.8125rem;
+  font-family: inherit;
+}
+
+.chatRow textarea {
+  min-height: 4.5rem;
+  resize: vertical;
 }
 
 .emptyState {
@@ -734,14 +742,22 @@
   display: flex;
   gap: 8px;
   margin-bottom: 4px;
+  align-items: flex-end;
 }
 
-.journalInputRow input {
+.journalInputRow input,
+.journalInputRow textarea {
   flex: 1;
   border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 0.8125rem;
+  font-family: inherit;
+}
+
+.journalInputRow textarea {
+  min-height: 4.5rem;
+  resize: vertical;
 }
 
 .treeAddRow {

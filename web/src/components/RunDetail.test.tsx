@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CopilotChat, ExecutionState, draftKindLabel, isDraftAwaitingTriage, runFallbackTitle, StatusBadge, type AgentRun } from "./RunDetail";
+import { CopilotChat, ExecutionState, draftKindLabel, isDraftAwaitingTriage, runFallbackTitle, shouldOmitRunFromNextActions, StatusBadge, type AgentRun } from "./RunDetail";
 
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -91,6 +91,20 @@ describe("isDraftAwaitingTriage / draftKindLabel", () => {
     expect(draftKindLabel(baseRun({ origin: "auto-summary", reviewed: false, status: "active" }))).toBe(
       "ドラフト分析中",
     );
+  });
+});
+
+describe("shouldOmitRunFromNextActions", () => {
+  it("consult子runと却下済みとアーカイブ済みIssue紐付けを除外する", () => {
+    const issues = [
+      { agentRunId: "run-archived", archived: true },
+      { agentRunId: "run-open", archived: false },
+    ];
+    expect(shouldOmitRunFromNextActions(baseRun({ consultedBy: "lead-1" }), issues)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "dismissed" }), issues)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-archived" }), issues)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-open" }), issues)).toBe(false);
+    expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "watching" }), issues)).toBe(false);
   });
 });
 
@@ -273,11 +287,14 @@ describe("CopilotChat", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
-  it("Enterキーおよび送信ボタンでonDecideを呼ぶ", async () => {
+  it("Ctrl+Enterおよび送信ボタンでonDecideを呼ぶ（Enter単体は改行）", async () => {
     const onDecide = vi.fn();
     const user = userEvent.setup();
     render(<CopilotChat run={baseRun({ status: "idle" })} message="追加の相談内容" setMessage={() => {}} deciding={false} onDecide={onDecide} />);
     await user.type(screen.getByRole("textbox"), "{Enter}");
+    expect(onDecide).not.toHaveBeenCalled();
+
+    await user.type(screen.getByRole("textbox"), "{Control>}{Enter}{/Control}");
     expect(onDecide).toHaveBeenCalledWith("追加の相談内容");
 
     onDecide.mockClear();

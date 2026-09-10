@@ -192,6 +192,27 @@ describe("addAlias / removeAlias", () => {
   });
 });
 
+describe("renamePerson", () => {
+  it("正式名を差し替え、旧名は別名として残る", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    expect(pd.renamePerson(id, "田中")).toEqual({ ok: true });
+    expect(pd.listPeople()).toEqual([{ id, name: "田中", aliases: ["田中さん"] }]);
+    expect(pd.maskNames("田中さんと話した")).toBe(`${id}と話した`);
+    expect(pd.unmaskNames(id)).toBe("田中");
+  });
+
+  it("既に別の人物の名前には変更できない", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("田中さん");
+    pd.registerName("佐藤さん");
+    expect(pd.renamePerson(id, "佐藤さん")).toEqual({
+      ok: false,
+      error: "この名前は既に別の人物として登録されています。「重複を統合」を使ってください。",
+    });
+  });
+});
+
 // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 describe("mergePersons", () => {
   it("統合元の正式名は統合先の別名になり、以後同じIDへマスクされる", async () => {

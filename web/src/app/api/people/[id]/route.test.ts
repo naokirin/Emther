@@ -56,12 +56,22 @@ describe("PATCH /api/people/[id]", () => {
     expect((await res.json()).person.aliases).toEqual([]);
   });
 
-  it("addAlias/removeAliasどちらも無ければ400", async () => {
+  it("addAlias/removeAlias/nameどれも無ければ400", async () => {
     const peopleDirectory = await import("@/lib/people-directory");
     const id = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", {}), routeCtx({ id }));
     expect(res.status).toBe(400);
+  });
+
+  it("nameで正式名を変更できる", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const id = peopleDirectory.registerName("田中さん");
+    const route = await import("./route");
+    const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { name: "田中" }), routeCtx({ id }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).person.name).toBe("田中");
+    expect(peopleDirectory.listPeople()[0].aliases).toContain("田中さん");
   });
 
   it("addAliasが既に別の人物のものなら400", async () => {

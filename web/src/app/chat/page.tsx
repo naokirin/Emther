@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
@@ -51,16 +51,25 @@ function ChatPageInner() {
     .sort((a, b) => b.updatedAt - a.updatedAt);
   const chatHistoryLoaded = runsLoaded && issuesLoaded;
 
-  // docs/first_implession 3.6/3.7対応。Dashboardの「次にすべきこと」からAI自動起動runへ
-  // ?runId=で直接遷移できるようにする（最初のポーリング結果が届いた時点で一度だけ選択する）。
-  const [seededFromQuery, setSeededFromQuery] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // docs/usage_issues U6。runs+issuesの両方が揃ってから runId を選択する。
+  // render中のseedだと、chatRunsにまだ無い時点で諦めて新規相談フォームになる。
   const queryRunId = searchParams.get("runId");
-  if (queryRunId && !seededFromQuery && runs.length > 0) {
-    setSeededFromQuery(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!queryRunId || !chatHistoryLoaded) return;
     setSelectedId(queryRunId);
-  }
-  const selectedRun: AgentRun | null = selectedId ? chatRuns.find((r) => r.id === selectedId) ?? null : null;
+  }, [queryRunId, chatHistoryLoaded]);
+
+  const selectedRun: AgentRun | null = selectedId
+    ? (chatRuns.find((r) => r.id === selectedId) ??
+      runs.find((r) => r.id === selectedId && r.agentName === "Lead Agent") ??
+      null)
+    : null;
+
+  useEffect(() => {
+    if (!selectedId) return;
+    document.getElementById(`chat-history-${selectedId}`)?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, chatHistoryLoaded]);
 
   // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
   // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
@@ -199,6 +208,7 @@ function ChatPageInner() {
           {chatRuns.map((r) => (
             <button
               key={r.id}
+              id={`chat-history-${r.id}`}
               className={`${styles.runItem} ${selectedId === r.id ? styles.selected : ""}`}
               onClick={() => setSelectedId(r.id)}
             >

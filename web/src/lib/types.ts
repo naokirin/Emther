@@ -31,7 +31,13 @@ export type JournalEntry = {
   resolutionNote?: string;
 };
 
-// JournalEntryCard.tsxの「✅ 対応済み」表示と同じ判定基準（Issueで追跡中、または
+export function journalResolutionLabel(entry: JournalEntry): string {
+  if (entry.resolvedIssueId) return "対応済み/Issue化済み";
+  if (entry.resolutionNote) return "対応済み";
+  return "";
+}
+
+// JournalEntryCard.tsxの解決表示と同じ判定基準（Issueで追跡中、または
 // 対応メモが残っている）。/journal一覧の「対応済みを除外」フィルタと表示ラベルの
 // 両方でこの1箇所を参照し、判定基準がずれないようにする。
 export function isJournalEntryResolved(entry: JournalEntry): boolean {

@@ -5,6 +5,7 @@ import {
   isIssueActive,
   isIssueStalled,
   isJournalEntryResolved,
+  journalResolutionLabel,
   isRunStale,
   issueBacklogActionItems,
   issueNextAction,
@@ -238,6 +239,16 @@ describe("isJournalEntryResolved", () => {
 
   it("resolutionNoteがあれば対応済み", () => {
     expect(isJournalEntryResolved(baseEntry({ resolutionNote: "様子見に決めた" }))).toBe(true);
+  });
+});
+
+describe("journalResolutionLabel", () => {
+  it("Issue化済みは対応済み/Issue化済み", () => {
+    expect(journalResolutionLabel(baseEntry({ resolvedIssueId: "issue-1" }))).toBe("対応済み/Issue化済み");
+  });
+
+  it("解決メモだけなら対応済み", () => {
+    expect(journalResolutionLabel(baseEntry({ resolutionNote: "様子見" }))).toBe("対応済み");
   });
 });
 

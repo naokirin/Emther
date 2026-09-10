@@ -180,7 +180,7 @@ function JournalListPageInner() {
               checked={excludeResolved}
               onChange={(e) => updateFilter(setExcludeResolved)(e.target.checked)}
             />
-            ✅ 対応済みを除外
+            ✅ 対応済み/Issue化済みを除外
           </label>
         </div>
       </div>

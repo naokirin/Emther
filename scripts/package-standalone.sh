@@ -188,7 +188,8 @@ Emther (EM Support System) — prebuilt package ($VERSION / $PLATFORM)
 
 Install:
   ./install.sh
-  # or:  ./bin/emther is copied to ~/.local/bin by install.sh
+  # 展開済みディレクトリ（app/ が隣にある）からホストへコピーします。
+  # tarball を直接渡す場合: emther install-release emther-vX.Y.Z-<platform>.tar.gz
 
 Then:
   emther doctor
