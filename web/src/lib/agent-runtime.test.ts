@@ -271,6 +271,22 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(ctx).toContain("```themes");
   });
 
+  it("extractJournalAutoAnalysisTextは対象エントリ本文を取り出す", async () => {
+    const rt = await loadModule();
+    const task = [
+      "前置き。",
+      "",
+      '対象のJournalエントリ: "1on1が空回りした"',
+    ].join("\n");
+    expect(rt.extractJournalAutoAnalysisText(task)).toBe("1on1が空回りした");
+  });
+
+  it("buildSystemPromptはrelatedContextを含める", async () => {
+    const rt = await loadModule();
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, undefined, undefined, undefined, "関連束テスト");
+    expect(prompt).toContain("関連束テスト");
+  });
+
   it("extractCharterはwhy/what/howのうち有効な値だけをパースする", async () => {
     const rt = await loadModule();
     const text = '```charter\n{ "why": "価値", "what": "", "how": 123 }\n```';
