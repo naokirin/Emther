@@ -7,7 +7,7 @@ import { STATUS_META, StatusBadge, runKindLabel, type AgentRun, type AgentStatus
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { useGoToRunIssue, useIssues, useRuns, useRunsInbox, useSettingsRules } from "@/lib/hooks";
-import { AGENT_OPTIONS, isRunStale } from "@/lib/types";
+import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@/lib/types";
 
 // docs/em_ui_ux_issue.md「ダッシュボードの簡素化」対応。旧「今日」タブに同居していた
 // Agent Fleet状態・横断Activity Stream・「相談・起動」パネル（エージェント起動フォーム＋
@@ -281,7 +281,7 @@ export default function AgentsPage() {
                     </td>
                     <td>
                       <button className={styles.tableRowLink} onClick={() => handleInboxRunClick(run)}>
-                        {run.agentName}: {run.task}
+                        {run.agentName}: {truncateForTitle(run.task, 80)}
                       </button>
                       {run.consultedBy && (
                         <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>

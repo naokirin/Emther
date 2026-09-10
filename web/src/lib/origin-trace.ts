@@ -38,6 +38,7 @@ const AUTO_ORIGIN_LABEL: Record<string, string> = {
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
   "auto-issue-update": "Issue更新分析",
+  "auto-distill": "状況蒸留",
 };
 
 export type ConsultListContentRun = {
@@ -55,6 +56,14 @@ export function consultListTitle(run: ConsultListContentRun): string {
 
   const draftTitle = issueDraftTitleFromTask(run.task);
   if (draftTitle) return draftTitle;
+
+  // 状況蒸留は task に材料全文を載せない（短い定型＋システム側コンテキスト）。
+  // 旧データで task が巨大でも、一覧には結論か「状況蒸留」だけ出す。
+  if (run.origin === "auto-distill") {
+    const distillConclusion = run.proposal?.conclusion?.trim();
+    if (distillConclusion) return distillConclusion;
+    return AUTO_ORIGIN_LABEL[run.origin] ?? "状況蒸留";
+  }
 
   if (run.origin === "manual") {
     const task = run.task.trim();

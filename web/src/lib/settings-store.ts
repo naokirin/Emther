@@ -49,6 +49,12 @@ export type RulesAndConstraints = {
   // tickで一度だけLead Agentへ朝のサマリー作成タスクを投げる。
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
+  // docs/knowledge_distillation.md。週次の状況蒸留（テーマ解釈候補）。既定OFF。
+  autoDistillationEnabled: boolean;
+  // 0=日曜 … 6=土曜（Date.getDay()と同じ）。既定1=月曜。
+  autoDistillationWeekday: number;
+  // サーバーローカル時刻の時（0〜23）。既定8。
+  autoDistillationHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
   // 起動することがある」対応。エージェントは1体につき1つのCLI子プロセス（claude/agy/
   // cursor-agent）を起動するため、無制限に並列起動を許すとメモリを大量消費し環境が
@@ -107,6 +113,9 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoIssueUpdateAnalysisEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
+  autoDistillationEnabled: false,
+  autoDistillationWeekday: 1,
+  autoDistillationHour: 8,
   maxParallelAgentRuns: 2,
   teamParallelKickoffEnabled: true,
   decisionQueueLimit: 3,

@@ -19,6 +19,7 @@ import {
   useRuns,
   useSettingsRules,
   useTeams,
+  useThemes,
   useVitals,
 } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
@@ -196,6 +197,7 @@ export default function DashboardPage() {
   const { objectives, objectivesLoaded } = useObjectives();
   // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
   const { people, peopleLoaded } = usePeople();
+  const { themes, refreshThemes } = useThemes();
   // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
   // SettingsのrulesLoadedと同じ考え方（usePollingのloaded）。
   const setupLoaded = strategyLoaded && teamsLoaded && objectivesLoaded;
@@ -341,6 +343,12 @@ export default function DashboardPage() {
   // docs/dashboard_ui_readability.md U4-1対応。Quick Journalと長期プロファイルが
   // 同一パネル内で「入力が2種類」に見えないよう、長期プロファイルは既定で畳んでおく。
   const [profileOpen, setProfileOpen] = useState(false);
+  const [distillSubmitting, setDistillSubmitting] = useState(false);
+  const [distillError, setDistillError] = useState<string | null>(null);
+  const [themeRationaleOpenId, setThemeRationaleOpenId] = useState<string | null>(null);
+  const [themeEditId, setThemeEditId] = useState<string | null>(null);
+  const [themeEditDraft, setThemeEditDraft] = useState({ title: "", summary: "", rationale: "" });
+  const [themeEditBusy, setThemeEditBusy] = useState(false);
 
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
@@ -990,6 +998,169 @@ export default function DashboardPage() {
               頻度を調整
             </button>
           </p>
+        )}
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
+          <button
+            className={styles.btnOutline}
+            disabled={distillSubmitting}
+            onClick={async () => {
+              setDistillSubmitting(true);
+              setDistillError(null);
+              try {
+                const res = await fetch("/api/themes/distill", { method: "POST" });
+                const data = await res.json().catch(() => null);
+                if (res.status === 202) {
+                  await refreshRuns();
+                  return;
+                }
+                if (!res.ok) throw new Error(data?.error ?? "状況蒸留の起動に失敗しました");
+                const runId = data?.run?.id as string | undefined;
+                await refreshRuns();
+                if (runId) router.push(`/chat?runId=${runId}`);
+              } catch (err) {
+                setDistillError((err as Error).message);
+              } finally {
+                setDistillSubmitting(false);
+              }
+            }}
+          >
+            {distillSubmitting ? "蒸留を起動中…" : "🧭 状況を蒸留する"}
+          </button>
+          <span className={styles.subtitle} style={{ margin: 0 }}>
+            Journal・Issueから根本課題の見立てを候補化する（採用するまで壁打ち前提には入らない）
+          </span>
+        </div>
+        {distillError && (
+          <p className={styles.errorText} role="alert">
+            {distillError}
+          </p>
+        )}
+
+        {themes.filter((t) => t.status === "adopted").length > 0 && (
+          <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
+            <strong>採用済みのテーマ解釈</strong>
+            <p className={styles.subtitle} style={{ marginTop: 4 }}>
+              Issue壁打ちの前提としてエージェントに渡されます。誤りは編集するか、相談で壁打ちしてください。
+            </p>
+            {themes
+              .filter((t) => t.status === "adopted")
+              .map((t) => (
+                <div key={t.id} style={{ marginTop: 10, fontSize: "0.8125rem" }}>
+                  {themeEditId === t.id ? (
+                    <div className={styles.field}>
+                      <label>
+                        タイトル
+                        <input
+                          value={themeEditDraft.title}
+                          onChange={(e) => setThemeEditDraft({ ...themeEditDraft, title: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        根本課題の見立て
+                        <textarea
+                          rows={2}
+                          value={themeEditDraft.summary}
+                          onChange={(e) => setThemeEditDraft({ ...themeEditDraft, summary: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        なぜこの結果に至ったか
+                        <textarea
+                          rows={3}
+                          value={themeEditDraft.rationale}
+                          onChange={(e) => setThemeEditDraft({ ...themeEditDraft, rationale: e.target.value })}
+                        />
+                      </label>
+                      <div className={styles.yieldActions}>
+                        <button
+                          className={styles.primaryBtn}
+                          style={{ width: "auto" }}
+                          disabled={themeEditBusy}
+                          onClick={async () => {
+                            setThemeEditBusy(true);
+                            try {
+                              const res = await fetch(`/api/themes/${t.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "revise", ...themeEditDraft }),
+                              });
+                              if (!res.ok) throw new Error("更新に失敗しました");
+                              setThemeEditId(null);
+                              await refreshThemes();
+                            } finally {
+                              setThemeEditBusy(false);
+                            }
+                          }}
+                        >
+                          保存
+                        </button>
+                        <button className={styles.btnOutline} onClick={() => setThemeEditId(null)}>
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <strong>{t.title}</strong>
+                      <p style={{ margin: "2px 0 4px" }}>{t.summary}</p>
+                      <button
+                        className={styles.detailToggle}
+                        type="button"
+                        onClick={() => setThemeRationaleOpenId(themeRationaleOpenId === t.id ? null : t.id)}
+                      >
+                        {themeRationaleOpenId === t.id ? "根拠を隠す" : "なぜこの結果か"}
+                      </button>
+                      {themeRationaleOpenId === t.id && (
+                        <div style={{ marginTop: 6, color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                          <p>{t.rationale}</p>
+                          {t.facts.length > 0 && (
+                            <ul style={{ margin: "4px 0 0 16px" }}>
+                              {t.facts.map((f, i) => (
+                                <li key={i}>{f}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {t.rootCause && <p>根本原因: {t.rootCause}</p>}
+                          {t.suggestedDirection && <p>解決の方向性: {t.suggestedDirection}</p>}
+                        </div>
+                      )}
+                      <div className={styles.yieldActions} style={{ marginTop: 6 }}>
+                        <button
+                          className={styles.btnOutline}
+                          type="button"
+                          onClick={() => {
+                            setThemeEditId(t.id);
+                            setThemeEditDraft({ title: t.title, summary: t.summary, rationale: t.rationale });
+                          }}
+                        >
+                          編集して訂正
+                        </button>
+                        {t.sourceRunId && (
+                          <button className={styles.btnOutline} type="button" onClick={() => router.push(`/chat?runId=${t.sourceRunId}`)}>
+                            壁打ちで見直す
+                          </button>
+                        )}
+                        <button
+                          className={styles.btnOutline}
+                          type="button"
+                          onClick={async () => {
+                            await fetch(`/api/themes/${t.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "dismiss" }),
+                            });
+                            await refreshThemes();
+                          }}
+                        >
+                          採用を取り消す
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+          </div>
         )}
 
         <div className={styles.tabs} style={{ margin: "0 0 12px" }}>

@@ -16,6 +16,7 @@ const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
   "auto-issue-update": "Issue更新分析",
+  "auto-distill": "状況蒸留",
 };
 
 const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {
@@ -55,16 +56,59 @@ function ChatPageInner() {
   const chatHistoryLoaded = runsLoaded && issuesLoaded;
 
   // docs/usage_issues U6。runs+issuesの両方が揃ってから runId を選択する。
-  // render中のseedだと、chatRunsにまだ無い時点で諦めて新規相談フォームになる。
+  // 蒸留など巨大taskの旧runは /api/agents 全件に載らない／遅延することがあるため、
+  // 一覧に無いときは GET /api/agents/[id] で1件だけ拾って履歴へピン留めする。
   const queryRunId = searchParams.get("runId");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pinnedRun, setPinnedRun] = useState<AgentRun | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!queryRunId || !chatHistoryLoaded) return;
     setSelectedId(queryRunId);
-  }, [queryRunId, chatHistoryLoaded]);
+    const inList = runs.find((r) => r.id === queryRunId);
+    if (inList) {
+      setPinnedRun(inList);
+      setPinError(null);
+      return;
+    }
+    let cancelled = false;
+    setPinError(null);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/agents/${queryRunId}`);
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (!res.ok || !data?.run) {
+          setPinnedRun(null);
+          setPinError("指定された相談が見つかりませんでした。");
+          return;
+        }
+        setPinnedRun(data.run as AgentRun);
+      } catch {
+        if (!cancelled) {
+          setPinnedRun(null);
+          setPinError("相談の取得に失敗しました。");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [queryRunId, chatHistoryLoaded, runs]);
+
+  // URLで指定されたLead runが一覧フィルタ外でも履歴に出す（Issue化済みや取得遅延の保険）。
+  const historyRuns = (() => {
+    if (!pinnedRun || pinnedRun.agentName !== "Lead Agent") return chatRuns;
+    if (chatRuns.some((r) => r.id === pinnedRun.id)) {
+      return chatRuns.map((r) => (r.id === pinnedRun.id ? pinnedRun : r));
+    }
+    return [pinnedRun, ...chatRuns];
+  })();
 
   const selectedRun: AgentRun | null = selectedId
-    ? (chatRuns.find((r) => r.id === selectedId) ??
+    ? (historyRuns.find((r) => r.id === selectedId) ??
+      (pinnedRun?.id === selectedId ? pinnedRun : null) ??
       runs.find((r) => r.id === selectedId && r.agentName === "Lead Agent") ??
       null)
     : null;
@@ -72,7 +116,7 @@ function ChatPageInner() {
   useEffect(() => {
     if (!selectedId) return;
     document.getElementById(`chat-history-${selectedId}`)?.scrollIntoView({ block: "nearest" });
-  }, [selectedId, chatHistoryLoaded]);
+  }, [selectedId, chatHistoryLoaded, historyRuns.length]);
 
   // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
   // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
@@ -192,6 +236,39 @@ function ChatPageInner() {
     document.getElementById("chat-page-input")?.focus();
   }
 
+  const [themesSubmitting, setThemesSubmitting] = useState(false);
+
+  async function handleAdoptThemes() {
+    if (!selectedRun) return;
+    setThemesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/themes`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "テーマの採用に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setThemesSubmitting(false);
+    }
+  }
+
+  async function handleDismissThemes() {
+    if (!selectedRun) return;
+    setThemesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/themes`, { method: "DELETE" });
+      if (!res.ok) throw new Error("テーマ提案の却下に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setThemesSubmitting(false);
+    }
+  }
+
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel}>
@@ -207,10 +284,15 @@ function ChatPageInner() {
           ＋ 新しい相談を始める
         </button>
         <div className={styles.runList}>
-          {chatRuns.length === 0 && (
+          {historyRuns.length === 0 && (
             <p className={styles.subtitle}>{!chatHistoryLoaded ? "読み込み中…" : "まだ相談履歴はありません。"}</p>
           )}
-          {chatRuns.map((r) => (
+          {pinError && (
+            <p className={styles.errorText} role="alert">
+              {pinError}
+            </p>
+          )}
+          {historyRuns.map((r) => (
             <ConsultHistoryItem
               key={r.id}
               run={r}
@@ -283,6 +365,9 @@ function ChatPageInner() {
               deciding={deciding}
               stale={staleRunIds.has(selectedRun.id)}
               onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
+              onAdoptThemes={handleAdoptThemes}
+              onDismissThemes={handleDismissThemes}
+              themesSubmitting={themesSubmitting}
             />
             <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />
             <CopilotChat run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="chat-page-input" />

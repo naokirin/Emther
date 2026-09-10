@@ -234,6 +234,43 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractPriority('```priority\n"urgent"\n```')).toBeUndefined();
   });
 
+  it("extractThemesは必須フィールドがあるテーマだけをパースする", async () => {
+    const rt = await loadModule();
+    const text = `\`\`\`themes
+[
+  { "title": "承認滞留", "summary": "決裁が詰まる", "rationale": "複数Issueで同様", "facts": ["f1"] },
+  { "title": "不完全", "summary": "x" }
+]
+\`\`\``;
+    expect(rt.extractThemes(text)).toEqual([
+      { title: "承認滞留", summary: "決裁が詰まる", rationale: "複数Issueで同様", facts: ["f1"] },
+    ]);
+  });
+
+  it("buildThemesContextBlockは採用済みテーマだけを載せる", async () => {
+    const themeStore = await import("@/lib/theme-store");
+    const candidate = await themeStore.createThemeCandidate({
+      title: "テーマA",
+      summary: "見立てA",
+      rationale: "根拠A",
+      facts: ["f"],
+    });
+    await themeStore.adoptTheme(candidate.id);
+    const rt = await loadModule();
+    const block = rt.buildThemesContextBlock();
+    expect(block).toContain("テーマA");
+    expect(block).toContain("なぜこの解釈か");
+  });
+
+  it("蒸留のtaskは短く、材料はcontextブロック側に載る", async () => {
+    const rt = await loadModule();
+    expect(rt.buildDistillationTask().length).toBeLessThan(200);
+    expect(rt.DISTILLATION_TASK).toBe(rt.buildDistillationTask());
+    const ctx = rt.buildDistillationContextBlock();
+    expect(ctx).toContain("直近Journal");
+    expect(ctx).toContain("```themes");
+  });
+
   it("extractCharterはwhy/what/howのうち有効な値だけをパースする", async () => {
     const rt = await loadModule();
     const text = '```charter\n{ "why": "価値", "what": "", "how": 123 }\n```';

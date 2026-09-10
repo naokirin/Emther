@@ -109,6 +109,15 @@ export async function PATCH(request: Request) {
     autoIssueUpdateAnalysisEnabled: bool(body?.autoIssueUpdateAnalysisEnabled),
     autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
     autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
+    autoDistillationEnabled: bool(body?.autoDistillationEnabled),
+    autoDistillationWeekday:
+      num(body?.autoDistillationWeekday) !== undefined
+        ? Math.min(6, Math.max(0, Math.round(num(body?.autoDistillationWeekday)!)))
+        : undefined,
+    autoDistillationHour:
+      num(body?.autoDistillationHour) !== undefined
+        ? Math.min(23, Math.max(0, Math.round(num(body?.autoDistillationHour)!)))
+        : undefined,
     maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
     teamParallelKickoffEnabled: bool(body?.teamParallelKickoffEnabled),
     decisionQueueLimit: positiveInt(body?.decisionQueueLimit),

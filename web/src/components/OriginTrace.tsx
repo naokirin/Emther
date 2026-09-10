@@ -13,13 +13,14 @@ export type OriginTraceJournal = {
 export type OriginTraceConsult = {
   id: string;
   task: string;
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
 };
 
 function originKindLabel(origin: OriginTraceConsult["origin"]): string | undefined {
   if (origin === "auto-anomaly") return "Journal自動分析";
   if (origin === "auto-summary") return "朝のサマリー";
   if (origin === "auto-issue-update") return "Issue更新分析";
+  if (origin === "auto-distill") return "状況蒸留";
   return undefined;
 }
 

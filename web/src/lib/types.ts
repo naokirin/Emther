@@ -178,7 +178,7 @@ export type PendingUnmaskedSend = {
   issueTitle?: string;
   agentName?: string;
   task?: string;
-  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update";
+  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
   linkedIssueId?: string;
   sourceJournalId?: string;
   runId?: string;
@@ -207,6 +207,10 @@ export type RulesAndConstraints = {
   autoIssueUpdateAnalysisEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
+  // docs/knowledge_distillation.md。週次の状況蒸留（既定OFF）。
+  autoDistillationEnabled: boolean;
+  autoDistillationWeekday: number;
+  autoDistillationHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
   // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
   // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
@@ -578,6 +582,38 @@ export type PersonProfile = PersonSummary & {
   facts: PersonFact[];
   interpretations: { id: string; text: string; occurredAt: number }[];
   relatedIssues: PersonRelatedIssue[];
+};
+
+// docs/knowledge_distillation.md。組織状況の統括解釈（テーマ）。
+export type ThemeStatus = "candidate" | "adopted" | "dismissed";
+
+export type OrgTheme = {
+  id: string;
+  title: string;
+  summary: string;
+  rationale: string;
+  facts: string[];
+  rootCause?: string;
+  suggestedDirection?: string;
+  evidenceJournalIds: string[];
+  evidenceIssueIds: string[];
+  status: ThemeStatus;
+  sourceRunId?: string;
+  teamId?: string;
+  createdAt: number;
+  updatedAt: number;
+  adoptedAt?: number;
+};
+
+export type SuggestedTheme = {
+  title: string;
+  summary: string;
+  rationale: string;
+  facts: string[];
+  rootCause?: string;
+  suggestedDirection?: string;
+  evidenceJournalIds?: string[];
+  evidenceIssueIds?: string[];
 };
 
 // docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
