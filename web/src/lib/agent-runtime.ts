@@ -18,7 +18,8 @@ import { getDb } from "@/lib/db";
 import { buildRelatedBundleBlock, issueEmbedSource } from "@/lib/related-context";
 import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
-import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
+import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, charterFilledCount, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
+import { computeOrgVitals } from "@/lib/vitals";
 
 export type { SuggestedTheme };
 
@@ -558,13 +559,100 @@ export function checkMorningSummary(): void {
   // 先にクレームしてから startRun（並行 tick が同じ窓に入っても2件目は上のガードで弾く）。
   guard.lastAutoMorningSummaryDate = today;
   saveLastAutoMorningSummaryDate(today);
-  void startRun(
-    "Lead Agent",
-    "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・Why/What/Howが未整理のIssueなど、今日EMがまず確認すべきことを簡潔に整理してください。",
-    "auto-summary",
-  ).catch(() => {
+  void startRun("Lead Agent", MORNING_SUMMARY_TASK, "auto-summary").catch(() => {
     // 自動サマリーの起動失敗は無視する（次のwatchdog tickで日付が変わらない限り再試行はしない）。
   });
+}
+
+/** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildMorningSummaryContextBlock へ。 */
+export const MORNING_SUMMARY_TASK =
+  "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・Why/What/Howが未整理のIssueなど、今日EMがまず確認すべきことを簡潔に整理してください。";
+
+const MORNING_YIELD_LIMIT = 15;
+const MORNING_ERROR_LIMIT = 10;
+const MORNING_CHARTER_ISSUE_LIMIT = 15;
+
+// 朝サマリーの材料は run.task に載せない（巨大 task で相談履歴が壊れる・U13 と同型）。
+// origin=auto-summary のときシステムプロンプトへ動的注入する。再開（decideRun）でも
+// origin 判定だけで再注入するため、「続けて」だけでは材料が消えない。
+export function buildMorningSummaryContextBlock(): string {
+  const vitals = computeOrgVitals();
+  const issues = listIssues();
+  const allRuns = [...runs.values()];
+
+  const omitRun = (run: AgentRun) => {
+    if (run.consultedBy) return true;
+    if (run.triageStatus === "dismissed") return true;
+    return issues.some((i) => i.agentRunId === run.id && i.archived);
+  };
+
+  const yieldRuns = allRuns
+    .filter((r) => r.status === "yield" && !omitRun(r))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MORNING_YIELD_LIMIT);
+  const errorRuns = allRuns
+    .filter((r) => r.status === "error" && !omitRun(r))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MORNING_ERROR_LIMIT);
+  const unchartered = issues
+    .filter((i) => !i.parentId && !i.archived && i.status !== "done" && charterFilledCount(i.charter) < 3)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MORNING_CHARTER_ISSUE_LIMIT);
+
+  const teamLines =
+    vitals.teams.length > 0
+      ? vitals.teams.map((t) => `- ${t.teamName}: ${t.label}（${t.status}）— ${t.reason}`)
+      : ["- （チーム未登録）"];
+  const coverage = vitals.oneOnOneCoverage;
+  const coverageStatusLabel =
+    coverage.status === "good"
+      ? "安定"
+      : coverage.status === "warn"
+        ? "やや注意"
+        : coverage.status === "bad"
+          ? "要注意"
+          : "評価不能";
+  const coverageLine = `- 1on1 Coverage: ${coverageStatusLabel}（${coverage.status}） ${coverage.covered}/${coverage.total} — ${coverage.reason}`;
+
+  const yieldLines =
+    yieldRuns.length > 0
+      ? yieldRuns.map((r) => {
+          const reason = r.yieldRequest?.reason?.slice(0, 120) ?? "(理由なし)";
+          const kind = r.yieldRequest?.kind ? ` [${r.yieldRequest.kind}]` : "";
+          return `- [${r.id}] ${r.agentName}${kind}: ${reason}`;
+        })
+      : ["- （判断待ちの Yield なし）"];
+  const errorLines =
+    errorRuns.length > 0
+      ? errorRuns.map((r) => `- [${r.id}] ${r.agentName}: ${r.task.slice(0, 100)}`)
+      : ["- （エラー状態の Run なし）"];
+  const charterLines =
+    unchartered.length > 0
+      ? unchartered.map((i) => {
+          const filled = charterFilledCount(i.charter);
+          return `- [${i.id}] ${i.title}（Why/What/How ${filled}/3）`;
+        })
+      : ["- （Why/What/How 未整理の Issue なし）"];
+
+  return [
+    "朝のサマリーの材料（このタスク専用。下記はシステムが業務データから組み立てたスナップショット。無視して「材料が無い」としないこと）:",
+    "今日EMがまず確認・判断すべきことを優先度順に簡潔に整理し、proposalブロックで結論を出してください。",
+    "",
+    "【Team Vitals】",
+    ...teamLines,
+    "",
+    "【1on1 Coverage】",
+    coverageLine,
+    "",
+    "【判断待ち Yield】",
+    ...yieldLines,
+    "",
+    "【エラーの Agent Run】",
+    ...errorLines,
+    "",
+    "【Why/What/How 未整理の Issue】",
+    ...charterLines,
+  ].join("\n");
 }
 
 // docs/knowledge_distillation.md。週次の状況蒸留。朝サマリーと同様に watchdog へ相乗りし、
@@ -1409,7 +1497,8 @@ export function buildSystemPrompt(
 
   const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
-    "与えられたタスクの文脈だけを判断材料とし、実際の外部システムやファイルには一切アクセスできません（ツールは無効化されています）。",
+    "判断材料は、(1) このターンで渡されたタスク文と、(2) このシステムプロンプト末尾にシステムが注入した組織ナレッジ（Issue・Journal・Team Vitals・戦略・テーマ等のスナップショット）です。",
+    "任意のファイル・データベース・外部システムへの直接アクセスはできません（ツールは無効化されています）。一方で、注入済みのナレッジブロックはすでに渡されている判断材料です。それを無視して「前提情報が無い」「課題テキストが提示されていない」と述べないでください。本当に注入ブロックにも無い情報だけが不足している場合に限り yield（inform）してください。",
     "",
     ...roleBlock,
     "回答のルール:",
@@ -1457,10 +1546,14 @@ export function buildSystemPrompt(
   const strategyContext = buildStrategyBlock();
   const objectivesContext = buildObjectivesBlock(agentName);
   const themesContext = buildThemesContextBlock();
-  // 状況蒸留: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
-  const distillContext = runId && runs.get(runId)?.origin === "auto-distill" ? buildDistillationContextBlock() : "";
+  // 状況蒸留・朝サマリー: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
+  // 再開（decideRun）でも origin 判定だけで再注入する。
+  const runOrigin = runId ? runs.get(runId)?.origin : undefined;
+  const distillContext = runOrigin === "auto-distill" ? buildDistillationContextBlock() : "";
+  const morningContext = runOrigin === "auto-summary" ? buildMorningSummaryContextBlock() : "";
   return [
     base,
+    morningContext,
     distillContext,
     issueContext,
     relatedContext,
@@ -1907,10 +2000,12 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   run.pendingConsult = undefined;
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
-  const journalContext = await buildJournalContextBlock(rawPrompt, run.agentName);
-  const relatedContext = await buildRelatedContextForRun(run, rawPrompt);
+  // 再開時に「続けて」だけの短い入力だと意味検索が枯れるため、元タスク文もクエリに含める。
+  const contextQuery = rawPrompt.trim() === run.task.trim() ? rawPrompt : `${rawPrompt}\n${run.task}`;
+  const journalContext = await buildJournalContextBlock(contextQuery, run.agentName);
+  const relatedContext = await buildRelatedContextForRun(run, contextQuery);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
-  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, rawPrompt, relatedContext);
+  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, contextQuery, relatedContext);
 
   // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」・
   // 「サポートするAIエージェントCLIにCursor CLIを追加する」対応を、Settingsの
