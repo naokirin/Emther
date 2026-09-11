@@ -2,7 +2,8 @@
 # Emther (EM Support System) — ホスト向けランチャー（docs/packaging.md）
 # 使い方:
 #   ./scripts/emther install
-#   emther start|stop|status|doctor|backup|restore
+#   emther start|stop|restart|status|doctor|backup|restore
+#   emther start --port 3001
 #   emther build
 set -euo pipefail
 
@@ -106,7 +107,7 @@ resolve_source_root() {
 
 usage() {
   cat <<EOF
-Usage: emther <command>
+Usage: emther <command> [options]
 
 Commands:
   install          Build the standalone app, record source path, install launcher to ${BIN_HOME}
@@ -114,11 +115,16 @@ Commands:
   build            Build and install the app to ${APP_DIR}
   start            Start the installed app (binds ${HOST}:${PORT})
   stop             Stop the running app
+  restart          Stop then start (same options as start)
   status           Show process / paths / URL
   doctor           Check Node / app / data dirs / port / Agent CLIs
   backup           Archive data+secure to ${BACKUP_DIR} (contains personal data)
   restore          Restore from a backup archive (stops the app first)
   help             Show this help
+
+Options (start / restart):
+  --host <addr>    Bind host (overrides EM_HOST; default: 127.0.0.1)
+  --port <port>    Bind port (overrides EM_PORT; default: 3000)
 
 Environment:
   EM_APP_DIR            App install dir (default: ${SHARE_HOME}/${APP_NAME}/app)
@@ -126,9 +132,62 @@ Environment:
   EM_SECURE_DATA_DIR    People-directory dir (default: ${STATE_DIR}/secure)
   EM_BACKUP_DIR         Backup output dir (default: ${STATE_DIR}/backups)
   EM_SOURCE_ROOT        Git clone path (for build/install; else read from ${SOURCE_ROOT_FILE})
-  EM_HOST               Bind host (default: 127.0.0.1)
-  EM_PORT               Bind port (default: 3000)
+  EM_HOST               Bind host (default: 127.0.0.1; overridden by --host)
+  EM_PORT               Bind port (default: 3000; overridden by --port)
 EOF
+}
+
+# start / restart 向け。優先順位: CLI フラグ > 環境変数 > デフォルト
+parse_bind_opts() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --host)
+        if [[ $# -lt 2 || -z "${2}" || "${2}" == -* ]]; then
+          echo "error: --host には値が必要です" >&2
+          exit 1
+        fi
+        HOST="$2"
+        shift 2
+        ;;
+      --host=*)
+        HOST="${1#--host=}"
+        if [[ -z "$HOST" ]]; then
+          echo "error: --host には値が必要です" >&2
+          exit 1
+        fi
+        shift
+        ;;
+      --port)
+        if [[ $# -lt 2 || -z "${2}" || "${2}" == -* ]]; then
+          echo "error: --port には値が必要です" >&2
+          exit 1
+        fi
+        PORT="$2"
+        shift 2
+        ;;
+      --port=*)
+        PORT="${1#--port=}"
+        if [[ -z "$PORT" ]]; then
+          echo "error: --port には値が必要です" >&2
+          exit 1
+        fi
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "error: 不明なオプション: $1" >&2
+        echo "Usage: emther start|restart [--host <addr>] [--port <port>]" >&2
+        exit 1
+        ;;
+    esac
+  done
+  if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [[ "$PORT" -lt 1 || "$PORT" -gt 65535 ]]; then
+    echo "error: 不正なポート番号: $PORT（1–65535）" >&2
+    exit 1
+  fi
 }
 
 ensure_node() {
@@ -464,6 +523,7 @@ cmd_install() {
 }
 
 cmd_start() {
+  parse_bind_opts "$@"
   ensure_node
   migrate_previous_app_layout
   if [[ ! -f "$APP_DIR/server.js" ]]; then
@@ -535,6 +595,11 @@ cmd_stop() {
   echo "停止しました"
 }
 
+cmd_restart() {
+  cmd_stop
+  cmd_start "$@"
+}
+
 cmd_status() {
   migrate_previous_app_layout
   echo "APP_DIR=$APP_DIR"
@@ -572,6 +637,7 @@ main() {
     build) cmd_build "$@" ;;
     start) cmd_start "$@" ;;
     stop) cmd_stop "$@" ;;
+    restart) cmd_restart "$@" ;;
     status) cmd_status "$@" ;;
     doctor) cmd_doctor "$@" ;;
     backup) cmd_backup "$@" ;;
