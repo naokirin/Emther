@@ -53,3 +53,24 @@ describe("PATCH /api/issues/[id]/action-items/[itemId]", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("DELETE /api/issues/[id]/action-items/[itemId]", () => {
+  it("Action Itemを削除できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    await issueStore.addActionItem(issue.id, "残す");
+    const withSecond = await issueStore.addActionItem(issue.id, "消す");
+    const itemId = withSecond!.actionItems[1].id;
+
+    const route = await import("./route");
+    const res = await route.DELETE(new Request("http://localhost/x", { method: "DELETE" }), routeCtx({ id: issue.id, itemId }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).issue.actionItems.map((a: { text: string }) => a.text)).toEqual(["残す"]);
+  });
+
+  it("存在しないissue/itemIdは404", async () => {
+    const route = await import("./route");
+    const res = await route.DELETE(new Request("http://localhost/x", { method: "DELETE" }), routeCtx({ id: "missing", itemId: "missing" }));
+    expect(res.status).toBe(404);
+  });
+});

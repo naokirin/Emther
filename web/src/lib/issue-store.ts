@@ -568,6 +568,20 @@ export function toggleActionItem(issueId: string, itemId: string): Issue | undef
   return issue;
 }
 
+// 誤登録の取り消し用。完了済みも含め配列から除去する（アーカイブではなくハード削除）。
+// 「次の一手」を消した場合は、残りの未完了先頭が自然に次の一手になる。
+export function removeActionItem(issueId: string, itemId: string): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const index = issue.actionItems.findIndex((a) => a.id === itemId);
+  if (index < 0) return undefined;
+  const [item] = issue.actionItems.splice(index, 1);
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を削除しました`);
+  return issue;
+}
+
 // docs/em_ui_ux_issue.md 4節対応。statusはEMがカンバン・詳細画面から明示的に切り替える
 // （blocked/doneは事実から自動推定しない。§2.4の思想と同じ）。
 // docs/issue_tracker_contract.md §3: done への遷移で doneAt を立て、離脱で消す（介入効果の起点）。
