@@ -74,4 +74,18 @@ describe("POST /api/agents", () => {
     const json = await res.json();
     expect(json.run.sourceJournalId).toBe("j-1");
   });
+
+  it("requireExecConsultでrequiredConsultAgentsにExec Agentが入る", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        agentName: "Lead Agent",
+        task: "方針相談",
+        requireExecConsult: true,
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.run.requiredConsultAgents).toEqual(["Exec Agent"]);
+  });
 });

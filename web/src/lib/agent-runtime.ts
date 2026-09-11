@@ -25,7 +25,7 @@ import {
 } from "@/lib/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
-import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, charterFilledCount, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
+import { CLI_LABELS, EXEC_AGENT_NAME, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, charterFilledCount, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
 import { computeOrgVitals } from "@/lib/vitals";
 
 export type { SuggestedTheme };
@@ -140,7 +140,11 @@ export type SuggestedSubIssue = {
 };
 
 // docs/memo.md「F. Product Agentの追加」対応。Lead Agentの相談先候補にProduct Agentを含める。
-const SPECIALIST_AGENTS = ["People Agent", "Process Agent", "Tech Agent", "Product Agent"];
+// Exec Agentは経営／役員／MVV目線のオプトイン専門レンズ（何でも相談の必須consult先）。
+// チーム先行並列（selectRelatedSpecialists）の既定候補には含めない。
+const QUADRANT_SPECIALISTS = ["People Agent", "Process Agent", "Tech Agent", "Product Agent"];
+const SPECIALIST_AGENTS = [...QUADRANT_SPECIALISTS, EXEC_AGENT_NAME];
+export { EXEC_AGENT_NAME };
 
 // docs/agent_specialization.md「3. A. 役割定義」対応。以前は自己紹介1行
 // （「あなたは『〇〇 Agent』です」）だけで専門性をモデルの名前推論に委ねていたため、
@@ -190,6 +194,15 @@ const ROLE_BLOCKS: Record<string, string[]> = {
     "- やらないこと: 個人のケアの本論（People）、詳細な技術設計（Tech）",
     "- 提案の翻訳先: 優先順位／スコープ、役割・意思決定（優先の決まる場所）、プロセス（価値検証の回し方）",
   ],
+  [EXEC_AGENT_NAME]: [
+    "【役割】",
+    "- 専門領域: 企業経営・役員目線での組織方針レビュー。組織MVV・中長期コミット・説明責任との整合",
+    "- 主に答える問い: 「組織の憲法と中長期に照らし、今の動き・案は妥当か。経営／役員に説明できるか」",
+    "- 見る: Mission/Vision/Values、Objective/KRのカスケード、やらないことの放棄、現場最適の積み上げ、短期最適化",
+    "- 厳しさの軸: MVV逸脱、中長期コミットとの矛盾、捨てるべきものの欠如、説明責任の弱さ。共感や現場配慮で結論を甘くしない",
+    "- やらないこと: Productの顧客価値設計の本論、Peopleの1on1設計、Techの実装可否の本論（境界は示してよい）",
+    "- 提案の翻訳先: 憲法／OKRの見直し要否、やらないことの明示、経営への説明の骨子、Issue化すべき組織課題の切り出し",
+  ],
 };
 
 // 専門エージェント（Lead以外）共通のテール。docs/agent_specialization.md 3.1
@@ -206,6 +219,7 @@ const CONSULT_ROUTING_TABLE = [
   "  - 承認待ち・会議・フロー・手戻り・依存 → Process Agent",
   "  - 障害・負債・リリース技術要因・スキル偏り（技術） → Tech Agent",
   "  - 優先順位・スコープ・KR・顧客価値・ロードマップ衝突 → Product Agent",
+  `  - 経営／役員目線・MVV整合・中長期コミットの厳しいレビュー → ${EXEC_AGENT_NAME}（EMが明示指定したとき以外は原則呼ばない）`,
   "  - 複合論点（例: 人×プロセス、技術×優先）は該当する2つまでに絞る（3つ以上は例外的な場合のみ）",
 ];
 
@@ -327,6 +341,9 @@ export type AgentRun = {
   origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
   // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
   sourceJournalId?: string;
+  // 何でも相談でEMが「経営／役員目線も聞く」をONにしたときなど、Leadがproposal/yieldする前に
+  // 必ずconsultへ含めなければならない専門エージェント名。メモリ上のみ（active中に効けば足りる）。
+  requiredConsultAgents?: string[];
   reviewed: boolean;
   // docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。reviewed（bool）だけでは
   // 「様子見」（追跡は続けるが緊急ではない）と「却下」（対応不要）を区別できないため、
@@ -925,7 +942,11 @@ export async function confirmPendingUnmaskedSend(
       pending.task,
       pending.origin ?? "manual",
       pending.linkedIssueId,
-      { ...allow, sourceJournalId: pending.sourceJournalId },
+      {
+        ...allow,
+        sourceJournalId: pending.sourceJournalId,
+        requiredConsultAgents: pending.requiredConsultAgents,
+      },
     );
   }
   return undefined;
@@ -1257,7 +1278,7 @@ export function buildStrategyBlock(): string {
 // 「判断の主軸にすべきか、参考程度か」という重み付けの差をつける。事実そのものを
 // 隠すと判断材料が欠けるため、削るのではなく強調の度合いだけを変える。
 function objectivesBlockIntro(agentName: string): string {
-  if (agentName === "Product Agent" || agentName === "Lead Agent") {
+  if (agentName === "Product Agent" || agentName === "Lead Agent" || agentName === EXEC_AGENT_NAME) {
     return "組織の今期Objective/Key Results（あなたの判断の主軸としてください。Organization Context / Strategy、絶対の前提として扱うこと）:";
   }
   if (agentName === "People Agent") {
@@ -1513,18 +1534,30 @@ export function buildSystemPrompt(
   rawText?: string,
   relatedContext?: string,
 ): string {
+  const requiredConsultAgents = (runId ? runs.get(runId)?.requiredConsultAgents : undefined)?.filter((a) =>
+    SPECIALIST_AGENTS.includes(a),
+  );
+  const requiredConsultRule =
+    agentName === "Lead Agent" && allowConsult && requiredConsultAgents && requiredConsultAgents.length > 0
+      ? [
+          `- 【必須】この相談では、結論（proposal/yield）を出す前に必ず ${requiredConsultAgents.map((a) => `「${a}」`).join("・")} をconsultのagentsに含めてください。当該エージェントへの相談なしにproposal/yieldしてはなりません。他の専門エージェントと同時に並行consultして構いません。lookupによる追加照会は先に行っても構いません。`,
+          "",
+        ]
+      : [];
+
   const consultRule =
     agentName === "Lead Agent" && allowConsult
       ? [
-          "- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent / Product Agent）のうち1つ以上に、1ターンにつき1回だけ相談できます。複数の専門性にまたがる論点なら、複数の専門エージェントに同時に（並行して）相談し、それぞれの回答を踏まえて結論を出してください。",
+          `- あなたはリードエージェントとして、必要なら専門エージェント（People Agent / Process Agent / Tech Agent / Product Agent / ${EXEC_AGENT_NAME}）のうち1つ以上に、1ターンにつき1回だけ相談できます。複数の専門性にまたがる論点なら、複数の専門エージェントに同時に（並行して）相談し、それぞれの回答を踏まえて結論を出してください。`,
           ...CONSULT_ROUTING_TABLE,
           "  自分（たち）の専門外の知識が結論の質を左右すると判断した場合、proposal/yieldの代わりに以下の形式でconsultブロックを1つだけ出力してください（相談は1回のみ。2回目以降は使えません）。",
           "  ```consult",
           '  { "agents": ["People Agent", "Tech Agent"], "question": "相談内容の要約（ログ用。questionsを省略したagentにはこの文面がそのまま送られます）", "questions": { "People Agent": "People Agent宛の質問（人物面だけを聞く）", "Tech Agent": "Tech Agent宛の質問（技術要因だけを聞く）" } }',
           "  ```",
-          '  agentsには "People Agent" / "Process Agent" / "Tech Agent" / "Product Agent" のうち1つ以上を、本当に必要な専門性だけに絞って指定してください（無関係なエージェントを含めるとコストが無駄に増えます）。',
+          `  agentsには "People Agent" / "Process Agent" / "Tech Agent" / "Product Agent" / "${EXEC_AGENT_NAME}" のうち1つ以上を、本当に必要な専門性だけに絞って指定してください（無関係なエージェントを含めるとコストが無駄に増えます）。`,
           '  questionsは任意ですが、同じ長文タスクを丸投げしないため強く推奨します。agentsに含まれるエージェントごとに「その専門性だけで答えられる問い」を1文で書き分けてください（例: 「Peopleには人物面だけ、Processには流れの詰まりだけ」）。questionsで指定しなかったagentにはquestionがそのまま使われます。',
           "",
+          ...requiredConsultRule,
         ]
       : [];
 
@@ -1950,6 +1983,48 @@ export function consultQuestionFor(consult: ConsultRequest, agentName: string): 
   return consult.questions?.[agentName] ?? consult.question;
 }
 
+// 何でも相談でEMが必須consultを指定したとき、Leadがproposal/yieldで終える／必須先を
+// agentsから落とすのを防ぐ。lookupはそのまま通し、consultがある場合は欠けた必須先を
+// 合流、consultが無い場合は必須先だけのconsultへ強制変換する。
+export function ensureRequiredConsult(
+  run: Pick<AgentRun, "agentName" | "task" | "requiredConsultAgents">,
+  consultRequest: ConsultRequest | undefined,
+  allowConsult: boolean,
+): ConsultRequest | undefined {
+  if (!allowConsult || run.agentName !== "Lead Agent") return consultRequest;
+  const required = (run.requiredConsultAgents ?? []).filter((a) => SPECIALIST_AGENTS.includes(a));
+  if (required.length === 0) return consultRequest;
+
+  if (consultRequest) {
+    const missing = required.filter((a) => !consultRequest.agents.includes(a));
+    if (missing.length === 0) return consultRequest;
+    const agents = [...consultRequest.agents, ...missing];
+    const questions = { ...(consultRequest.questions ?? {}) };
+    for (const agent of missing) {
+      if (!questions[agent]) {
+        questions[agent] =
+          agent === EXEC_AGENT_NAME
+            ? "組織のMVV・中長期目標・説明責任に照らし、この相談内容への経営／役員目線の厳しい見解を出してください。"
+            : `必須相談先として指定されています。専門領域の観点で見解を出してください（元タスク: ${run.task}）`;
+      }
+    }
+    return { ...consultRequest, agents, questions };
+  }
+
+  return {
+    agents: required,
+    question: `EMが必須の専門レビューを指定しています。次の観点で見解を出してください。\n\n元タスク: ${run.task}`,
+    questions: Object.fromEntries(
+      required.map((agent) => [
+        agent,
+        agent === EXEC_AGENT_NAME
+          ? "組織のMVV・中長期目標・説明責任に照らし、この相談内容への経営／役員目線の厳しい見解を出してください。"
+          : `必須相談先として指定されています。専門領域の観点で見解を出してください（元タスク: ${run.task}）`,
+      ]),
+    ),
+  };
+}
+
 function appendLog(run: AgentRun, channel: LogLine["channel"], text: string) {
   const line: LogLine = { ts: Date.now(), channel, text };
   run.log.push(line);
@@ -2043,12 +2118,24 @@ function applyAssistantResultText(run: AgentRun, resultText: string, allowConsul
   }
 
   const consultRequest = run.agentName === "Lead Agent" && allowConsult ? extractConsult(resultText) : undefined;
-  if (consultRequest) {
+  // lookup は既に上で処理済み。必須consultが残っているときは proposal/yield より consult を優先する。
+  const enforcedConsult = ensureRequiredConsult(run, consultRequest, allowConsult);
+  if (enforcedConsult) {
+    if (!consultRequest) {
+      appendLog(
+        run,
+        "system",
+        `[必須相談] EM指定により ${enforcedConsult.agents.join("・")} への相談を強制しました`,
+      );
+    } else if (enforcedConsult.agents.length > consultRequest.agents.length) {
+      const added = enforcedConsult.agents.filter((a) => !consultRequest.agents.includes(a));
+      appendLog(run, "system", `[必須相談] consultに ${added.join("・")} を追加しました`);
+    }
     // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
-    run.pendingConsult = consultRequest;
-    const consultLog = consultRequest.questions
-      ? consultRequest.agents.map((a) => `${a}へ: ${consultQuestionFor(consultRequest, a)}`).join(" / ")
-      : `${consultRequest.agents.join("・")}に質問: ${consultRequest.question}`;
+    run.pendingConsult = enforcedConsult;
+    const consultLog = enforcedConsult.questions
+      ? enforcedConsult.agents.map((a) => `${a}へ: ${consultQuestionFor(enforcedConsult, a)}`).join(" / ")
+      : `${enforcedConsult.agents.join("・")}に質問: ${enforcedConsult.question}`;
     appendLog(run, "system", `[相談] ${consultLog}`);
     return;
   }
@@ -2591,24 +2678,24 @@ function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
 }
 
 // Issueの介入型タグから関連specialistを選ぶ。タグが無い／介入型に該当しない場合は
-// 全specialist（People/Process/Tech/Product）を返す。
+// 4象限（People/Process/Tech/Product）を返す。Exec Agentはオプトイン専用のため含めない。
 export function selectRelatedSpecialists(issueId: string): string[] {
   const issue = getIssue(issueId);
-  if (!issue || issue.tags.length === 0) return [...SPECIALIST_AGENTS];
+  if (!issue || issue.tags.length === 0) return [...QUADRANT_SPECIALISTS];
 
   const selected = new Set<string>();
   for (const tag of issue.tags) {
     const mapping = INTERVENTION_TYPE_AGENTS[tag];
     if (!mapping) continue;
     for (const agent of mapping.primary) {
-      if (SPECIALIST_AGENTS.includes(agent)) selected.add(agent);
+      if (QUADRANT_SPECIALISTS.includes(agent)) selected.add(agent);
     }
     for (const agent of mapping.secondary) {
-      if (SPECIALIST_AGENTS.includes(agent)) selected.add(agent);
+      if (QUADRANT_SPECIALISTS.includes(agent)) selected.add(agent);
     }
   }
-  if (selected.size === 0) return [...SPECIALIST_AGENTS];
-  return SPECIALIST_AGENTS.filter((a) => selected.has(a));
+  if (selected.size === 0) return [...QUADRANT_SPECIALISTS];
+  return QUADRANT_SPECIALISTS.filter((a) => selected.has(a));
 }
 
 function buildSpecialistKickoffQuestion(task: string): string {
@@ -2895,10 +2982,14 @@ export async function startRun(
   rawTask: string,
   origin: AgentRun["origin"] = "manual",
   linkedIssueId?: string,
-  opts: MaskOptions & { sourceJournalId?: string } = {},
+  opts: MaskOptions & { sourceJournalId?: string; requiredConsultAgents?: string[] } = {},
 ): Promise<AgentRun> {
-  const { sourceJournalId, ...maskOpts } = opts;
+  const { sourceJournalId, requiredConsultAgents, ...maskOpts } = opts;
   await ensureNameCandidatesAllowed([rawTask], maskOpts);
+
+  const normalizedRequired = requiredConsultAgents
+    ?.filter((a) => SPECIALIST_AGENTS.includes(a))
+    .filter((a, i, arr) => arr.indexOf(a) === i);
 
   const run: AgentRun = {
     id: randomUUID(),
@@ -2912,6 +3003,7 @@ export async function startRun(
     origin,
     reviewed: origin === "manual",
     sourceJournalId,
+    ...(normalizedRequired && normalizedRequired.length > 0 ? { requiredConsultAgents: normalizedRequired } : {}),
   };
   const maskedTask = await sanitizeForCloud(run, rawTask);
   run.task = maskedTask;

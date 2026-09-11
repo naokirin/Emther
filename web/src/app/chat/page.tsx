@@ -172,6 +172,7 @@ function ChatPageInner() {
   // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
   // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
   const [task, setTask] = useState(searchParams.get("prefill") ?? "");
+  const [requireExecConsult, setRequireExecConsult] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -277,11 +278,20 @@ function ChatPageInner() {
     try {
       const { res, data } = await fetchWithNameConfirm(
         "/api/agents",
-        { method: "POST", body: { agentName: "Lead Agent", task, sourceJournalId: queryJournalId || undefined } },
+        {
+          method: "POST",
+          body: {
+            agentName: "Lead Agent",
+            task,
+            sourceJournalId: queryJournalId || undefined,
+            requireExecConsult: requireExecConsult || undefined,
+          },
+        },
         "送信する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
       setTask("");
+      setRequireExecConsult(false);
       selectHistoryRun((data as { run: { id: string } }).run.id);
       await refreshRuns();
     } catch (err) {
@@ -511,6 +521,30 @@ function ChatPageInner() {
                   placeholder="例: 最近チーム全体の元気度が心配。何を確認すればいい？"
                 /></label>
               </div>
+              <label
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  fontSize: "0.8125rem",
+                  marginBottom: 12,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={requireExecConsult}
+                  onChange={(e) => setRequireExecConsult(e.target.checked)}
+                  disabled={starting}
+                  style={{ marginTop: 3 }}
+                />
+                <span>
+                  経営／役員目線の厳しいレビューも聞く
+                  <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 2 }}>
+                    Leadが組織MVV・中長期コミットの視点でExec Agentへ必須相談します（普段はOFFで十分です）
+                  </span>
+                </span>
+              </label>
               <button className={styles.primaryBtn} type="submit" disabled={starting || !task.trim()}>
                 {starting ? "開始中…" : "相談を始める"}
               </button>

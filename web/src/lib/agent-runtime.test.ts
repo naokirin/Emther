@@ -426,6 +426,45 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractConsult(text)?.questions).toEqual({ "People Agent": "個別質問" });
   });
 
+  it("extractConsultはExec Agentを受け付ける", async () => {
+    const rt = await loadModule();
+    const text = '```consult\n{ "agents": ["Exec Agent"], "question": "経営レビュー" }\n```';
+    expect(rt.extractConsult(text)?.agents).toEqual(["Exec Agent"]);
+  });
+
+  it("ensureRequiredConsultは必須先が欠けていれば合流する", async () => {
+    const rt = await loadModule();
+    const merged = rt.ensureRequiredConsult(
+      { agentName: "Lead Agent", task: "方針相談", requiredConsultAgents: ["Exec Agent"] },
+      { agents: ["People Agent"], question: "人物面だけ" },
+      true,
+    );
+    expect(merged?.agents).toEqual(["People Agent", "Exec Agent"]);
+    expect(merged?.questions?.["Exec Agent"]).toContain("経営／役員目線");
+  });
+
+  it("ensureRequiredConsultはconsult無しなら必須先だけのconsultを返す", async () => {
+    const rt = await loadModule();
+    const forced = rt.ensureRequiredConsult(
+      { agentName: "Lead Agent", task: "方針相談", requiredConsultAgents: ["Exec Agent"] },
+      undefined,
+      true,
+    );
+    expect(forced?.agents).toEqual(["Exec Agent"]);
+    expect(forced?.question).toContain("方針相談");
+  });
+
+  it("ensureRequiredConsultはallowConsult=falseなら強制しない", async () => {
+    const rt = await loadModule();
+    expect(
+      rt.ensureRequiredConsult(
+        { agentName: "Lead Agent", task: "方針相談", requiredConsultAgents: ["Exec Agent"] },
+        undefined,
+        false,
+      ),
+    ).toBeUndefined();
+  });
+
   it("consultQuestionForは個別質問が無ければ共通questionにフォールバックする", async () => {
     const rt = await loadModule();
     const consult = { agents: ["People Agent", "Tech Agent"], question: "共通", questions: { "People Agent": "個別" } };
@@ -596,6 +635,24 @@ describe("buildSystemPrompt", () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true);
     expect(prompt).toContain("```consult");
+    expect(prompt).toContain("Exec Agent");
+  });
+
+  it("requiredConsultAgents付きrunでは必須consult指示が入る", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "方針を固めたい", "manual", undefined, {
+      requiredConsultAgents: ["Exec Agent"],
+    });
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, run.id);
+    expect(prompt).toContain("【必須】");
+    expect(prompt).toContain("Exec Agent");
+  });
+
+  it("Exec Agentの役割定義がプロンプトに入る", async () => {
+    const rt = await loadModule();
+    const prompt = rt.buildSystemPrompt("Exec Agent", false);
+    expect(prompt).toContain("企業経営・役員目線");
+    expect(prompt).toContain("共感や現場配慮で結論を甘くしない");
   });
 
   it("全エージェントのプロンプトにlookupブロックの説明を含む", async () => {
@@ -1278,6 +1335,49 @@ describe("decideRun", () => {
 });
 
 describe("Lead Agentのconsult協働ループ（handleConsult）", () => {
+  it("requiredConsultAgents指定時、Leadがproposalだけ返してもExec Agentへ強制consultする", async () => {
+    const rt = await loadModule();
+    const leadRun = await rt.startRun("Lead Agent", "MVVに照らして方針を見直したい", "manual", undefined, {
+      requiredConsultAgents: ["Exec Agent"],
+    });
+
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      sessionId: "sess-lead-exec",
+      text: '```proposal\n{ "conclusion": "このまま進める", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 2) throw new Error("exec run not created yet");
+    });
+    const execRun = rt.listRuns().find((r) => r.agentName === "Exec Agent")!;
+    expect(execRun.consultedBy).toBe(leadRun.id);
+    expect(rt.getRun(leadRun.id)?.log.some((l) => l.text.includes("[必須相談]"))).toBe(true);
+
+    await waitForSpawnCount(2);
+    const execCall = spawnCalls[1];
+    emitAssistantText(execCall.child, "Execとしての厳しい見解");
+    emitClaudeResult(execCall.child, { text: "Execとしての厳しい見解" });
+    closeChild(execCall.child, 0);
+
+    await waitForSpawnCount(3);
+    const followUp = spawnCalls[2];
+    const followPrompt = followUp.args[followUp.args.indexOf("-p") + 1];
+    expect(followPrompt).toContain("Execとしての厳しい見解");
+
+    emitClaudeResult(followUp.child, {
+      text: '```proposal\n{ "conclusion": "Exec見解を踏まえた結論", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(followUp.child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(leadRun.id)?.status === "active") throw new Error("still active");
+    });
+    expect(rt.getRun(leadRun.id)?.status).toBe("idle");
+    expect(rt.getRun(leadRun.id)?.proposal?.conclusion).toBe("Exec見解を踏まえた結論");
+  });
+
   it("consultブロックで専門エージェントを起動し、両者の回答を踏まえてLeadが最終proposalを出す", async () => {
     const rt = await loadModule();
     const leadRun = await rt.startRun("Lead Agent", "人と技術が絡む複合的な課題");
