@@ -25,6 +25,7 @@ import {
   issueNextAction,
   issueProgress,
   truncateForTitle,
+  type Issue,
   type IssuePriority,
   type IssueStatus,
 } from "@/lib/types";
@@ -97,34 +98,58 @@ function IssuesPageInner() {
   const [priorityFilter, setPriorityFilter] = useState<"all" | IssuePriority>("all");
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
+  // リスト: 親ごとの子Issue展開。既定は折りたたみ。
+  const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(() => new Set());
+  // ボード: 子Issueを自身のステータス列へ独立カードとして出すか。
+  const [showChildIssuesOnBoard, setShowChildIssuesOnBoard] = useState(false);
 
   const unlinkedRuns = runs.filter((r) => !issues.some((i) => i.agentRunId === r.id));
-  // 子Issue（parentIdあり）は親の詳細画面（サブIssue欄）で見る形にし、
-  // 一覧が親子入り混じって煩雑にならないようトップレベルだけを表示する。
   // アーカイブ済みは既定で隠す（docs/memo.md TODO対応）。EMが明示的にトグルした場合のみ表示する。
-  const topLevelIssues = issues.filter((i) => !i.parentId && (showArchived || !i.archived));
+  // リストはトップレベルを主行とし、展開時の子／ボードの子トグルも同じフィルタを通す。
   const archivedCount = issues.filter((i) => !i.parentId && i.archived).length;
 
+  function matchesIssueFilters(i: Issue): boolean {
+    if (!showArchived && i.archived) return false;
+    if (tagFilter && !i.tags.includes(tagFilter)) return false;
+    if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
+    if (statusFilter === "open") {
+      if (i.status === "done") return false;
+    } else if (statusFilter === "active") {
+      if (i.status !== "in_progress" && i.status !== "blocked") return false;
+    } else if (statusFilter !== "all" && i.status !== statusFilter) {
+      return false;
+    }
+    if (priorityFilter !== "all" && (i.priority ?? "normal") !== priorityFilter) return false;
+    return true;
+  }
+
   // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
-  const allTags = Array.from(new Set(topLevelIssues.flatMap((i) => i.tags))).sort((a, b) => a.localeCompare(b, "ja"));
-  const filteredIssues = topLevelIssues
-    .filter((i) => {
-      if (tagFilter && !i.tags.includes(tagFilter)) return false;
-      if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
-      if (statusFilter === "open") {
-        // isIssueActive 相当（アーカイブは topLevelIssues 側で既に除外）。
-        if (i.status === "done") return false;
-      } else if (statusFilter === "active") {
-        if (i.status !== "in_progress" && i.status !== "blocked") return false;
-      } else if (statusFilter !== "all" && i.status !== statusFilter) {
-        return false;
-      }
-      if (priorityFilter !== "all" && (i.priority ?? "normal") !== priorityFilter) return false;
-      return true;
-    })
+  // タグ候補は子Issueも含め（子をフィルタ対象にするため）、アーカイブ表示設定に従う。
+  const issuesForTagOptions = issues.filter((i) => showArchived || !i.archived);
+  const allTags = Array.from(new Set(issuesForTagOptions.flatMap((i) => i.tags))).sort((a, b) => a.localeCompare(b, "ja"));
+  const filteredIssues = issues
+    .filter((i) => !i.parentId)
+    .filter(matchesIssueFilters)
     .slice()
     .sort(compareIssuesByPriority);
+  const filteredChildIssues = issues
+    .filter((i) => !!i.parentId)
+    .filter(matchesIssueFilters)
+    .slice()
+    .sort(compareIssuesByPriority);
+  const boardIssues = showChildIssuesOnBoard
+    ? [...filteredIssues, ...filteredChildIssues].slice().sort(compareIssuesByPriority)
+    : filteredIssues;
   const issuesPagination = usePagination(filteredIssues, ISSUES_PAGE_SIZE);
+
+  function toggleIssueExpanded(issueId: string) {
+    setExpandedIssueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(issueId)) next.delete(issueId);
+      else next.add(issueId);
+      return next;
+    });
+  }
   const runsPagination = usePagination(unlinkedRuns, RUNS_PAGE_SIZE);
   // Action Itemsビュー: フィルタ済み介入のうち「次の一手」があるものだけ（優先度順は filteredIssues と同じ）。
   const actionRows = filteredIssues.flatMap((issue) => {
@@ -349,11 +374,21 @@ function IssuesPageInner() {
               style={{ minWidth: 160 }}
             />
           </label>
+          {viewMode === "board" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+              <input
+                type="checkbox"
+                checked={showChildIssuesOnBoard}
+                onChange={(e) => setShowChildIssuesOnBoard(e.target.checked)}
+              />
+              子Issueも表示する（{filteredChildIssues.length}件）
+            </label>
+          )}
         </div>
 
         {viewMode === "board" ? (
           <IssueBoard
-            issues={filteredIssues}
+            issues={boardIssues}
             allIssues={issues}
             now={now}
             staleInterventionDays={rules.staleInterventionDays}
@@ -444,11 +479,13 @@ function IssuesPageInner() {
                   </td>
                 </tr>
               )}
-              {issuesPagination.pageItems.map((issue) => {
+              {issuesPagination.pageItems.flatMap((issue) => {
                 const linkedRun = runs.find((r) => r.id === issue.agentRunId);
                 const childIssuesOfRow = issues.filter((i) => i.parentId === issue.id);
+                const expandableChildren = childIssuesOfRow.filter((c) => showArchived || !c.archived);
+                const visibleChildren = expandableChildren.filter(matchesIssueFilters).slice().sort(compareIssuesByPriority);
                 const charterCount = charterFilledCount(issue.charter);
-                const childCount = childIssuesOfRow.length;
+                const childCount = expandableChildren.length;
                 const progress = issueProgress(issue, childIssuesOfRow);
                 const stalled = isIssueStalled(issue, now, rules.staleInterventionDays);
                 const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
@@ -457,29 +494,53 @@ function IssuesPageInner() {
                 const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
                 const nextAction = issueNextAction(issue);
                 const priority = issue.priority ?? "normal";
-                return (
+                const expanded = expandedIssueIds.has(issue.id);
+
+                const parentRow = (
                   <tr key={issue.id} style={issue.archived ? { opacity: 0.6 } : undefined}>
                     <td>
-                      <button className={styles.tableRowLink} onClick={() => peek.open(issue.id)}>
-                        {issue.title}
-                      </button>
-                      <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
-                        {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
-                        {childCount > 0 && <span className={styles.tableMuted}>🧩 子Issue: {childCount}件</span>}
-                        {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
-                        {issue.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
-                        {issue.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
-                      </div>
-                      {topicTags.length > 0 && (
-                        <div className={styles.tagRow} style={{ marginTop: 4 }}>
-                          {topicTags.map((tag) => (
-                            <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
-                              #{tag}
-                            </span>
-                          ))}
+                      <div className={styles.issueTitleCell}>
+                        {childCount > 0 ? (
+                          <button
+                            type="button"
+                            className={styles.issueTreeToggle}
+                            aria-expanded={expanded}
+                            aria-label={expanded ? "子Issueを折りたたむ" : "子Issueを展開する"}
+                            onClick={() => toggleIssueExpanded(issue.id)}
+                          >
+                            {expanded ? "▼" : "▶"}
+                          </button>
+                        ) : (
+                          <span className={styles.issueTreeToggleSpacer} aria-hidden />
+                        )}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <button className={styles.tableRowLink} onClick={() => peek.open(issue.id)}>
+                            {issue.title}
+                          </button>
+                          <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {linkedRun && <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />}
+                            {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
+                            {childCount > 0 && (
+                              <span className={styles.tableMuted}>
+                                🧩 子Issue: {childCount}件
+                                {expanded && visibleChildren.length !== childCount ? `（表示 ${visibleChildren.length}）` : ""}
+                              </span>
+                            )}
+                            {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
+                            {issue.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
+                            {issue.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
+                          </div>
+                          {topicTags.length > 0 && (
+                            <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                              {topicTags.map((tag) => (
+                                <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </td>
                     <td>
                       <IssueStatusBadge status={issue.status} />
@@ -550,6 +611,101 @@ function IssuesPageInner() {
                     </td>
                   </tr>
                 );
+
+                if (!expanded || visibleChildren.length === 0) return [parentRow];
+
+                const childRows = visibleChildren.map((child) => {
+                  const childLinkedRun = runs.find((r) => r.id === child.agentRunId);
+                  const childCharterCount = charterFilledCount(child.charter);
+                  const childProgress = issueProgress(child, []);
+                  const childInterventionTypes = child.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
+                  const childTopicTags = child.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
+                  const childTeamName = child.teamId ? teams.find((t) => t.id === child.teamId)?.name : undefined;
+                  const childKrLabel = child.keyResultId ? keyResultLabel(child.keyResultId) : undefined;
+                  const childNextAction = issueNextAction(child);
+                  const childPriority = child.priority ?? "normal";
+                  return (
+                    <tr
+                      key={child.id}
+                      className={styles.issueChildRow}
+                      style={child.archived ? { opacity: 0.6 } : undefined}
+                    >
+                      <td>
+                        <div className={styles.issueTitleCell}>
+                          <span className={styles.issueTreeToggleSpacer} aria-hidden />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <button className={styles.tableRowLink} onClick={() => peek.open(child.id)}>
+                              {child.title}
+                            </button>
+                            <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <span className={styles.tableMuted}>↳ {issue.title}</span>
+                              {childLinkedRun && (
+                                <StatusBadge status={childLinkedRun.status} stale={staleRunIds.has(childLinkedRun.id)} />
+                              )}
+                              {child.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
+                              {child.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
+                              {child.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
+                            </div>
+                            {childTopicTags.length > 0 && (
+                              <div className={styles.tagRow} style={{ marginTop: 4 }}>
+                                {childTopicTags.map((tag) => (
+                                  <span key={tag} className={`${styles.tag} ${styles.tagTopic}`}>
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <IssueStatusBadge status={child.status} />
+                      </td>
+                      <td>
+                        <IssuePriorityBadge priority={childPriority} />
+                      </td>
+                      <td className={styles.tableMuted} style={{ maxWidth: 220 }}>
+                        {childNextAction ? (
+                          <span title={childNextAction.text}>
+                            {childNextAction.text.length > 48 ? `${childNextAction.text.slice(0, 48)}…` : childNextAction.text}
+                          </span>
+                        ) : (
+                          <span style={{ opacity: 0.7 }}>未設定</span>
+                        )}
+                      </td>
+                      <td>
+                        {childInterventionTypes.map((t) => (
+                          <div key={t} style={{ marginBottom: 4 }}>
+                            <span className={`${styles.tag} ${styles.tagPerson}`}>🎯 {t}</span>
+                          </div>
+                        ))}
+                        {childTeamName && (
+                          <div className={styles.tableMuted} title="関連チーム">
+                            👥 {childTeamName}
+                          </div>
+                        )}
+                        {childKrLabel && (
+                          <div className={styles.tableMuted} title="紐付いているKey Result">
+                            📈 {childKrLabel}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <span className={childCharterCount === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
+                          {childCharterCount === 3 ? "✅" : "❓"} {childCharterCount}/3
+                        </span>
+                      </td>
+                      <td>
+                        <ProgressBar done={childProgress.done} total={childProgress.total} />
+                      </td>
+                      <td className={styles.tableMuted} title="最終更新日">
+                        {formatRelativeDays(child.updatedAt, now)}
+                      </td>
+                    </tr>
+                  );
+                });
+
+                return [parentRow, ...childRows];
               })}
             </tbody>
           </table>

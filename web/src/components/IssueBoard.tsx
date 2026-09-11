@@ -16,6 +16,7 @@ const COLUMN_ACCENT_CLS: Record<IssueStatus, string> = {
 // docs/em_ui_ux_issue.md 4節「ビューの切り替え機能」対応。ステータス4列のカンバン。
 // ドラッグ&ドロップは実装しない（列間の移動は詳細画面のステータス切り替えボタンから行う。
 // スコープとリスクを抑えるための判断）。
+// 子Issueを含める場合は親と同様に自身の status 列へ独立カードとして並べる（親カード配下へのネストではない）。
 export function IssueBoard({
   issues,
   allIssues,
@@ -44,14 +45,19 @@ export function IssueBoard({
             </div>
             {columnIssues.length === 0 && <p className={styles.subtitle}>なし</p>}
             {columnIssues.map((issue) => {
-              const childIssues = allIssues.filter((i) => i.parentId === issue.id);
+              const childIssues = issue.parentId ? [] : allIssues.filter((i) => i.parentId === issue.id);
               const progress = issueProgress(issue, childIssues);
               const stalled = isIssueStalled(issue, now, staleInterventionDays);
+              const parent = issue.parentId ? allIssues.find((i) => i.id === issue.parentId) : undefined;
               return (
                 <button key={issue.id} type="button" className={styles.boardCard} onClick={() => onSelect(issue.id)}>
                   <div className={styles.boardCardTitle}>{issue.title}</div>
                   <ProgressBar done={progress.done} total={progress.total} />
                   <div className={styles.boardCardMeta}>
+                    {parent && <span className={styles.tableMuted}>↳ {parent.title}</span>}
+                    {!issue.parentId && childIssues.length > 0 && (
+                      <span className={styles.tableMuted}>🧩 子Issue: {childIssues.length}件</span>
+                    )}
                     {issue.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
                     {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
                   </div>
