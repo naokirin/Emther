@@ -10,6 +10,11 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
+vi.mock("@/lib/embeddings", () => ({
+  embedText: vi.fn(async () => [1, 0, 0]),
+  cosineSimilarity: () => 0,
+}));
+
 let dir: string;
 
 beforeEach(() => {

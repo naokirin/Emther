@@ -14,6 +14,11 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
+vi.mock("@/lib/embeddings", () => ({
+  embedText: vi.fn(async () => [1, 0, 0]),
+  cosineSimilarity: () => 0,
+}));
+
 vi.mock("@/lib/people-directory", async () => {
   const actual = await vi.importActual<typeof import("@/lib/people-directory")>("@/lib/people-directory");
   return {
