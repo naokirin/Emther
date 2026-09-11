@@ -8,7 +8,7 @@ import { CopilotChat, ExecutionState, StatusBadge, type AgentRun, type Suggested
 import { OriginTrace } from "@/components/OriginTrace";
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueStatusBadge, IssueStatusSelector, IssuePrioritySelector } from "@/components/IssueStatus";
+import { IssueStatusBadge, IssueStatusSelector, IssuePrioritySelector, IssueTriageAxes } from "@/components/IssueStatus";
 import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
@@ -379,6 +379,8 @@ export function IssueDetailContent({ id }: { id: string }) {
   const [archiving, setArchiving] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [prioritySaving, setPrioritySaving] = useState(false);
+  const [triageRescoring, setTriageRescoring] = useState(false);
+  const [triageRescoreMessage, setTriageRescoreMessage] = useState<string | null>(null);
 
   // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。カンバンのドラッグ&ドロップは
   // 実装しないため、列（ステータス）の切り替えはここから行う。
@@ -409,6 +411,31 @@ export function IssueDetailContent({ id }: { id: string }) {
       if (res.ok) await Promise.all([refreshIssue(), refreshIssues()]);
     } finally {
       setPrioritySaving(false);
+    }
+  }
+
+  async function handleRescoreTriage() {
+    if (!issue) return;
+    setTriageRescoring(true);
+    setTriageRescoreMessage(null);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/triage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applySuggested: true }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "評価の更新に失敗しました");
+      await Promise.all([refreshIssue(), refreshIssues()]);
+      setTriageRescoreMessage(
+        data?.changed
+          ? `評価を更新し、優先度を反映しました: ${data.fromLabel} → ${data.toLabel}`
+          : `評価を更新しました。優先度は変わりませんでした（提案: ${data?.suggestedLabel ?? "—"}）`,
+      );
+    } catch (err) {
+      setTriageRescoreMessage((err as Error).message);
+    } finally {
+      setTriageRescoring(false);
     }
   }
 
@@ -844,18 +871,49 @@ export function IssueDetailContent({ id }: { id: string }) {
           <IssuePrioritySelector
             priority={issue.priority ?? "normal"}
             onChange={handleChangePriority}
-            disabled={prioritySaving}
+            disabled={prioritySaving || triageRescoring}
           />
-          {issue.triage && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              className={styles.btnOutline}
+              style={{ fontSize: "0.75rem" }}
+              disabled={triageRescoring || prioritySaving}
+              onClick={handleRescoreTriage}
+              title="現状の内容から4軸を再採点し、提案どおり優先度へ反映します"
+            >
+              {triageRescoring ? "更新中…" : "このIssueの評価を更新"}
+            </button>
+          </div>
+          {triageRescoreMessage && (
+            <p className={styles.subtitle} style={{ marginTop: 6 }} role="status">
+              {triageRescoreMessage}
+            </p>
+          )}
+          {issue.triage ? (
+            <div style={{ marginTop: 8 }}>
+              <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
+                優先度の評価根拠
+                <span className={styles.tableMuted}>
+                  {" "}
+                  · 更新 {new Date(issue.triage.scoredAt).toLocaleString("ja-JP")}
+                </span>
+                {issue.triage.suggestedPriority !== (issue.priority ?? "normal") && (
+                  <span style={{ color: "var(--warning, #b45309)" }}>
+                    {" "}
+                    · 提案は {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].icon}{" "}
+                    {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].label}（手動で変えた可能性があります）
+                  </span>
+                )}
+              </p>
+              <IssueTriageAxes triage={issue.triage} />
+              <p className={styles.subtitle} style={{ marginTop: 6 }}>
+                Charter やテーマ／KR 紐付けを直したあとは「このIssueの評価を更新」で見直せます（優先度への反映も含みます）。
+              </p>
+            </div>
+          ) : (
             <p className={styles.subtitle} style={{ marginTop: 8 }}>
-              内部提案: {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].icon}{" "}
-              {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].label}
-              （score {issue.triage.score.toFixed(2)} · CoD {issue.triage.costOfDelay.toFixed(2)} · Effort{" "}
-              {issue.triage.effort.toFixed(2)} · Blast {issue.triage.blastRadius.toFixed(2)} · Conf{" "}
-              {issue.triage.confidence.toFixed(2)}）
-              {issue.triage.suggestedPriority !== (issue.priority ?? "normal") && (
-                <span style={{ color: "var(--warning, #b45309)" }}> · 現在帯と不一致</span>
-              )}
+              まだ評価がありません。上のボタン、または課題一覧の「評価を一括更新」から更新できます。
             </p>
           )}
           {issue.priority === "focus" && (

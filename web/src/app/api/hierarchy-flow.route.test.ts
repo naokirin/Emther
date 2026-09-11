@@ -85,6 +85,41 @@ describe("POST /api/issues/triage/suggest", () => {
   });
 });
 
+describe("POST /api/issues/[id]/triage", () => {
+  it("単一 Issue を再採点できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const { jsonRequest, routeCtx } = await import("@/lib/test-helpers/api-route");
+    const issue = await issueStore.createIssue("単体再採点", undefined, {
+      why: "価値",
+      what: "範囲",
+      how: "方法",
+    });
+    issueStore.setIssueTheme(issue.id, "th-x");
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    const route = await import("@/app/api/issues/[id]/triage/route");
+    const res = await route.POST(
+      jsonRequest(`http://localhost/api/issues/${issue.id}/triage`, "POST", { applySuggested: false }),
+      routeCtx({ id: issue.id }),
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.issue.triage).toBeTruthy();
+    expect(data.applied).toBe(false);
+    expect(data.issue.priority).toBe("normal");
+
+    const applyRes = await route.POST(
+      jsonRequest(`http://localhost/api/issues/${issue.id}/triage`, "POST", { applySuggested: true }),
+      routeCtx({ id: issue.id }),
+    );
+    const applied = await applyRes.json();
+    expect(applied.issue.triage.suggestedPriority).toBeTruthy();
+    if (applied.changed) {
+      expect(applied.issue.priority).toBe(applied.to);
+    }
+  });
+});
+
 describe("POST /api/themes/from-okr", () => {
   it("Objective から候補テーマを生成する", async () => {
     const org = await import("@/lib/org-context-store");

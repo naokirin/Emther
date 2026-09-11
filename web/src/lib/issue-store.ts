@@ -727,6 +727,36 @@ export function setIssueTriage(issueId: string, triage: IssueTriageScores): Issu
   return issue;
 }
 
+/** 単一 Issue の4軸を再採点。applySuggested なら提案帯をこの Issue の priority に反映（一括の N件圧縮はしない）。 */
+export function rescoreIssueTriage(
+  issueId: string,
+  opts: { applySuggested?: boolean; now?: number } = {},
+): { issue: Issue; changed: boolean; from?: IssuePriority; to?: IssuePriority } | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const triage = scoreIssueHeuristically(issue, {
+    now: opts.now ?? Date.now(),
+    hasThemeLink: !!issue.themeId,
+    hasKrLink: !!issue.keyResultId,
+  });
+  setIssueTriage(issueId, triage);
+  let changed = false;
+  let from: IssuePriority | undefined;
+  let to: IssuePriority | undefined;
+  if (opts.applySuggested) {
+    const current = issue.priority ?? "normal";
+    const suggested = triage.suggestedPriority;
+    if (current !== suggested) {
+      from = current;
+      setIssuePriority(issueId, suggested);
+      to = getIssue(issueId)?.priority ?? suggested;
+      changed = from !== to;
+    }
+  }
+  const fresh = getIssue(issueId)!;
+  return { issue: fresh, changed, from, to };
+}
+
 /** アクティブな親 Issue をルール採点し、triage を書き戻す。applySuggested で帯も更新可。 */
 export type TriageChange = {
   issueId: string;

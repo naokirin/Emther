@@ -21,14 +21,25 @@ export async function POST(request: Request) {
       priority: i.priority,
       suggestedPriority: i.triage?.suggestedPriority,
       score: i.triage?.score ?? 0,
+      costOfDelay: i.triage?.costOfDelay ?? 0,
+      effort: i.triage?.effort ?? 0,
+      blastRadius: i.triage?.blastRadius ?? 0,
+      confidence: i.triage?.confidence ?? 0,
     })),
     counts: result.counts,
-    differing: result.differing.map((d) => ({
-      ...d,
-      currentLabel: ISSUE_PRIORITY_META[d.current].label,
-      suggestedLabel: ISSUE_PRIORITY_META[d.suggested].label,
-      effectiveLabel: ISSUE_PRIORITY_META[d.effective].label,
-    })),
+    differing: result.differing.map((d) => {
+      const issue = result.issues.find((i) => i.id === d.issueId);
+      return {
+        ...d,
+        currentLabel: ISSUE_PRIORITY_META[d.current].label,
+        suggestedLabel: ISSUE_PRIORITY_META[d.suggested].label,
+        effectiveLabel: ISSUE_PRIORITY_META[d.effective].label,
+        costOfDelay: issue?.triage?.costOfDelay ?? 0,
+        effort: issue?.triage?.effort ?? 0,
+        blastRadius: issue?.triage?.blastRadius ?? 0,
+        confidence: issue?.triage?.confidence ?? 0,
+      };
+    }),
     changes: result.changes.map((c) => ({
       ...c,
       fromLabel: ISSUE_PRIORITY_META[c.from].label,
