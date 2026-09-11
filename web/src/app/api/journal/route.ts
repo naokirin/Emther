@@ -26,7 +26,13 @@ export async function POST(request: Request) {
     }
   }
 
-  const opts = maskOptionsFromBody(body);
+  // 人物詳細など「このメンバーに紐づけて書く」導線向け。EMが明示した人物名は
+  // NER抽出に頼らず作成時から people に入れる（未指定時は従来どおり抽出のみ）。
+  const people = Array.isArray(body?.people)
+    ? body.people.filter((p: unknown): p is string => typeof p === "string" && p.trim().length > 0)
+    : undefined;
+
+  const opts = { ...maskOptionsFromBody(body), ...(people && people.length > 0 ? { people } : {}) };
 
   try {
     const entry =

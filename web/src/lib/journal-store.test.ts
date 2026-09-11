@@ -136,6 +136,16 @@ describe("addJournalEntry", () => {
     expect(entry.rawText).toBe("モデル落ちても残す");
     expect(entry.confirmed).toBe(false);
   });
+
+  it("opts.peopleで明示した人物は抽出漏れでも紐付く", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const peopleDirectory = await import("@/lib/people-directory");
+    const personId = peopleDirectory.registerName("花子さん");
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("進捗が遅れている", Date.now(), { people: ["花子さん"] });
+    expect(entry.people).toEqual([personId]);
+    expect(store.toJournalEntryView(entry).people).toEqual(["花子さん"]);
+  });
 });
 
 describe("addJournalEntriesBulk", () => {
