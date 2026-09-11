@@ -59,8 +59,9 @@ flowchart LR
   run --> themesBlock[themes ブロック]
   themesBlock --> candidate[OrgTheme candidate]
   candidate --> em[EM: 採用 / 却下 / 壁打ち]
-  em -->|採用| adopted[adopted]
+  em -->|採用| adopted[adopted = 優先テーマ]
   adopted --> issueCtx[Issue 壁打ちへ注入]
+  adopted --> dash[Dashboard「現在の優先テーマ」]
 ```
 
 - **手動**: Dashboard「状況を蒸留する」→ `POST /api/themes/distill`
@@ -73,10 +74,10 @@ flowchart LR
 
 | 操作 | 意味 |
 |---|---|
-| 採用 | `candidate` → `adopted`。Issue 壁打ちの前提になる |
+| 採用 | `candidate` → `adopted`。Issue 壁打ちの前提になり、Dashboard「現在の優先テーマ」に載る（1段階＝肯定済み） |
 | 却下 | `dismissed`。Inbox からも外す（run triage 連動可） |
 | 壁打ち | 同一 Run で `decideRun`。訂正後に再抽出・再採用 |
-| 編集 | 採用済みテーマの文言・rationale を直接更新（`supersedes`） |
+| 編集 | 採用済みテーマの文言・rationale を直接更新（`supersedes`）。優先テーマの詳細展開から操作 |
 
 「なぜこの結果か」は Run の `proposal.facts` / `logic` と、テーマの `rationale` / `facts` の両方で見せる。
 
