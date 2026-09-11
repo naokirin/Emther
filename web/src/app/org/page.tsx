@@ -134,7 +134,12 @@ export default function OrgContextPage() {
     setSelection({ kind: "strategy" });
   }
 
+  // SettingsのisDirtyと同じ。未変更のまま保存できて「保存されたかわからない」状態に
+  // ならないよう、サーバー最新値とドラフトを比較する。
+  const strategyDirty = strategySeeded && JSON.stringify(strategyDraft) !== JSON.stringify(strategy);
+
   async function handleSaveStrategy() {
+    if (!strategyDirty) return;
     setStrategySaving(true);
     try {
       await fetch("/api/org/strategy", {
@@ -219,8 +224,14 @@ export default function OrgContextPage() {
     }
   }
 
+  const objectiveDirty =
+    !!selectedObjective &&
+    (editObjectiveTitle !== selectedObjective.title ||
+      editObjectiveNote !== (selectedObjective.note ?? "") ||
+      editObjectiveTeamId !== (selectedObjective.teamId ?? ""));
+
   async function handleSaveObjective() {
-    if (!selectedObjective || !editObjectiveTitle.trim()) return;
+    if (!selectedObjective || !editObjectiveTitle.trim() || !objectiveDirty) return;
     setObjectiveSaving(true);
     setObjectiveEditError(null);
     try {
@@ -670,8 +681,12 @@ export default function OrgContextPage() {
         {selection?.kind === "strategy" && (
           <>
             <div className={styles.editorPath}>
-              <button className={styles.primaryBtn} onClick={handleSaveStrategy} disabled={strategySaving || !strategySeeded}>
-                {strategySaving ? "保存中…" : "保存"}
+              <button
+                className={styles.primaryBtn}
+                onClick={handleSaveStrategy}
+                disabled={strategySaving || !strategySeeded || !strategyDirty}
+              >
+                {strategySaving ? "保存中…" : strategyDirty ? "保存" : "保存済み"}
               </button>
             </div>
             <p className={styles.subtitle}>
@@ -740,9 +755,9 @@ export default function OrgContextPage() {
                   className={styles.primaryBtn}
                   style={{ width: "auto" }}
                   onClick={handleSaveObjective}
-                  disabled={objectiveSaving || !editObjectiveTitle.trim()}
+                  disabled={objectiveSaving || !editObjectiveTitle.trim() || !objectiveDirty}
                 >
-                  {objectiveSaving ? "保存中…" : "保存"}
+                  {objectiveSaving ? "保存中…" : objectiveDirty ? "保存" : "保存済み"}
                 </button>
                 <button className={styles.btnOutline} onClick={() => handleRemoveObjective(selectedObjective.id)}>
                   このObjectiveを削除

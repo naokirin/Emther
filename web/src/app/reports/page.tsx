@@ -22,8 +22,12 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
   const [note, setNote] = useState(report.note);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // SettingsのisDirtyと同じ。未変更のまま保存できて「保存されたかわからない」状態に
+  // ならないよう、サーバー最新値とドラフトを比較する。
+  const noteDirty = note !== report.note;
 
   async function handleSave() {
+    if (!noteDirty) return;
     setSaving(true);
     setSaved(false);
     try {
@@ -116,12 +120,25 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
               <div className={styles.field}>
                 <label>
                   EMの所感・コメント
-                  <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="このレポートを見て感じたこと・次にやることなど" />
+                  <textarea
+                    rows={2}
+                    value={note}
+                    onChange={(e) => {
+                      setNote(e.target.value);
+                      setSaved(false);
+                    }}
+                    placeholder="このレポートを見て感じたこと・次にやることなど"
+                  />
                 </label>
-                <button className={styles.btnOutline} style={{ marginTop: 6 }} disabled={saving} onClick={handleSave}>
-                  {saving ? "保存中…" : "コメントを保存"}
+                <button
+                  className={styles.btnOutline}
+                  style={{ marginTop: 6 }}
+                  disabled={saving || !noteDirty}
+                  onClick={handleSave}
+                >
+                  {saving ? "保存中…" : noteDirty ? "コメントを保存" : "保存済み"}
                 </button>
-                {saved && (
+                {!noteDirty && saved && (
                   <span className={styles.subtitle} style={{ marginLeft: 8 }} role="status">
                     ✅ 保存しました
                   </span>

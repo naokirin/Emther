@@ -143,8 +143,23 @@ export default function TeamsPage() {
     setSelectedTeamId(team.id);
   }
 
+  // SettingsのisDirtyと同じ。未変更のまま保存できて「保存されたかわからない」状態に
+  // ならないよう、サーバー最新値とドラフトを比較する。
+  const editMembersNormalized = editMembers
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  const teamDirty =
+    !!selectedTeam &&
+    (editName !== selectedTeam.name ||
+      JSON.stringify(editMembersNormalized) !== JSON.stringify(selectedTeam.members) ||
+      editMission !== selectedTeam.charter.mission ||
+      editConstraints !== selectedTeam.charter.constraints ||
+      editManagedByEm !== selectedTeam.managedByEm ||
+      JSON.stringify(editAliases) !== JSON.stringify(selectedTeam.aliases));
+
   async function handleSaveTeam() {
-    if (!selectedTeam) return;
+    if (!selectedTeam || !teamDirty || !editName.trim()) return;
     setEditSaving(true);
     setEditError(null);
     try {
@@ -380,8 +395,13 @@ export default function TeamsPage() {
               EMの自由記述からどのチームの話かを推定する際（相談・Agent Run起動時）、正式名だけでなくここに登録した別名も一致対象になります。
             </p>
             {editError && <p className={styles.errorText} role="alert">{editError}</p>}
-            <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTeam} disabled={editSaving || !editName.trim()}>
-              {editSaving ? "保存中…" : "保存"}
+            <button
+              className={styles.primaryBtn}
+              style={{ width: "auto" }}
+              onClick={handleSaveTeam}
+              disabled={editSaving || !editName.trim() || !teamDirty}
+            >
+              {editSaving ? "保存中…" : teamDirty ? "保存" : "保存済み"}
             </button>
 
             <div className={styles.field} style={{ marginTop: 16 }}>

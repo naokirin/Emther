@@ -416,7 +416,13 @@ export function PersonDetailContent({ id }: { id: string }) {
                   />
                 </label>
                 <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                  <button className={styles.primaryBtn} style={{ width: "auto" }} type="button" disabled={nameSaving || !nameDraft.trim()} onClick={handleRename}>
+                  <button
+                    className={styles.primaryBtn}
+                    style={{ width: "auto" }}
+                    type="button"
+                    disabled={nameSaving || !nameDraft.trim() || nameDraft.trim() === person.name}
+                    onClick={handleRename}
+                  >
                     {nameSaving ? "保存中…" : "保存"}
                   </button>
                   <button className={styles.btnOutline} type="button" disabled={nameSaving} onClick={() => { setRenaming(false); setNameError(null); }}>

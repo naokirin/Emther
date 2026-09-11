@@ -164,6 +164,9 @@ export function IssueDetailContent({ id }: { id: string }) {
   const [charterError, setCharterError] = useState<string | null>(null);
   const [charterPending, setCharterPending] = useState(false);
   const [charterPendingError, setCharterPendingError] = useState<{ message: string; retry: () => void } | null>(null);
+  // SettingsのisDirtyと同じ。非制御のWhy/What/How・タグでも、変更がないときは保存を
+  // 非アクティブにするため、入力のたびにサーバー最新値と突き合わせる。
+  const [charterDirty, setCharterDirty] = useState(false);
   const whyRef = useRef<HTMLTextAreaElement | null>(null);
   const whatRef = useRef<HTMLTextAreaElement | null>(null);
   const howRef = useRef<HTMLTextAreaElement | null>(null);
@@ -227,6 +230,27 @@ export function IssueDetailContent({ id }: { id: string }) {
     const next = current.includes(label) ? current.filter((t) => t !== label) : [...current, label];
     tagsRef.current.value = next.join(", ");
     setTagsSnapshot(next);
+    recomputeCharterDirty();
+  }
+
+  function recomputeCharterDirty() {
+    if (!issue) {
+      setCharterDirty(false);
+      return;
+    }
+    const why = whyRef.current?.value ?? "";
+    const what = whatRef.current?.value ?? "";
+    const how = howRef.current?.value ?? "";
+    const tags = (tagsRef.current?.value ?? "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    setCharterDirty(
+      why !== issue.charter.why ||
+        what !== issue.charter.what ||
+        how !== issue.charter.how ||
+        JSON.stringify(tags) !== JSON.stringify(issue.tags),
+    );
   }
 
   function startEditingTitle() {
@@ -265,6 +289,11 @@ export function IssueDetailContent({ id }: { id: string }) {
       setTitleError("タイトルは必須です");
       return;
     }
+    if (trimmed === issue.title) {
+      setTitleEditing(false);
+      setTitleError(null);
+      return;
+    }
     setTitleError(null);
     setTitleEditing(false);
     const retry = () => {
@@ -295,7 +324,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   function handleSaveCharter() {
-    if (!issue) return;
+    if (!issue || !charterDirty) return;
     const body = {
       why: whyRef.current?.value ?? "",
       what: whatRef.current?.value ?? "",
@@ -304,6 +333,7 @@ export function IssueDetailContent({ id }: { id: string }) {
     };
     setCharterError(null);
     setCharterEditing(false);
+    setCharterDirty(false);
     const retry = () => {
       void sendCharterPatch(body, retry);
     };
@@ -314,11 +344,13 @@ export function IssueDetailContent({ id }: { id: string }) {
     if (charterPending) return;
     setCharterError(null);
     setCharterPendingError(null);
+    setCharterDirty(false);
     setCharterEditing(true);
   }
 
   function handleCancelCharter() {
     setCharterError(null);
+    setCharterDirty(false);
     setCharterEditing(false);
   }
 
@@ -704,7 +736,12 @@ export function IssueDetailContent({ id }: { id: string }) {
                 autoFocus
               />
               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveTitle}>
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={!titleDraft.trim() || titleDraft.trim() === issue.title}
+                  onClick={handleSaveTitle}
+                >
                   保存
                 </button>
                 <button className={styles.btnOutline} onClick={() => setTitleEditing(false)}>
@@ -1079,6 +1116,7 @@ export function IssueDetailContent({ id }: { id: string }) {
                 defaultValue={issue.charter.why}
                 className={issue.charter.why ? "" : styles.charterEmpty}
                 placeholder="未整理（クリックして記入）"
+                onChange={recomputeCharterDirty}
               /></label>
             </div>
             <div className={styles.charterField}>
@@ -1089,6 +1127,7 @@ export function IssueDetailContent({ id }: { id: string }) {
                 defaultValue={issue.charter.what}
                 className={issue.charter.what ? "" : styles.charterEmpty}
                 placeholder="未整理（クリックして記入）"
+                onChange={recomputeCharterDirty}
               /></label>
             </div>
             <div className={styles.charterField}>
@@ -1099,6 +1138,7 @@ export function IssueDetailContent({ id }: { id: string }) {
                 defaultValue={issue.charter.how}
                 className={issue.charter.how ? "" : styles.charterEmpty}
                 placeholder="未整理（クリックして記入）"
+                onChange={recomputeCharterDirty}
               /></label>
             </div>
             <div className={styles.field}>
@@ -1148,7 +1188,10 @@ export function IssueDetailContent({ id }: { id: string }) {
                 type="text"
                 ref={tagsRef}
                 defaultValue={issue.tags.join(", ")}
-                onChange={(e) => setTagsSnapshot(e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+                onChange={(e) => {
+                  setTagsSnapshot(e.target.value.split(",").map((t) => t.trim()).filter(Boolean));
+                  recomputeCharterDirty();
+                }}
                 placeholder="例: バグ, リファクタリング, オンボーディング"
               /></label>
             </div>
@@ -1163,8 +1206,13 @@ export function IssueDetailContent({ id }: { id: string }) {
             )}
             {charterError && <p className={styles.errorText} role="alert">{charterError}</p>}
             <div style={{ display: "flex", gap: 8 }}>
-              <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={handleSaveCharter}>
-                Why/What/How・タグを保存
+              <button
+                className={styles.primaryBtn}
+                style={{ width: "auto" }}
+                disabled={!charterDirty}
+                onClick={handleSaveCharter}
+              >
+                {charterDirty ? "Why/What/How・タグを保存" : "保存済み"}
               </button>
               <button className={styles.btnOutline} onClick={handleCancelCharter}>
                 キャンセル

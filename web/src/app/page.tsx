@@ -1076,7 +1076,12 @@ export default function DashboardPage() {
                         <button
                           className={styles.primaryBtn}
                           style={{ width: "auto" }}
-                          disabled={themeEditBusy}
+                          disabled={
+                            themeEditBusy ||
+                            (themeEditDraft.title === t.title &&
+                              themeEditDraft.summary === t.summary &&
+                              themeEditDraft.rationale === t.rationale)
+                          }
                           onClick={async () => {
                             setThemeEditBusy(true);
                             try {
