@@ -60,6 +60,20 @@ describe("consultListMetaParts", () => {
       "Journalから",
     ]);
   });
+
+  it("様子見一覧向けに日時とトリアージを省略できる", () => {
+    expect(
+      consultListMetaParts(
+        baseRun({
+          origin: "auto-anomaly",
+          reviewed: false,
+          triageStatus: "watching",
+          status: "idle",
+        }),
+        { now, omitTime: true, omitTriage: true },
+      ),
+    ).toEqual(["完了", "Journal自動分析", "未確認"]);
+  });
 });
 
 describe("ConsultHistoryItem", () => {

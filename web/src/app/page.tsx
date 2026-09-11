@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
+import { consultListMetaParts } from "@/components/ConsultHistoryItem";
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "@/components/RunDetail";
 import { IdFragmentLink } from "@/components/IdFragmentLink";
 import { IdLinkedText } from "@/components/IdLinkedText";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
+import { consultListSecondary, consultListTitle, truncateExcerpt } from "@/lib/origin-trace";
 import {
   useEmCheckins,
   useGoToRunIssue,
@@ -1453,13 +1455,27 @@ export default function DashboardPage() {
                   <tbody>
                     {watchingItems.map((run) => {
                       const days = Math.round((now - (run.triageAt ?? run.updatedAt)) / (24 * 60 * 60 * 1000));
+                      // 相談履歴(U12)と同じく、定型の指示文ではなく Journal 本文／結論を主役にする。
+                      const title = truncateExcerpt(consultListTitle(run), 100);
+                      const secondary = consultListSecondary(run);
+                      const meta = consultListMetaParts(run, { omitTime: true, omitTriage: true }).join(" · ");
                       return (
                         <tr key={run.id}>
                           <td className={styles.tableMuted}>{days === 0 ? "今日から" : `${days}日前から`}</td>
                           <td>
                             <button className={styles.tableRowLink} onClick={() => router.push(`/chat?runId=${run.id}`)}>
-                              {run.task.slice(0, 50)}
+                              {title}
                             </button>
+                            {secondary && (
+                              <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
+                                {truncateExcerpt(secondary, 120)}
+                              </div>
+                            )}
+                            {meta && (
+                              <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
+                                {meta}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
