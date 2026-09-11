@@ -1384,7 +1384,7 @@ export default function DashboardPage() {
         <div className={styles.vitalsHead}>
           <div>
             <h2>チームの状態</h2>
-            <p className={styles.subtitle}>情報が足りない場合は「評価不能」と表示します。</p>
+            <p className={styles.subtitle}>自分が管理するチームのみ表示します。情報が足りない場合は「評価不能」と表示します。</p>
           </div>
           <div className={styles.vitalsLegend}>
             <span>🟢 安定</span>
@@ -1453,9 +1453,9 @@ export default function DashboardPage() {
 
           {vitalsLoaded && vitals.teams.length === 0 && (
             <p className={styles.subtitle}>
-              チームが登録されていません。
+              自分が管理するチームがありません。
               <button className={styles.detailToggle} onClick={() => router.push("/teams")}>
-                チームから追加
+                チームで設定
               </button>
             </p>
           )}
