@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | ソース | GitHub（公開） | clone して `./scripts/emther install` |
 | アプリ本体 | `~/.local/share/emther/app` | Next.js standalone（webpack ビルド） |
-| 起動コマンド | `~/.local/bin/emther` | install / install-release / build / start / stop / status / doctor / backup / restore |
+| 起動コマンド | `~/.local/bin/emther` | install / install-release / build / start / stop / restart / status / doctor / backup / restore |
 | 業務データ | `~/.local/state/emther/data` | SQLite・JSON。リポジトリ外必須 |
 | 実名対応表 | `~/.local/state/emther/secure` | 0700 / 0600。data と兄弟だが権限分離 |
 | バックアップ | `~/.local/state/emther/backups` | `emther backup` が作成 |
@@ -35,13 +35,15 @@ tar -xzf emther-vX.Y.Z-linux-x64.tar.gz
 ./emther/install.sh
 
 emther start
+emther restart                 # stop → start
+emther start --port 3001       # または EM_PORT=3001 emther start
 emther doctor
 emther backup
 ```
 
 端末移行のバックアップ／復元／全データ削除は、CLI に加えて UI の **設定 → データ** からも実行できます（アーカイブ形式は `emther backup` と同じ。復元・リセット後はプロセスが停止するため再起動が必要です）。CLI を正本とし、UI は同操作の補助経路です。
 
-- 既定で **127.0.0.1** のみにバインドする（LAN 公開しない）。
+- 既定で **127.0.0.1:3000** のみにバインドする（LAN 公開しない）。`--host` / `--port`（または `EM_HOST` / `EM_PORT`）で変更可能。優先順位は CLI フラグ > 環境変数 > デフォルト。
 - standalone ビルドは `npm run build:standalone`（`next build --webpack`）。Turbopack 既定ビルドだと `serverExternalPackages`（transformers / onnx）が欠ける既知問題があるため。
 - UI フォントは `@fontsource/*` を npm 同梱し、ビルド時に Google Fonts へネットワークしない。
 - Docker 用の `npm run build` はそのまま（フル `node_modules` + `next start`）。standalone 成果物は使わない。
