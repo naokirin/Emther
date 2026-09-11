@@ -298,6 +298,31 @@ describe("listActiveFactsForPerson / listInterpretationsForPerson", () => {
     expect(knowledgeStore.listActiveFactsForPerson("PERSON_1", 3)).toHaveLength(3);
   });
 
+  it("supersedesで置き換えられた旧版は除外する（Journal一覧と同じ）", async () => {
+    const { knowledgeStore } = await loadModules();
+    const original = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "旧版",
+      tags: [],
+      occurredAt: 1,
+    });
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "新版",
+      tags: [],
+      occurredAt: 1,
+      supersedes: original.id,
+    });
+
+    expect(knowledgeStore.listActiveFactsForPerson("PERSON_1").map((f) => f.text)).toEqual(["新版"]);
+  });
+
   it("interpretationはkindがinterpretationのものだけ", async () => {
     const { knowledgeStore } = await loadModules();
     knowledgeStore.recordEvent({ kind: "interpretation", context: "profile", entityType: "person", people: ["PERSON_1"], text: "profile-note", tags: [], occurredAt: 1 });
