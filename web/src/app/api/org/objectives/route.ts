@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
   }
   const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
-  const objective = await addObjective(title, teamId);
+  const note = typeof body?.note === "string" && body.note.trim() ? body.note.trim() : undefined;
+  const objective = await addObjective(title, teamId, note);
   return NextResponse.json({ objective: toObjectiveView(objective) }, { status: 201 });
 }

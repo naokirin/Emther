@@ -31,6 +31,7 @@
 | U15 | P1 | 完了 | AI の Issue 化でタイトルが途中切れ（…）になる |
 | U16 | P1 | 完了 | Journal 自動分析が投稿時に動かず、修正なしでは起動しにくい |
 | U17 | P2 | 完了 | メンバーに「自分自身」を区別できない |
+| U18 | P1 | 完了 | OKR設定が1件ずつで面倒／KR編集不可／複数行不可／Objectiveメモなし |
 
 ---
 
@@ -211,6 +212,19 @@
 
 ---
 
+## U18. OKR設定の一括・AI構造化と編集摩擦
+
+**現象:** Objective / Key Result を1件ずつ追加するしかなく、既存のOKR全文を流し込めない。Key Result のタイトル編集ができず、タイトルも単一行 input。Objective に判断理由などの補足を残す欄が無い。
+
+**原因:** 最小実装として KR は追加・削除のみ（更新 API/ストア無し）。タイトルはすべて `<input type="text">`。自由記述からの構造化導線も無い。
+
+**方針:**
+1. KR の更新（ストア・PATCH・UI）と、Objective/KR タイトルの textarea（改行可）化。
+2. Objective に任意の `note`（判断理由などの補足）。Agent の `buildObjectivesBlock` にも渡す。
+3. 「テキストから取り込む」で全文を貼り、AI（失敗時はヒューリスティック）が Objective/KR/メモに分解 → プレビューで修正 → 追記または同一スコープ（組織全体／指定チーム）の差し替えで保存。
+
+---
+
 ## 今回入れた対応の要点
 
 - **U1** `journal-store.ts`: 抽出失敗・モデル例外でも raw 本文を未確認エントリとして保存
@@ -229,3 +243,4 @@
 - **U15** proposal に `issueTitle`。`runFallbackTitle` は短い課題名を優先し、結論からは Issue 化メタを除去。`truncateForTitle` は句読点切れ＋上限 80
 - **U16** Journalカードに「この内容で確定」と「分析する」。`POST /api/journal/[id]/analyze` で手動起動。Settings／確定UIに投稿直後は動かない旨を明記
 - **U17** `selfPersonId` で既存人物を本人に紐付け。People「自分」区分・1on1/部下除外・Org Context 明示
+- **U18** OKR: KR編集API/UI、タイトル textarea（改行可）、Objective `note`（Agent注入含む）、テキスト一括取り込み（AI構造化→プレビュー修正→追記/差し替え）

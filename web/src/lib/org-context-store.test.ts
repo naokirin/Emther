@@ -202,6 +202,50 @@ describe("objectives", () => {
     expect(removed?.keyResults).toHaveLength(0);
   });
 
+  it("updateKeyResultでタイトルを編集できる", async () => {
+    const store = await loadModule();
+    const objective = await store.addObjective("売上を伸ばす");
+    const withKr = await store.addKeyResult(objective.id, "旧KR");
+    const krId = withKr!.keyResults[0].id;
+    const updated = await store.updateKeyResult(objective.id, krId, "新KR");
+    expect(updated?.keyResults[0].title).toBe("新KR");
+  });
+
+  it("addObjectiveとupdateObjectiveでメモを扱える", async () => {
+    const store = await loadModule();
+    const objective = await store.addObjective("売上を伸ばす", undefined, "判断理由A");
+    expect(objective.note).toBe("判断理由A");
+
+    const cleared = await store.updateObjective(objective.id, { note: "" });
+    expect(cleared?.note).toBeUndefined();
+
+    const setAgain = await store.updateObjective(objective.id, { note: "判断理由B" });
+    expect(setAgain?.note).toBe("判断理由B");
+  });
+
+  it("importObjectivesは追記と同一スコープ差し替えができる", async () => {
+    const store = await loadModule();
+    const team = store.addTeam("Team A", []);
+    await store.addObjective("残すべき組織目標");
+    await store.addObjective("消えるチーム目標", team.id);
+
+    await store.importObjectives(
+      [{ title: "新チーム目標", note: "理由", keyResults: ["KR1"] }],
+      { mode: "replace", teamId: team.id },
+    );
+
+    const all = store.listObjectives();
+    expect(all.find((o) => o.title === "残すべき組織目標")).toBeTruthy();
+    expect(all.find((o) => o.title === "消えるチーム目標")).toBeUndefined();
+    const created = all.find((o) => o.title === "新チーム目標");
+    expect(created?.teamId).toBe(team.id);
+    expect(created?.note).toBe("理由");
+    expect(created?.keyResults.map((k: { title: string }) => k.title)).toEqual(["KR1"]);
+
+    await store.importObjectives([{ title: "追記目標", keyResults: [] }], { mode: "append", teamId: team.id });
+    expect(store.listObjectives().filter((o: { teamId?: string }) => o.teamId === team.id)).toHaveLength(2);
+  });
+
   it("listObjectivesWithProgressはKeyResultに紐づくIssueのdone数（!archived）から進捗を計算する", async () => {
     const orgStore = await loadModule();
     const issueStore = await import("@/lib/issue-store");
@@ -242,5 +286,14 @@ describe("objectives", () => {
     expect(objective.title).not.toBe("Aさんの育成計画");
     const view = store.toObjectiveView(objective);
     expect(view.title).toBe("Aさんの育成計画");
+  });
+
+  it("toObjectiveViewはメモも実名復元する", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const store = await loadModule();
+    peopleDirectory.registerName("Aさん");
+    const objective = await store.addObjective("育成", undefined, "Aさん向け");
+    expect(objective.note).not.toBe("Aさん向け");
+    expect(store.toObjectiveView(objective).note).toBe("Aさん向け");
   });
 });
