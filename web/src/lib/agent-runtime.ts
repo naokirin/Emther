@@ -16,12 +16,27 @@ import {
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { buildRelatedBundleBlock, issueEmbedSource } from "@/lib/related-context";
+import {
+  LOOKUP_MAX_QUERIES,
+  LOOKUP_MAX_ROUNDS,
+  executeLookup,
+  extractLookup,
+  type LookupRequest,
+} from "@/lib/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, charterFilledCount, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
 import { computeOrgVitals } from "@/lib/vitals";
 
 export type { SuggestedTheme };
+
+export {
+  extractLookup,
+  LOOKUP_MAX_QUERIES,
+  LOOKUP_MAX_ROUNDS,
+  type LookupRequest,
+  type LookupQuery,
+} from "@/lib/agent-knowledge-tools";
 
 // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
 // 起動することがある」対応。"queued"は同時実行数の上限（settings-store.tsの
@@ -260,6 +275,10 @@ export type AgentRun = {
   // 外部からは基本的に参照しない。
   consultedBy?: string;
   pendingConsult?: ConsultRequest;
+  // docs/usage_issues U19。アプリ側の読み取り専用照会（```lookup```）。pendingLookupは
+  // consultと同様の一時フィールド。lookupRoundsは同一run内の追加照会回数（上限あり）。
+  pendingLookup?: LookupRequest;
+  lookupRounds?: number;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
   // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はJournal校正を
   // きっかけにした自動分析、"auto-summary"は朝のバッチサマリー、"auto-issue-update"は
@@ -1545,12 +1564,30 @@ export function buildSystemPrompt(
 
   const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
-    "判断材料は、(1) このターンで渡されたタスク文と、(2) このシステムプロンプト末尾にシステムが注入した組織ナレッジ（Issue・Journal・Team Vitals・戦略・テーマ等のスナップショット）です。",
-    "任意のファイル・データベース・外部システムへの直接アクセスはできません（ツールは無効化されています）。一方で、注入済みのナレッジブロックはすでに渡されている判断材料です。それを無視して「前提情報が無い」「課題テキストが提示されていない」と述べないでください。本当に注入ブロックにも無い情報だけが不足している場合に限り yield（inform）してください。",
+    "判断材料は、(1) このターンで渡されたタスク文と、(2) このシステムプロンプト末尾にシステムが注入した組織ナレッジ（Issue・Journal・Team Vitals・戦略・テーマ等のスナップショット）と、(3) 必要に応じてあなたが発行する追加照会（lookup）の結果です。",
+    "任意のファイル・データベース・外部システムへの直接アクセスや、書き込み・破壊的操作はできません（CLIネイティブツールは無効化されています）。一方で、注入済みのナレッジブロックはすでに渡されている判断材料です。それを無視して「前提情報が無い」「課題テキストが提示されていない」と述べないでください。",
+    "注入される関連Issue/Journalはベクトル類似の上位最大5件です。『関連に無いのは意図的か』『キーワードで全件確認したい』『完了済みやアーカイブも含めたい』など、注入だけでは確証が取れないときは、提案やyieldの前にlookupで追加照会してください。本当にlookup結果にも無い情報だけが不足している場合に限り yield（inform）してください。",
     "",
     ...roleBlock,
     "回答のルール:",
     ...consultRule,
+    "- 注入された関連束だけでは足りない／『無いこと』を確認したい場合は、proposal/yield/consultの代わりに以下の形式でlookupブロックを1つだけ出力してください（1回の応答につき最大1ブロック。クエリは最大" +
+      String(LOOKUP_MAX_QUERIES) +
+      "件。同一会話で追加照会できるのは合計" +
+      String(LOOKUP_MAX_ROUNDS) +
+      "回まで）。",
+    "  ```lookup",
+    '  { "reason": "なぜ追加で確認したいか（任意）", "queries": [',
+    '    { "type": "issues", "query": "キーワード", "includeDone": true, "includeArchived": false, "limit": 10 },',
+    '    { "type": "issue", "id": "issue-id" },',
+    '    { "type": "journals", "query": "キーワード", "limit": 10 },',
+    '    { "type": "similar", "query": "意味検索したい文", "limit": 10 }',
+    "  ] }",
+    "  ```",
+    '  type "issues" はタイトル・Why/What/How・タグのキーワード部分一致（既定は未完了・非アーカイブのみ。includeDone/includeArchivedで範囲拡大）。',
+    '  type "issue" はID指定の1件詳細。type "journals" はJournalのキーワード検索。type "similar" は埋め込み類似（未完了に加え done/archived 込みの一覧も返す）。',
+    "  結果は次のターンで渡されます。lookupとproposal/yield/consultを同時に出さないこと。",
+    "",
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
     "",
     "proposalブロックのフォーマット（このとおりのfenced code blockにすること）:",
@@ -1930,6 +1967,37 @@ function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
 // （unmaskNamesを通した後のテキストを渡してはいけない——yieldRequest/proposal/
 // suggestedActionItemsはそのままSQLiteへ保存されるため、実名が混入する）。
 function applyAssistantResultText(run: AgentRun, resultText: string, allowConsult: boolean): void {
+  // U19: lookup は consult / proposal / yield より優先（事実確認を先に済ませる）。
+  const lookupRequest = extractLookup(resultText);
+  if (lookupRequest) {
+    if ((run.lookupRounds ?? 0) >= LOOKUP_MAX_ROUNDS) {
+      // 上限後に再度 lookup しても再帰しない。EMへ inform で返す。
+      run.status = "yield";
+      run.yieldRequest = {
+        reason:
+          "追加照会の上限に達したため、これ以上の自動検索はできません。注入済みナレッジとこれまでの照会結果で判断できない点があれば、EMから情報を補ってください。",
+        kind: "inform",
+        options: [],
+      };
+      run.proposal = undefined;
+      run.suggestedActionItems = undefined;
+      run.suggestedSubIssues = undefined;
+      run.suggestedCharter = undefined;
+      run.suggestedPriority = undefined;
+      run.suggestedThemes = undefined;
+      appendLog(run, "system", `[追加照会] 上限（${LOOKUP_MAX_ROUNDS}回）到達のため拒否し、EMへ確認を求めました`);
+      return;
+    }
+    run.pendingLookup = lookupRequest;
+    const qSummary = lookupRequest.queries.map((q) => q.type).join("・");
+    appendLog(
+      run,
+      "system",
+      `[追加照会] ${lookupRequest.reason ? `${lookupRequest.reason} / ` : ""}${lookupRequest.queries.length}件（${qSummary}）`,
+    );
+    return;
+  }
+
   const consultRequest = run.agentName === "Lead Agent" && allowConsult ? extractConsult(resultText) : undefined;
   if (consultRequest) {
     // まだ完了ではない。runClaudeTurn側でpendingConsultを見て相談処理へ進む。
@@ -2051,6 +2119,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
   // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
   run.status = "active";
   run.pendingConsult = undefined;
+  run.pendingLookup = undefined;
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   // 再開時に「続けて」だけの短い入力だと意味検索が枯れるため、元タスク文もクエリに含める。
@@ -2090,6 +2159,14 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
     if ((run.status as AgentStatus) !== "error") break;
   }
 
+  // U19: lookup を consult より先に処理（事実確認 → 必要なら専門相談）。
+  if (run.pendingLookup) {
+    const lookup = run.pendingLookup;
+    run.pendingLookup = undefined;
+    await handleLookup(run, lookup, allowConsult);
+    return;
+  }
+
   if (run.pendingConsult) {
     const consult = run.pendingConsult;
     run.pendingConsult = undefined;
@@ -2098,7 +2175,7 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
 }
 
 // 戻り値はこの試行が失敗した（run.statusが"error"で終わった）かどうか。
-// 相談待ち（pendingConsult）は失敗ではない。
+// 相談待ち（pendingConsult）・追加照会待ち（pendingLookup）は失敗ではない。
 function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。ここまでの保存時マスク・
@@ -2183,7 +2260,7 @@ function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
           appendLog(run, "system", buffer.trim());
         }
       }
-      if (run.status === "active" && !run.pendingConsult) {
+      if (run.status === "active" && !run.pendingConsult && !run.pendingLookup) {
         run.status = "error";
         appendLog(run, "system", `プロセスが結果を返さずに終了しました (exit code: ${code})`);
       }
@@ -2565,6 +2642,44 @@ async function runTeamParallelKickoff(
   ].join("\n");
 
   await runClaudeTurn(leadRun, followUp, false, followUp);
+}
+
+// docs/usage_issues U19。エージェントが ```lookup``` で要求した読み取り専用照会を
+// アプリ側で実行し、結果を同一 run の次ターンへ返す（consult と同型のオーケストレーション）。
+// CLI ネイティブツールは無効のままなので、secure ディレクトリや書き込み API には触れない。
+async function handleLookup(run: AgentRun, lookup: LookupRequest, allowConsult: boolean): Promise<void> {
+  const used = run.lookupRounds ?? 0;
+  // 上限チェックは applyAssistantResultText 側でも行う。ここは防御的に。
+  if (used >= LOOKUP_MAX_ROUNDS) {
+    run.status = "yield";
+    run.yieldRequest = {
+      reason:
+        "追加照会の上限に達したため、これ以上の自動検索はできません。注入済みナレッジとこれまでの照会結果で判断できない点があれば、EMから情報を補ってください。",
+      kind: "inform",
+      options: [],
+    };
+    appendLog(run, "system", `[追加照会] 上限（${LOOKUP_MAX_ROUNDS}回）に達したため拒否しました`);
+    return;
+  }
+
+  run.lookupRounds = used + 1;
+  const remaining = LOOKUP_MAX_ROUNDS - run.lookupRounds;
+  const resultBlock = await executeLookup(lookup);
+  appendLog(run, "system", `[追加照会] 結果を返しました（この会話での残り照会回数: ${remaining}）`);
+
+  const followUp = [
+    "追加照会の結果は以下のとおりです。",
+    "",
+    resultBlock,
+    "",
+    remaining > 0
+      ? `さらに確認が必要なら再度 lookup できます（残り ${remaining} 回）。十分なら proposal または yield（Lead なら必要時 consult）を出力してください。`
+      : "これ以上の lookup はできません。上記と注入済みナレッジだけで proposal または yield を出力してください。",
+    "関連が無いことは、照会結果に『なし』と出ている範囲では断言して構いません。",
+  ].join("\n");
+
+  // resultBlock はマスク済みストア由来。実名を含まない。
+  await runClaudeTurn(run, followUp, allowConsult, followUp);
 }
 
 // docs 3.3「階層型マルチエージェント」/ docs/memo.md「M. AIエージェント“チーム”の

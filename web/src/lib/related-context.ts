@@ -113,18 +113,19 @@ export async function buildRelatedBundleBlock(opts: {
   excludeIssueId?: string;
   mode: RelatedBundleMode;
 }): Promise<string> {
+  if (!opts.queryText.trim()) return "";
+
   const bundle = await gatherRelatedBundle({
     queryText: opts.queryText,
     excludeIssueId: opts.excludeIssueId,
   });
-  if (bundle.journals.length === 0 && bundle.issues.length === 0 && bundle.recurrenceCount === 0) {
-    return "";
-  }
 
+  // U19: 空でも沈黙しない。「無い」を明示し、必要なら lookup で追加確認できる旨を伝える。
+  // （以前は空文字を返しており、エージェントが「注入されていない＝分からない」としか言えなかった）
   const lines: string[] = [];
   if (opts.mode === "journal-analysis") {
     lines.push(
-      "関連する過去の状況（ベクトル類似。単発か構造課題かの判断材料。確度は類似度を見て参考程度に）:",
+      "関連する過去の状況（ベクトル類似の上位最大5件・閾値以上のみ。単発か構造課題かの判断材料。確度は類似度を見て参考程度に。打ち切り外の確認はlookupを使うこと）:",
     );
     if (bundle.recurrenceCount >= 2) {
       lines.push(
@@ -132,20 +133,27 @@ export async function buildRelatedBundleBlock(opts: {
       );
     } else if (bundle.recurrenceCount === 1) {
       lines.push("【繰り返しシグナル】近い Journal はこの件を含めて1件程度（単発の可能性も残る）。");
+    } else {
+      lines.push("【繰り返しシグナル】閾値以上の近い Journal は見つかりませんでした。");
     }
   } else {
     lines.push(
-      "このIssueに意味的に関連する過去の情報（ベクトル類似。横断の材料として扱うこと。確度は類似度を見て参考程度に）:",
+      "このIssueに意味的に関連する過去の情報（ベクトル類似の上位最大5件・閾値以上のみ。横断の材料として扱うこと。確度は類似度を見て参考程度に。打ち切り外・完了済みの確認はlookupを使うこと）:",
     );
   }
 
+  lines.push("", "【関連する未完了Issue】");
   if (bundle.issues.length > 0) {
-    lines.push("", "【関連する未完了Issue】");
     lines.push(...bundle.issues.map(formatIssueLine));
+  } else {
+    lines.push("- （閾値以上の類似未完了Issueなし。不在の確証が必要なら lookup でキーワード検索や done/archived 込みの確認を行うこと）");
   }
+
+  lines.push("", "【関連するJournal】");
   if (bundle.journals.length > 0) {
-    lines.push("", "【関連するJournal】");
     lines.push(...bundle.journals.map(formatJournalLine));
+  } else {
+    lines.push("- （閾値以上の類似Journalなし）");
   }
 
   return lines.join("\n");

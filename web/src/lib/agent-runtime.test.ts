@@ -548,6 +548,17 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("```consult");
   });
 
+  it("全エージェントのプロンプトにlookupブロックの説明を含む", async () => {
+    const rt = await loadModule();
+    const lead = rt.buildSystemPrompt("Lead Agent", true);
+    const people = rt.buildSystemPrompt("People Agent", false);
+    expect(lead).toContain("```lookup");
+    expect(lead).toContain('"type": "issues"');
+    expect(lead).toContain("上位最大5件");
+    expect(people).toContain("```lookup");
+    expect(people).toContain("追加照会");
+  });
+
   it("allowConsult:falseの場合はconsultブロックの説明を含まない", async () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", false);
