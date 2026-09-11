@@ -428,14 +428,13 @@ export default function OrgContextPage() {
 
   // ポーリングや他操作で KR が増減したとき、未編集のドラフトだけ同期する。
   // （effect 内 setState は cascading render になるため、レンダー中に調整する）
+  // selectedObjective?.id は null 時に undefined になるため、状態の null と揃えて比較する。
+  const selectedObjectiveId = selectedObjective?.id ?? null;
   const selectedKrIds = selectedObjective
     ? selectedObjective.keyResults.map((kr) => kr.id).join("\0")
     : "";
-  if (
-    selectedObjective?.id !== krDraftObjectiveId ||
-    selectedKrIds !== krDraftKrIds
-  ) {
-    setKrDraftObjectiveId(selectedObjective?.id ?? null);
+  if (selectedObjectiveId !== krDraftObjectiveId || selectedKrIds !== krDraftKrIds) {
+    setKrDraftObjectiveId(selectedObjectiveId);
     setKrDraftKrIds(selectedKrIds);
     if (selectedObjective) {
       setKrDrafts((prev) => {
