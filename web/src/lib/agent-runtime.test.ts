@@ -536,7 +536,7 @@ describe("buildOrgContextBlock", () => {
   });
 });
 
-describe("buildStrategyBlock / buildObjectivesBlock", () => {
+describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", () => {
   it("MVVが未設定なら空文字列", async () => {
     const rt = await loadModule();
     expect(rt.buildStrategyBlock()).toBe("");
@@ -569,6 +569,46 @@ describe("buildStrategyBlock / buildObjectivesBlock", () => {
     await orgStore.addObjective("売上を伸ばす", undefined, "四半期重点");
     const rt = await loadModule();
     expect(rt.buildObjectivesBlock("Lead Agent")).toContain("メモ: 四半期重点");
+  });
+
+  it("Standing Backgroundのalwaysは常に含み、taggedは手がかりがあるときだけ", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    await orgStore.addOrgBackground({
+      title: "2024 個人情報漏洩",
+      fact: "顧客データが流出した",
+      implication: "セキュリティ投資を軽視しない",
+      scope: "always",
+      tags: ["security"],
+    });
+    await orgStore.addOrgBackground({
+      title: "去年赤字",
+      fact: "通期で最終赤字",
+      implication: "採用はコスト感度が高い",
+      scope: "tagged",
+      tags: ["finance"],
+    });
+    const rt = await loadModule();
+
+    const alwaysOnly = rt.buildOrgBackgroundBlock();
+    expect(alwaysOnly).toContain("2024 個人情報漏洩");
+    expect(alwaysOnly).toContain("事実: 顧客データが流出した");
+    expect(alwaysOnly).toContain("含意: セキュリティ投資を軽視しない");
+    expect(alwaysOnly).not.toContain("去年赤字");
+
+    const withFinance = rt.buildOrgBackgroundBlock(undefined, "今期の採用予算と finance の見直し");
+    expect(withFinance).toContain("去年赤字");
+  });
+
+  it("アーカイブ済みStanding Backgroundは注入しない", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const entry = await orgStore.addOrgBackground({
+      title: "古いインシデント",
+      fact: "もう効かない",
+      scope: "always",
+    });
+    await orgStore.updateOrgBackground(entry.id, { status: "archived" });
+    const rt = await loadModule();
+    expect(rt.buildOrgBackgroundBlock()).toBe("");
   });
 });
 

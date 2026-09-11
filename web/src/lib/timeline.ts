@@ -1,6 +1,12 @@
 import { listRecentChangeEvents, toEventView, type KnowledgeEntityType } from "@/lib/knowledge-store";
 import { getIssue, toIssueView } from "@/lib/issue-store";
-import { getTeam, getObjective, toObjectiveView } from "@/lib/org-context-store";
+import {
+  getTeam,
+  getObjective,
+  getOrgBackground,
+  toObjectiveView,
+  toOrgBackgroundView,
+} from "@/lib/org-context-store";
 import { teamDisplayName } from "@/lib/types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しいエンティティやデータモデルは
@@ -24,7 +30,7 @@ export type TimelineEntry = {
 export const ENTITY_TYPE_LABEL: Record<KnowledgeEntityType, string> = {
   issue: "Issue",
   team: "Team",
-  org: "Objective",
+  org: "Org",
   journal: "Journal",
   person: "Person",
 };
@@ -44,7 +50,9 @@ function resolveEntity(entityType: KnowledgeEntityType, entityId: string): { lab
   }
   if (entityType === "org") {
     const objective = getObjective(entityId);
-    return objective ? { label: toObjectiveView(objective).title, href: "/org" } : {};
+    if (objective) return { label: toObjectiveView(objective).title, href: "/org" };
+    const background = getOrgBackground(entityId);
+    if (background) return { label: toOrgBackgroundView(background).title, href: "/org" };
   }
   return {};
 }

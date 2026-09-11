@@ -3,7 +3,15 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dataFilePath, getDataDir, loadJSON, saveJSON } from "@/lib/persistence";
 import { assertNoRealNamesLeaked, ensureNameCandidatesAllowed, listPeople, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
-import { getOrgStrategy, getTeam, listActiveTeams, listObjectives, type Team } from "@/lib/org-context-store";
+import {
+  getOrgStrategy,
+  getTeam,
+  listActiveOrgBackgrounds,
+  listActiveTeams,
+  listObjectives,
+  type OrgBackgroundEntry,
+  type Team,
+} from "@/lib/org-context-store";
 import { getIssue, getIssueByRunId, linkIssueRun, listIssues, type IssueCharter } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import { listJournalEntries } from "@/lib/journal-store";
@@ -1269,6 +1277,59 @@ export function buildStrategyBlock(): string {
   return ["組織のMVV（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
+/** Standing Background（tagged）が現在の手がかりにヒットするか。 */
+function backgroundMatchesContext(entry: OrgBackgroundEntry, haystack: string, issueTags: string[]): boolean {
+  const lowerHay = haystack.toLowerCase();
+  const entryTags = entry.tags.map((t) => t.toLowerCase()).filter(Boolean);
+  if (issueTags.some((t) => entryTags.includes(t.toLowerCase()))) return true;
+  if (entryTags.some((t) => lowerHay.includes(t))) return true;
+  const title = entry.title.trim().toLowerCase();
+  if (title && lowerHay.includes(title)) return true;
+  return false;
+}
+
+/**
+ * Standing Background: 組織の長期背景事実＋判断への含意。
+ * scope=always は常時、tagged は Issue タグ／タスク文などの手がかりがあるときだけ注入する。
+ */
+export function buildOrgBackgroundBlock(runId?: string, rawText?: string): string {
+  const active = listActiveOrgBackgrounds();
+  if (active.length === 0) return "";
+
+  const issue = runId ? (getIssueByRunId(runId) ?? resolveIssueForRun(runId)) : undefined;
+  const runTask = runId ? runs.get(runId)?.task ?? "" : "";
+  const haystack = [
+    rawText ?? "",
+    runTask,
+    issue?.title ?? "",
+    issue?.charter.why ?? "",
+    issue?.charter.what ?? "",
+    issue?.charter.how ?? "",
+    ...(issue?.tags ?? []),
+  ]
+    .join("\n")
+    .toLowerCase();
+  const issueTags = issue?.tags ?? [];
+
+  const selected = active.filter((e) => {
+    if (e.scope === "always") return true;
+    return backgroundMatchesContext(e, haystack, issueTags);
+  });
+  if (selected.length === 0) return "";
+
+  const lines = selected.map((e) => {
+    const when = e.occurredOn ? `[${e.occurredOn}] ` : "";
+    const parts = [`- ${when}${e.title}`, `  事実: ${e.fact}`];
+    if (e.implication.trim()) parts.push(`  含意: ${e.implication}`);
+    if (e.tags.length > 0) parts.push(`  tags: ${e.tags.join(", ")}`);
+    return parts.join("\n");
+  });
+  return [
+    "組織の背景事実（Standing Background、絶対の前提として扱うこと。事実と含意を混同しないこと。含意は現時点の判断拘束であり、事実そのものの拡大解釈はしない）:",
+    ...lines,
+  ].join("\n");
+}
+
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述のOKRだった部分を、
 // Objective/KeyResultの構造化データから組み立てる。進捗（何件完了か）はEMが画面で見る
 // ものであり、エージェントへの前提としては「今期何を目指し、何が主要な結果か」という
@@ -1706,6 +1767,7 @@ export function buildSystemPrompt(
   const teamCharterContext = runId ? buildTeamCharterBlock(runId) : "";
   const orgContext = buildOrgContextBlock(runId, rawText);
   const strategyContext = buildStrategyBlock();
+  const backgroundContext = buildOrgBackgroundBlock(runId, rawText);
   const objectivesContext = buildObjectivesBlock(agentName);
   const themesContext = buildThemesContextBlock();
   // 状況蒸留・朝サマリー: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
@@ -1724,6 +1786,7 @@ export function buildSystemPrompt(
     journalContext,
     orgContext,
     strategyContext,
+    backgroundContext,
     objectivesContext,
     themesContext,
   ]

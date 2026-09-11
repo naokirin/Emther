@@ -14,6 +14,7 @@ import type {
   JournalEntry,
   KnowledgeEvent,
   ObjectiveWithProgress,
+  OrgBackgroundEntry,
   OrgStrategy,
   OrgTheme,
   OrgVitals,
@@ -616,6 +617,15 @@ export function useOrgStrategy(intervalMs = 8000) {
   const fallback: { strategy: OrgStrategy } = { strategy: { mission: "", vision: "", values: "" } };
   const { data, loaded, refresh } = usePolling<{ strategy: OrgStrategy }>("/api/org/strategy", fallback, intervalMs);
   return { strategy: data.strategy, strategyLoaded: loaded, refreshStrategy: refresh };
+}
+
+export function useOrgBackgrounds(intervalMs = 8000) {
+  const { data, loaded, refresh } = usePolling<{ backgrounds: OrgBackgroundEntry[] }>(
+    "/api/org/background",
+    { backgrounds: [] },
+    intervalMs,
+  );
+  return { backgrounds: data.backgrounds, backgroundsLoaded: loaded, refreshBackgrounds: refresh };
 }
 
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。

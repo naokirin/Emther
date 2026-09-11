@@ -160,6 +160,22 @@ export type OrgStrategy = {
   values: string;
 };
 
+// Standing Background: 組織の長期背景事実＋判断への含意（Core Context）。
+export type OrgBackgroundScope = "always" | "tagged";
+export type OrgBackgroundStatus = "active" | "archived";
+export type OrgBackgroundEntry = {
+  id: string;
+  title: string;
+  fact: string;
+  implication: string;
+  occurredOn?: string;
+  tags: string[];
+  scope: OrgBackgroundScope;
+  status: OrgBackgroundStatus;
+  createdAt: number;
+  updatedAt: number;
+};
+
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述1本の`okr`文字列だった
 // OKRを、Objective（目標）ごとにKeyResult（主要な結果）を持つ最小構造に置き換える。
 // 進捗は手動入力ではなく、KeyResultへ紐付いたIssueのうち active（!archived）の
@@ -717,7 +733,7 @@ export type TimelineEntry = {
 export const TIMELINE_ENTITY_TYPE_LABEL: Record<TimelineEntityType, string> = {
   issue: "Issue",
   team: "Team",
-  org: "Objective",
+  org: "Org",
   journal: "Journal",
   person: "Person",
 };
