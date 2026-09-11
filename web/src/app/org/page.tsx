@@ -17,13 +17,14 @@ import {
 type Selection =
   | { kind: "strategy" }
   | { kind: "backgrounds" }
-  | { kind: "objective"; id: string }
+  | { kind: "objectives" }
   | null;
 
 // ユーザー要望「方針・目標タブでは、方針・目標の設定によりフォーカスした形にしたい」対応。
 // チーム管理（Teams）は@/app/teams/page.tsx（チーム・メンバータブ）へ移設した。ここはEMが
 // Agent Runtimeへ「絶対の前提」として注入する組織の憲法（MVV＝Strategy）と、戦略→Issue→結果を
 // つなぐOKR（Objectives）、および Standing Background（長期の背景事実）に絞る。
+// Strategy / Standing Background / Objectives はいずれも左ツリーは入口だけで、追加・一覧・編集は右パネルの専用ビューで行う。
 //
 // ユーザー指摘「目標は組織内でカスケーディングされるもの（上位組織の目標達成のために
 // 下位組織の目標がある）」対応。ObjectiveにteamId（未指定＝組織全体、指定時はそのチーム自身の
@@ -34,6 +35,12 @@ type Selection =
 function treeTitle(title: string): string {
   const first = title.split("\n")[0]?.trim() || title;
   return title.includes("\n") ? `${first}…` : first;
+}
+
+function objectiveProgressLabel(o: ObjectiveWithProgress): string {
+  const total = o.progress.reduce((sum, p) => sum + p.total, 0);
+  const done = o.progress.reduce((sum, p) => sum + p.done, 0);
+  return `KR ${o.keyResults.length}件` + (total > 0 ? ` · Issue ${done}/${total}` : "");
 }
 
 // docs/memo.md TODO「チームの組織階層を入力できるようにする」への対応と同じツリー構造を、
@@ -72,38 +79,81 @@ function buildObjectiveTeamTree(teams: Team[], objectives: ObjectiveWithProgress
   return root;
 }
 
-function ObjectiveTeamTreeView({
+function ObjectiveListCard({
+  objective,
+  onSelect,
+}: {
+  objective: ObjectiveWithProgress;
+  onSelect: (o: ObjectiveWithProgress) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(objective)}
+      style={{
+        textAlign: "left",
+        padding: "10px 12px",
+        border: "1px solid var(--input-border)",
+        borderRadius: 8,
+        background: "var(--panel-bg, transparent)",
+        cursor: "pointer",
+        width: "100%",
+      }}
+    >
+      <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{treeTitle(objective.title)}</div>
+      <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+        {objectiveProgressLabel(objective)}
+      </div>
+      {objective.note?.trim() && (
+        <div style={{ marginTop: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          {objective.note.length > 120 ? `${objective.note.slice(0, 120)}…` : objective.note}
+        </div>
+      )}
+    </button>
+  );
+}
+
+function ObjectiveTeamListView({
   nodes,
   depth,
-  selection,
   onSelectObjective,
 }: {
   nodes: ObjectiveTreeNode[];
   depth: number;
-  selection: Selection;
   onSelectObjective: (o: ObjectiveWithProgress) => void;
 }) {
   return (
     <>
       {nodes.map((node) => (
-        <div key={`${depth}-${node.segment}`}>
-          <div className={styles.treeFolder} style={{ paddingLeft: depth * 14, marginTop: 4 }}>
-            📁 {node.segment}
+        <div key={`${depth}-${node.segment}`} style={{ marginTop: depth === 0 ? 12 : 8 }}>
+          <div
+            style={{
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              color: "var(--text)",
+              marginBottom: 4,
+              paddingLeft: depth * 12,
+            }}
+          >
+            {node.segment}
           </div>
-          {node.objectives.map((o) => (
-            <div
-              key={o.id}
-              className={`${styles.treeFile} ${
-                selection?.kind === "objective" && selection.id === o.id ? styles.treeFileSelected : ""
-              }`}
-              style={{ paddingLeft: 20 + depth * 14 }}
-              onClick={() => onSelectObjective(o)}
-            >
-              📄 {treeTitle(o.title)}（KR {o.keyResults.length}件）
+          {node.team && (
+            <div style={{ paddingLeft: depth * 12, marginBottom: node.children.length > 0 ? 4 : 0 }}>
+              {node.objectives.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {node.objectives.map((o) => (
+                    <ObjectiveListCard key={o.id} objective={o} onSelect={onSelectObjective} />
+                  ))}
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  登録なし
+                </p>
+              )}
             </div>
-          ))}
+          )}
           {node.children.length > 0 && (
-            <ObjectiveTeamTreeView nodes={node.children} depth={depth + 1} selection={selection} onSelectObjective={onSelectObjective} />
+            <ObjectiveTeamListView nodes={node.children} depth={depth + 1} onSelectObjective={onSelectObjective} />
           )}
         </div>
       ))}
@@ -138,6 +188,8 @@ export default function OrgContextPage() {
   function selectStrategy() {
     if (strategyLoaded) setStrategyDraft(strategy);
     setEditingBackgroundId(null);
+    setEditingObjectiveId(null);
+    setImportOpen(false);
     setSelection({ kind: "strategy" });
   }
 
@@ -190,6 +242,8 @@ export default function OrgContextPage() {
 
   function selectBackgroundsView() {
     setEditingBackgroundId(null);
+    setEditingObjectiveId(null);
+    setImportOpen(false);
     setBgError(null);
     setBgEditError(null);
     setSelection({ kind: "backgrounds" });
@@ -300,8 +354,10 @@ export default function OrgContextPage() {
   }
 
   // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。Objective/KeyResultの管理。
-  // Strategyと同じ「ツリーを選んだ瞬間だけドラフトへコピー」方式にする。
-  const selectedObjective = selection?.kind === "objective" ? objectives.find((o) => o.id === selection.id) ?? null : null;
+  // Strategy / Standing Background と同様、左ツリーは入口だけで右パネルで一覧・編集する。
+  const [editingObjectiveId, setEditingObjectiveId] = useState<string | null>(null);
+  const selectedObjective =
+    editingObjectiveId ? objectives.find((o) => o.id === editingObjectiveId) ?? null : null;
   const { history: objectiveHistory } = useEntityHistory("org", selectedObjective?.id ?? null);
 
   const orgWideObjectives = objectives.filter((o) => !o.teamId);
@@ -336,7 +392,17 @@ export default function OrgContextPage() {
   const [importSaving, setImportSaving] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  function selectObjective(o: ObjectiveWithProgress) {
+  function selectObjectivesView() {
+    setEditingObjectiveId(null);
+    setEditingBackgroundId(null);
+    setImportOpen(false);
+    setObjectiveError(null);
+    setObjectiveEditError(null);
+    setKrEditError(null);
+    setSelection({ kind: "objectives" });
+  }
+
+  function beginEditObjective(o: ObjectiveWithProgress) {
     setEditObjectiveTitle(o.title);
     setEditObjectiveNote(o.note ?? "");
     setEditObjectiveTeamId(o.teamId ?? "");
@@ -344,8 +410,14 @@ export default function OrgContextPage() {
     setKrEditError(null);
     setNewKeyResultTitle("");
     setKrDrafts(Object.fromEntries(o.keyResults.map((kr) => [kr.id, kr.title])));
-    setEditingBackgroundId(null);
-    setSelection({ kind: "objective", id: o.id });
+    setImportOpen(false);
+    setEditingObjectiveId(o.id);
+  }
+
+  function cancelEditObjective() {
+    setEditingObjectiveId(null);
+    setObjectiveEditError(null);
+    setKrEditError(null);
   }
 
   async function handleAddObjective(e: React.FormEvent) {
@@ -362,8 +434,9 @@ export default function OrgContextPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Objectiveの追加に失敗しました");
       setNewObjectiveTitle("");
+      setNewObjectiveTeamId("");
       await refreshObjectives();
-      selectObjective({ ...data.objective, progress: [] });
+      beginEditObjective({ ...data.objective, progress: [] });
     } catch (err) {
       setObjectiveError((err as Error).message);
     } finally {
@@ -404,7 +477,7 @@ export default function OrgContextPage() {
   async function handleRemoveObjective(id: string) {
     try {
       await fetch(`/api/org/objectives/${id}`, { method: "DELETE" });
-      if (selection?.kind === "objective" && selection.id === id) setSelection(null);
+      if (editingObjectiveId === id) setEditingObjectiveId(null);
       await refreshObjectives();
     } catch {
       // 失敗時は次回のポーリングで状態が揃う
@@ -530,7 +603,7 @@ export default function OrgContextPage() {
       setImportOpen(false);
       await refreshObjectives();
       const first = Array.isArray(data.objectives) ? data.objectives[0] : null;
-      if (first) selectObjective({ ...first, progress: first.progress ?? [] });
+      if (first) beginEditObjective({ ...first, progress: first.progress ?? [] });
     } catch (err) {
       setImportError((err as Error).message);
     } finally {
@@ -646,196 +719,19 @@ export default function OrgContextPage() {
           </div>
 
           <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Objectives（OKR）</div>
-          <div style={{ margin: "4px 0", display: "flex", gap: 6 }}>
-            <button
-              type="button"
-              className={styles.btnOutline}
-              style={{ flex: 1 }}
-              onClick={() => {
-                setImportOpen((v) => !v);
-                setImportError(null);
-              }}
-            >
-              {importOpen ? "取り込みを閉じる" : "テキストから取り込む"}
-            </button>
+          <div
+            className={`${styles.treeFile} ${selection?.kind === "objectives" ? styles.treeFileSelected : ""}`}
+            onClick={selectObjectivesView}
+          >
+            📄 Objectives
+            {objectivesLoaded && objectives.length > 0 ? `（${objectives.length}件）` : ""}
           </div>
-          {/* ユーザー指摘「追加ボタンがパネルからはみ出している」対応。.treeAddRowは
-              display:flex（wrapなし）+input flex:1の1行レイアウトで、テキスト入力と
-              ボタンの2要素だけを想定していた。所属チームSelect（最小幅140px）を同じ行に
-              入れるとサイドパネル幅（280〜320px）を超えてはみ出すため、タイトル入力を
-              1行目、所属チーム＋追加ボタンを2行目に分ける。 */}
-          <form onSubmit={handleAddObjective} style={{ margin: "4px 0" }}>
-            <textarea
-              rows={2}
-              value={newObjectiveTitle}
-              onChange={(e) => setNewObjectiveTitle(e.target.value)}
-              placeholder="新しいObjective（改行可）"
-              style={{ width: "100%", border: "1px solid var(--input-border)", borderRadius: 6, padding: "4px 8px", fontSize: "0.8125rem", resize: "vertical" }}
-            />
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <Select
-                value={newObjectiveTeamId}
-                onChange={setNewObjectiveTeamId}
-                options={[{ value: "", label: "組織全体" }, ...teamOptions]}
-                label="所属チーム"
-                style={{ flex: 1, minWidth: 0 }}
-              />
-              <button className={styles.btnOutline} type="submit" disabled={objectiveSubmitting || !newObjectiveTitle.trim()}>
-                追加
-              </button>
-            </div>
-          </form>
-          {objectiveError && <p className={styles.errorText} role="alert">{objectiveError}</p>}
-          {!objectivesLoaded ? (
-            <p className={styles.subtitle}>読み込み中…</p>
-          ) : (
-            objectives.length === 0 && <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>
-          )}
-
-          {/* ユーザー指摘「組織全体のOKRが入力の下にそのまま置かれていてわかりにくい」対応。
-              チームのOKR（📁 チーム名の下にネスト）と同じ見た目にするため、組織全体の目標
-              （teamId未設定）も「📁 組織全体」フォルダの下に並べる。その下にチーム階層と
-              同じ構造で各チーム自身の目標をネスト表示し、上位目標→下位目標のカスケードを
-              一望できるようにする。 */}
-          <div className={styles.treeFolder} style={{ marginTop: 4 }}>📁 組織全体</div>
-          {orgWideObjectives.map((o) => (
-            <div
-              key={o.id}
-              className={`${styles.treeFile} ${
-                selection?.kind === "objective" && selection.id === o.id ? styles.treeFileSelected : ""
-              }`}
-              style={{ paddingLeft: 20 }}
-              onClick={() => selectObjective(o)}
-            >
-              📄 {treeTitle(o.title)}（KR {o.keyResults.length}件）
-            </div>
-          ))}
-          <ObjectiveTeamTreeView nodes={objectiveTeamTree} depth={0} selection={selection} onSelectObjective={selectObjective} />
         </div>
       </div>
 
       <div className={styles.panel}>
-        {importOpen && (
-          <>
-            <p className={styles.subtitle}>
-              既存のOKR全文を貼り付け、外部AI（SettingsのCLI優先順。失敗時や構造が明確なMarkdownのときはルールベース）で Objective / Key Result / メモに分解します。プレビューで直してから、追記または同一スコープの差し替えで保存できます。
-            </p>
-            <div className={styles.field}>
-              <label>OKRテキスト
-              <textarea
-                rows={8}
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder={"例:\nObjective: プロダクトの信頼性を上げる\nメモ: インシデントが増えたため\n- 重大インシデントを半期で50%削減\n- デプロイ失敗率を1%未満に"}
-              /></label>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldCaption}>取り込み先（所属チーム）</span>
-              <Select
-                value={importTeamId}
-                onChange={setImportTeamId}
-                options={[{ value: "", label: "組織全体" }, ...teamOptions]}
-                label="取り込み先"
-                style={{ width: "100%" }}
-              />
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldCaption}>保存モード</span>
-              <div style={{ display: "flex", gap: 12, fontSize: "0.8125rem" }}>
-                <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input
-                    type="radio"
-                    name="importMode"
-                    checked={importMode === "append"}
-                    onChange={() => setImportMode("append")}
-                  />
-                  追記（既存は残す）
-                </label>
-                <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input
-                    type="radio"
-                    name="importMode"
-                    checked={importMode === "replace"}
-                    onChange={() => setImportMode("replace")}
-                  />
-                  差し替え（同一スコープの既存を削除）
-                </label>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                style={{ width: "auto" }}
-                onClick={handleParseImport}
-                disabled={importParsing || !importText.trim()}
-              >
-                {importParsing ? "構造化中…" : "構造化する"}
-              </button>
-              <button
-                type="button"
-                className={styles.btnOutline}
-                onClick={handleSaveImport}
-                disabled={importSaving || !importDrafts || importDrafts.length === 0}
-              >
-                {importSaving ? "保存中…" : "この内容で保存"}
-              </button>
-            </div>
-            {importSource && (
-              <p className={styles.subtitle}>
-                分解元: {importSource === "cloud" ? "外部AI（CLI）" : "ルールベース"}
-              </p>
-            )}
-            {importError && <p className={styles.errorText} role="alert">{importError}</p>}
-            {importDrafts && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
-                {importDrafts.map((draft, index) => (
-                  <div key={index} className={styles.field} style={{ margin: 0, padding: 10, border: "1px solid var(--input-border)", borderRadius: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                      <span className={styles.fieldCaption}>Objective {index + 1}</span>
-                      <button type="button" className={styles.btnOutline} onClick={() => removeImportDraft(index)}>
-                        このObjectiveを除く
-                      </button>
-                    </div>
-                    <label>タイトル
-                    <textarea
-                      rows={2}
-                      value={draft.title}
-                      onChange={(e) => updateImportDraft(index, { title: e.target.value })}
-                    /></label>
-                    <label style={{ marginTop: 8, display: "block" }}>メモ（任意）
-                    <textarea
-                      rows={2}
-                      value={draft.note ?? ""}
-                      onChange={(e) => updateImportDraft(index, { note: e.target.value })}
-                    /></label>
-                    <span className={styles.fieldCaption} style={{ marginTop: 8, display: "block" }}>Key Results</span>
-                    {draft.keyResults.map((kr, krIndex) => (
-                      <div key={krIndex} style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "flex-start" }}>
-                        <textarea
-                          rows={2}
-                          value={kr}
-                          onChange={(e) => updateImportKr(index, krIndex, e.target.value)}
-                          style={{ flex: 1, minWidth: 0 }}
-                        />
-                        <button type="button" className={styles.btnOutline} onClick={() => removeImportKr(index, krIndex)}>
-                          削除
-                        </button>
-                      </div>
-                    ))}
-                    <button type="button" className={styles.btnOutline} style={{ marginTop: 8 }} onClick={() => addImportKr(index)}>
-                      KRを追加
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid var(--input-border)" }} />
-          </>
-        )}
-
-        {!selection && !importOpen && (
-          <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectiveを選択してください。</p>
+        {!selection && (
+          <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectivesを選択してください。</p>
         )}
 
         {selection?.kind === "strategy" && (
@@ -850,7 +746,7 @@ export default function OrgContextPage() {
               </button>
             </div>
             <p className={styles.subtitle}>
-              組織全体のMVVはIssueに依らず常にAgent Runtimeへ絶対の前提として注入されます。未入力の項目は注入されません。OKRは左の「Objectives」で管理します。
+              組織全体のMVVはIssueに依らず常にAgent Runtimeへ絶対の前提として注入されます。未入力の項目は注入されません。OKRは「Objectives」で管理します。
             </p>
             <div className={styles.field}>
               <label>Mission（生む価値・存在意義）
@@ -1128,133 +1024,352 @@ export default function OrgContextPage() {
           </>
         )}
 
-        {selectedObjective && (
+        {selection?.kind === "objectives" && (
           <>
-            <div className={styles.editorPath}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  onClick={handleSaveObjective}
-                  disabled={objectiveSaving || !editObjectiveTitle.trim() || !objectiveDirty}
-                >
-                  {objectiveSaving ? "保存中…" : objectiveDirty ? "保存" : "保存済み"}
-                </button>
-                <button className={styles.btnOutline} onClick={() => handleRemoveObjective(selectedObjective.id)}>
-                  このObjectiveを削除
-                </button>
-              </div>
-            </div>
             <p className={styles.subtitle}>
-              KeyResultへ紐付けたIssueのうち、追っていない（アーカイブ）ものを除き、ステータス完了（解決）件数から進捗を自動算出します（手動での進捗入力はありません）。
+              今期の Objective / Key Result です。組織全体からチームへカスケードする構造で管理し、Agent Runtimeへ絶対の前提として注入されます。
             </p>
-            <div className={styles.field}>
-              <label>Objective（目標）
-              <textarea
-                rows={3}
-                value={editObjectiveTitle}
-                onChange={(e) => setEditObjectiveTitle(e.target.value)}
-              /></label>
-            </div>
-            <div className={styles.field}>
-              <label>メモ（判断の理由などの補足）
-              <textarea
-                rows={3}
-                value={editObjectiveNote}
-                onChange={(e) => setEditObjectiveNote(e.target.value)}
-                placeholder="この目標にした理由・前提・例外など"
-              /></label>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldCaption}>所属チーム（未指定＝組織全体の目標）</span>
-              <Select
-                value={editObjectiveTeamId}
-                onChange={setEditObjectiveTeamId}
-                options={[{ value: "", label: "組織全体" }, ...teamOptions]}
-                label="所属チーム"
-                style={{ width: "100%" }}
-              />
-            </div>
-            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-              チームを指定すると、そのチームが組織の上位目標を達成するために追う下位目標として、左のツリーでチーム配下にネスト表示されます。
-            </p>
-            {objectiveEditError && <p className={styles.errorText} role="alert">{objectiveEditError}</p>}
 
-            <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
-            {selectedObjective.keyResults.length === 0 ? (
-              <p className={styles.subtitle}>まだKey Resultがありません。</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
-                {selectedObjective.keyResults.map((kr) => {
-                  const progress = selectedObjective.progress.find((p) => p.keyResultId === kr.id);
-                  const draft = krDrafts[kr.id] ?? kr.title;
-                  const dirty = draft.trim() !== kr.title;
-                  return (
-                    <div
-                      key={kr.id}
-                      className={styles.field}
-                      style={{ marginBottom: 0, border: "1px solid var(--input-border)", borderRadius: 8, padding: 10 }}
-                    >
-                      <textarea
-                        rows={2}
-                        value={draft}
-                        onChange={(e) => setKrDrafts((prev) => ({ ...prev, [kr.id]: e.target.value }))}
+            {!selectedObjective && !importOpen && (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    onClick={() => {
+                      setImportOpen(true);
+                      setImportError(null);
+                    }}
+                  >
+                    テキストから取り込む
+                  </button>
+                </div>
+
+                <h3 style={{ marginTop: 4, marginBottom: 8, fontSize: "0.875rem" }}>新規追加</h3>
+                <form onSubmit={handleAddObjective}>
+                  <div className={styles.field}>
+                    <label>Objective（目標）
+                    <textarea
+                      rows={2}
+                      value={newObjectiveTitle}
+                      onChange={(e) => setNewObjectiveTitle(e.target.value)}
+                      placeholder="新しいObjective（改行可）"
+                    /></label>
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.fieldCaption}>所属チーム（未指定＝組織全体）</span>
+                    <Select
+                      value={newObjectiveTeamId}
+                      onChange={setNewObjectiveTeamId}
+                      options={[{ value: "", label: "組織全体" }, ...teamOptions]}
+                      label="所属チーム"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  {objectiveError && <p className={styles.errorText} role="alert">{objectiveError}</p>}
+                  <button
+                    className={styles.primaryBtn}
+                    type="submit"
+                    style={{ width: "auto" }}
+                    disabled={objectiveSubmitting || !newObjectiveTitle.trim()}
+                  >
+                    {objectiveSubmitting ? "追加中…" : "追加"}
+                  </button>
+                </form>
+
+                <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid var(--input-border)" }} />
+
+                <h3 style={{ margin: "0 0 8px", fontSize: "0.875rem" }}>一覧</h3>
+                {!objectivesLoaded ? (
+                  <p className={styles.subtitle}>読み込み中…</p>
+                ) : objectives.length === 0 ? (
+                  <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>
+                ) : (
+                  <>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
+                      組織全体
+                    </div>
+                    {orgWideObjectives.length === 0 ? (
+                      <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>登録なし</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {orgWideObjectives.map((o) => (
+                          <ObjectiveListCard key={o.id} objective={o} onSelect={beginEditObjective} />
+                        ))}
+                      </div>
+                    )}
+                    <ObjectiveTeamListView
+                      nodes={objectiveTeamTree}
+                      depth={0}
+                      onSelectObjective={beginEditObjective}
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {importOpen && !selectedObjective && (
+              <>
+                <div className={styles.editorPath}>
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    onClick={() => {
+                      setImportOpen(false);
+                      setImportError(null);
+                    }}
+                  >
+                    一覧に戻る
+                  </button>
+                </div>
+                <p className={styles.subtitle}>
+                  既存のOKR全文を貼り付け、外部AI（SettingsのCLI優先順。失敗時や構造が明確なMarkdownのときはルールベース）で Objective / Key Result / メモに分解します。プレビューで直してから、追記または同一スコープの差し替えで保存できます。
+                </p>
+                <div className={styles.field}>
+                  <label>OKRテキスト
+                  <textarea
+                    rows={8}
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder={"例:\nObjective: プロダクトの信頼性を上げる\nメモ: インシデントが増えたため\n- 重大インシデントを半期で50%削減\n- デプロイ失敗率を1%未満に"}
+                  /></label>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.fieldCaption}>取り込み先（所属チーム）</span>
+                  <Select
+                    value={importTeamId}
+                    onChange={setImportTeamId}
+                    options={[{ value: "", label: "組織全体" }, ...teamOptions]}
+                    label="取り込み先"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.fieldCaption}>保存モード</span>
+                  <div style={{ display: "flex", gap: 12, fontSize: "0.8125rem" }}>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        type="radio"
+                        name="importMode"
+                        checked={importMode === "append"}
+                        onChange={() => setImportMode("append")}
                       />
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, alignItems: "center" }}>
-                        <span className={styles.tableMuted} style={{ fontSize: "0.75rem" }}>
-                          {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
-                        </span>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button
-                            type="button"
-                            className={styles.primaryBtn}
-                            style={{ width: "auto" }}
-                            disabled={krSavingId === kr.id || !draft.trim() || !dirty}
-                            onClick={() => handleSaveKeyResult(kr.id)}
-                          >
-                            {krSavingId === kr.id ? "保存中…" : "保存"}
-                          </button>
-                          <button type="button" className={styles.btnOutline} onClick={() => handleRemoveKeyResult(kr.id)}>
-                            削除
+                      追記（既存は残す）
+                    </label>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        type="radio"
+                        name="importMode"
+                        checked={importMode === "replace"}
+                        onChange={() => setImportMode("replace")}
+                      />
+                      差し替え（同一スコープの既存を削除）
+                    </label>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    style={{ width: "auto" }}
+                    onClick={handleParseImport}
+                    disabled={importParsing || !importText.trim()}
+                  >
+                    {importParsing ? "構造化中…" : "構造化する"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    onClick={handleSaveImport}
+                    disabled={importSaving || !importDrafts || importDrafts.length === 0}
+                  >
+                    {importSaving ? "保存中…" : "この内容で保存"}
+                  </button>
+                </div>
+                {importSource && (
+                  <p className={styles.subtitle}>
+                    分解元: {importSource === "cloud" ? "外部AI（CLI）" : "ルールベース"}
+                  </p>
+                )}
+                {importError && <p className={styles.errorText} role="alert">{importError}</p>}
+                {importDrafts && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
+                    {importDrafts.map((draft, index) => (
+                      <div key={index} className={styles.field} style={{ margin: 0, padding: 10, border: "1px solid var(--input-border)", borderRadius: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                          <span className={styles.fieldCaption}>Objective {index + 1}</span>
+                          <button type="button" className={styles.btnOutline} onClick={() => removeImportDraft(index)}>
+                            このObjectiveを除く
                           </button>
                         </div>
+                        <label>タイトル
+                        <textarea
+                          rows={2}
+                          value={draft.title}
+                          onChange={(e) => updateImportDraft(index, { title: e.target.value })}
+                        /></label>
+                        <label style={{ marginTop: 8, display: "block" }}>メモ（任意）
+                        <textarea
+                          rows={2}
+                          value={draft.note ?? ""}
+                          onChange={(e) => updateImportDraft(index, { note: e.target.value })}
+                        /></label>
+                        <span className={styles.fieldCaption} style={{ marginTop: 8, display: "block" }}>Key Results</span>
+                        {draft.keyResults.map((kr, krIndex) => (
+                          <div key={krIndex} style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "flex-start" }}>
+                            <textarea
+                              rows={2}
+                              value={kr}
+                              onChange={(e) => updateImportKr(index, krIndex, e.target.value)}
+                              style={{ flex: 1, minWidth: 0 }}
+                            />
+                            <button type="button" className={styles.btnOutline} onClick={() => removeImportKr(index, krIndex)}>
+                              削除
+                            </button>
+                          </div>
+                        ))}
+                        <button type="button" className={styles.btnOutline} style={{ marginTop: 8 }} onClick={() => addImportKr(index)}>
+                          KRを追加
+                        </button>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
-            {krEditError && <p className={styles.errorText} role="alert">{krEditError}</p>}
-            <form onSubmit={handleAddKeyResult} className={styles.field} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <textarea
-                rows={2}
-                value={newKeyResultTitle}
-                onChange={(e) => setNewKeyResultTitle(e.target.value)}
-                placeholder="新しいKey Result（改行可）"
-              />
-              <button
-                className={styles.btnOutline}
-                type="submit"
-                disabled={krSubmitting || !newKeyResultTitle.trim()}
-                style={{ alignSelf: "flex-start" }}
-              >
-                追加
-              </button>
-            </form>
 
-            {objectiveHistory.length > 0 && (
-              <details style={{ marginTop: 20 }}>
-                <summary style={{ cursor: "pointer", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                  変更履歴（{objectiveHistory.length}件）
-                </summary>
-                <ul style={{ listStyle: "none", marginTop: 8 }}>
-                  {objectiveHistory.map((h) => (
-                    <li key={h.id} style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>
-                      {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
-                    </li>
-                  ))}
-                </ul>
-              </details>
+            {selectedObjective && (
+              <>
+                <div className={styles.editorPath}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" className={styles.btnOutline} onClick={cancelEditObjective}>
+                      一覧に戻る
+                    </button>
+                    <button
+                      className={styles.primaryBtn}
+                      style={{ width: "auto" }}
+                      onClick={handleSaveObjective}
+                      disabled={objectiveSaving || !editObjectiveTitle.trim() || !objectiveDirty}
+                    >
+                      {objectiveSaving ? "保存中…" : objectiveDirty ? "保存" : "保存済み"}
+                    </button>
+                    <button className={styles.btnOutline} onClick={() => handleRemoveObjective(selectedObjective.id)}>
+                      このObjectiveを削除
+                    </button>
+                  </div>
+                </div>
+                <p className={styles.subtitle}>
+                  KeyResultへ紐付けたIssueのうち、追っていない（アーカイブ）ものを除き、ステータス完了（解決）件数から進捗を自動算出します（手動での進捗入力はありません）。
+                </p>
+                <div className={styles.field}>
+                  <label>Objective（目標）
+                  <textarea
+                    rows={3}
+                    value={editObjectiveTitle}
+                    onChange={(e) => setEditObjectiveTitle(e.target.value)}
+                  /></label>
+                </div>
+                <div className={styles.field}>
+                  <label>メモ（判断の理由などの補足）
+                  <textarea
+                    rows={3}
+                    value={editObjectiveNote}
+                    onChange={(e) => setEditObjectiveNote(e.target.value)}
+                    placeholder="この目標にした理由・前提・例外など"
+                  /></label>
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.fieldCaption}>所属チーム（未指定＝組織全体の目標）</span>
+                  <Select
+                    value={editObjectiveTeamId}
+                    onChange={setEditObjectiveTeamId}
+                    options={[{ value: "", label: "組織全体" }, ...teamOptions]}
+                    label="所属チーム"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  チームを指定すると、そのチームが組織の上位目標を達成するために追う下位目標として、一覧でチーム配下にネスト表示されます。
+                </p>
+                {objectiveEditError && <p className={styles.errorText} role="alert">{objectiveEditError}</p>}
+
+                <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
+                {selectedObjective.keyResults.length === 0 ? (
+                  <p className={styles.subtitle}>まだKey Resultがありません。</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+                    {selectedObjective.keyResults.map((kr) => {
+                      const progress = selectedObjective.progress.find((p) => p.keyResultId === kr.id);
+                      const draft = krDrafts[kr.id] ?? kr.title;
+                      const dirty = draft.trim() !== kr.title;
+                      return (
+                        <div
+                          key={kr.id}
+                          className={styles.field}
+                          style={{ marginBottom: 0, border: "1px solid var(--input-border)", borderRadius: 8, padding: 10 }}
+                        >
+                          <textarea
+                            rows={2}
+                            value={draft}
+                            onChange={(e) => setKrDrafts((prev) => ({ ...prev, [kr.id]: e.target.value }))}
+                          />
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, alignItems: "center" }}>
+                            <span className={styles.tableMuted} style={{ fontSize: "0.75rem" }}>
+                              {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
+                            </span>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                type="button"
+                                className={styles.primaryBtn}
+                                style={{ width: "auto" }}
+                                disabled={krSavingId === kr.id || !draft.trim() || !dirty}
+                                onClick={() => handleSaveKeyResult(kr.id)}
+                              >
+                                {krSavingId === kr.id ? "保存中…" : "保存"}
+                              </button>
+                              <button type="button" className={styles.btnOutline} onClick={() => handleRemoveKeyResult(kr.id)}>
+                                削除
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {krEditError && <p className={styles.errorText} role="alert">{krEditError}</p>}
+                <form onSubmit={handleAddKeyResult} className={styles.field} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <textarea
+                    rows={2}
+                    value={newKeyResultTitle}
+                    onChange={(e) => setNewKeyResultTitle(e.target.value)}
+                    placeholder="新しいKey Result（改行可）"
+                  />
+                  <button
+                    className={styles.btnOutline}
+                    type="submit"
+                    disabled={krSubmitting || !newKeyResultTitle.trim()}
+                    style={{ alignSelf: "flex-start" }}
+                  >
+                    追加
+                  </button>
+                </form>
+
+                {objectiveHistory.length > 0 && (
+                  <details style={{ marginTop: 20 }}>
+                    <summary style={{ cursor: "pointer", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      変更履歴（{objectiveHistory.length}件）
+                    </summary>
+                    <ul style={{ listStyle: "none", marginTop: 8 }}>
+                      {objectiveHistory.map((h) => (
+                        <li key={h.id} style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>
+                          {new Date(h.occurredAt).toLocaleString("ja-JP")} — {h.text}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </>
             )}
           </>
         )}
