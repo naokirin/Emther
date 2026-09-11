@@ -192,6 +192,8 @@ export function PersonDetailContent({ id }: { id: string }) {
   const [nameDraft, setNameDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [selfSaving, setSelfSaving] = useState(false);
+  const [selfError, setSelfError] = useState<string | null>(null);
 
   // チーム所属を変えるとisDirectReport・teamNamesも変わるため、両方のポーリング先を
   // 更新して画面上の表示（部下/その他ラベル・所属チーム名の一覧）をすぐ反映させる。
@@ -240,6 +242,28 @@ export function PersonDetailContent({ id }: { id: string }) {
     }
   }
 
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  // 既存人物を settings.selfPersonId に紐付ける／解除する。
+  async function handleToggleSelf() {
+    if (!person) return;
+    setSelfSaving(true);
+    setSelfError(null);
+    try {
+      const res = await fetch("/api/settings/rules", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selfPersonId: person.isSelf ? null : person.id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "自分の設定に失敗しました");
+      await Promise.all([refreshPerson(), refreshPeople()]);
+    } catch (err) {
+      setSelfError((err as Error).message);
+    } finally {
+      setSelfSaving(false);
+    }
+  }
+
   if (!person) {
     return (
       <p className={styles.subtitle}>
@@ -278,7 +302,10 @@ export function PersonDetailContent({ id }: { id: string }) {
               </div>
             ) : (
               <div>
-                <h2 style={{ margin: 0 }}>{person.name}</h2>
+                <h2 style={{ margin: 0 }}>
+                  {person.name}
+                  {person.isSelf && <span className={styles.tag} style={{ marginLeft: 8, verticalAlign: "middle" }}>自分</span>}
+                </h2>
                 <button
                   className={`${styles.detailToggle} ${styles.detailToggleButton}`}
                   type="button"
@@ -292,18 +319,29 @@ export function PersonDetailContent({ id }: { id: string }) {
                 </button>
               </div>
             )}
-            <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
-              {deleting ? "削除中…" : "誤登録として削除"}
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+              <button className={styles.btnOutline} onClick={handleToggleSelf} disabled={selfSaving}>
+                {selfSaving ? "更新中…" : person.isSelf ? "自分の設定を解除" : "自分として設定"}
+              </button>
+              <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
+                {deleting ? "削除中…" : "誤登録として削除"}
+              </button>
+            </div>
           </div>
+          {selfError && <p className={styles.errorText} role="alert">{selfError}</p>}
           <p className={styles.subtitle}>
-            {person.isDirectReport ? "部下" : "その他（自分が管理するチーム以外）"} ／
+            {person.isSelf ? "自分（利用者本人）" : person.isDirectReport ? "部下" : "その他（自分が管理するチーム以外）"} ／
             気にかけるべき度合い: {PERSON_VITAL_LABEL[personVitalStatus(person.trend, person.hasConcerningIssue)]} ／
             {person.teamNames.length > 0 ? ` 所属: ${person.teamNames.join(", ")}` : " 所属チームなし"} ／ 直近Journal {person.factCount}件
             {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}
             {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
             {person.hasConcerningIssue && " ／ ⚠️ 停滞・ブロッカーありの関連Issueがあります"}
           </p>
+          {person.isSelf && (
+            <p className={styles.subtitle}>
+              部下一覧・1on1 Coverageの対象外です。Agentへの組織コンテキストでは「利用者本人」と明示されます。
+            </p>
+          )}
         </div>
       </div>
 

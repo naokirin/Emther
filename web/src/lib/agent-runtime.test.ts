@@ -431,6 +431,20 @@ describe("buildOrgContextBlock", () => {
     expect(block).toContain("組織のチーム構成");
     expect(block).toContain("Team A");
   });
+
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  it("selfPersonIdが設定されていれば利用者本人として明示する", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const peopleDirectory = await import("@/lib/people-directory");
+    const settings = await import("@/lib/settings-store");
+    const selfId = peopleDirectory.registerName("EM本人");
+    orgStore.addTeam("Team A", ["EM本人", "Aさん"]);
+    settings.setSelfPersonId(selfId);
+    const rt = await loadModule();
+    const block = rt.buildOrgContextBlock();
+    expect(block).toContain(`利用者本人（このアプリを使うEM）: ${selfId}`);
+    expect(block).toContain(`${selfId}（利用者本人）`);
+  });
 });
 
 describe("buildStrategyBlock / buildObjectivesBlock", () => {

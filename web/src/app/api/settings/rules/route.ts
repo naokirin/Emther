@@ -7,6 +7,7 @@ import {
   type AutoJournalSentimentFilter,
   type AutoJournalUrgencyFilter,
 } from "@/lib/settings-store";
+import { listPeople } from "@/lib/people-directory";
 import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@/lib/types";
 
 export async function GET() {
@@ -97,8 +98,27 @@ function cliOrder(value: unknown): CliName[] | undefined {
   return names as CliName[];
 }
 
+// ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+// null / 空文字 = 解除。存在する PERSON_n のみ受け付ける（不正IDは undefined で無視しないよう
+// 呼び出し側で 400 にする）。
+function parseSelfPersonId(value: unknown): { ok: true; value: string | null } | { ok: false; error: string } | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return { ok: true, value: null };
+  if (typeof value !== "string") return { ok: false, error: "selfPersonIdは文字列またはnullである必要があります" };
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (!listPeople().some((p) => p.id === trimmed)) {
+    return { ok: false, error: "指定された人物が見つかりません" };
+  }
+  return { ok: true, value: trimmed };
+}
+
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
+  const selfPersonParsed = parseSelfPersonId(body?.selfPersonId);
+  if (selfPersonParsed && !selfPersonParsed.ok) {
+    return NextResponse.json({ error: selfPersonParsed.error }, { status: 400 });
+  }
   const patch = {
     teamWindowDays: num(body?.teamWindowDays),
     minEntriesForJudgement: num(body?.minEntriesForJudgement),
@@ -135,6 +155,7 @@ export async function PATCH(request: Request) {
     agentAgyModels: agentCliModels(body?.agentAgyModels),
     agentCursorModels: agentCliModels(body?.agentCursorModels),
     cliOrder: cliOrder(body?.cliOrder),
+    selfPersonId: selfPersonParsed?.ok ? selfPersonParsed.value : undefined,
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);

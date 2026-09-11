@@ -116,6 +116,22 @@ describe("computeOrgVitals", () => {
     expect(result.oneOnOneCoverage.total).toBe(0);
   });
 
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  it("利用者本人(selfPersonId)は1on1カバレッジとTeamVital.membersから除外する", async () => {
+    const { vitals, orgStore } = await loadModules();
+    const peopleDirectory = await import("@/lib/people-directory");
+    const settings = await import("@/lib/settings-store");
+    const selfId = peopleDirectory.registerName("EM本人");
+    const otherId = peopleDirectory.registerName("Aさん");
+    orgStore.addTeam("Team A", ["EM本人", "Aさん"]);
+    settings.setSelfPersonId(selfId);
+
+    const result = vitals.computeOrgVitals();
+    expect(result.oneOnOneCoverage.total).toBe(1);
+    expect(result.oneOnOneCoverage.uncoveredMembers).toEqual([otherId]);
+    expect(result.teams[0].members).toEqual([otherId]);
+  });
+
   it("TeamVitalはmanagedByEmをそのまま返す", async () => {
     const { vitals, orgStore } = await loadModules();
     const team = orgStore.addTeam("Team A", []);

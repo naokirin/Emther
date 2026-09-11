@@ -9,7 +9,7 @@ import {
 } from "@/lib/knowledge-store";
 import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-store";
 import { listIssues, toIssueView, type Issue, type IssueCharter } from "@/lib/issue-store";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@/lib/settings-store";
 import { isIssueStalled } from "@/lib/types";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
@@ -29,7 +29,11 @@ export type PersonSummary = {
   factCount: number;
   // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // 自分が管理するチーム(Team.managedByEm)に1つでも所属していればtrue(兼務も部下扱い)。
+  // ただし利用者本人(isSelf)は部下扱いしない。
   isDirectReport: boolean;
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  // settings.selfPersonId と一致する人物。
+  isSelf: boolean;
   // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。この人物名を
   // 含む未アーカイブIssueに、ブロッカーあり(status:"blocked")または停滞中(isIssueStalled)の
   // ものが1件でもあればtrue。personVitalStatusでJournalのsentimentが穏やかでも
@@ -95,8 +99,10 @@ export function listPersonSummaries(): PersonSummary[] {
   const managedTeams = teams.filter((t) => t.managedByEm);
   const now = Date.now();
   const { staleInterventionDays } = getRulesAndConstraints();
+  const selfPersonId = getSelfPersonId();
   return listPeople().map((p) => {
     const facts = listActiveFactsForPerson(p.id, FACTS_LIMIT);
+    const isSelf = selfPersonId !== null && p.id === selfPersonId;
     return {
       id: p.id,
       name: p.name,
@@ -104,7 +110,9 @@ export function listPersonSummaries(): PersonSummary[] {
       teamNames: teams.filter((t) => t.members.includes(p.id)).map((t) => t.name),
       trend: computeTrend(facts),
       factCount: facts.length,
-      isDirectReport: managedTeams.some((t) => t.members.includes(p.id)),
+      isSelf,
+      // 本人は「部下」に含めない（1on1 Coverage対象外と同じ考え方）。
+      isDirectReport: !isSelf && managedTeams.some((t) => t.members.includes(p.id)),
       hasConcerningIssue: hasConcerningRelatedIssue(findRelatedIssues(p.name), now, staleInterventionDays),
     };
   });
@@ -126,6 +134,8 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
 
   const relatedIssuesRaw = findRelatedIssues(person.name);
   const relatedIssues = relatedIssuesRaw.map((i) => ({ id: i.id, title: i.title, archived: i.archived, charter: i.charter }));
+  const selfPersonId = getSelfPersonId();
+  const isSelf = selfPersonId !== null && person.id === selfPersonId;
 
   return {
     id: person.id,
@@ -137,7 +147,8 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     facts: facts.map(toPersonFact),
     interpretations,
     relatedIssues,
-    isDirectReport: teams.some((t) => t.managedByEm),
+    isSelf,
+    isDirectReport: !isSelf && teams.some((t) => t.managedByEm),
     hasConcerningIssue: hasConcerningRelatedIssue(
       relatedIssuesRaw,
       Date.now(),
@@ -168,6 +179,7 @@ export function mergePersons(fromId: string, toId: string): { ok: true } | { ok:
   if (!result.ok) return result;
   reassignPersonId(fromId, toId);
   reassignPersonIdInTeams(fromId, toId);
+  reassignSelfPersonId({ fromId, toId });
   // 監査ログはPERSON_n IDのまま記録する（team更新時の「メンバー: ...」と同じ規約。
   // 実名はSQLiteへ書き込まない）。
   recordChangeEvent("person", toId, `重複していた人物（${fromId}）をこの人物へ統合しました。`);

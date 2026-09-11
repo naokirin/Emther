@@ -30,6 +30,7 @@
 | U14 | P0 | 完了 | 朝サマリー／再開後に業務ナレッジが渡らず「材料不足」Yield になる |
 | U15 | P1 | 完了 | AI の Issue 化でタイトルが途中切れ（…）になる |
 | U16 | P1 | 完了 | Journal 自動分析が投稿時に動かず、修正なしでは起動しにくい |
+| U17 | P2 | 完了 | メンバーに「自分自身」を区別できない |
 
 ---
 
@@ -200,6 +201,16 @@
 
 ---
 
+## U17. メンバーに「自分自身」を区別できない
+
+**現象:** チーム名簿や People に EM 本人を入れると、他メンバーと同じ「部下」「1on1 対象」として扱われ、Agent の組織コンテキストでも本人である旨が伝わらない。
+
+**原因:** `PersonRecord` / Settings に「利用者本人」フラグが無く、`managedByEm` はチーム属性で本人区別には使えない。
+
+**方針:** Settings に任意の `selfPersonId`（既存の `PERSON_n`）を追加。人物詳細から「自分として設定／解除」。本人は People の「自分」区分・バッジ表示、部下一覧と 1on1 Coverage から除外、Org Context 注入で「利用者本人」と明示。未設定時は従来どおり。統合時は ID 追従、削除時は解除。
+
+---
+
 ## 今回入れた対応の要点
 
 - **U1** `journal-store.ts`: 抽出失敗・モデル例外でも raw 本文を未確認エントリとして保存
@@ -217,3 +228,4 @@
 - **U14** 朝サマリー材料を `buildMorningSummaryContextBlock` で毎ターン注入。プロンプトを注入ナレッジ前提に変更。再開時は `run.task` を検索クエリへ結合。3 CLI への data 読み取り（C）は今後必須
 - **U15** proposal に `issueTitle`。`runFallbackTitle` は短い課題名を優先し、結論からは Issue 化メタを除去。`truncateForTitle` は句読点切れ＋上限 80
 - **U16** Journalカードに「この内容で確定」と「分析する」。`POST /api/journal/[id]/analyze` で手動起動。Settings／確定UIに投稿直後は動かない旨を明記
+- **U17** `selfPersonId` で既存人物を本人に紐付け。People「自分」区分・1on1/部下除外・Org Context 明示

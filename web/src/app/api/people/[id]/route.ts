@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addPersonAlias, getPersonProfile, removePersonAlias } from "@/lib/people-hub";
 import { deletePerson, renamePerson } from "@/lib/people-directory";
+import { reassignSelfPersonId } from "@/lib/settings-store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/people/[id]">) {
   const { id } = await ctx.params;
@@ -46,5 +47,7 @@ export async function DELETE(_request: Request, ctx: RouteContext<"/api/people/[
   if (!removed) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+  // 利用者本人として紐付いていた場合は解除する（幽霊IDを残さない）。
+  reassignSelfPersonId({ deletedId: id });
   return NextResponse.json({ ok: true });
 }

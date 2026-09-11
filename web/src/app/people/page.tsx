@@ -35,10 +35,14 @@ function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (
         <button key={p.id} type="button" className={styles.personCard} onClick={() => onOpen(p.id)}>
           <PersonScoreBadge trend={p.trend} factCount={p.factCount} hasConcerningIssue={p.hasConcerningIssue} />
           <div className={styles.personCardBody}>
-            <div className={styles.personCardName}>{p.name}</div>
+            <div className={styles.personCardName}>
+              {p.name}
+              {p.isSelf && <span className={styles.tag} style={{ marginLeft: 6 }}>自分</span>}
+            </div>
             <div className={styles.tableMuted}>
-              {PERSON_VITAL_LABEL[personVitalStatus(p.trend, p.hasConcerningIssue)]}・
-              {p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}
+              {p.isSelf
+                ? "利用者本人"
+                : `${PERSON_VITAL_LABEL[personVitalStatus(p.trend, p.hasConcerningIssue)]}・${p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}`}
             </div>
           </div>
         </button>
@@ -54,8 +58,9 @@ function PeoplePageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const sorted = [...people].sort((a, b) => b.factCount - a.factCount || a.name.localeCompare(b.name, "ja"));
+  const selfPeople = sorted.filter((p) => p.isSelf);
   const reports = sorted.filter((p) => p.isDirectReport);
-  const others = sorted.filter((p) => !p.isDirectReport);
+  const others = sorted.filter((p) => !p.isDirectReport && !p.isSelf);
   const peekedPerson = peek.id ? sorted.find((p) => p.id === peek.id) : undefined;
 
   async function handleAddPerson(e: React.FormEvent) {
@@ -127,6 +132,17 @@ function PeoplePageInner() {
           </p>
         ) : (
           <>
+            {selfPeople.length > 0 && (
+              <>
+                <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>自分</h3>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  利用者本人です。部下一覧・1on1 Coverageの集計対象外で、Agentへの組織コンテキストでは本人である旨が明示されます。
+                </p>
+                <div style={{ marginBottom: 20 }}>
+                  <PersonCardGrid people={selfPeople} onOpen={peek.open} />
+                </div>
+              </>
+            )}
             <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>部下（自分が管理するチームのメンバー）</h3>
             {reports.length === 0 ? (
               <p className={styles.subtitle} style={{ marginBottom: 16 }}>

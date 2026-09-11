@@ -99,6 +99,11 @@ export type RulesAndConstraints = {
   // 含まれる順が試行順（優先度）。claudeも含め除外可能（空配列にはできない）。
   // 詳細は@/lib/types.tsの同名の型を参照。
   cliOrder: CliName[];
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  // Peopleに登録済みの PERSON_n を「利用者本人（EM）」として紐付ける任意設定。
+  // null/未設定時は従来どおり（誰も本人扱いにしない）。1on1 Coverage・部下一覧から除外し、
+  // Org Context注入では本人である旨を明示するために使う。
+  selfPersonId: string | null;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -131,6 +136,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentAgyModels: {},
   agentCursorModels: {},
   cliOrder: ["claude"],
+  selfPersonId: null,
 };
 
 let rules: RulesAndConstraints = {
@@ -150,6 +156,33 @@ export function updateRulesAndConstraints(patch: Partial<RulesAndConstraints>): 
   rules = { ...rules, ...patch };
   persistRules();
   return rules;
+}
+
+/** 利用者本人として紐付いている PERSON_n。未設定なら null。 */
+export function getSelfPersonId(): string | null {
+  return rules.selfPersonId ?? null;
+}
+
+/** 本人紐付けを設定／解除する（nullで解除）。 */
+export function setSelfPersonId(personId: string | null): RulesAndConstraints {
+  return updateRulesAndConstraints({ selfPersonId: personId });
+}
+
+/**
+ * 人物統合・削除時に selfPersonId を追従させる。
+ * - fromId が本人なら toId へ付け替え
+ * - deletedId が本人なら解除
+ */
+export function reassignSelfPersonId(opts: { fromId?: string; toId?: string; deletedId?: string }): void {
+  const current = getSelfPersonId();
+  if (!current) return;
+  if (opts.deletedId && current === opts.deletedId) {
+    setSelfPersonId(null);
+    return;
+  }
+  if (opts.fromId && opts.toId && current === opts.fromId) {
+    setSelfPersonId(opts.toId);
+  }
 }
 
 /** Journal自動分析の緊急度・感情フィルタに現在のエントリが合うか。 */
