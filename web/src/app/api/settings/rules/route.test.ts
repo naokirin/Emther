@@ -188,4 +188,23 @@ describe("PATCH /api/settings/rules", () => {
       expect((await res.json()).rules.agentAgyModels).toEqual({ "Lead Agent": "gemini-custom" });
     });
   });
+
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  describe("selfPersonId", () => {
+    it("登録済み人物を利用者本人として設定・解除できる", async () => {
+      const peopleDirectory = await import("@/lib/people-directory");
+      const id = peopleDirectory.registerName("EM本人");
+      const route = await import("./route");
+      const setRes = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { selfPersonId: id }));
+      expect((await setRes.json()).rules.selfPersonId).toBe(id);
+      const clearRes = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { selfPersonId: null }));
+      expect((await clearRes.json()).rules.selfPersonId).toBeNull();
+    });
+
+    it("存在しない人物IDは400を返す", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { selfPersonId: "PERSON_999" }));
+      expect(res.status).toBe(400);
+    });
+  });
 });

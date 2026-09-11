@@ -103,7 +103,25 @@ describe("listPersonSummaries", () => {
     expect(summary?.isDirectReport).toBe(true);
   });
 
-  // ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  it("selfPersonIdに紐付いた人物はisSelf:trueで部下扱いにしない", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const orgStore = await import("@/lib/org-context-store");
+    const settings = await import("@/lib/settings-store");
+    const hub = await loadModule();
+    const selfId = peopleDirectory.registerName("EM本人");
+    orgStore.addTeam("Team A", ["EM本人", "Aさん"]);
+    settings.setSelfPersonId(selfId);
+
+    const self = hub.listPersonSummaries().find((s) => s.id === selfId);
+    const other = hub.listPersonSummaries().find((s) => s.name === "Aさん");
+    expect(self?.isSelf).toBe(true);
+    expect(self?.isDirectReport).toBe(false);
+    expect(other?.isSelf).toBe(false);
+    expect(other?.isDirectReport).toBe(true);
+  });
+
+  // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。
   it("関連Issueにブロッカーありのものが1件でもあればhasConcerningIssue:true", async () => {
     const peopleDirectory = await import("@/lib/people-directory");
     const issueStore = await import("@/lib/issue-store");
@@ -242,6 +260,19 @@ describe("mergePersons", () => {
     expect(merged.aliases).toEqual(["たなかさん"]);
     expect(merged.teamNames).toEqual(["Team A"]);
     expect(merged.factCount).toBe(1);
+  });
+
+  it("統合元が利用者本人ならselfPersonIdを統合先へ付け替える", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const settings = await import("@/lib/settings-store");
+    const hub = await loadModule();
+    const fromId = peopleDirectory.registerName("旧EM");
+    const toId = peopleDirectory.registerName("EM");
+    settings.setSelfPersonId(fromId);
+
+    expect(hub.mergePersons(fromId, toId)).toEqual({ ok: true });
+    expect(settings.getSelfPersonId()).toBe(toId);
+    expect(hub.getPersonProfile(toId)?.isSelf).toBe(true);
   });
 
   it("people-directory側が失敗（存在しないID等）した場合はknowledge-store/teamsを更新しない", async () => {

@@ -298,6 +298,9 @@ export type RulesAndConstraints = {
   // claudeも他の2つと同様に除外できる（配列を空にはできず、最低1つは必ず候補に残す）。
   // 既定["claude"]（＝agy/cursorは無効、既存の挙動を変えない）。
   cliOrder: CliName[];
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  // Peopleの PERSON_n を利用者本人（EM）として紐付ける任意設定。未設定は null。
+  selfPersonId: string | null;
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
@@ -609,6 +612,9 @@ export type PersonSummary = {
   trend: PersonTrend;
   factCount: number;
   isDirectReport: boolean;
+  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
+  // settings.selfPersonId と一致する人物。本人は部下一覧・1on1 Coverageから除外する。
+  isSelf: boolean;
   hasConcerningIssue: boolean;
 };
 

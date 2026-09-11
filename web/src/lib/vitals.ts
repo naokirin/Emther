@@ -1,5 +1,5 @@
 import { getTeam, listActiveTeams, type Team } from "@/lib/org-context-store";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
 import { isIssueStalled, teamDisplayName } from "@/lib/types";
 import { listIssues, type Issue } from "@/lib/issue-store";
@@ -64,6 +64,9 @@ function hasConcerningTeamIssue(teamId: string, now: number, staleDays: number):
 
 function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType<typeof getRulesAndConstraints>): TeamVital {
   const concerning = hasConcerningTeamIssue(team.id, Date.now(), rules.staleInterventionDays);
+  // 1on1記録CTA向け。利用者本人は「EMが1on1を実施すべき相手」ではないので除外する。
+  const selfPersonId = getSelfPersonId();
+  const membersForAction = selfPersonId ? team.members.filter((m) => m !== selfPersonId) : team.members;
   // hasConcerningIssueがtrueの場合、Journal起因の判定が"good"/"unknown"でも"warn"以上に
   // 引き上げる（"warn"/"bad"は据え置き＝Issueの状況で評価を下げることはあっても甘くはしない）。
   function withIssueEscalation(status: VitalStatus, reason: string): { status: VitalStatus; label: string; reason: string } {
@@ -82,7 +85,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
       teamId: team.id,
       teamName: teamDisplayName(team.name),
       ...withIssueEscalation("unknown", "メンバーが登録されていません。メンバータブでチームにメンバーを追加してください。"),
-      members: team.members,
+      members: membersForAction,
       managedByEm: team.managedByEm,
     };
   }
@@ -99,7 +102,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
         "unknown",
         `直近${rules.teamWindowDays}日間に${teamDisplayName(team.name)}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
       ),
-      members: team.members,
+      members: membersForAction,
       managedByEm: team.managedByEm,
     };
   }
@@ -124,7 +127,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
       status,
       `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
     ),
-    members: team.members,
+    members: membersForAction,
     managedByEm: team.managedByEm,
   };
 }
@@ -137,7 +140,16 @@ function computeCoverageVital(
   // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // 1on1 Coverageは「EMが1on1を実施すべき相手」の充足率なので、自分が管理するチーム
   // （managedByEm）のメンバーだけを対象にする（兼務で他チームにも所属していれば対象に含む）。
-  const allMembers = Array.from(new Set(teams.filter((t) => t.managedByEm).flatMap((t) => t.members)));
+  // さらに利用者本人(selfPersonId)は「1on1を実施すべき相手」ではないので除外する。
+  const selfPersonId = getSelfPersonId();
+  const allMembers = Array.from(
+    new Set(
+      teams
+        .filter((t) => t.managedByEm)
+        .flatMap((t) => t.members)
+        .filter((m) => m !== selfPersonId),
+    ),
+  );
   if (allMembers.length === 0) {
     return {
       status: "unknown",

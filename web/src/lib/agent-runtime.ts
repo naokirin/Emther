@@ -16,7 +16,7 @@ import {
 import { embedText } from "@/lib/embeddings";
 import { getDb } from "@/lib/db";
 import { buildRelatedBundleBlock, issueEmbedSource } from "@/lib/related-context";
-import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
+import { getRulesAndConstraints, getSelfPersonId, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { CLI_LABELS, INTERVENTION_TYPES, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, charterFilledCount, teamDisplayName, teamPathSegments, type CliName, type IssuePriority, type PendingAgentStart, type PendingAgentStartKind, type PendingUnmaskedSend, type YieldKind } from "@/lib/types";
 import { computeOrgVitals } from "@/lib/vitals";
@@ -1295,8 +1295,16 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
   const teams = listActiveTeams();
   if (teams.length === 0) return "";
   const scoped = relevantTeams(teams, runId, rawText);
+  const selfPersonId = getSelfPersonId();
 
-  const lines = scoped.map((t) => `- ${teamDisplayName(t.name)}: ${t.members.length > 0 ? t.members.join(", ") : "(メンバー未登録)"}`);
+  const lines = scoped.map((t) => {
+    if (t.members.length === 0) return `- ${teamDisplayName(t.name)}: (メンバー未登録)`;
+    const labeled = t.members.map((m) => (selfPersonId && m === selfPersonId ? `${m}（利用者本人）` : m));
+    return `- ${teamDisplayName(t.name)}: ${labeled.join(", ")}`;
+  });
+  if (selfPersonId) {
+    lines.unshift(`利用者本人（このアプリを使うEM）: ${selfPersonId}`);
+  }
   // メンバーは PERSON_n 済みだが、チーム名が人物名と一致／部分一致するケース
   // （NER誤登録や、人名チーム）がある。送信直前 assert で落ちないよう maskNames する。
   return maskNames(["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n"));
