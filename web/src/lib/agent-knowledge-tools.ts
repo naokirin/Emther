@@ -183,7 +183,7 @@ function searchJournalsByKeyword(opts: { query: string; limit: number }): { line
     };
   }
   const lines = entries.map((e) => {
-    const snippet = (e.summary || e.text || "").slice(0, 140);
+    const snippet = (e.summary || e.rawText || "").slice(0, 140);
     return `- [${e.id}] ${snippet}`;
   });
   if (total > entries.length) {
