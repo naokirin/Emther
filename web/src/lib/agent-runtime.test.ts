@@ -845,6 +845,13 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run!.id)?.sourceJournalId).toBe("journal-1");
   });
 
+  it("buildJournalAnalysisTaskはmanualでも本文マーカーを残す", async () => {
+    const rt = await loadModule();
+    const task = rt.buildJournalAnalysisTask("1on1が空回りした", "manual");
+    expect(task).toContain("EMがこのJournalエントリの分析を依頼しました");
+    expect(rt.extractJournalAutoAnalysisText(task)).toBe("1on1が空回りした");
+  });
+
   it("設定でエージェント種別にモデル系統が指定されていれば--modelを渡す", async () => {
     const settingsStore = await import("@/lib/settings-store");
     settingsStore.updateRulesAndConstraints({ agentModelTiers: { "Lead Agent": "opus" } });

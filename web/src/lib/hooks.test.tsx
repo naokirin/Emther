@@ -157,6 +157,41 @@ describe("useJournalEditing", () => {
     expect(body.rawText).toBeUndefined(); // 本文を触っていないので含めない
   });
 
+  it("confirmAsIsは編集を開かず現在値のままPATCHする", async () => {
+    const entry = baseEntry({ confirmed: false, tags: ["1on1"], people: ["Aさん"], urgency: "high" });
+    const updated = { ...entry, id: "entry-confirmed", confirmed: true };
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ entry: updated }) });
+    const { result } = renderHook(() => useHarness([entry]));
+
+    act(() => result.current.confirmAsIs(entry));
+    expect(result.current.editingEntryId).toBeNull();
+    await waitFor(() => expect(result.current.entries[0].id).toBe("entry-confirmed"));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/journal/${entry.id}`);
+    expect(JSON.parse(init.body)).toMatchObject({
+      tags: ["1on1"],
+      people: ["Aさん"],
+      urgency: "high",
+      occurredAtDate: "2026-01-15",
+    });
+  });
+
+  it("startAnalysisはanalyze APIを呼び、runIdを返す", async () => {
+    const entry = baseEntry({ confirmed: true });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ entry: { ...entry, sourceConsultRunId: "run-9" }, run: { id: "run-9" } }),
+    });
+    const { result } = renderHook(() => useHarness([entry]));
+    let runId: string | undefined;
+    await act(async () => {
+      runId = await result.current.startAnalysis(entry);
+    });
+    expect(runId).toBe("run-9");
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/journal/${entry.id}/analyze`);
+    expect(result.current.entries[0].sourceConsultRunId).toBe("run-9");
+  });
+
   it("rawTextを触った場合だけPATCHのbodyにrawTextを含める", async () => {
     const entry = baseEntry();
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ entry }) });

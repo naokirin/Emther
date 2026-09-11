@@ -212,6 +212,8 @@ function JournalListPageInner() {
                 onChangeEditDate={editing.setEditDate}
                 onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
                 onConfirmEdit={() => editing.confirmEdit(entry.id)}
+                onConfirmAsIs={() => editing.confirmAsIs(entry)}
+                onStartAnalysis={() => editing.startAnalysis(entry)}
                 onCancelEdit={editing.cancelEditing}
                 onStartEdit={() => editing.startEditing(entry)}
                 onResolveWithNote={() => editing.resolveWithNote(entry.id)}

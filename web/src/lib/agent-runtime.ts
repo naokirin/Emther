@@ -1029,19 +1029,40 @@ export function matchesJournalAutoFilters(
   return settingsMatchesJournalAutoFilters(urgency, sentiment);
 }
 
-// Journal校正後の自動分析。フィルタ（緊急度・感情）はSettingsで調整する。
-export async function startJournalAutoAnalysis(rawText: string, journalId?: string): Promise<AgentRun | undefined> {
-  const task = [
-    "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+/** Journal 自動／手動分析の共通タスク文。本文マーカーは origin-trace と揃える。 */
+export function buildJournalAnalysisTask(rawText: string, trigger: "auto" | "manual" = "auto"): string {
+  const lead =
+    trigger === "manual"
+      ? "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。"
+      : "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。";
+  return [
+    lead,
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle に一覧向きの短い課題名（40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "単なる一時的な感情の吐露などで追跡不要と判断した場合は、proposalの recommendation を \"dismiss\" にし、その旨を結論に書いてください（無理にIssue化を勧めないこと）。Issue化すべきなら recommendation は \"issue\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
   ].join("\n");
+}
+
+// Journal校正後の自動分析、またはEM明示の手動分析。
+// 校正時の自動起動は人名未確認をparkしてJournal保存を止めない。手動APIはthrowして確認UIへ渡す。
+export async function startJournalAnalysis(
+  rawText: string,
+  journalId?: string,
+  opts: MaskOptions & {
+    trigger?: "auto" | "manual";
+    onUnconfirmedNames?: "park" | "throw";
+  } = {},
+): Promise<AgentRun | undefined> {
+  const { trigger = "auto", onUnconfirmedNames = "park", ...maskOpts } = opts;
+  const task = buildJournalAnalysisTask(rawText, trigger);
   try {
-    return await startRun("Lead Agent", task, "auto-anomaly", undefined, { sourceJournalId: journalId });
+    return await startRun("Lead Agent", task, "auto-anomaly", undefined, {
+      ...maskOpts,
+      sourceJournalId: journalId,
+    });
   } catch (err) {
-    if (isUnconfirmedNameCandidatesError(err)) {
+    if (isUnconfirmedNameCandidatesError(err) && onUnconfirmedNames === "park") {
       parkPendingUnmaskedSend({
         id: `unmasked-journal:${Date.now()}`,
         kind: "start-run",
@@ -1056,6 +1077,11 @@ export async function startJournalAutoAnalysis(rawText: string, journalId?: stri
     }
     throw err;
   }
+}
+
+/** Journal校正後の自動分析。フィルタ（緊急度・感情）はSettingsで調整する。 */
+export async function startJournalAutoAnalysis(rawText: string, journalId?: string): Promise<AgentRun | undefined> {
+  return startJournalAnalysis(rawText, journalId, { trigger: "auto", onUnconfirmedNames: "park" });
 }
 
 // watchdog とバッチクレームは globalThis に置き、next dev の HMR でモジュールが

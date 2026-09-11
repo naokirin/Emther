@@ -529,8 +529,12 @@ export default function SettingsPage() {
                     checked={draft.autoAnomalyDetectionEnabled}
                     onChange={(e) => setDraft({ ...draft, autoAnomalyDetectionEnabled: e.target.checked })}
                   />
-                  Journalを校正したとき、条件に合うエントリをLead Agentが自動分析する
+                  Journalを確定（校正）したとき、条件に合うエントリをLead Agentが自動分析する
                 </label>
+                <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
+                  投稿直後は起動しません（AI抽出の誤判定を防ぐため）。修正がなくても「この内容で確定」で確定できます。
+                  自動条件に合わない／自動がOFFのときは、確定後の「分析する」で明示起動できます。
+                </p>
                 <div className={styles.field} style={{ maxWidth: 280, opacity: draft.autoAnomalyDetectionEnabled ? 1 : 0.5 }}>
                   <label>自動起動する緊急度
                   <select
