@@ -7,7 +7,10 @@ vi.mock("@/lib/local-model", () => ({
 }));
 
 const embedRef = vi.hoisted(() => ({
-  impl: async (_text: string): Promise<number[]> => [1, 0, 0],
+  impl: async (_text: string): Promise<number[]> => {
+    void _text;
+    return [1, 0, 0];
+  },
 }));
 
 vi.mock("@/lib/embeddings", () => ({

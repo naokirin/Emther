@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { useEntityHistory, useObjectives, useOrgStrategy, useTeams } from "@/lib/hooks";
@@ -169,6 +169,8 @@ export default function OrgContextPage() {
   const [newKeyResultTitle, setNewKeyResultTitle] = useState("");
   const [krSubmitting, setKrSubmitting] = useState(false);
   const [krDrafts, setKrDrafts] = useState<Record<string, string>>({});
+  const [krDraftObjectiveId, setKrDraftObjectiveId] = useState<string | null>(null);
+  const [krDraftKrIds, setKrDraftKrIds] = useState<string>("");
   const [krSavingId, setKrSavingId] = useState<string | null>(null);
   const [krEditError, setKrEditError] = useState<string | null>(null);
 
@@ -425,27 +427,37 @@ export default function OrgContextPage() {
     .sort((a, b) => teamDisplayName(a.name).localeCompare(teamDisplayName(b.name), "ja"));
 
   // ポーリングや他操作で KR が増減したとき、未編集のドラフトだけ同期する。
-  useEffect(() => {
-    if (!selectedObjective) return;
-    setKrDrafts((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      const ids = new Set(selectedObjective.keyResults.map((kr) => kr.id));
-      for (const kr of selectedObjective.keyResults) {
-        if (next[kr.id] === undefined) {
-          next[kr.id] = kr.title;
-          changed = true;
+  // （effect 内 setState は cascading render になるため、レンダー中に調整する）
+  const selectedKrIds = selectedObjective
+    ? selectedObjective.keyResults.map((kr) => kr.id).join("\0")
+    : "";
+  if (
+    selectedObjective?.id !== krDraftObjectiveId ||
+    selectedKrIds !== krDraftKrIds
+  ) {
+    setKrDraftObjectiveId(selectedObjective?.id ?? null);
+    setKrDraftKrIds(selectedKrIds);
+    if (selectedObjective) {
+      setKrDrafts((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        const ids = new Set(selectedObjective.keyResults.map((kr) => kr.id));
+        for (const kr of selectedObjective.keyResults) {
+          if (next[kr.id] === undefined) {
+            next[kr.id] = kr.title;
+            changed = true;
+          }
         }
-      }
-      for (const id of Object.keys(next)) {
-        if (!ids.has(id)) {
-          delete next[id];
-          changed = true;
+        for (const id of Object.keys(next)) {
+          if (!ids.has(id)) {
+            delete next[id];
+            changed = true;
+          }
         }
-      }
-      return changed ? next : prev;
-    });
-  }, [selectedObjective]);
+        return changed ? next : prev;
+      });
+    }
+  }
 
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
