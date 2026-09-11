@@ -631,6 +631,17 @@ export function IssueDetailContent({ id }: { id: string }) {
     }
   }
 
+  async function handleRemoveActionItem(itemId: string, text: string) {
+    if (!issue) return;
+    if (!window.confirm(`Action Item「${text}」を削除しますか？`)) return;
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/action-items/${itemId}`, { method: "DELETE" });
+      if (res.ok) await refreshIssue();
+    } catch {
+      // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
   const [promotingItemId, setPromotingItemId] = useState<string | null>(null);
 
   // Action Item → 子Issue。独自の介入物語として切り出す（1階層制限はAPI側でも拒否）。
@@ -1241,17 +1252,27 @@ export function IssueDetailContent({ id }: { id: string }) {
                       <input type="checkbox" checked={false} onChange={() => handleToggleActionItem(nextItem.id)} style={{ marginTop: 2 }} />
                       <span style={{ flex: 1 }}>{nextItem.text}</span>
                     </label>
-                    {!issue.parentId && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                      {!issue.parentId && (
+                        <button
+                          type="button"
+                          className={styles.btnOutline}
+                          style={{ fontSize: "0.75rem" }}
+                          disabled={promotingItemId === nextItem.id}
+                          onClick={() => handlePromoteActionItem(nextItem.id)}
+                        >
+                          {promotingItemId === nextItem.id ? "昇格中…" : "子Issueに昇格"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className={styles.btnOutline}
-                        style={{ marginTop: 8, fontSize: "0.75rem" }}
-                        disabled={promotingItemId === nextItem.id}
-                        onClick={() => handlePromoteActionItem(nextItem.id)}
+                        style={{ fontSize: "0.75rem" }}
+                        onClick={() => handleRemoveActionItem(nextItem.id, nextItem.text)}
                       >
-                        {promotingItemId === nextItem.id ? "昇格中…" : "子Issueに昇格"}
+                        削除
                       </button>
-                    )}
+                    </div>
                   </div>
                 )}
 
@@ -1285,6 +1306,14 @@ export function IssueDetailContent({ id }: { id: string }) {
                                 {promotingItemId === item.id ? "昇格中…" : "子Issueに昇格"}
                               </button>
                             )}
+                            <button
+                              type="button"
+                              className={styles.btnOutline}
+                              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                              onClick={() => handleRemoveActionItem(item.id, item.text)}
+                            >
+                              削除
+                            </button>
                           </div>
                         </li>
                       ))}
@@ -1300,8 +1329,18 @@ export function IssueDetailContent({ id }: { id: string }) {
                         <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 6 }}>
                           <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
                             <input type="checkbox" checked onChange={() => handleToggleActionItem(item.id)} />
-                            <span style={{ textDecoration: "line-through", color: "var(--text-muted)" }}>{item.text}</span>
+                            <span style={{ flex: 1, textDecoration: "line-through", color: "var(--text-muted)" }}>{item.text}</span>
                           </label>
+                          <div style={{ marginTop: 4, marginLeft: 22 }}>
+                            <button
+                              type="button"
+                              className={styles.btnOutline}
+                              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                              onClick={() => handleRemoveActionItem(item.id, item.text)}
+                            >
+                              削除
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>

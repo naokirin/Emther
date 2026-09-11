@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setActionItemAsNext, toggleActionItem, toIssueView } from "@/lib/issue-store";
+import { removeActionItem, setActionItemAsNext, toggleActionItem, toIssueView } from "@/lib/issue-store";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id]/action-items/[itemId]">) {
   const { id, itemId } = await ctx.params;
@@ -15,6 +15,15 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   }
 
   const issue = toggleActionItem(id, itemId);
+  if (!issue) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  return NextResponse.json({ issue: toIssueView(issue) });
+}
+
+export async function DELETE(_request: Request, ctx: RouteContext<"/api/issues/[id]/action-items/[itemId]">) {
+  const { id, itemId } = await ctx.params;
+  const issue = removeActionItem(id, itemId);
   if (!issue) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

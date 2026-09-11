@@ -198,6 +198,32 @@ describe("charter / title / action items / log entries", () => {
     expect(result?.actionItems).toHaveLength(0);
   });
 
+  it("removeActionItemで未完了・完了済みを配列から除去できる", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    await store.addActionItem(issue.id, "残す");
+    const withSecond = await store.addActionItem(issue.id, "消す");
+    const removeId = withSecond!.actionItems[1].id;
+    store.toggleActionItem(issue.id, removeId);
+
+    const removed = store.removeActionItem(issue.id, removeId);
+    expect(removed?.actionItems.map((a) => a.text)).toEqual(["残す"]);
+
+    const missing = store.removeActionItem(issue.id, "no-such-item");
+    expect(missing).toBeUndefined();
+  });
+
+  it("次の一手をremoveActionItemすると残りの未完了先頭が次の一手になる", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    await store.addActionItem(issue.id, "今やる", { asNext: true });
+    await store.addActionItem(issue.id, "あとで");
+    const nextId = store.getIssue(issue.id)!.actionItems[0].id;
+
+    const updated = store.removeActionItem(issue.id, nextId);
+    expect(updated?.actionItems.map((a) => a.text)).toEqual(["あとで"]);
+  });
+
   it("asNextで先頭に挿入し、setActionItemAsNextで繰り上げできる", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
