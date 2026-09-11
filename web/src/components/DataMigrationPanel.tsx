@@ -105,7 +105,7 @@ export function DataMigrationPanel() {
           サーバーを停止しました。変更を反映するにはアプリを再起動してください。
         </p>
         <pre style={{ fontSize: "0.8125rem", padding: 12, overflow: "auto" }}>
-          {`emther start\n# 開発時: npm run dev（web/ ディレクトリ）`}
+          emther start
         </pre>
         <p className={styles.subtitle} style={{ marginTop: 8 }}>
           再起動後、このページを再読み込みしてください。

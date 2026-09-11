@@ -738,8 +738,7 @@ function IssuesPageInner() {
       <div className={styles.panel}>
         <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>Issue未起票のAgent Run</h3>
         <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-          ワイヤーフレームには無い一覧だが、複数のRunを実運用で捌くために追加している。Lead
-          Agentは「何でも相談」に、専門エージェントはクリックするとその場でIssue化して詳細画面へ移動する。
+          Lead Agentは「何でも相談」に移動します。専門エージェントはクリックするとIssue化され、詳細画面へ移動します。
         </p>
         {promoteError && (
           <p className={styles.errorText} role="alert">
