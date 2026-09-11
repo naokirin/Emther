@@ -33,6 +33,8 @@ export type KnowledgeEvent = {
   // `PERSON_n` IDを保持する（recordEvent呼び出し側が保存前に変換する）。text/summaryも
   // 同様にPERSON_n IDでマスクした状態で保存する。実名への復元はtoEventView()を通す。
   people: string[];
+  // Journal→チームの明示紐付け（Team.id の配列。チーム名は個人名ではないためマスク不要）。
+  teamIds: string[];
   text: string;
   tags: string[];
   urgency?: "low" | "mid" | "high";
@@ -53,9 +55,10 @@ export type KnowledgeEvent = {
   resolutionNote?: string;
 };
 
-export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt"> & {
+export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt" | "teamIds"> & {
   id?: string;
   recordedAt?: number;
+  teamIds?: string[];
 };
 
 type Row = {
@@ -65,6 +68,7 @@ type Row = {
   entity_type: string;
   entity_id: string | null;
   people_json: string;
+  team_ids_json: string | null;
   text: string;
   tags_json: string;
   urgency: string | null;
@@ -88,6 +92,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     entityType: row.entity_type as KnowledgeEntityType,
     entityId: row.entity_id ?? undefined,
     people: JSON.parse(row.people_json),
+    teamIds: row.team_ids_json ? (JSON.parse(row.team_ids_json) as string[]) : [],
     text: row.text,
     tags: JSON.parse(row.tags_json),
     urgency: (row.urgency as KnowledgeEvent["urgency"]) ?? undefined,
@@ -107,14 +112,15 @@ function rowToEvent(row: Row): KnowledgeEvent {
 export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   const event: KnowledgeEvent = {
     ...input,
+    teamIds: input.teamIds ?? [],
     id: input.id ?? randomUUID(),
     recordedAt: input.recordedAt ?? Date.now(),
   };
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, entity_id, people_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_issue_id, resolution_note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_issue_id, resolution_note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       event.id,
@@ -123,6 +129,7 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
       event.entityType,
       event.entityId ?? null,
       JSON.stringify(event.people),
+      JSON.stringify(event.teamIds),
       event.text,
       JSON.stringify(event.tags),
       event.urgency ?? null,
@@ -410,6 +417,7 @@ export function recordChangeEvent(
     entityType,
     entityId,
     people: [],
+    teamIds: [],
     text,
     tags,
     occurredAt: Date.now(),

@@ -289,6 +289,7 @@ export function useJournalEditing(
   const [rawTextTouched, setRawTextTouched] = useState(false);
   const [editTags, setEditTags] = useState("");
   const [editPeople, setEditPeople] = useState("");
+  const [editTeams, setEditTeams] = useState("");
   const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
   // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
   // 訂正を扱えるように」対応。"YYYY-MM-DD"（<input type="date">の値）で保持する。
@@ -334,6 +335,7 @@ export function useJournalEditing(
     setRawTextTouched(false);
     setEditTags(entry.tags.join(", "));
     setEditPeople(entry.people.join(", "));
+    setEditTeams((entry.teamNames ?? []).join(", "));
     setEditUrgency(entry.urgency);
     setEditDate(timestampToDateInputValue(entry.createdAt));
     setResolutionNoteDraft(entry.resolutionNote ?? "");
@@ -350,6 +352,7 @@ export function useJournalEditing(
       rawText: rawTextTouched ? editRawText.trim() || undefined : undefined,
       tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
       people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
+      teams: editTeams.split(",").map((t) => t.trim()).filter(Boolean),
       urgency: editUrgency,
       occurredAtDate: editDate || undefined,
     };
@@ -410,6 +413,7 @@ export function useJournalEditing(
     const body = {
       tags: entry.tags,
       people: entry.people,
+      teamIds: entry.teamIds ?? [],
       urgency: entry.urgency,
       occurredAtDate: timestampToDateInputValue(entry.createdAt),
     };
@@ -565,6 +569,8 @@ export function useJournalEditing(
     setEditTags,
     editPeople,
     setEditPeople,
+    editTeams,
+    setEditTeams,
     editUrgency,
     setEditUrgency,
     editDate,

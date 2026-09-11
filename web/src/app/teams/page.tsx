@@ -104,18 +104,18 @@ export default function TeamsPage() {
   const { history: teamHistory } = useEntityHistory("team", selectedTeam?.id ?? null);
 
   // docs/memo.md TODO「チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、
-  // 確認できるようにする」への対応。Issue-Team間、Journal-Team間の明示的な紐付けは
-  // 存在しないため、チームのメンバー名がテキストに含まれるかで簡易的に関連付けている
-  // （agent-runtime.tsの各buildXxxContextBlockと同じ、名前の文字列一致という簡略化）。
+  // 確認できるようにする」への対応。Issueは teamId 明示＋メンバー名の本文一致、
+  // Journalは方針A（明示 teamIds またはメンバー一致）で関連付ける。
   const relatedIssues = selectedTeam
     ? issues.filter((issue) => {
+        if (issue.teamId === selectedTeam.id) return true;
         const haystack = `${issue.title} ${issue.charter.why} ${issue.charter.what} ${issue.charter.how}`;
         return selectedTeam.members.some((m) => haystack.includes(m));
       })
     : [];
   const relatedJournal = selectedTeam
     ? journalEntries
-        .filter((e) => e.people.some((p) => selectedTeam.members.includes(p)))
+        .filter((e) => (e.teamIds ?? []).includes(selectedTeam.id) || e.people.some((p) => selectedTeam.members.includes(p)))
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, 10)
     : [];
@@ -454,7 +454,7 @@ export default function TeamsPage() {
 
             <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Journal（Issue化されていない特性・所感）</h3>
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-              Issueほど明確な課題ではないが、EMがメモしたメンバーの様子（直近10件）です。
+              このチームに明示紐付けされたJournal、またはメンバーが登場するJournal（直近10件）です。
             </p>
             {relatedJournal.length === 0 ? (
               <p className={styles.subtitle}>関連するJournalは見つかりませんでした。</p>

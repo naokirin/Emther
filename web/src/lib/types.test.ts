@@ -220,6 +220,7 @@ function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
     rawText: "text",
     tags: [],
     people: [],
+    teamIds: [],
     urgency: "mid",
     sentiment: "neutral",
     summary: "",

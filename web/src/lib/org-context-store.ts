@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
-import { normalizeTeamName } from "@/lib/types";
+import { normalizeTeamName, teamDisplayName, teamPathSegments } from "@/lib/types";
 import { maskForStorage, registerName, unmaskNames } from "@/lib/people-directory";
 import { listIssues } from "@/lib/issue-store";
 
@@ -87,6 +87,67 @@ export function toTeamView(team: Team): Team {
     members: team.members.map(unmaskNames),
     charter: { mission: unmaskNames(team.charter.mission), constraints: unmaskNames(team.charter.constraints) },
   };
+}
+
+/** チーム名照合用のラベル（正式名・階層セグメント・別名）。長いもの優先で誤マッチを減らす。 */
+export function teamMatchLabels(team: Pick<Team, "name" | "aliases">): string[] {
+  return [team.name, ...teamPathSegments(team.name), ...team.aliases]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+}
+
+/**
+ * 登録済みチーム名（＋別名・階層セグメント）が本文に含まれるかで Team.id を拾う。
+ * agent-runtime の relevantTeams と同じ手がかり。アーカイブ済みは除外。
+ */
+export function findMentionedTeamIds(text: string): string[] {
+  if (!text.trim()) return [];
+  const ids: string[] = [];
+  const ranked = [...listActiveTeams()].sort((a, b) => b.name.length - a.name.length);
+  for (const team of ranked) {
+    if (teamMatchLabels(team).some((label) => text.includes(label))) {
+      ids.push(team.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * EM校正・ローカル抽出のチーム名ラベルを Team.id へ解決する。
+ * 正式名・表示名・セグメント・別名の完全一致のみ（部分一致は誤紐付けが多いためしない）。
+ * アーカイブ済みも含めて解決する（既に紐付いているチームを校正で維持できるように）。
+ */
+export function resolveTeamIdsByLabels(labels: string[]): string[] {
+  const ids: string[] = [];
+  for (const raw of labels) {
+    const label = raw.trim();
+    if (!label) continue;
+    const found = teams.find((t) => {
+      const cands = new Set([t.name, teamDisplayName(t.name), ...teamPathSegments(t.name), ...t.aliases]);
+      return cands.has(label);
+    });
+    if (found && !ids.includes(found.id)) ids.push(found.id);
+  }
+  return ids;
+}
+
+/**
+ * 有効な Team.id だけを残す（削除済みチームの孤児IDを落とす）。
+ * includeArchived=true ならアーカイブ済みも有効とみなす。
+ */
+export function filterValidTeamIds(ids: string[], includeArchived = true): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    const team = getTeam(id);
+    if (!team) continue;
+    if (!includeArchived && team.archived) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }
 
 // メンバー名はチーム名簿という「既に人物名だと分かっている」フィールドなので、

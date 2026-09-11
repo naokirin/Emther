@@ -78,6 +78,7 @@ function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
     rawText: "元のテキスト",
     tags: ["1on1", "技術的負債"],
     people: ["Aさん"],
+    teamIds: [],
     urgency: "mid",
     sentiment: "neutral",
     summary: "",
@@ -124,6 +125,7 @@ describe("useJournalEditing", () => {
     expect(result.current.editRawText).toBe("元のテキスト");
     expect(result.current.editTags).toBe("1on1, 技術的負債");
     expect(result.current.editPeople).toBe("Aさん");
+    expect(result.current.editTeams).toBe("");
     expect(result.current.editDate).toBe("2026-01-15");
     expect(result.current.resolutionNoteDraft).toBe("既存のメモ");
   });
@@ -171,6 +173,7 @@ describe("useJournalEditing", () => {
     expect(JSON.parse(init.body)).toMatchObject({
       tags: ["1on1"],
       people: ["Aさん"],
+      teamIds: [],
       urgency: "high",
       occurredAtDate: "2026-01-15",
     });
