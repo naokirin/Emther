@@ -12,13 +12,15 @@ import { IssueStatusBadge, IssueStatusSelector, IssuePrioritySelector } from "@/
 import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
-import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
+import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams, useThemes } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import {
   ACTION_ITEM_VS_SUB_ISSUE_HELP,
   INTERVENTION_TYPES,
+  ISSUE_PRIORITY_META,
   charterFilledCount,
   isIssueStalled,
+  isIssueStrategyUnlinked,
   issueBacklogActionItems,
   issueNextAction,
   issueProgress,
@@ -49,6 +51,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const { objectives } = useObjectives();
   const { teams } = useTeams();
+  const { themes } = useThemes();
   // docs/memo.md「L」＋ docs/issue_tracker_contract.md §6。チーム紐付きIssueで介入前後比較を出す
   // （完了窓は status=done／doneAt。進行中も暫定比較を返す）。
   const { impact, impactLoaded } = useIssueImpact(id, !!issue?.teamId);
@@ -182,6 +185,8 @@ export function IssueDetailContent({ id }: { id: string }) {
   // （issueの非同期取得）で、同じタイミングにまとめて同期する。
   const [keyResultIdDraft, setKeyResultIdDraft] = useState<string>("");
   const [keyResultSaving, setKeyResultSaving] = useState(false);
+  const [themeIdDraft, setThemeIdDraft] = useState<string>("");
+  const [themeLinkSaving, setThemeLinkSaving] = useState(false);
   // docs/memo.md「I. チーム単位の憲法」対応。teamIdの選択も同じ理由でまとめて同期する。
   const [teamIdDraft, setTeamIdDraft] = useState<string>("");
   const [teamLinkSaving, setTeamLinkSaving] = useState(false);
@@ -189,6 +194,7 @@ export function IssueDetailContent({ id }: { id: string }) {
     setSyncedIssueId(issue.id);
     setTagsSnapshot(issue.tags);
     setKeyResultIdDraft(issue.keyResultId ?? "");
+    setThemeIdDraft(issue.themeId ?? "");
     setTeamIdDraft(issue.teamId ?? "");
   }
 
@@ -205,6 +211,22 @@ export function IssueDetailContent({ id }: { id: string }) {
       if (res.ok) await refreshIssue();
     } finally {
       setKeyResultSaving(false);
+    }
+  }
+
+  async function handleChangeTheme(themeId: string) {
+    if (!issue) return;
+    setThemeIdDraft(themeId);
+    setThemeLinkSaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ themeId: themeId || null }),
+      });
+      if (res.ok) await refreshIssue();
+    } finally {
+      setThemeLinkSaving(false);
     }
   }
 
@@ -705,9 +727,11 @@ export function IssueDetailContent({ id }: { id: string }) {
   // docs/em_ui_ux_issue.md 7節対応。閲覧モードでチーム・Key Resultを文字列表示するための
   // 逆引き（issues/page.tsxのkeyResultLabelと同じ考え方）。
   const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
+  const themeTitle = issue.themeId ? themes.find((t) => t.id === issue.themeId)?.title : undefined;
   const krLabel = issue.keyResultId
     ? objectives.flatMap((o) => o.keyResults.map((kr) => ({ objTitle: o.title, kr }))).find((x) => x.kr.id === issue.keyResultId)
     : undefined;
+  const strategyUnlinked = isIssueStrategyUnlinked(issue);
   const originJournals =
     sourceJournals.length > 0
       ? sourceJournals
@@ -822,6 +846,18 @@ export function IssueDetailContent({ id }: { id: string }) {
             onChange={handleChangePriority}
             disabled={prioritySaving}
           />
+          {issue.triage && (
+            <p className={styles.subtitle} style={{ marginTop: 8 }}>
+              内部提案: {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].icon}{" "}
+              {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].label}
+              （score {issue.triage.score.toFixed(2)} · CoD {issue.triage.costOfDelay.toFixed(2)} · Effort{" "}
+              {issue.triage.effort.toFixed(2)} · Blast {issue.triage.blastRadius.toFixed(2)} · Conf{" "}
+              {issue.triage.confidence.toFixed(2)}）
+              {issue.triage.suggestedPriority !== (issue.priority ?? "normal") && (
+                <span style={{ color: "var(--warning, #b45309)" }}> · 現在帯と不一致</span>
+              )}
+            </p>
+          )}
           {issue.priority === "focus" && (
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
               <button
@@ -1086,9 +1122,15 @@ export function IssueDetailContent({ id }: { id: string }) {
             ))}
 
             <p className={styles.subtitle}>👥 関連チーム: {teamName ?? "なし"}</p>
-            <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+            <p className={styles.subtitle}>🎯 テーマ: {themeTitle ?? "なし"}</p>
+            <p className={styles.subtitle} style={{ marginBottom: strategyUnlinked ? 4 : 10 }}>
               📈 Key Result: {krLabel ? `${krLabel.objTitle} ＞ ${krLabel.kr.title}` : "なし"}
             </p>
+            {strategyUnlinked && (
+              <p className={styles.subtitle} style={{ marginBottom: 10, color: "var(--warning, #b45309)" }}>
+                ⚠ 戦略未接続（テーマ / Key Result のどちらかを紐付けると朝の物語に乗りやすくなります）
+              </p>
+            )}
 
             {issue.tags.length > 0 && (
               <div className={styles.tagRow} style={{ marginBottom: 10 }}>
@@ -1155,6 +1197,21 @@ export function IssueDetailContent({ id }: { id: string }) {
               /></label>
             </div>
             <div className={styles.field}>
+              <label>紐付けるテーマ（任意。今期の焦点に効く介入か）
+              <Select
+                value={themeIdDraft}
+                onChange={handleChangeTheme}
+                disabled={themeLinkSaving}
+                options={[
+                  { value: "", label: "なし" },
+                  ...themes
+                    .filter((t) => t.status === "adopted")
+                    .map((t) => ({ value: t.id, label: t.title })),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
+            </div>
+            <div className={styles.field}>
               <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
               <Select
                 value={keyResultIdDraft}
@@ -1167,6 +1224,11 @@ export function IssueDetailContent({ id }: { id: string }) {
                 style={{ display: "block", width: "100%" }}
               /></label>
             </div>
+            {isIssueStrategyUnlinked({ themeId: themeIdDraft || undefined, keyResultId: keyResultIdDraft || undefined }) && (
+              <p className={styles.subtitle} style={{ color: "var(--warning, #b45309)" }}>
+                ⚠ 戦略未接続（必須ではありません）
+              </p>
+            )}
             <div className={styles.field}>
               <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>
               <div role="group" aria-label="介入の型（複数選択可）" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

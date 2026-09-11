@@ -56,4 +56,25 @@ describe("theme-store", () => {
     expect(store.getTheme(candidate.id)?.status).toBe("dismissed");
     expect(store.listCurrentThemes({ status: "adopted" })).toHaveLength(1);
   });
+
+  it("objectiveIds/keyResultIds を保持し link 更新できる", async () => {
+    const store = await import("@/lib/theme-store");
+    const candidate = await store.createThemeCandidate({
+      title: "OKR起点",
+      summary: "要約",
+      rationale: "根拠",
+      facts: ["f"],
+      objectiveIds: ["obj-1"],
+      keyResultIds: ["kr-1", "kr-1"],
+    });
+    expect(candidate.objectiveIds).toEqual(["obj-1"]);
+    expect(candidate.keyResultIds).toEqual(["kr-1"]);
+
+    const linked = store.updateThemeLinks(candidate.id, {
+      objectiveIds: ["obj-2"],
+      keyResultIds: ["kr-2", "kr-3"],
+    });
+    expect(linked?.objectiveIds).toEqual(["obj-2"]);
+    expect(linked?.keyResultIds).toEqual(["kr-2", "kr-3"]);
+  });
 });

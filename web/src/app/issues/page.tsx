@@ -13,7 +13,7 @@ import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
-import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
+import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams, useThemes } from "@/lib/hooks";
 import {
   INTERVENTION_TYPES,
   ISSUE_PRIORITY_META,
@@ -21,6 +21,7 @@ import {
   charterFilledCount,
   compareIssuesByPriority,
   isIssueStalled,
+  isIssueStrategyUnlinked,
   isRunStale,
   issueNextAction,
   issueProgress,
@@ -66,6 +67,7 @@ function IssuesPageInner() {
   const { runs, refreshRuns } = useRuns();
   const { objectives } = useObjectives();
   const { teams } = useTeams();
+  const { themes } = useThemes();
   const { rules } = useSettingsRules();
   // eslint-disable-next-line react-hooks/purity -- 「最終判断日」の相対表示にのみ使う
   const now = Date.now();
@@ -85,6 +87,7 @@ function IssuesPageInner() {
   const [issueHow, setIssueHow] = useState("");
   const [issueTags, setIssueTags] = useState("");
   const [issueKeyResultId, setIssueKeyResultId] = useState("");
+  const [issueThemeId, setIssueThemeId] = useState("");
   const [issueTeamId, setIssueTeamId] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [issueSubmitting, setIssueSubmitting] = useState(false);
@@ -207,6 +210,7 @@ function IssuesPageInner() {
           how: issueHow,
           tags: issueTags.split(",").map((t) => t.trim()).filter(Boolean),
           keyResultId: issueKeyResultId || undefined,
+          themeId: issueThemeId || undefined,
           teamId: issueTeamId || undefined,
         }),
       });
@@ -219,6 +223,7 @@ function IssuesPageInner() {
       setIssueHow("");
       setIssueTags("");
       setIssueKeyResultId("");
+      setIssueThemeId("");
       setIssueTeamId("");
       setSelectedTypes([]);
       setDialogOpen(false);
@@ -491,7 +496,9 @@ function IssuesPageInner() {
                 const interventionTypes = issue.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
                 const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
                 const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
+                const themeTitle = issue.themeId ? themes.find((t) => t.id === issue.themeId)?.title : undefined;
                 const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
+                const strategyUnlinked = isIssueStrategyUnlinked(issue);
                 const nextAction = issueNextAction(issue);
                 const priority = issue.priority ?? "normal";
                 const expanded = expandedIssueIds.has(issue.id);
@@ -547,6 +554,17 @@ function IssuesPageInner() {
                     </td>
                     <td>
                       <IssuePriorityBadge priority={priority} />
+                      {issue.triage?.suggestedPriority &&
+                        issue.triage.suggestedPriority !== priority && (
+                          <div
+                            className={styles.tableMuted}
+                            style={{ marginTop: 4, color: "var(--warning, #b45309)", fontSize: "0.7rem" }}
+                            title={`提案スコア ${issue.triage.score.toFixed(2)}（Dashboard「優先度を提案」の結果）`}
+                          >
+                            提案: {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].icon}{" "}
+                            {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].label}
+                          </div>
+                        )}
                       {priority === "focus" && (
                         <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                           <button
@@ -592,9 +610,19 @@ function IssuesPageInner() {
                           👥 {teamName}
                         </div>
                       )}
+                      {themeTitle && (
+                        <div className={styles.tableMuted} title="紐付いているテーマ">
+                          🎯 {themeTitle}
+                        </div>
+                      )}
                       {krLabel && (
                         <div className={styles.tableMuted} title="紐付いているKey Result">
                           📈 {krLabel}
+                        </div>
+                      )}
+                      {strategyUnlinked && (
+                        <div className={styles.tableMuted} title="テーマ / Key Result 未接続" style={{ color: "var(--warning, #b45309)" }}>
+                          ⚠ 戦略未接続
                         </div>
                       )}
                     </td>
@@ -805,6 +833,19 @@ function IssuesPageInner() {
                 options={[
                   { value: "", label: "なし" },
                   ...teams.filter((t) => !t.archived).map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                style={{ display: "block", width: "100%" }}
+              /></label>
+            </div>
+
+            <div className={styles.field}>
+              <label>紐付けるテーマ（任意。今期の焦点に効く介入か）
+              <Select
+                value={issueThemeId}
+                onChange={setIssueThemeId}
+                options={[
+                  { value: "", label: "なし" },
+                  ...themes.filter((t) => t.status === "adopted").map((t) => ({ value: t.id, label: t.title })),
                 ]}
                 style={{ display: "block", width: "100%" }}
               /></label>

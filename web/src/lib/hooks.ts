@@ -20,6 +20,7 @@ import type {
   OrgVitals,
   PersonProfile,
   PersonSummary,
+  PersonEvaluationLog,
   Report,
   ReportPeriodType,
   RulesAndConstraints,
@@ -694,6 +695,16 @@ export function useThemes(intervalMs = 8000) {
 export function usePersonProfile(id: string, intervalMs = 5000) {
   const { data, loaded, refresh } = usePolling<{ person: PersonProfile | null }>(`/api/people/${id}`, { person: null }, intervalMs);
   return { person: data.person, personLoaded: loaded, refreshPerson: refresh };
+}
+
+export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
+  const { data, loaded, refresh } = usePolling<{ logs: PersonEvaluationLog[] }>(
+    `/api/people/${personId}/evaluation-logs`,
+    { logs: [] },
+    intervalMs,
+    !!personId,
+  );
+  return { evaluationLogs: data.logs, evaluationLogsLoaded: loaded, refreshEvaluationLogs: refresh };
 }
 
 // docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssue

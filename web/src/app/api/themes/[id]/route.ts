@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
-import { adoptTheme, dismissTheme, getTheme, reviseTheme, toThemeView } from "@/lib/theme-store";
+import {
+  adoptTheme,
+  dismissTheme,
+  getTheme,
+  reviseTheme,
+  toThemeView,
+  updateThemeLinks,
+} from "@/lib/theme-store";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+function stringIdList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((id): id is string => typeof id === "string");
+}
 
 export async function GET(_request: Request, ctx: Ctx) {
   const { id } = await ctx.params;
@@ -42,6 +54,15 @@ export async function PATCH(request: Request, ctx: Ctx) {
     if (!theme) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json({ theme: toThemeView(theme) });
   }
+  if (action === "link" || (!action && ("objectiveIds" in (body ?? {}) || "keyResultIds" in (body ?? {})))) {
+    const theme = updateThemeLinks(id, {
+      objectiveIds: body?.objectiveIds === null ? null : stringIdList(body?.objectiveIds),
+      keyResultIds: body?.keyResultIds === null ? null : stringIdList(body?.keyResultIds),
+      teamId: body?.teamId === null ? null : typeof body?.teamId === "string" ? body.teamId : undefined,
+    });
+    if (!theme) return NextResponse.json({ error: "not found" }, { status: 404 });
+    return NextResponse.json({ theme: toThemeView(theme) });
+  }
 
-  return NextResponse.json({ error: "action は adopt / dismiss / revise のいずれかです" }, { status: 400 });
+  return NextResponse.json({ error: "action は adopt / dismiss / revise / link のいずれかです" }, { status: 400 });
 }

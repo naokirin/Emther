@@ -145,17 +145,17 @@ function getDayPhase(hour: number): DayPhase {
 const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; cta?: string }> = {
   morning: {
     icon: "🌅",
-    text: "朝のチェック: 下の「次の1手」から片づけましょう。",
+    text: "朝のチェック: 今期の焦点（テーマ）に対する今日の問いを、下の「次の1手」から片づけましょう。",
   },
   midday: {
     icon: "🕐",
-    text: "気になる出来事は、その場でメモしておくと後で役立ちます。",
+    text: "気になる出来事は、その場でメモしておくと後で役立ちます。構造化は後回しで構いません。",
     cta: "メモする",
   },
   evening: {
     icon: "🌆",
-    text: "終業前に、今日の出来事をメモにまとめておきましょう。",
-    cta: "メモする",
+    text: "終業前に、今日あったことを分割を考えず書き連ねましょう（分割・Issue化は翌朝の提案に寄せます）。",
+    cta: "書き連ねる",
   },
 };
 
@@ -349,6 +349,24 @@ export default function DashboardPage() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [distillSubmitting, setDistillSubmitting] = useState(false);
   const [distillError, setDistillError] = useState<string | null>(null);
+  const [triageSubmitting, setTriageSubmitting] = useState(false);
+  const [triageError, setTriageError] = useState<string | null>(null);
+  const [triageMessage, setTriageMessage] = useState<string | null>(null);
+  const [triagePreview, setTriagePreview] = useState<{
+    applied: boolean;
+    counts: Record<IssuePriority, number>;
+    focusCandidates: Array<{ id: string; title: string; score: number; suggestedPriority?: IssuePriority }>;
+    differing: Array<{
+      issueId: string;
+      title: string;
+      current: IssuePriority;
+      effective: IssuePriority;
+      currentLabel: string;
+      effectiveLabel: string;
+      score: number;
+    }>;
+    changes: Array<{ issueId: string; title: string; fromLabel: string; toLabel: string }>;
+  } | null>(null);
   // 採用済みテーマは「次の1手」ではなく「現在の優先テーマ」。詳細は既定で畳む。
   const [priorityThemeExpandedId, setPriorityThemeExpandedId] = useState<string | null>(null);
   const [priorityThemesShowAll, setPriorityThemesShowAll] = useState(false);
@@ -916,6 +934,69 @@ export default function DashboardPage() {
     : adoptedThemes.slice(0, PRIORITY_THEME_LIMIT);
   const hiddenPriorityThemeCount = Math.max(0, adoptedThemes.length - PRIORITY_THEME_LIMIT);
 
+  function themeOkrLabel(theme: (typeof themes)[number]): string | null {
+    const objTitles = (theme.objectiveIds ?? [])
+      .map((id) => objectives.find((o) => o.id === id)?.title)
+      .filter((t): t is string => !!t);
+    const krTitles = (theme.keyResultIds ?? [])
+      .map((krId) => {
+        for (const o of objectives) {
+          const kr = o.keyResults.find((k) => k.id === krId);
+          if (kr) return `${o.title} ＞ ${kr.title}`;
+        }
+        return undefined;
+      })
+      .filter((t): t is string => !!t);
+    const parts = [...objTitles, ...krTitles];
+    return parts.length > 0 ? parts.slice(0, 2).join(" · ") : null;
+  }
+
+  const unlinkedParentCount = issues.filter(
+    (i) => !i.archived && i.status !== "done" && !i.parentId && !i.themeId && !i.keyResultId,
+  ).length;
+
+  async function handleSuggestTriage(applySuggested: boolean) {
+    setTriageSubmitting(true);
+    setTriageError(null);
+    setTriageMessage(null);
+    try {
+      const res = await fetch("/api/issues/triage/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applySuggested, focusLimit: 5 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "トリアージ提案に失敗しました");
+      const focusN = Array.isArray(data.focusCandidates) ? data.focusCandidates.length : 0;
+      const differN = Array.isArray(data.differing) ? data.differing.length : 0;
+      const changeN = Array.isArray(data.changes) ? data.changes.length : 0;
+      const counts = data.counts ?? { focus: 0, normal: 0, parked: 0 };
+      setTriagePreview({
+        applied: applySuggested,
+        counts,
+        focusCandidates: Array.isArray(data.focusCandidates) ? data.focusCandidates : [],
+        differing: Array.isArray(data.differing) ? data.differing : [],
+        changes: Array.isArray(data.changes) ? data.changes : [],
+      });
+      if (applySuggested) {
+        setTriageMessage(
+          changeN > 0
+            ? `帯を ${changeN} 件更新しました（フォーカス候補 ${focusN} 件）。下の内訳を確認し、例外だけ上書きしてください。`
+            : `帯の変更はありませんでした（提案フォーカス ${focusN} 件・現状と差分 ${differN} 件）。すでに帯が揃っているか、対象の親 Issue が少ない可能性があります。`,
+        );
+      } else {
+        setTriageMessage(
+          `採点しました: 提案 🔥${counts.focus ?? 0} / ➖${counts.normal ?? 0} / 🅿️${counts.parked ?? 0}（うち現状と違う適用先 ${differN} 件）。帯はまだ変えていません。「提案を反映」で一括適用できます。`,
+        );
+      }
+      await refreshIssues();
+    } catch (err) {
+      setTriageError((err as Error).message);
+    } finally {
+      setTriageSubmitting(false);
+    }
+  }
+
   async function handleCompleteExecutionMove(issueId: string, itemId: string) {
     const key = `${issueId}:${itemId}`;
     setCompletingActionKey(key);
@@ -979,8 +1060,11 @@ export default function DashboardPage() {
           記録先（/growth）への導線のみを置く。入力フォーム自体はここには置かない
           （改修依頼「今日記録されていない場合のアラート表示とEMの成長へのリンクのみ」対応）。 */}
       {dayPhase === "evening" && (
-        <div className={styles.panel}>
-          <h2>今日の振り返り</h2>
+        <div className={styles.panel} style={{ borderColor: "var(--accent, var(--border))" }}>
+          <h2 style={{ margin: 0, fontSize: "1rem" }}>夜の書き連ね</h2>
+          <p className={styles.subtitle} style={{ marginTop: 4 }}>
+            今日あったことを分割せず 10〜15 分で書いてください。Issue 化・分割は翌朝の提案に寄せます。
+          </p>
           {!checkinsLoaded ? (
             <p className={styles.subtitle}>読み込み中…</p>
           ) : (
@@ -990,9 +1074,14 @@ export default function DashboardPage() {
               </div>
             )
           )}
-          <button className={styles.btnOutline} onClick={() => router.push("/growth")}>
-            EMの成長へ →
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={focusJournalInput}>
+              書き連ねを始める
+            </button>
+            <button className={styles.btnOutline} onClick={() => router.push("/growth")}>
+              EMの成長へ →
+            </button>
+          </div>
         </div>
       )}
 
@@ -1001,7 +1090,7 @@ export default function DashboardPage() {
         <div className={styles.panel} style={{ marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: "1rem" }}>現在の優先テーマ</h2>
           <p className={styles.subtitle} style={{ marginTop: 4 }}>
-            Issue壁打ちの前提として使われています。問題なければ操作は不要です。
+            今期の焦点です。朝の「今日の問い」の前提になります。問題なければ操作は不要です。
           </p>
           {visiblePriorityThemes.map((t) => {
             const expanded = priorityThemeExpandedId === t.id || themeEditId === t.id;
@@ -1079,6 +1168,21 @@ export default function DashboardPage() {
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <strong>{t.title}</strong>
                         <p style={{ margin: "2px 0 0", color: "var(--text-muted)" }}>{t.summary}</p>
+                        {(() => {
+                          const okr = themeOkrLabel(t);
+                          if (okr) {
+                            return (
+                              <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                📈 {okr}
+                              </p>
+                            );
+                          }
+                          return (
+                            <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--warning, #b45309)" }}>
+                              ⚠ OKR未リンク
+                            </p>
+                          );
+                        })()}
                       </div>
                       <button
                         className={`${styles.detailToggle} ${styles.detailToggleButton}`}
@@ -1204,6 +1308,23 @@ export default function DashboardPage() {
       <div className={styles.dashColumns}>
       <div className={`${styles.panel} ${styles.heroPanel}`}>
         <h2 className={styles.heroHeadline}>{headline}</h2>
+        {dayPhase === "morning" && adoptedThemes.length > 0 && (
+          <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
+            🎯 今期の焦点: {adoptedThemes
+              .slice(0, 3)
+              .map((t) => t.title)
+              .join(" / ")}
+            {adoptedThemes.length > 3 ? ` 他${adoptedThemes.length - 3}` : ""}
+          </p>
+        )}
+        {unlinkedParentCount > 0 && (
+          <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
+            ⚠ 戦略未接続の親 Issue が {unlinkedParentCount} 件あります
+            <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => router.push("/issues")}>
+              一覧へ
+            </button>
+          </p>
+        )}
 
         {krTotals.total > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
@@ -1247,16 +1368,133 @@ export default function DashboardPage() {
               }
             }}
           >
-            {distillSubmitting ? "蒸留を起動中…" : "🧭 状況を蒸留する"}
+            {distillSubmitting ? "修正候補を生成中…" : "🧭 テーマを見直す（観測差分）"}
+          </button>
+          <button
+            className={styles.btnOutline}
+            disabled={triageSubmitting}
+            onClick={() => handleSuggestTriage(false)}
+          >
+            {triageSubmitting ? "採点中…" : "📊 優先度を提案"}
+          </button>
+          <button
+            className={styles.btnOutline}
+            disabled={triageSubmitting}
+            onClick={() => handleSuggestTriage(true)}
+            title="suggestedPriority を priority に反映（例外は後から上書き）"
+          >
+            提案を反映
           </button>
           <span className={styles.subtitle} style={{ margin: 0 }}>
-            Journal・Issueから根本課題の見立てを候補化する（採用するまで壁打ち前提には入らない）
+            蒸留は主題の新規作成ではなく、観測との差分でテーマを修正・再優先するためのものです
           </span>
         </div>
         {distillError && (
           <p className={styles.errorText} role="alert">
             {distillError}
           </p>
+        )}
+        {triageError && (
+          <p className={styles.errorText} role="alert">
+            {triageError}
+          </p>
+        )}
+        {triageMessage && <p className={styles.subtitle}>{triageMessage}</p>}
+        {triagePreview && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              fontSize: "0.8125rem",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+              <strong>{triagePreview.applied ? "反映結果" : "提案プレビュー"}</strong>
+              <button type="button" className={styles.detailToggle} onClick={() => setTriagePreview(null)}>
+                閉じる
+              </button>
+            </div>
+            <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
+              提案内訳: 🔥フォーカス {triagePreview.counts.focus} · ➖通常 {triagePreview.counts.normal} · 🅿️保留{" "}
+              {triagePreview.counts.parked}
+              （フォーカス適用はスコア上位 {triagePreview.focusCandidates.length} 件まで）
+            </p>
+            {triagePreview.focusCandidates.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <div className={styles.fieldCaption}>フォーカス候補（スコア順）</div>
+                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                  {triagePreview.focusCandidates.map((c) => (
+                    <li key={c.id} style={{ marginBottom: 2 }}>
+                      <button type="button" className={styles.tableRowLink} onClick={() => router.push(`/issues/${c.id}`)}>
+                        {c.title}
+                      </button>
+                      <span className={styles.tableMuted}> · score {c.score.toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {triagePreview.applied ? (
+              triagePreview.changes.length > 0 ? (
+                <div>
+                  <div className={styles.fieldCaption}>帯を更新した Issue（{triagePreview.changes.length}）</div>
+                  <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                    {triagePreview.changes.map((c) => (
+                      <li key={c.issueId} style={{ marginBottom: 2 }}>
+                        <button
+                          type="button"
+                          className={styles.tableRowLink}
+                          onClick={() => router.push(`/issues/${c.issueId}`)}
+                        >
+                          {c.title}
+                        </button>
+                        <span className={styles.tableMuted}>
+                          {" "}
+                          {c.fromLabel} → {c.toLabel}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className={styles.subtitle} style={{ margin: 0 }}>
+                  実際に帯が変わった Issue はありません。
+                </p>
+              )
+            ) : triagePreview.differing.length > 0 ? (
+              <div>
+                <div className={styles.fieldCaption}>
+                  反映すると変わる予定（{triagePreview.differing.length}）— 現状 → 適用先
+                </div>
+                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                  {triagePreview.differing
+                    .slice()
+                    .sort((a, b) => b.score - a.score)
+                    .map((d) => (
+                      <li key={d.issueId} style={{ marginBottom: 2 }}>
+                        <button
+                          type="button"
+                          className={styles.tableRowLink}
+                          onClick={() => router.push(`/issues/${d.issueId}`)}
+                        >
+                          {d.title}
+                        </button>
+                        <span className={styles.tableMuted}>
+                          {" "}
+                          {d.currentLabel} → {d.effectiveLabel} · score {d.score.toFixed(2)}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ) : (
+              <p className={styles.subtitle} style={{ margin: 0 }}>
+                現状の帯と提案の適用先は一致しています（反映しても変化なし）。
+              </p>
+            )}
+          </div>
         )}
 
         <div className={styles.tabs} style={{ margin: "0 0 12px" }}>
@@ -1573,14 +1811,14 @@ export default function DashboardPage() {
       </div>
       </div>
 
-      <div className={styles.panel}>
+      <div className={styles.panel} id="evening-journal-dump">
         <div className={styles.detailHeader} style={{ alignItems: "center" }}>
           <h2 style={{ margin: 0 }}>
-            メモする{" "}
+            {dayPhase === "evening" ? "今日あったことを書き連ねる" : "メモする"}{" "}
             <span
               className={styles.subtitle}
               style={{ fontWeight: 400, cursor: "help" }}
-              title="入力後、完全ローカルの軽量モデル（LFM2.5-350M、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。"
+              title="入力後、完全ローカルの軽量モデル（LFM2.5-350M、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。分割・Issue昇格は翌朝提案に寄せられます。"
             >
               ⓘ
             </span>
@@ -1589,14 +1827,23 @@ export default function DashboardPage() {
             すべて見る →
           </button>
         </div>
+        {dayPhase === "evening" && (
+          <p className={styles.subtitle} style={{ marginTop: 0 }}>
+            分割を考えず書いてください。記録と構造化は分離します。
+          </p>
+        )}
         <form onSubmit={handleJournalSubmit}>
           <div className={styles.journalInputRow}>
             <textarea
               id="quick-journal-input"
               value={journalText}
               onChange={(e) => setJournalText(e.target.value)}
-              rows={3}
-              placeholder="例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
+              rows={dayPhase === "evening" ? 6 : 3}
+              placeholder={
+                dayPhase === "evening"
+                  ? "今日あったことを、思いつくまま書き連ねてください…"
+                  : "例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
+              }
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                   e.preventDefault();
@@ -1605,7 +1852,7 @@ export default function DashboardPage() {
               }}
             />
             <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={!journalText.trim()}>
-              Submit
+              {dayPhase === "evening" ? "保存" : "Submit"}
             </button>
           </div>
           {/* 改修依頼「通常投入でも日付レベルの訂正を検討」対応。既定は今日のまま・

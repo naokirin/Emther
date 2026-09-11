@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
-import { useEntityHistory, useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams } from "@/lib/hooks";
+import { useEntityHistory, useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "@/lib/hooks";
 import {
   teamDisplayName,
   teamPathSegments,
@@ -166,6 +166,7 @@ export default function OrgContextPage() {
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();
   const { objectives, objectivesLoaded, refreshObjectives } = useObjectives();
   const { teams, teamsLoaded } = useTeams();
+  const { themes, refreshThemes } = useThemes();
   const activeTeams = teams.filter((t) => !t.archived);
   const teamOptions = activeTeams.map((t) => ({ value: t.id, label: teamDisplayName(t.name) }));
 
@@ -380,6 +381,9 @@ export default function OrgContextPage() {
   const [krDraftKrIds, setKrDraftKrIds] = useState<string>("");
   const [krSavingId, setKrSavingId] = useState<string | null>(null);
   const [krEditError, setKrEditError] = useState<string | null>(null);
+  const [fromOkrBusy, setFromOkrBusy] = useState(false);
+  const [fromOkrError, setFromOkrError] = useState<string | null>(null);
+  const [fromOkrMessage, setFromOkrMessage] = useState<string | null>(null);
 
   // docs/usage_issues U18: テキスト一括取り込み。
   const [importOpen, setImportOpen] = useState(false);
@@ -544,6 +548,28 @@ export default function OrgContextPage() {
       await refreshObjectives();
     } catch {
       // 失敗時は次回のポーリングで状態が揃う
+    }
+  }
+
+  async function handleGenerateThemesFromOkr(objectiveId?: string) {
+    setFromOkrBusy(true);
+    setFromOkrError(null);
+    setFromOkrMessage(null);
+    try {
+      const res = await fetch("/api/themes/from-okr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(objectiveId ? { objectiveIds: [objectiveId] } : {}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "テーマ候補の生成に失敗しました");
+      const count = Array.isArray(data.themes) ? data.themes.length : 0;
+      setFromOkrMessage(`${count}件のテーマ候補を作成しました（採用は Dashboard / 蒸留候補から）`);
+      await refreshThemes();
+    } catch (err) {
+      setFromOkrError((err as Error).message);
+    } finally {
+      setFromOkrBusy(false);
     }
   }
 
@@ -1354,6 +1380,59 @@ export default function OrgContextPage() {
                     追加
                   </button>
                 </form>
+
+                <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連テーマ（EM介入の焦点）</h3>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  期初は OKR から候補テーマを先に置き、週次蒸留で観測差分による修正を行います。未リンクの採用テーマは警告します。
+                </p>
+                {(() => {
+                  const linked = themes.filter(
+                    (t) =>
+                      t.status !== "dismissed" &&
+                      (t.objectiveIds?.includes(selectedObjective.id) ||
+                        selectedObjective.keyResults.some((kr) => t.keyResultIds?.includes(kr.id))),
+                  );
+                  const unlinkedAdopted = themes.filter(
+                    (t) => t.status === "adopted" && !(t.objectiveIds?.length || t.keyResultIds?.length),
+                  );
+                  return (
+                    <>
+                      {linked.length === 0 ? (
+                        <p className={styles.subtitle}>この Objective に紐付くテーマはまだありません。</p>
+                      ) : (
+                        <ul style={{ margin: "0 0 8px 16px", fontSize: "0.8125rem" }}>
+                          {linked.map((t) => (
+                            <li key={t.id} style={{ marginBottom: 4 }}>
+                              <strong>{t.title}</strong>
+                              <span className={styles.tableMuted}> · {t.status === "adopted" ? "採用中" : t.status === "candidate" ? "候補" : t.status}</span>
+                              {!t.objectiveIds?.length && !t.keyResultIds?.length && (
+                                <span style={{ color: "var(--warning, #b45309)" }}> · ⚠ OKR未リンク</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {unlinkedAdopted.length > 0 && (
+                        <p className={styles.subtitle} style={{ color: "var(--warning, #b45309)" }}>
+                          ⚠ OKR未リンクの採用テーマが {unlinkedAdopted.length} 件あります（全体）
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    style={{ width: "auto" }}
+                    disabled={fromOkrBusy}
+                    onClick={() => handleGenerateThemesFromOkr(selectedObjective.id)}
+                  >
+                    {fromOkrBusy ? "生成中…" : "この Objective からテーマ候補を生成"}
+                  </button>
+                </div>
+                {fromOkrError && <p className={styles.errorText} role="alert">{fromOkrError}</p>}
+                {fromOkrMessage && <p className={styles.subtitle}>{fromOkrMessage}</p>}
 
                 {objectiveHistory.length > 0 && (
                   <details style={{ marginTop: 20 }}>
