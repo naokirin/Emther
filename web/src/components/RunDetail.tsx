@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
+import { MarkdownView } from "@/components/MarkdownView";
 import { YIELD_KIND_META, ISSUE_PRIORITY_META, type IssuePriority, type YieldKind } from "@/lib/types";
 
 // "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
@@ -580,12 +581,13 @@ export function CopilotChat({
         {turns.map((turn, i) =>
           turn.kind === "note" ? (
             <div key={i} className={styles.chatNote}>
-              {turn.text}
+              {/* Journal/charterと同じMarkdownView。remark-breaksで単一改行も<br>として残す。 */}
+              <MarkdownView text={turn.text} />
             </div>
           ) : (
             <div key={i} className={`${styles.chatBubble} ${turn.kind === "user" ? styles.chatBubbleUser : styles.chatBubbleAi}`}>
               {turn.kind === "ai" && <strong className={styles.chatBubbleSender}>[{run.agentName}]</strong>}
-              {turn.text}
+              <MarkdownView text={turn.text} />
             </div>
           ),
         )}

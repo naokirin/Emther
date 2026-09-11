@@ -282,6 +282,22 @@ describe("CopilotChat", () => {
     expect(screen.queryByText(/conclusion/)).not.toBeInTheDocument();
   });
 
+  it("吹き出しとnoteの両方で改行を残す（MarkdownView + remark-breaks）", () => {
+    const run = baseRun({
+      log: [
+        { ts: 0, channel: "agent", text: "AIの1行目\nAIの2行目" },
+        { ts: 1, channel: "system", text: "注記の1行目\n注記の2行目" },
+      ],
+    });
+    const { container } = render(
+      <CopilotChat run={run} message="" setMessage={() => {}} deciding={false} onDecide={() => {}} />,
+    );
+    // 単一改行が<br>になっていること（空白折りたたみでないこと）を担保する
+    expect(container.querySelectorAll("br").length).toBeGreaterThanOrEqual(2);
+    expect(container.textContent).toMatch(/AIの1行目\s*AIの2行目/);
+    expect(container.textContent).toMatch(/注記の1行目\s*注記の2行目/);
+  });
+
   it("active/queued中は入力欄を表示しない", () => {
     render(<CopilotChat run={baseRun({ status: "active" })} message="" setMessage={() => {}} deciding={false} onDecide={() => {}} />);
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
