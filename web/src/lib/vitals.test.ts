@@ -182,6 +182,28 @@ describe("computeOrgVitals", () => {
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("unknown");
   });
+  it("メンバー未登録でも明示teamIdsのJournalが閾値以上ならsentimentで判定する", async () => {
+    const { vitals, orgStore, journalStore } = await loadModules();
+    orgStore.addTeam("基盤チーム", []);
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative", summary: "" };
+    await journalStore.addJournalEntry("基盤チームの士気が低い");
+    await journalStore.addJournalEntry("基盤チームがまた落ち込んでいる");
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].status).toBe("bad");
+  });
+
+  it("メンバー一致がなくても明示teamIdsだけで関連Journalとして数える（方針A）", async () => {
+    const { vitals, orgStore, journalStore } = await loadModules();
+    // 別メンバーのチームだが、本文にチーム名があれば明示紐付けされる
+    orgStore.addTeam("基盤チーム", ["Bさん"]);
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "positive", summary: "" };
+    await journalStore.addJournalEntry("基盤チーム全体の雰囲気が良い");
+    await journalStore.addJournalEntry("基盤チームの進捗が順調");
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].status).toBe("good");
+  });
 });
 
 describe("computeIssueImpact", () => {
@@ -191,11 +213,24 @@ describe("computeIssueImpact", () => {
     expect(vitals.computeIssueImpact(issue)).toBeUndefined();
   });
 
-  it("チームにメンバーが居ない場合もundefinedを返す", async () => {
+  it("チームにメンバーが居なくてもImpact構造を返す（明示紐付けJournal用・方針A）", async () => {
     const { vitals, issueStore, orgStore } = await loadModules();
     const team = orgStore.addTeam("Team A", []);
     const issue = await issueStore.createIssue("Issue", undefined, undefined, undefined, undefined, undefined, team.id);
-    expect(vitals.computeIssueImpact(issue)).toBeUndefined();
+    const impact = vitals.computeIssueImpact(issue);
+    expect(impact).toBeDefined();
+    expect(impact?.inProgress).toBe(true);
+    expect(impact?.after.total).toBe(0);
+  });
+
+  it("メンバー無しでも明示teamIdsのJournalは介入効果に含まれる", async () => {
+    const { vitals, issueStore, orgStore, journalStore } = await loadModules();
+    const team = orgStore.addTeam("基盤チーム", []);
+    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "positive", summary: "" };
+    await journalStore.addJournalEntry("基盤チームの雰囲気が改善した");
+    const impact = vitals.computeIssueImpact(issue);
+    expect(impact?.after.total).toBe(1);
   });
 
   it("未完了のIssueはinProgress:trueで、Issue作成〜現在を観測窓にする", async () => {

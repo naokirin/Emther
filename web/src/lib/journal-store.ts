@@ -2,11 +2,21 @@ import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { getPersonId, ensureNameCandidatesAllowed, maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import {
+  filterValidTeamIds,
+  findMentionedTeamIds,
+  getTeam,
+  resolveTeamIdsByLabels,
+} from "@/lib/org-context-store";
+import { teamDisplayName } from "@/lib/types";
 
 // 人物詳細など「この人に紐づけて書く」導線から、EMが明示した人物名を作成時に渡すため。
 // 校正（PATCH）の people と同様、明示指定は registerName してよい（NER自動抽出とは別経路）。
+// teams は登録済みチーム名（または Team.id）の明示紐付け。
 export type AddJournalOpts = MaskOptions & {
   people?: string[];
+  teams?: string[];
+  teamIds?: string[];
 };
 import {
   recordEvent,
@@ -47,6 +57,8 @@ export type JournalEntry = {
   rawText: string;
   tags: string[];
   people: string[];
+  teamIds: string[];
+  teamNames?: string[];
   urgency: Urgency;
   sentiment: Sentiment;
   summary: string;
@@ -64,6 +76,18 @@ export type JournalEntry = {
   sourceConsultRunId?: string;
 };
 
+/**
+ * 方針A: 明示 teamIds またはメンバー一致のどちらかで関連とみなす。
+ * Team Vitals・チーム詳細の関連Journal・介入効果で共用する。
+ */
+export function isJournalRelatedToTeam(
+  entry: Pick<JournalEntry, "people" | "teamIds">,
+  team: { id: string; members: string[] },
+): boolean {
+  if ((entry.teamIds ?? []).includes(team.id)) return true;
+  return entry.people.some((p) => team.members.includes(p));
+}
+
 // 個人情報の分離（ユーザー指摘対応）: KnowledgeEventのtext/summary/peopleはPERSON_n ID
 // でマスクされた内部表現。これはそのマスクされた状態のJournalEntryを返す（agent-runtime.ts
 // 等、内部利用向け）。EM向けの表示にはtoJournalEntryView()を使うこと。
@@ -73,6 +97,7 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     rawText: e.text,
     tags: e.tags,
     people: e.people,
+    teamIds: e.teamIds ?? [],
     urgency: (e.urgency as Urgency) ?? "mid",
     sentiment: (e.sentiment as Sentiment) ?? "neutral",
     summary: e.summary ?? "",
@@ -83,15 +108,25 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
   };
 }
 
+function resolveTeamNames(teamIds: string[]): string[] {
+  return teamIds.map((id) => {
+    const team = getTeam(id);
+    return team ? teamDisplayName(team.name) : id;
+  });
+}
+
 export function toJournalEntryView(entry: JournalEntry, consultIndex?: Map<string, string>): JournalEntry {
   const resolvedIssue = entry.resolvedIssueId ? getIssue(entry.resolvedIssueId) : undefined;
   const index = consultIndex ?? buildSourceConsultIndex();
+  const teamIds = filterValidTeamIds(entry.teamIds ?? [], true);
   return {
     ...entry,
     rawText: unmaskNames(entry.rawText),
     summary: unmaskNames(entry.summary),
     people: entry.people.map(unmaskNames),
     tags: entry.tags.map(unmaskNames),
+    teamIds,
+    teamNames: resolveTeamNames(teamIds),
     resolvedIssueTitle: resolvedIssue ? toIssueView(resolvedIssue).title : undefined,
     resolutionNote: entry.resolutionNote ? unmaskNames(entry.resolutionNote) : undefined,
     sourceConsultRunId: index.get(entry.id),
@@ -123,19 +158,21 @@ export function buildSourceConsultIndex(): Map<string, string> {
 
 const SYSTEM_PROMPT = [
   "あなたはメモから情報を抽出し、JSONだけを出力するツールです。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力してください。",
-  'フォーマット: {"tags": string[], "people": string[], "urgency": "low"|"mid"|"high", "sentiment": "positive"|"negative"|"neutral", "summary": string}',
+  'フォーマット: {"tags": string[], "people": string[], "teams": string[], "urgency": "low"|"mid"|"high", "sentiment": "positive"|"negative"|"neutral", "summary": string}',
   "tagsは日本語の短い単語（例: 技術的負債, 1on1）。peopleは文中の人物名（敬称はそのまま、例: Aさん）。",
+  "teamsは文中で言及されたチーム名・組織名（例: 基盤チーム, Engineering）。人物名はteamsに入れないこと。",
   "メモに書かれていない情報を推測で埋めないこと。該当が無ければ空配列にすること。",
 ].join("\n");
 
 // 人物が「いる」例と「いない」例の両方を見せることで、小型モデルがpeopleを
-// 空配列に倒しがちな傾向を緩和する。
+// 空配列に倒しがちな傾向を緩和する。teamsも同様に有無の両方を見せる。
 const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
   {
     user: "経営会議。Q3のエンタープライズ向けリリース日が2週間前倒しになった。",
     assistant: JSON.stringify({
       tags: ["経営会議", "スケジュール変更"],
       people: [],
+      teams: [],
       urgency: "high",
       sentiment: "negative",
       summary: "Q3のリリース日が2週間前倒しになった",
@@ -146,12 +183,40 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
     assistant: JSON.stringify({
       tags: ["PRレビュー", "パフォーマンス"],
       people: ["Cさん"],
+      teams: [],
       urgency: "low",
       sentiment: "positive",
       summary: "Cさんのレビューが速く高品質だったので褒めた",
     }),
   },
+  {
+    user: "基盤チーム全体の雰囲気が重い。リリース後の燃え尽きが見える。",
+    assistant: JSON.stringify({
+      tags: ["燃え尽き", "士気"],
+      people: [],
+      teams: ["基盤チーム"],
+      urgency: "mid",
+      sentiment: "negative",
+      summary: "基盤チームの雰囲気が重く燃え尽きが見える",
+    }),
+  },
 ];
+
+/** ローカル抽出の teams 配列＋本文中の登録済みチーム名言及＋明示指定を Team.id に統合する。 */
+function resolveJournalTeamIds(
+  rawText: string,
+  structuredTeams: unknown,
+  opts: AddJournalOpts,
+): string[] {
+  const extractedLabels: string[] = Array.isArray(structuredTeams)
+    ? structuredTeams.filter((t: unknown): t is string => typeof t === "string" && t.trim().length > 0)
+    : [];
+  const explicitLabels = (opts.teams ?? []).filter((t) => typeof t === "string" && t.trim().length > 0);
+  const fromLabels = resolveTeamIdsByLabels([...extractedLabels, ...explicitLabels]);
+  const fromText = findMentionedTeamIds(rawText);
+  const fromIds = filterValidTeamIds(opts.teamIds ?? [], true);
+  return [...new Set([...fromLabels, ...fromText, ...fromIds])];
+}
 
 function isUrgency(v: unknown): v is Urgency {
   return v === "low" || v === "mid" || v === "high";
@@ -215,6 +280,7 @@ async function createJournalEventFromText(
     .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
     .map((p) => registerName(p.trim()));
   const people = [...new Set([...extractedPeople, ...explicitPeople])];
+  const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
@@ -252,6 +318,7 @@ async function createJournalEventFromText(
     context: "observation",
     entityType: "journal",
     people,
+    teamIds,
     text: maskedText,
     tags: maskedTags,
     urgency: isUrgency(structured.urgency) ? structured.urgency : "mid",
@@ -439,6 +506,10 @@ export async function updateJournalEntry(
     rawText?: string;
     tags?: string[];
     people?: string[];
+    // チーム名ラベル（正式名・別名等）。解決できたものだけ teamIds に入れる。
+    teams?: string[];
+    // Team.id の明示指定。teams と併用時は和集合。
+    teamIds?: string[];
     urgency?: Urgency;
     occurredAt?: number;
     // docs/em_human_story_and_ux.md 改修依頼対応。undefined=変更しない、null=解除、
@@ -462,6 +533,21 @@ export async function updateJournalEntry(
   const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : original.occurredAt;
   const resolvedIssueId =
     patch.resolvedIssueId !== undefined ? (patch.resolvedIssueId ?? undefined) : original.resolvedIssueId;
+
+  let teamIds = original.teamIds ?? [];
+  if (patch.teams !== undefined || patch.teamIds !== undefined) {
+    const fromLabels = patch.teams !== undefined ? resolveTeamIdsByLabels(patch.teams) : [];
+    const fromIds = patch.teamIds !== undefined ? filterValidTeamIds(patch.teamIds, true) : [];
+    // teams / teamIds のどちらか一方だけ渡された場合は、渡された側だけで置き換える
+    // （people と同様「校正フォームの現在値が正」）。両方あるときは和集合。
+    if (patch.teams !== undefined && patch.teamIds !== undefined) {
+      teamIds = [...new Set([...fromLabels, ...fromIds])];
+    } else if (patch.teams !== undefined) {
+      teamIds = fromLabels;
+    } else {
+      teamIds = fromIds;
+    }
+  }
 
   const textsToCheck: string[] = [];
   const rawTextInput = patch.rawText?.trim();
@@ -496,6 +582,7 @@ export async function updateJournalEntry(
     entityType: original.entityType,
     entityId: original.entityId,
     people,
+    teamIds,
     text,
     tags,
     urgency,

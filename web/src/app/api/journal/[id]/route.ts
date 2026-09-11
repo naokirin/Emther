@@ -81,6 +81,12 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
         people: Array.isArray(body?.people)
           ? body.people.filter((p: unknown): p is string => typeof p === "string")
           : undefined,
+        teams: Array.isArray(body?.teams)
+          ? body.teams.filter((t: unknown): t is string => typeof t === "string")
+          : undefined,
+        teamIds: Array.isArray(body?.teamIds)
+          ? body.teamIds.filter((t: unknown): t is string => typeof t === "string")
+          : undefined,
         urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
         occurredAt,
         resolvedIssueId,

@@ -31,8 +31,19 @@ export async function POST(request: Request) {
   const people = Array.isArray(body?.people)
     ? body.people.filter((p: unknown): p is string => typeof p === "string" && p.trim().length > 0)
     : undefined;
+  const teams = Array.isArray(body?.teams)
+    ? body.teams.filter((t: unknown): t is string => typeof t === "string" && t.trim().length > 0)
+    : undefined;
+  const teamIds = Array.isArray(body?.teamIds)
+    ? body.teamIds.filter((t: unknown): t is string => typeof t === "string" && t.trim().length > 0)
+    : undefined;
 
-  const opts = { ...maskOptionsFromBody(body), ...(people && people.length > 0 ? { people } : {}) };
+  const opts = {
+    ...maskOptionsFromBody(body),
+    ...(people && people.length > 0 ? { people } : {}),
+    ...(teams && teams.length > 0 ? { teams } : {}),
+    ...(teamIds && teamIds.length > 0 ? { teamIds } : {}),
+  };
 
   try {
     const entry =

@@ -101,6 +101,10 @@ function migrate(database: DatabaseSync): void {
   addColumnIfMissing(database, "knowledge_events", "resolved_issue_id", "TEXT");
   addColumnIfMissing(database, "knowledge_events", "resolution_note", "TEXT");
 
+  // Journal→チームの明示紐付け（複数可）。people（人物）と同様に配列JSONで持つ。
+  // 未マイグレーション行は NULL とし、読み出し時に [] へ正規化する。
+  addColumnIfMissing(database, "knowledge_events", "team_ids_json", "TEXT");
+
   // Agent Runは「run単位のメタデータ（低頻度更新）」と「ログ行（高頻度追記）」を分けることで、
   // 従来のように標準出力1行ごとに全run・全ログを含むJSONファイル全体を書き直す必要をなくす。
   database.exec(`

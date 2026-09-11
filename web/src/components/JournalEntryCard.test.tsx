@@ -20,6 +20,7 @@ function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
     rawText: "Aさんと1on1した",
     tags: ["1on1"],
     people: ["Aさん"],
+    teamIds: [],
     urgency: "mid",
     sentiment: "neutral",
     summary: "",
@@ -39,6 +40,7 @@ function baseProps(overrides: Partial<Parameters<typeof JournalEntryCard>[0]> = 
     editRawText: "",
     editTags: "",
     editPeople: "",
+    editTeams: "",
     editUrgency: "mid" as const,
     editDate: "",
     editSubmitting: false,
@@ -48,6 +50,7 @@ function baseProps(overrides: Partial<Parameters<typeof JournalEntryCard>[0]> = 
     onChangeEditRawText: noop,
     onChangeEditTags: noop,
     onChangeEditPeople: noop,
+    onChangeEditTeams: noop,
     onChangeEditUrgency: noop,
     onChangeEditDate: noop,
     onChangeResolutionNoteDraft: noop,
@@ -69,6 +72,17 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(screen.getByRole("button", { name: "@Aさん" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "#1on1" })).toBeInTheDocument();
     expect(screen.getByText("Urgency: Mid")).toBeInTheDocument();
+  });
+
+  it("関連チーム名を表示する", () => {
+    render(
+      <JournalEntryCard
+        {...baseProps({
+          entry: baseEntry({ teamIds: ["t1"], teamNames: ["基盤チーム"] }),
+        })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "👥 基盤チーム" })).toBeInTheDocument();
   });
 
   it("今日の発生日は「今日」と表示する", () => {

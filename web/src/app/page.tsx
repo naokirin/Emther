@@ -1630,6 +1630,7 @@ export default function DashboardPage() {
             editRawText={journalEditing.editRawText}
             editTags={journalEditing.editTags}
             editPeople={journalEditing.editPeople}
+            editTeams={journalEditing.editTeams}
             editUrgency={journalEditing.editUrgency}
             editDate={journalEditing.editDate}
             editSubmitting={journalEditing.editSubmitting}
@@ -1641,6 +1642,7 @@ export default function DashboardPage() {
             onChangeEditRawText={journalEditing.setEditRawText}
             onChangeEditTags={journalEditing.setEditTags}
             onChangeEditPeople={journalEditing.setEditPeople}
+            onChangeEditTeams={journalEditing.setEditTeams}
             onChangeEditUrgency={journalEditing.setEditUrgency}
             onChangeEditDate={journalEditing.setEditDate}
             onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}

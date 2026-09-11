@@ -197,6 +197,7 @@ function JournalListPageInner() {
                 editRawText={editing.editRawText}
                 editTags={editing.editTags}
                 editPeople={editing.editPeople}
+                editTeams={editing.editTeams}
                 editUrgency={editing.editUrgency}
                 editDate={editing.editDate}
                 editSubmitting={editing.editSubmitting}
@@ -208,6 +209,7 @@ function JournalListPageInner() {
                 onChangeEditRawText={editing.setEditRawText}
                 onChangeEditTags={editing.setEditTags}
                 onChangeEditPeople={editing.setEditPeople}
+                onChangeEditTeams={editing.setEditTeams}
                 onChangeEditUrgency={editing.setEditUrgency}
                 onChangeEditDate={editing.setEditDate}
                 onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}

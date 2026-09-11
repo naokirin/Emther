@@ -18,6 +18,9 @@ export type JournalEntry = {
   rawText: string;
   tags: string[];
   people: string[];
+  // 関連チーム（複数可）。内部・APIとも Team.id。表示名は teamNames（Viewでのみ埋まる）。
+  teamIds: string[];
+  teamNames?: string[];
   urgency: "low" | "mid" | "high";
   sentiment: "positive" | "negative" | "neutral";
   summary: string;

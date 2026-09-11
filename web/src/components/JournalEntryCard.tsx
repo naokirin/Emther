@@ -31,6 +31,7 @@ export function JournalEntryCard({
   editRawText,
   editTags,
   editPeople,
+  editTeams,
   editUrgency,
   editDate,
   editSubmitting,
@@ -41,6 +42,7 @@ export function JournalEntryCard({
   onChangeEditRawText,
   onChangeEditTags,
   onChangeEditPeople,
+  onChangeEditTeams,
   onChangeEditUrgency,
   onChangeEditDate,
   onChangeResolutionNoteDraft,
@@ -59,6 +61,7 @@ export function JournalEntryCard({
   editRawText: string;
   editTags: string;
   editPeople: string;
+  editTeams: string;
   editUrgency: JournalEntry["urgency"];
   editDate: string;
   editSubmitting: boolean;
@@ -72,6 +75,7 @@ export function JournalEntryCard({
   onChangeEditRawText: (value: string) => void;
   onChangeEditTags: (value: string) => void;
   onChangeEditPeople: (value: string) => void;
+  onChangeEditTeams: (value: string) => void;
   onChangeEditUrgency: (value: JournalEntry["urgency"]) => void;
   onChangeEditDate: (value: string) => void;
   onChangeResolutionNoteDraft: (value: string) => void;
@@ -203,6 +207,17 @@ export function JournalEntryCard({
           <label>
             人物（カンマ区切り）
             <input type="text" value={editPeople} onChange={(e) => onChangeEditPeople(e.target.value)} placeholder="例: Aさん, Bさん" />
+          </label>
+        </div>
+        <div className={styles.field}>
+          <label>
+            チーム（カンマ区切り。登録済みのチーム名・別名）
+            <input
+              type="text"
+              value={editTeams}
+              onChange={(e) => onChangeEditTeams(e.target.value)}
+              placeholder="例: 基盤チーム, Engineering"
+            />
           </label>
         </div>
         <div className={styles.field}>
@@ -356,6 +371,16 @@ export function JournalEntryCard({
             onClick={() => router.push(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
           >
             @{p}
+          </button>
+        ))}
+        {(entry.teamNames ?? []).map((name, i) => (
+          <button
+            key={entry.teamIds[i] ?? name}
+            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+            title="関連チーム"
+            onClick={() => router.push("/teams")}
+          >
+            👥 {name}
           </button>
         ))}
         {entry.tags.map((t) => (

@@ -83,6 +83,23 @@ describe("PATCH /api/journal/[id]", () => {
     expect(json.entry.confirmed).toBe(true);
   });
 
+  it("teamsで関連チームを複数紐付けできる", async () => {
+    const journalStore = await import("@/lib/journal-store");
+    const org = await import("@/lib/org-context-store");
+    const a = org.addTeam("基盤チーム", []);
+    const b = org.addTeam("プロダクトチーム", []);
+    const entry = await journalStore.addJournalEntry("テキスト");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", { teams: ["基盤チーム", "プロダクトチーム"] }),
+      routeCtx({ id: entry.id }),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.entry.teamIds.sort()).toEqual([a.id, b.id].sort());
+    expect(json.entry.teamNames.sort()).toEqual(["基盤チーム", "プロダクトチーム"].sort());
+  });
+
   it("resolvedIssueId/resolutionNoteの3値（未指定=維持・null=解除・文字列=設定）", async () => {
     const journalStore = await import("@/lib/journal-store");
     const entry = await journalStore.addJournalEntry("問題発生");

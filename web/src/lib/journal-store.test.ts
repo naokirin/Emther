@@ -8,6 +8,7 @@ import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-help
 let mockExtraction: {
   tags: string[];
   people: string[];
+  teams?: string[];
   urgency: "low" | "mid" | "high";
   sentiment: "positive" | "negative" | "neutral";
   summary: string;
@@ -145,6 +146,55 @@ describe("addJournalEntry", () => {
     const entry = await store.addJournalEntry("進捗が遅れている", Date.now(), { people: ["花子さん"] });
     expect(entry.people).toEqual([personId]);
     expect(store.toJournalEntryView(entry).people).toEqual(["花子さん"]);
+  });
+
+  it("本文中の登録済みチーム名を自動でteamIdsに紐付ける", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative", summary: "" };
+    const org = await import("@/lib/org-context-store");
+    const team = org.addTeam("基盤チーム", []);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("基盤チームの雰囲気が重い");
+    expect(entry.teamIds).toEqual([team.id]);
+    expect(store.toJournalEntryView(entry).teamNames).toEqual(["基盤チーム"]);
+  });
+
+  it("ローカル抽出のteams配列からも登録済みチームを紐付ける", async () => {
+    mockExtraction = {
+      tags: [],
+      people: [],
+      teams: ["基盤"],
+      urgency: "mid",
+      sentiment: "neutral",
+      summary: "",
+    };
+    const org = await import("@/lib/org-context-store");
+    const team = org.addTeam("Engineering / 基盤", []);
+    await org.updateTeam(team.id, { aliases: ["基盤"] });
+    const store = await loadModule();
+    // 本文に正式名が無くても、抽出＋別名で解決できる
+    const entry = await store.addJournalEntry("リリース後の振り返りをした");
+    expect(entry.teamIds).toContain(team.id);
+  });
+
+  it("複数チームを同時に紐付けられる", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const org = await import("@/lib/org-context-store");
+    const a = org.addTeam("基盤チーム", []);
+    const b = org.addTeam("プロダクトチーム", []);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("基盤チームとプロダクトチームの連携が悪い");
+    expect(entry.teamIds.sort()).toEqual([a.id, b.id].sort());
+  });
+
+  it("updateJournalEntryでteamsを校正できる", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const org = await import("@/lib/org-context-store");
+    const team = org.addTeam("基盤チーム", []);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("メモ");
+    expect(entry.teamIds).toEqual([]);
+    const updated = await store.updateJournalEntry(entry.id, { teams: ["基盤チーム"] });
+    expect(updated?.teamIds).toEqual([team.id]);
   });
 });
 

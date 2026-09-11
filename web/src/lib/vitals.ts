@@ -1,6 +1,6 @@
 import { getTeam, listActiveTeams, type Team } from "@/lib/org-context-store";
 import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
-import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
+import { listJournalEntries, type JournalEntry, isJournalRelatedToTeam } from "@/lib/journal-store";
 import { isIssueStalled, teamDisplayName } from "@/lib/types";
 import { listIssues, type Issue } from "@/lib/issue-store";
 
@@ -81,17 +81,30 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   }
 
   if (team.members.length === 0) {
-    return {
-      teamId: team.id,
-      teamName: teamDisplayName(team.name),
-      ...withIssueEscalation("unknown", "メンバーが登録されていません。メンバータブでチームにメンバーを追加してください。"),
-      members: membersForAction,
-      managedByEm: team.managedByEm,
-    };
+    // メンバー未登録でも、明示 teamIds で紐付いた Journal があれば評価材料にする（方針A）。
+    const linkedOnly = entries.filter(
+      (e) => withinDays(e.createdAt, rules.teamWindowDays) && (e.teamIds ?? []).includes(team.id),
+    );
+    if (linkedOnly.length < rules.minEntriesForJudgement) {
+      return {
+        teamId: team.id,
+        teamName: teamDisplayName(team.name),
+        ...withIssueEscalation(
+          "unknown",
+          linkedOnly.length === 0
+            ? "メンバーが登録されていません。メンバータブでチームにメンバーを追加してください。"
+            : `メンバー未登録のため、明示紐付けのJournal${linkedOnly.length}件だけでは判定材料が不足しています（情報不足）。`,
+        ),
+        members: membersForAction,
+        managedByEm: team.managedByEm,
+      };
+    }
+    // 明示紐付けだけで閾値に達した場合は下の sentiment 判定へ進む。
   }
 
+  // 方針A: 明示 teamIds またはメンバー一致のどちらか。
   const relevant = entries.filter(
-    (e) => withinDays(e.createdAt, rules.teamWindowDays) && e.people.some((p) => team.members.includes(p)),
+    (e) => withinDays(e.createdAt, rules.teamWindowDays) && isJournalRelatedToTeam(e, team),
   );
 
   if (relevant.length < rules.minEntriesForJudgement) {
@@ -223,12 +236,13 @@ function summarizeWindow(entries: JournalEntry[]): ImpactWindow {
 export function computeIssueImpact(issue: Issue): IssueImpact | undefined {
   if (!issue.teamId) return undefined;
   const team = getTeam(issue.teamId);
-  if (!team || team.members.length === 0) return undefined;
+  if (!team) return undefined;
 
   const rules = getRulesAndConstraints();
   const windowMs = rules.teamWindowDays * 24 * 60 * 60 * 1000;
   const entries = listJournalEntries();
-  const relevant = entries.filter((e) => e.people.some((p) => team.members.includes(p)));
+  // 方針A: 明示 teamIds またはメンバー一致。メンバー0人でも明示紐付けがあれば比較できる。
+  const relevant = entries.filter((e) => isJournalRelatedToTeam(e, team));
 
   const beforeEntries = relevant.filter((e) => e.createdAt >= issue.createdAt - windowMs && e.createdAt < issue.createdAt);
 
