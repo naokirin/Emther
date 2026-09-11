@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "@/components/RunDetail";
+import { IdFragmentLink } from "@/components/IdFragmentLink";
+import { IdLinkedText } from "@/components/IdLinkedText";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
@@ -1085,22 +1087,56 @@ export default function DashboardPage() {
                     {expanded && (
                       <div style={{ marginTop: 8 }}>
                         <p style={{ margin: "0 0 6px", color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                          {t.rationale}
+                          <IdLinkedText text={t.rationale} />
                         </p>
                         {t.facts.length > 0 && (
                           <ul style={{ margin: "0 0 6px 16px", fontSize: "0.75rem", color: "var(--text-muted)" }}>
                             {t.facts.map((f, i) => (
-                              <li key={i}>{f}</li>
+                              <li key={i}>
+                                <IdLinkedText text={f} />
+                              </li>
                             ))}
                           </ul>
                         )}
                         {t.rootCause && (
-                          <p style={{ margin: "0 0 4px", fontSize: "0.75rem" }}>根本原因: {t.rootCause}</p>
+                          <p style={{ margin: "0 0 4px", fontSize: "0.75rem" }}>
+                            根本原因: <IdLinkedText text={t.rootCause} />
+                          </p>
                         )}
                         {t.suggestedDirection && (
                           <p style={{ margin: "0 0 4px", fontSize: "0.75rem" }}>
-                            解決の方向性: {t.suggestedDirection}
+                            解決の方向性: <IdLinkedText text={t.suggestedDirection} />
                           </p>
+                        )}
+                        {(t.evidenceIssueIds.length > 0 || t.evidenceJournalIds.length > 0) && (
+                          <div style={{ marginTop: 6, fontSize: "0.75rem" }}>
+                            {t.evidenceIssueIds.length > 0 && (
+                              <p style={{ margin: "2px 0" }}>
+                                <strong>根拠 Issue: </strong>
+                                {t.evidenceIssueIds.map((id, ii) => (
+                                  <span key={id}>
+                                    {ii > 0 ? "、" : ""}
+                                    <IdFragmentLink fragment={id} className={styles.idFragmentLink}>
+                                      {id.slice(0, 8)}
+                                    </IdFragmentLink>
+                                  </span>
+                                ))}
+                              </p>
+                            )}
+                            {t.evidenceJournalIds.length > 0 && (
+                              <p style={{ margin: "2px 0" }}>
+                                <strong>根拠 Journal: </strong>
+                                {t.evidenceJournalIds.map((id, ii) => (
+                                  <span key={id}>
+                                    {ii > 0 ? "、" : ""}
+                                    <IdFragmentLink fragment={id} className={styles.idFragmentLink}>
+                                      {id.slice(0, 8)}
+                                    </IdFragmentLink>
+                                  </span>
+                                ))}
+                              </p>
+                            )}
+                          </div>
                         )}
                         <div className={styles.yieldActions} style={{ marginTop: 8 }}>
                           <button
