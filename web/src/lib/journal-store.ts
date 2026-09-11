@@ -122,7 +122,7 @@ const SYSTEM_PROMPT = [
   "メモに書かれていない情報を推測で埋めないこと。該当が無ければ空配列にすること。",
 ].join("\n");
 
-// 人物が「いる」例と「いない」例の両方を見せることで、0.5Bモデルがpeopleを
+// 人物が「いる」例と「いない」例の両方を見せることで、小型モデルがpeopleを
 // 空配列に倒しがちな傾向を緩和する。
 const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
   {
