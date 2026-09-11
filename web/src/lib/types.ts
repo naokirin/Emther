@@ -215,6 +215,9 @@ export type RulesAndConstraints = {
   // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
   // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
   maxParallelAgentRuns: number;
+  // claude CLIの1ターンあたりの予算上限（USD、--max-budget-usd）。既定0.5。
+  // Opus既定環境では引き上げが必要なことがある。agy/cursorには効かない。
+  perTurnBudgetUsd: number;
   // Issue紐付きLead起動時に関連specialistを先行並列起動し、Leadが統合する（既定ON）。
   teamParallelKickoffEnabled: boolean;
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで

@@ -61,6 +61,10 @@ export type RulesAndConstraints = {
   // 不安定になる。ここで同時に「実行中」にできるCLI子プロセス数の上限を設け、
   // 超過分はキューイングして順番に起動する（agent-runtime.tsのacquireRunSlot）。
   maxParallelAgentRuns: number;
+  // claude CLIの1ターンあたりの予算上限（--max-budget-usd）。既定0.5はSonnet等向けで、
+  // Opus既定の環境では起動直後に予算超過で失敗しやすい。agy/cursor側には相当オプションが
+  // 無いため、この値はclaude試行にのみ効く。
+  perTurnBudgetUsd: number;
   // Issue紐付きのLead起動時、関連specialistを先に並列起動し、その結果をLeadが統合する。
   // 既定ON（チーム分析の本筋）。OFFにすると従来どおりLead単独起動＋任意consult。
   teamParallelKickoffEnabled: boolean;
@@ -117,6 +121,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoDistillationWeekday: 1,
   autoDistillationHour: 8,
   maxParallelAgentRuns: 2,
+  perTurnBudgetUsd: 0.5,
   teamParallelKickoffEnabled: true,
   decisionQueueLimit: 3,
   observationQueueLimit: 3,

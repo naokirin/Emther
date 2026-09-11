@@ -1114,7 +1114,13 @@ function ensureWatchdogStarted(): void {
 }
 ensureWatchdogStarted();
 
-const PER_TURN_BUDGET_USD = "0.5";
+// claude CLIの1ターン予算。SettingsのperTurnBudgetUsdを使い、未設定・不正時は0.5に落とす。
+// Opus既定環境では0.5だと起動直後に予算超過しやすいため、/settingsから調整可能。
+function perTurnBudgetUsdArg(): string {
+  const n = getRulesAndConstraints().perTurnBudgetUsd;
+  const usd = typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0.5;
+  return String(Math.max(0.01, usd));
+}
 
 // agy（複数モデル対応CLI）経由でのGeminiフォールバックに使うモデル。agyのモデル一覧は
 // バージョン付きの名前（例: gemini-3.6-flash-medium）でしか指定できず、汎用エイリアスは
@@ -2075,7 +2081,7 @@ function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string
       "--tools",
       "",
       "--max-budget-usd",
-      PER_TURN_BUDGET_USD,
+      perTurnBudgetUsdArg(),
       "--append-system-prompt",
       systemPrompt,
     ];

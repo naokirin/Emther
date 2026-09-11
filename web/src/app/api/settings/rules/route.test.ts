@@ -19,6 +19,7 @@ describe("GET /api/settings/rules", () => {
     const res = await route.GET();
     const json = await res.json();
     expect(json.rules.maxParallelAgentRuns).toBe(2);
+    expect(json.rules.perTurnBudgetUsd).toBe(0.5);
     expect(json.rules.teamParallelKickoffEnabled).toBe(true);
   });
 });
@@ -42,6 +43,14 @@ describe("PATCH /api/settings/rules", () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { maxParallelAgentRuns: 0 }));
     expect((await res.json()).rules.maxParallelAgentRuns).toBe(1);
+  });
+
+  it("perTurnBudgetUsdを更新でき、0以下は最低0.01に丸める", async () => {
+    const route = await import("./route");
+    const ok = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { perTurnBudgetUsd: 2.5 }));
+    expect((await ok.json()).rules.perTurnBudgetUsd).toBe(2.5);
+    const clamped = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { perTurnBudgetUsd: 0 }));
+    expect((await clamped.json()).rules.perTurnBudgetUsd).toBe(0.01);
   });
 
   it("decisionQueueLimit/observationQueueLimit/staleInterventionDaysを更新できる", async () => {

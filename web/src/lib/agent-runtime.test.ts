@@ -842,6 +842,22 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(spawnCalls[0].args[spawnCalls[0].args.indexOf("--model") + 1]).toBe("opus");
   });
 
+  it("設定のperTurnBudgetUsdを--max-budget-usdに渡す", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ perTurnBudgetUsd: 2 });
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "予算を上げたい");
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].args[spawnCalls[0].args.indexOf("--max-budget-usd") + 1]).toBe("2");
+  });
+
+  it("perTurnBudgetUsd未設定時は--max-budget-usdに既定の0.5を渡す", async () => {
+    const rt = await loadModule();
+    await rt.startRun("Lead Agent", "既定予算");
+    await waitForSpawnCount(1);
+    expect(spawnCalls[0].args[spawnCalls[0].args.indexOf("--max-budget-usd") + 1]).toBe("0.5");
+  });
+
   it("設定でモデル系統が未指定のエージェントは--modelを渡さない", async () => {
     const rt = await loadModule();
     await rt.startRun("People Agent", "1on1の頻度を決めたい");
