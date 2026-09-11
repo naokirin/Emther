@@ -42,6 +42,23 @@ describe("runFallbackTitle", () => {
     ).toBe("五木さんの目標設定の悩み");
   });
 
+  it("issueTitleが無くissueCandidatesがあれば先頭を使う", () => {
+    expect(
+      runFallbackTitle(
+        baseRun({
+          task: "長いタスク文",
+          proposal: {
+            conclusion: "複数の介入が必要",
+            facts: [],
+            logic: "",
+            rejectedAlternatives: [],
+            issueCandidates: [{ title: "候補A" }, { title: "候補B" }],
+          },
+        }),
+      ),
+    ).toBe("候補A");
+  });
+
   it("proposal.conclusionがあればtaskより優先し、Issue化メタを除いた題名にする", () => {
     expect(
       runFallbackTitle(

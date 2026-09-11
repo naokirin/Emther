@@ -41,12 +41,17 @@ export async function POST(request: Request) {
     how: typeof body?.how === "string" ? body.how : undefined,
   };
   const opts = maskOptionsFromBody(body);
-  const sourceRun = agentRunId ? getRun(agentRunId) : undefined;
+  // 同一相談から親なし複数Issueを切るとき、2件目以降は agentRunId を付けず
+  // sourceRunId だけ渡して生成元を残す（agentRunId は1 Issue に1 Run の紐付け制約）。
+  const sourceRunId =
+    typeof body?.sourceRunId === "string" && body.sourceRunId.trim()
+      ? body.sourceRunId.trim()
+      : agentRunId;
+  const sourceRun = agentRunId ? getRun(agentRunId) : sourceRunId ? getRun(sourceRunId) : undefined;
   const sourceJournalId =
     typeof body?.sourceJournalId === "string" && body.sourceJournalId.trim()
       ? body.sourceJournalId.trim()
       : sourceRun?.sourceJournalId;
-  const sourceRunId = agentRunId;
 
   try {
     const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, {

@@ -163,6 +163,47 @@ describe("POST /api/issues", () => {
     expect(journalStore.getCurrentJournalEntry("j-fixed")?.resolvedIssueId).toBe(json.issue.id);
   });
 
+  it("sourceRunIdのみでも生成元を残し、Journal紐付けとreviewedは行わない", async () => {
+    const knowledgeStore = await import("@/lib/knowledge-store");
+    knowledgeStore.recordEvent({
+      id: "j-sib",
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "複数課題の種",
+      tags: [],
+      occurredAt: Date.now(),
+    });
+    const dbModule = await import("@/lib/db");
+    dbModule
+      .getDb()
+      .prepare(
+        `INSERT INTO agent_runs (id, agent_name, task, status, total_cost_usd, created_at, updated_at, origin, reviewed, source_journal_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run("run-multi", "Lead Agent", "task", "idle", 0, 1, 1, "auto-anomaly", 0, "j-sib");
+
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/issues", "POST", {
+        title: "兄弟Issue",
+        sourceRunId: "run-multi",
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.issue.sourceRunId).toBe("run-multi");
+    expect(json.issue.sourceJournalId).toBe("j-sib");
+    expect(json.issue.agentRunId).not.toBe("run-multi");
+
+    const agentRuntime = await import("@/lib/agent-runtime");
+    expect(agentRuntime.getRun("run-multi")?.reviewed).toBe(false);
+
+    const journalStore = await import("@/lib/journal-store");
+    expect(journalStore.getCurrentJournalEntry("j-sib")?.resolvedIssueId).toBeUndefined();
+  });
+
   it("agentRunIdを渡さない場合はLead Agentの分析Runを自動で起動し、Issueに紐づける", async () => {
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "Journal起点のIssue", why: "本文" }));

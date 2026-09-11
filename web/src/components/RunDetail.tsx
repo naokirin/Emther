@@ -43,7 +43,25 @@ export type Proposal = {
   recommendation?: "issue" | "dismiss" | "watch";
   // Issue化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
   issueTitle?: string;
+  // 親なしの独立Issue候補（複数）。ある場合は issueTitle より優先して起票UIに出す。
+  issueCandidates?: { title: string; rationale?: string }[];
 };
+
+/** proposal から起票タイトル候補を返す（issueCandidates優先、なければ issueTitle）。 */
+export function listIssueCandidatesFromProposal(
+  proposal?: Proposal | null,
+): { title: string; rationale?: string }[] {
+  if (!proposal) return [];
+  const fromArray = (proposal.issueCandidates ?? [])
+    .map((c) => ({
+      title: c.title.trim(),
+      ...(c.rationale?.trim() ? { rationale: c.rationale.trim() } : {}),
+    }))
+    .filter((c) => c.title.length > 0);
+  if (fromArray.length > 0) return fromArray;
+  const single = proposal.issueTitle?.trim();
+  return single ? [{ title: single }] : [];
+}
 
 export type SuggestedSubIssue = {
   title: string;
@@ -100,6 +118,8 @@ export type AgentRun = {
 export function runFallbackTitle(run: AgentRun): string {
   const issueTitle = run.proposal?.issueTitle?.trim();
   if (issueTitle) return issueTitle;
+  const firstCandidate = listIssueCandidatesFromProposal(run.proposal)[0]?.title;
+  if (firstCandidate) return firstCandidate;
   const conclusion = run.proposal?.conclusion.trim();
   if (conclusion) return issueTitleFromConclusion(conclusion);
   const task = run.task.trim();
@@ -350,6 +370,32 @@ export function ExecutionState({
               ))}
             </>
           )}
+
+          {(() => {
+            const candidates = listIssueCandidatesFromProposal(run.proposal);
+            if (candidates.length <= 1) return null;
+            return (
+              <>
+                <strong style={{ fontSize: "0.75rem" }}>Issue化候補（親なし・独立）</strong>
+                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 6px" }}>
+                  別介入として並列に切る案です。子Issue（分解）ではありません。起票する件は相談画面のチェックで選んでください。
+                </p>
+                <ul style={{ margin: "0 0 8px 18px", fontSize: "0.75rem" }}>
+                  {candidates.map((c, i) => (
+                    <li key={i}>
+                      <IdLinkedText text={c.title} />
+                      {c.rationale ? (
+                        <span style={{ color: "var(--text-muted)" }}>
+                          {" "}
+                          — <IdLinkedText text={c.rationale} />
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            );
+          })()}
 
           {run.suggestedActionItems && run.suggestedActionItems.length > 0 && (
             <div className={styles.yieldBlock} style={{ marginTop: 12 }}>

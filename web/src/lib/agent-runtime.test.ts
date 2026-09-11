@@ -194,6 +194,56 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractProposal(text)?.issueTitle).toBe("短い課題名");
   });
 
+  it("extractProposalはissueCandidatesを拾う", async () => {
+    const rt = await loadModule();
+    const text = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        recommendation: "issue",
+        issueCandidates: [
+          { title: "燃え尽きへの介入", rationale: "個人軸" },
+          { title: "リリース属人化の解消" },
+          "  ",
+          { title: "" },
+          "文字列だけの候補",
+        ],
+      }),
+      "```",
+    ].join("\n");
+    expect(rt.extractProposal(text)?.issueCandidates).toEqual([
+      { title: "燃え尽きへの介入", rationale: "個人軸" },
+      { title: "リリース属人化の解消" },
+      { title: "文字列だけの候補" },
+    ]);
+  });
+
+  it("listIssueCandidatesFromProposalはissueCandidatesを優先する", async () => {
+    const rt = await loadModule();
+    expect(
+      rt.listIssueCandidatesFromProposal({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        issueTitle: "代表",
+        issueCandidates: [{ title: "A" }, { title: "B" }],
+      }),
+    ).toEqual([{ title: "A" }, { title: "B" }]);
+    expect(
+      rt.listIssueCandidatesFromProposal({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        issueTitle: "単一",
+      }),
+    ).toEqual([{ title: "単一" }]);
+  });
+
   it("extractProposalは空のissueTitleを無視する", async () => {
     const rt = await loadModule();
     const text =
