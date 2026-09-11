@@ -221,7 +221,7 @@
 **方針:**
 1. KR の更新（ストア・PATCH・UI）と、Objective/KR タイトルの textarea（改行可）化。
 2. Objective に任意の `note`（判断理由などの補足）。Agent の `buildObjectivesBlock` にも渡す。
-3. 「テキストから取り込む」で全文を貼り、AI（失敗時はヒューリスティック）が Objective/KR/メモに分解 → プレビューで修正 → 追記または同一スコープ（組織全体／指定チーム）の差し替えで保存。
+3. 「テキストから取り込む」で全文を貼り、**外部AI（SettingsのCLI優先順）**が Objective/KR/メモに分解 → プレビューで修正 → 追記または同一スコープ（組織全体／指定チーム）の差し替えで保存。ローカル小モデルは使わない。失敗時や Markdown 見出し付きでクラウド結果が薄いときはルールベースへフォールバック。
 
 ---
 
@@ -243,4 +243,4 @@
 - **U15** proposal に `issueTitle`。`runFallbackTitle` は短い課題名を優先し、結論からは Issue 化メタを除去。`truncateForTitle` は句読点切れ＋上限 80
 - **U16** Journalカードに「この内容で確定」と「分析する」。`POST /api/journal/[id]/analyze` で手動起動。Settings／確定UIに投稿直後は動かない旨を明記
 - **U17** `selfPersonId` で既存人物を本人に紐付け。People「自分」区分・1on1/部下除外・Org Context 明示
-- **U18** OKR: KR編集API/UI、タイトル textarea（改行可）、Objective `note`（Agent注入含む）、テキスト一括取り込み（AI構造化→プレビュー修正→追記/差し替え）
+- **U18** OKR: KR編集API/UI、タイトル textarea（改行可）、Objective `note`（Agent注入含む）、テキスト一括取り込み（外部AI構造化→プレビュー修正→追記/差し替え。Markdownはルールベースでも分解）
