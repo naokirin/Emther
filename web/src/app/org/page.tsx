@@ -634,12 +634,12 @@ export default function OrgContextPage() {
                     /></label>
                     <span className={styles.fieldCaption} style={{ marginTop: 8, display: "block" }}>Key Results</span>
                     {draft.keyResults.map((kr, krIndex) => (
-                      <div key={krIndex} style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <div key={krIndex} style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "flex-start" }}>
                         <textarea
                           rows={2}
                           value={kr}
                           onChange={(e) => updateImportKr(index, krIndex, e.target.value)}
-                          style={{ flex: 1 }}
+                          style={{ flex: 1, minWidth: 0 }}
                         />
                         <button type="button" className={styles.btnOutline} onClick={() => removeImportKr(index, krIndex)}>
                           削除
@@ -788,13 +788,17 @@ export default function OrgContextPage() {
                   const draft = krDrafts[kr.id] ?? kr.title;
                   const dirty = draft.trim() !== kr.title;
                   return (
-                    <div key={kr.id} style={{ border: "1px solid var(--input-border)", borderRadius: 8, padding: 10 }}>
+                    <div
+                      key={kr.id}
+                      className={styles.field}
+                      style={{ marginBottom: 0, border: "1px solid var(--input-border)", borderRadius: 8, padding: 10 }}
+                    >
                       <textarea
                         rows={2}
                         value={draft}
                         onChange={(e) => setKrDrafts((prev) => ({ ...prev, [kr.id]: e.target.value }))}
                       />
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 6, alignItems: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, alignItems: "center" }}>
                         <span className={styles.tableMuted} style={{ fontSize: "0.75rem" }}>
                           {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
                         </span>
@@ -819,7 +823,7 @@ export default function OrgContextPage() {
               </div>
             )}
             {krEditError && <p className={styles.errorText} role="alert">{krEditError}</p>}
-            <form onSubmit={handleAddKeyResult} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <form onSubmit={handleAddKeyResult} className={styles.field} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <textarea
                 rows={2}
                 value={newKeyResultTitle}
