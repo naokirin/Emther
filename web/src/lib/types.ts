@@ -744,6 +744,33 @@ export type OrgTheme = {
   adoptedAt?: number;
 };
 
+/** 採用テーマが Objective / KR に未リンクか。警告表示用。 */
+export function isThemeOkrUnlinked(
+  theme: Pick<OrgTheme, "status" | "objectiveIds" | "keyResultIds">,
+): boolean {
+  return theme.status === "adopted" && !(theme.objectiveIds.length || theme.keyResultIds.length);
+}
+
+/** POST /api/themes/link/suggest の1件。HITL 用（未適用）。 */
+export type ThemeOkrLinkSuggestion = {
+  themeId: string;
+  themeTitle: string;
+  objectiveIds: string[];
+  keyResultIds: string[];
+  rationale: string;
+  labels: { objectives: string[]; keyResults: string[] };
+};
+
+/** POST /api/issues/link/suggest の1件。HITL 用（未適用）。 */
+export type IssueStrategyLinkSuggestion = {
+  issueId: string;
+  issueTitle: string;
+  themeId: string | null;
+  keyResultId: string | null;
+  rationale: string;
+  labels: { theme?: string; keyResult?: string };
+};
+
 export type SuggestedTheme = {
   title: string;
   summary: string;

@@ -1789,6 +1789,42 @@
   color: var(--text);
 }
 
+/* 一覧・詳細の4軸。ネイティブ title より早く意味を出す。 */
+.axisTooltip {
+  position: relative;
+  cursor: help;
+}
+
+.axisTooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 20;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg, #fff);
+  color: var(--text);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: pre-line;
+  text-align: left;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 12%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease;
+}
+
+.axisTooltip:hover::after,
+.axisTooltip:focus-visible::after {
+  opacity: 1;
+}
+
 .issueStatusNotStarted {
   background: var(--gray-bg);
   color: var(--gray-fg);

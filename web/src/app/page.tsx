@@ -7,6 +7,10 @@ import { consultListMetaParts } from "@/components/ConsultHistoryItem";
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "@/components/RunDetail";
 import { IdFragmentLink } from "@/components/IdFragmentLink";
 import { IdLinkedText } from "@/components/IdLinkedText";
+import {
+  IssueStrategyLinkSuggestPanel,
+  ThemeOkrLinkSuggestPanel,
+} from "@/components/HierarchyLinkSuggestPanel";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
@@ -32,13 +36,17 @@ import {
   ISSUE_PRIORITY_META,
   charterFilledCount,
   compareIssuesByPriority,
+  isIssueStrategyUnlinked,
   isJournalEntryResolved,
   isRunStale,
+  isThemeOkrUnlinked,
   issueNextAction,
   type Issue,
   type IssuePriority,
+  type IssueStrategyLinkSuggestion,
   type JournalEntry,
   type PendingUnmaskedSend,
+  type ThemeOkrLinkSuggestion,
 } from "@/lib/types";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
@@ -349,6 +357,20 @@ export default function DashboardPage() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [distillSubmitting, setDistillSubmitting] = useState(false);
   const [distillError, setDistillError] = useState<string | null>(null);
+  const [themeLinkSuggesting, setThemeLinkSuggesting] = useState(false);
+  const [themeLinkError, setThemeLinkError] = useState<string | null>(null);
+  const [themeLinkPreview, setThemeLinkPreview] = useState<{
+    suggestions: ThemeOkrLinkSuggestion[];
+    source: "cloud" | "heuristic";
+  } | null>(null);
+  const [themeLinkApplyingId, setThemeLinkApplyingId] = useState<string | null>(null);
+  const [issueLinkSuggesting, setIssueLinkSuggesting] = useState(false);
+  const [issueLinkError, setIssueLinkError] = useState<string | null>(null);
+  const [issueLinkPreview, setIssueLinkPreview] = useState<{
+    suggestions: IssueStrategyLinkSuggestion[];
+    source: "cloud" | "heuristic";
+  } | null>(null);
+  const [issueLinkApplyingId, setIssueLinkApplyingId] = useState<string | null>(null);
   // 採用済みテーマは「次の1手」ではなく「現在の優先テーマ」。詳細は既定で畳む。
   const [priorityThemeExpandedId, setPriorityThemeExpandedId] = useState<string | null>(null);
   const [priorityThemesShowAll, setPriorityThemesShowAll] = useState(false);
@@ -934,8 +956,9 @@ export default function DashboardPage() {
   }
 
   const unlinkedParentCount = issues.filter(
-    (i) => !i.archived && i.status !== "done" && !i.parentId && !i.themeId && !i.keyResultId,
+    (i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i),
   ).length;
+  const unlinkedThemeCount = adoptedThemes.filter((t) => isThemeOkrUnlinked(t)).length;
 
   async function handleDistillThemes() {
     setDistillSubmitting(true);
@@ -955,6 +978,109 @@ export default function DashboardPage() {
       setDistillError((err as Error).message);
     } finally {
       setDistillSubmitting(false);
+    }
+  }
+
+  async function handleSuggestThemeOkrLinks() {
+    setThemeLinkSuggesting(true);
+    setThemeLinkError(null);
+    try {
+      const res = await fetch("/api/themes/link/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "OKRリンク提案に失敗しました");
+      setThemeLinkPreview({
+        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+        source: data?.source === "cloud" ? "cloud" : "heuristic",
+      });
+    } catch (err) {
+      setThemeLinkError((err as Error).message);
+    } finally {
+      setThemeLinkSuggesting(false);
+    }
+  }
+
+  async function handleAdoptThemeOkrLink(s: ThemeOkrLinkSuggestion) {
+    setThemeLinkApplyingId(s.themeId);
+    setThemeLinkError(null);
+    try {
+      const res = await fetch(`/api/themes/${s.themeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "link",
+          objectiveIds: s.objectiveIds,
+          keyResultIds: s.keyResultIds,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "リンクの採用に失敗しました");
+      }
+      await refreshThemes();
+      setThemeLinkPreview((prev) =>
+        prev
+          ? { ...prev, suggestions: prev.suggestions.filter((x) => x.themeId !== s.themeId) }
+          : null,
+      );
+    } catch (err) {
+      setThemeLinkError((err as Error).message);
+    } finally {
+      setThemeLinkApplyingId(null);
+    }
+  }
+
+  async function handleSuggestIssueStrategyLinks() {
+    setIssueLinkSuggesting(true);
+    setIssueLinkError(null);
+    try {
+      const res = await fetch("/api/issues/link/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
+      setIssueLinkPreview({
+        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+        source: data?.source === "cloud" ? "cloud" : "heuristic",
+      });
+    } catch (err) {
+      setIssueLinkError((err as Error).message);
+    } finally {
+      setIssueLinkSuggesting(false);
+    }
+  }
+
+  async function handleAdoptIssueStrategyLink(s: IssueStrategyLinkSuggestion) {
+    setIssueLinkApplyingId(s.issueId);
+    setIssueLinkError(null);
+    try {
+      const res = await fetch(`/api/issues/${s.issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId: s.themeId,
+          keyResultId: s.keyResultId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "リンクの採用に失敗しました");
+      }
+      await refreshIssues();
+      setIssueLinkPreview((prev) =>
+        prev
+          ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== s.issueId) }
+          : null,
+      );
+    } catch (err) {
+      setIssueLinkError((err as Error).message);
+    } finally {
+      setIssueLinkApplyingId(null);
     }
   }
 
@@ -1270,10 +1396,43 @@ export default function DashboardPage() {
             >
               {distillSubmitting ? "修正候補を生成中…" : "🧭 テーマを見直す（観測差分）"}
             </button>
+            {unlinkedThemeCount > 0 && (
+              <button
+                className={styles.btnOutline}
+                disabled={themeLinkSuggesting || objectives.length === 0}
+                onClick={handleSuggestThemeOkrLinks}
+                title="OKR未リンクの採用テーマへ、Objective / KR の紐付けをAIが提案します（採用まで反映しません）"
+              >
+                {themeLinkSuggesting
+                  ? "OKRリンクを提案中…"
+                  : `🔗 OKR未リンクを見直す（${unlinkedThemeCount}）`}
+              </button>
+            )}
             <span className={styles.subtitle} style={{ margin: 0 }}>
               主題の新規作成ではなく、観測との差分でテーマを修正・再優先します
             </span>
           </div>
+          {themeLinkError && (
+            <p className={styles.errorText} role="alert">
+              {themeLinkError}
+            </p>
+          )}
+          {themeLinkPreview && (
+            <ThemeOkrLinkSuggestPanel
+              suggestions={themeLinkPreview.suggestions}
+              source={themeLinkPreview.source}
+              applyingId={themeLinkApplyingId}
+              onAdopt={handleAdoptThemeOkrLink}
+              onDismiss={() => setThemeLinkPreview(null)}
+              onDismissOne={(themeId) =>
+                setThemeLinkPreview((prev) =>
+                  prev
+                    ? { ...prev, suggestions: prev.suggestions.filter((x) => x.themeId !== themeId) }
+                    : null,
+                )
+              }
+            />
+          )}
           {distillError && (
             <p className={styles.errorText} role="alert">
               {distillError}
@@ -1324,10 +1483,40 @@ export default function DashboardPage() {
         {unlinkedParentCount > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
             ⚠ 戦略未接続の親 Issue が {unlinkedParentCount} 件あります
+            <button
+              className={styles.detailToggle}
+              style={{ marginLeft: 6 }}
+              disabled={issueLinkSuggesting}
+              onClick={handleSuggestIssueStrategyLinks}
+              title="戦略未接続の親 Issue へ、テーマ / KR の紐付けをAIが提案します"
+            >
+              {issueLinkSuggesting ? "提案中…" : "AIで見直す"}
+            </button>
             <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => router.push("/issues")}>
               一覧へ
             </button>
           </p>
+        )}
+        {issueLinkError && (
+          <p className={styles.errorText} role="alert" style={{ marginBottom: 8 }}>
+            {issueLinkError}
+          </p>
+        )}
+        {issueLinkPreview && (
+          <IssueStrategyLinkSuggestPanel
+            suggestions={issueLinkPreview.suggestions}
+            source={issueLinkPreview.source}
+            applyingId={issueLinkApplyingId}
+            onAdopt={handleAdoptIssueStrategyLink}
+            onDismiss={() => setIssueLinkPreview(null)}
+            onDismissOne={(issueId) =>
+              setIssueLinkPreview((prev) =>
+                prev
+                  ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) }
+                  : null,
+              )
+            }
+          />
         )}
 
         {krTotals.total > 0 && (

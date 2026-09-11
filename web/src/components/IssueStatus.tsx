@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import styles from "@/app/page.module.css";
 import {
   ISSUE_STATUSES,
@@ -43,30 +44,51 @@ export const TRIAGE_AXIS_META = [
     key: "costOfDelay" as const,
     label: "放置コスト",
     shortLabel: "放置",
-    hint: "今見なくてよいか（高いほど先に見る）",
+    hint: "「今見なくてよいか」の主軸。高いほど先に見るべきです",
   },
   {
     key: "effort" as const,
     label: "介入コスト",
     shortLabel: "介入",
-    hint: "短時間か重い介入か（高いほど重い）",
+    hint: "短時間で済むか、重い介入か。高いほど手間がかかります",
   },
   {
     key: "blastRadius" as const,
     label: "影響半径",
     shortLabel: "影響",
-    hint: "影響の広さ（高いほど広い）",
+    hint: "影響の広さ・粒度の違いを層分けします。高いほど影響が広いです",
   },
   {
     key: "confidence" as const,
     label: "確信度",
     shortLabel: "確信",
-    hint: "材料の足り具合（高いほど判断材料あり）",
+    hint: "判断材料の足り具合。低いときは今日の判断から外し、要情報へ回します",
   },
 ];
 
 export function formatTriageAxis(value: number): string {
   return value.toFixed(2);
+}
+
+function AxisTooltip({
+  label,
+  hint,
+  value,
+  children,
+  className,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const tooltip = `${label} ${value}\n${hint}`;
+  return (
+    <span className={`${styles.axisTooltip} ${className ?? ""}`.trim()} data-tooltip={tooltip} tabIndex={0}>
+      {children}
+    </span>
+  );
 }
 
 export function IssueTriageAxes({
@@ -85,16 +107,15 @@ export function IssueTriageAxes({
         role="group"
         aria-label="優先度評価の軸"
       >
-        {TRIAGE_AXIS_META.map((a) => (
-          <span
-            key={a.key}
-            className={styles.issueTriageAxisChip}
-            title={`${a.label}: ${formatTriageAxis(triage[a.key])}（${a.hint}）`}
-          >
-            <span className={styles.issueTriageAxisLabel}>{a.shortLabel}</span>
-            <span className={styles.issueTriageAxisValue}>{formatTriageAxis(triage[a.key])}</span>
-          </span>
-        ))}
+        {TRIAGE_AXIS_META.map((a) => {
+          const value = formatTriageAxis(triage[a.key]);
+          return (
+            <AxisTooltip key={a.key} label={a.label} hint={a.hint} value={value} className={styles.issueTriageAxisChip}>
+              <span className={styles.issueTriageAxisLabel}>{a.shortLabel}</span>
+              <span className={styles.issueTriageAxisValue}>{value}</span>
+            </AxisTooltip>
+          );
+        })}
       </div>
     );
   }
@@ -105,16 +126,22 @@ export function IssueTriageAxes({
       aria-label="優先度評価の軸"
       className={styles.issueTriageAxes}
     >
-      {TRIAGE_AXIS_META.map((a) => (
-        <span
-          key={a.key}
-          className={styles.issueStatusBadge}
-          title={a.hint}
-          style={{ fontSize: "0.75rem" }}
-        >
-          {a.label} {formatTriageAxis(triage[a.key])}
-        </span>
-      ))}
+      {TRIAGE_AXIS_META.map((a) => {
+        const value = formatTriageAxis(triage[a.key]);
+        return (
+          <AxisTooltip
+            key={a.key}
+            label={a.label}
+            hint={a.hint}
+            value={value}
+            className={styles.issueStatusBadge}
+          >
+            <span style={{ fontSize: "0.75rem" }}>
+              {a.label} {value}
+            </span>
+          </AxisTooltip>
+        );
+      })}
     </div>
   );
 }
