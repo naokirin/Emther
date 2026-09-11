@@ -187,10 +187,14 @@ function computeCoverageVital(
 
 export function computeOrgVitals(): OrgVitals {
   const teams = listActiveTeams();
+  // ユーザー要望「チームの状態を自分が管理するチームのみに」対応。
+  // 1on1 Coverage と同様、Dashboard / 朝サマリー / 次にすべきことの Team Vitals は
+  // managedByEm のチームだけを対象にする（兼務・他チームの観測は /teams 側で管理）。
+  const managedTeams = teams.filter((t) => t.managedByEm);
   const entries = listJournalEntries();
   const rules = getRulesAndConstraints();
   return {
-    teams: teams.map((t) => computeTeamVital(t, entries, rules)),
+    teams: managedTeams.map((t) => computeTeamVital(t, entries, rules)),
     oneOnOneCoverage: computeCoverageVital(teams, entries, rules),
   };
 }

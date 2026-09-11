@@ -132,13 +132,16 @@ describe("computeOrgVitals", () => {
     expect(result.teams[0].members).toEqual([otherId]);
   });
 
-  it("TeamVitalはmanagedByEmをそのまま返す", async () => {
+  // ユーザー要望「チームの状態を自分が管理するチームのみに」対応。
+  it("自分が管理していないチーム(managedByEm:false)はTeam Vitalsの対象外", async () => {
     const { vitals, orgStore } = await loadModules();
-    const team = orgStore.addTeam("Team A", []);
-    await orgStore.updateTeam(team.id, { managedByEm: false });
+    const managed = orgStore.addTeam("自チーム", ["Aさん"]);
+    const other = orgStore.addTeam("他チーム", ["Bさん"]);
+    await orgStore.updateTeam(other.id, { managedByEm: false });
 
     const result = vitals.computeOrgVitals();
-    expect(result.teams[0].managedByEm).toBe(false);
+    expect(result.teams.map((t) => t.teamId)).toEqual([managed.id]);
+    expect(result.teams[0].managedByEm).toBe(true);
   });
 
   // ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
