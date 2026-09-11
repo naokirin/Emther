@@ -8,9 +8,17 @@ import { PersonScoreBadge } from "@/components/PersonScoreBadge";
 import { MultiSelectAutocomplete, type MultiSelectOption } from "@/components/MultiSelectAutocomplete";
 import { Select } from "@/components/Select";
 import { TagInput } from "@/components/TagInput";
-import { usePeople, usePersonProfile, useTeams } from "@/lib/hooks";
+import { usePeople, usePersonEvaluationLogs, usePersonProfile, useTeams } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatus, teamDisplayName, type Team } from "@/lib/types";
+import {
+  PERSON_VITAL_LABEL,
+  URGENCY_LABEL,
+  charterFilledCount,
+  personVitalStatus,
+  teamDisplayName,
+  type PersonEvaluationLog,
+  type Team,
+} from "@/lib/types";
 
 // ユーザー要望「メンバーの詳細画面からチームを設定できるようにしたい」対応。従来は
 // Organization Context画面でチームを選んでからメンバー一覧を編集する必要があったが、
@@ -309,6 +317,7 @@ function PersonJournalComposer({
 
 export function PersonDetailContent({ id }: { id: string }) {
   const { person, personLoaded, refreshPerson } = usePersonProfile(id);
+  const { evaluationLogs, evaluationLogsLoaded, refreshEvaluationLogs } = usePersonEvaluationLogs(id);
   const { refreshPeople } = usePeople();
   const { teams, refreshTeams } = useTeams();
   const router = useRouter();
@@ -319,11 +328,137 @@ export function PersonDetailContent({ id }: { id: string }) {
   const [nameError, setNameError] = useState<string | null>(null);
   const [selfSaving, setSelfSaving] = useState(false);
   const [selfError, setSelfError] = useState<string | null>(null);
+  const [evalSuggestBusy, setEvalSuggestBusy] = useState(false);
+  const [evalBusyId, setEvalBusyId] = useState<string | null>(null);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [evalMessage, setEvalMessage] = useState<string | null>(null);
+  const [showPeriodBundle, setShowPeriodBundle] = useState(false);
 
   // チーム所属を変えるとisDirectReport・teamNamesも変わるため、両方のポーリング先を
   // 更新して画面上の表示（部下/その他ラベル・所属チーム名の一覧）をすぐ反映させる。
   async function handleTeamsChanged() {
     await Promise.all([refreshTeams(), refreshPerson()]);
+  }
+
+  async function handleSuggestEvaluationLogs() {
+    if (!person) return;
+    setEvalSuggestBusy(true);
+    setEvalError(null);
+    setEvalMessage(null);
+    try {
+      const res = await fetch(`/api/people/${person.id}/evaluation-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "suggest-from-journal" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "仮置きに失敗しました");
+      const n = Array.isArray(data.logs) ? data.logs.length : 0;
+      setEvalMessage(n > 0 ? `${n}件の仮置きログを追加しました` : "新規の仮置きはありません（既存または材料不足）");
+      await refreshEvaluationLogs();
+    } catch (err) {
+      setEvalError((err as Error).message);
+    } finally {
+      setEvalSuggestBusy(false);
+    }
+  }
+
+  async function handleEvalStatus(logId: string, status: "confirmed" | "discarded" | "provisional") {
+    setEvalBusyId(logId);
+    setEvalError(null);
+    try {
+      const res = await fetch(`/api/people/${id}/evaluation-logs/${logId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "更新に失敗しました");
+      }
+      await refreshEvaluationLogs();
+    } catch (err) {
+      setEvalError((err as Error).message);
+    } finally {
+      setEvalBusyId(null);
+    }
+  }
+
+  function renderEvalSection(title: string, logs: PersonEvaluationLog[]) {
+    const visible = logs.filter((l) => l.status !== "discarded");
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <h4 style={{ margin: "0 0 6px", fontSize: "0.8125rem" }}>{title}</h4>
+        {visible.length === 0 ? (
+          <p className={styles.subtitle}>まだありません。</p>
+        ) : (
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {visible.map((log) => (
+              <li
+                key={log.id}
+                style={{
+                  border: "1px solid var(--input-border)",
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 8,
+                  fontSize: "0.8125rem",
+                }}
+              >
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                  <span className={styles.tableMuted}>
+                    {log.status === "provisional" ? "仮置き" : log.status === "confirmed" ? "確定" : log.status}
+                  </span>
+                  {log.polarity === "concern" && (
+                    <span style={{ color: "var(--warning, #b45309)" }}>乖離・懸念</span>
+                  )}
+                  <span className={styles.tableMuted}>{new Date(log.createdAt).toLocaleDateString("ja-JP")}</span>
+                </div>
+                <p style={{ margin: "0 0 4px" }}>{log.snapshotText}</p>
+                <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
+                  {log.rationale}
+                  {log.valueSnapshot ? ` / Values: ${log.valueSnapshot.slice(0, 80)}${log.valueSnapshot.length > 80 ? "…" : ""}` : ""}
+                </p>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <Link href={`/journal?focus=${log.sourceJournalId}`} className={styles.detailToggle}>
+                    根拠 Journal
+                  </Link>
+                  {log.status === "provisional" && (
+                    <>
+                      <button
+                        type="button"
+                        className={styles.btnOutline}
+                        disabled={evalBusyId === log.id}
+                        onClick={() => handleEvalStatus(log.id, "confirmed")}
+                      >
+                        確定
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnOutline}
+                        disabled={evalBusyId === log.id}
+                        onClick={() => handleEvalStatus(log.id, "discarded")}
+                      >
+                        捨てる
+                      </button>
+                    </>
+                  )}
+                  {log.status === "confirmed" && (
+                    <button
+                      type="button"
+                      className={styles.btnOutline}
+                      disabled={evalBusyId === log.id}
+                      onClick={() => handleEvalStatus(log.id, "provisional")}
+                    >
+                      仮置きに戻す
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
   }
 
   // docs/em_human_story_and_ux.md P2-12対応。ローカルNERが自由記述中の一般語や
@@ -497,6 +632,64 @@ export function PersonDetailContent({ id }: { id: string }) {
         <MergeDuplicatePerson personId={person.id} personName={person.name} onMerged={refreshPerson} />
       </div>
 
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>日常の評価ログ（目標貢献 / Value）</h3>
+      <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+        Journal の事実から仮置きします。テーマ / Issue は貢献の主経路にしません。単一スコアには潰さず、A（成果）と B（Value）を分けて読みます。朝のキューには載せません。
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <button
+          type="button"
+          className={styles.primaryBtn}
+          style={{ width: "auto" }}
+          disabled={evalSuggestBusy}
+          onClick={handleSuggestEvaluationLogs}
+        >
+          {evalSuggestBusy ? "仮置き中…" : "Journal から仮置きを提案"}
+        </button>
+        <button type="button" className={styles.btnOutline} onClick={() => setShowPeriodBundle((v) => !v)}>
+          {showPeriodBundle ? "通常表示" : "期次の束ねを見る"}
+        </button>
+      </div>
+      {evalError && (
+        <p className={styles.errorText} role="alert">
+          {evalError}
+        </p>
+      )}
+      {evalMessage && <p className={styles.subtitle}>{evalMessage}</p>}
+      {!evaluationLogsLoaded ? (
+        <p className={styles.subtitle}>読み込み中…</p>
+      ) : showPeriodBundle ? (
+        (() => {
+          const outcome = evaluationLogs.filter((l) => l.lens === "outcome" && l.status !== "discarded");
+          const value = evaluationLogs.filter((l) => l.lens === "value" && l.status !== "discarded");
+          const missing: string[] = [];
+          if (outcome.length === 0) missing.push("目標貢献ログが不足");
+          if (value.length === 0) missing.push("Value 体現ログが不足");
+          return (
+            <div>
+              {missing.length > 0 && (
+                <p className={styles.subtitle} style={{ color: "var(--warning, #b45309)" }}>
+                  不足: {missing.join(" / ")}
+                </p>
+              )}
+              {renderEvalSection("A. 成果・目標貢献（束ね）", outcome)}
+              {renderEvalSection("B. Value 適合（束ね）", value)}
+            </div>
+          );
+        })()
+      ) : (
+        <div>
+          {renderEvalSection(
+            "A. 成果・目標貢献",
+            evaluationLogs.filter((l) => l.lens === "outcome"),
+          )}
+          {renderEvalSection(
+            "B. Value 適合",
+            evaluationLogs.filter((l) => l.lens === "value"),
+          )}
+        </div>
+      )}
+
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
         {person.interpretations.length === 0 ? (
           <p className={styles.subtitle}>まだ記録がありません。Dashboardの長期プロファイルから記録できます。</p>
@@ -573,7 +766,10 @@ export function PersonDetailContent({ id }: { id: string }) {
           </Link>
         </p>
 
-        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue</h3>
+        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue（EM介入。貢献評価の主経路ではない）</h3>
+        <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+          Issue は EM の介入単位です。メンバー貢献の主材料にはしません（上の評価ログを正とします）。
+        </p>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           名前がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
         </p>

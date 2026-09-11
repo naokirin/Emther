@@ -430,6 +430,17 @@ export const ISSUE_PRIORITY_META: Record<IssuePriority, { icon: string; label: s
   parked: { icon: "🅿️", label: "保留", hint: "様子見・後回し。朝キューには載せない" },
 };
 
+// docs/value_hierarchy_and_flow.md §4。帯付けの内部根拠。
+export type IssueTriageScores = {
+  costOfDelay: number;
+  effort: number;
+  blastRadius: number;
+  confidence: number;
+  score: number;
+  suggestedPriority: IssuePriority;
+  scoredAt: number;
+};
+
 export type Issue = {
   id: string;
   title: string;
@@ -457,13 +468,21 @@ export type Issue = {
   // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKey Resultに
   // 貢献するかの紐付け（任意）。
   keyResultId?: string;
+  // docs/value_hierarchy_and_flow.md §2。採用済みテーマへの任意リンク（EM介入線）。
+  themeId?: string;
   // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
   // 紐付け（任意）。Agent Runtimeへの動的ロードで、そのチームのMission/制約だけを
   // 絶対の前提として注入するために使う。
   teamId?: string;
+  triage?: IssueTriageScores;
   createdAt: number;
   updatedAt: number;
 };
+
+/** 戦略線（テーマ / KR）に未接続か。警告表示用。必須ではない。 */
+export function isIssueStrategyUnlinked(issue: Pick<Issue, "themeId" | "keyResultId">): boolean {
+  return !issue.themeId && !issue.keyResultId;
+}
 
 // 一覧・Dashboard横断の並び: focus（focusOrder）→ normal（更新新しい順）→ parked。
 export function compareIssuesByPriority(a: Issue, b: Issue): number {
@@ -680,6 +699,27 @@ export type PersonProfile = PersonSummary & {
   relatedIssues: PersonRelatedIssue[];
 };
 
+// docs/value_hierarchy_and_flow.md §5。日常の評価ログ（A/B）。
+export type EvaluationLens = "outcome" | "value";
+export type EvaluationLogStatus = "provisional" | "confirmed" | "discarded";
+export type EvaluationPolarity = "positive" | "concern";
+
+export type PersonEvaluationLog = {
+  id: string;
+  personId: string;
+  lens: EvaluationLens;
+  status: EvaluationLogStatus;
+  polarity: EvaluationPolarity;
+  sourceJournalId: string;
+  targetObjectiveId?: string;
+  targetKeyResultId?: string;
+  valueSnapshot?: string;
+  snapshotText: string;
+  rationale: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 // docs/knowledge_distillation.md。組織状況の統括解釈（テーマ）。
 export type ThemeStatus = "candidate" | "adopted" | "dismissed";
 
@@ -693,6 +733,9 @@ export type OrgTheme = {
   suggestedDirection?: string;
   evidenceJournalIds: string[];
   evidenceIssueIds: string[];
+  // docs/value_hierarchy_and_flow.md §2。OKR への明示リンク。
+  objectiveIds: string[];
+  keyResultIds: string[];
   status: ThemeStatus;
   sourceRunId?: string;
   teamId?: string;
@@ -710,6 +753,8 @@ export type SuggestedTheme = {
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
   evidenceIssueIds?: string[];
+  objectiveIds?: string[];
+  keyResultIds?: string[];
 };
 
 // docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。

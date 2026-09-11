@@ -3,6 +3,9 @@ import { loadJSON, saveJSON } from "@/lib/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
 import { ensureNameCandidatesAllowed, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import { scoreIssueHeuristically, type IssueTriageScores } from "@/lib/issue-triage";
+
+export type { IssueTriageScores };
 
 // 個人情報の分離（ユーザー指摘対応）: title・charter（why/what/how）はEMが自由記述する
 // フィールドで人物名を含み得るため、保存前にensureNameCandidatesAllowed（未登録候補の確認）と
@@ -81,9 +84,13 @@ export type Issue = {
   // 貢献するかの紐付け（任意）。IDのみ保持し、実体（Objective/KeyResult）は
   // org-context-store.ts側にある。
   keyResultId?: string;
+  // docs/value_hierarchy_and_flow.md §2。採用済みテーマへの任意リンク（EM介入線）。
+  themeId?: string;
   // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
   // 紐付け（任意）。
   teamId?: string;
+  // docs/value_hierarchy_and_flow.md §4。帯付けの内部根拠（UI主面は priority）。
+  triage?: IssueTriageScores;
   // docs/knowledge_distillation.md 後続1。title+charter のローカル埋め込み（横断類似検索用）。
   embedding?: number[];
   createdAt: number;
@@ -227,7 +234,12 @@ export async function createIssue(
   tags?: string[],
   keyResultId?: string,
   teamId?: string,
-  opts: MaskOptions & { priority?: IssuePriority; sourceJournalId?: string; sourceRunId?: string } = {},
+  opts: MaskOptions & {
+    priority?: IssuePriority;
+    sourceJournalId?: string;
+    sourceRunId?: string;
+    themeId?: string;
+  } = {},
 ): Promise<Issue> {
   if (parentId) {
     const parent = getIssue(parentId);
@@ -239,7 +251,7 @@ export async function createIssue(
     }
   }
 
-  const { priority: requestedPriority, sourceJournalId, sourceRunId, ...maskOpts } = opts;
+  const { priority: requestedPriority, sourceJournalId, sourceRunId, themeId, ...maskOpts } = opts;
   const titleTrimmed = title.trim();
   const whyTrimmed = charter?.why?.trim() ?? "";
   const whatTrimmed = charter?.what?.trim() ?? "";
@@ -274,6 +286,7 @@ export async function createIssue(
     archived: false,
     tags: normalizeTags(tags ?? []),
     keyResultId,
+    themeId,
     teamId,
     createdAt: now,
     updatedAt: now,
@@ -691,6 +704,122 @@ export function setIssueKeyResult(issueId: string, keyResultId: string | null): 
   persist();
   recordChangeEvent("issue", issue.id, next ? "Key Resultに紐付けました" : "Key Resultの紐付けを解除しました");
   return issue;
+}
+
+export function setIssueTheme(issueId: string, themeId: string | null): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const next = themeId ?? undefined;
+  if ((issue.themeId ?? null) === (next ?? null)) return issue;
+  issue.themeId = next;
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, next ? "テーマに紐付けました" : "テーマの紐付けを解除しました");
+  return issue;
+}
+
+export function setIssueTriage(issueId: string, triage: IssueTriageScores): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  issue.triage = triage;
+  // scoredAt のみの更新では「EMが触った」扱いにしない（updatedAt は据え置き）。
+  persist();
+  return issue;
+}
+
+/** アクティブな親 Issue をルール採点し、triage を書き戻す。applySuggested で帯も更新可。 */
+export type TriageChange = {
+  issueId: string;
+  title: string;
+  from: IssuePriority;
+  to: IssuePriority;
+};
+
+export type TriageSuggestResult = {
+  issues: Issue[];
+  focusCandidates: Issue[];
+  /** 提案帯ごとの件数（N件圧縮後の「実際に当てる帯」ではなく raw suggested） */
+  counts: Record<IssuePriority, number>;
+  /** 現在帯と提案帯（圧縮後の適用先）が違うもの */
+  differing: Array<{
+    issueId: string;
+    title: string;
+    current: IssuePriority;
+    suggested: IssuePriority;
+    effective: IssuePriority;
+    score: number;
+  }>;
+  /** applySuggested 時に実際に priority を変えたもの */
+  changes: TriageChange[];
+};
+
+export function suggestTriageForActiveParents(opts: {
+  applySuggested?: boolean;
+  focusLimit?: number;
+  now?: number;
+} = {}): TriageSuggestResult {
+  const now = opts.now ?? Date.now();
+  const focusLimit = opts.focusLimit ?? 5;
+  const parents = issues.filter((i) => !i.archived && i.status !== "done" && !i.parentId);
+  const scored = parents.map((issue) => {
+    const triage = scoreIssueHeuristically(issue, {
+      now,
+      hasThemeLink: !!issue.themeId,
+      hasKrLink: !!issue.keyResultId,
+    });
+    setIssueTriage(issue.id, triage);
+    return getIssue(issue.id)!;
+  });
+  const ranked = [...scored].sort((a, b) => (b.triage?.score ?? 0) - (a.triage?.score ?? 0));
+  const focusCandidates = ranked.filter((i) => i.triage?.suggestedPriority === "focus").slice(0, focusLimit);
+  const focusCandidateIds = new Set(focusCandidates.map((i) => i.id));
+
+  const counts: Record<IssuePriority, number> = { focus: 0, normal: 0, parked: 0 };
+  const differing: TriageSuggestResult["differing"] = [];
+  const changes: TriageChange[] = [];
+
+  for (const issue of scored) {
+    const suggested = issue.triage?.suggestedPriority ?? "normal";
+    counts[suggested] += 1;
+    // focus 提案でも上位 N 件以外は適用時に normal へ圧縮する
+    const effective: IssuePriority =
+      suggested === "focus" && !focusCandidateIds.has(issue.id) ? "normal" : suggested;
+    const current = issue.priority ?? "normal";
+    if (current !== effective) {
+      differing.push({
+        issueId: issue.id,
+        title: issue.title,
+        current,
+        suggested,
+        effective,
+        score: issue.triage?.score ?? 0,
+      });
+    }
+  }
+
+  if (opts.applySuggested) {
+    for (const d of differing) {
+      const before = getIssue(d.issueId);
+      if (!before) continue;
+      const from = before.priority ?? "normal";
+      setIssuePriority(d.issueId, d.effective);
+      const after = getIssue(d.issueId);
+      if (after && (after.priority ?? "normal") !== from) {
+        changes.push({ issueId: d.issueId, title: after.title, from, to: after.priority ?? "normal" });
+      }
+    }
+  }
+
+  return {
+    issues: scored.map((i) => getIssue(i.id)!),
+    focusCandidates: focusCandidates.map((i) => getIssue(i.id)!),
+    counts,
+    differing: differing.map((d) => {
+      const fresh = getIssue(d.issueId);
+      return fresh ? { ...d, title: fresh.title } : d;
+    }),
+    changes,
+  };
 }
 
 // docs/memo.md「I. チーム単位の憲法」対応。teamIdはIDそのものなのでmaskForStorageは不要

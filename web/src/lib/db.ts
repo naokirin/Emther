@@ -198,4 +198,25 @@ function migrate(database: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_reports_period_end ON reports(period_end);
   `);
+
+  // docs/value_hierarchy_and_flow.md §5。Journal → 日常の評価ログ（A/B・仮置き）。
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS person_evaluation_logs (
+      id TEXT PRIMARY KEY,
+      person_id TEXT NOT NULL,
+      lens TEXT NOT NULL,
+      status TEXT NOT NULL,
+      polarity TEXT NOT NULL,
+      source_journal_id TEXT NOT NULL,
+      target_objective_id TEXT,
+      target_key_result_id TEXT,
+      value_snapshot TEXT,
+      snapshot_text TEXT NOT NULL,
+      rationale TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_person_eval_person ON person_evaluation_logs(person_id);
+    CREATE INDEX IF NOT EXISTS idx_person_eval_journal ON person_evaluation_logs(source_journal_id);
+  `);
 }

@@ -7,6 +7,7 @@ import {
   setIssueStatus,
   setIssueTags,
   setIssueTeam,
+  setIssueTheme,
   setIssueTitle,
   toIssueView,
   updateIssueCharter,
@@ -87,6 +88,10 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
     if ("keyResultId" in (body ?? {})) {
       const keyResultId = typeof body.keyResultId === "string" && body.keyResultId ? body.keyResultId : null;
       issue = setIssueKeyResult(id, keyResultId) ?? issue;
+    }
+    if ("themeId" in (body ?? {})) {
+      const themeId = typeof body.themeId === "string" && body.themeId ? body.themeId : null;
+      issue = setIssueTheme(id, themeId) ?? issue;
     }
     if ("teamId" in (body ?? {})) {
       const teamId = typeof body.teamId === "string" && body.teamId ? body.teamId : null;

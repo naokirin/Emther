@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     ? body.tags.filter((t: unknown): t is string => typeof t === "string")
     : undefined;
   const keyResultId = typeof body?.keyResultId === "string" && body.keyResultId ? body.keyResultId : undefined;
+  const themeId = typeof body?.themeId === "string" && body.themeId ? body.themeId : undefined;
   const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
   const priority =
     typeof body?.priority === "string" && ISSUE_PRIORITIES.includes(body.priority as IssuePriority)
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
       priority,
       sourceJournalId,
       sourceRunId,
+      themeId,
     });
     if (agentRunId) {
       markRunReviewed(agentRunId);

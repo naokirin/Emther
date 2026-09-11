@@ -19,6 +19,9 @@ export type OrgTheme = {
   suggestedDirection?: string;
   evidenceJournalIds: string[];
   evidenceIssueIds: string[];
+  // docs/value_hierarchy_and_flow.md §2。実行時の焦点は OrgTheme。OKR への明示リンク。
+  objectiveIds: string[];
+  keyResultIds: string[];
   status: ThemeStatus;
   sourceRunId?: string;
   teamId?: string;
@@ -38,9 +41,27 @@ export type SuggestedTheme = {
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
   evidenceIssueIds?: string[];
+  objectiveIds?: string[];
+  keyResultIds?: string[];
 };
 
-const themes: OrgTheme[] = loadJSON<OrgTheme[]>("themes.json", []);
+function normalizeIdList(ids: string[] | undefined): string[] {
+  if (!ids?.length) return [];
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+}
+
+function normalizeTheme(raw: OrgTheme): OrgTheme {
+  return {
+    ...raw,
+    objectiveIds: normalizeIdList(raw.objectiveIds),
+    keyResultIds: normalizeIdList(raw.keyResultIds),
+    evidenceJournalIds: raw.evidenceJournalIds ?? [],
+    evidenceIssueIds: raw.evidenceIssueIds ?? [],
+    facts: raw.facts ?? [],
+  };
+}
+
+const themes: OrgTheme[] = loadJSON<OrgTheme[]>("themes.json", []).map(normalizeTheme);
 
 function persist(): void {
   saveJSON("themes.json", themes);
@@ -124,6 +145,8 @@ export async function createThemeCandidate(
     facts: masked.facts.filter(Boolean),
     evidenceJournalIds: input.evidenceJournalIds ?? [],
     evidenceIssueIds: input.evidenceIssueIds ?? [],
+    objectiveIds: normalizeIdList(input.objectiveIds),
+    keyResultIds: normalizeIdList(input.keyResultIds),
     status: "candidate",
     sourceRunId: input.sourceRunId,
     teamId: input.teamId,
@@ -132,6 +155,39 @@ export async function createThemeCandidate(
     updatedAt: now,
   };
   themes.push(theme);
+  persist();
+  return theme;
+}
+
+/** OKR / 証拠リンクなど、テキスト以外の構造フィールドを更新する。 */
+export function updateThemeLinks(
+  id: string,
+  patch: {
+    objectiveIds?: string[] | null;
+    keyResultIds?: string[] | null;
+    evidenceJournalIds?: string[];
+    evidenceIssueIds?: string[];
+    teamId?: string | null;
+  },
+): OrgTheme | undefined {
+  const theme = getTheme(id);
+  if (!theme) return undefined;
+  if (patch.objectiveIds !== undefined) {
+    theme.objectiveIds = patch.objectiveIds === null ? [] : normalizeIdList(patch.objectiveIds);
+  }
+  if (patch.keyResultIds !== undefined) {
+    theme.keyResultIds = patch.keyResultIds === null ? [] : normalizeIdList(patch.keyResultIds);
+  }
+  if (patch.evidenceJournalIds !== undefined) {
+    theme.evidenceJournalIds = normalizeIdList(patch.evidenceJournalIds);
+  }
+  if (patch.evidenceIssueIds !== undefined) {
+    theme.evidenceIssueIds = normalizeIdList(patch.evidenceIssueIds);
+  }
+  if (patch.teamId !== undefined) {
+    theme.teamId = patch.teamId ?? undefined;
+  }
+  theme.updatedAt = Date.now();
   persist();
   return theme;
 }

@@ -101,3 +101,13 @@ suggested* = プログレス・朝キューの「仕事」に数えない（採�
 
 `focus` / `normal` / `parked` は status と独立した「今週〜今月の見通し」軸。  
 「今やる」は focus、「進行」は status、「解決／追わない」は done／archived。語彙を混ぜない。
+
+内部根拠として `triage`（CoD / Effort / BlastRadius / Confidence → score → suggestedPriority）を持てる。UI 主面は帯のまま。EM はマトリクス入力ではなく例外上書きだけ行う（`docs/value_hierarchy_and_flow.md` §4）。
+
+---
+
+## 8. 階層リンク（EM 介入線）
+
+- `OrgTheme.objectiveIds` / `keyResultIds`: 採用テーマと OKR の明示リンク（実行時の焦点正本は採用済みテーマ）
+- `Issue.themeId` / `Issue.keyResultId`: どちらも任意。未接続は警告のみ（必須にしない）
+- メンバー貢献評価の主経路にはしない（Journal → 評価ログ A/B。`docs/value_hierarchy_and_flow.md` §5）
