@@ -548,9 +548,6 @@ export default function OrgContextPage() {
       <div className={styles.panel}>
         {importOpen && (
           <>
-            <div className={styles.editorPath}>
-              <code>/Objectives/import</code>
-            </div>
             <p className={styles.subtitle}>
               既存のOKR全文を貼り付け、外部AI（SettingsのCLI優先順。失敗時や構造が明確なMarkdownのときはルールベース）で Objective / Key Result / メモに分解します。プレビューで直してから、追記または同一スコープの差し替えで保存できます。
             </p>
@@ -673,7 +670,6 @@ export default function OrgContextPage() {
         {selection?.kind === "strategy" && (
           <>
             <div className={styles.editorPath}>
-              <code>/Strategy</code>
               <button className={styles.primaryBtn} onClick={handleSaveStrategy} disabled={strategySaving || !strategySeeded}>
                 {strategySaving ? "保存中…" : "保存"}
               </button>
@@ -739,7 +735,6 @@ export default function OrgContextPage() {
         {selectedObjective && (
           <>
             <div className={styles.editorPath}>
-              <code>/Objectives/{treeTitle(selectedObjective.title)}</code>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   className={styles.primaryBtn}
