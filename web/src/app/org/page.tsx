@@ -178,7 +178,7 @@ export default function OrgContextPage() {
   const [importTeamId, setImportTeamId] = useState("");
   const [importMode, setImportMode] = useState<"append" | "replace">("append");
   const [importDrafts, setImportDrafts] = useState<ObjectiveImportDraft[] | null>(null);
-  const [importSource, setImportSource] = useState<"model" | "heuristic" | null>(null);
+  const [importSource, setImportSource] = useState<"cloud" | "heuristic" | null>(null);
   const [importParsing, setImportParsing] = useState(false);
   const [importSaving, setImportSaving] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -329,7 +329,7 @@ export default function OrgContextPage() {
       const drafts = Array.isArray(data.objectives) ? (data.objectives as ObjectiveImportDraft[]) : [];
       if (drafts.length === 0) throw new Error("Objectiveを抽出できませんでした。文言を見直すか、手で追記してください。");
       setImportDrafts(drafts);
-      setImportSource(data.source === "model" ? "model" : "heuristic");
+      setImportSource(data.source === "cloud" ? "cloud" : "heuristic");
     } catch (err) {
       setImportError((err as Error).message);
       setImportDrafts(null);
@@ -541,7 +541,7 @@ export default function OrgContextPage() {
               <code>/Objectives/import</code>
             </div>
             <p className={styles.subtitle}>
-              既存のOKR全文を貼り付け、AI（失敗時はルールベース）で Objective / Key Result / メモに分解します。プレビューで直してから、追記または同一スコープの差し替えで保存できます。
+              既存のOKR全文を貼り付け、外部AI（SettingsのCLI優先順。失敗時や構造が明確なMarkdownのときはルールベース）で Objective / Key Result / メモに分解します。プレビューで直してから、追記または同一スコープの差し替えで保存できます。
             </p>
             <div className={styles.field}>
               <label>OKRテキスト
@@ -606,7 +606,7 @@ export default function OrgContextPage() {
             </div>
             {importSource && (
               <p className={styles.subtitle}>
-                分解元: {importSource === "model" ? "ローカルAI" : "ルールベース（AI結果が使えなかったため）"}
+                分解元: {importSource === "cloud" ? "外部AI（CLI）" : "ルールベース"}
               </p>
             )}
             {importError && <p className={styles.errorText} role="alert">{importError}</p>}

@@ -1,18 +1,55 @@
-import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
+import { extractFirstJsonObject } from "@/lib/local-model";
+import { runCloudChat } from "@/lib/cloud-chat";
 import type { ObjectiveImportDraft } from "@/lib/org-context-store";
+import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 
 // docs/usage_issues U18: 既存のOKR全文を Objective / Key Result / メモに分解する。
-// Journal と同じくローカルモデル＋JSON抽出を使い、失敗時はヒューリスティックに落とす
-// （構造化は補助。プレビューで人間が直せる前提）。
+// 複雑なOKRはローカル小モデルでは壊れるため、SettingsのCLI優先順で外部AIに任せる。
+// 失敗時・明らかに構造化マークダウンなのにクラウド結果が薄いときはヒューリスティックへ落とす。
 
 const SYSTEM_PROMPT = [
-  "あなたはOKRテキストを構造化し、JSONだけを出力するツールです。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力してください。",
+  "あなたはOKRテキストを構造化し、JSONだけを出力するツールです。説明や前置き・Markdownフェンスは一切書かず、JSONオブジェクト1つだけを出力してください。",
   'フォーマット: {"objectives":[{"title":string,"note":string,"keyResults":string[]}]}',
-  "titleはObjective（目標）。keyResultsは測定可能なKey Resultの配列。noteは判断理由・補足があれば入れ、無ければ空文字。",
+  "titleはObjective（目標）本文。Markdownの見出し記号や「Objective 1：」などのラベルは除く。",
+  "keyResultsは各Key Resultの本文配列。ネストされた箇条書き・番号付き補足は、親Key Resultの文字列に改行で含めてよい。",
+  "noteはObjective全体の判断理由・補足があれば入れ、無ければ空文字。Key Result配下の補足はnoteにまとめずkeyResults側へ。",
   "テキストに無い情報を推測で作らないこと。Objectiveが複数あるときはすべて列挙すること。",
 ].join("\n");
 
 const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
+  {
+    user: [
+      "# Objective 1：【Build】基盤を進化させる",
+      "",
+      "- Key Result 1：リリースが完了している",
+      "    1. アンケート",
+      "    2. 通知",
+      "- Key Result 2：認証がプライマリになっている",
+      "    - ムーンショットとして設定",
+      "",
+      "# Objective 2：【Guide】判断を仕組み化する",
+      "",
+      "- Key Result 1：需要を整理できる",
+    ].join("\n"),
+    assistant: JSON.stringify({
+      objectives: [
+        {
+          title: "【Build】基盤を進化させる",
+          note: "",
+          keyResults: [
+            "リリースが完了している\n1. アンケート\n2. 通知",
+            "認証がプライマリになっている\n- ムーンショットとして設定",
+          ],
+        },
+        {
+          title: "【Guide】判断を仕組み化する",
+          note: "",
+          keyResults: ["需要を整理できる"],
+        },
+      ],
+    }),
+  },
   {
     user: [
       "Objective: プロダクトの信頼性を上げる",
@@ -30,44 +67,16 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       ],
     }),
   },
-  {
-    user: [
-      "O1: 顧客体験を改善する",
-      "KR1: NPSを+10",
-      "KR2: サポート初回解決率を80%へ",
-      "",
-      "O2: エンジニアリング速度を上げる",
-      "KR1: リードタイムを2週間以内に",
-    ].join("\n"),
-    assistant: JSON.stringify({
-      objectives: [
-        {
-          title: "顧客体験を改善する",
-          note: "",
-          keyResults: ["NPSを+10", "サポート初回解決率を80%へ"],
-        },
-        {
-          title: "エンジニアリング速度を上げる",
-          note: "",
-          keyResults: ["リードタイムを2週間以内に"],
-        },
-      ],
-    }),
-  },
 ];
 
-const OBJECTIVE_PREFIX = /^(?:objective|o(?:bj)?|目標)\s*\d*\s*[:：.#)]\s*/i;
-const KR_PREFIX = /^(?:key\s*result|kr|成果指標)\s*\d*\s*[:：.#)]\s*/i;
-const NOTE_PREFIX = /^(?:note|メモ|補足|理由)\s*[:：]\s*/i;
-const BULLET_PREFIX = /^[-*・]\s+/;
-
-function stripPrefix(line: string, re: RegExp): string {
-  return line.replace(re, "").trim();
-}
-
-function isKrLine(line: string): boolean {
-  return KR_PREFIX.test(line) || BULLET_PREFIX.test(line);
-}
+/** 「# Objective 1：…」「Objective: …」「O1: …」「目標：…」 */
+const OBJECTIVE_LINE =
+  /^(?:#{1,6}\s*)?(?:objective|o(?:bj)?|目標)\s*\d*\s*[:：.\-–—)]\s*(.+)$/i;
+/** 「- Key Result 1：…」「KR1: …」「成果指標：…」（行頭の箇条書き記号は任意） */
+const KR_LINE = /^(?:[-*・]\s+)*(?:key\s*result|kr|成果指標)\s*\d*\s*[:：.\-–—)]\s*(.+)$/i;
+const NOTE_LINE = /^(?:[-*・]\s+)*(?:note|メモ|補足|理由)\s*[:：]\s*(.+)$/i;
+const BULLET_OR_NUMBER = /^(?:[-*・]\s+|\d+[.)]\s+)(.+)$/;
+const HORIZONTAL_RULE = /^-{3,}$/;
 
 function normalizeDraft(raw: {
   title?: unknown;
@@ -83,107 +92,108 @@ function normalizeDraft(raw: {
   return { title, ...(note ? { note } : {}), keyResults };
 }
 
-/** AI失敗時・テスト用。空行区切りのブロックと O/KR/メモ 接頭辞を解釈する。 */
+function unmaskDraft(draft: ObjectiveImportDraft): ObjectiveImportDraft {
+  return {
+    title: unmaskNames(draft.title),
+    ...(draft.note ? { note: unmaskNames(draft.note) } : {}),
+    keyResults: draft.keyResults.map((t) => unmaskNames(t)),
+  };
+}
+
+function countObjectiveMarkers(text: string): number {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => OBJECTIVE_LINE.test(l)).length;
+}
+
+function totalKeyResults(drafts: ObjectiveImportDraft[]): number {
+  return drafts.reduce((n, d) => n + d.keyResults.length, 0);
+}
+
+/**
+ * Markdown見出し付きOKRや O/KR 接頭辞を行スキャンで分解する。
+ * - 「- Key Result N：…」→ Key Result
+ * - インデント付きのネスト行 → 直前の Key Result に改行で付与
+ * - インデント無しの普通の箇条書き → Key Result（短い書式向け）
+ */
 export function parseOkrTextHeuristic(text: string): ObjectiveImportDraft[] {
   const normalized = text.replace(/\r\n/g, "\n").trim();
   if (!normalized) return [];
 
-  const blocks = normalized.split(/\n{2,}/);
+  const lines = normalized.split("\n");
   const drafts: ObjectiveImportDraft[] = [];
+  let current: ObjectiveImportDraft | null = null;
 
-  for (const block of blocks) {
-    const lines = block
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines.length === 0) continue;
-
-    let title = "";
-    let note: string | undefined;
-    const keyResults: string[] = [];
-    const titleParts: string[] = [];
-
-    for (const line of lines) {
-      if (NOTE_PREFIX.test(line)) {
-        const n = stripPrefix(line, NOTE_PREFIX);
-        if (n) note = note ? `${note}\n${n}` : n;
-        continue;
-      }
-      if (isKrLine(line)) {
-        const kr = stripPrefix(line, KR_PREFIX);
-        const cleaned = stripPrefix(kr, BULLET_PREFIX);
-        if (cleaned) keyResults.push(cleaned);
-        continue;
-      }
-      if (OBJECTIVE_PREFIX.test(line)) {
-        const t = stripPrefix(line, OBJECTIVE_PREFIX);
-        if (t) {
-          if (!title) title = t;
-          else titleParts.push(t);
-        }
-        continue;
-      }
-      if (!title && keyResults.length === 0) {
-        title = line;
-      } else if (title && keyResults.length === 0 && !note) {
-        // タイトル直後の非KR行は複数行タイトルとして結合
-        title = `${title}\n${line}`;
-      } else {
-        titleParts.push(line);
-      }
-    }
-
-    if (!title && titleParts.length > 0) {
-      title = titleParts.shift()!;
-    }
-    // 余り行は KR 未検出時の追加タイトル断片として捨てず、メモへ寄せる
-    if (titleParts.length > 0) {
-      const extra = titleParts.join("\n");
-      note = note ? `${note}\n${extra}` : extra;
-    }
-
-    const draft = normalizeDraft({ title, note, keyResults });
+  const pushCurrent = () => {
+    if (!current) return;
+    const draft = normalizeDraft(current);
     if (draft) drafts.push(draft);
-  }
+    current = null;
+  };
 
-  // ブロック分割できず1塊のとき、行頭の O/KR で再スキャン
-  if (drafts.length <= 1 && drafts[0]?.keyResults.length === 0) {
-    const lines = normalized
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const hasMarkers = lines.some((l) => OBJECTIVE_PREFIX.test(l) || KR_PREFIX.test(l));
-    if (hasMarkers) {
-      const rescanned: ObjectiveImportDraft[] = [];
-      let current: ObjectiveImportDraft | null = null;
-      for (const line of lines) {
-        if (OBJECTIVE_PREFIX.test(line)) {
-          if (current) rescanned.push(current);
-          current = { title: stripPrefix(line, OBJECTIVE_PREFIX), keyResults: [] };
-          continue;
-        }
-        if (!current) {
-          current = { title: stripPrefix(line, OBJECTIVE_PREFIX) || line, keyResults: [] };
-          continue;
-        }
-        if (NOTE_PREFIX.test(line)) {
-          const n = stripPrefix(line, NOTE_PREFIX);
-          if (n) current.note = current.note ? `${current.note}\n${n}` : n;
-          continue;
-        }
-        if (isKrLine(line)) {
-          const kr = stripPrefix(stripPrefix(line, KR_PREFIX), BULLET_PREFIX);
-          if (kr) current.keyResults.push(kr);
-          continue;
-        }
-        current.title = `${current.title}\n${line}`;
+  const appendToLastKr = (detail: string) => {
+    if (!current || current.keyResults.length === 0) return false;
+    const last = current.keyResults.length - 1;
+    current.keyResults[last] = `${current.keyResults[last]}\n${detail}`;
+    return true;
+  };
+
+  for (const raw of lines) {
+    const indent = raw.match(/^ */)?.[0].length ?? 0;
+    const line = raw.trim();
+    if (!line || HORIZONTAL_RULE.test(line)) continue;
+
+    const objectiveMatch = line.match(OBJECTIVE_LINE);
+    if (objectiveMatch) {
+      pushCurrent();
+      current = { title: objectiveMatch[1].trim(), keyResults: [] };
+      continue;
+    }
+
+    const noteMatch = line.match(NOTE_LINE);
+    if (noteMatch && current) {
+      const n = noteMatch[1].trim();
+      if (n) current.note = current.note ? `${current.note}\n${n}` : n;
+      continue;
+    }
+
+    const krMatch = line.match(KR_LINE);
+    if (krMatch) {
+      if (!current) {
+        current = { title: "(無題のObjective)", keyResults: [] };
       }
-      if (current) rescanned.push(current);
-      const cleaned = rescanned.map((d) => normalizeDraft(d)).filter((d): d is ObjectiveImportDraft => !!d);
-      if (cleaned.length > 0) return cleaned;
+      current.keyResults.push(krMatch[1].trim());
+      continue;
+    }
+
+    const nested = line.match(BULLET_OR_NUMBER);
+    if (nested && current) {
+      const detail = nested[1].trim();
+      if (!detail) continue;
+      // インデント付き、または既にKRがあり番号付き行 → 直前KRの補足
+      if (indent >= 2 || (/^\d+[.)]\s+/.test(line) && current.keyResults.length > 0)) {
+        if (appendToLastKr(detail)) continue;
+      }
+      // トップレベルの普通の箇条書きは Key Result 本体
+      current.keyResults.push(detail);
+      continue;
+    }
+
+    // ラベル無しのプレーン行
+    if (!current) {
+      current = { title: line, keyResults: [] };
+    } else if (current.keyResults.length === 0) {
+      current.title = `${current.title}\n${line}`;
+    } else if (indent >= 2) {
+      appendToLastKr(line);
+    } else {
+      appendToLastKr(line);
     }
   }
 
+  pushCurrent();
   return drafts;
 }
 
@@ -198,38 +208,70 @@ function parseModelObjectives(structured: unknown): ObjectiveImportDraft[] {
 
 export type ParseOkrTextResult = {
   objectives: ObjectiveImportDraft[];
-  source: "model" | "heuristic";
+  source: "cloud" | "heuristic";
 };
 
-/** ローカルモデルで構造化し、失敗・空結果ならヒューリスティックへフォールバックする。 */
-export async function parseOkrText(text: string): Promise<ParseOkrTextResult> {
+/** クラウド結果が入力の構造マーカーに対して明らかに薄い／欠けるとき true。 */
+export function shouldPreferHeuristic(
+  input: string,
+  cloud: ObjectiveImportDraft[],
+  heuristic: ObjectiveImportDraft[],
+): boolean {
+  if (heuristic.length === 0) return false;
+  if (cloud.length === 0) return true;
+
+  const markers = countObjectiveMarkers(input);
+  const heuristicKrs = totalKeyResults(heuristic);
+  const cloudKrs = totalKeyResults(cloud);
+
+  // 入力に Objective 見出しが複数あるのにクラウドが1件以下、またはKR総数が大幅に少ない
+  if (markers >= 2 && cloud.length < Math.min(markers, heuristic.length)) return true;
+  if (heuristicKrs >= 3 && cloudKrs < Math.ceil(heuristicKrs / 2)) return true;
+  if (heuristic.length > cloud.length && heuristicKrs > cloudKrs) return true;
+  return false;
+}
+
+/** 外部AIで構造化し、失敗・薄い結果ならヒューリスティックへフォールバックする。 */
+export async function parseOkrText(text: string, opts: MaskOptions = {}): Promise<ParseOkrTextResult> {
   const trimmed = text.trim();
   if (!trimmed) return { objectives: [], source: "heuristic" };
 
+  const heuristic = parseOkrTextHeuristic(trimmed);
+
+  let cloudDrafts: ObjectiveImportDraft[] = [];
   try {
-    const content = await runLocalChat(
-      [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...FEW_SHOT_EXAMPLES.flatMap((ex) => [
-          { role: "user" as const, content: ex.user },
-          { role: "assistant" as const, content: ex.assistant },
-        ]),
-        { role: "user", content: trimmed },
-      ],
-      600,
-    );
+    await ensureNameCandidatesAllowed([trimmed], opts);
+    const masked = await maskForStorage(trimmed, opts);
+    const fewShot = FEW_SHOT_EXAMPLES.flatMap((ex) => [
+      `入力:\n${ex.user}`,
+      `出力:\n${ex.assistant}`,
+    ]).join("\n\n");
+    const userPrompt = [
+      "次のOKRテキストを指定フォーマットのJSONに変換してください。",
+      "",
+      "参考例:",
+      fewShot,
+      "",
+      "変換対象:",
+      masked,
+    ].join("\n");
+
+    const content = await runCloudChat(SYSTEM_PROMPT, userPrompt);
     const jsonText = extractFirstJsonObject(content);
     if (jsonText) {
       try {
-        const parsed = parseModelObjectives(JSON.parse(jsonText));
-        if (parsed.length > 0) return { objectives: parsed, source: "model" };
+        cloudDrafts = parseModelObjectives(JSON.parse(jsonText)).map(unmaskDraft);
       } catch {
-        // fall through
+        cloudDrafts = [];
       }
     }
-  } catch {
-    // fall through
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) throw err;
+    cloudDrafts = [];
   }
 
-  return { objectives: parseOkrTextHeuristic(trimmed), source: "heuristic" };
+  if (cloudDrafts.length > 0 && !shouldPreferHeuristic(trimmed, cloudDrafts, heuristic)) {
+    return { objectives: cloudDrafts, source: "cloud" };
+  }
+  return { objectives: heuristic, source: "heuristic" };
 }
