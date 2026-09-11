@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  getIssue,
+  listIssues,
   moveFocusIssue,
   setIssueKeyResult,
   setIssuePriority,
@@ -16,16 +16,31 @@ import {
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@/lib/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
+import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+
+function resolveIssueForRead(id: string) {
+  return resolveUniqueByPrefix(listIssues(), (i) => i.id, id);
+}
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]">) {
   const { id } = await ctx.params;
-  const issue = getIssue(id);
-  if (!issue) {
+  const resolved = resolveIssueForRead(id);
+  if (resolved.status === "none") {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+  if (resolved.status === "ambiguous") {
+    return NextResponse.json(
+      {
+        error: "ambiguous",
+        candidates: resolved.items.map((i) => ({ id: i.id, title: i.title, href: `/issues/${i.id}` })),
+      },
+      { status: 409 },
+    );
+  }
+  const issue = resolved.item;
   return NextResponse.json({
     issue: toIssueView(issue),
-    sourceJournals: toJournalEntryViews(listSourceJournalsForIssue(id, issue.sourceJournalId)),
+    sourceJournals: toJournalEntryViews(listSourceJournalsForIssue(issue.id, issue.sourceJournalId)),
   });
 }
 

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
+import { IdResolveProvider } from "@/components/IdFragmentLink";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, useTimeline } from "@/lib/hooks";
 import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@/lib/types";
@@ -44,6 +45,7 @@ function TimelinePageInner() {
   const peekedEntry = peek.id ? entries.find((e) => e.entityType === "issue" && e.entityId === peek.id) : undefined;
 
   return (
+    <IdResolveProvider openIssueInPeek={peek.open}>
     <div className={styles.screen}>
       <div className={styles.panel}>
         <h2>Timeline</h2>
@@ -101,5 +103,6 @@ function TimelinePageInner() {
         </SlideOver>
       )}
     </div>
+    </IdResolveProvider>
   );
 }

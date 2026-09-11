@@ -164,7 +164,7 @@ describe("ExecutionState", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "選択してStateを更新" })).toBeDisabled();
-    await user.click(screen.getByText(/Option A: 選択肢A/));
+    await user.click(screen.getByRole("radio", { name: /選択肢A/ }));
     expect(onSelectOption).toHaveBeenCalledWith("A");
   });
 

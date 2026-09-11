@@ -1,15 +1,33 @@
 import { NextResponse } from "next/server";
-import { getCurrentJournalEntry, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
+import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { resolveUniqueByPrefix } from "@/lib/id-resolve";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/journal/[id]">) {
   const { id } = await ctx.params;
-  const entry = getCurrentJournalEntry(id);
-  if (!entry) {
+  const exact = getCurrentJournalEntry(id);
+  if (exact) {
+    return NextResponse.json({ entry: toJournalEntryView(exact) });
+  }
+  const resolved = resolveUniqueByPrefix(listJournalEntries(), (e) => e.id, id);
+  if (resolved.status === "none") {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  return NextResponse.json({ entry: toJournalEntryView(entry) });
+  if (resolved.status === "ambiguous") {
+    return NextResponse.json(
+      {
+        error: "ambiguous",
+        candidates: resolved.items.map((e) => ({
+          id: e.id,
+          label: e.summary || e.rawText.slice(0, 80),
+          href: `/journal?focus=${encodeURIComponent(e.id)}`,
+        })),
+      },
+      { status: 409 },
+    );
+  }
+  return NextResponse.json({ entry: toJournalEntryView(resolved.item) });
 }
 
 // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を

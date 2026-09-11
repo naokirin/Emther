@@ -38,6 +38,16 @@ describe("GET /api/issues/[id]", () => {
     expect((await res.json()).issue.title).toBe("既存Issue");
   });
 
+  it("先頭8桁の一意プレフィックスでも取得できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("短いID");
+    const route = await import("./route");
+    const prefix = issue.id.slice(0, 8);
+    const res = await route.GET(new Request(`http://localhost/api/issues/${prefix}`), routeCtx({ id: prefix }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).issue.id).toBe(issue.id);
+  });
+
   it("sourceJournalsにresolvedIssueIdで紐づくJournalを含める", async () => {
     const issueStore = await import("@/lib/issue-store");
     const journalStore = await import("@/lib/journal-store");
