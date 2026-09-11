@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { TagInput } from "@/components/TagInput";
 import { useEntityHistory, useIssues, useJournal, useTeams } from "@/lib/hooks";
@@ -83,6 +84,19 @@ function TeamTreeView({
 }
 
 export default function TeamsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TeamsPageInner />
+    </Suspense>
+  );
+}
+
+// Dashboardの「チームリスク」などから `?focus=<teamId>` で飛んできたとき、該当チームを
+// 右パネルに開く（/journal?focus= と同じ導線）。useSearchParams を使うため Suspense で包む。
+function TeamsPageInner() {
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("focus");
+
   const { teams, teamsLoaded, refreshTeams } = useTeams();
   const { issues } = useIssues();
   const { journalEntries } = useJournal();
@@ -97,6 +111,7 @@ export default function TeamsPage() {
   const [bulkResult, setBulkResult] = useState<{ created: number; skipped: string[] } | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [showArchivedTeams, setShowArchivedTeams] = useState(false);
+  const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
 
   const selectedTeam = selectedTeamId ? teams.find((t) => t.id === selectedTeamId) ?? null : null;
   const visibleTeams = teams.filter((t) => showArchivedTeams || !t.archived);
@@ -141,6 +156,14 @@ export default function TeamsPage() {
     setEditAliases(team.aliases);
     setEditError(null);
     setSelectedTeamId(team.id);
+    if (team.archived) setShowArchivedTeams(true);
+  }
+
+  // focusId は teams の初回ロード後に一度だけ適用する（ポーリングで編集中ドラフトを上書きしない）。
+  if (teamsLoaded && focusId && focusId !== appliedFocusId) {
+    setAppliedFocusId(focusId);
+    const focused = teams.find((t) => t.id === focusId);
+    if (focused) selectTeam(focused);
   }
 
   // SettingsのisDirtyと同じ。未変更のまま保存できて「保存されたかわからない」状態に

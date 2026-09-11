@@ -714,7 +714,9 @@ export default function DashboardPage() {
         icon: v.status === "bad" ? "🔴" : "🟡",
         kindLabel: "チームリスク",
         text: `${v.teamName}のチーム状態: ${v.label}`,
-        onSelect: () => router.push("/org"),
+        // チーム管理は/teamsへ移設済み。方針・目標(/org)ではなく該当チームを選択した
+        // 状態で開けるよう ?focus= を付ける（/journal?focus= と同じパターン）。
+        onSelect: () => router.push(`/teams?focus=${encodeURIComponent(v.teamId)}`),
         // Team Vitalsは実測値の再計算結果であり個別のタイムスタンプを持たないため0固定。
         since: 0,
       });
