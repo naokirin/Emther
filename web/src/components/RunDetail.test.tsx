@@ -25,7 +25,24 @@ describe("runFallbackTitle", () => {
     expect(runFallbackTitle(baseRun({ task: "本来のタスク" }))).toBe("本来のタスク");
   });
 
-  it("proposal.conclusionがあればtaskより優先する（異常検知など定型の指示文がtaskの場合に本文を残すため）", () => {
+  it("proposal.issueTitleがあれば最優先する", () => {
+    expect(
+      runFallbackTitle(
+        baseRun({
+          task: "長いタスク文",
+          proposal: {
+            conclusion: "五木さんの目標設定の悩みをIssue化して追跡すべきと判断します",
+            facts: [],
+            logic: "",
+            rejectedAlternatives: [],
+            issueTitle: "五木さんの目標設定の悩み",
+          },
+        }),
+      ),
+    ).toBe("五木さんの目標設定の悩み");
+  });
+
+  it("proposal.conclusionがあればtaskより優先し、Issue化メタを除いた題名にする", () => {
     expect(
       runFallbackTitle(
         baseRun({
@@ -38,7 +55,7 @@ describe("runFallbackTitle", () => {
           },
         }),
       ),
-    ).toBe("五木さんの目標設定の悩みをIssue化して追跡すべきと判断します");
+    ).toBe("五木さんの目標設定の悩み");
   });
 
   it("taskが空ならyieldの理由を使う", () => {

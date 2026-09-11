@@ -15,6 +15,7 @@ import {
   teamDisplayName,
   teamPathSegments,
   truncateForTitle,
+  issueTitleFromConclusion,
   type Issue,
   type IssueCharter,
   type JournalEntry,
@@ -282,13 +283,35 @@ describe("truncateForTitle", () => {
   });
 
   it("上限を超えたら切り詰めて…を付ける（文の途中で切れたことをEMが分かるようにする）", () => {
-    const long = "あ".repeat(80);
-    const result = truncateForTitle(long, 60);
-    expect(result).toBe(`${"あ".repeat(59)}…`);
-    expect(result.length).toBe(60);
+    const long = "あ".repeat(100);
+    const result = truncateForTitle(long, 80);
+    expect(result).toBe(`${"あ".repeat(79)}…`);
+    expect(result.length).toBe(80);
   });
 
   it("maxLengthを指定できる", () => {
     expect(truncateForTitle("あいうえおかきくけこ", 5)).toBe("あいうえ…");
+  });
+
+  it("句点付近で切れれば…を付けない", () => {
+    const text = `${"あ".repeat(50)}。${"い".repeat(50)}`;
+    expect(truncateForTitle(text, 60)).toBe(`${"あ".repeat(50)}。`);
+  });
+
+  it("読点付近で切れるときは…を付ける", () => {
+    const text = `${"あ".repeat(50)}、${"い".repeat(50)}`;
+    expect(truncateForTitle(text, 60)).toBe(`${"あ".repeat(50)}、…`);
+  });
+});
+
+describe("issueTitleFromConclusion", () => {
+  it("Issue化メタの接尾辞を除く", () => {
+    expect(issueTitleFromConclusion("五木さんの目標設定の悩みをIssue化して追跡すべきと判断します")).toBe(
+      "五木さんの目標設定の悩み",
+    );
+  });
+
+  it("短い結論はそのまま（末尾句点だけ除去）", () => {
+    expect(issueTitleFromConclusion("障害対応の属人化を解消する。")).toBe("障害対応の属人化を解消する");
   });
 });
