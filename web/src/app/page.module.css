@@ -1749,6 +1749,46 @@
   white-space: nowrap;
 }
 
+/* Issue 評価4軸。一覧ではチップ単位で折り返し、語の途中改行を避ける。 */
+.issueTriageAxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.issueTriageAxesCompact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  max-width: 11.5rem;
+}
+
+.issueTriageAxisChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-muted, color-mix(in srgb, var(--border) 18%, transparent));
+  color: var(--text-muted);
+}
+
+.issueTriageAxisLabel {
+  flex-shrink: 0;
+}
+
+.issueTriageAxisValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .issueStatusNotStarted {
   background: var(--gray-bg);
   color: var(--gray-fg);

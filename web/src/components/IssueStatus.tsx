@@ -1,7 +1,15 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { ISSUE_STATUSES, ISSUE_STATUS_META, ISSUE_PRIORITIES, ISSUE_PRIORITY_META, type IssuePriority, type IssueStatus } from "@/lib/types";
+import {
+  ISSUE_STATUSES,
+  ISSUE_STATUS_META,
+  ISSUE_PRIORITIES,
+  ISSUE_PRIORITY_META,
+  type IssuePriority,
+  type IssueStatus,
+  type IssueTriageScores,
+} from "@/lib/types";
 
 const STATUS_CLS: Record<IssueStatus, string> = {
   not_started: styles.issueStatusNotStarted,
@@ -26,6 +34,88 @@ export function IssuePriorityBadge({ priority }: { priority: IssuePriority }) {
     <span className={styles.issueStatusBadge} title={meta.hint}>
       {meta.icon} {meta.label}
     </span>
+  );
+}
+
+/** docs/value_hierarchy_and_flow.md §4.3。計算式は出さず、4軸だけを人が読めるラベルで示す。 */
+export const TRIAGE_AXIS_META = [
+  {
+    key: "costOfDelay" as const,
+    label: "放置コスト",
+    shortLabel: "放置",
+    hint: "今見なくてよいか（高いほど先に見る）",
+  },
+  {
+    key: "effort" as const,
+    label: "介入コスト",
+    shortLabel: "介入",
+    hint: "短時間か重い介入か（高いほど重い）",
+  },
+  {
+    key: "blastRadius" as const,
+    label: "影響半径",
+    shortLabel: "影響",
+    hint: "影響の広さ（高いほど広い）",
+  },
+  {
+    key: "confidence" as const,
+    label: "確信度",
+    shortLabel: "確信",
+    hint: "材料の足り具合（高いほど判断材料あり）",
+  },
+];
+
+export function formatTriageAxis(value: number): string {
+  return value.toFixed(2);
+}
+
+export function IssueTriageAxes({
+  triage,
+  compact = false,
+}: {
+  triage: Pick<IssueTriageScores, "costOfDelay" | "effort" | "blastRadius" | "confidence">;
+  compact?: boolean;
+}) {
+  // 一覧の狭い列では「放置コ / スト 0.45」のように語の途中で折り返さないよう、
+  // 軸ごとに nowrap のチップにし、折り返しはチップ単位だけにする。
+  if (compact) {
+    return (
+      <div
+        className={styles.issueTriageAxesCompact}
+        role="group"
+        aria-label="優先度評価の軸"
+      >
+        {TRIAGE_AXIS_META.map((a) => (
+          <span
+            key={a.key}
+            className={styles.issueTriageAxisChip}
+            title={`${a.label}: ${formatTriageAxis(triage[a.key])}（${a.hint}）`}
+          >
+            <span className={styles.issueTriageAxisLabel}>{a.shortLabel}</span>
+            <span className={styles.issueTriageAxisValue}>{formatTriageAxis(triage[a.key])}</span>
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="group"
+      aria-label="優先度評価の軸"
+      className={styles.issueTriageAxes}
+    >
+      {TRIAGE_AXIS_META.map((a) => (
+        <span
+          key={a.key}
+          className={styles.issueStatusBadge}
+          title={a.hint}
+          style={{ fontSize: "0.75rem" }}
+        >
+          {a.label} {formatTriageAxis(triage[a.key])}
+        </span>
+      ))}
+    </div>
   );
 }
 

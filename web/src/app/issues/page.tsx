@@ -7,7 +7,7 @@ import { StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDe
 import { Modal } from "@/components/Modal";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueStatusBadge, IssuePriorityBadge } from "@/components/IssueStatus";
+import { IssueStatusBadge, IssuePriorityBadge, IssueTriageAxes } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
 import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
@@ -101,6 +101,21 @@ function IssuesPageInner() {
   const [priorityFilter, setPriorityFilter] = useState<"all" | IssuePriority>("all");
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
+  const [triageSubmitting, setTriageSubmitting] = useState(false);
+  const [triageError, setTriageError] = useState<string | null>(null);
+  const [triageMessage, setTriageMessage] = useState<string | null>(null);
+  const [triagePreview, setTriagePreview] = useState<{
+    counts: Record<IssuePriority, number>;
+    focusCandidates: Array<{
+      id: string;
+      title: string;
+      costOfDelay: number;
+      effort: number;
+      blastRadius: number;
+      confidence: number;
+    }>;
+    changes: Array<{ issueId: string; title: string; fromLabel: string; toLabel: string }>;
+  } | null>(null);
   // リスト: 親ごとの子Issue展開。既定は折りたたみ。
   const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(() => new Set());
   // ボード: 子Issueを自身のステータス列へ独立カードとして出すか。
@@ -273,6 +288,39 @@ function IssuesPageInner() {
     }
   }
 
+  async function handleBulkUpdateTriage() {
+    setTriageSubmitting(true);
+    setTriageError(null);
+    setTriageMessage(null);
+    try {
+      const res = await fetch("/api/issues/triage/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applySuggested: true, focusLimit: 5 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "評価の一括更新に失敗しました");
+      const focusN = Array.isArray(data.focusCandidates) ? data.focusCandidates.length : 0;
+      const changeN = Array.isArray(data.changes) ? data.changes.length : 0;
+      const counts = data.counts ?? { focus: 0, normal: 0, parked: 0 };
+      setTriagePreview({
+        counts,
+        focusCandidates: Array.isArray(data.focusCandidates) ? data.focusCandidates : [],
+        changes: Array.isArray(data.changes) ? data.changes : [],
+      });
+      setTriageMessage(
+        changeN > 0
+          ? `評価を更新し、優先度を ${changeN} 件反映しました（フォーカス ${focusN} 件）。例外だけ個別に直してください。`
+          : `評価を更新しました。優先度の変更はありません（提案: 🔥${counts.focus ?? 0} / ➖${counts.normal ?? 0} / 🅿️${counts.parked ?? 0}）。`,
+      );
+      await refreshIssues();
+    } catch (err) {
+      setTriageError((err as Error).message);
+    } finally {
+      setTriageSubmitting(false);
+    }
+  }
+
   async function handleCompleteActionItem(issueId: string, itemId: string) {
     const key = `${issueId}:${itemId}`;
     setCompletingActionKey(key);
@@ -391,6 +439,111 @@ function IssuesPageInner() {
           )}
         </div>
 
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 10,
+            margin: "4px 0 12px",
+            padding: "10px 12px",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            background: "var(--bg-muted, color-mix(in srgb, var(--border) 12%, transparent))",
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>Issueの評価を一括更新</div>
+            <p className={styles.subtitle} style={{ margin: "2px 0 0" }}>
+              親 Issue を再採点し、フォーカス／通常／保留へ反映します（フォーカスは上位5件）。
+            </p>
+          </div>
+          <button
+            type="button"
+            className={styles.btnOutline}
+            style={{ flexShrink: 0 }}
+            disabled={triageSubmitting}
+            onClick={handleBulkUpdateTriage}
+            title="全親 Issue を再採点し、提案どおり優先度へ反映します"
+          >
+            {triageSubmitting ? "更新中…" : "評価を一括更新"}
+          </button>
+        </div>
+        {triageError && (
+          <p className={styles.errorText} role="alert">
+            {triageError}
+          </p>
+        )}
+        {triageMessage && <p className={styles.subtitle}>{triageMessage}</p>}
+        {triagePreview && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              fontSize: "0.8125rem",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+              <strong>更新結果</strong>
+              <button type="button" className={styles.detailToggle} onClick={() => setTriagePreview(null)}>
+                閉じる
+              </button>
+            </div>
+            <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
+              提案内訳: 🔥フォーカス {triagePreview.counts.focus} · ➖通常 {triagePreview.counts.normal} · 🅿️保留{" "}
+              {triagePreview.counts.parked}
+              （フォーカスは上位 {triagePreview.focusCandidates.length} 件）
+            </p>
+            {triagePreview.focusCandidates.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <div className={styles.fieldCaption}>フォーカスになった Issue（評価軸の高い順）</div>
+                <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none" }}>
+                  {triagePreview.focusCandidates.map((c) => (
+                    <li key={c.id} style={{ marginBottom: 8 }}>
+                      <button type="button" className={styles.tableRowLink} onClick={() => peek.open(c.id)}>
+                        {c.title}
+                      </button>
+                      <IssueTriageAxes
+                        triage={{
+                          costOfDelay: c.costOfDelay,
+                          effort: c.effort,
+                          blastRadius: c.blastRadius,
+                          confidence: c.confidence,
+                        }}
+                        compact
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {triagePreview.changes.length > 0 ? (
+              <div>
+                <div className={styles.fieldCaption}>優先度が変わった Issue（{triagePreview.changes.length}）</div>
+                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                  {triagePreview.changes.map((c) => (
+                    <li key={c.issueId} style={{ marginBottom: 2 }}>
+                      <button type="button" className={styles.tableRowLink} onClick={() => peek.open(c.issueId)}>
+                        {c.title}
+                      </button>
+                      <span className={styles.tableMuted}>
+                        {" "}
+                        {c.fromLabel} → {c.toLabel}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className={styles.subtitle} style={{ margin: 0 }}>
+                実際に優先度が変わった Issue はありません。
+              </p>
+            )}
+          </div>
+        )}
+
         {viewMode === "board" ? (
           <IssueBoard
             issues={boardIssues}
@@ -468,7 +621,7 @@ function IssuesPageInner() {
               <tr>
                 <th>タイトル</th>
                 <th>ステータス</th>
-                <th>優先度</th>
+                <th>優先度/リスク</th>
                 <th>次の一手</th>
                 <th>型・関連</th>
                 <th>Why/What/How</th>
@@ -554,12 +707,13 @@ function IssuesPageInner() {
                     </td>
                     <td>
                       <IssuePriorityBadge priority={priority} />
+                      {issue.triage && <IssueTriageAxes triage={issue.triage} compact />}
                       {issue.triage?.suggestedPriority &&
                         issue.triage.suggestedPriority !== priority && (
                           <div
                             className={styles.tableMuted}
                             style={{ marginTop: 4, color: "var(--warning, #b45309)", fontSize: "0.7rem" }}
-                            title={`提案スコア ${issue.triage.score.toFixed(2)}（Dashboard「優先度を提案」の結果）`}
+                            title="評価上の提案と、いまの優先度が違います（手動変更の可能性）"
                           >
                             提案: {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].icon}{" "}
                             {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].label}
