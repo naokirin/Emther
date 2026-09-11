@@ -452,6 +452,7 @@ export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOpt
 // 既に登録済みの名前だけをPERSON_nへ置換する。NERによる新規登録は行わない。
 // Journal/Issue保存やAgent送信前は、呼び出し側で ensureNameCandidatesAllowed を先に呼ぶ。
 // （optsは呼び出し側の一貫したシグネチャ用。マスク自体には使わない）
-export async function maskForStorage(text: string, _opts: MaskOptions = {}): Promise<string> {
+export async function maskForStorage(text: string, opts: MaskOptions = {}): Promise<string> {
+  void opts; // 呼び出し側シグネチャ用。マスク自体には使わない
   return maskNames(text);
 }
