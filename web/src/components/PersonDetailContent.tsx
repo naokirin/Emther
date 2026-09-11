@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
@@ -9,6 +9,7 @@ import { MultiSelectAutocomplete, type MultiSelectOption } from "@/components/Mu
 import { Select } from "@/components/Select";
 import { TagInput } from "@/components/TagInput";
 import { usePeople, usePersonProfile, useTeams } from "@/lib/hooks";
+import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { PERSON_VITAL_LABEL, URGENCY_LABEL, charterFilledCount, personVitalStatus, teamDisplayName, type Team } from "@/lib/types";
 
 // ユーザー要望「メンバーの詳細画面からチームを設定できるようにしたい」対応。従来は
@@ -180,8 +181,132 @@ function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: st
 //
 // docs/memo.md「J. Peopleを第一級ハブに」対応。人物軸でJournal fact・長期プロファイル
 // （解釈）・チーム所属・関連Issueを横断して見せる詳細画面。新規の永続化エンティティは
-// 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ（このページ自体はEMの
-// 「介入」を行う場所ではなく、辿るための入口——実際の記録・起票は既存の各画面で行う）。
+// 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ。辿る入口に加え、
+// この人物に紐づくJournalをその場で追加できる（作成時にpeopleへ本人を明示付与）。
+function PersonJournalComposer({
+  personName,
+  onCreated,
+}: {
+  personName: string;
+  onCreated: () => void;
+}) {
+  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
+  const [text, setText] = useState("");
+  const [occurredAtDate, setOccurredAtDate] = useState("");
+  const [dateOpen, setDateOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || pending) return;
+    setPending(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const { res, data } = await fetchWithNameConfirm(
+        "/api/journal",
+        {
+          method: "POST",
+          body: {
+            text: trimmed,
+            occurredAtDate: occurredAtDate || undefined,
+            people: [personName],
+          },
+        },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "記録に失敗しました");
+      setText("");
+      setOccurredAtDate("");
+      setDateOpen(false);
+      setStatus("記録しました（未確認）。タグ・緊急度はJournal一覧で校正できます。");
+      onCreated();
+    } catch (err) {
+      if ((err as Error).message === "人名候補の確認をキャンセルしました") return;
+      setError((err as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <form onSubmit={handleSubmit} style={{ marginBottom: 12 }}>
+        <p className={styles.subtitle} style={{ marginBottom: 6 }}>
+          {personName}に紐づくJournalとして記録します。本文に名前が無くても、この人物へ紐付きます。
+        </p>
+        <div className={styles.journalInputRow}>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={3}
+            placeholder={`例: ${personName}との1on1で、進捗の遅れへの不安を聞いた…`}
+            disabled={pending}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                e.preventDefault();
+                (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit();
+              }
+            }}
+          />
+          <button className={styles.primaryBtn} style={{ width: "auto" }} type="submit" disabled={pending || !text.trim()}>
+            {pending ? "記録中…" : "Submit"}
+          </button>
+        </div>
+        {dateOpen ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              発生日
+              <input
+                type="date"
+                value={occurredAtDate}
+                onChange={(e) => setOccurredAtDate(e.target.value)}
+                style={{ maxWidth: 160 }}
+                disabled={pending}
+              />
+            </label>
+            <button
+              type="button"
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              disabled={pending}
+              onClick={() => {
+                setOccurredAtDate("");
+                setDateOpen(false);
+              }}
+            >
+              今日に戻す
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+            style={{ marginTop: 6 }}
+            disabled={pending}
+            onClick={() => setDateOpen(true)}
+          >
+            📅 今日の話じゃない（発生日を変える）
+          </button>
+        )}
+        {error && (
+          <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
+            {error}
+          </p>
+        )}
+        {status && (
+          <p className={styles.subtitle} style={{ marginTop: 6 }} role="status">
+            ✅ {status}
+          </p>
+        )}
+      </form>
+      {nameCandidateDialog}
+    </>
+  );
+}
+
 export function PersonDetailContent({ id }: { id: string }) {
   const { person, personLoaded, refreshPerson } = usePersonProfile(id);
   const { refreshPeople } = usePeople();
@@ -391,8 +516,9 @@ export function PersonDetailContent({ id }: { id: string }) {
         )}
 
         <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>直近のJournal（一時的な状況、有効期限内のもののみ）</h3>
+        <PersonJournalComposer personName={person.name} onCreated={refreshPerson} />
         {person.facts.length === 0 ? (
-          <p className={styles.subtitle}>関連するJournalはありません。</p>
+          <p className={styles.subtitle}>関連するJournalはまだありません。上のフォームから記録できます。</p>
         ) : (
           <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
             <table className={styles.table}>
@@ -435,6 +561,11 @@ export function PersonDetailContent({ id }: { id: string }) {
             </table>
           </div>
         )}
+        <p className={styles.subtitle} style={{ marginTop: 4, marginBottom: 10 }}>
+          <Link href={`/journal?person=${encodeURIComponent(person.name)}`} className={styles.tableRowLink}>
+            {person.name}のJournalをすべて見る →
+          </Link>
+        </p>
 
         <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue</h3>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>

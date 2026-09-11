@@ -2,6 +2,12 @@ import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { getPersonId, ensureNameCandidatesAllowed, maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+
+// 人物詳細など「この人に紐づけて書く」導線から、EMが明示した人物名を作成時に渡すため。
+// 校正（PATCH）の people と同様、明示指定は registerName してよい（NER自動抽出とは別経路）。
+export type AddJournalOpts = MaskOptions & {
+  people?: string[];
+};
 import {
   recordEvent,
   listEvents,
@@ -162,7 +168,7 @@ function isSentiment(v: unknown): v is Sentiment {
 async function createJournalEventFromText(
   rawText: string,
   occurredAt: number,
-  opts: MaskOptions = {},
+  opts: AddJournalOpts = {},
 ): Promise<KnowledgeEvent> {
   await ensureNameCandidatesAllowed([rawText], opts);
 
@@ -197,16 +203,18 @@ async function createJournalEventFromText(
 
   // 既登録の人物だけを紐付ける。ローカル抽出の新規名は自動登録しない
   // （EMが校正時にpeople欄へ明示したときだけregisterNameする）。
+  // ただし opts.people（人物詳細からの「この人に紐づけて書く」等）はEMの明示指定なので
+  // 校正時と同様に registerName し、抽出漏れでも必ず紐付くようにする。
   const peopleNames: string[] = Array.isArray(structured.people)
     ? structured.people.filter((p: unknown): p is string => typeof p === "string")
     : [];
-  const people = [
-    ...new Set(
-      peopleNames
-        .map((p) => getPersonId(p))
-        .filter((id): id is string => id !== undefined),
-    ),
-  ];
+  const extractedPeople = peopleNames
+    .map((p) => getPersonId(p))
+    .filter((id): id is string => id !== undefined);
+  const explicitPeople = (opts.people ?? [])
+    .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
+    .map((p) => registerName(p.trim()));
+  const people = [...new Set([...extractedPeople, ...explicitPeople])];
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
@@ -262,7 +270,7 @@ async function createJournalEventFromText(
 export async function addJournalEntry(
   rawText: string,
   occurredAt: number = Date.now(),
-  opts: MaskOptions = {},
+  opts: AddJournalOpts = {},
 ): Promise<JournalEntry> {
   const event = await createJournalEventFromText(rawText, occurredAt, opts);
 

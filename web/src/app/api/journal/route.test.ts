@@ -101,4 +101,20 @@ describe("POST /api/journal", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("peopleを明示するとNER抽出が空でも紐付く", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("花子さん");
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/journal", "POST", {
+        text: "進捗が遅れている",
+        people: ["花子さん"],
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.entry.people).toEqual(["花子さん"]);
+  });
 });
