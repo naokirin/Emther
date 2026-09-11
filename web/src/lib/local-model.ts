@@ -5,16 +5,20 @@ import { pipeline, type ProgressCallback } from "@huggingface/transformers";
 // agent-runtime.ts（クラウドLLMに送る前の人物名検出）の両方から共有で使う。
 //
 // モデルサイズはこのリポジトリの検証環境（メモリ7.7GB、常時スワップ逼迫気味）での安定性を
-// 優先して0.5Bを採用（1.5Bだとリクエスト後にプロセスが落ちることを複数回確認した）。
+// 優先して小型モデルを採用（1.5Bだとリクエスト後にプロセスが落ちることを複数回確認した）。
 // 2026-09-08にも1.5Bへの切り替えを再検証したが、1リクエストでnext-serverのRSSが
 // 約5GBまで増加してシステム空きメモリが150MB台まで低下し、生成自体も
-// JSON抽出失敗（500）に終わったため0.5Bへ差し戻した。
+// JSON抽出失敗（500）に終わったため小型へ差し戻した。
+// 当初は Qwen2.5-0.5B-Instruct を使っていたが、要約などが中国語に寄りやすいため、
+// 日本語を含む多言語対応の LFM2.5-350M へ切り替えた。
+// （同規模の日本語特化 Sarashina2.2-0.5B の onnx-community 版は tokenizer 欠落で
+// Transformers.js から使えなかった。）
 // より余裕のあるマシンで動かす場合はLOCAL_CHAT_MODELを差し替えるとよい。
 //
 // 未キャッシュ時の起動ダウンロード＋進捗表示は model-loader.ts が担う。
 export const LOCAL_CHAT_MODEL = {
   task: "text-generation" as const,
-  id: "onnx-community/Qwen2.5-0.5B-Instruct",
+  id: "onnx-community/LFM2.5-350M-ONNX",
   dtype: "q4" as const,
 };
 

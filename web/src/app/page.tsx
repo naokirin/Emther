@@ -1470,7 +1470,7 @@ export default function DashboardPage() {
             <span
               className={styles.subtitle}
               style={{ fontWeight: 400, cursor: "help" }}
-              title="入力後、完全ローカルの軽量モデル（Qwen2.5-0.5B、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。"
+              title="入力後、完全ローカルの軽量モデル（LFM2.5-350M、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。"
             >
               ⓘ
             </span>
