@@ -237,6 +237,8 @@ export type PendingUnmaskedSend = {
   origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
   linkedIssueId?: string;
   sourceJournalId?: string;
+  /** 何でも相談で経営／役員目線レビューを必須consultするとき */
+  requiredConsultAgents?: string[];
   runId?: string;
   message?: string;
   /** Issue更新分析のdecide-run確認時に、チーム先行並列を行うか */
@@ -500,7 +502,17 @@ export const YIELD_KIND_META: Record<YieldKind, { icon: string; label: string; d
 
 // docs/memo.md「F. Product Agentの追加」対応。People(人)/Process(組織運営)/Tech(実装)の
 // 3象限に、Product(顧客価値・優先順位・ロードマップ)を足して4象限を埋める。
-export const AGENT_OPTIONS = ["Lead Agent", "People Agent", "Process Agent", "Tech Agent", "Product Agent"];
+// Exec Agentは常時象限ではなく、何でも相談のオプトインで経営／役員／MVV目線の厳しい
+// レビューを足す専門レンズ（Leadの必須consult先）。手動起動も可能なので選択肢に含める。
+export const EXEC_AGENT_NAME = "Exec Agent";
+export const AGENT_OPTIONS = [
+  "Lead Agent",
+  "People Agent",
+  "Process Agent",
+  "Tech Agent",
+  "Product Agent",
+  EXEC_AGENT_NAME,
+];
 
 // ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。Claude Codeの
 // 「計画立案はOpus、単純な分析はSonnet」のような使い分けに倣い、エージェント種別ごとに
