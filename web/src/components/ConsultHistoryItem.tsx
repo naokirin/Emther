@@ -43,14 +43,17 @@ export function formatConsultListTime(ts: number, now = Date.now()): string {
 
 export function consultListMetaParts(
   run: Pick<AgentRun, "origin" | "status" | "reviewed" | "triageStatus" | "sourceJournalId" | "updatedAt">,
-  opts: { stale?: boolean; now?: number } = {},
+  opts: { stale?: boolean; now?: number; omitTime?: boolean; omitTriage?: boolean } = {},
 ): string[] {
-  const parts = [formatConsultListTime(run.updatedAt, opts.now)];
+  const parts: string[] = [];
+  // 今日タブの様子見一覧は「経過」列があるので日時を省略できる。
+  if (!opts.omitTime) parts.push(formatConsultListTime(run.updatedAt, opts.now));
   parts.push(opts.stale && run.status === "active" ? "応答なし" : STATUS_SHORT[run.status]);
   const origin = ORIGIN_SHORT[run.origin] || (run.sourceJournalId ? "Journalから" : "");
   if (origin) parts.push(origin);
   if (run.origin !== "manual" && !run.reviewed) parts.push("未確認");
-  if (run.triageStatus) parts.push(TRIAGE_SHORT[run.triageStatus]);
+  // 様子見セクション内では「様子見」ラベルは冗長なので省略できる。
+  if (run.triageStatus && !opts.omitTriage) parts.push(TRIAGE_SHORT[run.triageStatus]);
   return parts;
 }
 
