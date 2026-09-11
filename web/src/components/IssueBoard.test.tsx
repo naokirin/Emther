@@ -57,4 +57,22 @@ describe("IssueBoard", () => {
     render(<IssueBoard issues={[staleIssue]} allIssues={[staleIssue]} now={Date.now()} staleInterventionDays={14} onSelect={vi.fn()} />);
     expect(screen.getByText(/停滞中/)).toBeInTheDocument();
   });
+
+  it("子Issueは自身のステータス列に独立カードとして出し親タイトルを添える", () => {
+    const parent = baseIssue({ id: "parent", title: "親Issue", status: "in_progress" });
+    const child = baseIssue({ id: "child", title: "子Issue", parentId: "parent", status: "blocked" });
+    render(
+      <IssueBoard
+        issues={[parent, child]}
+        allIssues={[parent, child]}
+        now={Date.now()}
+        staleInterventionDays={14}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("親Issue")).toBeInTheDocument();
+    expect(screen.getByText("子Issue")).toBeInTheDocument();
+    expect(screen.getByText("↳ 親Issue")).toBeInTheDocument();
+    expect(screen.getByText(/子Issue: 1件/)).toBeInTheDocument();
+  });
 });

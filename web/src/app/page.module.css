@@ -415,6 +415,43 @@
   text-align: center;
 }
 
+/* Issue一覧の親子ツリー（Collapse）。トグル幅を揃えてタイトル列のインデントを安定させる。 */
+.issueTitleCell {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.issueTreeToggle {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 1px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.issueTreeToggle:hover {
+  border-color: var(--blue);
+  color: var(--blue-text);
+}
+
+.issueTreeToggleSpacer {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.issueChildRow td:first-child {
+  background: var(--gray-bg);
+}
+
 .activityStream {
   margin-top: 10px;
   display: flex;
