@@ -345,7 +345,9 @@ export default function DashboardPage() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [distillSubmitting, setDistillSubmitting] = useState(false);
   const [distillError, setDistillError] = useState<string | null>(null);
-  const [themeRationaleOpenId, setThemeRationaleOpenId] = useState<string | null>(null);
+  // 採用済みテーマは「次の1手」ではなく「現在の優先テーマ」。詳細は既定で畳む。
+  const [priorityThemeExpandedId, setPriorityThemeExpandedId] = useState<string | null>(null);
+  const [priorityThemesShowAll, setPriorityThemesShowAll] = useState(false);
   const [themeEditId, setThemeEditId] = useState<string | null>(null);
   const [themeEditDraft, setThemeEditDraft] = useState({ title: "", summary: "", rationale: "" });
   const [themeEditBusy, setThemeEditBusy] = useState(false);
@@ -898,6 +900,16 @@ export default function DashboardPage() {
         : "✅ 今日、判断待ちの組織課題はありません。";
   const restCount = restActions.length;
 
+  // 採用＝肯定（1段階）。壁打ち前提に入ったテーマを「意識の錨」として今日タブに残す。
+  const PRIORITY_THEME_LIMIT = 3;
+  const adoptedThemes = themes
+    .filter((t) => t.status === "adopted")
+    .sort((a, b) => (b.adoptedAt ?? b.updatedAt) - (a.adoptedAt ?? a.updatedAt));
+  const visiblePriorityThemes = priorityThemesShowAll
+    ? adoptedThemes
+    : adoptedThemes.slice(0, PRIORITY_THEME_LIMIT);
+  const hiddenPriorityThemeCount = Math.max(0, adoptedThemes.length - PRIORITY_THEME_LIMIT);
+
   async function handleCompleteExecutionMove(issueId: string, itemId: string) {
     const key = `${issueId}:${itemId}`;
     setCompletingActionKey(key);
@@ -978,6 +990,176 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* 採用済みテーマは判断待ちではなく「いまの見立て」。次の1手の直前に意識の錨として置く。 */}
+      {adoptedThemes.length > 0 && (
+        <div className={styles.panel} style={{ marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: "1rem" }}>現在の優先テーマ</h2>
+          <p className={styles.subtitle} style={{ marginTop: 4 }}>
+            Issue壁打ちの前提として使われています。問題なければ操作は不要です。
+          </p>
+          {visiblePriorityThemes.map((t) => {
+            const expanded = priorityThemeExpandedId === t.id || themeEditId === t.id;
+            return (
+              <div
+                key={t.id}
+                style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid var(--border)",
+                  fontSize: "0.8125rem",
+                }}
+              >
+                {themeEditId === t.id ? (
+                  <div className={styles.field}>
+                    <label>
+                      タイトル
+                      <input
+                        value={themeEditDraft.title}
+                        onChange={(e) => setThemeEditDraft({ ...themeEditDraft, title: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      根本課題の見立て
+                      <textarea
+                        rows={2}
+                        value={themeEditDraft.summary}
+                        onChange={(e) => setThemeEditDraft({ ...themeEditDraft, summary: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      なぜこの結果に至ったか
+                      <textarea
+                        rows={3}
+                        value={themeEditDraft.rationale}
+                        onChange={(e) => setThemeEditDraft({ ...themeEditDraft, rationale: e.target.value })}
+                      />
+                    </label>
+                    <div className={styles.yieldActions}>
+                      <button
+                        className={styles.primaryBtn}
+                        style={{ width: "auto" }}
+                        disabled={
+                          themeEditBusy ||
+                          (themeEditDraft.title === t.title &&
+                            themeEditDraft.summary === t.summary &&
+                            themeEditDraft.rationale === t.rationale)
+                        }
+                        onClick={async () => {
+                          setThemeEditBusy(true);
+                          try {
+                            const res = await fetch(`/api/themes/${t.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "revise", ...themeEditDraft }),
+                            });
+                            if (!res.ok) throw new Error("更新に失敗しました");
+                            setThemeEditId(null);
+                            await refreshThemes();
+                          } finally {
+                            setThemeEditBusy(false);
+                          }
+                        }}
+                      >
+                        保存
+                      </button>
+                      <button className={styles.btnOutline} onClick={() => setThemeEditId(null)}>
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <strong>{t.title}</strong>
+                        <p style={{ margin: "2px 0 0", color: "var(--text-muted)" }}>{t.summary}</p>
+                      </div>
+                      <button
+                        className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                        type="button"
+                        onClick={() => setPriorityThemeExpandedId(expanded ? null : t.id)}
+                      >
+                        {expanded ? "閉じる" : "詳細"}
+                      </button>
+                    </div>
+                    {expanded && (
+                      <div style={{ marginTop: 8 }}>
+                        <p style={{ margin: "0 0 6px", color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                          {t.rationale}
+                        </p>
+                        {t.facts.length > 0 && (
+                          <ul style={{ margin: "0 0 6px 16px", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                            {t.facts.map((f, i) => (
+                              <li key={i}>{f}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {t.rootCause && (
+                          <p style={{ margin: "0 0 4px", fontSize: "0.75rem" }}>根本原因: {t.rootCause}</p>
+                        )}
+                        {t.suggestedDirection && (
+                          <p style={{ margin: "0 0 4px", fontSize: "0.75rem" }}>
+                            解決の方向性: {t.suggestedDirection}
+                          </p>
+                        )}
+                        <div className={styles.yieldActions} style={{ marginTop: 8 }}>
+                          <button
+                            className={styles.btnOutline}
+                            type="button"
+                            onClick={() => {
+                              setThemeEditId(t.id);
+                              setThemeEditDraft({ title: t.title, summary: t.summary, rationale: t.rationale });
+                            }}
+                          >
+                            編集して訂正
+                          </button>
+                          {t.sourceRunId && (
+                            <button
+                              className={styles.btnOutline}
+                              type="button"
+                              onClick={() => router.push(`/chat?runId=${t.sourceRunId}`)}
+                            >
+                              壁打ちで見直す
+                            </button>
+                          )}
+                          <button
+                            className={styles.btnOutline}
+                            type="button"
+                            onClick={async () => {
+                              await fetch(`/api/themes/${t.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "dismiss" }),
+                              });
+                              if (priorityThemeExpandedId === t.id) setPriorityThemeExpandedId(null);
+                              await refreshThemes();
+                            }}
+                          >
+                            採用を取り消す
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {hiddenPriorityThemeCount > 0 && (
+            <button
+              type="button"
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              style={{ marginTop: 10 }}
+              onClick={() => setPriorityThemesShowAll(!priorityThemesShowAll)}
+            >
+              {priorityThemesShowAll
+                ? "件数を減らす"
+                : `他 ${hiddenPriorityThemeCount} 件の採用テーマを見る`}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 「次の1手」をヒーローに固定。判断（Yield等）と実行（Next Action）をモードで分ける。 */}
       <div className={styles.dashColumns}>
       <div className={`${styles.panel} ${styles.heroPanel}`}>
@@ -1035,137 +1217,6 @@ export default function DashboardPage() {
           <p className={styles.errorText} role="alert">
             {distillError}
           </p>
-        )}
-
-        {themes.filter((t) => t.status === "adopted").length > 0 && (
-          <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
-            <strong>採用済みのテーマ解釈</strong>
-            <p className={styles.subtitle} style={{ marginTop: 4 }}>
-              Issue壁打ちの前提としてエージェントに渡されます。誤りは編集するか、相談で壁打ちしてください。
-            </p>
-            {themes
-              .filter((t) => t.status === "adopted")
-              .map((t) => (
-                <div key={t.id} style={{ marginTop: 10, fontSize: "0.8125rem" }}>
-                  {themeEditId === t.id ? (
-                    <div className={styles.field}>
-                      <label>
-                        タイトル
-                        <input
-                          value={themeEditDraft.title}
-                          onChange={(e) => setThemeEditDraft({ ...themeEditDraft, title: e.target.value })}
-                        />
-                      </label>
-                      <label>
-                        根本課題の見立て
-                        <textarea
-                          rows={2}
-                          value={themeEditDraft.summary}
-                          onChange={(e) => setThemeEditDraft({ ...themeEditDraft, summary: e.target.value })}
-                        />
-                      </label>
-                      <label>
-                        なぜこの結果に至ったか
-                        <textarea
-                          rows={3}
-                          value={themeEditDraft.rationale}
-                          onChange={(e) => setThemeEditDraft({ ...themeEditDraft, rationale: e.target.value })}
-                        />
-                      </label>
-                      <div className={styles.yieldActions}>
-                        <button
-                          className={styles.primaryBtn}
-                          style={{ width: "auto" }}
-                          disabled={
-                            themeEditBusy ||
-                            (themeEditDraft.title === t.title &&
-                              themeEditDraft.summary === t.summary &&
-                              themeEditDraft.rationale === t.rationale)
-                          }
-                          onClick={async () => {
-                            setThemeEditBusy(true);
-                            try {
-                              const res = await fetch(`/api/themes/${t.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "revise", ...themeEditDraft }),
-                              });
-                              if (!res.ok) throw new Error("更新に失敗しました");
-                              setThemeEditId(null);
-                              await refreshThemes();
-                            } finally {
-                              setThemeEditBusy(false);
-                            }
-                          }}
-                        >
-                          保存
-                        </button>
-                        <button className={styles.btnOutline} onClick={() => setThemeEditId(null)}>
-                          キャンセル
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <strong>{t.title}</strong>
-                      <p style={{ margin: "2px 0 4px" }}>{t.summary}</p>
-                      <button
-                        className={styles.detailToggle}
-                        type="button"
-                        onClick={() => setThemeRationaleOpenId(themeRationaleOpenId === t.id ? null : t.id)}
-                      >
-                        {themeRationaleOpenId === t.id ? "根拠を隠す" : "なぜこの結果か"}
-                      </button>
-                      {themeRationaleOpenId === t.id && (
-                        <div style={{ marginTop: 6, color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                          <p>{t.rationale}</p>
-                          {t.facts.length > 0 && (
-                            <ul style={{ margin: "4px 0 0 16px" }}>
-                              {t.facts.map((f, i) => (
-                                <li key={i}>{f}</li>
-                              ))}
-                            </ul>
-                          )}
-                          {t.rootCause && <p>根本原因: {t.rootCause}</p>}
-                          {t.suggestedDirection && <p>解決の方向性: {t.suggestedDirection}</p>}
-                        </div>
-                      )}
-                      <div className={styles.yieldActions} style={{ marginTop: 6 }}>
-                        <button
-                          className={styles.btnOutline}
-                          type="button"
-                          onClick={() => {
-                            setThemeEditId(t.id);
-                            setThemeEditDraft({ title: t.title, summary: t.summary, rationale: t.rationale });
-                          }}
-                        >
-                          編集して訂正
-                        </button>
-                        {t.sourceRunId && (
-                          <button className={styles.btnOutline} type="button" onClick={() => router.push(`/chat?runId=${t.sourceRunId}`)}>
-                            壁打ちで見直す
-                          </button>
-                        )}
-                        <button
-                          className={styles.btnOutline}
-                          type="button"
-                          onClick={async () => {
-                            await fetch(`/api/themes/${t.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ action: "dismiss" }),
-                            });
-                            await refreshThemes();
-                          }}
-                        >
-                          採用を取り消す
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-          </div>
         )}
 
         <div className={styles.tabs} style={{ margin: "0 0 12px" }}>
