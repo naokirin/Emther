@@ -320,7 +320,6 @@ export default function TeamsPage() {
         {selectedTeam && (
           <>
             <div className={styles.editorPath}>
-              <code>/Teams/{selectedTeam.name}</code>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className={styles.btnOutline} onClick={handleToggleTeamArchived} disabled={archiving}>
                   {selectedTeam.archived ? "アーカイブを解除" : "アーカイブする"}

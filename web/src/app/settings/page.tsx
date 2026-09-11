@@ -106,7 +106,6 @@ export default function SettingsPage() {
                 場所に見える、ページ上部に固定した保存バーにする（グループ間で切り替えても
                 スクロール・移動が要らない）。 */}
             <div className={styles.editorPath}>
-              <code>/Settings/Rules_and_Constraints</code>
               <button className={styles.primaryBtn} onClick={handleSave} disabled={saving || !seeded || !isDirty}>
                 {saving ? "保存中…" : isDirty ? "保存" : "保存済み"}
               </button>
@@ -123,9 +122,6 @@ export default function SettingsPage() {
           </>
         ) : (
           <>
-            <div className={styles.editorPath}>
-              <code>/Settings/Data</code>
-            </div>
             <p className={styles.subtitle}>
               端末移行のためのバックアップ・復元と、全データのリセットです。Rules の保存とは別の操作です。
             </p>
@@ -601,7 +597,7 @@ export default function SettingsPage() {
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>状況の蒸留（週次バッチ）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Journal・Issue・既存テーマから「根本課題の見立て」をLead Agentが候補として出します。採用するまでIssue壁打ちの前提には入りません（docs/knowledge_distillation.md）。
+                  Journal・Issue・既存テーマから「根本課題の見立て」をLead Agentが候補として出します。採用するまでIssue壁打ちの前提には入りません。
                 </p>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
                   <input
@@ -645,7 +641,7 @@ export default function SettingsPage() {
               <>
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>Morning Modeの上限件数（AI主導トリアージ）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  docs/em_ui_ux_issue.md 2.2/4節対応。「今日の判断待ち」を朝の主作業にしないため、Morning Modeで前面に出す件数に上限を設けます。超過分は「もっと見る」で3件ずつ追加表示できます。
+                  Morning Modeで前面に出す件数に上限を設けます。超過分は「もっと見る」で3件ずつ追加表示できます。
                 </p>
                 <div className={styles.field} style={{ maxWidth: 160 }}>
                   <label>判断待ち（decision）レーンの上限件数
