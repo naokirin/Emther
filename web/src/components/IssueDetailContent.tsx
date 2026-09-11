@@ -9,6 +9,7 @@ import { OriginTrace } from "@/components/OriginTrace";
 import { Modal } from "@/components/Modal";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssueStatusSelector, IssuePrioritySelector, IssueTriageAxes } from "@/components/IssueStatus";
+import { IssueStrategyLinkSuggestPanel } from "@/components/HierarchyLinkSuggestPanel";
 import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
@@ -28,6 +29,7 @@ import {
   type IssueCharter,
   type IssuePriority,
   type IssueStatus,
+  type IssueStrategyLinkSuggestion,
 } from "@/lib/types";
 import { journalExcerptFromTask, resolveSourceConsultRun } from "@/lib/origin-trace";
 
@@ -381,6 +383,13 @@ export function IssueDetailContent({ id }: { id: string }) {
   const [prioritySaving, setPrioritySaving] = useState(false);
   const [triageRescoring, setTriageRescoring] = useState(false);
   const [triageRescoreMessage, setTriageRescoreMessage] = useState<string | null>(null);
+  const [strategyLinkSuggesting, setStrategyLinkSuggesting] = useState(false);
+  const [strategyLinkError, setStrategyLinkError] = useState<string | null>(null);
+  const [strategyLinkPreview, setStrategyLinkPreview] = useState<{
+    suggestions: IssueStrategyLinkSuggestion[];
+    source: "cloud" | "heuristic";
+  } | null>(null);
+  const [strategyLinkApplyingId, setStrategyLinkApplyingId] = useState<string | null>(null);
 
   // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。カンバンのドラッグ&ドロップは
   // 実装しないため、列（ステータス）の切り替えはここから行う。
@@ -436,6 +445,56 @@ export function IssueDetailContent({ id }: { id: string }) {
       setTriageRescoreMessage((err as Error).message);
     } finally {
       setTriageRescoring(false);
+    }
+  }
+
+  async function handleSuggestStrategyLink() {
+    if (!issue) return;
+    setStrategyLinkSuggesting(true);
+    setStrategyLinkError(null);
+    try {
+      const res = await fetch("/api/issues/link/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issueIds: [issue.id] }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
+      setStrategyLinkPreview({
+        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+        source: data?.source === "cloud" ? "cloud" : "heuristic",
+      });
+    } catch (err) {
+      setStrategyLinkError((err as Error).message);
+    } finally {
+      setStrategyLinkSuggesting(false);
+    }
+  }
+
+  async function handleAdoptStrategyLink(s: IssueStrategyLinkSuggestion) {
+    setStrategyLinkApplyingId(s.issueId);
+    setStrategyLinkError(null);
+    try {
+      const res = await fetch(`/api/issues/${s.issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId: s.themeId,
+          keyResultId: s.keyResultId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "リンクの採用に失敗しました");
+      }
+      setThemeIdDraft(s.themeId ?? "");
+      setKeyResultIdDraft(s.keyResultId ?? "");
+      await Promise.all([refreshIssue(), refreshIssues()]);
+      setStrategyLinkPreview(null);
+    } catch (err) {
+      setStrategyLinkError((err as Error).message);
+    } finally {
+      setStrategyLinkApplyingId(null);
     }
   }
 
@@ -1185,9 +1244,38 @@ export function IssueDetailContent({ id }: { id: string }) {
               📈 Key Result: {krLabel ? `${krLabel.objTitle} ＞ ${krLabel.kr.title}` : "なし"}
             </p>
             {strategyUnlinked && (
-              <p className={styles.subtitle} style={{ marginBottom: 10, color: "var(--warning, #b45309)" }}>
-                ⚠ 戦略未接続（テーマ / Key Result のどちらかを紐付けると朝の物語に乗りやすくなります）
-              </p>
+              <div style={{ marginBottom: 10 }}>
+                <p className={styles.subtitle} style={{ margin: "0 0 6px", color: "var(--warning, #b45309)" }}>
+                  ⚠ 戦略未接続（テーマ / Key Result のどちらかを紐付けると朝の物語に乗りやすくなります）
+                </p>
+                <button
+                  type="button"
+                  className={styles.btnOutline}
+                  style={{ fontSize: "0.75rem" }}
+                  disabled={strategyLinkSuggesting}
+                  onClick={handleSuggestStrategyLink}
+                  title="この Issue へテーマ / KR の紐付けをAIが提案します"
+                >
+                  {strategyLinkSuggesting ? "提案中…" : "🔗 戦略リンクをAI提案"}
+                </button>
+                {strategyLinkError && (
+                  <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
+                    {strategyLinkError}
+                  </p>
+                )}
+                {strategyLinkPreview && (
+                  <div style={{ marginTop: 8 }}>
+                    <IssueStrategyLinkSuggestPanel
+                      suggestions={strategyLinkPreview.suggestions}
+                      source={strategyLinkPreview.source}
+                      applyingId={strategyLinkApplyingId}
+                      onAdopt={handleAdoptStrategyLink}
+                      onDismiss={() => setStrategyLinkPreview(null)}
+                      onDismissOne={() => setStrategyLinkPreview(null)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {issue.tags.length > 0 && (
@@ -1283,9 +1371,37 @@ export function IssueDetailContent({ id }: { id: string }) {
               /></label>
             </div>
             {isIssueStrategyUnlinked({ themeId: themeIdDraft || undefined, keyResultId: keyResultIdDraft || undefined }) && (
-              <p className={styles.subtitle} style={{ color: "var(--warning, #b45309)" }}>
-                ⚠ 戦略未接続（必須ではありません）
-              </p>
+              <div style={{ marginBottom: 8 }}>
+                <p className={styles.subtitle} style={{ margin: "0 0 6px", color: "var(--warning, #b45309)" }}>
+                  ⚠ 戦略未接続（必須ではありません）
+                </p>
+                <button
+                  type="button"
+                  className={styles.btnOutline}
+                  style={{ fontSize: "0.75rem" }}
+                  disabled={strategyLinkSuggesting}
+                  onClick={handleSuggestStrategyLink}
+                >
+                  {strategyLinkSuggesting ? "提案中…" : "🔗 戦略リンクをAI提案"}
+                </button>
+                {strategyLinkError && (
+                  <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
+                    {strategyLinkError}
+                  </p>
+                )}
+                {strategyLinkPreview && (
+                  <div style={{ marginTop: 8 }}>
+                    <IssueStrategyLinkSuggestPanel
+                      suggestions={strategyLinkPreview.suggestions}
+                      source={strategyLinkPreview.source}
+                      applyingId={strategyLinkApplyingId}
+                      onAdopt={handleAdoptStrategyLink}
+                      onDismiss={() => setStrategyLinkPreview(null)}
+                      onDismissOne={() => setStrategyLinkPreview(null)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
             <div className={styles.field}>
               <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>

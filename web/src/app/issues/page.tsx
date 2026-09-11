@@ -9,6 +9,9 @@ import { PaginationControls, usePagination } from "@/components/Pagination";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssuePriorityBadge, IssueTriageAxes } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
+import {
+  IssueStrategyLinkSuggestPanel,
+} from "@/components/HierarchyLinkSuggestPanel";
 import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
@@ -29,6 +32,7 @@ import {
   type Issue,
   type IssuePriority,
   type IssueStatus,
+  type IssueStrategyLinkSuggestion,
 } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
@@ -116,6 +120,13 @@ function IssuesPageInner() {
     }>;
     changes: Array<{ issueId: string; title: string; fromLabel: string; toLabel: string }>;
   } | null>(null);
+  const [linkSuggesting, setLinkSuggesting] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkPreview, setLinkPreview] = useState<{
+    suggestions: IssueStrategyLinkSuggestion[];
+    source: "cloud" | "heuristic";
+  } | null>(null);
+  const [linkApplyingId, setLinkApplyingId] = useState<string | null>(null);
   // リスト: 親ごとの子Issue展開。既定は折りたたみ。
   const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(() => new Set());
   // ボード: 子Issueを自身のステータス列へ独立カードとして出すか。
@@ -321,6 +332,57 @@ function IssuesPageInner() {
     }
   }
 
+  async function handleSuggestStrategyLinks() {
+    setLinkSuggesting(true);
+    setLinkError(null);
+    try {
+      const res = await fetch("/api/issues/link/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
+      setLinkPreview({
+        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+        source: data?.source === "cloud" ? "cloud" : "heuristic",
+      });
+    } catch (err) {
+      setLinkError((err as Error).message);
+    } finally {
+      setLinkSuggesting(false);
+    }
+  }
+
+  async function handleAdoptStrategyLink(s: IssueStrategyLinkSuggestion) {
+    setLinkApplyingId(s.issueId);
+    setLinkError(null);
+    try {
+      const res = await fetch(`/api/issues/${s.issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId: s.themeId,
+          keyResultId: s.keyResultId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "リンクの採用に失敗しました");
+      }
+      await refreshIssues();
+      setLinkPreview((prev) =>
+        prev
+          ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== s.issueId) }
+          : null,
+      );
+    } catch (err) {
+      setLinkError((err as Error).message);
+    } finally {
+      setLinkApplyingId(null);
+    }
+  }
+
   async function handleCompleteActionItem(issueId: string, itemId: string) {
     const key = `${issueId}:${itemId}`;
     setCompletingActionKey(key);
@@ -469,6 +531,67 @@ function IssuesPageInner() {
             {triageSubmitting ? "更新中…" : "評価を一括更新"}
           </button>
         </div>
+        {(() => {
+          const unlinkedStrategyCount = issues.filter(
+            (i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i),
+          ).length;
+          if (unlinkedStrategyCount === 0) return null;
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 10,
+                margin: "0 0 12px",
+                padding: "10px 12px",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                background: "var(--bg-muted, color-mix(in srgb, var(--border) 12%, transparent))",
+              }}
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                  戦略未接続をAIで見直す（{unlinkedStrategyCount}）
+                </div>
+                <p className={styles.subtitle} style={{ margin: "2px 0 0" }}>
+                  テーマ / Key Result 未接続の親 Issue へ紐付け案を出します（採用まで反映しません）。
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ flexShrink: 0 }}
+                disabled={linkSuggesting || (themes.filter((t) => t.status === "adopted").length === 0 && objectives.length === 0)}
+                onClick={handleSuggestStrategyLinks}
+                title="戦略未接続の親 Issue へ、テーマ / KR の紐付けをAIが提案します"
+              >
+                {linkSuggesting ? "提案中…" : "🔗 戦略リンクを提案"}
+              </button>
+            </div>
+          );
+        })()}
+        {linkError && (
+          <p className={styles.errorText} role="alert">
+            {linkError}
+          </p>
+        )}
+        {linkPreview && (
+          <IssueStrategyLinkSuggestPanel
+            suggestions={linkPreview.suggestions}
+            source={linkPreview.source}
+            applyingId={linkApplyingId}
+            onAdopt={handleAdoptStrategyLink}
+            onDismiss={() => setLinkPreview(null)}
+            onDismissOne={(issueId) =>
+              setLinkPreview((prev) =>
+                prev
+                  ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) }
+                  : null,
+              )
+            }
+          />
+        )}
         {triageError && (
           <p className={styles.errorText} role="alert">
             {triageError}
