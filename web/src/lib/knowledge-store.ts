@@ -351,12 +351,15 @@ export function isEventExpired(event: KnowledgeEvent, now = Date.now()): boolean
   return event.occurredAt + event.ttlDays * 24 * 60 * 60 * 1000 < now;
 }
 
-// 特定の人物に関する「今も重みを持つファクト」。TTL切れのものは除外する
-// （削除はしない＝listEvents()で全履歴は引き続き参照可能）。
+// 特定の人物に関する「今も重みを持つファクト」。TTL切れのものと、supersedesで
+// 置き換えられた旧版は除外する（Journal一覧のlistJournalEntriesと同じ方針。
+// 削除はしない＝listEvents()で全履歴は引き続き参照可能）。
 // personIdはpeople-directory.tsの`PERSON_n` ID（実名ではない）。
 export function listActiveFactsForPerson(personId: string, limit = 5): KnowledgeEvent[] {
-  return listEvents({ kind: "fact" })
-    .filter((e) => e.people.includes(personId) && !isEventExpired(e))
+  const events = listEvents({ kind: "fact" });
+  const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
+  return events
+    .filter((e) => e.people.includes(personId) && !isEventExpired(e) && !supersededIds.has(e.id))
     .slice(0, limit);
 }
 
