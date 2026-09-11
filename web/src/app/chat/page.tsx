@@ -3,9 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { CopilotChat, ExecutionState, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
+import { CopilotChat, ExecutionState, listIssueCandidatesFromProposal, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { ConsultHistoryItem } from "@/components/ConsultHistoryItem";
 import { OriginTrace } from "@/components/OriginTrace";
+import { IdLinkedText } from "@/components/IdLinkedText";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isRunStale, truncateForTitle } from "@/lib/types";
@@ -133,6 +134,7 @@ function ChatPageInner() {
 
   function selectHistoryRun(id: string) {
     setSelectedId(id);
+    setCandidatePick(null);
     replaceChatQuery((params) => {
       params.set("runId", id);
     });
@@ -180,25 +182,65 @@ function ChatPageInner() {
 
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  // 複数候補時のチェック状態。run切り替えで null に戻し、そのときは全選択扱い。
+  const [candidatePick, setCandidatePick] = useState<{ runId: string; selected: boolean[] } | null>(null);
   const queryJournalId = searchParams.get("journalId");
   const { entry: sourceJournal } = useJournalEntry(selectedRun?.sourceJournalId);
 
+  const issueCandidates = listIssueCandidatesFromProposal(selectedRun?.proposal);
+  const candidateSelectedFlags =
+    selectedRun && candidatePick?.runId === selectedRun.id && candidatePick.selected.length === issueCandidates.length
+      ? candidatePick.selected
+      : issueCandidates.map(() => true);
+  const selectedCandidateTitles = issueCandidates
+    .filter((_, i) => candidateSelectedFlags[i])
+    .map((c) => c.title);
+
+  function toggleCandidate(index: number) {
+    if (!selectedRun) return;
+    const next = [...candidateSelectedFlags];
+    next[index] = !next[index];
+    setCandidatePick({ runId: selectedRun.id, selected: next });
+  }
+
   async function handlePromoteToIssue() {
     if (!selectedRun) return;
+    const titles =
+      issueCandidates.length > 1
+        ? selectedCandidateTitles
+        : issueCandidates.length === 1
+          ? [issueCandidates[0].title]
+          : [runFallbackTitle(selectedRun)];
+    if (titles.length === 0) {
+      setReviewError("起票する候補を1件以上選んでください");
+      return;
+    }
     setReviewSubmitting(true);
     setReviewError(null);
     try {
-      const { res, data } = await fetchWithNameConfirm(
-        "/api/issues",
-        {
-          method: "POST",
-          body: { title: truncateForTitle(runFallbackTitle(selectedRun)), agentRunId: selectedRun.id },
-        },
-        "保存する",
-      );
-      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "Issue化に失敗しました");
+      const createdIds: string[] = [];
+      for (let i = 0; i < titles.length; i++) {
+        const title = truncateForTitle(titles[i]);
+        // 先頭だけ agentRunId を付けて Run レビュー／Journal 単数紐付け。以降は sourceRunId のみ（親なし独立Issue）。
+        const body =
+          i === 0
+            ? { title, agentRunId: selectedRun.id }
+            : {
+                title,
+                sourceRunId: selectedRun.id,
+                ...(selectedRun.sourceJournalId ? { sourceJournalId: selectedRun.sourceJournalId } : {}),
+              };
+        const { res, data } = await fetchWithNameConfirm("/api/issues", { method: "POST", body }, "保存する");
+        if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "Issue化に失敗しました");
+        createdIds.push((data as { issue: { id: string } }).issue.id);
+      }
       await refreshIssues();
-      router.push(`/issues/${(data as { issue: { id: string } }).issue.id}`);
+      setCandidatePick(null);
+      if (createdIds.length === 1) {
+        router.push(`/issues/${createdIds[0]}`);
+      } else {
+        router.push("/issues");
+      }
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setReviewError((err as Error).message);
@@ -387,8 +429,45 @@ function ChatPageInner() {
                 </p>
               )}
               <div className={styles.yieldActions}>
-                <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={reviewSubmitting} onClick={handlePromoteToIssue}>
-                  📌 Issueにする
+                {issueCandidates.length > 1 && (
+                  <div style={{ width: "100%", marginBottom: 8 }}>
+                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
+                      AIが親なしの独立Issue候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
+                    </p>
+                    <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                      {issueCandidates.map((c, i) => (
+                        <li key={`${c.title}-${i}`} style={{ marginBottom: 4 }}>
+                          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.8125rem", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={candidateSelectedFlags[i] ?? false}
+                              onChange={() => toggleCandidate(i)}
+                              disabled={reviewSubmitting}
+                              style={{ marginTop: 3 }}
+                            />
+                            <span>
+                              <IdLinkedText text={c.title} />
+                              {c.rationale ? (
+                                <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.75rem" }}>
+                                  <IdLinkedText text={c.rationale} />
+                                </span>
+                              ) : null}
+                            </span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <button
+                  className={styles.primaryBtn}
+                  style={{ width: "auto" }}
+                  disabled={reviewSubmitting || (issueCandidates.length > 1 && selectedCandidateTitles.length === 0)}
+                  onClick={handlePromoteToIssue}
+                >
+                  {issueCandidates.length > 1
+                    ? `📌 選択した${selectedCandidateTitles.length}件をIssueにする`
+                    : "📌 Issueにする"}
                 </button>
                 <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
                   👀 様子見

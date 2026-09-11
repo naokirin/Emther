@@ -29,6 +29,8 @@ Issue 周りが煩雑化した主因を、「Work item・Task・Inbox・Executio
 - Issue 化は明示アクション（「Issue にする」）のみ。ドラフトを薄い Issue にしない
 - 専門エージェントや既に紐付いた Run は Issue Workspace へ（決まった介入の作業面）
 - `watching` は `reviewed=true` で緊急度から外すが、一定期間後に判断待ちへ再浮上する
+- 1つの相談／Journal 分析が **別介入**（別責任・別チーム・別 KR・別 Why）を含む場合、AI は `issueCandidates` で親なしの複数候補を出してよい。EM がチェックで起票する件を選ぶ（自動一括起票しない）。Journal の `resolvedIssueId` は単数のまま（先頭に起票した1件へ紐付け）
+- 同じ介入の具体化は Intake では切らず、tracked 後の子 Issue（`sub_issues`）／Action Item の役割
 
 ---
 
@@ -80,8 +82,9 @@ suggested* = プログレス・朝キューの「仕事」に数えない（採�
 | Action Item | この Issue の実行チェックリスト。「次の一手」＝未完了の先頭1件 | 別責任範囲の課題にしない |
 | 子 Issue | 独自 Why/What/How・status・Run を持ちうる別介入。親プログレスに参加 | 単なる ToDo の置き場にしない |
 | suggestedActionItems / suggestedSubIssues | HITL 採用前の案 | 採用前に進捗へ含めない |
+| Intake の `issueCandidates` | 相談／Journal 時点で親なしの独立 Issue 候補（別介入の並列） | 同じ介入の分解に使わない（それは子 Issue） |
 
-判断の目安（UI／プロンプト共有）: 「この介入の次の一手か？」→ Action Item。「独自の Why/What/How を持つ別の介入か？」→ 子 Issue。
+判断の目安（UI／プロンプト共有）: 「この介入の次の一手か？」→ Action Item。「すでに tracked な介入を具体化するか？」→ 子 Issue。「最初から別介入か？」→ Intake の `issueCandidates`（親なし）。
 
 ---
 

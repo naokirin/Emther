@@ -68,6 +68,13 @@ export type RejectedAlternative = {
 
 export type ProposalRecommendation = "issue" | "dismiss" | "watch";
 
+// Intake（相談／Journal）から親なしの独立Issueを複数切る候補。
+// 子Issue（sub_issues）とは別：こちらは最初から別介入として並列起票する。
+export type IssueCandidate = {
+  title: string;
+  rationale?: string;
+};
+
 export type Proposal = {
   conclusion: string;
   facts: string[];
@@ -77,8 +84,39 @@ export type Proposal = {
   // 未指定の従来出力は手動トリアージのまま。
   recommendation?: ProposalRecommendation;
   // Issue化時に使う短い課題名。conclusion（判断の一文）とは別に持たせ、タイトルの途中切れを抑える。
+  // 単一課題のとき。複数なら issueCandidates を優先（issueTitleは代表名として任意）。
   issueTitle?: string;
+  // 別責任・別KR・別チームになりうる介入が同居するとき、親なしの複数候補。
+  issueCandidates?: IssueCandidate[];
 };
+
+/** proposal から起票用タイトル候補を返す。issueCandidates があればそれを使い、無ければ issueTitle 1件。 */
+export function listIssueCandidatesFromProposal(proposal?: Proposal | null): IssueCandidate[] {
+  if (!proposal) return [];
+  const fromArray = normalizeIssueCandidates(proposal.issueCandidates);
+  if (fromArray && fromArray.length > 0) return fromArray;
+  const single = proposal.issueTitle?.trim();
+  return single ? [{ title: single }] : [];
+}
+
+export function normalizeIssueCandidates(parsed: unknown): IssueCandidate[] | undefined {
+  if (!Array.isArray(parsed)) return undefined;
+  const items: IssueCandidate[] = [];
+  for (const entry of parsed) {
+    if (typeof entry === "string" && entry.trim()) {
+      items.push({ title: entry.trim() });
+      continue;
+    }
+    if (!entry || typeof entry !== "object") continue;
+    const title = (entry as { title?: unknown }).title;
+    if (typeof title !== "string" || !title.trim()) continue;
+    const rationaleRaw = (entry as { rationale?: unknown }).rationale;
+    const rationale =
+      typeof rationaleRaw === "string" && rationaleRaw.trim() ? rationaleRaw.trim() : undefined;
+    items.push(rationale ? { title: title.trim(), rationale } : { title: title.trim() });
+  }
+  return items.length > 0 ? items : undefined;
+}
 
 // docs/memo.md「M. AIエージェント“チーム”の本格協働」対応。以前は専門エージェント
 // 1体のみに相談できたが（agent: string）、複数の専門エージェントへ同時に（並行して）
@@ -1056,7 +1094,8 @@ export function buildJournalAnalysisTask(rawText: string, trigger: "auto" | "man
       : "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。";
   return [
     lead,
-    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle に一覧向きの短い課題名（40文字以内・「〜と判断します」等は入れない）を付けてください。",
+    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle（単一）または issueCandidates（複数・親なしの独立Issue）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
+    "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず issueCandidates に分けてください（親Issueは作らない）。同じ介入の具体作業への分解はここではしないこと。",
     "単なる一時的な感情の吐露などで追跡不要と判断した場合は、proposalの recommendation を \"dismiss\" にし、その旨を結論に書いてください（無理にIssue化を勧めないこと）。Issue化すべきなら recommendation は \"issue\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
@@ -1598,11 +1637,14 @@ export function buildSystemPrompt(
     '  "logic": "その結論に至った判断ロジック",',
     '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
     '  "recommendation": "issue | dismiss | watch  （任意。追跡要否を判断する課題のときだけ。不要なら dismiss）",',
-    '  "issueTitle": "短い課題名（任意。Issue化を勧めるときは必須。40文字以内・結論文ではなく題名）"',
+    '  "issueTitle": "短い課題名（単一課題のとき。40文字以内・結論文ではなく題名）",',
+    '  "issueCandidates": [ { "title": "独立Issue案1", "rationale": "なぜ別介入か（任意）" }, { "title": "独立Issue案2" } ]',
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
-    'Issue化を勧める場合（recommendation: "issue"、または結論でIssue化を勧める場合）は、issueTitle に一覧向きの短い課題名を付けてください（「〜と判断します」等の結論文は入れないこと）。',
+    'Issue化を勧める場合（recommendation: "issue"、または結論でIssue化を勧める場合）は、短い課題名を付けてください（「〜と判断します」等の結論文は入れないこと）。',
+    "- 課題が1つなら issueTitle のみ（issueCandidates は省略可）。別責任・別チーム・別KR・別のWhyになりうる介入が同居するなら、無理に1件や親子にまとめず issueCandidates に最大5件程度まで列挙すること（親Issueは作らない・各候補はトップレベルの独立Issue）。同じ介入の次の一手への分解は issueCandidates ではなく、既にIssueへ紐づいたあとの action_items / sub_issues の役割。",
+    "- issueCandidates を出すときは recommendation は \"issue\" とし、issueTitle は代表の1件を書いても省略してもよい。",
     ...actionItemsRule,
     ...subIssuesRule,
     ...charterRule,
@@ -1701,6 +1743,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
           : undefined;
       const issueTitle =
         typeof parsed.issueTitle === "string" && parsed.issueTitle.trim() ? parsed.issueTitle.trim() : undefined;
+      const issueCandidates = normalizeIssueCandidates(parsed.issueCandidates);
       return {
         conclusion: parsed.conclusion,
         facts: Array.isArray(parsed.facts) ? parsed.facts.filter((f: unknown) => typeof f === "string") : [],
@@ -1713,6 +1756,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
           : [],
         ...(recommendation ? { recommendation } : {}),
         ...(issueTitle ? { issueTitle } : {}),
+        ...(issueCandidates ? { issueCandidates } : {}),
       };
     }
   } catch {
@@ -2772,6 +2816,14 @@ export function toRunView(run: AgentRun): AgentRun {
           })),
           ...(run.proposal.recommendation ? { recommendation: run.proposal.recommendation } : {}),
           ...(run.proposal.issueTitle ? { issueTitle: unmaskNames(run.proposal.issueTitle) } : {}),
+          ...(run.proposal.issueCandidates
+            ? {
+                issueCandidates: run.proposal.issueCandidates.map((c) => ({
+                  title: unmaskNames(c.title),
+                  ...(c.rationale ? { rationale: unmaskNames(c.rationale) } : {}),
+                })),
+              }
+            : {}),
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
