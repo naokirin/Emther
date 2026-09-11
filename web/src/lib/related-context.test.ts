@@ -126,4 +126,16 @@ describe("related-context", () => {
     expect(block).toContain("関連");
     expect(block).not.toContain(self.id);
   });
+
+  it("buildRelatedBundleBlockはヒット0件でも不在を明示する", async () => {
+    embedRef.impl = async () => [0, 1, 0];
+    const { buildRelatedBundleBlock } = await import("@/lib/related-context");
+    const block = await buildRelatedBundleBlock({
+      queryText: "全く無関係なクエリで類似ゼロを狙う",
+      mode: "issue-wallbash",
+    });
+    expect(block).toContain("閾値以上の類似未完了Issueなし");
+    expect(block).toContain("lookup");
+    expect(block).toContain("閾値以上の類似Journalなし");
+  });
 });
