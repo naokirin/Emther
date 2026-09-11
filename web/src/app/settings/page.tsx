@@ -253,6 +253,22 @@ export default function SettingsPage() {
                   /></label>
                 </div>
 
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>1ターンあたりの予算上限（claude）</h3>
+                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
+                  Claude CLIの`--max-budget-usd`に渡す、1回の呼び出しあたりの上限額（USD）です。既定の0.5はSonnet想定で、Opusが既定の環境では起動直後に予算超過で失敗しやすいため、必要に応じて引き上げてください。
+                  相談が発生するとLead＋専門エージェント＋フォローアップで最大3回呼ばれるため、実コストはこの上限の倍数になり得ます。agy / cursor-agent側には相当するオプションが無いため、この設定はclaude試行にのみ効きます。
+                </p>
+                <div className={styles.field} style={{ maxWidth: 160 }}>
+                  <label>1ターンの上限（USD）
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.1}
+                    value={draft.perTurnBudgetUsd}
+                    onChange={(e) => setDraft({ ...draft, perTurnBudgetUsd: Number(e.target.value) })}
+                  /></label>
+                </div>
+
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Issue分析時のチーム先行並列</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
                   Issueに紐づくLead Agentの起動時、関連する専門エージェント（People / Process / Tech / Product）を先に並列起動し、その結果をLeadが統合します。

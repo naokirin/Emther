@@ -18,6 +18,7 @@ describe("getRulesAndConstraints", () => {
     const rules = getRulesAndConstraints();
     expect(rules.teamWindowDays).toBe(14);
     expect(rules.maxParallelAgentRuns).toBe(2);
+    expect(rules.perTurnBudgetUsd).toBe(0.5);
     expect(rules.autoAnomalyDetectionEnabled).toBe(false);
     expect(rules.autoJournalUrgencyFilter).toBe("high_only");
     expect(rules.autoJournalSentimentFilter).toBe("all");

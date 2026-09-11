@@ -40,6 +40,13 @@ function positiveInt(value: unknown): number | undefined {
   return n !== undefined ? Math.max(1, Math.round(n)) : undefined;
 }
 
+// perTurnBudgetUsdはclaudeの--max-budget-usdに渡す。0以下だと即失敗するため最低0.01を保証し、
+// セント単位に丸める。
+function positiveUsd(value: unknown): number | undefined {
+  const n = num(value);
+  return n !== undefined ? Math.max(0.01, Math.round(n * 100) / 100) : undefined;
+}
+
 // AGENT_OPTIONSに無いキーやMODEL_TIER_OPTIONSに無い値は黙って落とす（不正な--model値を
 // そのままclaude CLIに渡さないため）。値が空文字列のエージェントはキー自体を落とし、
 // 「claude CLIの既定モデルのまま」に戻す。
@@ -119,6 +126,7 @@ export async function PATCH(request: Request) {
         ? Math.min(23, Math.max(0, Math.round(num(body?.autoDistillationHour)!)))
         : undefined,
     maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
+    perTurnBudgetUsd: positiveUsd(body?.perTurnBudgetUsd),
     teamParallelKickoffEnabled: bool(body?.teamParallelKickoffEnabled),
     decisionQueueLimit: positiveInt(body?.decisionQueueLimit),
     observationQueueLimit: positiveInt(body?.observationQueueLimit),

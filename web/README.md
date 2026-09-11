@@ -68,7 +68,7 @@ docs 3.3「リードエージェント/専門エージェント」の最小実�
 - 相談先の専門エージェントは独立した`AgentRun`として記録され（`consultedBy`にLead run idを保持）、ダッシュボードのRun一覧にも「🔀 Lead Agentからの相談」として表示される（隠蔽せず、docs 3.5のExplainability方針に合わせている）。
 - 無限相談を防ぐため、相談は1ターンに1回まで（フォローアップ呼び出しはconsult機能自体を無効化する）。専門エージェント側がyieldしてしまった場合でも、そのyield理由をベストエフォートの回答として扱いLead Agentに返す（内部相談で人間の入力待ちにはならない）。
 - 実機検証: 「技術的負債の返済計画を立てたい。Tech Agentに相談してから結論をまとめて」というLeadタスクに対し、実際にTech Agentへの相談run（独立した`AgentRun`、`consultedBy`がLeadのidを指す）が生成され、その回答（4軸スコアリングによる優先順位付け案）を踏まえた上で、Organization Context（登録済みチーム構成）まで加味した構造化proposalが返ることを確認済み。
-- コストに関する注意: 相談が発生すると1タスクあたりのclaude呼び出しが最大3回（Lead初回 + 専門エージェント + Leadフォローアップ）になり、`PER_TURN_BUDGET_USD`（0.5ドル/回）の上限も比例して増える。
+- コストに関する注意: 相談が発生すると1タスクあたりのclaude呼び出しが最大3回（Lead初回 + 専門エージェント + Leadフォローアップ）になり、1ターン予算（Settingsの`perTurnBudgetUsd`、既定0.5ドル/回）の上限も比例して増える。Opus既定環境などでは`/settings`の「Agent Run運用」から引き上げる。
 
 ### Quick Journal
 
