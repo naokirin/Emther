@@ -91,8 +91,9 @@ function IssuesPageInner() {
   const [showArchived, setShowArchived] = useState(false);
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
-  // 進行中の介入ポートフォリオ既定: 未着手・完了を除き、動いている介入に焦点を当てる。
-  const [statusFilter, setStatusFilter] = useState<"active" | "all" | IssueStatus>("active");
+  // 既定は「完了・アーカイブ以外」（未着手含む）。アーカイブは showArchived、完了は statusFilter で除外。
+  // 並びは compareIssuesByPriority（フォーカス → 通常 → 保留、フォーカス内は focusOrder）。
+  const [statusFilter, setStatusFilter] = useState<"open" | "active" | "all" | IssueStatus>("open");
   const [priorityFilter, setPriorityFilter] = useState<"all" | IssuePriority>("all");
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
@@ -110,7 +111,10 @@ function IssuesPageInner() {
     .filter((i) => {
       if (tagFilter && !i.tags.includes(tagFilter)) return false;
       if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
-      if (statusFilter === "active") {
+      if (statusFilter === "open") {
+        // isIssueActive 相当（アーカイブは topLevelIssues 側で既に除外）。
+        if (i.status === "done") return false;
+      } else if (statusFilter === "active") {
         if (i.status !== "in_progress" && i.status !== "blocked") return false;
       } else if (statusFilter !== "all" && i.status !== statusFilter) {
         return false;
@@ -308,8 +312,9 @@ function IssuesPageInner() {
             ステータス:
             <Select
               value={statusFilter}
-              onChange={(v) => setStatusFilter(v as "active" | "all" | IssueStatus)}
+              onChange={(v) => setStatusFilter(v as "open" | "active" | "all" | IssueStatus)}
               options={[
+                { value: "open", label: "完了・アーカイブ以外" },
                 { value: "active", label: "進行中・Waiting" },
                 { value: "all", label: "すべて" },
                 ...Object.entries(ISSUE_STATUS_META).map(([value, meta]) => ({
@@ -317,7 +322,7 @@ function IssuesPageInner() {
                   label: `${meta.icon} ${meta.label}`,
                 })),
               ]}
-              style={{ minWidth: 160 }}
+              style={{ minWidth: 180 }}
             />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
