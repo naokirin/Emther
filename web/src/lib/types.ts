@@ -169,12 +169,21 @@ export type KeyResult = {
 export type Objective = {
   id: string;
   title: string;
+  // docs/usage_issues U18: 判断理由などの補足。未設定時は省略。
+  note?: string;
   // ユーザー要望「目標のカスケーディング構成」対応。未指定＝組織全体のトップレベル目標、
   // 指定時はそのチーム自身の目標（＝上位の組織目標を達成するための下位目標）。
   teamId?: string;
   keyResults: KeyResult[];
   createdAt: number;
   updatedAt: number;
+};
+
+/** OKRテキスト取り込み（U18）のプレビュー／一括保存用ドラフト。 */
+export type ObjectiveImportDraft = {
+  title: string;
+  note?: string;
+  keyResults: string[];
 };
 
 export type KeyResultProgress = {

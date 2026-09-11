@@ -474,6 +474,13 @@ describe("buildStrategyBlock / buildObjectivesBlock", () => {
     expect(rt.buildObjectivesBlock("Lead Agent")).toContain("判断の主軸としてください");
     expect(rt.buildObjectivesBlock("People Agent")).toContain("参考情報");
   });
+
+  it("Objectiveのメモをブロックに含める", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    await orgStore.addObjective("売上を伸ばす", undefined, "四半期重点");
+    const rt = await loadModule();
+    expect(rt.buildObjectivesBlock("Lead Agent")).toContain("メモ: 四半期重点");
+  });
 });
 
 describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionTypeGuidance", () => {

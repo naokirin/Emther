@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("PATCH /api/org/objectives/[id]", () => {
-  it("title・teamIdどちらも無ければ400", async () => {
+  it("title・teamId・noteどれも無ければ400", async () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", {}), routeCtx({ id: "missing" }));
     expect(res.status).toBe(400);
@@ -37,6 +37,14 @@ describe("PATCH /api/org/objectives/[id]", () => {
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { title: "新タイトル" }), routeCtx({ id: objective.id }));
     expect((await res.json()).objective.title).toBe("新タイトル");
+  });
+
+  it("noteだけを更新できる", async () => {
+    const orgStore = await import("@/lib/org-context-store");
+    const objective = await orgStore.addObjective("目標");
+    const route = await import("./route");
+    const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { note: "判断理由" }), routeCtx({ id: objective.id }));
+    expect((await res.json()).objective.note).toBe("判断理由");
   });
 
   // ユーザー要望「目標のカスケーディング構成」対応。

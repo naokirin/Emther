@@ -1213,7 +1213,9 @@ export function buildObjectivesBlock(agentName: string): string {
   if (objectives.length === 0) return "";
   const lines = objectives.map((o) => {
     const krs = o.keyResults.length > 0 ? o.keyResults.map((k) => `KR: ${k.title}`).join(" / ") : "(Key Result未設定)";
-    return `- ${o.title} — ${krs}`;
+    // docs/usage_issues U18: 判断理由などの補足も絶対の前提として渡す。
+    const note = o.note?.trim() ? `\n  メモ: ${o.note}` : "";
+    return `- ${o.title} — ${krs}${note}`;
   });
   return [objectivesBlockIntro(agentName), ...lines].join("\n");
 }
