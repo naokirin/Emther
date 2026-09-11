@@ -1,6 +1,7 @@
 import { cosineSimilarity, embedText } from "@/lib/embeddings";
 import { listJournalEntriesPage } from "@/lib/journal-store";
 import { getIssue, listIssues, type Issue } from "@/lib/issue-store";
+import { findByIdPrefix } from "@/lib/id-prefix";
 import { maskNames } from "@/lib/people-directory";
 import {
   RELATED_SIMILARITY_THRESHOLD,
@@ -108,6 +109,7 @@ export function extractLookup(resultText: string): LookupRequest | undefined {
 
 function issueMatchesKeyword(issue: Issue, needle: string): boolean {
   const hay = [
+    issue.id,
     issue.title,
     issue.charter.why,
     issue.charter.what,
@@ -158,8 +160,25 @@ function searchIssuesByKeyword(opts: {
 }
 
 function getIssueByIdLine(id: string): string[] {
-  const issue = getIssue(id.trim());
-  if (!issue) return [`- Issue [${id}] は見つかりませんでした`];
+  const trimmed = id.trim();
+  const exact = getIssue(trimmed);
+  if (exact) {
+    return formatIssueDetailLines(exact);
+  }
+  const matched = findByIdPrefix(listIssues(), (i) => i.id, trimmed);
+  if (matched.length === 1) {
+    return formatIssueDetailLines(matched[0]);
+  }
+  if (matched.length > 1) {
+    return [
+      `- プレフィックス [${trimmed}] に複数の Issue が一致します:`,
+      ...matched.map((i) => formatIssueBrief(i)),
+    ];
+  }
+  return [`- Issue [${trimmed}] は見つかりませんでした`];
+}
+
+function formatIssueDetailLines(issue: Issue): string[] {
   const parts = [
     formatIssueBrief(issue),
     issue.charter.what ? `  What: ${issue.charter.what.slice(0, 200)}` : "",

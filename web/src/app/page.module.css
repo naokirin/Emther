@@ -1290,7 +1290,8 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 100;
+  /* SlideOver(100) より前面に出し、ピーク内の候補ダイアログが隠れるのを防ぐ */
+  z-index: 200;
 }
 
 .modalBox {
@@ -1616,6 +1617,15 @@
 .markdownView a {
   color: var(--blue-text);
   text-decoration: underline;
+}
+
+/* エージェント出力などに含まれる短い UUID 断片のリンク（Execution State 等） */
+.idFragmentLink {
+  color: var(--blue-text);
+  text-decoration: underline;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.95em;
+  word-break: break-all;
 }
 
 .markdownView hr {

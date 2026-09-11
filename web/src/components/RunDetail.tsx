@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
+import { IdLinkedText } from "@/components/IdLinkedText";
+import { IdFragmentLink } from "@/components/IdFragmentLink";
 import { MarkdownView } from "@/components/MarkdownView";
 import {
   issueTitleFromConclusion,
@@ -255,7 +257,7 @@ export function ExecutionState({
   return (
     <>
       <p className={styles.contextText}>
-        <strong>Context:</strong> {run.task}
+        <strong>Context:</strong> <IdLinkedText text={run.task} />
       </p>
 
       {run.status === "yield" && run.yieldRequest && (() => {
@@ -266,7 +268,9 @@ export function ExecutionState({
           <strong>
             {kindMeta.icon} {kindMeta.label}: {kindMeta.description}
           </strong>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>{run.yieldRequest.reason}</p>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
+            <IdLinkedText text={run.yieldRequest.reason} />
+          </p>
 
           {run.yieldRequest.options.map((opt) => (
             <div
@@ -278,10 +282,18 @@ export function ExecutionState({
               tabIndex={0}
             >
               <strong>
-                {selectedOptionId === opt.id ? "◉" : "○"} Option {opt.id}: {opt.label}
+                {selectedOptionId === opt.id ? "◉" : "○"} Option {opt.id}: <IdLinkedText text={opt.label} />
               </strong>
-              {opt.detail && <div>{opt.detail}</div>}
-              {opt.risk && <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>※Risk: {opt.risk}</div>}
+              {opt.detail && (
+                <div>
+                  <IdLinkedText text={opt.detail} />
+                </div>
+              )}
+              {opt.risk && (
+                <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                  ※Risk: <IdLinkedText text={opt.risk} />
+                </div>
+              )}
             </div>
           ))}
 
@@ -300,29 +312,40 @@ export function ExecutionState({
       {run.status === "idle" && run.proposal && (
         <div className={styles.proposalBlock}>
           <strong>✅ 結論</strong>
-          <p style={{ fontSize: "0.8125rem", marginTop: 4 }}>{run.proposal.conclusion}</p>
+          <p style={{ fontSize: "0.8125rem", marginTop: 4 }}>
+            <IdLinkedText text={run.proposal.conclusion} />
+          </p>
 
           {run.proposal.facts.length > 0 && (
             <>
               <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
               <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
                 {run.proposal.facts.map((f, i) => (
-                  <li key={i}>{f}</li>
+                  <li key={i}>
+                    <IdLinkedText text={f} />
+                  </li>
                 ))}
               </ul>
             </>
           )}
 
           <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>{run.proposal.logic}</p>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
+            <IdLinkedText text={run.proposal.logic} />
+          </p>
 
           {run.proposal.rejectedAlternatives.length > 0 && (
             <>
               <strong style={{ fontSize: "0.75rem" }}>棄却した代替案</strong>
               {run.proposal.rejectedAlternatives.map((r, i) => (
                 <div key={i} style={{ fontSize: "0.75rem", marginTop: 4 }}>
-                  <strong>{r.option}</strong>
-                  <span style={{ color: "var(--text-muted)" }}> — {r.reason}</span>
+                  <strong>
+                    <IdLinkedText text={r.option} />
+                  </strong>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {" "}
+                    — <IdLinkedText text={r.reason} />
+                  </span>
                 </div>
               ))}
             </>
@@ -338,7 +361,7 @@ export function ExecutionState({
                 {run.suggestedActionItems.map((item, i) => (
                   <li key={i}>
                     {i === 0 ? <strong>次の一手: </strong> : null}
-                    {item}
+                    <IdLinkedText text={item} />
                   </li>
                 ))}
               </ul>
@@ -369,7 +392,7 @@ export function ExecutionState({
                   const p = item.priority ? ISSUE_PRIORITY_META[item.priority] : undefined;
                   return (
                     <li key={i}>
-                      {item.title}
+                      <IdLinkedText text={item.title} />
                       {p ? (
                         <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>
                           {p.icon} {p.label}
@@ -434,7 +457,9 @@ export function ExecutionState({
                   run.suggestedCharter?.[key] && (
                     <div key={key} style={{ fontSize: "0.75rem", marginTop: 6 }}>
                       <strong>{CHARTER_FIELD_LABEL[key]}</strong>
-                      <p style={{ margin: "2px 0 0" }}>{run.suggestedCharter[key]}</p>
+                      <p style={{ margin: "2px 0 0" }}>
+                        <IdLinkedText text={run.suggestedCharter[key]!} />
+                      </p>
                     </div>
                   ),
               )}
@@ -462,29 +487,67 @@ export function ExecutionState({
               </p>
               {run.suggestedThemes.map((theme, i) => (
                 <div key={i} style={{ fontSize: "0.75rem", marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                  <strong>{theme.title}</strong>
-                  <p style={{ margin: "4px 0" }}>{theme.summary}</p>
+                  <strong>
+                    <IdLinkedText text={theme.title} />
+                  </strong>
+                  <p style={{ margin: "4px 0" }}>
+                    <IdLinkedText text={theme.summary} />
+                  </p>
                   <strong style={{ display: "block", marginTop: 4 }}>なぜこの結果に至ったか</strong>
-                  <p style={{ color: "var(--text-muted)", margin: "2px 0 4px" }}>{theme.rationale}</p>
+                  <p style={{ color: "var(--text-muted)", margin: "2px 0 4px" }}>
+                    <IdLinkedText text={theme.rationale} />
+                  </p>
                   {theme.facts.length > 0 && (
                     <ul style={{ margin: "4px 0 4px 16px" }}>
                       {theme.facts.map((f, fi) => (
-                        <li key={fi}>{f}</li>
+                        <li key={fi}>
+                          <IdLinkedText text={f} />
+                        </li>
                       ))}
                     </ul>
                   )}
                   {theme.rootCause && (
                     <p style={{ margin: "4px 0" }}>
                       <strong>根本原因: </strong>
-                      {theme.rootCause}
+                      <IdLinkedText text={theme.rootCause} />
                     </p>
                   )}
                   {theme.suggestedDirection && (
                     <p style={{ margin: "4px 0" }}>
                       <strong>解決の方向性: </strong>
-                      {theme.suggestedDirection}
+                      <IdLinkedText text={theme.suggestedDirection} />
                     </p>
                   )}
+                  {(theme.evidenceIssueIds?.length || theme.evidenceJournalIds?.length) ? (
+                    <div style={{ marginTop: 6 }}>
+                      {theme.evidenceIssueIds && theme.evidenceIssueIds.length > 0 && (
+                        <p style={{ margin: "2px 0" }}>
+                          <strong>根拠 Issue: </strong>
+                          {theme.evidenceIssueIds.map((id, ii) => (
+                            <span key={id}>
+                              {ii > 0 ? "、" : ""}
+                              <IdFragmentLink fragment={id} className={styles.idFragmentLink}>
+                                {id.slice(0, 8)}
+                              </IdFragmentLink>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                      {theme.evidenceJournalIds && theme.evidenceJournalIds.length > 0 && (
+                        <p style={{ margin: "2px 0" }}>
+                          <strong>根拠 Journal: </strong>
+                          {theme.evidenceJournalIds.map((id, ii) => (
+                            <span key={id}>
+                              {ii > 0 ? "、" : ""}
+                              <IdFragmentLink fragment={id} className={styles.idFragmentLink}>
+                                {id.slice(0, 8)}
+                              </IdFragmentLink>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               ))}
               <div className={styles.yieldActions}>

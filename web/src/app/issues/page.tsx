@@ -12,6 +12,7 @@ import { IssueBoard } from "@/components/IssueBoard";
 import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
+import { IdResolveProvider } from "@/components/IdFragmentLink";
 import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams } from "@/lib/hooks";
 import {
   INTERVENTION_TYPES,
@@ -250,6 +251,7 @@ function IssuesPageInner() {
   }
 
   return (
+    <IdResolveProvider openIssueInPeek={peek.open}>
     <div className={styles.screen}>
       {/* 改修依頼「セクションの区切りがわかりにくい」対応。ページ全体がフラットな
           .screenの直下に並んでいたため、表形式化でセクション同士が地続きに見えて
@@ -739,5 +741,6 @@ function IssuesPageInner() {
           );
         })()}
     </div>
+    </IdResolveProvider>
   );
 }

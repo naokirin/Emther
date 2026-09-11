@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MarkdownView } from "./MarkdownView";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 describe("MarkdownView", () => {
   it("太字・見出し・箇条書きをレンダリングする", () => {
@@ -22,6 +26,13 @@ describe("MarkdownView", () => {
     const link = screen.getByRole("link", { name: "リンク" });
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noreferrer noopener");
+  });
+
+  it("短い ID 断片を /go への内部リンクにする（新規タブにしない）", () => {
+    render(<MarkdownView text="関連 Issue a1b2c3d4 を確認" />);
+    const link = screen.getByRole("link", { name: "a1b2c3d4" });
+    expect(link).toHaveAttribute("href", "/go/a1b2c3d4");
+    expect(link).not.toHaveAttribute("target");
   });
 
   it("プレーンテキストもそのまま表示する（Markdown記法が無くても壊れない）", () => {
