@@ -981,12 +981,12 @@ export default function DashboardPage() {
       if (applySuggested) {
         setTriageMessage(
           changeN > 0
-            ? `帯を ${changeN} 件更新しました（フォーカス候補 ${focusN} 件）。下の内訳を確認し、例外だけ上書きしてください。`
-            : `帯の変更はありませんでした（提案フォーカス ${focusN} 件・現状と差分 ${differN} 件）。すでに帯が揃っているか、対象の親 Issue が少ない可能性があります。`,
+            ? `Issueの優先帯を ${changeN} 件更新しました（フォーカス候補 ${focusN} 件）。下の内訳を確認し、例外だけ個別に上書きしてください。`
+            : `Issueの優先帯に変更はありませんでした（提案フォーカス ${focusN} 件・現状と差分 ${differN} 件）。すでに帯が揃っているか、対象の親 Issue が少ない可能性があります。`,
         );
       } else {
         setTriageMessage(
-          `採点しました: 提案 🔥${counts.focus ?? 0} / ➖${counts.normal ?? 0} / 🅿️${counts.parked ?? 0}（うち現状と違う適用先 ${differN} 件）。帯はまだ変えていません。「提案を反映」で一括適用できます。`,
+          `Issueを採点しました: 提案 🔥${counts.focus ?? 0} / ➖${counts.normal ?? 0} / 🅿️${counts.parked ?? 0}（うち現状と違う適用先 ${differN} 件）。まだ優先帯は変えていません。「② 提案どおり優先帯を更新」で一括適用できます。`,
         );
       }
       await refreshIssues();
@@ -994,6 +994,27 @@ export default function DashboardPage() {
       setTriageError((err as Error).message);
     } finally {
       setTriageSubmitting(false);
+    }
+  }
+
+  async function handleDistillThemes() {
+    setDistillSubmitting(true);
+    setDistillError(null);
+    try {
+      const res = await fetch("/api/themes/distill", { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (res.status === 202) {
+        await refreshRuns();
+        return;
+      }
+      if (!res.ok) throw new Error(data?.error ?? "状況蒸留の起動に失敗しました");
+      const runId = data?.run?.id as string | undefined;
+      await refreshRuns();
+      if (runId) router.push(`/chat?runId=${runId}`);
+    } catch (err) {
+      setDistillError((err as Error).message);
+    } finally {
+      setDistillSubmitting(false);
     }
   }
 
@@ -1301,8 +1322,197 @@ export default function DashboardPage() {
                 : `他 ${hiddenPriorityThemeCount} 件の採用テーマを見る`}
             </button>
           )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
+            <button
+              className={styles.btnOutline}
+              disabled={distillSubmitting}
+              onClick={handleDistillThemes}
+            >
+              {distillSubmitting ? "修正候補を生成中…" : "🧭 テーマを見直す（観測差分）"}
+            </button>
+            <span className={styles.subtitle} style={{ margin: 0 }}>
+              主題の新規作成ではなく、観測との差分でテーマを修正・再優先します
+            </span>
+          </div>
+          {distillError && (
+            <p className={styles.errorText} role="alert">
+              {distillError}
+            </p>
+          )}
         </div>
       )}
+
+      {adoptedThemes.length === 0 && (
+        <div className={styles.panel} style={{ marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: "1rem" }}>テーマの見直し</h2>
+          <p className={styles.subtitle} style={{ marginTop: 4 }}>
+            採用中の優先テーマはまだありません。観測差分から候補を出すか、方針・目標から OKR 起点の候補を作れます。
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center" }}>
+            <button
+              className={styles.btnOutline}
+              disabled={distillSubmitting}
+              onClick={handleDistillThemes}
+            >
+              {distillSubmitting ? "修正候補を生成中…" : "🧭 テーマを見直す（観測差分）"}
+            </button>
+            <button className={styles.btnOutline} onClick={() => router.push("/org")}>
+              方針・目標（OKR起点）へ
+            </button>
+          </div>
+          {distillError && (
+            <p className={styles.errorText} role="alert">
+              {distillError}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Issue 優先帯の見直しは「次の1手」とは別作業。朝の判断キューに混ぜない。 */}
+      <div className={styles.panel} style={{ marginBottom: 16 }}>
+        <div className={styles.detailHeader} style={{ alignItems: "flex-start" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 style={{ margin: 0, fontSize: "1rem" }}>Issueの優先帯を見直す</h2>
+            <p className={styles.subtitle} style={{ marginTop: 4 }}>
+              親 Issue のフォーカス／通常／保留をルール採点で提案します（マトリクス入力は不要）。
+              「次の1手」とは別の作業です。まず採点だけ見てから、帯の一括更新を選んでください。
+            </p>
+          </div>
+          <button className={styles.btnOutline} style={{ flexShrink: 0 }} onClick={() => router.push("/issues")}>
+            Issue一覧 →
+          </button>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center" }}>
+          <button
+            className={styles.btnOutline}
+            disabled={triageSubmitting}
+            onClick={() => handleSuggestTriage(false)}
+            title="Issue に triage スコアと提案帯を書き込むだけ。現在の優先帯は変えません"
+          >
+            {triageSubmitting ? "採点中…" : "① Issue優先帯を提案（採点のみ）"}
+          </button>
+          <button
+            className={styles.primaryBtn}
+            style={{ width: "auto" }}
+            disabled={triageSubmitting || !triagePreview || triagePreview.applied}
+            onClick={() => handleSuggestTriage(true)}
+            title="直前の提案どおり、Issue のフォーカス／通常／保留を更新します"
+          >
+            ② 提案どおり優先帯を更新
+          </button>
+        </div>
+        <p className={styles.subtitle} style={{ marginTop: 8 }}>
+          ①は帯を変えません。②は①の結果を Issue 本体の優先帯へ反映します（フォーカスはスコア上位5件まで）。
+          {!triagePreview && " まずは①を実行してください。"}
+          {triagePreview?.applied && " 更新済みです。やり直す場合は①から再実行してください。"}
+        </p>
+        {triageError && (
+          <p className={styles.errorText} role="alert">
+            {triageError}
+          </p>
+        )}
+        {triageMessage && <p className={styles.subtitle}>{triageMessage}</p>}
+        {triagePreview && (
+          <div
+            style={{
+              marginTop: 10,
+              padding: 10,
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              fontSize: "0.8125rem",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+              <strong>
+                {triagePreview.applied ? "Issue優先帯の更新結果" : "Issue優先帯の提案プレビュー"}
+              </strong>
+              <button type="button" className={styles.detailToggle} onClick={() => setTriagePreview(null)}>
+                閉じる
+              </button>
+            </div>
+            <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
+              提案内訳: 🔥フォーカス {triagePreview.counts.focus} · ➖通常 {triagePreview.counts.normal} · 🅿️保留{" "}
+              {triagePreview.counts.parked}
+              （フォーカス適用はスコア上位 {triagePreview.focusCandidates.length} 件まで）
+            </p>
+            {triagePreview.focusCandidates.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <div className={styles.fieldCaption}>フォーカス候補の Issue（スコア順）</div>
+                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                  {triagePreview.focusCandidates.map((c) => (
+                    <li key={c.id} style={{ marginBottom: 2 }}>
+                      <button type="button" className={styles.tableRowLink} onClick={() => router.push(`/issues/${c.id}`)}>
+                        {c.title}
+                      </button>
+                      <span className={styles.tableMuted}> · score {c.score.toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {triagePreview.applied ? (
+              triagePreview.changes.length > 0 ? (
+                <div>
+                  <div className={styles.fieldCaption}>
+                    優先帯を更新した Issue（{triagePreview.changes.length}）
+                  </div>
+                  <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                    {triagePreview.changes.map((c) => (
+                      <li key={c.issueId} style={{ marginBottom: 2 }}>
+                        <button
+                          type="button"
+                          className={styles.tableRowLink}
+                          onClick={() => router.push(`/issues/${c.issueId}`)}
+                        >
+                          {c.title}
+                        </button>
+                        <span className={styles.tableMuted}>
+                          {" "}
+                          {c.fromLabel} → {c.toLabel}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className={styles.subtitle} style={{ margin: 0 }}>
+                  実際に優先帯が変わった Issue はありません。
+                </p>
+              )
+            ) : triagePreview.differing.length > 0 ? (
+              <div>
+                <div className={styles.fieldCaption}>
+                  「②更新」で変わる予定の Issue（{triagePreview.differing.length}）— 現状 → 適用先
+                </div>
+                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                  {triagePreview.differing
+                    .slice()
+                    .sort((a, b) => b.score - a.score)
+                    .map((d) => (
+                      <li key={d.issueId} style={{ marginBottom: 2 }}>
+                        <button
+                          type="button"
+                          className={styles.tableRowLink}
+                          onClick={() => router.push(`/issues/${d.issueId}`)}
+                        >
+                          {d.title}
+                        </button>
+                        <span className={styles.tableMuted}>
+                          {" "}
+                          {d.currentLabel} → {d.effectiveLabel} · score {d.score.toFixed(2)}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ) : (
+              <p className={styles.subtitle} style={{ margin: 0 }}>
+                現状の優先帯と提案の適用先は一致しています（②を押しても変化なし）。
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 「次の1手」をヒーローに固定。判断（Yield等）と実行（Next Action）をモードで分ける。 */}
       <div className={styles.dashColumns}>
@@ -1341,160 +1551,6 @@ export default function DashboardPage() {
               頻度を調整
             </button>
           </p>
-        )}
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
-          <button
-            className={styles.btnOutline}
-            disabled={distillSubmitting}
-            onClick={async () => {
-              setDistillSubmitting(true);
-              setDistillError(null);
-              try {
-                const res = await fetch("/api/themes/distill", { method: "POST" });
-                const data = await res.json().catch(() => null);
-                if (res.status === 202) {
-                  await refreshRuns();
-                  return;
-                }
-                if (!res.ok) throw new Error(data?.error ?? "状況蒸留の起動に失敗しました");
-                const runId = data?.run?.id as string | undefined;
-                await refreshRuns();
-                if (runId) router.push(`/chat?runId=${runId}`);
-              } catch (err) {
-                setDistillError((err as Error).message);
-              } finally {
-                setDistillSubmitting(false);
-              }
-            }}
-          >
-            {distillSubmitting ? "修正候補を生成中…" : "🧭 テーマを見直す（観測差分）"}
-          </button>
-          <button
-            className={styles.btnOutline}
-            disabled={triageSubmitting}
-            onClick={() => handleSuggestTriage(false)}
-          >
-            {triageSubmitting ? "採点中…" : "📊 優先度を提案"}
-          </button>
-          <button
-            className={styles.btnOutline}
-            disabled={triageSubmitting}
-            onClick={() => handleSuggestTriage(true)}
-            title="suggestedPriority を priority に反映（例外は後から上書き）"
-          >
-            提案を反映
-          </button>
-          <span className={styles.subtitle} style={{ margin: 0 }}>
-            蒸留は主題の新規作成ではなく、観測との差分でテーマを修正・再優先するためのものです
-          </span>
-        </div>
-        {distillError && (
-          <p className={styles.errorText} role="alert">
-            {distillError}
-          </p>
-        )}
-        {triageError && (
-          <p className={styles.errorText} role="alert">
-            {triageError}
-          </p>
-        )}
-        {triageMessage && <p className={styles.subtitle}>{triageMessage}</p>}
-        {triagePreview && (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 10,
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              fontSize: "0.8125rem",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-              <strong>{triagePreview.applied ? "反映結果" : "提案プレビュー"}</strong>
-              <button type="button" className={styles.detailToggle} onClick={() => setTriagePreview(null)}>
-                閉じる
-              </button>
-            </div>
-            <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
-              提案内訳: 🔥フォーカス {triagePreview.counts.focus} · ➖通常 {triagePreview.counts.normal} · 🅿️保留{" "}
-              {triagePreview.counts.parked}
-              （フォーカス適用はスコア上位 {triagePreview.focusCandidates.length} 件まで）
-            </p>
-            {triagePreview.focusCandidates.length > 0 && (
-              <div style={{ marginBottom: 8 }}>
-                <div className={styles.fieldCaption}>フォーカス候補（スコア順）</div>
-                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-                  {triagePreview.focusCandidates.map((c) => (
-                    <li key={c.id} style={{ marginBottom: 2 }}>
-                      <button type="button" className={styles.tableRowLink} onClick={() => router.push(`/issues/${c.id}`)}>
-                        {c.title}
-                      </button>
-                      <span className={styles.tableMuted}> · score {c.score.toFixed(2)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {triagePreview.applied ? (
-              triagePreview.changes.length > 0 ? (
-                <div>
-                  <div className={styles.fieldCaption}>帯を更新した Issue（{triagePreview.changes.length}）</div>
-                  <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-                    {triagePreview.changes.map((c) => (
-                      <li key={c.issueId} style={{ marginBottom: 2 }}>
-                        <button
-                          type="button"
-                          className={styles.tableRowLink}
-                          onClick={() => router.push(`/issues/${c.issueId}`)}
-                        >
-                          {c.title}
-                        </button>
-                        <span className={styles.tableMuted}>
-                          {" "}
-                          {c.fromLabel} → {c.toLabel}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className={styles.subtitle} style={{ margin: 0 }}>
-                  実際に帯が変わった Issue はありません。
-                </p>
-              )
-            ) : triagePreview.differing.length > 0 ? (
-              <div>
-                <div className={styles.fieldCaption}>
-                  反映すると変わる予定（{triagePreview.differing.length}）— 現状 → 適用先
-                </div>
-                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-                  {triagePreview.differing
-                    .slice()
-                    .sort((a, b) => b.score - a.score)
-                    .map((d) => (
-                      <li key={d.issueId} style={{ marginBottom: 2 }}>
-                        <button
-                          type="button"
-                          className={styles.tableRowLink}
-                          onClick={() => router.push(`/issues/${d.issueId}`)}
-                        >
-                          {d.title}
-                        </button>
-                        <span className={styles.tableMuted}>
-                          {" "}
-                          {d.currentLabel} → {d.effectiveLabel} · score {d.score.toFixed(2)}
-                        </span>
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            ) : (
-              <p className={styles.subtitle} style={{ margin: 0 }}>
-                現状の帯と提案の適用先は一致しています（反映しても変化なし）。
-              </p>
-            )}
-          </div>
         )}
 
         <div className={styles.tabs} style={{ margin: "0 0 12px" }}>
