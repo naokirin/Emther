@@ -201,7 +201,7 @@ function heuristicIssueSuggestion(
     .filter((x) => x.score > 0.08)
     .sort((a, b) => b.score - a.score);
 
-  let themeId: string | null = rankedThemes[0]?.t.id ?? null;
+  const themeId: string | null = rankedThemes[0]?.t.id ?? null;
   let keyResultId: string | null = rankedKr[0]?.k.id ?? null;
 
   if (themeId) {

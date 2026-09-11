@@ -1806,15 +1806,16 @@
   max-width: 16rem;
   padding: 6px 8px;
   border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg, #fff);
-  color: var(--text);
+  /* 地の panel/background と同系だと沈むため、ほぼ黒地＋明るい本文で分離する */
+  border: 1px solid var(--input-border);
+  background: #0a0c12;
+  color: #f5f6f8;
   font-size: 0.6875rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.35;
   white-space: pre-line;
   text-align: left;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 12%, transparent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.08s ease;
