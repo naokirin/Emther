@@ -3,7 +3,13 @@
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
 import { MarkdownView } from "@/components/MarkdownView";
-import { YIELD_KIND_META, ISSUE_PRIORITY_META, type IssuePriority, type YieldKind } from "@/lib/types";
+import {
+  issueTitleFromConclusion,
+  YIELD_KIND_META,
+  ISSUE_PRIORITY_META,
+  type IssuePriority,
+  type YieldKind,
+} from "@/lib/types";
 
 // "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
 // CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
@@ -33,6 +39,8 @@ export type Proposal = {
   logic: string;
   rejectedAlternatives: RejectedAlternative[];
   recommendation?: "issue" | "dismiss" | "watch";
+  // Issue化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
+  issueTitle?: string;
 };
 
 export type SuggestedSubIssue = {
@@ -85,12 +93,13 @@ export type AgentRun = {
 // ユーザー指摘対応（続報）: auto-anomaly/auto-summaryのrunはrun.task自体が「〜を判断
 // してください」という定型の指示文＋本文という長い文字列で、EMが書いた短い文ではない。
 // これをそのままタイトルにすると（呼び出し側でtruncateForTitleしても）本文へ辿り着く
-// 前の定型句だけが残ってしまう。proposal.conclusionはAIが実際に出した結論そのもの
-// （journal-store.tsのプロンプトで必ず「結論の中でIssue化を検討する旨を明記」させている）
-// なので、存在すればtaskより優先してタイトルに使う。
+// 前の定型句だけが残ってしまう。proposal.issueTitle（短い課題名）があれば最優先。
+// 無ければ conclusion から判断メタを除いた候補を使い、それも無ければ task 等へ落ちる。
 export function runFallbackTitle(run: AgentRun): string {
+  const issueTitle = run.proposal?.issueTitle?.trim();
+  if (issueTitle) return issueTitle;
   const conclusion = run.proposal?.conclusion.trim();
-  if (conclusion) return conclusion;
+  if (conclusion) return issueTitleFromConclusion(conclusion);
   const task = run.task.trim();
   if (task) return task;
   const yieldReason = run.yieldRequest?.reason.trim();

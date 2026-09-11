@@ -187,6 +187,20 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractProposal(text)?.recommendation).toBe("dismiss");
   });
 
+  it("extractProposalはissueTitleを拾う", async () => {
+    const rt = await loadModule();
+    const text =
+      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "recommendation": "issue", "issueTitle": "短い課題名" }\n```';
+    expect(rt.extractProposal(text)?.issueTitle).toBe("短い課題名");
+  });
+
+  it("extractProposalは空のissueTitleを無視する", async () => {
+    const rt = await loadModule();
+    const text =
+      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "issueTitle": "  " }\n```';
+    expect(rt.extractProposal(text)?.issueTitle).toBeUndefined();
+  });
+
   it("extractProposalはconclusion/logicが文字列でなければundefined", async () => {
     const rt = await loadModule();
     expect(rt.extractProposal('```proposal\n{ "facts": [] }\n```')).toBeUndefined();

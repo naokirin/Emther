@@ -46,14 +46,61 @@ export function isJournalEntryResolved(entry: JournalEntry): boolean {
   return !!(entry.resolvedIssueId || entry.resolutionNote);
 }
 
+// 結論文からIssueタイトル候補を作る。AIが「〜をIssue化して追跡すべきと判断します」のような
+// 判断メタを conclusion に書くことが多く、そのままタイトルにすると途中で切れて見える。
+// issueTitle フィールドが無い旧出力・フォールバック向けのヒューリスティック。
+const CONCLUSION_TITLE_META_SUFFIXES = [
+  /を?Issue化して追跡すべきだ?と?判断します[。．.]?$/u,
+  /を?Issueとして追跡すべきだ?と?判断します[。．.]?$/u,
+  /を?Issue化して追跡すべきです[。．.]?$/u,
+  /を?Issueとして追跡すべきです[。．.]?$/u,
+  /を?Issue化すべきだ?と?判断します[。．.]?$/u,
+  /を?Issue化を検討すべきだ?と?判断します[。．.]?$/u,
+  /Issue化を検討すべきだ?と?判断します[。．.]?$/u,
+  /Issue化を検討します[。．.]?$/u,
+  /を?Issue化して追跡すべきだ?$/u,
+  /を?Issueとして追跡すべきだ?$/u,
+  /を?Issue化すべきだ?$/u,
+  /と判断します[。．.]?$/u,
+  /と考えます[。．.]?$/u,
+];
+
+export function issueTitleFromConclusion(conclusion: string): string {
+  let text = conclusion.trim().replace(/\s+/g, " ");
+  if (!text) return text;
+  for (const re of CONCLUSION_TITLE_META_SUFFIXES) {
+    const next = text.replace(re, "").trim();
+    if (next) text = next;
+  }
+  return text.replace(/[。．.]+$/u, "").trim() || conclusion.trim();
+}
+
 // ユーザー指摘対応: 異常検知runなど、EMが書いた短い文ではなく定型の指示文＋本文という
 // 長いtaskをそのままIssueタイトルに使うと、単純なslice(0, n)では文の途中（しかも
 // 肝心の本文へ辿り着く前）でちぎれ、省略されたことも分からない見た目になっていた。
-// Issueタイトルを作る全箇所でこの1箇所を通し、上限超過時は「…」を付けて明示する。
-export function truncateForTitle(text: string, maxLength = 60): string {
-  const trimmed = text.trim();
+// Issueタイトルを作る全箇所でこの1箇所を通し、上限超過時は句読点付近で切って「…」を付ける。
+// （句点で自然に終わった場合は「…」を付けない。）
+export function truncateForTitle(text: string, maxLength = 80): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
   if (trimmed.length <= maxLength) return trimmed;
-  return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
+  const budget = maxLength - 1;
+  const head = trimmed.slice(0, budget);
+  const minKeep = Math.floor(budget * 0.5);
+  const isBreak = (ch: string) => /[。．.！!？?、，,；;：:\n\s]/u.test(ch);
+  const isTerminal = (ch: string) => /[。．.！!？?]/u.test(ch);
+  let breakAt = -1;
+  for (let i = head.length - 1; i >= minKeep; i--) {
+    if (isBreak(head[i]!)) {
+      breakAt = i;
+      break;
+    }
+  }
+  const cut =
+    breakAt >= 0
+      ? head.slice(0, isTerminal(head[breakAt]!) || /[、，,；;：:]/u.test(head[breakAt]!) ? breakAt + 1 : breakAt).trimEnd()
+      : head.trimEnd();
+  if (/[。．.！!？?]$/u.test(cut)) return cut;
+  return `${cut}…`;
 }
 
 // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。

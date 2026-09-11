@@ -61,6 +61,8 @@ export type Proposal = {
   // docs/usage_issues U2。Journal自動分析など「追跡要否」を聞かれたときだけ使う。
   // 未指定の従来出力は手動トリアージのまま。
   recommendation?: ProposalRecommendation;
+  // Issue化時に使う短い課題名。conclusion（判断の一文）とは別に持たせ、タイトルの途中切れを抑える。
+  issueTitle?: string;
 };
 
 // docs/memo.md「M. AIエージェント“チーム”の本格協働」対応。以前は専門エージェント
@@ -1031,7 +1033,7 @@ export function matchesJournalAutoFilters(
 export async function startJournalAutoAnalysis(rawText: string, journalId?: string): Promise<AgentRun | undefined> {
   const task = [
     "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
-    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。",
+    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle に一覧向きの短い課題名（40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "単なる一時的な感情の吐露などで追跡不要と判断した場合は、proposalの recommendation を \"dismiss\" にし、その旨を結論に書いてください（無理にIssue化を勧めないこと）。Issue化すべきなら recommendation は \"issue\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
@@ -1522,10 +1524,12 @@ export function buildSystemPrompt(
     '  "facts": ["判断の根拠にした参照ファクト（与えられた情報の中から）"],',
     '  "logic": "その結論に至った判断ロジック",',
     '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
-    '  "recommendation": "issue | dismiss | watch  （任意。追跡要否を判断する課題のときだけ。不要なら dismiss）"',
+    '  "recommendation": "issue | dismiss | watch  （任意。追跡要否を判断する課題のときだけ。不要なら dismiss）",',
+    '  "issueTitle": "短い課題名（任意。Issue化を勧めるときは必須。40文字以内・結論文ではなく題名）"',
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
+    'Issue化を勧める場合（recommendation: "issue"、または結論でIssue化を勧める場合）は、issueTitle に一覧向きの短い課題名を付けてください（「〜と判断します」等の結論文は入れないこと）。',
     ...actionItemsRule,
     ...subIssuesRule,
     ...charterRule,
@@ -1622,6 +1626,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
         parsed.recommendation === "dismiss" || parsed.recommendation === "issue" || parsed.recommendation === "watch"
           ? parsed.recommendation
           : undefined;
+      const issueTitle =
+        typeof parsed.issueTitle === "string" && parsed.issueTitle.trim() ? parsed.issueTitle.trim() : undefined;
       return {
         conclusion: parsed.conclusion,
         facts: Array.isArray(parsed.facts) ? parsed.facts.filter((f: unknown) => typeof f === "string") : [],
@@ -1633,6 +1639,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
             )
           : [],
         ...(recommendation ? { recommendation } : {}),
+        ...(issueTitle ? { issueTitle } : {}),
       };
     }
   } catch {
@@ -2613,6 +2620,7 @@ export function toRunView(run: AgentRun): AgentRun {
             reason: unmaskNames(r.reason),
           })),
           ...(run.proposal.recommendation ? { recommendation: run.proposal.recommendation } : {}),
+          ...(run.proposal.issueTitle ? { issueTitle: unmaskNames(run.proposal.issueTitle) } : {}),
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
