@@ -404,6 +404,55 @@ export function useJournalEditing(
     void sendJournalPatch(entryId, body, retry);
   }
 
+  // docs/usage_issues U16。編集フォームを開かず、現在の抽出内容のまま確定する。
+  // 自動分析ONかつフィルタ適合なら、サーバ側で初回確定時に分析が起動する。
+  function confirmAsIs(entry: JournalEntry) {
+    const body = {
+      tags: entry.tags,
+      people: entry.people,
+      urgency: entry.urgency,
+      occurredAtDate: timestampToDateInputValue(entry.createdAt),
+    };
+    const retry = () => {
+      void sendJournalPatch(entry.id, body, retry);
+    };
+    void sendJournalPatch(entry.id, body, retry);
+  }
+
+  // docs/usage_issues U16。確定済みJournalをフィルタ／自動設定に関係なく明示分析する。
+  // 成功時は相談タブへ遷移できるよう runId を返す。
+  async function startAnalysis(entry: JournalEntry): Promise<string | undefined> {
+    setPendingEntryIds((prev) => new Set(prev).add(entry.id));
+    dismissPendingError(entry.id);
+    try {
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/journal/${entry.id}/analyze`,
+        { method: "POST", body: {} },
+        "分析を開始する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "分析の起動に失敗しました");
+      const payload = data as { entry: JournalEntry; run: { id: string } };
+      setJournalEntries((prev) =>
+        prev.map((e) => (e.id === entry.id ? { ...payload.entry, sourceConsultRunId: payload.run.id } : e)),
+      );
+      return payload.run.id;
+    } catch (err) {
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        const retry = () => {
+          void startAnalysis(entry);
+        };
+        setPendingEntryErrors((prev) => ({ ...prev, [entry.id]: { message: (err as Error).message, retry } }));
+      }
+      return undefined;
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        return next;
+      });
+    }
+  }
+
   // 「メモを残して解決にする」: Issue化するほどではないが、この件はもう追いかけなくてよい、
   // という判断をJournal自体に記録する。urgencyは書き換えない（起きた出来事の深刻さの記録は
   // そのまま残す）。resolutionNoteはmaskForStorageを通るため時間がかかりうる。
@@ -525,6 +574,8 @@ export function useJournalEditing(
     startEditing,
     cancelEditing,
     confirmEdit,
+    confirmAsIs,
+    startAnalysis,
     resolutionNoteDraft,
     setResolutionNoteDraft,
     resolveWithNote,

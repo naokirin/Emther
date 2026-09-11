@@ -36,7 +36,8 @@ export type RulesAndConstraints = {
   journalFactTtlDays: number;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動」対応。
   // どちらも既定OFF（EMの明示opt-inが必須。自律実行によるコスト発生を勝手に始めない）。
-  // イベント駆動: Journal校正時、下記の緊急度・感情フィルタに合うエントリならLead Agentへ分析を投げる。
+  // イベント駆動: Journal初回確定（校正）時、下記の緊急度・感情フィルタに合うエントリならLead Agentへ分析を投げる。
+  // 投稿直後は起動しない。フィルタ外・自動OFF時は POST /api/journal/[id]/analyze で明示起動できる。
   autoAnomalyDetectionEnabled: boolean;
   // Journal自動分析の緊急度フィルタ。既定は従来互換の high_only。
   autoJournalUrgencyFilter: AutoJournalUrgencyFilter;

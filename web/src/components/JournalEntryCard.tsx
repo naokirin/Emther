@@ -45,6 +45,8 @@ export function JournalEntryCard({
   onChangeEditDate,
   onChangeResolutionNoteDraft,
   onConfirmEdit,
+  onConfirmAsIs,
+  onStartAnalysis,
   onCancelEdit,
   onStartEdit,
   onResolveWithNote,
@@ -74,6 +76,10 @@ export function JournalEntryCard({
   onChangeEditDate: (value: string) => void;
   onChangeResolutionNoteDraft: (value: string) => void;
   onConfirmEdit: () => void;
+  // docs/usage_issues U16。未確認エントリを編集せずに確定する。
+  onConfirmAsIs?: () => void;
+  // docs/usage_issues U16。確定済みで相談未作成のとき、手動で分析を起動する。成功時は runId。
+  onStartAnalysis?: () => Promise<string | undefined>;
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onResolveWithNote: () => void;
@@ -88,6 +94,7 @@ export function JournalEntryCard({
   // 編集モードに入ると常に触れるが、本文はIssueのタイトル編集と同じくボタンで
   // 明示的に開始する（うっかり本文を書き換えてしまう事故も減らせる）。
   const [rawTextRevealed, setRawTextRevealed] = useState(false);
+  const [analysisStarting, setAnalysisStarting] = useState(false);
 
   async function handleCreateIssue() {
     const issueId = await onResolveWithNewIssue();
@@ -110,6 +117,17 @@ export function JournalEntryCard({
   function handleConfirm() {
     setRawTextRevealed(false);
     onConfirmEdit();
+  }
+
+  async function handleStartAnalysis() {
+    if (!onStartAnalysis || analysisStarting) return;
+    setAnalysisStarting(true);
+    try {
+      const runId = await onStartAnalysis();
+      if (runId) router.push(`/chat?runId=${runId}`);
+    } finally {
+      setAnalysisStarting(false);
+    }
   }
 
   // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
@@ -210,14 +228,36 @@ export function JournalEntryCard({
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={handleConfirm}>
             {editSubmitting ? "確定中…" : "この内容で確定"}
           </button>
           <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCancel}>
             キャンセル
           </button>
+          {entry.confirmed && !entry.sourceConsultRunId && onStartAnalysis && (
+            <button
+              className={styles.btnOutline}
+              disabled={editSubmitting || analysisStarting}
+              onClick={() => void handleStartAnalysis()}
+              title="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
+            >
+              {analysisStarting ? "起動中…" : "分析する"}
+            </button>
+          )}
         </div>
+        {!entry.confirmed ? (
+          <p className={styles.subtitle} style={{ margin: "6px 0 0" }}>
+            投稿直後は分析しません。確定後、設定の条件に合うと自動分析が起動します。条件外でも後から「分析する」で起動できます。
+          </p>
+        ) : (
+          !entry.sourceConsultRunId &&
+          onStartAnalysis && (
+            <p className={styles.subtitle} style={{ margin: "6px 0 0" }}>
+              自動条件に合わなくても「分析する」でLeadに依頼できます。
+            </p>
+          )
+        )}
 
         {/* docs/em_human_story_and_ux.md 改修依頼対応。Urgencyは起きた出来事自体の
             深刻さの記録として書き換えず、「今どこで管理されているか」を別途記録できる
@@ -362,10 +402,31 @@ export function JournalEntryCard({
         {!entry.confirmed && (
           <span
             className={styles.subtitle}
-            title="AIの自動抽出のままです。内容・発生日が正しければ「編集」→「この内容で確定」で確認してください。"
+            title="AIの自動抽出のままです。正しければ「この内容で確定」、直すなら「編集」してください。投稿直後は分析しません。"
           >
             🤖 未確認
           </span>
+        )}
+        {!entry.confirmed && onConfirmAsIs && (
+          <button
+            className={styles.primaryBtn}
+            style={{ width: "auto", padding: "2px 10px", fontSize: "0.75rem" }}
+            onClick={onConfirmAsIs}
+            title="修正なしで内容を確定します。設定の条件に合う場合は自動分析が起動します。"
+          >
+            この内容で確定
+          </button>
+        )}
+        {entry.confirmed && !entry.sourceConsultRunId && onStartAnalysis && (
+          <button
+            className={styles.btnOutline}
+            style={{ padding: "2px 10px", fontSize: "0.75rem" }}
+            disabled={analysisStarting}
+            onClick={() => void handleStartAnalysis()}
+            title="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
+          >
+            {analysisStarting ? "起動中…" : "分析する"}
+          </button>
         )}
         <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={onStartEdit}>
           編集

@@ -587,7 +587,7 @@ export default function DashboardPage() {
         lane: "decision",
         icon: "📝",
         kindLabel: "Journal未確認",
-        text: `内容を確認して確定してください（緊急度high・未確認）: ${(entry.summary || entry.rawText).slice(0, 36)}`,
+        text: `内容を確認して「この内容で確定」してください（緊急度high・未確認）: ${(entry.summary || entry.rawText).slice(0, 36)}`,
         onSelect: () => router.push(`/journal?focus=${entry.id}`),
         since: entry.createdAt,
       });
@@ -1640,6 +1640,8 @@ export default function DashboardPage() {
             onChangeEditDate={journalEditing.setEditDate}
             onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}
             onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
+            onConfirmAsIs={() => journalEditing.confirmAsIs(entry)}
+            onStartAnalysis={() => journalEditing.startAnalysis(entry)}
             onCancelEdit={journalEditing.cancelEditing}
             onStartEdit={() => journalEditing.startEditing(entry)}
             onResolveWithNote={() => journalEditing.resolveWithNote(entry.id)}

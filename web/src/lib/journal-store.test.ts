@@ -41,10 +41,16 @@ const startJournalAutoAnalysisMock = vi.fn(async (rawText: string, journalId?: s
   void journalId;
   return {};
 });
+const startJournalAnalysisMock = vi.fn(async (rawText: string, journalId?: string) => {
+  void rawText;
+  void journalId;
+  return { id: "run-manual-analysis", agentName: "Lead Agent", sourceJournalId: journalId };
+});
 const listRunsMock = vi.fn(() => [] as Array<{ id: string; agentName: string; sourceJournalId?: string; updatedAt: number }>);
 vi.mock("@/lib/agent-runtime", () => ({
   startRun: (...args: unknown[]) => startRunMock(...(args as [string, string, string?])),
   startJournalAutoAnalysis: (...args: unknown[]) => startJournalAutoAnalysisMock(...(args as [string, string?])),
+  startJournalAnalysis: (...args: unknown[]) => startJournalAnalysisMock(...(args as [string, string?])),
   listRuns: () => listRunsMock(),
 }));
 
@@ -57,6 +63,7 @@ beforeEach(() => {
   mockNerPeople = [];
   startRunMock.mockClear();
   startJournalAutoAnalysisMock.mockClear();
+  startJournalAnalysisMock.mockClear();
   listRunsMock.mockReset();
 });
 
@@ -327,6 +334,35 @@ describe("updateJournalEntry", () => {
     const entry = await store.addJournalEntry("良い出来事");
     await store.updateJournalEntry(entry.id, { urgency: "high" });
     expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestJournalAnalysis", () => {
+  it("未確認エントリはエラーにする", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("問題発生");
+    await expect(store.requestJournalAnalysis(entry.id)).rejects.toThrow(/未確認/);
+    expect(startJournalAnalysisMock).not.toHaveBeenCalled();
+  });
+
+  it("確定済みならフィルタ／自動OFFに関係なく手動分析を起動する", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("問題発生");
+    const confirmed = await store.updateJournalEntry(entry.id, { urgency: "low" });
+    startJournalAutoAnalysisMock.mockClear();
+    const result = await store.requestJournalAnalysis(confirmed!.id);
+    expect(startJournalAnalysisMock).toHaveBeenCalledWith(
+      "問題発生",
+      confirmed!.id,
+      expect.objectContaining({ trigger: "manual", onUnconfirmedNames: "throw" }),
+    );
+    expect(result?.run.id).toBe("run-manual-analysis");
+    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
+  });
+
+  it("存在しないIDはundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(await store.requestJournalAnalysis("missing")).toBeUndefined();
   });
 });
 

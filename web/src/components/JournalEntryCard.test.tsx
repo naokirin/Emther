@@ -121,6 +121,41 @@ describe("JournalEntryCard（表示モード）", () => {
     await user.click(screen.getByRole("button", { name: "編集" }));
     expect(onStartEdit).toHaveBeenCalledTimes(1);
   });
+
+  it("未確認なら「この内容で確定」ショートカットを出し、onConfirmAsIsを呼ぶ", async () => {
+    const onConfirmAsIs = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <JournalEntryCard
+        {...baseProps({ entry: baseEntry({ confirmed: false }), onConfirmAsIs })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "この内容で確定" }));
+    expect(onConfirmAsIs).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "分析する" })).not.toBeInTheDocument();
+  });
+
+  it("確定済みで相談が無いとき「分析する」を出し、成功したら相談へ遷移する", async () => {
+    const onStartAnalysis = vi.fn(async () => "run-42");
+    const user = userEvent.setup();
+    render(<JournalEntryCard {...baseProps({ onStartAnalysis })} />);
+    await user.click(screen.getByRole("button", { name: "分析する" }));
+    expect(onStartAnalysis).toHaveBeenCalledTimes(1);
+    expect(pushMock).toHaveBeenCalledWith("/chat?runId=run-42");
+  });
+
+  it("相談があるときは「分析する」を出さず「相談を開く」を優先する", () => {
+    render(
+      <JournalEntryCard
+        {...baseProps({
+          entry: baseEntry({ sourceConsultRunId: "run-1" }),
+          onStartAnalysis: async () => "run-x",
+        })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "💬 相談を開く" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "分析する" })).not.toBeInTheDocument();
+  });
 });
 
 describe("JournalEntryCard（pending / pendingError）", () => {
