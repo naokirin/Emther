@@ -102,7 +102,7 @@ suggested* = プログレス・朝キューの「仕事」に数えない（採�
 `focus` / `normal` / `parked` は status と独立した「今週〜今月の見通し」軸。  
 「今やる」は focus、「進行」は status、「解決／追わない」は done／archived。語彙を混ぜない。
 
-内部根拠として `triage`（CoD / Effort / BlastRadius / Confidence → score → suggestedPriority）を持てる。UI 主面は帯のまま。EM はマトリクス入力ではなく例外上書きだけ行う（`docs/value_hierarchy_and_flow.md` §4）。
+内部根拠として `triage`（CoD / Effort / BlastRadius / Confidence → score → suggestedPriority）を持てる。採点本線は外部 AI（失敗時はルールベース）。一括再評価は前回 `scoredAt` 以降に更新のない Issue をスキップし、詳細画面の再採点は強制。UI 主面は帯のまま。EM はマトリクス入力ではなく例外上書きだけ行う（`docs/value_hierarchy_and_flow.md` §4）。
 
 ---
 

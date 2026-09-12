@@ -5,7 +5,7 @@ import { resolveUniqueByPrefix } from "@/lib/id-resolve";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-// docs/value_hierarchy_and_flow.md §4。Issue 単体の4軸再採点。
+// docs/value_hierarchy_and_flow.md §4。Issue 単体の4軸再採点（常に強制＝内容未更新でも AI 再評価）。
 // Charter や紐付けを直した直後に、Issue一覧の一括更新を待たず評価を更新できるようにする。
 
 export async function POST(request: Request, ctx: Ctx) {
@@ -26,7 +26,8 @@ export async function POST(request: Request, ctx: Ctx) {
 
   const body = await request.json().catch(() => ({}));
   const applySuggested = body?.applySuggested === true;
-  const result = rescoreIssueTriage(resolved.item.id, { applySuggested });
+  // 詳細画面からの再採点は常に force（案 A の例外）
+  const result = await rescoreIssueTriage(resolved.item.id, { applySuggested, force: true });
   if (!result) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
@@ -36,6 +37,8 @@ export async function POST(request: Request, ctx: Ctx) {
     issue: toIssueView(result.issue),
     applied: applySuggested,
     changed: result.changed,
+    skipped: result.skipped,
+    source: result.source ?? result.issue.triage?.source ?? null,
     from: result.from,
     to: result.to,
     fromLabel: result.from ? ISSUE_PRIORITY_META[result.from].label : undefined,

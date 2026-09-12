@@ -6,6 +6,12 @@ vi.mock("@/lib/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
 }));
 
+vi.mock("@/lib/cloud-chat", () => ({
+  runCloudChat: vi.fn(async () => {
+    throw new Error("cloud disabled in hierarchy-flow tests");
+  }),
+}));
+
 vi.mock("@/lib/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,

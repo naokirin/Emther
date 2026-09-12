@@ -439,6 +439,8 @@ export type IssueTriageScores = {
   score: number;
   suggestedPriority: IssuePriority;
   scoredAt: number;
+  /** 採点手段。旧データは未設定。 */
+  source?: "ai" | "heuristic";
 };
 
 export type Issue = {
