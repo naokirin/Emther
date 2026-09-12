@@ -264,7 +264,9 @@ Dashboard・今日タブへの導線は **本スコープ外**。
 | `web/src/components/ObservationDumpSection.tsx` | `/journal` UI |
 | KnowledgeEvent `source_dump_id` / `source_chunk_id` | Journal 弱いリンク |
 
-未実装（メモ §9 の後半）: 巨大テキスト再帰分割キュー、チャンク本文インライン編集 UI、Dashboard 導線、専用ファイルパーサ。
+未実装（メモ §9 の後半）: Dashboard 導線、専用ファイルパーサ。
+
+実装済み（追記）: 巨大テキストの窓分割キュー、チャンク本文・日付のインライン編集、Journal カードからの取り込み元リンク（`/journal?dump=`）。
 
 ---
 

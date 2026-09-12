@@ -409,6 +409,15 @@ export function JournalEntryCard({
             💬 相談を開く
           </button>
         )}
+        {entry.sourceDumpId && (
+          <button
+            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+            title="観測ログ取り込みから採用されたJournal"
+            onClick={() => router.push(`/journal?dump=${encodeURIComponent(entry.sourceDumpId!)}`)}
+          >
+            📥 取り込み元
+          </button>
+        )}
         {entry.resolvedIssueId ? (
           <button
             className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn}`}

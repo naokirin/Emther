@@ -37,14 +37,16 @@ function formatWhen(ts: number): string {
 
 type Props = {
   onAccepted?: () => void;
+  /** `/journal?dump=` から深いリンク。あればセクションを開き当該 Dump を選択する */
+  focusDumpId?: string | null;
 };
 
-export function ObservationDumpSection({ onAccepted }: Props) {
+export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!focusDumpId);
   const [dumps, setDumps] = useState<ObservationDumpView[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(focusDumpId ?? null);
 
   const [sourceType, setSourceType] = useState("chat_log");
   const [title, setTitle] = useState("");
@@ -57,6 +59,10 @@ export function ObservationDumpSection({ onAccepted }: Props) {
   const [selectedChunkIds, setSelectedChunkIds] = useState<Set<string>>(new Set());
   const [accepting, setAccepting] = useState(false);
   const [reparsing, setReparsing] = useState(false);
+  const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const selected = dumps.find((d) => d.id === selectedId) ?? null;
 
@@ -68,6 +74,14 @@ export function ObservationDumpSection({ onAccepted }: Props) {
     }
     setLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (focusDumpId) {
+      setOpen(true);
+      setSelectedId(focusDumpId);
+      void reload();
+    }
+  }, [focusDumpId, reload]);
 
   useEffect(() => {
     if (open && !loaded) void reload();
@@ -166,6 +180,47 @@ export function ObservationDumpSection({ onAccepted }: Props) {
       }),
     });
     await reload();
+  }
+
+  function startEditChunk(chunk: { id: string; text: string; suggestedOccurredAt?: string }) {
+    setEditingChunkId(chunk.id);
+    setEditText(chunk.text);
+    setEditDate(chunk.suggestedOccurredAt ?? "");
+  }
+
+  async function saveEditChunk() {
+    if (!selectedId || !editingChunkId || savingEdit) return;
+    const trimmed = editText.trim();
+    if (!trimmed) {
+      setError("チャンク本文を空にはできません");
+      return;
+    }
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/journal/dumps/${selectedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chunks: [
+            {
+              id: editingChunkId,
+              text: trimmed,
+              suggestedOccurredAt: editDate.trim() ? editDate.trim() : null,
+              disposition: "edit",
+            },
+          ],
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "保存に失敗しました");
+      setEditingChunkId(null);
+      await reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function handleAccept() {
@@ -372,6 +427,7 @@ export function ObservationDumpSection({ onAccepted }: Props) {
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   {selected.chunkDrafts.map((c) => {
                     const disabled = !!c.acceptedJournalId || c.disposition === "drop";
+                    const isEditing = editingChunkId === c.id;
                     return (
                       <div
                         key={c.id}
@@ -387,28 +443,91 @@ export function ObservationDumpSection({ onAccepted }: Props) {
                           <input
                             type="checkbox"
                             checked={selectedChunkIds.has(c.id)}
-                            disabled={disabled}
+                            disabled={disabled || isEditing}
                             onChange={() => toggleChunk(c.id)}
                             style={{ marginTop: 4 }}
                           />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ whiteSpace: "pre-wrap", fontSize: "0.8125rem" }}>{c.text}</div>
-                            <div className={styles.subtitle} style={{ marginTop: 4 }}>
-                              {c.suggestedOccurredAt ? `日付案: ${c.suggestedOccurredAt} · ` : ""}
-                              confidence: {c.confidence.toFixed(2)}
-                              {c.people.length > 0 ? ` · ${c.people.join(", ")}` : ""}
-                              {c.acceptedJournalId ? " · ✅ Journal化済み" : ""}
-                              {c.disposition === "drop" ? " · 除外" : ""}
-                            </div>
+                            {isEditing ? (
+                              <>
+                                <textarea
+                                  rows={4}
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 4,
+                                    padding: "6px 8px",
+                                    fontSize: "0.8125rem",
+                                    fontFamily: "inherit",
+                                    resize: "vertical",
+                                  }}
+                                />
+                                <label
+                                  className={styles.subtitle}
+                                  style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}
+                                >
+                                  日付案:
+                                  <input
+                                    type="date"
+                                    value={editDate}
+                                    onChange={(e) => setEditDate(e.target.value)}
+                                  />
+                                </label>
+                                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    className={styles.primaryBtn}
+                                    style={{ width: "auto" }}
+                                    disabled={savingEdit || !editText.trim()}
+                                    onClick={saveEditChunk}
+                                  >
+                                    {savingEdit ? "保存中…" : "保存"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.btnOutline}
+                                    onClick={() => setEditingChunkId(null)}
+                                    disabled={savingEdit}
+                                  >
+                                    キャンセル
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div style={{ whiteSpace: "pre-wrap", fontSize: "0.8125rem" }}>{c.text}</div>
+                                <div className={styles.subtitle} style={{ marginTop: 4 }}>
+                                  {c.suggestedOccurredAt ? `日付案: ${c.suggestedOccurredAt} · ` : ""}
+                                  confidence: {c.confidence.toFixed(2)}
+                                  {c.people.length > 0 ? ` · ${c.people.join(", ")}` : ""}
+                                  {c.acceptedJournalId ? " · ✅ Journal化済み" : ""}
+                                  {c.disposition === "drop" ? " · 除外" : ""}
+                                  {c.disposition === "edit" ? " · 編集済" : ""}
+                                </div>
+                              </>
+                            )}
                           </div>
-                          {!c.acceptedJournalId && (
-                            <button
-                              type="button"
-                              className={styles.btnOutline}
-                              onClick={() => toggleDrop(c.id, c.disposition !== "drop")}
-                            >
-                              {c.disposition === "drop" ? "戻す" : "除外"}
-                            </button>
+                          {!c.acceptedJournalId && !isEditing && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {c.disposition !== "drop" && (
+                                <button
+                                  type="button"
+                                  className={styles.btnOutline}
+                                  onClick={() => startEditChunk(c)}
+                                >
+                                  編集
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className={styles.btnOutline}
+                                onClick={() => toggleDrop(c.id, c.disposition !== "drop")}
+                              >
+                                {c.disposition === "drop" ? "戻す" : "除外"}
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>

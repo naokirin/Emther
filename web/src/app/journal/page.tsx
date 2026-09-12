@@ -53,6 +53,7 @@ export default function JournalListPage() {
 function JournalListPageInner() {
   const searchParams = useSearchParams();
   const focusId = searchParams.get("focus");
+  const focusDumpId = searchParams.get("dump");
 
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -124,7 +125,7 @@ function JournalListPageInner() {
         Dashboardには直近5件のみを表示しています。ここでは全件を横断してキーワード検索・絞り込みができます。
       </p>
 
-      <ObservationDumpSection onAccepted={() => refreshSearch()} />
+      <ObservationDumpSection onAccepted={() => refreshSearch()} focusDumpId={focusDumpId} />
 
       <div className={styles.panel}>
         <div className={styles.field}>
