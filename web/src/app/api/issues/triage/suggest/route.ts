@@ -2,16 +2,18 @@ import { NextResponse } from "next/server";
 import { suggestTriageForActiveParents, toIssueView } from "@/lib/issue-store";
 import { ISSUE_PRIORITY_META } from "@/lib/types";
 
-// docs/value_hierarchy_and_flow.md §4。ルールベースで triage を書き、focus 候補を返す。
+// docs/value_hierarchy_and_flow.md §4。外部AIで triage を書き、focus 候補を返す。
+// 前回採点以降に更新のない Issue はスキップ（コスト抑制）。force=true で全件再採点可。
 // body.applySuggested=true のとき suggestedPriority を priority に反映（例外上書き前の一括提案）。
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const applySuggested = body?.applySuggested === true;
+  const force = body?.force === true;
   const focusLimit =
     typeof body?.focusLimit === "number" && body.focusLimit > 0 ? Math.min(20, Math.floor(body.focusLimit)) : 5;
 
-  const result = suggestTriageForActiveParents({ applySuggested, focusLimit });
+  const result = await suggestTriageForActiveParents({ applySuggested, focusLimit, force });
 
   return NextResponse.json({
     issues: result.issues.map(toIssueView),
@@ -27,6 +29,11 @@ export async function POST(request: Request) {
       confidence: i.triage?.confidence ?? 0,
     })),
     counts: result.counts,
+    rescoredCount: result.rescoredCount,
+    skippedUnchangedCount: result.skippedUnchangedCount,
+    deferredCount: result.deferredCount,
+    aiCount: result.aiCount,
+    heuristicCount: result.heuristicCount,
     differing: result.differing.map((d) => {
       const issue = result.issues.find((i) => i.id === d.issueId);
       return {
@@ -47,5 +54,6 @@ export async function POST(request: Request) {
     })),
     applied: applySuggested,
     focusLimit,
+    force,
   });
 }

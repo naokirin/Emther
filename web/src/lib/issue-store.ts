@@ -3,7 +3,11 @@ import { loadJSON, saveJSON } from "@/lib/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
 import { ensureNameCandidatesAllowed, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
-import { scoreIssueHeuristically, type IssueTriageScores } from "@/lib/issue-triage";
+import {
+  scoreIssueTriage,
+  scoreIssuesTriageBatch,
+  type IssueTriageScores,
+} from "@/lib/issue-triage";
 
 export type { IssueTriageScores };
 
@@ -727,25 +731,37 @@ export function setIssueTriage(issueId: string, triage: IssueTriageScores): Issu
   return issue;
 }
 
-/** 単一 Issue の4軸を再採点。applySuggested なら提案帯をこの Issue の priority に反映（一括の N件圧縮はしない）。 */
-export function rescoreIssueTriage(
+/** 単一 Issue の4軸を再採点。詳細画面は force で常に再評価。applySuggested なら帯も反映。 */
+export async function rescoreIssueTriage(
   issueId: string,
-  opts: { applySuggested?: boolean; now?: number } = {},
-): { issue: Issue; changed: boolean; from?: IssuePriority; to?: IssuePriority } | undefined {
+  opts: { applySuggested?: boolean; now?: number; force?: boolean } = {},
+): Promise<
+  | {
+      issue: Issue;
+      changed: boolean;
+      from?: IssuePriority;
+      to?: IssuePriority;
+      skipped: boolean;
+      source?: IssueTriageScores["source"];
+    }
+  | undefined
+> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
-  const triage = scoreIssueHeuristically(issue, {
+  const { triage, skipped } = await scoreIssueTriage(issue, {
     now: opts.now ?? Date.now(),
-    hasThemeLink: !!issue.themeId,
-    hasKrLink: !!issue.keyResultId,
+    force: opts.force ?? true,
   });
-  setIssueTriage(issueId, triage);
+  if (!skipped) {
+    setIssueTriage(issueId, triage);
+  }
   let changed = false;
   let from: IssuePriority | undefined;
   let to: IssuePriority | undefined;
+  const effectiveTriage = getIssue(issueId)?.triage ?? triage;
   if (opts.applySuggested) {
-    const current = issue.priority ?? "normal";
-    const suggested = triage.suggestedPriority;
+    const current = getIssue(issueId)?.priority ?? "normal";
+    const suggested = effectiveTriage.suggestedPriority;
     if (current !== suggested) {
       from = current;
       setIssuePriority(issueId, suggested);
@@ -754,10 +770,17 @@ export function rescoreIssueTriage(
     }
   }
   const fresh = getIssue(issueId)!;
-  return { issue: fresh, changed, from, to };
+  return {
+    issue: fresh,
+    changed,
+    from,
+    to,
+    skipped,
+    source: fresh.triage?.source ?? effectiveTriage.source,
+  };
 }
 
-/** アクティブな親 Issue をルール採点し、triage を書き戻す。applySuggested で帯も更新可。 */
+/** アクティブな親 Issue を AI 採点（未更新はスキップ）し、triage を書き戻す。 */
 export type TriageChange = {
   issueId: string;
   title: string;
@@ -781,25 +804,34 @@ export type TriageSuggestResult = {
   }>;
   /** applySuggested 時に実際に priority を変えたもの */
   changes: TriageChange[];
+  rescoredCount: number;
+  skippedUnchangedCount: number;
+  deferredCount: number;
+  aiCount: number;
+  heuristicCount: number;
 };
 
-export function suggestTriageForActiveParents(opts: {
+export async function suggestTriageForActiveParents(opts: {
   applySuggested?: boolean;
   focusLimit?: number;
   now?: number;
-} = {}): TriageSuggestResult {
+  /** true なら未更新でも全件再採点（既定 false＝差分のみ） */
+  force?: boolean;
+} = {}): Promise<TriageSuggestResult> {
   const now = opts.now ?? Date.now();
   const focusLimit = opts.focusLimit ?? 5;
   const parents = issues.filter((i) => !i.archived && i.status !== "done" && !i.parentId);
-  const scored = parents.map((issue) => {
-    const triage = scoreIssueHeuristically(issue, {
-      now,
-      hasThemeLink: !!issue.themeId,
-      hasKrLink: !!issue.keyResultId,
-    });
-    setIssueTriage(issue.id, triage);
-    return getIssue(issue.id)!;
+  const batch = await scoreIssuesTriageBatch(parents, {
+    now,
+    force: opts.force === true,
   });
+
+  for (const issue of parents) {
+    const triage = batch.byId.get(issue.id);
+    if (triage) setIssueTriage(issue.id, triage);
+  }
+
+  const scored = parents.map((i) => getIssue(i.id)!);
   const ranked = [...scored].sort((a, b) => (b.triage?.score ?? 0) - (a.triage?.score ?? 0));
   const focusCandidates = ranked.filter((i) => i.triage?.suggestedPriority === "focus").slice(0, focusLimit);
   const focusCandidateIds = new Set(focusCandidates.map((i) => i.id));
@@ -849,6 +881,11 @@ export function suggestTriageForActiveParents(opts: {
       return fresh ? { ...d, title: fresh.title } : d;
     }),
     changes,
+    rescoredCount: batch.rescoredIds.length,
+    skippedUnchangedCount: batch.skippedUnchangedIds.length,
+    deferredCount: batch.deferredIds.length,
+    aiCount: batch.aiCount,
+    heuristicCount: batch.heuristicCount,
   };
 }
 

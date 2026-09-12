@@ -438,10 +438,13 @@ export function IssueDetailContent({ id }: { id: string }) {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "評価の更新に失敗しました");
       await Promise.all([refreshIssue(), refreshIssues()]);
+      const sourceLabel =
+        data?.source === "ai" ? "外部AI" : data?.source === "heuristic" ? "ルール（フォールバック）" : null;
+      const sourceSuffix = sourceLabel ? ` · ${sourceLabel}` : "";
       setTriageRescoreMessage(
         data?.changed
-          ? `評価を更新し、優先度を反映しました: ${data.fromLabel} → ${data.toLabel}`
-          : `評価を更新しました。優先度は変わりませんでした（提案: ${data?.suggestedLabel ?? "—"}）`,
+          ? `評価を更新し、優先度を反映しました: ${data.fromLabel} → ${data.toLabel}${sourceSuffix}`
+          : `評価を更新しました。優先度は変わりませんでした（提案: ${data?.suggestedLabel ?? "—"}）${sourceSuffix}`,
       );
     } catch (err) {
       setTriageRescoreMessage((err as Error).message);
@@ -1101,7 +1104,7 @@ export function IssueDetailContent({ id }: { id: string }) {
               style={{ fontSize: "0.75rem" }}
               disabled={triageRescoring || prioritySaving}
               onClick={handleRescoreTriage}
-              title="現状の内容から4軸を再採点し、提案どおり優先度へ反映します"
+              title="このIssueを外部AIで強制再採点し、提案どおり優先度へ反映します（未更新でも再評価します）"
             >
               {triageRescoring ? "更新中…" : "このIssueの評価を更新"}
             </button>
@@ -1118,6 +1121,11 @@ export function IssueDetailContent({ id }: { id: string }) {
                 <span className={styles.tableMuted}>
                   {" "}
                   · 更新 {new Date(issue.triage.scoredAt).toLocaleString("ja-JP")}
+                  {issue.triage.source === "ai"
+                    ? " · 外部AI"
+                    : issue.triage.source === "heuristic"
+                      ? " · ルール"
+                      : null}
                 </span>
                 {issue.triage.suggestedPriority !== (issue.priority ?? "normal") && (
                   <span style={{ color: "var(--warning, #b45309)" }}>
@@ -1129,7 +1137,8 @@ export function IssueDetailContent({ id }: { id: string }) {
               </p>
               <IssueTriageAxes triage={issue.triage} />
               <p className={styles.subtitle} style={{ marginTop: 6 }}>
-                Charter やテーマ／KR 紐付けを直したあとは「このIssueの評価を更新」で見直せます（優先度への反映も含みます）。
+                「このIssueの評価を更新」は未更新でも強制再採点します。一括更新は内容が変わった Issue
+                だけを対象にします。
               </p>
             </div>
           ) : (

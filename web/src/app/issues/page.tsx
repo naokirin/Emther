@@ -323,10 +323,20 @@ function IssuesPageInner() {
         focusCandidates: Array.isArray(data.focusCandidates) ? data.focusCandidates : [],
         changes: Array.isArray(data.changes) ? data.changes : [],
       });
+      const rescored = typeof data.rescoredCount === "number" ? data.rescoredCount : null;
+      const skipped = typeof data.skippedUnchangedCount === "number" ? data.skippedUnchangedCount : null;
+      const aiN = typeof data.aiCount === "number" ? data.aiCount : null;
+      const heurN = typeof data.heuristicCount === "number" ? data.heuristicCount : null;
+      const statsBits = [
+        rescored !== null ? `再採点 ${rescored}` : null,
+        skipped !== null ? `未更新スキップ ${skipped}` : null,
+        aiN !== null || heurN !== null ? `AI ${aiN ?? 0} / ルール ${heurN ?? 0}` : null,
+      ].filter(Boolean);
+      const statsSuffix = statsBits.length ? `（${statsBits.join(" · ")}）` : "";
       setTriageMessage(
         changeN > 0
-          ? `評価を更新し、優先度を ${changeN} 件反映しました（フォーカス ${focusN} 件）。例外だけ個別に直してください。`
-          : `評価を更新しました。優先度の変更はありません（提案: 🔥${counts.focus ?? 0} / ➖${counts.normal ?? 0} / 🅿️${counts.parked ?? 0}）。`,
+          ? `評価を更新し、優先度を ${changeN} 件反映しました（フォーカス ${focusN} 件）。例外だけ個別に直してください。${statsSuffix}`
+          : `評価を更新しました。優先度の変更はありません（提案: 🔥${counts.focus ?? 0} / ➖${counts.normal ?? 0} / 🅿️${counts.parked ?? 0}）。${statsSuffix}`,
       );
       await refreshIssues();
     } catch (err) {
@@ -530,7 +540,7 @@ function IssuesPageInner() {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>Issueの評価を一括更新</div>
             <p className={styles.subtitle} style={{ margin: "2px 0 0" }}>
-              親 Issue を再採点し、フォーカス／通常／保留へ反映します（フォーカスは上位5件）。
+              前回評価から内容が変わった親 Issue だけを外部AIで再採点し、フォーカス／通常／保留へ反映します（フォーカスは上位5件）。未更新はスキップします。
             </p>
           </div>
           <button
@@ -539,7 +549,7 @@ function IssuesPageInner() {
             style={{ flexShrink: 0 }}
             disabled={triageSubmitting}
             onClick={handleBulkUpdateTriage}
-            title="全親 Issue を再採点し、提案どおり優先度へ反映します"
+            title="内容が変わった親 Issue だけを再採点し、提案どおり優先度へ反映します"
           >
             {triageSubmitting ? "更新中…" : "評価を一括更新"}
           </button>
