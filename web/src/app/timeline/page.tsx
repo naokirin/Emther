@@ -40,7 +40,7 @@ function TimelinePageInner() {
   const groups = groupByDate(entries);
   // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。TimelineのIssueエントリだけ、
   // 一覧・詳細の他画面と同じ仕組みでスライドオーバー表示にする。Team/Objectiveは
-  // /org側が個別エンティティのURL・詳細ビューを持たないため対象外（従来通り/orgへ遷移）。
+  // Objective は /org?objective= で詳細を開ける。Team は /teams?focus=。
   const peek = usePeekParam("issue");
   const peekedEntry = peek.id ? entries.find((e) => e.entityType === "issue" && e.entityId === peek.id) : undefined;
 

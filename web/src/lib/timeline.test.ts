@@ -51,23 +51,23 @@ describe("listTimelineEntries", () => {
     expect(createdEntry?.entityLabel).toBe("新タイトル");
   });
 
-  it("Teamの変更イベントは/orgへのリンクになる", async () => {
+  it("Teamの変更イベントは/teams?focus= へのリンクになる", async () => {
     const { timeline, orgStore } = await loadModules();
     const team = orgStore.addTeam("Team A", []);
     const entries = timeline.listTimelineEntries();
     const entry = entries.find((e) => e.entityId === team.id);
     expect(entry?.entityType).toBe("team");
-    expect(entry?.href).toBe("/org");
+    expect(entry?.href).toBe(`/teams?focus=${encodeURIComponent(team.id)}`);
     expect(entry?.entityLabel).toBe("Team A");
   });
 
-  it("Objectiveの変更イベントは/orgへのリンクになる", async () => {
+  it("Objectiveの変更イベントは/org?objective= へのリンクになる", async () => {
     const { timeline, orgStore } = await loadModules();
     const objective = await orgStore.addObjective("売上を伸ばす");
     const entries = timeline.listTimelineEntries();
     const entry = entries.find((e) => e.entityId === objective.id);
     expect(entry?.entityType).toBe("org");
-    expect(entry?.href).toBe("/org");
+    expect(entry?.href).toBe(`/org?objective=${encodeURIComponent(objective.id)}`);
     expect(entry?.entityLabel).toBe("売上を伸ばす");
   });
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { useEntityHistory, useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "@/lib/hooks";
@@ -162,6 +164,18 @@ function ObjectiveTeamListView({
 }
 
 export default function OrgContextPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrgContextPageInner />
+    </Suspense>
+  );
+}
+
+// Issue詳細・一覧などから `?objective=<id>` で飛んできたとき、該当 Objective を右パネルで開く。
+function OrgContextPageInner() {
+  const searchParams = useSearchParams();
+  const objectiveFocusId = searchParams.get("objective");
+
   const { strategy, strategyLoaded, refreshStrategy } = useOrgStrategy();
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();
   const { objectives, objectivesLoaded, refreshObjectives } = useObjectives();
@@ -171,6 +185,7 @@ export default function OrgContextPage() {
   const teamOptions = activeTeams.map((t) => ({ value: t.id, label: teamDisplayName(t.name) }));
 
   const [selection, setSelection] = useState<Selection>(null);
+  const [appliedObjectiveFocusId, setAppliedObjectiveFocusId] = useState<string | null>(null);
 
   const [strategyDraft, setStrategyDraft] = useState<OrgStrategy>(strategy);
   const [strategySaving, setStrategySaving] = useState(false);
@@ -415,7 +430,16 @@ export default function OrgContextPage() {
     setNewKeyResultTitle("");
     setKrDrafts(Object.fromEntries(o.keyResults.map((kr) => [kr.id, kr.title])));
     setImportOpen(false);
+    setEditingBackgroundId(null);
     setEditingObjectiveId(o.id);
+    setSelection({ kind: "objectives" });
+  }
+
+  // objectives の初回ロード後に一度だけ適用する（ポーリングで編集中ドラフトを上書きしない）。
+  if (objectivesLoaded && objectiveFocusId && objectiveFocusId !== appliedObjectiveFocusId) {
+    setAppliedObjectiveFocusId(objectiveFocusId);
+    const focused = objectives.find((o) => o.id === objectiveFocusId);
+    if (focused) beginEditObjective(focused);
   }
 
   function cancelEditObjective() {
@@ -1403,7 +1427,13 @@ export default function OrgContextPage() {
                         <ul style={{ margin: "0 0 8px 16px", fontSize: "0.8125rem" }}>
                           {linked.map((t) => (
                             <li key={t.id} style={{ marginBottom: 4 }}>
-                              <strong>{t.title}</strong>
+                              <Link
+                                href={`/?theme=${encodeURIComponent(t.id)}`}
+                                className={styles.tableRowLink}
+                                style={{ display: "inline", width: "auto" }}
+                              >
+                                {t.title}
+                              </Link>
                               <span className={styles.tableMuted}> · {t.status === "adopted" ? "採用中" : t.status === "candidate" ? "候補" : t.status}</span>
                               {!t.objectiveIds?.length && !t.keyResultIds?.length && (
                                 <span style={{ color: "var(--warning, #b45309)" }}> · ⚠ OKR未リンク</span>

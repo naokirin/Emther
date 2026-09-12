@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
 import { consultListMetaParts } from "@/components/ConsultHistoryItem";
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "@/components/RunDetail";
@@ -168,7 +169,17 @@ const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; cta?: s
 };
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardPageInner />
+    </Suspense>
+  );
+}
+
+function DashboardPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const themeFocusId = searchParams.get("theme");
   // レンダー内で複数回Date.now()を呼ぶと呼ぶたびに結果がずれるため、このレンダーでの
   // 「現在時刻」として1回だけ取得し使い回す（経過時間の表示用途であり、他のポーリングで
   // どのみち定期的に再レンダーされるため、1回の取得で十分）。
@@ -209,7 +220,7 @@ export default function DashboardPage() {
   const { objectives, objectivesLoaded } = useObjectives();
   // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
   const { people, peopleLoaded } = usePeople();
-  const { themes, refreshThemes } = useThemes();
+  const { themes, themesLoaded, refreshThemes } = useThemes();
   // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
   // SettingsのrulesLoadedと同じ考え方（usePollingのloaded）。
   const setupLoaded = strategyLoaded && teamsLoaded && objectivesLoaded;
@@ -379,6 +390,7 @@ export default function DashboardPage() {
   const [themeEditId, setThemeEditId] = useState<string | null>(null);
   const [themeEditDraft, setThemeEditDraft] = useState({ title: "", summary: "", rationale: "" });
   const [themeEditBusy, setThemeEditBusy] = useState(false);
+  const [appliedThemeFocusId, setAppliedThemeFocusId] = useState<string | null>(null);
 
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
@@ -940,21 +952,42 @@ export default function DashboardPage() {
     : adoptedThemes.slice(0, PRIORITY_THEME_LIMIT);
   const hiddenPriorityThemeCount = Math.max(0, adoptedThemes.length - PRIORITY_THEME_LIMIT);
 
-  function themeOkrLabel(theme: (typeof themes)[number]): string | null {
-    const objTitles = (theme.objectiveIds ?? [])
-      .map((id) => objectives.find((o) => o.id === id)?.title)
-      .filter((t): t is string => !!t);
-    const krTitles = (theme.keyResultIds ?? [])
-      .map((krId) => {
-        for (const o of objectives) {
-          const kr = o.keyResults.find((k) => k.id === krId);
-          if (kr) return `${o.title} ＞ ${kr.title}`;
+  // Issue詳細などから `/?theme=<id>` で飛んできたとき、該当テーマを展開して見せる。
+  if (themesLoaded && themeFocusId && themeFocusId !== appliedThemeFocusId) {
+    setAppliedThemeFocusId(themeFocusId);
+    const focusIndex = adoptedThemes.findIndex((t) => t.id === themeFocusId);
+    if (focusIndex >= 0) {
+      if (focusIndex >= PRIORITY_THEME_LIMIT) setPriorityThemesShowAll(true);
+      setPriorityThemeExpandedId(themeFocusId);
+    }
+  }
+
+  useEffect(() => {
+    // URL 経由の deep-link 時だけスクロール（朝ヒーローの同一ページ操作は onClick 側で行う）。
+    if (!themeFocusId || themeFocusId !== appliedThemeFocusId || !themesLoaded) return;
+    const el = document.querySelector(`[data-theme-id="${CSS.escape(themeFocusId)}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [themeFocusId, appliedThemeFocusId, themesLoaded, priorityThemesShowAll]);
+
+  function themeOkrLinks(theme: (typeof themes)[number]): { href: string; label: string }[] {
+    const links: { href: string; label: string }[] = [];
+    for (const id of theme.objectiveIds ?? []) {
+      const o = objectives.find((obj) => obj.id === id);
+      if (o) links.push({ href: `/org?objective=${encodeURIComponent(o.id)}`, label: o.title });
+    }
+    for (const krId of theme.keyResultIds ?? []) {
+      for (const o of objectives) {
+        const kr = o.keyResults.find((k) => k.id === krId);
+        if (kr) {
+          links.push({
+            href: `/org?objective=${encodeURIComponent(o.id)}`,
+            label: `${o.title} ＞ ${kr.title}`,
+          });
+          break;
         }
-        return undefined;
-      })
-      .filter((t): t is string => !!t);
-    const parts = [...objTitles, ...krTitles];
-    return parts.length > 0 ? parts.slice(0, 2).join(" · ") : null;
+      }
+    }
+    return links.slice(0, 2);
   }
 
   const unlinkedParentCount = issues.filter(
@@ -1188,6 +1221,7 @@ export default function DashboardPage() {
             return (
               <div
                 key={t.id}
+                data-theme-id={t.id}
                 style={{
                   marginTop: 10,
                   paddingTop: 10,
@@ -1260,11 +1294,23 @@ export default function DashboardPage() {
                         <strong>{t.title}</strong>
                         <p style={{ margin: "2px 0 0", color: "var(--text-muted)" }}>{t.summary}</p>
                         {(() => {
-                          const okr = themeOkrLabel(t);
-                          if (okr) {
+                          const okrLinks = themeOkrLinks(t);
+                          if (okrLinks.length > 0) {
                             return (
                               <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                📈 {okr}
+                                📈{" "}
+                                {okrLinks.map((link, i) => (
+                                  <span key={link.href + link.label}>
+                                    {i > 0 ? " · " : ""}
+                                    <Link
+                                      href={link.href}
+                                      className={styles.tableRowLink}
+                                      style={{ display: "inline", width: "auto", fontWeight: 500 }}
+                                    >
+                                      {link.label}
+                                    </Link>
+                                  </span>
+                                ))}
                               </p>
                             );
                           }
@@ -1478,10 +1524,31 @@ export default function DashboardPage() {
         <h2 className={styles.heroHeadline}>{headline}</h2>
         {dayPhase === "morning" && adoptedThemes.length > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
-            🎯 今期の焦点: {adoptedThemes
-              .slice(0, 3)
-              .map((t) => t.title)
-              .join(" / ")}
+            🎯 今期の焦点:{" "}
+            {adoptedThemes.slice(0, 3).map((t, i) => (
+              <span key={t.id}>
+                {i > 0 ? " / " : ""}
+                <Link
+                  href={`/?theme=${encodeURIComponent(t.id)}`}
+                  className={styles.tableRowLink}
+                  style={{ display: "inline", width: "auto", fontWeight: 500 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const focusIndex = adoptedThemes.findIndex((x) => x.id === t.id);
+                    if (focusIndex >= PRIORITY_THEME_LIMIT) setPriorityThemesShowAll(true);
+                    setPriorityThemeExpandedId(t.id);
+                    setAppliedThemeFocusId(t.id);
+                    requestAnimationFrame(() => {
+                      document
+                        .querySelector(`[data-theme-id="${CSS.escape(t.id)}"]`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    });
+                  }}
+                >
+                  {t.title}
+                </Link>
+              </span>
+            ))}
             {adoptedThemes.length > 3 ? ` 他${adoptedThemes.length - 3}` : ""}
           </p>
         )}

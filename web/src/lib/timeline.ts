@@ -20,8 +20,8 @@ export type TimelineEntry = {
   // このイベントが指すエンティティの現在の表示名。エンティティが削除済みの場合はundefined
   // （呼び出し側は「(削除済み)」等で扱う）。
   entityLabel?: string;
-  // IssueはentityIdへ直接リンクできるが、Team/Objectiveは/org側が選択状態をURLで
-  // 持たないため、リンク自体は/orgへの遷移に留める（新規画面は増やさない）。
+  // IssueはentityIdへ直接リンクできる。Objectiveは /org?objective= で選択状態を開く。
+  // Teamは /teams?focus= へ（方針・目標ではなくチーム管理側）。
   href?: string;
   text: string;
   occurredAt: number;
@@ -46,11 +46,13 @@ function resolveEntity(entityType: KnowledgeEntityType, entityId: string): { lab
   if (entityType === "team") {
     // チーム名は個人名ではないため元々マスク対象外（org-context-store.tsの設計）。
     const team = getTeam(entityId);
-    return team ? { label: teamDisplayName(team.name), href: "/org" } : {};
+    return team ? { label: teamDisplayName(team.name), href: `/teams?focus=${encodeURIComponent(team.id)}` } : {};
   }
   if (entityType === "org") {
     const objective = getObjective(entityId);
-    if (objective) return { label: toObjectiveView(objective).title, href: "/org" };
+    if (objective) {
+      return { label: toObjectiveView(objective).title, href: `/org?objective=${encodeURIComponent(objective.id)}` };
+    }
     const background = getOrgBackground(entityId);
     if (background) return { label: toOrgBackgroundView(background).title, href: "/org" };
   }
