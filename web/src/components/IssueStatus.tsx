@@ -42,7 +42,7 @@ export function IssuePriorityBadge({ priority }: { priority: IssuePriority }) {
 export const TRIAGE_AXIS_META = [
   {
     key: "costOfDelay" as const,
-    label: "放置コスト",
+    label: "放置リスク",
     shortLabel: "放置",
     hint: "「今見なくてよいか」の主軸。高いほど先に見るべきです",
   },
@@ -98,7 +98,7 @@ export function IssueTriageAxes({
   triage: Pick<IssueTriageScores, "costOfDelay" | "effort" | "blastRadius" | "confidence">;
   compact?: boolean;
 }) {
-  // 一覧の狭い列では「放置コ / スト 0.45」のように語の途中で折り返さないよう、
+  // 一覧の狭い列では「放置リ / スク 0.45」のように語の途中で折り返さないよう、
   // 軸ごとに nowrap のチップにし、折り返しはチップ単位だけにする。
   if (compact) {
     return (

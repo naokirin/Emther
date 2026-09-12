@@ -156,7 +156,7 @@ Journal まわりの方針:
 | Value / Effort | 2×2 | 組織レバレッジ vs 介入コスト |
 | ICE | Impact × Confidence × Ease | 軽い並べ替え向き |
 | RICE | Reach × Impact × Confidence / Effort | Reach＝影響人数・チーム数。やや重い |
-| WSJF / CD3 | Cost of Delay ÷ Duration | **放置コスト ÷ 片付ける期間**。期限付き組織リスクに強い |
+| WSJF / CD3 | Cost of Delay ÷ Duration | **放置リスク ÷ 片付ける期間**。期限付き組織リスクに強い |
 | Severity × Likelihood | リスク行列 | 離職・バーンアウト・障害再発など |
 | Blast radius | 影響半径 | 粒度混在の層分け |
 | Reversibility / Leverage | 可逆性・仕組み介入か | 個人対応と組織設計を同列にしない |
@@ -177,7 +177,7 @@ AI 推定スコア（複数軸）
 
 | 軸 | 役割 |
 |---|---|
-| 放置コスト（CoD） | 「今見なくてよいか」の主軸 |
+| 放置リスク（CoD / costOfDelay） | 「今見なくてよいか」の主軸 |
 | 介入コスト（Effort） | 短時間か重い介入か |
 | 影響半径 | 粒度違いの混在を防ぐ |
 | 確信度 | 材料不足は今日の判断から外し Yield／要情報へ |
@@ -185,7 +185,7 @@ AI 推定スコア（複数軸）
 並べ替えのイメージ:
 
 \[
-\text{優先スコア} \approx \frac{\text{放置コスト} \times \text{影響半径}}{\text{介入コスト}} \times \text{確信度}
+\text{優先スコア} \approx \frac{\text{放置リスク} \times \text{影響半径}}{\text{介入コスト}} \times \text{確信度}
 \]
 
 既存の `focus` / `normal` / `parked` は残し、**スコアは帯付けの内部根拠**、UI の主面は圧縮キューと例外レビューとする。
