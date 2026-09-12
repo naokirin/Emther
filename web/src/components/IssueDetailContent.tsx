@@ -166,6 +166,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   // アンマウントされているため、キャンセル時に個別のdraft巻き戻しは不要
   // （再度開けば必ずissue.charterの現在値から始まる）。
   const [charterEditing, setCharterEditing] = useState(false);
+  const [strategyMetaEditing, setStrategyMetaEditing] = useState(false);
   const [charterError, setCharterError] = useState<string | null>(null);
   const [charterPending, setCharterPending] = useState(false);
   const [charterPendingError, setCharterPendingError] = useState<{ message: string; retry: () => void } | null>(null);
@@ -924,56 +925,128 @@ export function IssueDetailContent({ id }: { id: string }) {
         </button>
       </div>
 
-      {/* 関連チーム・上位目標（テーマ / OKR）はタイトル直後に置き、詳細確認中に文脈を見失わないようにする。 */}
+      {/* 関連チーム・上位目標（テーマ / OKR）はタイトル直後に置き、詳細確認中に文脈を見失わないようにする。
+          Why/What/How と同様、表示部分のクリックで編集モードへ切り替える。 */}
       <div style={{ marginTop: 8, marginBottom: 12 }}>
-        <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
-          👥 関連チーム:{" "}
-          {issue.teamId && teamName ? (
-            <Link
-              href={`/teams?focus=${encodeURIComponent(issue.teamId)}`}
-              className={styles.tableRowLink}
-              style={{ display: "inline", width: "auto" }}
+        {!strategyMetaEditing ? (
+          <div
+            className={styles.editableTextView}
+            onClick={() => setStrategyMetaEditing(true)}
+            title="クリックして編集"
+          >
+            <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
+              👥 関連チーム:{" "}
+              {issue.teamId && teamName ? (
+                <Link
+                  href={`/teams?focus=${encodeURIComponent(issue.teamId)}`}
+                  className={styles.tableRowLink}
+                  style={{ display: "inline", width: "auto" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {teamName}
+                </Link>
+              ) : (
+                "なし（クリックして設定）"
+              )}
+            </p>
+            <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
+              🎯 関連テーマ:{" "}
+              {issue.themeId && themeTitle ? (
+                <Link
+                  href={`/?theme=${encodeURIComponent(issue.themeId)}`}
+                  className={styles.tableRowLink}
+                  style={{ display: "inline", width: "auto" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {themeTitle}
+                </Link>
+              ) : (
+                "なし（クリックして設定）"
+              )}
+            </p>
+            <p className={styles.subtitle} style={{ margin: strategyUnlinked ? "0 0 4px" : 0 }}>
+              📈 関連OKR:{" "}
+              {krRef ? (
+                <Link
+                  href={`/org?objective=${encodeURIComponent(krRef.objectiveId)}`}
+                  className={styles.tableRowLink}
+                  style={{ display: "inline", width: "auto" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {krRef.objTitle} ＞ {krRef.kr.title}
+                </Link>
+              ) : (
+                "なし（クリックして設定）"
+              )}
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className={styles.field} style={{ margin: 0 }}>
+              <label>
+                関連チーム（任意。そのチームのMission/制約を前提として注入する）
+                <Select
+                  value={teamIdDraft}
+                  onChange={handleChangeTeam}
+                  disabled={teamLinkSaving}
+                  options={[
+                    { value: "", label: "なし" },
+                    ...teams.filter((t) => !t.archived).map((t) => ({ value: t.id, label: t.name })),
+                  ]}
+                  style={{ display: "block", width: "100%" }}
+                />
+              </label>
+            </div>
+            <div className={styles.field} style={{ margin: 0 }}>
+              <label>
+                紐付けるテーマ（任意。今期の焦点に効く介入か）
+                <Select
+                  value={themeIdDraft}
+                  onChange={handleChangeTheme}
+                  disabled={themeLinkSaving}
+                  options={[
+                    { value: "", label: "なし" },
+                    ...themes
+                      .filter((t) => t.status === "adopted")
+                      .map((t) => ({ value: t.id, label: t.title })),
+                  ]}
+                  style={{ display: "block", width: "100%" }}
+                />
+              </label>
+            </div>
+            <div className={styles.field} style={{ margin: 0 }}>
+              <label>
+                紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
+                <Select
+                  value={keyResultIdDraft}
+                  onChange={handleChangeKeyResult}
+                  disabled={keyResultSaving}
+                  options={[
+                    { value: "", label: "なし" },
+                    ...objectives.flatMap((o) =>
+                      o.keyResults.map((kr) => ({ value: kr.id, label: `${o.title} ＞ ${kr.title}` })),
+                    ),
+                  ]}
+                  style={{ display: "block", width: "100%" }}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              onClick={() => setStrategyMetaEditing(false)}
+              style={{ alignSelf: "flex-start" }}
             >
-              {teamName}
-            </Link>
-          ) : (
-            "なし"
-          )}
-        </p>
-        <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
-          🎯 関連テーマ:{" "}
-          {issue.themeId && themeTitle ? (
-            <Link
-              href={`/?theme=${encodeURIComponent(issue.themeId)}`}
-              className={styles.tableRowLink}
-              style={{ display: "inline", width: "auto" }}
-            >
-              {themeTitle}
-            </Link>
-          ) : (
-            "なし"
-          )}
-        </p>
-        <p className={styles.subtitle} style={{ margin: strategyUnlinked ? "0 0 4px" : "0 0 0" }}>
-          📈 関連OKR:{" "}
-          {krRef ? (
-            <Link
-              href={`/org?objective=${encodeURIComponent(krRef.objectiveId)}`}
-              className={styles.tableRowLink}
-              style={{ display: "inline", width: "auto" }}
-            >
-              {krRef.objTitle} ＞ {krRef.kr.title}
-            </Link>
-          ) : (
-            "なし"
-          )}
-        </p>
+              閉じる
+            </button>
+          </div>
+        )}
         {strategyUnlinked && (
           <div style={{ marginTop: 6 }}>
             <p className={styles.subtitle} style={{ margin: "0 0 6px", color: "var(--warning, #b45309)" }}>
               ⚠ 戦略未接続（テーマ / Key Result のどちらかを紐付けると朝の物語に乗りやすくなります）
             </p>
-            {!charterEditing && (
+            {!strategyMetaEditing && (
               <>
                 <button
                   type="button"
@@ -1088,9 +1161,14 @@ export function IssueDetailContent({ id }: { id: string }) {
           )}
         </div>
       )}
-      <div className={styles.field} style={{ maxWidth: 260 }}>
-        <span className={styles.fieldCaption}>進捗（Action Items + サブIssue。アーカイブした子は除外）</span>
-        <ProgressBar {...issueProgress(issue, childIssues)} />
+      <div className={styles.field}>
+        <span className={styles.fieldCaption}>進捗</span>
+        <span className={styles.subtitle} style={{ display: "block", margin: "0 0 6px", fontSize: "0.75rem" }}>
+          Action Items + サブIssue（アーカイブした子は除外）
+        </span>
+        <div style={{ maxWidth: 260 }}>
+          <ProgressBar {...issueProgress(issue, childIssues)} />
+        </div>
       </div>
 
       {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
@@ -1378,81 +1456,6 @@ export function IssueDetailContent({ id }: { id: string }) {
                 onChange={recomputeCharterDirty}
               /></label>
             </div>
-            <div className={styles.field}>
-              <label>関連チーム（任意。そのチームのMission/制約を前提として注入する）
-              <Select
-                value={teamIdDraft}
-                onChange={handleChangeTeam}
-                disabled={teamLinkSaving}
-                options={[
-                  { value: "", label: "なし" },
-                  ...teams.filter((t) => !t.archived).map((t) => ({ value: t.id, label: t.name })),
-                ]}
-                style={{ display: "block", width: "100%" }}
-              /></label>
-            </div>
-            <div className={styles.field}>
-              <label>紐付けるテーマ（任意。今期の焦点に効く介入か）
-              <Select
-                value={themeIdDraft}
-                onChange={handleChangeTheme}
-                disabled={themeLinkSaving}
-                options={[
-                  { value: "", label: "なし" },
-                  ...themes
-                    .filter((t) => t.status === "adopted")
-                    .map((t) => ({ value: t.id, label: t.title })),
-                ]}
-                style={{ display: "block", width: "100%" }}
-              /></label>
-            </div>
-            <div className={styles.field}>
-              <label>紐付けるKey Result（任意。「今期何を解いているか」の一本線を作る）
-              <Select
-                value={keyResultIdDraft}
-                onChange={handleChangeKeyResult}
-                disabled={keyResultSaving}
-                options={[
-                  { value: "", label: "なし" },
-                  ...objectives.flatMap((o) => o.keyResults.map((kr) => ({ value: kr.id, label: `${o.title} ＞ ${kr.title}` }))),
-                ]}
-                style={{ display: "block", width: "100%" }}
-              /></label>
-            </div>
-            {isIssueStrategyUnlinked({ themeId: themeIdDraft || undefined, keyResultId: keyResultIdDraft || undefined }) && (
-              <div style={{ marginBottom: 8 }}>
-                <p className={styles.subtitle} style={{ margin: "0 0 6px", color: "var(--warning, #b45309)" }}>
-                  ⚠ 戦略未接続（必須ではありません）
-                </p>
-                <button
-                  type="button"
-                  className={styles.btnOutline}
-                  style={{ fontSize: "0.75rem" }}
-                  disabled={strategyLinkSuggesting}
-                  onClick={handleSuggestStrategyLink}
-                >
-                  {strategyLinkSuggesting ? "提案中…" : "🔗 戦略リンクをAI提案"}
-                </button>
-                {strategyLinkError && (
-                  <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
-                    {strategyLinkError}
-                  </p>
-                )}
-                {strategyLinkPreview && (
-                  <div style={{ marginTop: 8 }}>
-                    <IssueStrategyLinkSuggestPanel
-                      suggestions={strategyLinkPreview.suggestions}
-                      source={strategyLinkPreview.source}
-                      fallbackReason={strategyLinkPreview.fallbackReason}
-                      applyingId={strategyLinkApplyingId}
-                      onAdopt={handleAdoptStrategyLink}
-                      onDismiss={() => setStrategyLinkPreview(null)}
-                      onDismissOne={() => setStrategyLinkPreview(null)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
             <div className={styles.field}>
               <span className={styles.fieldCaption}>介入の型（実装タスクではなく仕組み・人・組織への介入の切り口）</span>
               <div role="group" aria-label="介入の型（複数選択可）" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
