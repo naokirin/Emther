@@ -34,6 +34,9 @@ export type JournalEntry = {
   resolutionNote?: string;
   // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
   sourceConsultRunId?: string;
+  // docs/observation_dump_journal.md: 外部ログ取り込み由来。
+  sourceDumpId?: string;
+  sourceChunkId?: string;
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {

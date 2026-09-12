@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
+import { ObservationDumpSection } from "@/components/ObservationDumpSection";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { useJournalEditing, useJournalSearch } from "@/lib/hooks";
@@ -76,7 +77,7 @@ function JournalListPageInner() {
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
   const activeFocusId = focusId && focusId !== appliedFocusId ? focusId : null;
 
-  const { entries, total, resolvedPage, facets, setEntries, searchLoaded } = useJournalSearch(
+  const { entries, total, resolvedPage, facets, setEntries, searchLoaded, refreshSearch } = useJournalSearch(
     {
       query,
       tag: tagFilter,
@@ -122,6 +123,8 @@ function JournalListPageInner() {
       <p className={styles.subtitle} style={{ marginBottom: 12 }}>
         Dashboardには直近5件のみを表示しています。ここでは全件を横断してキーワード検索・絞り込みができます。
       </p>
+
+      <ObservationDumpSection onAccepted={() => refreshSearch()} />
 
       <div className={styles.panel}>
         <div className={styles.field}>
