@@ -813,11 +813,13 @@ export function IssueDetailContent({ id }: { id: string }) {
   }
 
   // docs/em_ui_ux_issue.md 7節対応。閲覧モードでチーム・Key Resultを文字列表示するための
-  // 逆引き（issues/page.tsxのkeyResultLabelと同じ考え方）。
+  // 逆引き（issues/page.tsxのresolveKeyResultと同じ考え方）。
   const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
   const themeTitle = issue.themeId ? themes.find((t) => t.id === issue.themeId)?.title : undefined;
-  const krLabel = issue.keyResultId
-    ? objectives.flatMap((o) => o.keyResults.map((kr) => ({ objTitle: o.title, kr }))).find((x) => x.kr.id === issue.keyResultId)
+  const krRef = issue.keyResultId
+    ? objectives
+        .flatMap((o) => o.keyResults.map((kr) => ({ objectiveId: o.id, objTitle: o.title, kr })))
+        .find((x) => x.kr.id === issue.keyResultId)
     : undefined;
   const strategyUnlinked = isIssueStrategyUnlinked(issue);
   const originJournals =
@@ -920,6 +922,91 @@ export function IssueDetailContent({ id }: { id: string }) {
         >
           {issue.archived ? "アーカイブを解除" : "アーカイブする（追わない）"}
         </button>
+      </div>
+
+      {/* 関連チーム・上位目標（テーマ / OKR）はタイトル直後に置き、詳細確認中に文脈を見失わないようにする。 */}
+      <div style={{ marginTop: 8, marginBottom: 12 }}>
+        <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
+          👥 関連チーム:{" "}
+          {issue.teamId && teamName ? (
+            <Link
+              href={`/teams?focus=${encodeURIComponent(issue.teamId)}`}
+              className={styles.tableRowLink}
+              style={{ display: "inline", width: "auto" }}
+            >
+              {teamName}
+            </Link>
+          ) : (
+            "なし"
+          )}
+        </p>
+        <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
+          🎯 関連テーマ:{" "}
+          {issue.themeId && themeTitle ? (
+            <Link
+              href={`/?theme=${encodeURIComponent(issue.themeId)}`}
+              className={styles.tableRowLink}
+              style={{ display: "inline", width: "auto" }}
+            >
+              {themeTitle}
+            </Link>
+          ) : (
+            "なし"
+          )}
+        </p>
+        <p className={styles.subtitle} style={{ margin: strategyUnlinked ? "0 0 4px" : "0 0 0" }}>
+          📈 関連OKR:{" "}
+          {krRef ? (
+            <Link
+              href={`/org?objective=${encodeURIComponent(krRef.objectiveId)}`}
+              className={styles.tableRowLink}
+              style={{ display: "inline", width: "auto" }}
+            >
+              {krRef.objTitle} ＞ {krRef.kr.title}
+            </Link>
+          ) : (
+            "なし"
+          )}
+        </p>
+        {strategyUnlinked && (
+          <div style={{ marginTop: 6 }}>
+            <p className={styles.subtitle} style={{ margin: "0 0 6px", color: "var(--warning, #b45309)" }}>
+              ⚠ 戦略未接続（テーマ / Key Result のどちらかを紐付けると朝の物語に乗りやすくなります）
+            </p>
+            {!charterEditing && (
+              <>
+                <button
+                  type="button"
+                  className={styles.btnOutline}
+                  style={{ fontSize: "0.75rem" }}
+                  disabled={strategyLinkSuggesting}
+                  onClick={handleSuggestStrategyLink}
+                  title="この Issue へテーマ / KR の紐付けをAIが提案します"
+                >
+                  {strategyLinkSuggesting ? "提案中…" : "🔗 戦略リンクをAI提案"}
+                </button>
+                {strategyLinkError && (
+                  <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
+                    {strategyLinkError}
+                  </p>
+                )}
+                {strategyLinkPreview && (
+                  <div style={{ marginTop: 8 }}>
+                    <IssueStrategyLinkSuggestPanel
+                      suggestions={strategyLinkPreview.suggestions}
+                      source={strategyLinkPreview.source}
+                      fallbackReason={strategyLinkPreview.fallbackReason}
+                      applyingId={strategyLinkApplyingId}
+                      onAdopt={handleAdoptStrategyLink}
+                      onDismiss={() => setStrategyLinkPreview(null)}
+                      onDismissOne={() => setStrategyLinkPreview(null)}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={styles.field}>
@@ -1239,47 +1326,6 @@ export function IssueDetailContent({ id }: { id: string }) {
                 )}
               </div>
             ))}
-
-            <p className={styles.subtitle}>👥 関連チーム: {teamName ?? "なし"}</p>
-            <p className={styles.subtitle}>🎯 テーマ: {themeTitle ?? "なし"}</p>
-            <p className={styles.subtitle} style={{ marginBottom: strategyUnlinked ? 4 : 10 }}>
-              📈 Key Result: {krLabel ? `${krLabel.objTitle} ＞ ${krLabel.kr.title}` : "なし"}
-            </p>
-            {strategyUnlinked && (
-              <div style={{ marginBottom: 10 }}>
-                <p className={styles.subtitle} style={{ margin: "0 0 6px", color: "var(--warning, #b45309)" }}>
-                  ⚠ 戦略未接続（テーマ / Key Result のどちらかを紐付けると朝の物語に乗りやすくなります）
-                </p>
-                <button
-                  type="button"
-                  className={styles.btnOutline}
-                  style={{ fontSize: "0.75rem" }}
-                  disabled={strategyLinkSuggesting}
-                  onClick={handleSuggestStrategyLink}
-                  title="この Issue へテーマ / KR の紐付けをAIが提案します"
-                >
-                  {strategyLinkSuggesting ? "提案中…" : "🔗 戦略リンクをAI提案"}
-                </button>
-                {strategyLinkError && (
-                  <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
-                    {strategyLinkError}
-                  </p>
-                )}
-                {strategyLinkPreview && (
-                  <div style={{ marginTop: 8 }}>
-                    <IssueStrategyLinkSuggestPanel
-                      suggestions={strategyLinkPreview.suggestions}
-                      source={strategyLinkPreview.source}
-                      fallbackReason={strategyLinkPreview.fallbackReason}
-                      applyingId={strategyLinkApplyingId}
-                      onAdopt={handleAdoptStrategyLink}
-                      onDismiss={() => setStrategyLinkPreview(null)}
-                      onDismissOne={() => setStrategyLinkPreview(null)}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
 
             {issue.tags.length > 0 && (
               <div className={styles.tagRow} style={{ marginBottom: 10 }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { StatusBadge, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
@@ -212,10 +213,10 @@ function IssuesPageInner() {
 
   // docs/em_human_story_and_ux.md P1-7対応。「今期何を解いているか」を一覧でも見せるための
   // Objective/KRタイトルの逆引き。
-  function keyResultLabel(krId: string): string | undefined {
+  function resolveKeyResult(krId: string): { objectiveId: string; label: string } | undefined {
     for (const o of objectives) {
       const kr = o.keyResults.find((k) => k.id === krId);
-      if (kr) return `${o.title} ＞ ${kr.title}`;
+      if (kr) return { objectiveId: o.id, label: `${o.title} ＞ ${kr.title}` };
     }
     return undefined;
   }
@@ -747,7 +748,7 @@ function IssuesPageInner() {
               <tr>
                 <th>タイトル</th>
                 <th>ステータス</th>
-                <th>優先度/リスク</th>
+                <th>優先度/判断</th>
                 <th>次の一手</th>
                 <th>型・関連</th>
                 <th>Why/What/How</th>
@@ -776,7 +777,7 @@ function IssuesPageInner() {
                 const topicTags = issue.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
                 const teamName = issue.teamId ? teams.find((t) => t.id === issue.teamId)?.name : undefined;
                 const themeTitle = issue.themeId ? themes.find((t) => t.id === issue.themeId)?.title : undefined;
-                const krLabel = issue.keyResultId ? keyResultLabel(issue.keyResultId) : undefined;
+                const krRef = issue.keyResultId ? resolveKeyResult(issue.keyResultId) : undefined;
                 const strategyUnlinked = isIssueStrategyUnlinked(issue);
                 const nextAction = issueNextAction(issue);
                 const priority = issue.priority ?? "normal";
@@ -890,14 +891,28 @@ function IssuesPageInner() {
                           👥 {teamName}
                         </div>
                       )}
-                      {themeTitle && (
+                      {themeTitle && issue.themeId && (
                         <div className={styles.tableMuted} title="紐付いているテーマ">
-                          🎯 {themeTitle}
+                          🎯{" "}
+                          <Link
+                            href={`/?theme=${encodeURIComponent(issue.themeId)}`}
+                            className={styles.tableRowLink}
+                            style={{ display: "inline", width: "auto", fontWeight: 500 }}
+                          >
+                            {themeTitle}
+                          </Link>
                         </div>
                       )}
-                      {krLabel && (
+                      {krRef && (
                         <div className={styles.tableMuted} title="紐付いているKey Result">
-                          📈 {krLabel}
+                          📈{" "}
+                          <Link
+                            href={`/org?objective=${encodeURIComponent(krRef.objectiveId)}`}
+                            className={styles.tableRowLink}
+                            style={{ display: "inline", width: "auto", fontWeight: 500 }}
+                          >
+                            {krRef.label}
+                          </Link>
                         </div>
                       )}
                       {strategyUnlinked && (
@@ -929,7 +944,8 @@ function IssuesPageInner() {
                   const childInterventionTypes = child.tags.filter((t) => INTERVENTION_TYPE_LABELS.has(t));
                   const childTopicTags = child.tags.filter((t) => !INTERVENTION_TYPE_LABELS.has(t));
                   const childTeamName = child.teamId ? teams.find((t) => t.id === child.teamId)?.name : undefined;
-                  const childKrLabel = child.keyResultId ? keyResultLabel(child.keyResultId) : undefined;
+                  const childThemeTitle = child.themeId ? themes.find((t) => t.id === child.themeId)?.title : undefined;
+                  const childKrRef = child.keyResultId ? resolveKeyResult(child.keyResultId) : undefined;
                   const childNextAction = issueNextAction(child);
                   const childPriority = child.priority ?? "normal";
                   return (
@@ -992,9 +1008,28 @@ function IssuesPageInner() {
                             👥 {childTeamName}
                           </div>
                         )}
-                        {childKrLabel && (
+                        {childThemeTitle && child.themeId && (
+                          <div className={styles.tableMuted} title="紐付いているテーマ">
+                            🎯{" "}
+                            <Link
+                              href={`/?theme=${encodeURIComponent(child.themeId)}`}
+                              className={styles.tableRowLink}
+                              style={{ display: "inline", width: "auto", fontWeight: 500 }}
+                            >
+                              {childThemeTitle}
+                            </Link>
+                          </div>
+                        )}
+                        {childKrRef && (
                           <div className={styles.tableMuted} title="紐付いているKey Result">
-                            📈 {childKrLabel}
+                            📈{" "}
+                            <Link
+                              href={`/org?objective=${encodeURIComponent(childKrRef.objectiveId)}`}
+                              className={styles.tableRowLink}
+                              style={{ display: "inline", width: "auto", fontWeight: 500 }}
+                            >
+                              {childKrRef.label}
+                            </Link>
                           </div>
                         )}
                       </td>
