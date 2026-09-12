@@ -49,7 +49,10 @@ function QuadrantBubbleChart({
   // 大きいバブルを先に描き、小さい／前面の視認性を確保
   const drawOrder = [...layout].sort((a, b) => b.r - a.r || a.rank - b.rank);
 
-  const quadLabelStyle = { fontSize: 11, fill: "var(--text-muted)" } as const;
+  // 象限ラベルはプロット枠の外側（余白）に置き、端のバブルと重ならないようにする。
+  const plotBottom = pad.top + innerH;
+  const topLabelY = pad.top - 10;
+  const bottomLabelY = plotBottom + 16;
 
   return (
     <div className={styles.scoreGapScatter}>
@@ -95,19 +98,6 @@ function QuadrantBubbleChart({
           className={styles.scoreGapQuadFill}
         />
 
-        <text x={pad.left + 8} y={pad.top + 16} style={quadLabelStyle}>
-          計画してやる
-        </text>
-        <text x={pad.left + innerW - 8} y={pad.top + 16} textAnchor="end" style={quadLabelStyle}>
-          すぐやる
-        </text>
-        <text x={pad.left + 8} y={pad.top + innerH - 8} style={quadLabelStyle}>
-          保留候補
-        </text>
-        <text x={pad.left + innerW - 8} y={pad.top + innerH - 8} textAnchor="end" style={quadLabelStyle}>
-          空きで消化
-        </text>
-
         {/* 十字 */}
         <line x1={midX} y1={pad.top} x2={midX} y2={pad.top + innerH} className={styles.scoreGapScatterAxis} />
         <line x1={pad.left} y1={midY} x2={pad.left + innerW} y2={midY} className={styles.scoreGapScatterAxis} />
@@ -124,11 +114,11 @@ function QuadrantBubbleChart({
           ← 介入コスト（右が低い）
         </text>
         <text
-          x={14}
+          x={26}
           y={pad.top + innerH / 2}
           textAnchor="middle"
           className={styles.scoreGapScatterAxisLabel}
-          transform={`rotate(-90 14 ${pad.top + innerH / 2})`}
+          transform={`rotate(-90 26 ${pad.top + innerH / 2})`}
         >
           放置リスク →
         </text>
@@ -160,6 +150,20 @@ function QuadrantBubbleChart({
             </g>
           );
         })}
+
+        {/* 枠外に描画し、端のバブルに隠れないようにする */}
+        <text x={pad.left} y={topLabelY} className={styles.scoreGapQuadLabel}>
+          計画してやる
+        </text>
+        <text x={pad.left + innerW} y={topLabelY} textAnchor="end" className={styles.scoreGapQuadLabel}>
+          すぐやる
+        </text>
+        <text x={pad.left} y={bottomLabelY} className={styles.scoreGapQuadLabel}>
+          保留候補
+        </text>
+        <text x={pad.left + innerW} y={bottomLabelY} textAnchor="end" className={styles.scoreGapQuadLabel}>
+          空きで消化
+        </text>
       </svg>
       <div className={styles.scoreGapLegend}>
         <span>大＝影響が広い</span>

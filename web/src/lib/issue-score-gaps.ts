@@ -170,12 +170,12 @@ export function layoutQuadrantBubbles(
     points[i].cy = points[i].homeCy + Math.sin(angle) * radius;
   }
 
-  // パディング内に軽く収める（ホーム近傍なので半径クランプは緩く）
+  // バブル全体がプロット枠内に収まるよう半径込みでクランプ（枠外の象限ラベルと重ならない）
   for (const p of points) {
-    const minX = opts.padLeft + 2;
-    const maxX = opts.padLeft + opts.innerW - 2;
-    const minY = opts.padTop + 2;
-    const maxY = opts.padTop + opts.innerH - 2;
+    const minX = opts.padLeft + p.r;
+    const maxX = opts.padLeft + opts.innerW - p.r;
+    const minY = opts.padTop + p.r;
+    const maxY = opts.padTop + opts.innerH - p.r;
     p.cx = Math.max(minX, Math.min(maxX, p.cx));
     p.cy = Math.max(minY, Math.min(maxY, p.cy));
   }
