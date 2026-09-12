@@ -94,4 +94,27 @@ describe("POST /api/journal/dumps", () => {
     expect(json.dump.occurredRangeHint?.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(json.dump.droppedNotes.some((n: string) => n.includes("JSONL"))).toBe(true);
   });
+
+  it("列マッピング付きTSVを取り込む", async () => {
+    const route = await import("./route");
+    const tsv = ["time\tfrom\tbody", "1779408841\ttarou\t進捗です"].join("\n");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        sourceType: "chat_log",
+        text: tsv,
+        parse: false,
+        mapping: {
+          syntax: "tsv",
+          hasHeader: true,
+          tsKind: "unix_seconds",
+          fieldMapping: { time: "ts", from: "sender", body: "text" },
+        },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.dump.rawText).toContain("tarou");
+    expect(json.dump.rawText).toContain("進捗です");
+    expect(json.dump.importMapping?.syntax).toBe("tsv");
+  });
 });

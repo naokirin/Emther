@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { runParseOnDump } from "@/lib/observation-dump-actions";
+import { parseImportMappingConfig } from "@/lib/observation-dump-mapping-types";
 import {
   createObservationDump,
   isObservationSourceType,
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
   const sourceType = body?.sourceType;
   const title = typeof body?.title === "string" ? body.title : undefined;
   const parse = body?.parse !== false;
+  const mapping = parseImportMappingConfig(body?.mapping);
   const occurredRangeHint =
     body?.occurredRangeHint && typeof body.occurredRangeHint === "object"
       ? {
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
 
   try {
     let dump = await createObservationDump(
-      { sourceType, text, title, occurredRangeHint },
+      { sourceType, text, title, occurredRangeHint, mapping },
       maskOptionsFromBody(body),
     );
     if (parse) {
@@ -53,6 +55,10 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ dump: toObservationDumpView(dump) }, { status: 201 });
   } catch (err) {
+    const message = (err as Error).message;
+    if (message.includes("本文(text)")) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     return jsonFromUnknownError(err);
   }
 }
