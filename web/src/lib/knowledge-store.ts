@@ -53,6 +53,9 @@ export type KnowledgeEvent = {
   // （Journal専用の概念だが、他のentityTypeで使っても害はないため型を分けない）。
   resolvedIssueId?: string;
   resolutionNote?: string;
+  // docs/observation_dump_journal.md: 外部ログ取り込み Dump／チャンクへの弱いリンク。
+  sourceDumpId?: string;
+  sourceChunkId?: string;
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt" | "teamIds"> & {
@@ -82,6 +85,8 @@ type Row = {
   embedding_json: string | null;
   resolved_issue_id: string | null;
   resolution_note: string | null;
+  source_dump_id: string | null;
+  source_chunk_id: string | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -106,6 +111,8 @@ function rowToEvent(row: Row): KnowledgeEvent {
     embedding: row.embedding_json ? JSON.parse(row.embedding_json) : undefined,
     resolvedIssueId: row.resolved_issue_id ?? undefined,
     resolutionNote: row.resolution_note ?? undefined,
+    sourceDumpId: row.source_dump_id ?? undefined,
+    sourceChunkId: row.source_chunk_id ?? undefined,
   };
 }
 
@@ -119,8 +126,8 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_issue_id, resolution_note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_issue_id, resolution_note, source_dump_id, source_chunk_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       event.id,
@@ -143,6 +150,8 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
       event.embedding ? JSON.stringify(event.embedding) : null,
       event.resolvedIssueId ?? null,
       event.resolutionNote ?? null,
+      event.sourceDumpId ?? null,
+      event.sourceChunkId ?? null,
     );
   return event;
 }

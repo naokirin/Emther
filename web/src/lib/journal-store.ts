@@ -17,6 +17,9 @@ export type AddJournalOpts = MaskOptions & {
   people?: string[];
   teams?: string[];
   teamIds?: string[];
+  // docs/observation_dump_journal.md
+  sourceDumpId?: string;
+  sourceChunkId?: string;
 };
 import {
   recordEvent,
@@ -74,6 +77,9 @@ export type JournalEntry = {
   resolutionNote?: string;
   // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
   sourceConsultRunId?: string;
+  // docs/observation_dump_journal.md: 外部ログ取り込み由来。
+  sourceDumpId?: string;
+  sourceChunkId?: string;
 };
 
 /**
@@ -105,6 +111,8 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     confirmed: e.supersedes !== undefined,
     resolvedIssueId: e.resolvedIssueId,
     resolutionNote: e.resolutionNote,
+    sourceDumpId: e.sourceDumpId,
+    sourceChunkId: e.sourceChunkId,
   };
 }
 
@@ -328,6 +336,8 @@ async function createJournalEventFromText(
     id: randomUUID(),
     ttlDays: getRulesAndConstraints().journalFactTtlDays,
     embedding,
+    sourceDumpId: opts.sourceDumpId,
+    sourceChunkId: opts.sourceChunkId,
   });
 }
 
@@ -595,6 +605,8 @@ export async function updateJournalEntry(
     embedding,
     resolvedIssueId,
     resolutionNote,
+    sourceDumpId: original.sourceDumpId,
+    sourceChunkId: original.sourceChunkId,
   });
 
   // docs/em_human_story_and_ux.md P1-9対応。自動検知は「EMが確認・校正した後」にだけ
