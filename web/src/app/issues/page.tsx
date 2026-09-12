@@ -125,6 +125,7 @@ function IssuesPageInner() {
   const [linkPreview, setLinkPreview] = useState<{
     suggestions: IssueStrategyLinkSuggestion[];
     source: "cloud" | "heuristic";
+    fallbackReason?: string;
   } | null>(null);
   const [linkApplyingId, setLinkApplyingId] = useState<string | null>(null);
   // リスト: 親ごとの子Issue展開。既定は折りたたみ。
@@ -346,6 +347,7 @@ function IssuesPageInner() {
       setLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
         source: data?.source === "cloud" ? "cloud" : "heuristic",
+        fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
       });
     } catch (err) {
       setLinkError((err as Error).message);
@@ -580,6 +582,7 @@ function IssuesPageInner() {
           <IssueStrategyLinkSuggestPanel
             suggestions={linkPreview.suggestions}
             source={linkPreview.source}
+            fallbackReason={linkPreview.fallbackReason}
             applyingId={linkApplyingId}
             onAdopt={handleAdoptStrategyLink}
             onDismiss={() => setLinkPreview(null)}

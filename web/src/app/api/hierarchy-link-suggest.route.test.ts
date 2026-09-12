@@ -62,6 +62,8 @@ describe("POST /api/themes/link/suggest", () => {
     const data = await res.json();
     expect(data.targetCount).toBe(1);
     expect(data.source).toBe("heuristic");
+    expect(typeof data.fallbackReason).toBe("string");
+    expect(data.fallbackReason).toMatch(/^cloud_error:/);
     expect(data.suggestions.length).toBeGreaterThan(0);
     expect(data.suggestions[0].themeId).toBe(theme.id);
     expect(
@@ -187,7 +189,45 @@ describe("link-suggest unit", () => {
     const { suggestThemeOkrLinks } = await import("@/lib/link-suggest");
     const result = await suggestThemeOkrLinks();
     expect(result.source).toBe("cloud");
+    expect(result.fallbackReason).toBeUndefined();
     expect(result.suggestions[0].objectiveIds).toContain(objective.id);
     expect(result.suggestions[0].keyResultIds).toContain(krId);
+  });
+
+  it("クラウドプロンプトに実名を載せない（マスク済みのまま送る）", async () => {
+    const { runCloudChat } = await import("@/lib/cloud-chat");
+    const { registerName } = await import("@/lib/people-directory");
+    const themeStore = await import("@/lib/theme-store");
+    const issueStore = await import("@/lib/issue-store");
+
+    registerName("診断太郎");
+    const theme = await themeStore.createThemeCandidate({
+      title: "診断太郎の休職に伴う品質保証体制の危機",
+      summary: "診断太郎が不在で品質が落ちる",
+      rationale: "観測",
+      facts: ["診断太郎が休職した"],
+    });
+    await themeStore.adoptTheme(theme.id);
+
+    const issue = await issueStore.createIssue("品質体制の立て直し", undefined, {
+      why: "品質保証を守る",
+      what: "体制を見直す",
+      how: "役割分担",
+    });
+
+    let capturedUser = "";
+    vi.mocked(runCloudChat).mockImplementationOnce(async (_sys, user) => {
+      capturedUser = user;
+      return JSON.stringify({
+        suggestions: [{ issueId: issue.id, themeId: theme.id, keyResultId: null, rationale: "関連" }],
+      });
+    });
+
+    const { suggestIssueStrategyLinks } = await import("@/lib/link-suggest");
+    const result = await suggestIssueStrategyLinks({ issueIds: [issue.id] });
+    expect(capturedUser).not.toContain("診断太郎");
+    expect(capturedUser).toMatch(/PERSON_\d/);
+    expect(result.source).toBe("cloud");
+    expect(result.suggestions[0]?.labels.theme).toContain("診断太郎");
   });
 });

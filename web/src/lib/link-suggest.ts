@@ -1,7 +1,8 @@
 import { extractFirstJsonObject } from "@/lib/local-model";
 import { runCloudChat } from "@/lib/cloud-chat";
 import { listIssues } from "@/lib/issue-store";
-import { listObjectives, toObjectiveView } from "@/lib/org-context-store";
+import { listObjectives } from "@/lib/org-context-store";
+import { unmaskNames } from "@/lib/people-directory";
 import { listAdoptedThemes, toThemeView, type OrgTheme } from "@/lib/theme-store";
 import {
   isIssueStrategyUnlinked,
@@ -14,9 +15,21 @@ import {
 export type { ThemeOkrLinkSuggestion, IssueStrategyLinkSuggestion };
 export { isThemeOkrUnlinked };
 
+export type LinkSuggestSource = "cloud" | "heuristic";
+
+export type LinkSuggestResult<T> = {
+  suggestions: T[];
+  targetCount: number;
+  source: LinkSuggestSource;
+  /** source が heuristic のとき、フォールバック理由（診断・UI 表示用） */
+  fallbackReason?: string;
+};
+
 // docs/value_hierarchy_and_flow.md §2 / §6.1。
 // OKR未リンクの採用テーマ → Objective/KR、戦略未接続の親 Issue → テーマ/KR を AI（失敗時はヒューリスティック）で提案する。
 // 永続化はしない（HITL）。採用は既存 PATCH（theme action:link / issue themeId·keyResultId）。
+// クラウドへ渡す本文はストア上のマスク済みテキストのままにする（toThemeView / toObjectiveView
+// で実名復元すると assertNoRealNamesLeaked で即失敗し、類似度フォールバックに落ちる）。
 
 const THEME_SYSTEM_PROMPT = [
   "あなたは組織の階層接続（OKR ↔ テーマ）を提案するツールです。説明や前置き・Markdownフェンスは書かず、JSONオブジェクト1つだけを出力してください。",
@@ -29,8 +42,9 @@ const THEME_SYSTEM_PROMPT = [
 const ISSUE_SYSTEM_PROMPT = [
   "あなたは組織の階層接続（テーマ / Key Result ↔ Issue）を提案するツールです。説明や前置き・Markdownフェンスは書かず、JSONオブジェクト1つだけを出力してください。",
   'フォーマット: {"suggestions":[{"issueId":string,"themeId":string|null,"keyResultId":string|null,"rationale":string}]}',
-  "themeId / keyResultId は入力リストにある ID のみ。どちらも付けられないときは両方 null。",
-  "themeId か keyResultId の少なくとも一方を付けられるなら付ける。両方あると望ましい。",
+  "themeId / keyResultId は入力リストにある ID のみ。無い候補は null。",
+  "各 Issue について、themeId か keyResultId の少なくとも一方は必ず付ける（両方 null は禁止）。Key Result 候補が無い／弱いときは採用テーマへ紐付ける。",
+  "両方あると望ましいが、無理に捏造しない。",
   "rationale は日本語で1文。入力に無い事実を捏造しない。",
 ].join("\n");
 
@@ -65,7 +79,8 @@ type OkrCatalog = {
 };
 
 function buildOkrCatalog(): OkrCatalog {
-  const objectives = listObjectives().map(toObjectiveView);
+  // マスク済みのまま（クラウド送信・類似度照合用）。表示ラベルは label* で unmask する。
+  const objectives = listObjectives();
   return {
     objectives: objectives.map((o) => ({
       id: o.id,
@@ -82,6 +97,10 @@ function buildOkrCatalog(): OkrCatalog {
       })),
     ),
   };
+}
+
+function logFallback(scope: string, reason: string): void {
+  console.warn(`[link-suggest] ${scope}: heuristic fallback — ${reason}`);
 }
 
 function labelThemeSuggestion(
@@ -101,10 +120,10 @@ function labelThemeSuggestion(
     keyResultIds: validKr,
     rationale: rationale.trim() || "内容の類似から候補を選びました",
     labels: {
-      objectives: validObj.map((id) => catalog.objectives.find((o) => o.id === id)!.title),
+      objectives: validObj.map((id) => unmaskNames(catalog.objectives.find((o) => o.id === id)!.title)),
       keyResults: validKr.map((id) => {
         const kr = catalog.keyResults.find((k) => k.id === id)!;
-        return `${kr.objectiveTitle} ＞ ${kr.title}`;
+        return `${unmaskNames(kr.objectiveTitle)} ＞ ${unmaskNames(kr.title)}`;
       }),
     },
   };
@@ -125,13 +144,15 @@ function labelIssueSuggestion(
   if (!resolvedThemeId && !resolvedKrId) return null;
   return {
     issueId: issue.id,
-    issueTitle: issue.title,
+    issueTitle: unmaskNames(issue.title),
     themeId: resolvedThemeId,
     keyResultId: resolvedKrId,
     rationale: rationale.trim() || "内容の類似から候補を選びました",
     labels: {
       theme: theme ? toThemeView(theme).title : undefined,
-      keyResult: kr ? `${kr.objectiveTitle} ＞ ${kr.title}` : undefined,
+      keyResult: kr
+        ? `${unmaskNames(kr.objectiveTitle)} ＞ ${unmaskNames(kr.title)}`
+        : undefined,
     },
   };
 }
@@ -236,22 +257,77 @@ function heuristicIssueSuggestion(
   );
 }
 
+function parseIssueCloud(
+  raw: unknown,
+  targets: Issue[],
+  themes: OrgTheme[],
+  catalog: OkrCatalog,
+): {
+  suggestions: IssueStrategyLinkSuggestion[];
+  stats: {
+    raw: number;
+    matchedIssue: number;
+    labeled: number;
+    bothNull: number;
+    unknownTheme: number;
+    unknownKr: number;
+  };
+} {
+  const stats = {
+    raw: 0,
+    matchedIssue: 0,
+    labeled: 0,
+    bothNull: 0,
+    unknownTheme: 0,
+    unknownKr: 0,
+  };
+  if (!raw || typeof raw !== "object") return { suggestions: [], stats };
+  const suggestions = (raw as { suggestions?: unknown }).suggestions;
+  if (!Array.isArray(suggestions)) return { suggestions: [], stats };
+  const byId = new Map(targets.map((i) => [i.id, i]));
+  const out: IssueStrategyLinkSuggestion[] = [];
+  for (const item of suggestions) {
+    stats.raw++;
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const issueId = typeof row.issueId === "string" ? row.issueId : "";
+    const issue = byId.get(issueId);
+    if (!issue) continue;
+    stats.matchedIssue++;
+    const themeIdRaw = typeof row.themeId === "string" ? row.themeId : null;
+    const keyResultIdRaw = typeof row.keyResultId === "string" ? row.keyResultId : null;
+    if (!themeIdRaw && !keyResultIdRaw) stats.bothNull++;
+    if (themeIdRaw && !themes.some((t) => t.id === themeIdRaw)) stats.unknownTheme++;
+    if (keyResultIdRaw && !catalog.keyResults.some((k) => k.id === keyResultIdRaw)) stats.unknownKr++;
+    const rationale = typeof row.rationale === "string" ? row.rationale : "";
+    const labeled = labelIssueSuggestion(issue, themeIdRaw, keyResultIdRaw, rationale, themes, catalog);
+    if (labeled) {
+      stats.labeled++;
+      out.push(labeled);
+    }
+  }
+  return { suggestions: out, stats };
+}
+
 function parseThemeCloud(
   raw: unknown,
   targets: OrgTheme[],
   catalog: OkrCatalog,
-): ThemeOkrLinkSuggestion[] {
-  if (!raw || typeof raw !== "object") return [];
+): { suggestions: ThemeOkrLinkSuggestion[]; stats: { raw: number; matchedTheme: number; labeled: number } } {
+  const stats = { raw: 0, matchedTheme: 0, labeled: 0 };
+  if (!raw || typeof raw !== "object") return { suggestions: [], stats };
   const suggestions = (raw as { suggestions?: unknown }).suggestions;
-  if (!Array.isArray(suggestions)) return [];
+  if (!Array.isArray(suggestions)) return { suggestions: [], stats };
   const byId = new Map(targets.map((t) => [t.id, t]));
   const out: ThemeOkrLinkSuggestion[] = [];
   for (const item of suggestions) {
+    stats.raw++;
     if (!item || typeof item !== "object") continue;
     const row = item as Record<string, unknown>;
     const themeId = typeof row.themeId === "string" ? row.themeId : "";
     const theme = byId.get(themeId);
     if (!theme) continue;
+    stats.matchedTheme++;
     const objectiveIds = Array.isArray(row.objectiveIds)
       ? row.objectiveIds.filter((id): id is string => typeof id === "string")
       : [];
@@ -260,35 +336,12 @@ function parseThemeCloud(
       : [];
     const rationale = typeof row.rationale === "string" ? row.rationale : "";
     const labeled = labelThemeSuggestion(theme, objectiveIds, keyResultIds, rationale, catalog);
-    if (labeled) out.push(labeled);
+    if (labeled) {
+      stats.labeled++;
+      out.push(labeled);
+    }
   }
-  return out;
-}
-
-function parseIssueCloud(
-  raw: unknown,
-  targets: Issue[],
-  themes: OrgTheme[],
-  catalog: OkrCatalog,
-): IssueStrategyLinkSuggestion[] {
-  if (!raw || typeof raw !== "object") return [];
-  const suggestions = (raw as { suggestions?: unknown }).suggestions;
-  if (!Array.isArray(suggestions)) return [];
-  const byId = new Map(targets.map((i) => [i.id, i]));
-  const out: IssueStrategyLinkSuggestion[] = [];
-  for (const item of suggestions) {
-    if (!item || typeof item !== "object") continue;
-    const row = item as Record<string, unknown>;
-    const issueId = typeof row.issueId === "string" ? row.issueId : "";
-    const issue = byId.get(issueId);
-    if (!issue) continue;
-    const themeId = typeof row.themeId === "string" ? row.themeId : null;
-    const keyResultId = typeof row.keyResultId === "string" ? row.keyResultId : null;
-    const rationale = typeof row.rationale === "string" ? row.rationale : "";
-    const labeled = labelIssueSuggestion(issue, themeId, keyResultId, rationale, themes, catalog);
-    if (labeled) out.push(labeled);
-  }
-  return out;
+  return { suggestions: out, stats };
 }
 
 function selectUnlinkedThemes(themeIds?: string[]): OrgTheme[] {
@@ -310,22 +363,22 @@ function selectUnlinkedIssues(issueIds?: string[]): Issue[] {
 
 export async function suggestThemeOkrLinks(opts?: {
   themeIds?: string[];
-}): Promise<{
-  suggestions: ThemeOkrLinkSuggestion[];
-  targetCount: number;
-  source: "cloud" | "heuristic";
-}> {
+}): Promise<LinkSuggestResult<ThemeOkrLinkSuggestion>> {
   const targets = selectUnlinkedThemes(opts?.themeIds);
   const catalog = buildOkrCatalog();
   if (targets.length === 0 || (catalog.objectives.length === 0 && catalog.keyResults.length === 0)) {
-    return { suggestions: [], targetCount: targets.length, source: "heuristic" };
+    const fallbackReason =
+      targets.length === 0 ? "no_unlinked_themes" : "no_okr_candidates";
+    logFallback("theme→okr", fallbackReason);
+    return { suggestions: [], targetCount: targets.length, source: "heuristic", fallbackReason };
   }
 
+  // マスク済みフィールドをそのまま渡す（toThemeView で実名復元しない）
   const themeBlock = targets
-    .map((t) => {
-      const v = toThemeView(t);
-      return `- themeId=${t.id}\n  title: ${v.title}\n  summary: ${v.summary}\n  rationale: ${v.rationale}`;
-    })
+    .map(
+      (t) =>
+        `- themeId=${t.id}\n  title: ${t.title}\n  summary: ${t.summary}\n  rationale: ${t.rationale}`,
+    )
     .join("\n");
   const okrBlock = catalog.objectives
     .map((o) => {
@@ -338,15 +391,34 @@ export async function suggestThemeOkrLinks(opts?: {
     .join("\n");
 
   let cloud: ThemeOkrLinkSuggestion[] = [];
+  let fallbackReason: string | undefined;
   try {
     const content = await runCloudChat(
       THEME_SYSTEM_PROMPT,
       ["未リンクの採用テーマ:", themeBlock, "", "リンク先候補の OKR:", okrBlock].join("\n"),
     );
     const jsonText = extractFirstJsonObject(content);
-    if (jsonText) cloud = parseThemeCloud(JSON.parse(jsonText), targets, catalog);
-  } catch {
-    cloud = [];
+    if (!jsonText) {
+      fallbackReason = "cloud_response_had_no_json";
+      console.warn(
+        `[link-suggest] theme→okr: ${fallbackReason} (responseChars=${content.length})`,
+      );
+    } else {
+      try {
+        const parsed = parseThemeCloud(JSON.parse(jsonText), targets, catalog);
+        cloud = parsed.suggestions;
+        if (cloud.length === 0) {
+          fallbackReason = `cloud_json_parsed_but_no_valid_suggestions(raw=${parsed.stats.raw},matchedTheme=${parsed.stats.matchedTheme},labeled=${parsed.stats.labeled})`;
+          console.warn(`[link-suggest] theme→okr: ${fallbackReason}`);
+        }
+      } catch (err) {
+        fallbackReason = `cloud_json_parse_error: ${(err as Error).message}`;
+        console.warn(`[link-suggest] theme→okr: ${fallbackReason}`);
+      }
+    }
+  } catch (err) {
+    fallbackReason = `cloud_error: ${(err as Error).message}`;
+    logFallback("theme→okr", fallbackReason);
   }
 
   if (cloud.length > 0) {
@@ -363,23 +435,30 @@ export async function suggestThemeOkrLinks(opts?: {
   const heuristic = targets
     .map((t) => heuristicThemeSuggestion(t, catalog))
     .filter((s): s is ThemeOkrLinkSuggestion => !!s);
-  return { suggestions: heuristic, targetCount: targets.length, source: "heuristic" };
+  const reason = fallbackReason ?? "cloud_unavailable_unknown";
+  if (!fallbackReason) logFallback("theme→okr", reason);
+  return {
+    suggestions: heuristic,
+    targetCount: targets.length,
+    source: "heuristic",
+    fallbackReason: reason,
+  };
 }
 
 export async function suggestIssueStrategyLinks(opts?: {
   issueIds?: string[];
-}): Promise<{
-  suggestions: IssueStrategyLinkSuggestion[];
-  targetCount: number;
-  source: "cloud" | "heuristic";
-}> {
+}): Promise<LinkSuggestResult<IssueStrategyLinkSuggestion>> {
   const targets = selectUnlinkedIssues(opts?.issueIds);
   const themes = listAdoptedThemes();
   const catalog = buildOkrCatalog();
   if (targets.length === 0 || (themes.length === 0 && catalog.keyResults.length === 0)) {
-    return { suggestions: [], targetCount: targets.length, source: "heuristic" };
+    const fallbackReason =
+      targets.length === 0 ? "no_unlinked_parent_issues" : "no_theme_or_kr_candidates";
+    logFallback("issue→strategy", fallbackReason);
+    return { suggestions: [], targetCount: targets.length, source: "heuristic", fallbackReason };
   }
 
+  // Issue / テーマともマスク済みのまま（実名復元すると送信ガードで即失敗する）
   const issueBlock = targets
     .map((i) => {
       return [
@@ -393,16 +472,14 @@ export async function suggestIssueStrategyLinks(opts?: {
     })
     .join("\n");
   const themeBlock = themes
-    .map((t) => {
-      const v = toThemeView(t);
-      return `- themeId=${t.id} ${v.title} — ${v.summary}`;
-    })
+    .map((t) => `- themeId=${t.id} ${t.title} — ${t.summary}`)
     .join("\n");
   const krBlock = catalog.keyResults
     .map((k) => `- keyResultId=${k.id} ${k.objectiveTitle} ＞ ${k.title}`)
     .join("\n");
 
   let cloud: IssueStrategyLinkSuggestion[] = [];
+  let fallbackReason: string | undefined;
   try {
     const content = await runCloudChat(
       ISSUE_SYSTEM_PROMPT,
@@ -418,9 +495,27 @@ export async function suggestIssueStrategyLinks(opts?: {
       ].join("\n"),
     );
     const jsonText = extractFirstJsonObject(content);
-    if (jsonText) cloud = parseIssueCloud(JSON.parse(jsonText), targets, themes, catalog);
-  } catch {
-    cloud = [];
+    if (!jsonText) {
+      fallbackReason = "cloud_response_had_no_json";
+      console.warn(
+        `[link-suggest] issue→strategy: ${fallbackReason} (responseChars=${content.length})`,
+      );
+    } else {
+      try {
+        const parsed = parseIssueCloud(JSON.parse(jsonText), targets, themes, catalog);
+        cloud = parsed.suggestions;
+        if (cloud.length === 0) {
+          fallbackReason = `cloud_json_parsed_but_no_valid_suggestions(raw=${parsed.stats.raw},matchedIssue=${parsed.stats.matchedIssue},labeled=${parsed.stats.labeled},bothNull=${parsed.stats.bothNull},unknownTheme=${parsed.stats.unknownTheme},unknownKr=${parsed.stats.unknownKr})`;
+          console.warn(`[link-suggest] issue→strategy: ${fallbackReason}`);
+        }
+      } catch (err) {
+        fallbackReason = `cloud_json_parse_error: ${(err as Error).message}`;
+        console.warn(`[link-suggest] issue→strategy: ${fallbackReason}`);
+      }
+    }
+  } catch (err) {
+    fallbackReason = `cloud_error: ${(err as Error).message}`;
+    logFallback("issue→strategy", fallbackReason);
   }
 
   if (cloud.length > 0) {
@@ -437,5 +532,12 @@ export async function suggestIssueStrategyLinks(opts?: {
   const heuristic = targets
     .map((i) => heuristicIssueSuggestion(i, themes, catalog))
     .filter((s): s is IssueStrategyLinkSuggestion => !!s);
-  return { suggestions: heuristic, targetCount: targets.length, source: "heuristic" };
+  const reason = fallbackReason ?? "cloud_unavailable_unknown";
+  if (!fallbackReason) logFallback("issue→strategy", reason);
+  return {
+    suggestions: heuristic,
+    targetCount: targets.length,
+    source: "heuristic",
+    fallbackReason: reason,
+  };
 }

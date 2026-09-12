@@ -6,6 +6,7 @@ import type { IssueStrategyLinkSuggestion, ThemeOkrLinkSuggestion } from "@/lib/
 export function ThemeOkrLinkSuggestPanel({
   suggestions,
   source,
+  fallbackReason,
   applyingId,
   onAdopt,
   onDismiss,
@@ -13,6 +14,7 @@ export function ThemeOkrLinkSuggestPanel({
 }: {
   suggestions: ThemeOkrLinkSuggestion[];
   source: "cloud" | "heuristic";
+  fallbackReason?: string;
   applyingId: string | null;
   onAdopt: (s: ThemeOkrLinkSuggestion) => void;
   onDismiss: () => void;
@@ -37,6 +39,11 @@ export function ThemeOkrLinkSuggestPanel({
       <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
         {suggestions.length} 件の候補（{source === "cloud" ? "AI" : "類似度フォールバック"}）。採用するまでテーマは変わりません。
       </p>
+      {source === "heuristic" && fallbackReason ? (
+        <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--muted, #888)" }}>
+          診断: {fallbackReason}
+        </p>
+      ) : null}
       {suggestions.length === 0 ? (
         <p className={styles.subtitle} style={{ margin: 0 }}>
           提案できるリンクがありませんでした。方針・目標に OKR があるか確認してください。
@@ -93,6 +100,7 @@ export function ThemeOkrLinkSuggestPanel({
 export function IssueStrategyLinkSuggestPanel({
   suggestions,
   source,
+  fallbackReason,
   applyingId,
   onAdopt,
   onDismiss,
@@ -100,6 +108,7 @@ export function IssueStrategyLinkSuggestPanel({
 }: {
   suggestions: IssueStrategyLinkSuggestion[];
   source: "cloud" | "heuristic";
+  fallbackReason?: string;
   applyingId: string | null;
   onAdopt: (s: IssueStrategyLinkSuggestion) => void;
   onDismiss: () => void;
@@ -124,6 +133,11 @@ export function IssueStrategyLinkSuggestPanel({
       <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
         {suggestions.length} 件の候補（{source === "cloud" ? "AI" : "類似度フォールバック"}）。採用するまで Issue は変わりません。
       </p>
+      {source === "heuristic" && fallbackReason ? (
+        <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--muted, #888)" }}>
+          診断: {fallbackReason}
+        </p>
+      ) : null}
       {suggestions.length === 0 ? (
         <p className={styles.subtitle} style={{ margin: 0 }}>
           提案できるリンクがありませんでした。採用テーマや KR があるか確認してください。
