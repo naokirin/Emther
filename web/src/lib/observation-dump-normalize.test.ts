@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildImportPreview,
   detectSlackJsonl,
   normalizeChannelLabel,
   normalizeObservationInput,
   parseSlackJsonlLine,
   parseSlackTs,
+  splitDelimitedLine,
 } from "@/lib/observation-dump-normalize";
 
 const SAMPLE = [
@@ -57,5 +59,62 @@ describe("Slack JSONL sample", () => {
     const result = normalizeObservationInput("今日は1on1をした\nリリースが遅延");
     expect(result.detected).toBe(false);
     expect(result.text).toContain("1on1");
+  });
+});
+
+describe("列マッピング付き正規化", () => {
+  it("別名キーの JSONL をマッピングで平文化する", () => {
+    const text = [
+      '{"timestamp":"1779408841","user":"hana","message":"hello","room":"eng"}',
+      '{"timestamp":"1779410000","user":"taro","message":"world","room":"eng"}',
+    ].join("\n");
+    const result = normalizeObservationInput(text, {
+      syntax: "jsonl",
+      fieldMapping: {
+        timestamp: "ts",
+        user: "sender",
+        message: "text",
+        room: "channel",
+      },
+      tsKind: "unix_seconds",
+    });
+    expect(result.detected).toBe(true);
+    expect(result.messageCount).toBe(2);
+    expect(result.text).toContain("#eng hana");
+    expect(result.text).toContain("hello");
+    expect(result.text).not.toContain('"timestamp"');
+  });
+
+  it("TSV + ヘッダマッピングで平文化する", () => {
+    const text = [
+      "time\tfrom\tbody",
+      "1779408841\ttarou\t進捗共有します",
+      "1779410000\thanako\t了解です",
+    ].join("\n");
+    const result = normalizeObservationInput(text, {
+      syntax: "tsv",
+      hasHeader: true,
+      fieldMapping: { time: "ts", from: "sender", body: "text" },
+      tsKind: "unix_seconds",
+    });
+    expect(result.detected).toBe(true);
+    expect(result.messageCount).toBe(2);
+    expect(result.text).toContain("tarou");
+    expect(result.text).toContain("進捗共有します");
+  });
+
+  it("splitDelimitedLine はクォートを扱う", () => {
+    expect(splitDelimitedLine('a\t"b\tc"\td', "\t")).toEqual(["a", "b\tc", "d"]);
+  });
+});
+
+describe("buildImportPreview", () => {
+  it("別名 JSONL の列と推奨マッピングを返す", () => {
+    const text = '{"timestamp":"1","user":"a","message":"hi"}';
+    const preview = buildImportPreview(text);
+    expect(preview.suggestedSyntax).toBe("jsonl");
+    expect(preview.columns).toEqual(expect.arrayContaining(["timestamp", "user", "message"]));
+    expect(preview.suggestedMapping.message).toBe("text");
+    expect(preview.suggestedMapping.user).toBe("sender");
   });
 });

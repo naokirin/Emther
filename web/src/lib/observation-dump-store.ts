@@ -3,6 +3,7 @@ import { loadJSON, saveJSON } from "@/lib/persistence";
 import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 import { normalizeObservationInput } from "@/lib/observation-dump-normalize";
+import type { ImportMappingConfig } from "@/lib/observation-dump-mapping-types";
 import {
   isObservationSourceType,
   type ChunkDisposition,
@@ -47,6 +48,7 @@ export type ObservationDump = {
   parseSource?: "cloud" | "heuristic";
   chunkDrafts: ChunkDraft[];
   droppedNotes: string[];
+  importMapping?: ImportMappingConfig;
 };
 
 const dumps: ObservationDump[] = loadJSON<ObservationDump[]>("observation-dumps.json", []);
@@ -76,6 +78,7 @@ export function toObservationDumpView(dump: ObservationDump): ObservationDumpVie
     parseError: dump.parseError,
     parseSource: dump.parseSource,
     droppedNotes: dump.droppedNotes.map(unmaskNames),
+    importMapping: dump.importMapping,
     chunkDrafts: dump.chunkDrafts.map((c) => ({
       id: c.id,
       text: unmaskNames(c.textMasked),
@@ -96,6 +99,7 @@ export async function createObservationDump(
     text: string;
     title?: string;
     occurredRangeHint?: { start?: string; end?: string };
+    mapping?: ImportMappingConfig;
   },
   opts: MaskOptions = {},
 ): Promise<ObservationDump> {
@@ -103,11 +107,16 @@ export async function createObservationDump(
   if (!raw) throw new Error("textは必須です");
   if (!isObservationSourceType(input.sourceType)) throw new Error("sourceTypeが不正です");
 
-  // Slack JSONL（bookmarklet等）はマスク前に平文へ正規化する。
-  // chat_log 以外でも検出したら正規化する（誤って other を選んでも壊れないように）。
-  const normalized = normalizeObservationInput(raw);
+  if (input.mapping && input.mapping.syntax !== "plain") {
+    if (!Object.values(input.mapping.fieldMapping).includes("text")) {
+      throw new Error("列対応で本文(text)を指定してください");
+    }
+  }
+
+  const normalized = normalizeObservationInput(raw, input.mapping);
   const text = normalized.detected ? normalized.text : raw;
   const occurredRangeHint = input.occurredRangeHint ?? normalized.occurredRangeHint;
+  const importMapping = input.mapping ?? normalized.appliedConfig;
 
   const texts = [text];
   if (input.title?.trim()) texts.push(input.title.trim());
@@ -128,7 +137,13 @@ export async function createObservationDump(
     updatedAt: now,
     occurredRangeHint,
     chunkDrafts: [],
-    droppedNotes: normalized.detected ? normalized.notes.map((n) => n) : [],
+    droppedNotes: [
+      ...(normalized.detected ? normalized.notes : []),
+      ...(!normalized.detected && input.mapping?.syntax && input.mapping.syntax !== "plain"
+        ? ["列マッピングで有効な本文行を抽出できませんでした（原文のまま保存）"]
+        : []),
+    ],
+    importMapping,
   };
   dumps.unshift(dump);
   persist();
