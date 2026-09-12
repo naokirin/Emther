@@ -37,10 +37,15 @@ export async function runParseOnDump(dumpId: string): Promise<ObservationDump> {
   updateObservationDump(dumpId, { status: "parsing", parseError: undefined });
   try {
     const result = await parseObservationDumpText(dump.sourceType, dump.rawTextMasked);
+    const priorNotes = dump.droppedNotes ?? [];
+    const mergedNotes = [
+      ...priorNotes,
+      ...result.droppedNotes.filter((n) => !priorNotes.includes(n)),
+    ];
     const updated = updateObservationDump(dumpId, {
       status: result.chunks.length > 0 ? "draft_ready" : "failed",
       chunkDrafts: result.chunks,
-      droppedNotes: result.droppedNotes,
+      droppedNotes: mergedNotes,
       parseSource: result.source,
       parseError: result.chunks.length > 0 ? undefined : "チャンクを抽出できませんでした",
     });

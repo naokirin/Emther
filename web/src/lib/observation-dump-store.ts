@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import { normalizeObservationInput } from "@/lib/observation-dump-normalize";
 import {
   isObservationSourceType,
   type ChunkDisposition,
@@ -98,9 +99,15 @@ export async function createObservationDump(
   },
   opts: MaskOptions = {},
 ): Promise<ObservationDump> {
-  const text = input.text.trim();
-  if (!text) throw new Error("textは必須です");
+  const raw = input.text.trim();
+  if (!raw) throw new Error("textは必須です");
   if (!isObservationSourceType(input.sourceType)) throw new Error("sourceTypeが不正です");
+
+  // Slack JSONL（bookmarklet等）はマスク前に平文へ正規化する。
+  // chat_log 以外でも検出したら正規化する（誤って other を選んでも壊れないように）。
+  const normalized = normalizeObservationInput(raw);
+  const text = normalized.detected ? normalized.text : raw;
+  const occurredRangeHint = input.occurredRangeHint ?? normalized.occurredRangeHint;
 
   const texts = [text];
   if (input.title?.trim()) texts.push(input.title.trim());
@@ -119,9 +126,9 @@ export async function createObservationDump(
     status: "received",
     createdAt: now,
     updatedAt: now,
-    occurredRangeHint: input.occurredRangeHint,
+    occurredRangeHint,
     chunkDrafts: [],
-    droppedNotes: [],
+    droppedNotes: normalized.detected ? normalized.notes.map((n) => n) : [],
   };
   dumps.unshift(dump);
   persist();

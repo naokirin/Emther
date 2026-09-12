@@ -267,6 +267,7 @@ Dashboard・今日タブへの導線は **本スコープ外**。
 未実装（メモ §9 の後半）: Dashboard 導線、専用ファイルパーサ。
 
 実装済み（追記）: 巨大テキストの窓分割キュー、チャンク本文・日付のインライン編集、Journal カードからの取り込み元リンク（`/journal?dump=`）。
+Slack JSONL（`ts` / `channel` / `sender` / `text` / `permalink` / `thread`）の自動検出・平文化（`observation-dump-normalize.ts`）。
 
 ---
 
