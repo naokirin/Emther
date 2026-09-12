@@ -17,6 +17,7 @@ afterEach(() => {
 });
 
 describe("POST /api/settings/data/backup", () => {
+  // tar 生成はマシン負荷で 5s を超えることがある（並列 build 時にタイムアウトを確認）
   it("tar.gz をダウンロード用に返す", async () => {
     mkdirSync(process.env.EM_DATA_DIR!, { recursive: true });
     mkdirSync(process.env.EM_SECURE_DATA_DIR!, { recursive: true });
@@ -30,7 +31,7 @@ describe("POST /api/settings/data/backup", () => {
     expect(res.headers.get("Content-Disposition")).toMatch(/emther-state-.*\.tar\.gz/);
     const buf = Buffer.from(await res.arrayBuffer());
     expect(buf.byteLength).toBeGreaterThan(20);
-  });
+  }, 30_000);
 });
 
 describe("POST /api/settings/data/reset", () => {
