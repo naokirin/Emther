@@ -18,5 +18,6 @@ export async function POST(request: Request) {
     suggestions: result.suggestions,
     targetCount: result.targetCount,
     source: result.source,
+    fallbackReason: result.fallbackReason,
   });
 }

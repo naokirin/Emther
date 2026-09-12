@@ -362,6 +362,7 @@ export default function DashboardPage() {
   const [themeLinkPreview, setThemeLinkPreview] = useState<{
     suggestions: ThemeOkrLinkSuggestion[];
     source: "cloud" | "heuristic";
+    fallbackReason?: string;
   } | null>(null);
   const [themeLinkApplyingId, setThemeLinkApplyingId] = useState<string | null>(null);
   const [issueLinkSuggesting, setIssueLinkSuggesting] = useState(false);
@@ -369,6 +370,7 @@ export default function DashboardPage() {
   const [issueLinkPreview, setIssueLinkPreview] = useState<{
     suggestions: IssueStrategyLinkSuggestion[];
     source: "cloud" | "heuristic";
+    fallbackReason?: string;
   } | null>(null);
   const [issueLinkApplyingId, setIssueLinkApplyingId] = useState<string | null>(null);
   // 採用済みテーマは「次の1手」ではなく「現在の優先テーマ」。詳細は既定で畳む。
@@ -995,6 +997,7 @@ export default function DashboardPage() {
       setThemeLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
         source: data?.source === "cloud" ? "cloud" : "heuristic",
+        fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
       });
     } catch (err) {
       setThemeLinkError((err as Error).message);
@@ -1047,6 +1050,7 @@ export default function DashboardPage() {
       setIssueLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
         source: data?.source === "cloud" ? "cloud" : "heuristic",
+        fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
       });
     } catch (err) {
       setIssueLinkError((err as Error).message);
@@ -1421,6 +1425,7 @@ export default function DashboardPage() {
             <ThemeOkrLinkSuggestPanel
               suggestions={themeLinkPreview.suggestions}
               source={themeLinkPreview.source}
+              fallbackReason={themeLinkPreview.fallbackReason}
               applyingId={themeLinkApplyingId}
               onAdopt={handleAdoptThemeOkrLink}
               onDismiss={() => setThemeLinkPreview(null)}
@@ -1506,6 +1511,7 @@ export default function DashboardPage() {
           <IssueStrategyLinkSuggestPanel
             suggestions={issueLinkPreview.suggestions}
             source={issueLinkPreview.source}
+            fallbackReason={issueLinkPreview.fallbackReason}
             applyingId={issueLinkApplyingId}
             onAdopt={handleAdoptIssueStrategyLink}
             onDismiss={() => setIssueLinkPreview(null)}

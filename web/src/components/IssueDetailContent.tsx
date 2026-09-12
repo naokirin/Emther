@@ -388,6 +388,7 @@ export function IssueDetailContent({ id }: { id: string }) {
   const [strategyLinkPreview, setStrategyLinkPreview] = useState<{
     suggestions: IssueStrategyLinkSuggestion[];
     source: "cloud" | "heuristic";
+    fallbackReason?: string;
   } | null>(null);
   const [strategyLinkApplyingId, setStrategyLinkApplyingId] = useState<string | null>(null);
 
@@ -463,6 +464,7 @@ export function IssueDetailContent({ id }: { id: string }) {
       setStrategyLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
         source: data?.source === "cloud" ? "cloud" : "heuristic",
+        fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
       });
     } catch (err) {
       setStrategyLinkError((err as Error).message);
@@ -1268,6 +1270,7 @@ export function IssueDetailContent({ id }: { id: string }) {
                     <IssueStrategyLinkSuggestPanel
                       suggestions={strategyLinkPreview.suggestions}
                       source={strategyLinkPreview.source}
+                      fallbackReason={strategyLinkPreview.fallbackReason}
                       applyingId={strategyLinkApplyingId}
                       onAdopt={handleAdoptStrategyLink}
                       onDismiss={() => setStrategyLinkPreview(null)}
@@ -1394,6 +1397,7 @@ export function IssueDetailContent({ id }: { id: string }) {
                     <IssueStrategyLinkSuggestPanel
                       suggestions={strategyLinkPreview.suggestions}
                       source={strategyLinkPreview.source}
+                      fallbackReason={strategyLinkPreview.fallbackReason}
                       applyingId={strategyLinkApplyingId}
                       onAdopt={handleAdoptStrategyLink}
                       onDismiss={() => setStrategyLinkPreview(null)}
