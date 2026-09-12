@@ -927,6 +927,16 @@ function DashboardPageInner() {
     (el as HTMLInputElement | null)?.focus();
   }
 
+  // ユーザー指摘「『判断待ちがN件あります』の確認先がわからない」対応。AIブリーフィングの
+  // 一言診断から、実際にその件数の内訳が並ぶ「今日やるべき3つ」まで確実に辿れるようにする
+  // （実行モードで開いていた場合も判断モードへ切り替えてから飛ぶ）。
+  function scrollToTodayActions() {
+    setHandMode("decide");
+    requestAnimationFrame(() => {
+      document.getElementById("today-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   // docs/memo.md「D. 評価不能→観測アクション」対応。評価不能で立ち止まらせず、
   // 「誰の1on1を記録すればよいか」までQuick Journalへのプリフィルで橋渡しする。
   function prefillJournal(text: string) {
@@ -1245,7 +1255,21 @@ function DashboardPageInner() {
           {brief.icon}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: "1.0625rem", fontWeight: 700, lineHeight: 1.4 }}>{brief.text}</p>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <p style={{ margin: 0, fontSize: "1.0625rem", fontWeight: 700, lineHeight: 1.4 }}>{brief.text}</p>
+            {/* ユーザー指摘「確認する先がわからない」対応。診断1文を出すだけで終わらせず、
+                件数の内訳が並ぶ「今日やるべき3つ」へ確実に遷移できるボタンを添える。 */}
+            {(brief.level === "urgent" || brief.level === "warn") && (
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                style={{ width: "auto", flexShrink: 0 }}
+                onClick={scrollToTodayActions}
+              >
+                確認する ↓
+              </button>
+            )}
+          </div>
           <div
             style={{
               display: "flex",
@@ -1638,7 +1662,7 @@ function DashboardPageInner() {
 
       {/* 「次の1手」をヒーローに固定。判断（Yield等）と実行（Next Action）をモードで分ける。 */}
       <div className={styles.dashColumns}>
-      <div className={`${styles.panel} ${styles.heroPanel}`}>
+      <div id="today-actions" className={`${styles.panel} ${styles.heroPanel}`}>
         <h2 className={styles.heroHeadline}>{headline}</h2>
         {unlinkedParentCount > 0 && (
           <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
