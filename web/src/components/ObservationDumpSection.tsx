@@ -179,16 +179,71 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || submitting) return;
-    const mapping = buildMappingPayload();
-    if (preview && preview.suggestedSyntax !== "plain" && mapping && mapping.syntax !== "plain") {
-      if (!Object.values(mapping.fieldMapping).includes("text")) {
-        setError("列対応で「本文 text」を1つ指定してください");
-        return;
-      }
-    }
+
     setSubmitting(true);
     setError(null);
     try {
+      let effectivePreview = preview;
+      let effectiveMapping = fieldMapping;
+      let effectiveTsKind = tsKind;
+      let effectiveSyntax = syntax;
+      let effectiveHasHeader = hasHeader;
+
+      if (!effectivePreview) {
+        const syn = syntax;
+        const res = await fetch("/api/journal/dumps/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            ...(syn !== "auto" ? { syntax: syn } : {}),
+            hasHeader,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || "プレビューに失敗しました");
+        const p = data.preview as ImportPreview;
+        effectivePreview = p;
+        effectiveMapping = p.suggestedMapping;
+        effectiveTsKind = p.suggestedTsKind;
+        effectiveHasHeader = p.hasHeader;
+        if (syn === "auto") effectiveSyntax = p.suggestedSyntax;
+        setPreview(p);
+        setProfiles((data.profiles as ImportProfile[]) ?? []);
+        setFieldMapping(p.suggestedMapping);
+        setTsKind(p.suggestedTsKind);
+        setHasHeader(p.hasHeader);
+        if (syn === "auto") setSyntax(p.suggestedSyntax);
+
+        if (p.suggestedSyntax !== "plain") {
+          throw new Error(
+            "構造化ログです。表示された列対応を確認・調整し、もう一度「取り込んで分割する」を押してください",
+          );
+        }
+      }
+
+      const synResolved: ImportSyntax =
+        effectiveSyntax === "auto"
+          ? (effectivePreview.suggestedSyntax ?? "plain")
+          : effectiveSyntax;
+
+      let mapping: ImportMappingConfig;
+      if (synResolved === "plain") {
+        mapping = { syntax: "plain", fieldMapping: {}, tsKind: "auto" };
+      } else {
+        if (!Object.values(effectiveMapping).includes("text")) {
+          throw new Error("列対応で「本文 text」を1つ指定してください");
+        }
+        mapping = {
+          syntax: synResolved,
+          fieldMapping: effectiveMapping,
+          tsKind: effectiveTsKind,
+          ...(synResolved === "tsv" || synResolved === "csv"
+            ? { hasHeader: effectiveHasHeader }
+            : {}),
+        };
+      }
+
       const { res, data } = await fetchWithNameConfirm(
         "/api/journal/dumps",
         {
@@ -196,6 +251,7 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
           body: {
             sourceType,
             text,
+            mapping,
             ...(title.trim() ? { title: title.trim() } : {}),
             ...(rangeStart || rangeEnd
               ? {
@@ -205,7 +261,6 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
                   },
                 }
               : {}),
-            ...(mapping ? { mapping } : {}),
           },
         },
         "観測ログを取り込む",
@@ -396,8 +451,8 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
       {open && (
         <div style={{ marginTop: 12 }}>
           <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            長いログを貼り付け、構文（JSONL/TSV/CSV）と列→意味の対応を確認してから取り込みます。既知の
-            Slack JSONL は自動でも平文化できます。採用分だけ Journal になり、クラウドへはマスク後のみ送ります。
+            長いログを貼り付け、「列を確認する」で構文と列→意味を指定してから取り込んでください。採用分だけ
+            Journal になり、クラウドへはマスク後のみ送ります。
           </p>
 
           <form onSubmit={handleCreate}>
@@ -490,9 +545,6 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
                 >
                   {previewing ? "解析中…" : "列を確認する"}
                 </button>
-                {preview?.canAutoNormalize && (
-                  <span className={styles.subtitle}>既知 Slack JSONL → 自動平文化可</span>
-                )}
               </div>
 
               {profiles.length > 0 && (

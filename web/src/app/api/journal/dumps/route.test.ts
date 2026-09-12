@@ -73,7 +73,24 @@ describe("POST /api/journal/dumps", () => {
     expect(accepted.dump.status).toBe("done");
   });
 
-  it("Slack JSONLを平文化して取り込む", async () => {
+  it("Slack JSONLはマッピング無しだと400", async () => {
+    const route = await import("./route");
+    const jsonl = [
+      '{"ts":"1779408841.980299","channel":"test_channel","sender":"taro.tanaka","text":"PBIを進めています"}',
+    ].join("\n");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        sourceType: "chat_log",
+        text: jsonl,
+        parse: false,
+      }),
+    );
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toMatch(/列を確認する/);
+  });
+
+  it("Slack JSONLを列マッピング付きで取り込む", async () => {
     const route = await import("./route");
     const jsonl = [
       '{"ts":"1779408841.980299","channel":"test_channel","sender":"taro.tanaka","text":"PBIを進めています","permalink":"https://example.com/a"}',
@@ -84,6 +101,17 @@ describe("POST /api/journal/dumps", () => {
         sourceType: "chat_log",
         text: jsonl,
         parse: false,
+        mapping: {
+          syntax: "jsonl",
+          tsKind: "slack",
+          fieldMapping: {
+            ts: "ts",
+            channel: "channel",
+            sender: "sender",
+            text: "text",
+            permalink: "permalink",
+          },
+        },
       }),
     );
     expect(res.status).toBe(201);
@@ -92,7 +120,7 @@ describe("POST /api/journal/dumps", () => {
     expect(json.dump.rawText).toContain("PBIを進めています");
     expect(json.dump.rawText).not.toContain('"ts":');
     expect(json.dump.occurredRangeHint?.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(json.dump.droppedNotes.some((n: string) => n.includes("JSONL"))).toBe(true);
+    expect(json.dump.importMapping?.syntax).toBe("jsonl");
   });
 
   it("列マッピング付きTSVを取り込む", async () => {

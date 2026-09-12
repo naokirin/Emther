@@ -1,5 +1,4 @@
 import {
-  BUILTIN_SLACK_JSONL_MAPPING,
   type FieldMapping,
   type ImportMappingConfig,
   type ImportPreview,
@@ -296,7 +295,6 @@ export function buildImportPreview(
       hasHeader: false,
       sampleRows: [],
       rowCount: 0,
-      canAutoNormalize: false,
     };
   }
 
@@ -308,12 +306,6 @@ export function buildImportPreview(
     }
     const columns = [...keySet];
     const suggestedMapping = suggestFieldMapping(columns);
-    // 既知 Slack キーがあれば寄せる
-    if (columns.includes("text") && columns.includes("ts") && columns.includes("sender")) {
-      for (const [k, v] of Object.entries(BUILTIN_SLACK_JSONL_MAPPING)) {
-        if (columns.includes(k)) suggestedMapping[k] = v;
-      }
-    }
     const tsCol = Object.entries(suggestedMapping).find(([, f]) => f === "ts")?.[0];
     const samples = tsCol
       ? records.slice(0, 8).map((r) => cellString(r[tsCol]))
@@ -323,10 +315,6 @@ export function buildImportPreview(
       for (const c of columns) row[c] = cellString(r[c]).slice(0, 120);
       return row;
     });
-    const canAuto =
-      columns.includes("text") &&
-      (columns.includes("ts") || columns.includes("sender")) &&
-      detectSlackJsonlShape(trimmed);
 
     return {
       suggestedSyntax: "jsonl",
@@ -336,7 +324,6 @@ export function buildImportPreview(
       hasHeader: false,
       sampleRows,
       rowCount: records.length,
-      canAutoNormalize: canAuto,
     };
   }
 
@@ -359,33 +346,7 @@ export function buildImportPreview(
     hasHeader,
     sampleRows,
     rowCount: rows.length,
-    canAutoNormalize: false,
   };
-}
-
-function detectSlackJsonlShape(text: string): boolean {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return false;
-  let ok = 0;
-  for (const line of lines) {
-    try {
-      const o = JSON.parse(line) as Record<string, unknown>;
-      if (o && typeof o.text === "string" && o.text.trim() && (o.ts != null || o.sender != null)) {
-        ok++;
-      }
-    } catch {
-      /* skip */
-    }
-  }
-  return ok >= Math.max(1, Math.ceil(lines.length * 0.5));
-}
-
-/** @deprecated 互換 */
-export function detectSlackJsonl(text: string): boolean {
-  return detectSlackJsonlShape(text);
 }
 
 function recordsFromConfig(
@@ -487,7 +448,8 @@ function messagesToResult(
 }
 
 /**
- * マッピング指定あり、または既知 Slack JSONL を検出したら平文へ変換する。
+ * 列マッピング指定時のみ構造化ログを平文へ変換する。
+ * マッピング無しなら原文のまま（detected:false）。
  */
 export function normalizeObservationInput(
   text: string,
@@ -498,83 +460,79 @@ export function normalizeObservationInput(
     return { detected: false, text: "", messageCount: 0, notes: [] };
   }
 
-  if (config?.syntax === "plain") {
+  if (!config || config.syntax === "plain") {
     return {
       detected: false,
       text: trimmed,
       messageCount: 0,
-      notes: ["平文として正規化をスキップしました"],
+      notes: config?.syntax === "plain" ? ["平文として正規化をスキップしました"] : [],
       appliedConfig: config,
     };
   }
 
-  if (config) {
-    if (!Object.values(config.fieldMapping).includes("text")) {
-      return {
-        detected: false,
-        text: trimmed,
-        messageCount: 0,
-        notes: ["本文(text)列の対応が必要です"],
-        appliedConfig: config,
-      };
-    }
-    const records = recordsFromConfig(trimmed, config);
-    const messages: CanonicalMessage[] = [];
-    for (const rec of records) {
-      const msg = applyMapping(rec, config.fieldMapping, config.tsKind);
-      if (msg) messages.push(msg);
-    }
-    const notes = [
-      `${config.syntax.toUpperCase()} を列マッピングで ${messages.length} 件の平文に正規化しました`,
-    ];
-    return messagesToResult(messages, config.tsKind, notes, config);
-  }
-
-  // 自動: 既知 Slack JSONL
-  if (detectSlackJsonlShape(trimmed)) {
-    const autoConfig: ImportMappingConfig = {
-      syntax: "jsonl",
-      fieldMapping: { ...BUILTIN_SLACK_JSONL_MAPPING },
-      tsKind: "slack",
+  if (!Object.values(config.fieldMapping).includes("text")) {
+    return {
+      detected: false,
+      text: trimmed,
+      messageCount: 0,
+      notes: ["本文(text)列の対応が必要です"],
+      appliedConfig: config,
     };
-    const records = parseJsonlRecords(trimmed);
-    const messages: CanonicalMessage[] = [];
-    for (const rec of records) {
-      const msg = applyMapping(rec, autoConfig.fieldMapping, autoConfig.tsKind);
-      if (msg) messages.push(msg);
-    }
-    const notes = [
-      `Slack JSONL を ${messages.length} 件のメッセージ平文に正規化しました（組み込み対応）`,
-    ];
-    return messagesToResult(messages, "slack", notes, autoConfig);
   }
-
-  return { detected: false, text: trimmed, messageCount: 0, notes: [] };
+  const records = recordsFromConfig(trimmed, config);
+  const messages: CanonicalMessage[] = [];
+  for (const rec of records) {
+    const msg = applyMapping(rec, config.fieldMapping, config.tsKind);
+    if (msg) messages.push(msg);
+  }
+  const notes = [
+    `${config.syntax.toUpperCase()} を列マッピングで ${messages.length} 件の平文に正規化しました`,
+  ];
+  return messagesToResult(messages, config.tsKind, notes, config);
 }
 
-/** @deprecated 互換テスト用 */
+const DEFAULT_JSONL_MAPPING: FieldMapping = {
+  ts: "ts",
+  channel: "channel",
+  sender: "sender",
+  text: "text",
+  permalink: "permalink",
+};
+
+/** テスト用: 明示マッピングで1行をパース */
 export function parseSlackJsonlLine(line: string): CanonicalMessage | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed[0] !== "{") return null;
   try {
     const rec = JSON.parse(trimmed) as Record<string, unknown>;
-    return applyMapping(rec, BUILTIN_SLACK_JSONL_MAPPING, "slack");
+    return applyMapping(rec, DEFAULT_JSONL_MAPPING, "slack");
   } catch {
     return null;
   }
 }
 
-/** @deprecated 互換 */
+/** テスト用 */
 export function parseSlackJsonlMessages(text: string): CanonicalMessage[] {
-  const r = normalizeObservationInput(text);
-  if (!r.detected) return [];
-  // 再パースは重いので apply し直す
   return parseJsonlRecords(text)
-    .map((rec) => applyMapping(rec, BUILTIN_SLACK_JSONL_MAPPING, "slack"))
+    .map((rec) => applyMapping(rec, DEFAULT_JSONL_MAPPING, "slack"))
     .filter((m): m is CanonicalMessage => !!m)
     .sort((a, b) => {
       const da = parseTimestampValue(a.ts, "slack")?.getTime() ?? 0;
       const db = parseTimestampValue(b.ts, "slack")?.getTime() ?? 0;
       return da - db;
     });
+}
+
+/** テスト用: JSONL らしい行が過半か */
+export function detectSlackJsonl(text: string): boolean {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return false;
+  let ok = 0;
+  for (const line of lines) {
+    if (parseSlackJsonlLine(line)) ok += 1;
+  }
+  return ok >= Math.max(1, Math.ceil(lines.length * 0.5));
 }

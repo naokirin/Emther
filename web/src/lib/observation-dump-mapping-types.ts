@@ -40,7 +40,6 @@ export type ImportPreview = {
   hasHeader: boolean;
   sampleRows: Record<string, string>[];
   rowCount: number;
-  canAutoNormalize: boolean;
 };
 
 export const SEMANTIC_FIELD_OPTIONS: { value: SemanticField; label: string }[] = [
@@ -67,14 +66,6 @@ export const TS_KIND_OPTIONS: { value: TsKind; label: string }[] = [
   { value: "unix_millis", label: "Unix ミリ秒" },
   { value: "iso", label: "ISO 8601 / 日付文字列" },
 ];
-
-export const BUILTIN_SLACK_JSONL_MAPPING: FieldMapping = {
-  ts: "ts",
-  channel: "channel",
-  sender: "sender",
-  text: "text",
-  permalink: "permalink",
-};
 
 export function isImportSyntax(v: unknown): v is ImportSyntax {
   return v === "jsonl" || v === "tsv" || v === "csv" || v === "plain";

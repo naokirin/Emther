@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
-import { normalizeObservationInput } from "@/lib/observation-dump-normalize";
+import { guessImportSyntax, normalizeObservationInput } from "@/lib/observation-dump-normalize";
 import type { ImportMappingConfig } from "@/lib/observation-dump-mapping-types";
 import {
   isObservationSourceType,
@@ -111,12 +111,19 @@ export async function createObservationDump(
     if (!Object.values(input.mapping.fieldMapping).includes("text")) {
       throw new Error("列対応で本文(text)を指定してください");
     }
+  } else if (!input.mapping || input.mapping.syntax !== "plain") {
+    const guessed = guessImportSyntax(raw);
+    if (guessed !== "plain") {
+      throw new Error(
+        "構造化ログ（JSONL/TSV/CSV）は「列を確認する」で列対応を指定してから取り込んでください",
+      );
+    }
   }
 
   const normalized = normalizeObservationInput(raw, input.mapping);
   const text = normalized.detected ? normalized.text : raw;
   const occurredRangeHint = input.occurredRangeHint ?? normalized.occurredRangeHint;
-  const importMapping = input.mapping ?? normalized.appliedConfig;
+  const importMapping = input.mapping;
 
   const texts = [text];
   if (input.title?.trim()) texts.push(input.title.trim());

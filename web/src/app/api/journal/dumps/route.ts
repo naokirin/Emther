@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ dump: toObservationDumpView(dump) }, { status: 201 });
   } catch (err) {
     const message = (err as Error).message;
-    if (message.includes("本文(text)")) {
+    if (message.includes("本文(text)") || message.includes("列を確認する")) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     return jsonFromUnknownError(err);
