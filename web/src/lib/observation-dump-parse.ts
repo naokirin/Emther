@@ -186,6 +186,97 @@ export type ParseObservationResult = {
   source: "cloud" | "heuristic";
 };
 
+/**
+ * 長いマスク済み本文を、空行／行境界を優先して MAX_CLOUD_CHARS 以下の窓に切る。
+ * 1窓がそれでも超える場合だけ硬くスライスする。
+ */
+export function splitMaskedTextIntoWindows(
+  maskedText: string,
+  maxChars: number = MAX_CLOUD_CHARS,
+): string[] {
+  const trimmed = maskedText.trim();
+  if (!trimmed) return [];
+  if (trimmed.length <= maxChars) return [trimmed];
+
+  const paragraphs = trimmed.split(/\n\s*\n/);
+  const windows: string[] = [];
+  let buf = "";
+
+  const pushBuf = () => {
+    const t = buf.trim();
+    if (t) windows.push(t);
+    buf = "";
+  };
+
+  for (const para of paragraphs) {
+    const piece = para.trim();
+    if (!piece) continue;
+    const candidate = buf ? `${buf}\n\n${piece}` : piece;
+    if (candidate.length <= maxChars) {
+      buf = candidate;
+      continue;
+    }
+    pushBuf();
+    if (piece.length <= maxChars) {
+      buf = piece;
+      continue;
+    }
+    // 単一段落が上限超え: 行単位、それでもダメなら硬切り
+    const lines = piece.split("\n");
+    let lineBuf = "";
+    for (const line of lines) {
+      const next = lineBuf ? `${lineBuf}\n${line}` : line;
+      if (next.length <= maxChars) {
+        lineBuf = next;
+        continue;
+      }
+      if (lineBuf.trim()) windows.push(lineBuf.trim());
+      if (line.length <= maxChars) {
+        lineBuf = line;
+      } else {
+        for (let i = 0; i < line.length; i += maxChars) {
+          windows.push(line.slice(i, i + maxChars));
+        }
+        lineBuf = "";
+      }
+    }
+    buf = lineBuf;
+  }
+  pushBuf();
+  return windows.length > 0 ? windows : [trimmed.slice(0, maxChars)];
+}
+
+async function parseOneWindow(
+  sourceType: ObservationSourceType,
+  windowText: string,
+  windowIndex: number,
+  windowCount: number,
+): Promise<{ chunks: ChunkDraft[]; droppedNotes: string[] }> {
+  try {
+    const userPrompt = [
+      "次のマスク済み観測テキストを、指定フォーマットのJSONに分割してください。",
+      "textは原文抜粋のみ（要約禁止）。",
+      ...(windowCount > 1
+        ? [`（全体の ${windowIndex + 1}/${windowCount} 部分です。この部分だけを分割してください）`]
+        : []),
+      "",
+      "変換対象:",
+      windowText,
+    ].join("\n");
+
+    const content = await runCloudChat(systemPromptFor(sourceType), userPrompt);
+    const jsonText = extractFirstJsonObject(content);
+    if (!jsonText) return { chunks: [], droppedNotes: [] };
+    try {
+      return parseModelPayload(JSON.parse(jsonText));
+    } catch {
+      return { chunks: [], droppedNotes: [] };
+    }
+  } catch {
+    return { chunks: [], droppedNotes: [] };
+  }
+}
+
 export async function parseObservationDumpText(
   sourceType: ObservationSourceType,
   maskedText: string,
@@ -194,37 +285,37 @@ export async function parseObservationDumpText(
   if (!trimmed) return { chunks: [], droppedNotes: [], source: "heuristic" };
 
   const heuristic = parseObservationHeuristic(trimmed);
-  const forCloud =
-    trimmed.length > MAX_CLOUD_CHARS ? trimmed.slice(0, MAX_CLOUD_CHARS) : trimmed;
+  const windows = splitMaskedTextIntoWindows(trimmed);
 
-  let cloud: { chunks: ChunkDraft[]; droppedNotes: string[] } = { chunks: [], droppedNotes: [] };
-  try {
-    const userPrompt = [
-      "次のマスク済み観測テキストを、指定フォーマットのJSONに分割してください。",
-      "textは原文抜粋のみ（要約禁止）。",
-      "",
-      "変換対象:",
-      forCloud,
-      ...(trimmed.length > MAX_CLOUD_CHARS
-        ? ["", "（入力が長いため先頭のみ渡しています。重要な後半があればdroppedNotesに記載してください）"]
-        : []),
-    ].join("\n");
+  const allChunks: ChunkDraft[] = [];
+  const allDropped: string[] = [];
+  let anyCloud = false;
 
-    const content = await runCloudChat(systemPromptFor(sourceType), userPrompt);
-    const jsonText = extractFirstJsonObject(content);
-    if (jsonText) {
-      try {
-        cloud = parseModelPayload(JSON.parse(jsonText));
-      } catch {
-        cloud = { chunks: [], droppedNotes: [] };
-      }
+  for (let i = 0; i < windows.length; i++) {
+    if (allChunks.length >= MAX_OBSERVATION_CHUNKS) {
+      allDropped.push(
+        `提案上限（${MAX_OBSERVATION_CHUNKS}）に達したため、残り ${windows.length - i} 部分の分割を省略しました`,
+      );
+      break;
     }
-  } catch {
-    cloud = { chunks: [], droppedNotes: [] };
+    const part = await parseOneWindow(sourceType, windows[i], i, windows.length);
+    if (part.chunks.length > 0) anyCloud = true;
+    for (const note of part.droppedNotes) allDropped.push(note);
+    for (const c of part.chunks) {
+      allChunks.push(c);
+      if (allChunks.length >= MAX_OBSERVATION_CHUNKS) break;
+    }
   }
 
-  if (cloud.chunks.length > 0) {
-    return { chunks: cloud.chunks, droppedNotes: cloud.droppedNotes, source: "cloud" };
+  if (anyCloud && allChunks.length > 0) {
+    if (windows.length > 1) {
+      allDropped.push(`長い入力を ${windows.length} 部分に分けて分割しました`);
+    }
+    return {
+      chunks: allChunks.slice(0, MAX_OBSERVATION_CHUNKS),
+      droppedNotes: allDropped,
+      source: "cloud",
+    };
   }
   return { ...heuristic, source: "heuristic" };
 }
