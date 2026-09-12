@@ -537,6 +537,29 @@
   box-shadow: 0 0 0 1px var(--blue) inset;
 }
 
+/* UI/UX見直し（今日タブ）対応。個々のシグナルを並べる前に、AIが統合した一言診断を
+   最上部に置く（🔴🟡🟢⚪を画面共通の重要度言語として使い、色で第一印象を即断できる
+   ようにする）。 */
+.brief-urgent {
+  border-color: var(--red-border);
+  background: var(--red-bg);
+}
+
+.brief-warn {
+  border-color: var(--yellow-border);
+  background: var(--yellow-bg);
+}
+
+.brief-good {
+  border-color: var(--green-border);
+  background: var(--green-bg);
+}
+
+.brief-loading {
+  border-color: var(--gray-border);
+  background: var(--gray-bg);
+}
+
 /* docs/dashboard_ui_readability.md U0-1 / U1-3対応。Dashboard先頭の主パネルだけを
    視覚的に「主」にする（背景・枠を強め、見出しを大きくする）。他のパネルは既定の
    .panelのまま据え置き、相対的に「副」に見えるようにする。 */
