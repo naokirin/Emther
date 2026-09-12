@@ -12,6 +12,7 @@ import {
   IssueStrategyLinkSuggestPanel,
   ThemeOkrLinkSuggestPanel,
 } from "@/components/HierarchyLinkSuggestPanel";
+import { ThemeOkrLinkEditor } from "@/components/ThemeOkrLinkEditor";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
@@ -1286,6 +1287,15 @@ function DashboardPageInner() {
                         キャンセル
                       </button>
                     </div>
+                    <ThemeOkrLinkEditor
+                      themeId={t.id}
+                      objectiveIds={t.objectiveIds ?? []}
+                      keyResultIds={t.keyResultIds ?? []}
+                      objectives={objectives}
+                      onSaved={refreshThemes}
+                      disabled={themeEditBusy}
+                      compact
+                    />
                   </div>
                 ) : (
                   <>

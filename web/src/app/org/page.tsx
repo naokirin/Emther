@@ -5,14 +5,17 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
+import { ThemeOkrLinkEditor } from "@/components/ThemeOkrLinkEditor";
 import { useEntityHistory, useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "@/lib/hooks";
 import {
+  isThemeOkrUnlinked,
   teamDisplayName,
   teamPathSegments,
   type ObjectiveImportDraft,
   type ObjectiveWithProgress,
   type OrgBackgroundEntry,
   type OrgStrategy,
+  type OrgTheme,
   type Team,
 } from "@/lib/types";
 
@@ -20,13 +23,16 @@ type Selection =
   | { kind: "strategy" }
   | { kind: "backgrounds" }
   | { kind: "objectives" }
+  | { kind: "themes" }
   | null;
 
 // ユーザー要望「方針・目標タブでは、方針・目標の設定によりフォーカスした形にしたい」対応。
 // チーム管理（Teams）は@/app/teams/page.tsx（チーム・メンバータブ）へ移設した。ここはEMが
 // Agent Runtimeへ「絶対の前提」として注入する組織の憲法（MVV＝Strategy）と、戦略→Issue→結果を
-// つなぐOKR（Objectives）、および Standing Background（長期の背景事実）に絞る。
-// Strategy / Standing Background / Objectives はいずれも左ツリーは入口だけで、追加・一覧・編集は右パネルの専用ビューで行う。
+// つなぐOKR（Objectives）、Standing Background（長期の背景事実）、および期の焦点としての
+// Themes（OrgTheme）に絞る。
+// Strategy / Standing Background / Objectives / Themes はいずれも左ツリーは入口だけで、
+// 追加・一覧・編集は右パネルの専用ビューで行う。
 //
 // ユーザー指摘「目標は組織内でカスケーディングされるもの（上位組織の目標達成のために
 // 下位組織の目標がある）」対応。ObjectiveにteamId（未指定＝組織全体、指定時はそのチーム自身の
@@ -180,12 +186,19 @@ function OrgContextPageInner() {
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();
   const { objectives, objectivesLoaded, refreshObjectives } = useObjectives();
   const { teams, teamsLoaded } = useTeams();
-  const { themes, refreshThemes } = useThemes();
+  const { themes, themesLoaded, refreshThemes } = useThemes();
   const activeTeams = teams.filter((t) => !t.archived);
   const teamOptions = activeTeams.map((t) => ({ value: t.id, label: teamDisplayName(t.name) }));
+  const adoptedThemes = themes.filter((t) => t.status === "adopted");
+  const candidateThemes = themes.filter((t) => t.status === "candidate");
 
   const [selection, setSelection] = useState<Selection>(null);
   const [appliedObjectiveFocusId, setAppliedObjectiveFocusId] = useState<string | null>(null);
+  const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
+  const [themeLinkExpandId, setThemeLinkExpandId] = useState<string | null>(null);
+  const [attachThemeId, setAttachThemeId] = useState("");
+  const [attachThemeBusy, setAttachThemeBusy] = useState(false);
+  const [attachThemeError, setAttachThemeError] = useState<string | null>(null);
 
   const [strategyDraft, setStrategyDraft] = useState<OrgStrategy>(strategy);
   const [strategySaving, setStrategySaving] = useState(false);
@@ -205,6 +218,7 @@ function OrgContextPageInner() {
     if (strategyLoaded) setStrategyDraft(strategy);
     setEditingBackgroundId(null);
     setEditingObjectiveId(null);
+    setEditingThemeId(null);
     setImportOpen(false);
     setSelection({ kind: "strategy" });
   }
@@ -259,6 +273,7 @@ function OrgContextPageInner() {
   function selectBackgroundsView() {
     setEditingBackgroundId(null);
     setEditingObjectiveId(null);
+    setEditingThemeId(null);
     setImportOpen(false);
     setBgError(null);
     setBgEditError(null);
@@ -414,11 +429,77 @@ function OrgContextPageInner() {
   function selectObjectivesView() {
     setEditingObjectiveId(null);
     setEditingBackgroundId(null);
+    setEditingThemeId(null);
     setImportOpen(false);
     setObjectiveError(null);
     setObjectiveEditError(null);
     setKrEditError(null);
     setSelection({ kind: "objectives" });
+  }
+
+  function selectThemesView() {
+    setEditingThemeId(null);
+    setEditingBackgroundId(null);
+    setEditingObjectiveId(null);
+    setImportOpen(false);
+    setThemeLinkExpandId(null);
+    setSelection({ kind: "themes" });
+  }
+
+  function beginEditTheme(theme: OrgTheme) {
+    setEditingBackgroundId(null);
+    setEditingObjectiveId(null);
+    setImportOpen(false);
+    setEditingThemeId(theme.id);
+    setSelection({ kind: "themes" });
+  }
+
+  const selectedTheme = editingThemeId ? themes.find((t) => t.id === editingThemeId) ?? null : null;
+
+  function themeOkrSummary(theme: OrgTheme): string {
+    const parts: string[] = [];
+    for (const id of theme.objectiveIds ?? []) {
+      const o = objectives.find((obj) => obj.id === id);
+      if (o) parts.push(o.title.split("\n")[0] ?? o.title);
+    }
+    for (const krId of theme.keyResultIds ?? []) {
+      for (const o of objectives) {
+        const kr = o.keyResults.find((k) => k.id === krId);
+        if (kr) {
+          parts.push(`${o.title.split("\n")[0]} ＞ ${kr.title.split("\n")[0]}`);
+          break;
+        }
+      }
+    }
+    return parts.length > 0 ? parts.join(" · ") : "";
+  }
+
+  async function handleAttachThemeToObjective(objectiveId: string) {
+    if (!attachThemeId) return;
+    const theme = themes.find((t) => t.id === attachThemeId);
+    if (!theme) return;
+    setAttachThemeBusy(true);
+    setAttachThemeError(null);
+    try {
+      const nextObjIds = Array.from(new Set([...(theme.objectiveIds ?? []), objectiveId]));
+      const res = await fetch(`/api/themes/${theme.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "link",
+          objectiveIds: nextObjIds,
+          keyResultIds: theme.keyResultIds ?? [],
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "テーマの紐づけに失敗しました");
+      setAttachThemeId("");
+      await refreshThemes();
+    } catch (err) {
+      setAttachThemeError((err as Error).message);
+    } finally {
+      setAttachThemeBusy(false);
+    }
   }
 
   function beginEditObjective(o: ObjectiveWithProgress) {
@@ -431,6 +512,10 @@ function OrgContextPageInner() {
     setKrDrafts(Object.fromEntries(o.keyResults.map((kr) => [kr.id, kr.title])));
     setImportOpen(false);
     setEditingBackgroundId(null);
+    setEditingThemeId(null);
+    setThemeLinkExpandId(null);
+    setAttachThemeId("");
+    setAttachThemeError(null);
     setEditingObjectiveId(o.id);
     setSelection({ kind: "objectives" });
   }
@@ -744,7 +829,7 @@ function OrgContextPageInner() {
       <div className={styles.panel}>
         <h2>方針・目標</h2>
         <p className={styles.subtitle}>
-          組織のMVV（Strategy）、Standing Background（長期の背景事実）、OKR（Objectives）——EMが「不動の前提」としてAgent
+          組織のMVV（Strategy）、Standing Background（長期の背景事実）、OKR（Objectives）、テーマ（今期の焦点）——EMが「不動の前提」としてAgent
           Runtimeへ注入する情報です。目標は組織全体からチームへとカスケードする構造で管理します（チームの追加・編集は「チーム・メンバー」タブで行います）。
         </p>
 
@@ -776,12 +861,21 @@ function OrgContextPageInner() {
             📄 Objectives
             {objectivesLoaded && objectives.length > 0 ? `（${objectives.length}件）` : ""}
           </div>
+
+          <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Themes</div>
+          <div
+            className={`${styles.treeFile} ${selection?.kind === "themes" ? styles.treeFileSelected : ""}`}
+            onClick={selectThemesView}
+          >
+            📄 Themes
+            {themesLoaded && adoptedThemes.length > 0 ? `（採用 ${adoptedThemes.length}件）` : ""}
+          </div>
         </div>
       </div>
 
       <div className={styles.panel}>
         {!selection && (
-          <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectivesを選択してください。</p>
+          <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectives・Themesを選択してください。</p>
         )}
 
         {selection?.kind === "strategy" && (
@@ -1407,7 +1501,7 @@ function OrgContextPageInner() {
 
                 <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連テーマ（EM介入の焦点）</h3>
                 <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  期初は OKR から候補テーマを先に置き、週次蒸留で観測差分による修正を行います。未リンクの採用テーマは警告します。
+                  期初は OKR から候補テーマを先に置き、週次蒸留で観測差分による修正を行います。OKR 紐づけは手動でも編集できます。
                 </p>
                 {(() => {
                   const linked = themes.filter(
@@ -1419,28 +1513,88 @@ function OrgContextPageInner() {
                   const unlinkedAdopted = themes.filter(
                     (t) => t.status === "adopted" && !(t.objectiveIds?.length || t.keyResultIds?.length),
                   );
+                  const attachable = themes.filter(
+                    (t) =>
+                      t.status !== "dismissed" &&
+                      !t.objectiveIds?.includes(selectedObjective.id) &&
+                      !selectedObjective.keyResults.some((kr) => t.keyResultIds?.includes(kr.id)),
+                  );
                   return (
                     <>
                       {linked.length === 0 ? (
                         <p className={styles.subtitle}>この Objective に紐付くテーマはまだありません。</p>
                       ) : (
-                        <ul style={{ margin: "0 0 8px 16px", fontSize: "0.8125rem" }}>
+                        <ul style={{ margin: "0 0 8px 16px", fontSize: "0.8125rem", listStyle: "none", padding: 0 }}>
                           {linked.map((t) => (
-                            <li key={t.id} style={{ marginBottom: 4 }}>
-                              <Link
-                                href={`/?theme=${encodeURIComponent(t.id)}`}
-                                className={styles.tableRowLink}
-                                style={{ display: "inline", width: "auto" }}
-                              >
-                                {t.title}
-                              </Link>
-                              <span className={styles.tableMuted}> · {t.status === "adopted" ? "採用中" : t.status === "candidate" ? "候補" : t.status}</span>
-                              {!t.objectiveIds?.length && !t.keyResultIds?.length && (
-                                <span style={{ color: "var(--warning, #b45309)" }}> · ⚠ OKR未リンク</span>
+                            <li key={t.id} style={{ marginBottom: 8 }}>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
+                                <button
+                                  type="button"
+                                  className={styles.tableRowLink}
+                                  style={{ display: "inline", width: "auto", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}
+                                  onClick={() => beginEditTheme(t)}
+                                >
+                                  {t.title}
+                                </button>
+                                <span className={styles.tableMuted}>
+                                  · {t.status === "adopted" ? "採用中" : t.status === "candidate" ? "候補" : t.status}
+                                </span>
+                                {isThemeOkrUnlinked(t) && (
+                                  <span style={{ color: "var(--warning, #b45309)" }}> · ⚠ OKR未リンク</span>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                                  onClick={() => setThemeLinkExpandId(themeLinkExpandId === t.id ? null : t.id)}
+                                >
+                                  {themeLinkExpandId === t.id ? "紐づけを閉じる" : "OKR紐づけを編集"}
+                                </button>
+                              </div>
+                              {themeLinkExpandId === t.id && (
+                                <ThemeOkrLinkEditor
+                                  themeId={t.id}
+                                  objectiveIds={t.objectiveIds ?? []}
+                                  keyResultIds={t.keyResultIds ?? []}
+                                  objectives={objectives}
+                                  onSaved={refreshThemes}
+                                  compact
+                                />
                               )}
                             </li>
                           ))}
                         </ul>
+                      )}
+                      {attachable.length > 0 && (
+                        <div className={styles.field} style={{ marginTop: 8 }}>
+                          <span className={styles.fieldCaption}>既存テーマをこの Objective に紐付ける</span>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <Select
+                              value={attachThemeId}
+                              onChange={setAttachThemeId}
+                              options={[
+                                { value: "", label: "テーマを選択…" },
+                                ...attachable.map((t) => ({
+                                  value: t.id,
+                                  label: `${t.title}${t.status === "adopted" ? "" : `（${t.status}）`}`,
+                                })),
+                              ]}
+                              style={{ minWidth: 220, flex: 1 }}
+                            />
+                            <button
+                              type="button"
+                              className={styles.btnOutline}
+                              disabled={!attachThemeId || attachThemeBusy}
+                              onClick={() => void handleAttachThemeToObjective(selectedObjective.id)}
+                            >
+                              {attachThemeBusy ? "紐づけ中…" : "紐付ける"}
+                            </button>
+                          </div>
+                          {attachThemeError && (
+                            <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
+                              {attachThemeError}
+                            </p>
+                          )}
+                        </div>
                       )}
                       {unlinkedAdopted.length > 0 && (
                         <p className={styles.subtitle} style={{ color: "var(--warning, #b45309)" }}>
@@ -1478,6 +1632,128 @@ function OrgContextPageInner() {
                     </ul>
                   </details>
                 )}
+              </>
+            )}
+          </>
+        )}
+
+        {selection?.kind === "themes" && (
+          <>
+            <p className={styles.subtitle}>
+              今期の焦点（OrgTheme）です。OKR との紐づけはここで手動編集できます。文言の訂正や採用取消はダッシュボードの「現在の優先テーマ」からも行えます。
+            </p>
+
+            {!selectedTheme ? (
+              <>
+                <h3 style={{ marginTop: 4, marginBottom: 8, fontSize: "0.875rem" }}>採用中</h3>
+                {!themesLoaded ? (
+                  <p className={styles.subtitle}>読み込み中…</p>
+                ) : adoptedThemes.length === 0 ? (
+                  <p className={styles.subtitle}>採用中のテーマはまだありません。Objective 詳細から候補生成するか、ダッシュボードで蒸留してください。</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {adoptedThemes.map((t) => {
+                      const okr = themeOkrSummary(t);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => beginEditTheme(t)}
+                          style={{
+                            textAlign: "left",
+                            padding: "10px 12px",
+                            border: "1px solid var(--input-border)",
+                            borderRadius: 8,
+                            background: "var(--panel-bg, transparent)",
+                            cursor: "pointer",
+                            font: "inherit",
+                            color: "inherit",
+                          }}
+                        >
+                          <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{t.title}</div>
+                          <div className={styles.subtitle} style={{ margin: "4px 0 0" }}>
+                            {t.summary}
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: "0.75rem", color: okr ? "var(--text-muted)" : "var(--warning, #b45309)" }}>
+                            {okr ? `📈 ${okr}` : "⚠ OKR未リンク"}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {candidateThemes.length > 0 && (
+                  <>
+                    <h3 style={{ marginTop: 20, marginBottom: 8, fontSize: "0.875rem" }}>候補</h3>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {candidateThemes.map((t) => {
+                        const okr = themeOkrSummary(t);
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => beginEditTheme(t)}
+                            style={{
+                              textAlign: "left",
+                              padding: "10px 12px",
+                              border: "1px solid var(--input-border)",
+                              borderRadius: 8,
+                              background: "var(--panel-bg, transparent)",
+                              cursor: "pointer",
+                              font: "inherit",
+                              color: "inherit",
+                            }}
+                          >
+                            <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{t.title}</div>
+                            <div className={styles.subtitle} style={{ margin: "4px 0 0" }}>
+                              {t.summary}
+                            </div>
+                            <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                              {okr ? `📈 ${okr}` : "OKR未リンク（候補）"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className={styles.editorPath}>
+                  <button type="button" className={styles.btnOutline} onClick={() => setEditingThemeId(null)}>
+                    ← 一覧へ
+                  </button>
+                  <Link
+                    href={`/?theme=${encodeURIComponent(selectedTheme.id)}`}
+                    className={styles.btnOutline}
+                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+                  >
+                    ダッシュボードで開く
+                  </Link>
+                </div>
+                <h3 style={{ marginTop: 8, marginBottom: 4, fontSize: "1rem" }}>{selectedTheme.title}</h3>
+                <p className={styles.subtitle} style={{ marginTop: 0 }}>
+                  {selectedTheme.status === "adopted"
+                    ? "採用中"
+                    : selectedTheme.status === "candidate"
+                      ? "候補"
+                      : selectedTheme.status}
+                </p>
+                <p style={{ fontSize: "0.8125rem", marginTop: 8 }}>{selectedTheme.summary}</p>
+                {selectedTheme.rationale && (
+                  <p className={styles.subtitle} style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>
+                    {selectedTheme.rationale}
+                  </p>
+                )}
+                <ThemeOkrLinkEditor
+                  themeId={selectedTheme.id}
+                  objectiveIds={selectedTheme.objectiveIds ?? []}
+                  keyResultIds={selectedTheme.keyResultIds ?? []}
+                  objectives={objectives}
+                  onSaved={refreshThemes}
+                />
               </>
             )}
           </>
