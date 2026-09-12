@@ -17,21 +17,26 @@ afterEach(() => {
 });
 
 describe("POST /api/settings/data/backup", () => {
-  // tar 生成はマシン負荷で 5s を超えることがある（並列 build 時にタイムアウトを確認）
-  it("tar.gz をダウンロード用に返す", async () => {
-    mkdirSync(process.env.EM_DATA_DIR!, { recursive: true });
-    mkdirSync(process.env.EM_SECURE_DATA_DIR!, { recursive: true });
-    writeFileSync(join(process.env.EM_DATA_DIR!, "x.json"), "{}", "utf8");
-    writeFileSync(join(process.env.EM_SECURE_DATA_DIR!, "y.json"), "{}", "utf8");
+  // 隔離データは極小で単独実行は約1s。フルスイート＋他ジョブ並列時に壁時計が伸び
+  // 既定5sを超えたことがあるため、余裕を見て15s（30sまでは伸ばさない）。
+  it(
+    "tar.gz をダウンロード用に返す",
+    async () => {
+      mkdirSync(process.env.EM_DATA_DIR!, { recursive: true });
+      mkdirSync(process.env.EM_SECURE_DATA_DIR!, { recursive: true });
+      writeFileSync(join(process.env.EM_DATA_DIR!, "x.json"), "{}", "utf8");
+      writeFileSync(join(process.env.EM_SECURE_DATA_DIR!, "y.json"), "{}", "utf8");
 
-    const route = await import("./backup/route");
-    const res = await route.POST();
-    expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toBe("application/gzip");
-    expect(res.headers.get("Content-Disposition")).toMatch(/emther-state-.*\.tar\.gz/);
-    const buf = Buffer.from(await res.arrayBuffer());
-    expect(buf.byteLength).toBeGreaterThan(20);
-  }, 30_000);
+      const route = await import("./backup/route");
+      const res = await route.POST();
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("application/gzip");
+      expect(res.headers.get("Content-Disposition")).toMatch(/emther-state-.*\.tar\.gz/);
+      const buf = Buffer.from(await res.arrayBuffer());
+      expect(buf.byteLength).toBeGreaterThan(20);
+    },
+    15_000,
+  );
 });
 
 describe("POST /api/settings/data/reset", () => {
