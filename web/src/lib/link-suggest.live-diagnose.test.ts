@@ -34,7 +34,6 @@ describe("link-suggest live diagnose", () => {
       maskedThrows = true;
     }
 
-    // eslint-disable-next-line no-console
     console.warn(
       "[diagnose-name-guard]",
       JSON.stringify({
@@ -62,7 +61,6 @@ describe("link-suggest live diagnose", () => {
       const result = await suggestIssueStrategyLinks();
       const elapsedMs = Date.now() - started;
 
-      // eslint-disable-next-line no-console
       console.warn(
         "[diagnose-suggest]",
         JSON.stringify({
