@@ -25,7 +25,7 @@ const COMMON_RULES = [
 
 const SOURCE_RULES: Record<ObservationSourceType, string> = {
   chat_log: [
-    "入力はチャットログ（Slack等）です。JSONLを正規化した平文（[日時] #channel sender: 本文）のこともあります。",
+    "入力はチャットログ（Slack等）です。列マッピング後の平文（[日時] #channel sender: 本文）のこともあります。",
     "残す: 合意・依頼・懸念・エスカレーション・人の状態に触れる発言、スレッド結論。",
     "捨てる: 雑談、スタンプのみ、ボット通知の羅列、重複リアクション。",
     "occurredAtHintは行頭の日時から日付（YYYY-MM-DD）を取ること。",

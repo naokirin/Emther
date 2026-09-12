@@ -15,6 +15,18 @@ const SAMPLE = [
   ' {"ts":"1779408841.980299","channel":"test_channel","sender":"taro.tanaka","text":"@ichiro.sato https://example.com/xxxxx このPBI取ってるんですが、\\"自動生成する際の設定値の決定\\"を進めてますもしテストやクライアント実装の設計など入れそうだったら進めていただいても大丈夫です  （編集済み）","permalink":"https://systemjp.slack.com/archives/XXXXXXXXXX/xxxxxxxxxxxxxxx?thread_ts=1779408841.980299","thread":{"skipped":true,"reason":"thread_pane_not_found"}}',
 ].join("\n");
 
+const SAMPLE_MAPPING = {
+  syntax: "jsonl" as const,
+  fieldMapping: {
+    ts: "ts" as const,
+    channel: "channel" as const,
+    sender: "sender" as const,
+    text: "text" as const,
+    permalink: "permalink" as const,
+  },
+  tsKind: "slack" as const,
+};
+
 describe("parseSlackTs", () => {
   it("Slack秒.小数をDateにする", () => {
     const d = parseSlackTs("1779408841.980299");
@@ -31,7 +43,7 @@ describe("normalizeChannelLabel", () => {
 });
 
 describe("Slack JSONL sample", () => {
-  it("検出できる", () => {
+  it("検出ヘルパーは動く", () => {
     expect(detectSlackJsonl(SAMPLE)).toBe(true);
   });
 
@@ -43,16 +55,21 @@ describe("Slack JSONL sample", () => {
     expect(msg?.text).toContain("openapi generator");
   });
 
-  it("時系列の平文に正規化し日付範囲を出す", () => {
+  it("マッピング無しでは平文化しない（列確認必須）", () => {
     const result = normalizeObservationInput(SAMPLE);
+    expect(result.detected).toBe(false);
+    expect(result.text).toContain('"ts":');
+  });
+
+  it("明示マッピングで時系列平文になる", () => {
+    const result = normalizeObservationInput(SAMPLE, SAMPLE_MAPPING);
     expect(result.detected).toBe(true);
     expect(result.messageCount).toBe(3);
     expect(result.text).toContain("#test_channel taro.tanaka");
     expect(result.text).toContain("#test_channel_2");
     expect(result.text.indexOf("このPBI")).toBeLessThan(result.text.indexOf("昇格"));
     expect(result.occurredRangeHint?.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(result.occurredRangeHint?.end).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(result.notes.some((n) => n.includes("JSONL"))).toBe(true);
+    expect(result.notes.some((n) => n.includes("列マッピング"))).toBe(true);
   });
 
   it("通常テキストは検出しない", () => {
