@@ -72,4 +72,26 @@ describe("POST /api/journal/dumps", () => {
     expect(accepted.entries[0].sourceDumpId).toBe(dumpId);
     expect(accepted.dump.status).toBe("done");
   });
+
+  it("Slack JSONLを平文化して取り込む", async () => {
+    const route = await import("./route");
+    const jsonl = [
+      '{"ts":"1779408841.980299","channel":"test_channel","sender":"taro.tanaka","text":"PBIを進めています","permalink":"https://example.com/a"}',
+      '{"ts":"1779677010.661189","channel":"test_channel","sender":"taro.tanaka","text":"ログ改善を考える","permalink":"https://example.com/b"}',
+    ].join("\n");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        sourceType: "chat_log",
+        text: jsonl,
+        parse: false,
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.dump.rawText).toContain("#test_channel taro.tanaka");
+    expect(json.dump.rawText).toContain("PBIを進めています");
+    expect(json.dump.rawText).not.toContain('"ts":');
+    expect(json.dump.occurredRangeHint?.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(json.dump.droppedNotes.some((n: string) => n.includes("JSONL"))).toBe(true);
+  });
 });

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject } from "@/lib/local-model";
 import { runCloudChat } from "@/lib/cloud-chat";
 import { maskNames, unmaskNames } from "@/lib/people-directory";
+import { normalizeObservationInput } from "@/lib/observation-dump-normalize";
 import type { ChunkDraft, ObservationSourceType } from "@/lib/observation-dump-store";
 
 // docs/observation_dump_journal.md §6: マスク済み本文のみを外部AIへ渡し、原文抜粋チャンクを提案する。
@@ -24,9 +25,10 @@ const COMMON_RULES = [
 
 const SOURCE_RULES: Record<ObservationSourceType, string> = {
   chat_log: [
-    "入力はチャットログ（Slack等）です。",
+    "入力はチャットログ（Slack等）です。JSONLを正規化した平文（[日時] #channel sender: 本文）のこともあります。",
     "残す: 合意・依頼・懸念・エスカレーション・人の状態に触れる発言、スレッド結論。",
     "捨てる: 雑談、スタンプのみ、ボット通知の羅列、重複リアクション。",
+    "occurredAtHintは行頭の日時から日付（YYYY-MM-DD）を取ること。",
   ].join("\n"),
   meeting_log: [
     "入力は会議の議事メモまたは文字起こしです。",
@@ -116,7 +118,7 @@ export function parseObservationHeuristic(maskedText: string): {
   let parts = paragraphs.length >= 2 ? paragraphs : [];
 
   if (parts.length < 2) {
-    // Slack風: [HH:MM] や 名前: で始まる行の塊
+    // Slack風: [HH:MM] / [YYYY-MM-DD ...] や 名前: で始まる行の塊
     const lines = trimmed.split("\n");
     const buckets: string[] = [];
     let buf: string[] = [];
@@ -127,6 +129,7 @@ export function parseObservationHeuristic(maskedText: string): {
     };
     for (const line of lines) {
       const startsUnit =
+        /^\[\d{4}-\d{2}-\d{2}/.test(line.trim()) ||
         /^[\[【]?\d{1,2}:\d{2}/.test(line.trim()) ||
         /^[^:]{1,40}:\s+\S/.test(line.trim());
       if (startsUnit && buf.length > 0) flush();
@@ -281,8 +284,13 @@ export async function parseObservationDumpText(
   sourceType: ObservationSourceType,
   maskedText: string,
 ): Promise<ParseObservationResult> {
-  const trimmed = maskedText.trim();
-  if (!trimmed) return { chunks: [], droppedNotes: [], source: "heuristic" };
+  const trimmedIn = maskedText.trim();
+  if (!trimmedIn) return { chunks: [], droppedNotes: [], source: "heuristic" };
+
+  // 作成時に正規化済みでも、旧 Dump や再分割で JSONL が残っていればここで平文化する。
+  const normalized = normalizeObservationInput(trimmedIn);
+  const trimmed = normalized.detected ? normalized.text : trimmedIn;
+  const preloadNotes = normalized.detected ? [...normalized.notes] : [];
 
   const heuristic = parseObservationHeuristic(trimmed);
   const windows = splitMaskedTextIntoWindows(trimmed);
@@ -313,11 +321,15 @@ export async function parseObservationDumpText(
     }
     return {
       chunks: allChunks.slice(0, MAX_OBSERVATION_CHUNKS),
-      droppedNotes: allDropped,
+      droppedNotes: [...preloadNotes, ...allDropped],
       source: "cloud",
     };
   }
-  return { ...heuristic, source: "heuristic" };
+  return {
+    chunks: heuristic.chunks,
+    droppedNotes: [...preloadNotes, ...heuristic.droppedNotes],
+    source: "heuristic",
+  };
 }
 
 /** テスト／デバッグ用: マスク済みチャンクを表示用に戻す */

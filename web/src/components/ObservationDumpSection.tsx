@@ -272,8 +272,9 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
       {open && (
         <div style={{ marginTop: 12 }}>
           <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            長いログを貼り付け、種別ごとに AI が原文抜粋の事実かたまりへ分割します。採用した分だけ通常の
-            Journal になります（Issue 化はしません）。クラウドにはマスク後の本文のみ送ります。
+            長いログを貼り付け、種別ごとに AI が原文抜粋の事実かたまりへ分割します。チャットは Slack
+            JSONL（ts / channel / sender / text 等）も自動で平文化します。採用した分だけ通常の Journal
+            になります。クラウドにはマスク後の本文のみ送ります。
           </p>
 
           <form onSubmit={handleCreate}>
@@ -320,7 +321,7 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
                 sourceType === "meeting_log"
                   ? "議事メモや文字起こしを貼り付け…"
                   : sourceType === "chat_log"
-                    ? "Slack等の会話ログを貼り付け…"
+                    ? "Slackの会話や JSONL（1行1メッセージ）を貼り付け…"
                     : "観測テキストを貼り付け…"
               }
               style={{
