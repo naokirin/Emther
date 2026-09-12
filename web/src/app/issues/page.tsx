@@ -10,6 +10,7 @@ import { PaginationControls, usePagination } from "@/components/Pagination";
 import { ProgressBar } from "@/components/ProgressBar";
 import { IssueStatusBadge, IssuePriorityBadge, IssueTriageAxes } from "@/components/IssueStatus";
 import { IssueBoard } from "@/components/IssueBoard";
+import { IssueScoreGapsView } from "@/components/IssueScoreGapsView";
 import {
   IssueStrategyLinkSuggestPanel,
 } from "@/components/HierarchyLinkSuggestPanel";
@@ -82,7 +83,8 @@ function IssuesPageInner() {
 
   // docs/em_ui_ux_issue.md 4節「ビューの切り替え機能」対応。
   // Action Itemsビュー: Issue横断で「次の一手」だけを優先度順に捌く（週〜月の見通し）。
-  const [viewMode, setViewMode] = useState<"list" | "board" | "actions">("list");
+  // スコア差ビュー: 優先スコアの長さと隣との差で取り方を補佐する。
+  const [viewMode, setViewMode] = useState<"list" | "board" | "actions" | "gaps">("list");
   const [completingActionKey, setCompletingActionKey] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
@@ -435,6 +437,14 @@ function IssuesPageInner() {
               >
                 アクション
               </button>
+              <button
+                type="button"
+                className={`${styles.tabBtn} ${viewMode === "gaps" ? styles.tabBtnActive : ""}`}
+                onClick={() => setViewMode("gaps")}
+                title="優先スコアの差と介入コストで取り方を見る"
+              >
+                スコア差
+              </button>
             </div>
             <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={() => setDialogOpen(true)}>
               ＋ 新しいIssue
@@ -741,6 +751,12 @@ function IssuesPageInner() {
               </table>
             </div>
           </>
+        ) : viewMode === "gaps" ? (
+          !issuesLoaded ? (
+            <p className={styles.subtitle}>読み込み中…</p>
+          ) : (
+            <IssueScoreGapsView issues={filteredIssues} onSelect={(id) => peek.open(id)} />
+          )
         ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
