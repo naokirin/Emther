@@ -2107,9 +2107,12 @@ function DashboardPageInner() {
           <h2 style={{ margin: 0 }}>
             {dayPhase === "evening" ? "今日あったことを書き連ねる" : "メモする"}{" "}
             <span
-              className={styles.subtitle}
-              style={{ fontWeight: 400, cursor: "help" }}
-              title="入力後、完全ローカルの軽量モデル（LFM2.5-350M、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。分割・Issue昇格は翌朝提案に寄せられます。"
+              className={`${styles.subtitle} ${styles.axisTooltip}`}
+              style={{ fontWeight: 400 }}
+              data-tooltip={
+                "入力後、完全ローカルの軽量モデル（LFM2.5-350M、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。\n分割・Issue昇格は翌朝提案に寄せられます。"
+              }
+              tabIndex={0}
             >
               ⓘ
             </span>
