@@ -67,8 +67,10 @@ export {
 } from "./store";
 
 export {
+  buildDistillationContextBlock,
   buildInterventionTypeGuidance,
   buildIssueContextBlock,
+  buildMorningSummaryContextBlock,
   buildObjectivesBlock,
   buildOrgBackgroundBlock,
   buildOrgContextBlock,
@@ -82,10 +84,8 @@ export {
 } from "./context-blocks";
 
 export {
-  buildDistillationContextBlock,
   buildDistillationTask,
   buildJournalAnalysisTask,
-  buildMorningSummaryContextBlock,
   checkMorningSummary,
   checkWeeklyDistillation,
   clearAutoBatchClaimsForTest,
