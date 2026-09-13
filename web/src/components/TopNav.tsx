@@ -58,9 +58,10 @@ const STORY_GROUPS: StoryGroup[] = [
   {
     key: "consult",
     label: "相談",
-    hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める",
+    hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める。投入前の個人・機密情報チェックも含む",
     items: [
       { href: "/chat", label: "何でも相談" },
+      { href: "/mask-check", label: "個人・機密情報チェック" },
       { href: "/agents", label: "エージェント" },
     ],
   },

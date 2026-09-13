@@ -70,7 +70,20 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "何でも相談" }).className).toContain("subTabBtnActive");
     expect(screen.getByRole("link", { name: "エージェント" }).className).toContain("subTabBtn");
     expect(screen.getByRole("link", { name: "エージェント" }).className).not.toContain("subTabBtnActive");
+    expect(screen.getByRole("link", { name: "個人・機密情報チェック" }).className).toContain("subTabBtn");
+    expect(screen.getByRole("link", { name: "個人・機密情報チェック" }).className).not.toContain("subTabBtnActive");
     expect(screen.getByText("page content")).toBeInTheDocument();
+  });
+
+  it("/mask-check では個人・機密情報チェックのサブタブが active", () => {
+    mockPathname = "/mask-check";
+    render(
+      <AppShell>
+        <div>page content</div>
+      </AppShell>,
+    );
+    expect(screen.getByRole("link", { name: "個人・機密情報チェック" }).className).toContain("subTabBtnActive");
+    expect(screen.getByRole("link", { name: "何でも相談" }).className).not.toContain("subTabBtnActive");
   });
 
   it("単一画面グループではサブナビを表示しない", () => {

@@ -147,6 +147,30 @@ export function maskNames(text: string): string {
   return replaceAllAtOnce(text, buildMaskMapping());
 }
 
+/** 登録済み人名のマスク結果と置換一覧（個人・機密情報チェック用。副作用なし）。 */
+export type NameMaskReplacement = { from: string; to: string; count: number };
+
+export function previewNameMask(text: string): {
+  maskedText: string;
+  replacements: NameMaskReplacement[];
+} {
+  const mapping = buildMaskMapping();
+  const keys = [...mapping.keys()].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (keys.length === 0) return { maskedText: text, replacements: [] };
+
+  const counts = new Map<string, NameMaskReplacement>();
+  const pattern = new RegExp(keys.map(escapeRegExp).join("|"), "g");
+  const maskedText = text.replace(pattern, (match) => {
+    const to = mapping.get(match) ?? match;
+    const key = `${match}\0${to}`;
+    const prev = counts.get(key);
+    if (prev) prev.count += 1;
+    else counts.set(key, { from: match, to, count: 1 });
+    return to;
+  });
+  return { maskedText, replacements: [...counts.values()] };
+}
+
 // IDを実名に戻す。IDは"PERSON_1", "PERSON_10", "PERSON_11"のように採番されるため、
 // 短いID文字列は長いIDの文字列としてのprefixになりうるが、1回のスキャンで
 // 最長一致を優先するため、この衝突も発生しない。
