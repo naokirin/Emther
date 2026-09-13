@@ -154,4 +154,24 @@ describe("agent-knowledge-tools", () => {
     expect(text).toContain("【類似・状態不問のIssue");
     expect(text).toContain("類似オープン");
   });
+
+  it("executeLookupのsimilarはPERSON_nクエリを実名に戻してからembedする", async () => {
+    const people = await import("@/lib/people-directory");
+    const personId = people.registerName("花子");
+    const seen: string[] = [];
+    embedRef.impl = async (text: string) => {
+      seen.push(text);
+      return [1, 0, 0];
+    };
+
+    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const text = await executeLookup({
+      queries: [{ type: "similar", query: `${personId}の育成が停滞している`, limit: 5 }],
+    });
+    expect(seen.some((q) => q.includes("花子"))).toBe(true);
+    expect(seen.every((q) => !q.includes(personId))).toBe(true);
+    // 返却テキストのクエリ表示はマスクのまま（クラウドへ戻すため）
+    expect(text).toContain(`クエリ: ${personId}の育成が停滞している`);
+    expect(text).not.toMatch(/クエリ:.*花子/);
+  });
 });

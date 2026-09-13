@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
-import { embedText } from "@/lib/embeddings";
 import { maskForStorage, unmaskNames } from "@/lib/people-directory";
 
 // docs/knowledge_distillation.md 対応。Journal fact の類似検索だけでは「上段の解釈」に
 // 届かないため、組織状況を統括したテーマ解釈を first-class に持つ。
 // EM が採用するまで Issue 壁打ち等の前提には入れない（Human-in-the-Loop）。
+// 採用済みテーマは buildThemesContextBlock で全文注入する。件数は少なく、ベクトル横断検索は
+// 使わない（かつての embedding フィールドは書き込まない。旧 themes.json にあっても無視）。
 
 export type ThemeStatus = "candidate" | "adopted" | "dismissed";
 
@@ -25,7 +26,6 @@ export type OrgTheme = {
   status: ThemeStatus;
   sourceRunId?: string;
   teamId?: string;
-  embedding?: number[];
   supersedes?: string;
   createdAt: number;
   updatedAt: number;
@@ -50,18 +50,21 @@ function normalizeIdList(ids: string[] | undefined): string[] {
   return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
 }
 
-function normalizeTheme(raw: OrgTheme): OrgTheme {
+function normalizeTheme(raw: OrgTheme & { embedding?: number[] }): OrgTheme {
+  // 旧 themes.json の embedding は読み捨て（ベクトル検索経路は持たない）。
+  const { embedding: _unused, ...rest } = raw;
+  void _unused;
   return {
-    ...raw,
-    objectiveIds: normalizeIdList(raw.objectiveIds),
-    keyResultIds: normalizeIdList(raw.keyResultIds),
-    evidenceJournalIds: raw.evidenceJournalIds ?? [],
-    evidenceIssueIds: raw.evidenceIssueIds ?? [],
-    facts: raw.facts ?? [],
+    ...rest,
+    objectiveIds: normalizeIdList(rest.objectiveIds),
+    keyResultIds: normalizeIdList(rest.keyResultIds),
+    evidenceJournalIds: rest.evidenceJournalIds ?? [],
+    evidenceIssueIds: rest.evidenceIssueIds ?? [],
+    facts: rest.facts ?? [],
   };
 }
 
-const themes: OrgTheme[] = loadJSON<OrgTheme[]>("themes.json", []).map(normalizeTheme);
+const themes: OrgTheme[] = loadJSON<(OrgTheme & { embedding?: number[] })[]>("themes.json", []).map(normalizeTheme);
 
 function persist(): void {
   saveJSON("themes.json", themes);
@@ -131,13 +134,6 @@ export async function createThemeCandidate(
     rootCause: input.rootCause,
     suggestedDirection: input.suggestedDirection,
   });
-  const embedSource = [input.title, input.summary, input.rationale].filter(Boolean).join("\n");
-  let embedding: number[] | undefined;
-  try {
-    embedding = await embedText(embedSource);
-  } catch {
-    embedding = undefined;
-  }
   const now = Date.now();
   const theme: OrgTheme = {
     id: randomUUID(),
@@ -150,7 +146,6 @@ export async function createThemeCandidate(
     status: "candidate",
     sourceRunId: input.sourceRunId,
     teamId: input.teamId,
-    embedding,
     createdAt: now,
     updatedAt: now,
   };
@@ -249,14 +244,6 @@ export async function reviseTheme(
     suggestedDirection: nextDirection,
   });
 
-  const embedSource = [nextTitle, nextSummary, nextRationale].filter(Boolean).join("\n");
-  let embedding: number[] | undefined;
-  try {
-    embedding = await embedText(embedSource);
-  } catch {
-    embedding = original.embedding;
-  }
-
   const now = Date.now();
   const revised: OrgTheme = {
     ...original,
@@ -265,7 +252,6 @@ export async function reviseTheme(
     facts: masked.facts.filter(Boolean),
     rootCause: masked.rootCause,
     suggestedDirection: masked.suggestedDirection,
-    embedding,
     supersedes: original.id,
     createdAt: now,
     updatedAt: now,

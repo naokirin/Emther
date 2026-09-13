@@ -83,7 +83,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
     }
     if (Array.isArray(body?.tags)) {
       const tags = body.tags.filter((t: unknown): t is string => typeof t === "string");
-      issue = setIssueTags(id, tags) ?? issue;
+      issue = (await setIssueTags(id, tags)) ?? issue;
     }
     if ("keyResultId" in (body ?? {})) {
       const keyResultId = typeof body.keyResultId === "string" && body.keyResultId ? body.keyResultId : null;

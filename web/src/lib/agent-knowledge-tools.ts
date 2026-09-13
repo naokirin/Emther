@@ -2,7 +2,7 @@ import { cosineSimilarity, embedText } from "@/lib/embeddings";
 import { listJournalEntriesPage } from "@/lib/journal-store";
 import { getIssue, listIssues, type Issue } from "@/lib/issue-store";
 import { findByIdPrefix } from "@/lib/id-prefix";
-import { maskNames } from "@/lib/people-directory";
+import { maskNames, unmaskNames } from "@/lib/people-directory";
 import {
   RELATED_SIMILARITY_THRESHOLD,
   searchSimilarOpenIssues,
@@ -14,6 +14,8 @@ import { searchSimilarEvents } from "@/lib/knowledge-store";
 // CLI のネイティブツールは無効のまま、アプリ側の読み取り専用照会を
 // ```lookup``` ブロック経由でエージェントに提供する。secure（実名対応表）は触らない。
 // 返すテキストはマスク済み（PERSON_n）のまま——クラウドへ戻すため。
+// 埋め込み類似（type:similar）だけはコーパスが実名ベクトルなので、クエリを unmask してから embed する
+// （表示・返却テキストは引き続き mask。PERSON_n のまま embed すると保存側と意味空間がずれる）。
 
 export const LOOKUP_MAX_QUERIES = 3;
 export const LOOKUP_MAX_ROUNDS = 2;
@@ -212,12 +214,15 @@ function searchJournalsByKeyword(opts: { query: string; limit: number }): { line
 }
 
 async function searchSimilarBundle(opts: { query: string; limit: number }): Promise<string[]> {
-  const query = maskNames(opts.query.trim());
-  if (!query) return ["- （検索語が空です）"];
+  const trimmed = opts.query.trim();
+  if (!trimmed) return ["- （検索語が空です）"];
+  // Journal/Issue の embedding は実名テキストから生成されている。Agent は PERSON_n で
+  // 問い合わせることが多いため、embed 直前だけ実名へ戻す（返却行は下位の format がマスク済み）。
+  const embedQuery = unmaskNames(trimmed);
 
   let queryEmbedding: number[];
   try {
-    queryEmbedding = await embedText(query);
+    queryEmbedding = await embedText(embedQuery);
   } catch {
     return ["- （埋め込み生成に失敗したため類似検索できませんでした）"];
   }

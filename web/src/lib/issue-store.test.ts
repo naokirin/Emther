@@ -6,8 +6,15 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
+const embedRef = vi.hoisted(() => ({
+  impl: async (_text: string): Promise<number[]> => {
+    void _text;
+    return [1, 0, 0];
+  },
+}));
+
 vi.mock("@/lib/embeddings", () => ({
-  embedText: vi.fn(async () => [1, 0, 0]),
+  embedText: (text: string) => embedRef.impl(text),
   cosineSimilarity: () => 0,
 }));
 
@@ -16,6 +23,7 @@ let dir: string;
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
+  embedRef.impl = async () => [1, 0, 0];
 });
 
 afterEach(() => {
@@ -324,8 +332,19 @@ describe("archive / keyResult / team / tags", () => {
   it("setIssueTagsは重複除去・trimして更新する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
-    const updated = store.setIssueTags(issue.id, ["a", " a ", "b"]);
+    const updated = await store.setIssueTags(issue.id, ["a", " a ", "b"]);
     expect(updated?.tags).toEqual(["a", "b"]);
+  });
+
+  it("setIssueTagsはembeddingを再計算する", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A", undefined, { why: "理由" });
+    const before = store.getIssue(issue.id)?.embedding;
+    embedRef.impl = async () => [0, 1, 0];
+    await store.setIssueTags(issue.id, ["育成", "1on1"]);
+    const after = store.getIssue(issue.id)?.embedding;
+    expect(after).toEqual([0, 1, 0]);
+    expect(after).not.toEqual(before);
   });
 });
 

@@ -43,10 +43,11 @@ Journal 自動分析や Issue 壁打ちは「個別の類似度検索」だけ�
 - `evidenceJournalIds` / `evidenceIssueIds`
 - `status`: `candidate` | `adopted` | `dismissed`
 - `sourceRunId`（生成した Agent Run）
-- `embedding`（ローカル、横断検索用）
 - `supersedes`（訂正時の版チェーン）
 
-`Issue.embedding`（`issue-store.ts`）: title + Why/What/How（＋タグ）のローカル埋め込み。起票・charter/タイトル更新時に再計算（`updatedAt` は変えない）。API 応答には載せない。
+採用済みテーマは `buildThemesContextBlock()` で全文注入する（件数が少なくベクトル横断検索は不要）。かつての `embedding` フィールドは書き込まない（旧 `themes.json` にあっても読み捨て）。
+
+`Issue.embedding`（`issue-store.ts`）: title + Why/What/How（＋タグ）のローカル埋め込み。起票・charter/タイトル/タグ更新時に再計算（`updatedAt` は変えない）。API 応答には載せない。埋め込み入力は実名（`unmaskNames` 後）。Agent の `lookup(type:similar)` もクエリを unmask してから embed し、コーパスと意味空間を揃える（返却テキストは PERSON_n のまま）。
 
 fact は消さない。蒸留結果は interpretation 相当として版管理する。
 

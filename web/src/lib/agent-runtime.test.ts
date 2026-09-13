@@ -657,7 +657,7 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
   it("介入の型タグに応じて主担当/副担当のガイダンスを出し分ける", async () => {
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("1on1改善", "run-1");
-    issueStore.setIssueTags(issue.id, ["1on1設計"]);
+    await issueStore.setIssueTags(issue.id, ["1on1設計"]);
     const rt = await loadModule();
     expect(rt.buildInterventionTypeGuidance("run-1", "People Agent")).toContain("主担当として");
     expect(rt.buildInterventionTypeGuidance("run-1", "Process Agent")).toContain("副担当のため");

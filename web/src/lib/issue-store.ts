@@ -189,7 +189,7 @@ export function toIssueView(issue: Issue): Issue {
   };
 }
 
-// agent-runtime ↔ related-context の循環を避けつつ、起票・charter/タイトル更新後に embedding を更新する。
+// agent-runtime ↔ related-context の循環を避けつつ、起票・charter/タイトル/タグ更新後に embedding を更新する。
 async function scheduleIssueEmbedding(issueId: string): Promise<void> {
   try {
     const { refreshIssueEmbedding } = await import("@/lib/related-context");
@@ -903,7 +903,7 @@ export function setIssueTeam(issueId: string, teamId: string | null): Issue | un
   return issue;
 }
 
-export function setIssueTags(issueId: string, tags: string[]): Issue | undefined {
+export async function setIssueTags(issueId: string, tags: string[]): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   const next = normalizeTags(tags);
@@ -912,5 +912,7 @@ export function setIssueTags(issueId: string, tags: string[]): Issue | undefined
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `タグを更新しました: ${next.join(", ") || "(なし)"}`, next);
-  return issue;
+  // issueEmbedSource に tags を含むため、タグ変更でも embedding を再計算する。
+  await scheduleIssueEmbedding(issue.id);
+  return getIssue(issue.id) ?? issue;
 }

@@ -70,7 +70,7 @@ describe("POST /api/issues/triage/suggest", () => {
     issueStore.setIssueTeam(high.id, "t1");
     issueStore.setIssueTheme(high.id, "th1");
     issueStore.setIssueKeyResult(high.id, "kr1");
-    issueStore.setIssueTags(high.id, ["リスク", "組織"]);
+    await issueStore.setIssueTags(high.id, ["リスク", "組織"]);
     issueStore.setIssuePriority(high.id, "parked");
 
     const route = await import("@/app/api/issues/triage/suggest/route");

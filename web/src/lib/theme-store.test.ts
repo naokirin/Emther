@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 
-vi.mock("@/lib/embeddings", () => ({
-  embedText: vi.fn(async () => [1, 0, 0]),
-}));
-
 vi.mock("@/lib/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
@@ -32,6 +28,8 @@ describe("theme-store", () => {
     });
     expect(candidate.status).toBe("candidate");
     expect(store.listAdoptedThemes()).toHaveLength(0);
+    // テーマは全文注入。embedding は持たない。
+    expect("embedding" in candidate).toBe(false);
 
     const adopted = await store.adoptTheme(candidate.id);
     expect(adopted?.status).toBe("adopted");
@@ -40,6 +38,37 @@ describe("theme-store", () => {
     const dismissed = store.dismissTheme(candidate.id);
     expect(dismissed?.status).toBe("dismissed");
     expect(store.listAdoptedThemes()).toHaveLength(0);
+  });
+
+  it("旧themes.jsonのembeddingは読み捨てる", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const dataDir = path.join(dir, "data");
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dataDir, "themes.json"),
+      JSON.stringify([
+        {
+          id: "legacy-1",
+          title: "旧テーマ",
+          summary: "要約",
+          rationale: "根拠",
+          facts: [],
+          evidenceJournalIds: [],
+          evidenceIssueIds: [],
+          objectiveIds: [],
+          keyResultIds: [],
+          status: "adopted",
+          embedding: [0.1, 0.2],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]),
+    );
+    const store = await import("@/lib/theme-store");
+    const theme = store.getTheme("legacy-1");
+    expect(theme?.title).toBe("旧テーマ");
+    expect(theme && "embedding" in theme).toBe(false);
   });
 
   it("reviseはsupersedesで新版を作り旧版をdismissする", async () => {
