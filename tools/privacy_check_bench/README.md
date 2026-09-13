@@ -1,8 +1,8 @@
 # privacy_check_bench
 
-ローカルで GiNZA（`ja_ginza`）と Emther ルール人名検出を、同じフィクスチャで比較する。
+ローカルで人名・機微検知を同じフィクスチャ／評価サンプルで比較する。
 
-## セットアップ（初回）
+## セットアップ（初回・Python 側）
 
 ```bash
 # Python 3.12 推奨（3.14 では spaCy/GiNZA 未対応のことが多い）
@@ -11,21 +11,26 @@ mise exec python@3.12.8 -- python -m venv tools/privacy_check_bench/.venv
 tools/privacy_check_bench/.venv/bin/pip install 'ginza>=5.2' 'ja-ginza>=5.2'
 ```
 
-`.venv` は gitignore 想定（コミットしない）。
+`.venv` と `out_*.json` は gitignore。
 
 ## 実行
 
 ```bash
-# GiNZA
+# GiNZA 単体
 tools/privacy_check_bench/.venv/bin/python tools/privacy_check_bench/run_ginza.py
 
 # Emther（web の mask-check）
 cd web && npx tsx ../tools/privacy_check_bench/run_emther.mts
 
-# CORE vs TUNING キーワード（同一フィクスチャ）
+# CORE vs TUNING キーワード
 cd web && npx tsx ../tools/privacy_check_bench/run_core_vs_tuning.mts
+
+# 人名エンジン比較（敬称ルール / Sudachi POS / GiNZA / 併用）
+cd web && npx tsx ../tools/privacy_check_bench/emit_emther_names.mts
+tools/privacy_check_bench/.venv/bin/python tools/privacy_check_bench/compare_name_detectors.py
+
+# security_check_samples.md の機微評価
+cd web && npx tsx ../tools/privacy_check_bench/eval_security_samples.mts
 ```
 
-結果: `out_ginza.json` / `out_emther.json` / `out_core_vs_tuning.json`（gitignore）。
-ゴールド: `fixtures/gold.json`。
-解釈は `docs/privacy_check_research.md` §5–7。
+解釈は `docs/privacy_check_research.md` §5–8。

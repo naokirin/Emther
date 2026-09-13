@@ -14,6 +14,7 @@ import {
   getSpeakerKanjiStopwords,
   TUNING_NAME_FILTER_FEWSHOT,
 } from "@/lib/mask-check-lexicon";
+import { detectMorphPersonNames, ensureNameMorphReady } from "@/lib/mask-check-morph";
 import type { SensitiveCategory } from "@/lib/mask-check-types";
 import {
   getPersonId,
@@ -395,8 +396,8 @@ export async function filterNameCandidatesWithLocalAi(candidates: string[]): Pro
 
 /**
  * 未登録の人名っぽい語句（同期・副作用なし）。
- * 一覧は敬称ありを優先して重複除去。
- * FP抑制のため、カタカナの自由検出は行わない（敬称・話者・ひらがな文脈のみ）。
+ * 敬称・話者・ひらがな文脈に加え、Kuromoji 人名 POS（ロード済み時）をマージ。
+ * FP抑制のためカタカナの自由検出は行わない。
  */
 export function detectNameCandidates(text: string): string[] {
   const found: string[] = [];
@@ -418,7 +419,7 @@ export function detectNameCandidates(text: string): string[] {
     if (found.length >= MASK_CHECK_MAX_NAME_CANDIDATES) break;
   }
 
-  // ひらがな名は文脈限定（ただとしのアカウント 等）。一般助詞パターンは使わない。
+  // ひらがな名は文脈限定（ただとしのアカウント 等）
   const hiraLookahead = getHiraganaNameLookahead();
   const hiraRe = new RegExp(`[ぁ-ん]{3,8}(?=${hiraLookahead})`, "g");
   while ((m = hiraRe.exec(text)) !== null) {
@@ -426,7 +427,19 @@ export function detectNameCandidates(text: string): string[] {
     if (found.length >= MASK_CHECK_MAX_NAME_CANDIDATES) break;
   }
 
+  // 形態素人名 POS（敬称なし姓・外国人名など）。辞書未ロードならスキップ。
+  for (const name of detectMorphPersonNames(text)) {
+    tryAddName(found, seen, name);
+    if (found.length >= MASK_CHECK_MAX_NAME_CANDIDATES) break;
+  }
+
   return dedupeNamesPreferHonorific(found).slice(0, MASK_CHECK_MAX_NAME_CANDIDATES);
+}
+
+/** 形態素辞書を載せてから人名候補を返す（quick API 用）。 */
+export async function detectNameCandidatesAsync(text: string): Promise<string[]> {
+  await ensureNameMorphReady();
+  return detectNameCandidates(text);
 }
 
 /** @deprecated detectNameCandidates を使用。後方互換の別名。 */
@@ -592,8 +605,9 @@ export function buildTextHighlights(
   return accepted;
 }
 
-export function runMaskCheckQuick(rawText: string): MaskCheckQuickResult {
+export async function runMaskCheckQuick(rawText: string): Promise<MaskCheckQuickResult> {
   const { text, truncated, inputCharCount } = normalizeInput(rawText);
+  await ensureNameMorphReady();
   const { maskedText, replacements } = previewNameMask(text);
   const unregisteredNameCandidates = detectNameCandidates(text);
   const sensitiveFindings = detectSensitiveByRules(text);
@@ -695,7 +709,7 @@ export async function runMaskCheckAi(rawText: string): Promise<MaskCheckAiResult
     text.length <= MASK_CHECK_AI_EXCERPT_CHARS
       ? text
       : text.slice(0, MASK_CHECK_AI_EXCERPT_CHARS);
-  const ruleNames = detectNameCandidates(text);
+  const ruleNames = await detectNameCandidatesAsync(text);
   const aiScopeNote =
     (text.length <= MASK_CHECK_AI_EXCERPT_CHARS
       ? `ローカルAIは全文（${text.length}文字）を確認しました。`

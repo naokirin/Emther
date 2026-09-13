@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const phase: Phase = phaseRaw === "ai" ? "ai" : "quick";
 
   if (phase === "quick") {
-    return NextResponse.json({ phase: "quick", ...runMaskCheckQuick(text) });
+    return NextResponse.json({ phase: "quick", ...(await runMaskCheckQuick(text)) });
   }
 
   const ai = await runMaskCheckAi(text);

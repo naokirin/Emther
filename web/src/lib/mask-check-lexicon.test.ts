@@ -61,8 +61,8 @@ describe("mask-check TUNING lexicon (shrunk keywords)", () => {
   });
 
   it("TUNING のカタカナ一般語を人名候補から除外する", async () => {
-    const { detectNameCandidates } = await import("@/lib/mask-check");
-    const names = detectNameCandidates(
+    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const names = await detectNameCandidatesAsync(
       "テスト環境にコピーしたサンプル。パートナーとの打ち合わせ。テーブル定義とログイン後の画面。",
     );
     expect(names).not.toContain("テスト");
@@ -74,8 +74,8 @@ describe("mask-check TUNING lexicon (shrunk keywords)", () => {
   });
 
   it("TUNING のひらがな文脈（のアカウント）で人名を拾う", async () => {
-    const { detectNameCandidates } = await import("@/lib/mask-check");
-    const names = detectNameCandidates("ただとしのアカウントが不正利用された。");
+    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const names = await detectNameCandidatesAsync("ただとしのアカウントが不正利用された。");
     expect(names).toContain("ただとし");
   });
 });

@@ -74,7 +74,7 @@ TUNING の機微キーワード羅列は過適合のため縮小した（人名�
 ### 第1段 `phase: "quick"`
 
 - `previewNameMask`
-- 人名候補（敬称・話者中心。カタカナ自由検出は FP 抑制のため抑制）
+- 人名候補（敬称・話者・ひらがな文脈・**Kuromoji 人名 POS**）
 - 実値（メール・電話・鍵・**住所・生年月日・ID・企業名**）+ CORE キーワード
 - `match` / `start` / `end` / `highlights`
 

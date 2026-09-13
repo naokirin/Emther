@@ -100,8 +100,8 @@ describe("detectNameCandidates", () => {
   it("未登録の敬称付き人名を列挙し、登録済みは除外する", async () => {
     const pd = await import("@/lib/people-directory");
     pd.registerName("田中さん");
-    const { detectNameCandidates } = await import("@/lib/mask-check");
-    const names = detectNameCandidates(INCIDENT_SAMPLE);
+    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const names = await detectNameCandidatesAsync(INCIDENT_SAMPLE);
     expect(names).toContain("高井さん");
     expect(names).toContain("大岩さん");
     expect(names).toContain("東郷さん");
@@ -117,12 +117,11 @@ describe("detectNameCandidates", () => {
     expect(names.some((n) => n.includes("自分と") || n.includes("UM"))).toBe(false);
   });
 
-  it("敬称なしは話者ラベルから検出し、カタカナ自由検出はしない（FP抑制）", async () => {
-    const { detectNameCandidates } = await import("@/lib/mask-check");
-    const names = detectNameCandidates("高井: インシデント対応。トニーにも入ってもらう。");
+  it("敬称なしは話者ラベルと形態素人名POSから検出する", async () => {
+    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const names = await detectNameCandidatesAsync("高井: インシデント対応。トニーにも入ってもらう。");
     expect(names).toContain("高井");
-    // 敬称なしカタカナの自由検出は行わない
-    expect(names).not.toContain("トニー");
+    expect(names).toContain("トニー");
     expect(names).not.toContain("インシデント");
   });
 
@@ -133,8 +132,8 @@ describe("detectNameCandidates", () => {
   });
 
   it("佐々木花子さんを欠かさず検出し、仕様・同様・客様は人名にしない", async () => {
-    const { detectNameCandidates } = await import("@/lib/mask-check");
-    const names = detectNameCandidates(
+    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const names = await detectNameCandidatesAsync(
       "佐々木花子さんと打ち合わせ。お客様の仕様と同様に進める。",
     );
     expect(names).toContain("佐々木花子さん");
@@ -142,6 +141,19 @@ describe("detectNameCandidates", () => {
     expect(names).not.toContain("仕様");
     expect(names).not.toContain("同様");
     expect(names).not.toContain("客様");
+  });
+
+  it("形態素で敬称なしの姓（山本・伊藤・渡辺）を検出し仕様は拾わない", async () => {
+    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const names = await detectNameCandidatesAsync(
+      "田中さんが担当。同様に、山本、伊藤、渡辺という名前もテストケース。仕様について。",
+    );
+    expect(names).toContain("田中さん");
+    expect(names).toContain("山本");
+    expect(names).toContain("伊藤");
+    expect(names).toContain("渡辺");
+    expect(names).not.toContain("仕様");
+    expect(names).not.toContain("同様");
   });
 
   it("トニーさんがあるとき一覧は敬称ありのみ（bareはハイライト用に展開）", async () => {
@@ -186,11 +198,15 @@ describe("filterNameCandidatesWithLocalAi", () => {
 
 describe("buildTextHighlights", () => {
   it("機微 match と人名をハイライト区間にする", async () => {
-    const { detectSensitiveByRules, detectNameCandidates, buildTextHighlights, expandNamesForHighlight } =
-      await import("@/lib/mask-check");
+    const {
+      detectSensitiveByRules,
+      detectNameCandidatesAsync,
+      buildTextHighlights,
+      expandNamesForHighlight,
+    } = await import("@/lib/mask-check");
     const text = "トニーさんがAPIキーを閉じた";
     const findings = detectSensitiveByRules(text);
-    const names = detectNameCandidates(text);
+    const names = await detectNameCandidatesAsync(text);
     const highlights = buildTextHighlights(text, findings, expandNamesForHighlight(names));
     expect(highlights.some((h) => h.kind === "credential_mention" && h.match.includes("APIキー"))).toBe(
       true,
@@ -208,7 +224,7 @@ describe("runMaskCheckQuick", () => {
     const before = pd.listPeople().length;
 
     const { runMaskCheckQuick } = await import("@/lib/mask-check");
-    const result = runMaskCheckQuick(INCIDENT_SAMPLE);
+    const result = await runMaskCheckQuick(INCIDENT_SAMPLE);
 
     expect(result.maskedText).toContain("PERSON_");
     expect(result.maskedText).not.toContain("田中さん");
@@ -222,7 +238,7 @@ describe("runMaskCheckQuick", () => {
 
   it("メール実値も従来どおり検出する", async () => {
     const { runMaskCheckQuick } = await import("@/lib/mask-check");
-    const result = runMaskCheckQuick("花子さんと user@example.com で話した");
+    const result = await runMaskCheckQuick("花子さんと user@example.com で話した");
     expect(result.sensitiveFindings.some((f) => f.category === "email")).toBe(true);
   });
 });

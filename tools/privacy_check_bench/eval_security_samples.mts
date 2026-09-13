@@ -377,13 +377,14 @@ try {
     process.exit(1);
   }
   const sets = buildSets(texts.slice(0, 10));
-  const { detectNameCandidates, detectSensitiveByRules } = await import("../../web/src/lib/mask-check.ts");
+  const { detectNameCandidatesAsync, detectSensitiveByRules } = await import("../../web/src/lib/mask-check.ts");
 
-  const results = sets.map((set) => {
-    const names = detectNameCandidates(set.text);
+  const results = [];
+  for (const set of sets) {
+    const names = await detectNameCandidatesAsync(set.text);
     const findings = detectSensitiveByRules(set.text);
-    return scoreSet(set, names, findings);
-  });
+    results.push(scoreSet(set, names, findings));
+  }
 
   const allRows = results.flatMap((r) => r.rows.map((row) => ({ set: r.id, title: r.title, ...row })));
   const byKind: Record<string, { hit: number; total: number }> = {};
