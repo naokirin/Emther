@@ -43,30 +43,6 @@ afterEach(() => {
 });
 
 describe("related-context", () => {
-  it("issueEmbedSourceはtitleとcharterを結合する", async () => {
-    const { issueEmbedSource } = await import("@/lib/related-context");
-    const text = issueEmbedSource({
-      title: "1on1改善",
-      charter: { why: "育成", what: "設計", how: "週次" },
-      tags: ["people"],
-    });
-    expect(text).toContain("1on1改善");
-    expect(text).toContain("Why: 育成");
-    expect(text).toContain("タグ: people");
-  });
-
-  it("refreshIssueEmbeddingはembeddingを保存しupdatedAtを変えない", async () => {
-    const issueStore = await import("@/lib/issue-store");
-    const issue = await issueStore.createIssue("課題", undefined, { why: "理由" });
-    const before = issue.updatedAt;
-    // createIssue内でも refresh 済みだが、明示的に再実行して updatedAt 不変を確認する。
-    const { refreshIssueEmbedding } = await import("@/lib/related-context");
-    const updated = await refreshIssueEmbedding(issue.id);
-    expect(updated?.embedding).toEqual([1, 0, 0]);
-    expect(updated?.updatedAt).toBe(before);
-    expect(issueStore.toIssueView(updated!).embedding).toBeUndefined();
-  });
-
   it("searchSimilarOpenIssuesは閾値以上の未完了Issueだけ返す", async () => {
     const issueStore = await import("@/lib/issue-store");
     const a = await issueStore.createIssue("類似A");
@@ -116,9 +92,9 @@ describe("related-context", () => {
     const issueStore = await import("@/lib/issue-store");
     const self = await issueStore.createIssue("対象", undefined, { why: "育成の停滞" });
     await issueStore.createIssue("関連", undefined, { why: "育成の停滞" });
-    const { buildRelatedBundleBlock, issueEmbedSource } = await import("@/lib/related-context");
+    const { buildRelatedBundleBlock } = await import("@/lib/related-context");
     const block = await buildRelatedBundleBlock({
-      queryText: issueEmbedSource(self),
+      queryText: issueStore.issueEmbedSource(self),
       excludeIssueId: self.id,
       mode: "issue-wallbash",
     });

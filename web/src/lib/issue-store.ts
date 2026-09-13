@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import { embedText } from "@/lib/embeddings";
 import { recordChangeEvent } from "@/lib/knowledge-store";
 import { ensureNameCandidatesAllowed, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
@@ -160,13 +161,39 @@ function persist(): void {
   saveJSON("issues.json", issues);
 }
 
-/** embedding だけ更新する（updatedAt は触らない）。related-context から呼ぶ。 */
+/** embedding だけ更新する（updatedAt は触らない）。 */
 export function persistIssueEmbedding(issueId: string, embedding: number[]): Issue | undefined {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
   issue.embedding = embedding;
   persist();
   return issue;
+}
+
+// related-context⇄issue-storeの循環参照を避けるため、Issue自身のembedding計算・永続化は
+// （related-contextではなく）issue-store側に置く。related-contextはこの結果（embeddingが
+// 埋まったIssue）を読むだけの一方向の依存にする。
+export function issueEmbedSource(issue: Pick<Issue, "title" | "charter" | "tags">): string {
+  const parts = [
+    unmaskNames(issue.title),
+    issue.charter.why ? `Why: ${unmaskNames(issue.charter.why)}` : "",
+    issue.charter.what ? `What: ${unmaskNames(issue.charter.what)}` : "",
+    issue.charter.how ? `How: ${unmaskNames(issue.charter.how)}` : "",
+    issue.tags.length > 0 ? `タグ: ${issue.tags.join(", ")}` : "",
+  ].filter(Boolean);
+  return parts.join("\n");
+}
+
+/** embedding を再計算して Issue に保存する（updatedAt は変えない）。失敗時は握りつぶす。 */
+export async function refreshIssueEmbedding(issueId: string): Promise<Issue | undefined> {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  try {
+    const embedding = await embedText(issueEmbedSource(issue));
+    return persistIssueEmbedding(issueId, embedding);
+  } catch {
+    return getIssue(issueId);
+  }
 }
 
 // 個人情報の分離（ユーザー指摘対応）: 上のCRUD関数・listIssues/getIssue等はマスクされた
@@ -189,10 +216,9 @@ export function toIssueView(issue: Issue): Issue {
   };
 }
 
-// agent-runtime ↔ related-context の循環を避けつつ、起票・charter/タイトル/タグ更新後に embedding を更新する。
+// 起票・charter/タイトル/タグ更新後に embedding を更新する。
 async function scheduleIssueEmbedding(issueId: string): Promise<void> {
   try {
-    const { refreshIssueEmbedding } = await import("@/lib/related-context");
     await refreshIssueEmbedding(issueId);
   } catch {
     // 埋め込みは補助。Issue 本体の保存を止めない。

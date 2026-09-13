@@ -1,41 +1,19 @@
 import { cosineSimilarity, embedText } from "@/lib/embeddings";
-import { listIssues, getIssue, persistIssueEmbedding, type Issue } from "@/lib/issue-store";
+import { listIssues, type Issue } from "@/lib/issue-store";
 import { searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
-import { unmaskNames } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 
 // docs/knowledge_distillation.md 後続 1・2。
 // Issue の embedding と、Journal/Issue 横断の「関連束」＋繰り返しカウントを組み立て、
 // Agent プロンプトへ注入する。巨大な本文を run.task に載せない（U13 と同じ方針）。
+// Issue自身のembedding計算・永続化（issueEmbedSource/refreshIssueEmbedding）はissue-store.ts
+// 側にある（related-context⇄issue-storeの循環参照を避けるため）。
 
 export const RELATED_SIMILARITY_THRESHOLD = 0.4;
 const RELATED_JOURNAL_LIMIT = 5;
 const RELATED_ISSUE_LIMIT = 5;
 /** 関連束の繰り返しカウント用。表示用 journals より広く走査するが、1クエリにまとめる。 */
 const RELATED_FACT_SCAN_LIMIT = 50;
-
-export function issueEmbedSource(issue: Pick<Issue, "title" | "charter" | "tags">): string {
-  const parts = [
-    unmaskNames(issue.title),
-    issue.charter.why ? `Why: ${unmaskNames(issue.charter.why)}` : "",
-    issue.charter.what ? `What: ${unmaskNames(issue.charter.what)}` : "",
-    issue.charter.how ? `How: ${unmaskNames(issue.charter.how)}` : "",
-    issue.tags.length > 0 ? `タグ: ${issue.tags.join(", ")}` : "",
-  ].filter(Boolean);
-  return parts.join("\n");
-}
-
-/** embedding を再計算して Issue に保存する（updatedAt は変えない）。失敗時は握りつぶす。 */
-export async function refreshIssueEmbedding(issueId: string): Promise<Issue | undefined> {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  try {
-    const embedding = await embedText(issueEmbedSource(issue));
-    return persistIssueEmbedding(issueId, embedding);
-  } catch {
-    return getIssue(issueId);
-  }
-}
 
 export type SimilarIssue = Issue & { similarity: number };
 

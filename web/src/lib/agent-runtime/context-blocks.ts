@@ -1,5 +1,5 @@
 import { embedText } from "@/lib/embeddings";
-import { getIssue, getIssueByRunId, listIssues } from "@/lib/issue-store";
+import { getIssue, getIssueByRunId, issueEmbedSource, listIssues } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import {
@@ -12,7 +12,7 @@ import {
   type Team,
 } from "@/lib/org-context-store";
 import { listPeople, maskNames } from "@/lib/people-directory";
-import { buildRelatedBundleBlock, issueEmbedSource } from "@/lib/related-context";
+import { buildRelatedBundleBlock } from "@/lib/related-context";
 import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@/lib/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
 import { listAdoptedThemes } from "@/lib/theme-store";

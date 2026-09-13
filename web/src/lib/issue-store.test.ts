@@ -513,3 +513,28 @@ describe("自動分析のpending登録タイミング", () => {
     expect(pending[0].label).toContain("経過ログ");
   });
 });
+
+describe("issueEmbedSource / refreshIssueEmbedding", () => {
+  it("issueEmbedSourceはtitleとcharterを結合する", async () => {
+    const store = await loadModule();
+    const text = store.issueEmbedSource({
+      title: "1on1改善",
+      charter: { why: "育成", what: "設計", how: "週次" },
+      tags: ["people"],
+    });
+    expect(text).toContain("1on1改善");
+    expect(text).toContain("Why: 育成");
+    expect(text).toContain("タグ: people");
+  });
+
+  it("refreshIssueEmbeddingはembeddingを保存しupdatedAtを変えない", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("課題", undefined, { why: "理由" });
+    const before = issue.updatedAt;
+    // createIssue内でも refresh 済みだが、明示的に再実行して updatedAt 不変を確認する。
+    const updated = await store.refreshIssueEmbedding(issue.id);
+    expect(updated?.embedding).toEqual([1, 0, 0]);
+    expect(updated?.updatedAt).toBe(before);
+    expect(store.toIssueView(updated!).embedding).toBeUndefined();
+  });
+});
