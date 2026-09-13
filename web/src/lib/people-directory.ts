@@ -21,9 +21,7 @@
 // （実装は name-candidate-detect＝mask-check と同系統）。
 
 import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "@/lib/persistence";
-import { listTeams } from "@/lib/org-context-store";
 import { UnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
-import { teamPathSegments } from "@/lib/types";
 
 type PersistedState = {
   entries: [string, string][]; // [name, id][]
@@ -427,13 +425,25 @@ function isAsciiOnly(s: string): boolean {
   return /^[\x00-\x7F]*$/.test(s);
 }
 
+// org-context-store⇄people-directoryの循環参照を避けるため、people-directory自身は
+// org-context-storeをimportしない。チーム名との衝突チェック（実装＝listTeams）は
+// org-context-store側がこの関数を使って自らを登録する（依存性逆転）。未登録の間
+// （起動直後・単体テスト等）は「衝突なし」として安全側に倒す——元々このチェックは
+// 追加の安全網の一つであり、無くても候補検出全体は成立する。
+let teamNameCollisionChecker: ((candidate: string) => boolean) | null = null;
+
+/** org-context-store.ts が自身のlistTeamsを登録するためのフック。他から呼ばないこと。 */
+export function registerTeamNameCollisionChecker(checker: (candidate: string) => boolean): void {
+  teamNameCollisionChecker = checker;
+}
+
 function collidesWithExistingTeamName(candidate: string): boolean {
+  if (!teamNameCollisionChecker) return false;
   try {
-    return listTeams().some((t) => t.name === candidate || teamPathSegments(t.name).includes(candidate));
+    return teamNameCollisionChecker(candidate);
   } catch {
-    // org-context-store側の読み込みに失敗しても、チーム名衝突チェックはあくまで
-    // 追加の安全網の一つ。ここで例外を投げて候補検出全体を止めるのは本末転倒なので、
-    // 「衝突なし」として扱う。
+    // チーム名衝突チェックはあくまで追加の安全網の一つ。ここで例外を投げて候補検出
+    // 全体を止めるのは本末転倒なので、「衝突なし」として扱う。
     return false;
   }
 }

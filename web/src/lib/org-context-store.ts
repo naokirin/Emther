@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import { loadJSON, saveJSON } from "@/lib/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
 import { normalizeTeamName, teamDisplayName, teamPathSegments } from "@/lib/types";
-import { maskForStorage, registerName, unmaskNames } from "@/lib/people-directory";
-import { listIssues } from "@/lib/issue-store";
+import { maskForStorage, registerName, registerTeamNameCollisionChecker, unmaskNames } from "@/lib/people-directory";
 
 // docs 3.1「厳格に分離されたナレッジモデル」のCore Contextに相当する最小実装。
 // v5設計書はツリー型ディレクトリ+構造化フォーマットを想定しているが、MVPでは
@@ -68,6 +67,13 @@ function persist(): void {
 export function listTeams(): Team[] {
   return teams;
 }
+
+// people-directory⇄org-context-storeの循環参照を避けるため、人名候補検出の
+// 「チーム名との衝突チェック」はorg-context-store側から自分自身（listTeams）を
+// 登録する（依存性逆転。people-directory.tsのregisterTeamNameCollisionChecker参照）。
+registerTeamNameCollisionChecker((candidate) =>
+  listTeams().some((t) => t.name === candidate || teamPathSegments(t.name).includes(candidate)),
+);
 
 // vitals算出とAgent Runtimeへの「絶対の前提」注入では、アーカイブ済みチームは
 // 既に活動していないチームとして除外する（docs/memo.md「チームの編集・アーカイブ」対応）。
@@ -518,25 +524,8 @@ export async function importObjectives(
   return created;
 }
 
-export type KeyResultProgress = { keyResultId: string; total: number; done: number };
-export type ObjectiveWithProgress = Objective & { progress: KeyResultProgress[] };
-
-// docs/memo.md「H」対応。進捗は手動入力ではなく、KeyResultへ紐付いたIssueのうち
-// !archived の status=done 件数から機械的に算出する（docs/issue_tracker_contract.md §4）。
-export function listObjectivesWithProgress(): ObjectiveWithProgress[] {
-  const issues = listIssues();
-  return objectives.map((o) => ({
-    ...o,
-    progress: o.keyResults.map((kr) => {
-      const linked = issues.filter((i) => i.keyResultId === kr.id && !i.archived);
-      return {
-        keyResultId: kr.id,
-        total: linked.length,
-        done: linked.filter((i) => i.status === "done").length,
-      };
-    }),
-  }));
-}
+// KeyResult進捗（org-context-store⇄issue-storeを横断する集計）は@/lib/objective-progressの
+// listObjectivesWithProgress/ObjectiveWithProgress/KeyResultProgressへ移した。
 
 // 個人情報の分離（ユーザー指摘対応）: title（Objective/KeyResultとも自由記述）は
 // PERSON_n IDでマスクされた状態で保持している。EM向けの応答を組み立てる境界だけで

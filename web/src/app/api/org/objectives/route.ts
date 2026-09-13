@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { addObjective, listObjectivesWithProgress, toObjectiveView } from "@/lib/org-context-store";
+import { addObjective, toObjectiveView } from "@/lib/org-context-store";
+import { listObjectivesWithProgress } from "@/lib/objective-progress";
 
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。
 export async function GET() {
