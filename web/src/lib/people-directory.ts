@@ -14,13 +14,13 @@
 // プロジェクト外・権限が効く場所に置く方針は維持する。
 // 名前の登録元は、チームメンバー追加・Journal校正でEMが明示した人物・People画面／
 // ヘッダーのクイック追加・人名候補ダイアログでの「人名として登録」に限定する。
-// ローカルNERの検出結果では自動登録しない（誤登録が assertNoRealNamesLeaked を誤発火
+// 人名候補検出の結果では自動登録しない（誤登録が assertNoRealNamesLeaked を誤発火
 // させ Agent 送信を止めるため）。
-// 方針: 名簿の事前登録が正。未登録語句で処理を止めない（既定ではNER確認ゲートを走らせない）。
-// NERは allowUnmaskedCandidates:false（厳格確認）または registerNameCandidates:true のときだけ使う。
+// 方針: 名簿の事前登録が正。未登録語句で処理を止めない（既定では確認ゲートを走らせない）。
+// 候補検出は allowUnmaskedCandidates / registerNameCandidates の明示オプトイン時だけ使う
+// （実装は name-candidate-detect＝mask-check と同系統）。
 
 import { loadSecureJSON, saveSecureJSON } from "@/lib/persistence";
-import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import { listTeams } from "@/lib/org-context-store";
 import { UnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { teamPathSegments } from "@/lib/types";
@@ -317,17 +317,13 @@ export function assertNoRealNamesLeaked(text: string): void {
 // よいのはこのファイル（people-directory.ts、secure配下のpeople-directory.jsonはローカル
 // ディスクにのみ存在し外部LLMには絶対に渡さない）と、ダッシュボード表示のためのAPI応答
 // 組み立て層だけ、という原則をコード上で強制する。
-// ローカルNERは自動登録しない。未登録かつフィルタを通った候補は
+// 人名候補は自動登録しない。未登録かつフィルタを通った候補は
 // ensureNameCandidatesAllowed 経由でEM確認（未マスク許可）を求める。
 // 呼び出し側は既知の名前だけがPERSON_nに置換されたテキストを保存する。
-const NAME_EXTRACTION_SYSTEM_PROMPT = [
-  "入力テキストに含まれる人物名だけをJSON形式で出力してください。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力すること。",
-  'フォーマット: {"people": string[]}',
-  "敬称はそのまま残すこと（例: Aさん）。人物が見当たらなければ空配列にすること。",
-].join("\n");
 
 // docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
 // 実機で確認された誤登録事例を踏まえた抽出後フィルタ。完全な言語判定はしない。
+// （候補検出本体は name-candidate-detect。ここは追加の妥当性チェック用）
 const MIN_NAME_LENGTH = 2;
 const MAX_NAME_LENGTH = 20; // 「壁打ちメッセージまるごと」のような文全体の誤検出を弾く上限
 
@@ -406,37 +402,18 @@ export function isAcknowledgedUnmasked(name: string): boolean {
   return false;
 }
 
-/** ローカルNERで未登録・未許可の人名らしい語句を検出する（副作用なし・登録しない）。 */
+/**
+ * 未登録・未許可の人名らしい語句を検出する（副作用なし・登録しない）。
+ * 実装は name-candidate-detect（敬称・話者・形態素）。動的 import で循環依存を避ける。
+ */
 export async function detectUnregisteredNameCandidates(text: string): Promise<string[]> {
   if (!text.trim()) return [];
   try {
-    const content = await runLocalChat(
-      [
-        { role: "system", content: NAME_EXTRACTION_SYSTEM_PROMPT },
-        { role: "user", content: "経営会議。Q3のリリース日が前倒しになった。" },
-        { role: "assistant", content: JSON.stringify({ people: [] }) },
-        { role: "user", content: "CさんのPRレビューが速い。" },
-        { role: "assistant", content: JSON.stringify({ people: ["Cさん"] }) },
-        { role: "user", content: text },
-      ],
-      100,
-    );
-    const jsonText = extractFirstJsonObject(content);
-    if (!jsonText) return [];
-    const parsed = JSON.parse(jsonText);
-    if (!Array.isArray(parsed.people)) return [];
-    const found = new Set<string>();
-    for (const p of parsed.people) {
-      if (typeof p !== "string") continue;
-      const trimmed = p.trim();
-      if (!isPlausiblePersonName(trimmed)) continue;
-      if (findIdByAnyForm(trimmed)) continue;
-      if (isAcknowledgedUnmasked(trimmed)) continue;
-      found.add(trimmed);
-    }
-    return [...found];
+    const { detectNameCandidatesAsync } = await import("@/lib/name-candidate-detect");
+    // detectNameCandidatesAsync 側で登録済み／ack済み／妥当性フィルタ済み
+    return await detectNameCandidatesAsync(text);
   } catch {
-    // ローカルNERの失敗は握りつぶす。既知の名前のマスクは引き続き有効。
+    // 辞書ロード失敗などは握りつぶす。既知の名前のマスクは引き続き有効。
     return [];
   }
 }
@@ -444,20 +421,22 @@ export async function detectUnregisteredNameCandidates(text: string): Promise<st
 /**
  * 複数テキストから未確認候補を集め、必要なら登録／確認エラーにする。
  *
- * 既定（opts未指定）: NERを起動せず即return。登録済み人名だけが後続の maskForStorage で
- * マスクされる。事前登録が正の方針に合わせ、保存・Agent送信のホットパスからローカルSLMを外す。
+ * 既定（opts未指定）: 候補検出を起動せず即return。登録済み人名だけが後続の maskForStorage で
+ * マスクされる。事前登録が正の方針に合わせ、保存・Agent送信のホットパスから検出を外す。
  *
- * - registerNameCandidates: true → NERで候補を検出し人名登録する
- * - allowUnmaskedCandidates: false → NERで候補を検出し、未許可なら UnconfirmedNameCandidatesError
- * - allowUnmaskedCandidates: true → NERで候補を検出し acknowledge して進める
+ * - registerNameCandidates: true → 候補を検出し人名登録する
+ * - allowUnmaskedCandidates: false → 候補を検出し、未許可なら UnconfirmedNameCandidatesError
+ * - allowUnmaskedCandidates: true → 候補を検出し acknowledge して進める
  */
 export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOptions = {}): Promise<void> {
-  const needsNer = opts.registerNameCandidates === true || opts.allowUnmaskedCandidates === false || opts.allowUnmaskedCandidates === true;
-  if (!needsNer) return;
+  const needsDetect =
+    opts.registerNameCandidates === true ||
+    opts.allowUnmaskedCandidates === false ||
+    opts.allowUnmaskedCandidates === true;
+  if (!needsDetect) return;
 
   // 空を除き、同一文面の重複検出を避ける。複数フィールド（Why/What/How等）は
-  // ローカルNERへ1回だけ渡す——フィールドごとの直列呼び出しは保存を数倍遅くし、
-  // 同一モデルへの並行呼び出しは低メモリ環境で不安定なため結合する。
+  // 検出へ1回だけ渡す（フィールドごとの直列呼び出しを避ける）。
   const nonEmpty = [...new Set(texts.map((t) => t.trim()).filter(Boolean))];
   if (nonEmpty.length === 0) return;
   const candidates = await detectUnregisteredNameCandidates(nonEmpty.join("\n"));
@@ -473,7 +452,7 @@ export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOpt
   acknowledgeUnmaskedCandidates(candidates);
 }
 
-// 既に登録済みの名前だけをPERSON_nへ置換する。NERによる新規登録は行わない。
+// 既に登録済みの名前だけをPERSON_nへ置換する。候補検出による新規登録は行わない。
 // Journal/Issue保存やAgent送信前は、呼び出し側で ensureNameCandidatesAllowed を先に呼ぶ。
 // （optsは呼び出し側の一貫したシグネチャ用。マスク自体には使わない）
 export async function maskForStorage(text: string, opts: MaskOptions = {}): Promise<string> {

@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 
-// maskForStorage()はローカルNERモデルを経由せず既知名のマスクのみ行う。
-// 候補検出（detectUnregisteredNameCandidates）はrunLocalChatを使うため、
-// テストでは実モデルを使わず固定応答を返すモックに差し替える。
-let mockPeople: string[] = [];
+// maskForStorage()は候補検出を経由せず既知名のマスクのみ行う。
+// 候補検出（detectUnregisteredNameCandidates）は name-candidate-detect（ルール＋形態素）を使う。
 vi.mock("@/lib/local-model", () => ({
-  runLocalChat: vi.fn(async () => JSON.stringify({ people: mockPeople })),
+  runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
@@ -20,7 +18,6 @@ let dir: string;
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
-  mockPeople = [];
 });
 
 afterEach(() => {
@@ -276,85 +273,77 @@ describe("maskForStorage", () => {
     expect(result).toBe(`${id}と話した`);
   });
 
-  it("ローカルNERが新規名を検出しても自動登録しない", async () => {
-    mockPeople = ["Bさん"];
+  it("候補検出があっても maskForStorage 単体では自動登録しない", async () => {
     const pd = await loadModule();
-    const result = await pd.maskForStorage("Bさんと1on1した");
-    expect(result).toBe("Bさんと1on1した");
+    const result = await pd.maskForStorage("田中さんと1on1した");
+    expect(result).toBe("田中さんと1on1した");
     expect(pd.listPeople()).toHaveLength(0);
   });
 });
 
 describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () => {
   it("未登録の妥当な候補を返す", async () => {
-    mockPeople = ["Bさん"];
     const pd = await loadModule();
-    expect(await pd.detectUnregisteredNameCandidates("Bさんと1on1した")).toEqual(["Bさん"]);
+    expect(await pd.detectUnregisteredNameCandidates("田中さんと1on1した")).toEqual(["田中さん"]);
   });
 
   it("登録済みの名前は候補に出さない", async () => {
-    mockPeople = ["Bさん"];
     const pd = await loadModule();
-    pd.registerName("Bさん");
-    expect(await pd.detectUnregisteredNameCandidates("Bさんと1on1した")).toEqual([]);
+    pd.registerName("田中さん");
+    expect(await pd.detectUnregisteredNameCandidates("田中さんと1on1した")).toEqual([]);
   });
 
   it("予約語・英数字のみ・短すぎる候補は出さない", async () => {
-    mockPeople = ["NPS", "1on1", "PR", "ABC123", "A"];
     const pd = await loadModule();
     expect(await pd.detectUnregisteredNameCandidates("NPSと1on1とPRとABC123とA")).toEqual([]);
   });
 
-  it("既定ではNERを呼ばず通過する（事前登録が正）", async () => {
-    mockPeople = ["Bさん"];
-    const { runLocalChat } = await import("@/lib/local-model");
+  it("既定では候補検出を呼ばず通過する（事前登録が正）", async () => {
     const pd = await loadModule();
-    vi.mocked(runLocalChat).mockClear();
-    await pd.ensureNameCandidatesAllowed(["Bさんと話した"]);
-    expect(runLocalChat).not.toHaveBeenCalled();
+    const spy = vi.spyOn(pd, "detectUnregisteredNameCandidates");
+    await pd.ensureNameCandidatesAllowed(["田中さんと話した"]);
+    expect(spy).not.toHaveBeenCalled();
     expect(pd.listPeople()).toHaveLength(0);
   });
 
   it("allowUnmaskedCandidates:false なら UnconfirmedNameCandidatesError を投げる", async () => {
-    mockPeople = ["Bさん"];
     const pd = await loadModule();
     const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
     await expect(
-      pd.ensureNameCandidatesAllowed(["Bさんと話した"], { allowUnmaskedCandidates: false }),
+      pd.ensureNameCandidatesAllowed(["田中さんと話した"], { allowUnmaskedCandidates: false }),
     ).rejects.toBeInstanceOf(UnconfirmedNameCandidatesError);
   });
 
-  it("厳格確認時、複数テキストでもローカルNERは1回だけ呼ぶ", async () => {
-    mockPeople = [];
-    const { runLocalChat } = await import("@/lib/local-model");
+  it("厳格確認時、複数テキストは結合して1回の検出にまとめる", async () => {
+    const detect = await import("@/lib/name-candidate-detect");
+    const spy = vi.spyOn(detect, "detectNameCandidatesAsync");
     const pd = await loadModule();
-    vi.mocked(runLocalChat).mockClear();
-    await pd.ensureNameCandidatesAllowed(["理由の文", "内容の文", "方法の文"], {
-      allowUnmaskedCandidates: true,
-    });
-    expect(runLocalChat).toHaveBeenCalledTimes(1);
+    await pd.ensureNameCandidatesAllowed(
+      ["田中さんと話した", "内容の文", "方法の文"],
+      { allowUnmaskedCandidates: true },
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toContain("田中さんと話した");
+    expect(pd.isAcknowledgedUnmasked("田中さん")).toBe(true);
   });
 
   it("許可すると acknowledge し、再検出されない", async () => {
-    mockPeople = ["Bさん"];
     const pd = await loadModule();
-    await pd.ensureNameCandidatesAllowed(["Bさんと話した"], { allowUnmaskedCandidates: true });
-    expect(pd.isAcknowledgedUnmasked("Bさん")).toBe(true);
-    expect(await pd.detectUnregisteredNameCandidates("Bさんと話した")).toEqual([]);
+    await pd.ensureNameCandidatesAllowed(["田中さんと話した"], { allowUnmaskedCandidates: true });
+    expect(pd.isAcknowledgedUnmasked("田中さん")).toBe(true);
+    expect(await pd.detectUnregisteredNameCandidates("田中さんと話した")).toEqual([]);
     expect(pd.listPeople()).toHaveLength(0);
   });
 
   it("registerNameCandidates で候補を人名登録する", async () => {
-    mockPeople = ["Bさん"];
     const pd = await loadModule();
-    await pd.ensureNameCandidatesAllowed(["Bさんと話した"], { registerNameCandidates: true });
-    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "Bさん", aliases: [] }]);
-    expect(await pd.detectUnregisteredNameCandidates("Bさんと話した")).toEqual([]);
-    expect(pd.maskNames("Bくんと話した")).toBe("PERSON_1と話した");
+    await pd.ensureNameCandidatesAllowed(["田中さんと話した"], { registerNameCandidates: true });
+    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "田中さん", aliases: [] }]);
+    expect(await pd.detectUnregisteredNameCandidates("田中さんと話した")).toEqual([]);
+    expect(pd.maskNames("田中くんと話した")).toBe("PERSON_1と話した");
   });
 
   it("登録済みと敬称だけ違う候補は未登録扱いしない", async () => {
-    mockPeople = ["田中くん"];
     const pd = await loadModule();
     pd.registerName("田中さん");
     expect(await pd.detectUnregisteredNameCandidates("田中くんと話した")).toEqual([]);

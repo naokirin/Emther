@@ -65,7 +65,8 @@ API: `POST /api/mask-check`
 
 | ファイル | 役割 |
 |---|---|
-| `mask-check.ts` | エンジン（実値 regex、敬称／話者、ハイライト、AI オーケストレーション） |
+| `name-candidate-detect.ts` | 人名候補検出（敬称・話者・ひらがな文脈・Kuromoji）。mask-check と厳格確認ゲートが共用 |
+| `mask-check.ts` | エンジン（実値 regex、ハイライト、AI オーケストレーション）。人名検出は上記へ委譲 |
 | `mask-check-types.ts` | 共有型 |
 | `mask-check-lexicon.ts` | **CORE**（短い核フレーズ・最小 stopword）と **TUNING**（人名除外・lookahead 等。機微キーワードは縮小済みで空） |
 
@@ -95,5 +96,5 @@ TUNING の機微キーワード羅列は過適合のため縮小した（人名�
 ## 4. 将来
 
 - Presidio / GiNZA 等の一般解との対応検証（`docs/privacy_check_research.md` §5–7、再現は `tools/privacy_check_bench/`）
-- 本線フローへの埋め込みは需要を見て検討
+- 厳格確認オプトイン時の人名候補は `name-candidate-detect` を本線と共用済み。構造PIIの本線自動マスクは対象外のまま
 - 否定文脈の抑制、カテゴリ細分化
