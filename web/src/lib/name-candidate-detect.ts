@@ -9,15 +9,31 @@ import {
   getSpeakerKanjiStopwords,
 } from "@/lib/mask-check-lexicon";
 import { detectMorphPersonNames, ensureNameMorphReady } from "@/lib/mask-check-morph";
-import {
-  getPersonId,
-  isAcknowledgedUnmasked,
-  isPlausiblePersonName,
-  stripPersonHonorific,
-} from "@/lib/people-directory";
+import { stripPersonHonorific } from "@/lib/person-honorific";
 
 /** 1テキストあたりの候補上限（プレビュー・確認ゲート共通）。 */
 export const NAME_CANDIDATE_MAX = 50;
+
+// people-directory⇄name-candidate-detectの循環参照を避けるため、name-candidate-detect
+// 自身はpeople-directoryをimportしない。既知の名前／確認済み判定・妥当性チェックは
+// people-directory側がregisterNameCandidateFiltersで登録する（依存性逆転）。
+// 未登録の間（起動直後・単体テスト等）は「既知でも妥当でもない」の安全側では扱わず、
+// 既存の呼び出し規約に合わせて「未知＝候補になりうる／妥当」に倒す
+// （detectXxx系はテストでも直接呼ばれており、未登録状態でも動作する必要があるため）。
+export type NameCandidateFilters = {
+  isKnownOrAcknowledged: (name: string) => boolean;
+  isPlausiblePersonName: (name: string) => boolean;
+};
+
+let filters: NameCandidateFilters = {
+  isKnownOrAcknowledged: () => false,
+  isPlausiblePersonName: () => true,
+};
+
+/** people-directory.ts が自身の判定関数を登録するためのフック。他から呼ばないこと。 */
+export function registerNameCandidateFilters(f: NameCandidateFilters): void {
+  filters = f;
+}
 
 /**
  * 敬称付き人名。漢字は2〜8文字（佐々木花子など）。
@@ -53,7 +69,7 @@ const KATAKANA_NAME_MAX_LEN = 5;
 const NAME_INTERNAL_NOISE_RE = /[がはをにでもへ＆&／/\s]|の/;
 
 function isRegisteredOrAcked(name: string): boolean {
-  return Boolean(getPersonId(name) || isAcknowledgedUnmasked(name));
+  return filters.isKnownOrAcknowledged(name);
 }
 
 export function hasHonorific(name: string): boolean {
@@ -72,7 +88,7 @@ export function isAcceptableBareNameCandidate(name: string): boolean {
   if (NAME_INTERNAL_NOISE_RE.test(stripPersonHonorific(t) || t)) return false;
 
   if (hasHonorific(t)) {
-    return isPlausiblePersonName(t);
+    return filters.isPlausiblePersonName(t);
   }
   if (/^[ァ-ヴー]+$/.test(t)) {
     return t.length >= 2 && t.length <= KATAKANA_NAME_MAX_LEN;
@@ -100,7 +116,7 @@ function tryAddName(found: string[], seen: Set<string>, raw: string): void {
     if (HONORIFIC_SURFACE_STOPWORDS.has(name)) return;
     const bare = stripPersonHonorific(name);
     if (!bare || NAME_INTERNAL_NOISE_RE.test(bare)) return;
-    if (!isPlausiblePersonName(name)) return;
+    if (!filters.isPlausiblePersonName(name)) return;
   } else if (!isAcceptableBareNameCandidate(name)) {
     return;
   }

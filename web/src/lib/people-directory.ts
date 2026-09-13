@@ -22,6 +22,10 @@
 
 import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "@/lib/persistence";
 import { UnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
+import { PERSON_HONORIFICS, stripPersonHonorific } from "@/lib/person-honorific";
+import { detectNameCandidatesAsync, registerNameCandidateFilters } from "@/lib/name-candidate-detect";
+
+export { stripPersonHonorific };
 
 type PersistedState = {
   entries: [string, string][]; // [name, id][]
@@ -87,16 +91,8 @@ function persist(): void {
 // 扱う。
 export type PersonRecord = { id: string; name: string; aliases: string[] };
 
-// 「田中さん」「田中くん」「田中」を同一人物として扱うための敬称正規化。
-// 表示用の正式名は登録時の表記を保持し、照合・マスク時だけ敬称を吸収する。
-const PERSON_HONORIFICS = ["さん", "くん", "ちゃん", "様", "氏", "君"] as const;
-const HONORIFIC_SUFFIX_RE = /(?:さん|くん|ちゃん|様|氏|君)$/;
 /** マスク用に bare 形を載せる最小文字数（1文字は誤マスクが多すぎる） */
 const MIN_BARE_NAME_LENGTH_FOR_MASK = 2;
-
-export function stripPersonHonorific(name: string): string {
-  return name.trim().replace(HONORIFIC_SUFFIX_RE, "").trim();
-}
 
 function findIdByAnyForm(name: string): string | undefined {
   const trimmed = name.trim();
@@ -482,19 +478,28 @@ export function isAcknowledgedUnmasked(name: string): boolean {
 
 /**
  * 未登録・未許可の人名らしい語句を検出する（副作用なし・登録しない）。
- * 実装は name-candidate-detect（敬称・話者・形態素）。動的 import で循環依存を避ける。
+ * 実装は name-candidate-detect（敬称・話者・形態素）。
  */
 export async function detectUnregisteredNameCandidates(text: string): Promise<string[]> {
   if (!text.trim()) return [];
   try {
-    const { detectNameCandidatesAsync } = await import("@/lib/name-candidate-detect");
     // detectNameCandidatesAsync 側で登録済み／ack済み／妥当性フィルタ済み
+    // （name-candidate-detect.tsへ登録したフィルタ経由。下のregisterNameCandidateFilters参照）。
     return await detectNameCandidatesAsync(text);
   } catch {
     // 辞書ロード失敗などは握りつぶす。既知の名前のマスクは引き続き有効。
     return [];
   }
 }
+
+// name-candidate-detect⇄people-directoryの循環参照を避けるため、name-candidate-detect
+// 自身はpeople-directoryをimportしない。既知の名前／確認済みかどうかの判定と
+// 妥当性チェック（isPlausiblePersonName）はpeople-directory側がこの登録フックで
+// name-candidate-detectへ渡す（依存性逆転）。
+registerNameCandidateFilters({
+  isKnownOrAcknowledged: (name) => Boolean(getPersonId(name) || isAcknowledgedUnmasked(name)),
+  isPlausiblePersonName,
+});
 
 /**
  * 複数テキストから未確認候補を集め、必要なら登録／確認エラーにする。

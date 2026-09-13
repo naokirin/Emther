@@ -16,6 +16,7 @@ const detectNameCandidatesAsyncMock = vi.hoisted(() =>
 vi.mock("@/lib/name-candidate-detect", () => ({
   detectNameCandidatesAsync: (text: string) => detectNameCandidatesAsyncMock(text),
   detectNameCandidates: () => [] as string[],
+  registerNameCandidateFilters: () => {},
 }));
 
 const embedRef = vi.hoisted(() => ({
