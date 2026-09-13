@@ -64,14 +64,22 @@ export function listCheckins(): EmCheckin[] {
   return [...checkins].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function addCheckin(input: { mood: number; energy: number; stress: number; note: string }): Promise<EmCheckin> {
+export async function addCheckin(input: {
+  mood: number;
+  energy: number;
+  stress: number;
+  note: string;
+  // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
+  // 省略時は Date.now()。指定時はその日の正午など呼び出し側が決めたタイムスタンプ。
+  createdAt?: number;
+}): Promise<EmCheckin> {
   const checkin: EmCheckin = {
     id: randomUUID(),
     mood: clampScale(input.mood),
     energy: clampScale(input.energy),
     stress: clampScale(input.stress),
     note: input.note.trim() ? await maskForStorage(input.note.trim()) : "",
-    createdAt: Date.now(),
+    createdAt: input.createdAt ?? Date.now(),
   };
   checkins.push(checkin);
   persistCheckins();
@@ -82,12 +90,17 @@ export function listReflectionNotes(): EmReflectionNote[] {
   return [...reflectionNotes].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function addReflectionNote(input: { type: ReflectionNoteType; text: string }): Promise<EmReflectionNote> {
+export async function addReflectionNote(input: {
+  type: ReflectionNoteType;
+  text: string;
+  // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
+  createdAt?: number;
+}): Promise<EmReflectionNote> {
   const note: EmReflectionNote = {
     id: randomUUID(),
     type: input.type,
     text: await maskForStorage(input.text.trim()),
-    createdAt: Date.now(),
+    createdAt: input.createdAt ?? Date.now(),
   };
   reflectionNotes.push(note);
   persistReflectionNotes();

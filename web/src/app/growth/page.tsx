@@ -6,6 +6,7 @@ import { PaginationControls, usePagination } from "@/components/Pagination";
 import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "@/components/EmCheckinWidget";
 import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
 import { PageTitleRow } from "@/components/HelpLink";
+import { RecordDateField, todayDateInputValue } from "@/components/RecordDateField";
 import { buildCheckinDailyTrend } from "@/lib/daily-trends";
 import { useReflectionNotes } from "@/lib/hooks";
 import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
@@ -73,12 +74,19 @@ export default function GrowthPage() {
 
   const [noteType, setNoteType] = useState<ReflectionNoteType>("keep");
   const [noteText, setNoteText] = useState("");
+  const [noteDateOpen, setNoteDateOpen] = useState(false);
+  const [noteCreatedAtDate, setNoteCreatedAtDate] = useState("");
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
 
   const latestTryNote = notes.find((n) => n.type === "try");
   const weekGroups = groupNotesByWeek(notes);
   const weekGroupPagination = usePagination(weekGroups, WEEK_GROUP_PAGE_SIZE);
+
+  function resetNoteDate() {
+    setNoteCreatedAtDate("");
+    setNoteDateOpen(false);
+  }
 
   // 改修依頼対応。1回の送信＝1件のメモ。typeは直前の選択を保ったままにする
   // （同じ種類のメモを立て続けに書きたい場面が多いため、毎回選び直させない）。
@@ -91,12 +99,17 @@ export default function GrowthPage() {
       const res = await fetch("/api/em-self/reflection-notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: noteType, text: noteText }),
+        body: JSON.stringify({
+          type: noteType,
+          text: noteText,
+          ...(noteCreatedAtDate ? { createdAtDate: noteCreatedAtDate } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       setNotes([data.note, ...notes]);
       setNoteText("");
+      resetNoteDate();
     } catch (err) {
       setNoteError((err as Error).message);
     } finally {
@@ -158,6 +171,16 @@ export default function GrowthPage() {
                 {noteSubmitting ? "記録中…" : "記録する"}
               </button>
             </div>
+            <RecordDateField
+              open={noteDateOpen}
+              date={noteCreatedAtDate}
+              onOpen={() => {
+                setNoteCreatedAtDate((prev) => prev || todayDateInputValue());
+                setNoteDateOpen(true);
+              }}
+              onDateChange={setNoteCreatedAtDate}
+              onReset={resetNoteDate}
+            />
           </form>
           {noteError && (
             <p className={styles.errorText} role="alert">

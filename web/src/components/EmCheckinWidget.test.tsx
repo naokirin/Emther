@@ -44,6 +44,24 @@ describe("EmCheckinWidget", () => {
     expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 
+  it("日付を変えてPOSTできる", async () => {
+    const user = userEvent.setup();
+    render(<EmCheckinWidget />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "📅 前日分などを入れる（日付を変える）" }));
+    const dateInput = screen.getByLabelText("対象日");
+    await user.clear(dateInput);
+    await user.type(dateInput, "2026-01-15");
+    await user.click(screen.getByRole("button", { name: "記録する" }));
+    await waitFor(() => {
+      const postCall = fetchMock.mock.calls.find((c) => c[1]?.method === "POST");
+      expect(postCall).toBeTruthy();
+      expect(JSON.parse(String(postCall![1]?.body))).toEqual(
+        expect.objectContaining({ createdAtDate: "2026-01-15" }),
+      );
+    });
+  });
+
   it("失敗時はエラーメッセージを表示する", async () => {
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "POST") {

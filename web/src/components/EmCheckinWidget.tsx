@@ -3,6 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
+import { RecordDateField, todayDateInputValue } from "@/components/RecordDateField";
 import { useEmCheckins } from "@/lib/hooks";
 
 const SCALE_OPTIONS = [1, 2, 3, 4, 5];
@@ -53,6 +54,8 @@ export function useEmCheckinController() {
   const [energy, setEnergy] = useState(3);
   const [stress, setStress] = useState(3);
   const [note, setNote] = useState("");
+  const [dateOpen, setDateOpen] = useState(false);
+  const [createdAtDate, setCreatedAtDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +65,11 @@ export function useEmCheckinController() {
   const avgStress = average(recentCheckins.map((c) => c.stress));
   const checkinPagination = usePagination(checkins, CHECKIN_PAGE_SIZE);
 
+  function resetDate() {
+    setCreatedAtDate("");
+    setDateOpen(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -70,12 +78,19 @@ export function useEmCheckinController() {
       const res = await fetch("/api/em-self/checkins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mood, energy, stress, note }),
+        body: JSON.stringify({
+          mood,
+          energy,
+          stress,
+          note,
+          ...(createdAtDate ? { createdAtDate } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       setCheckins([data.checkin, ...checkins]);
       setNote("");
+      resetDate();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -92,6 +107,14 @@ export function useEmCheckinController() {
     setStress,
     note,
     setNote,
+    dateOpen,
+    createdAtDate,
+    openDate: () => {
+      setCreatedAtDate((prev) => prev || todayDateInputValue());
+      setDateOpen(true);
+    },
+    setCreatedAtDate,
+    resetDate,
     submitting,
     error,
     handleSubmit,
@@ -115,6 +138,11 @@ export function EmCheckinForm({ controller }: { controller: EmCheckinController 
     setStress,
     note,
     setNote,
+    dateOpen,
+    createdAtDate,
+    openDate,
+    setCreatedAtDate,
+    resetDate,
     submitting,
     error,
     handleSubmit,
@@ -139,6 +167,13 @@ export function EmCheckinForm({ controller }: { controller: EmCheckinController 
         <button className={styles.primaryBtn} type="submit" disabled={submitting}>
           {submitting ? "記録中…" : "記録する"}
         </button>
+        <RecordDateField
+          open={dateOpen}
+          date={createdAtDate}
+          onOpen={openDate}
+          onDateChange={setCreatedAtDate}
+          onReset={resetDate}
+        />
       </form>
       {error && (
         <p className={styles.errorText} role="alert">

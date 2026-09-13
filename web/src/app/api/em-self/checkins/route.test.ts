@@ -46,4 +46,22 @@ describe("POST /api/em-self/checkins", () => {
     expect(json.checkin.stress).toBe(1);
     expect(json.checkin.note).toBe("疲れた");
   });
+
+  it("createdAtDateを指定すると日付レベルで記録される", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", { mood: 3, energy: 3, stress: 3, createdAtDate: "2026-01-15" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.checkin.createdAt).toBe(new Date(2026, 0, 15, 12, 0, 0, 0).getTime());
+  });
+
+  it("createdAtDateの形式が不正なら400", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", { mood: 3, energy: 3, stress: 3, createdAtDate: "not-a-date" }),
+    );
+    expect(res.status).toBe(400);
+  });
 });

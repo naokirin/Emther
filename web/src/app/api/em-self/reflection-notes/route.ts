@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { addReflectionNote, listReflectionNotes, toReflectionNoteView } from "@/lib/em-self-store";
+import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 
 // 改修依頼「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
 // 仕組みに」対応。1回のPOST＝1件のKeep/Problem/Tryメモ。週単位のグルーピングは
@@ -18,6 +19,16 @@ export async function POST(request: Request) {
   if (!text) {
     return NextResponse.json({ error: "textは必須です" }, { status: 400 });
   }
-  const note = await addReflectionNote({ type, text });
+
+  // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
+  let createdAt: number | undefined;
+  if (typeof body?.createdAtDate === "string" && body.createdAtDate) {
+    createdAt = dateStringToNoonTimestamp(body.createdAtDate);
+    if (createdAt === undefined) {
+      return NextResponse.json({ error: "createdAtDateの形式が不正です（YYYY-MM-DD）" }, { status: 400 });
+    }
+  }
+
+  const note = await addReflectionNote({ type, text, createdAt });
   return NextResponse.json({ note: toReflectionNoteView(note) }, { status: 201 });
 }

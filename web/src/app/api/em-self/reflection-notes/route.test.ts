@@ -51,4 +51,22 @@ describe("POST /api/em-self/reflection-notes", () => {
     expect(json.note.type).toBe("problem");
     expect(json.note.text).toBe("1on1の頻度が不足");
   });
+
+  it("createdAtDateを指定すると日付レベルで記録される", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", { type: "keep", text: "前日の気づき", createdAtDate: "2026-01-14" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.note.createdAt).toBe(new Date(2026, 0, 14, 12, 0, 0, 0).getTime());
+  });
+
+  it("createdAtDateの形式が不正なら400", async () => {
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/x", "POST", { type: "try", text: "x", createdAtDate: "invalid" }),
+    );
+    expect(res.status).toBe(400);
+  });
 });

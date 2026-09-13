@@ -50,6 +50,13 @@ describe("addCheckin", () => {
     expect(list[0].note).toBe("2件目");
     expect(list[1].note).toBe("1件目");
   });
+
+  it("createdAtを指定できる", async () => {
+    const store = await loadModule();
+    const createdAt = new Date(2026, 0, 15, 12, 0, 0, 0).getTime();
+    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, note: "前日分", createdAt });
+    expect(checkin.createdAt).toBe(createdAt);
+  });
 });
 
 describe("addReflectionNote", () => {
@@ -67,6 +74,13 @@ describe("addReflectionNote", () => {
     await store.addReflectionNote({ type: "try", text: "2件目" });
     const list = store.listReflectionNotes();
     expect(list.map((n) => n.text)).toEqual(["2件目", "1件目"]);
+  });
+
+  it("createdAtを指定できる", async () => {
+    const store = await loadModule();
+    const createdAt = new Date(2026, 0, 14, 12, 0, 0, 0).getTime();
+    const note = await store.addReflectionNote({ type: "keep", text: "前日の気づき", createdAt });
+    expect(note.createdAt).toBe(createdAt);
   });
 });
 
