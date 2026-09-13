@@ -75,6 +75,25 @@ describe("detectSensitiveByRules", () => {
     expect(findings.some((f) => f.match.includes("個人情報"))).toBe(true);
     expect(findings.some((f) => /APIキー|認証情報/i.test(f.match))).toBe(true);
   });
+
+  it("企業名・住所・生年月日・IDを構造パターンで検出する", async () => {
+    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const text =
+      "株式会社ブルースターの担当。住所は東京都新宿区西新宿2丁目8番1号。" +
+      "生年月日を確認したところ1989年6月12日。ログインID `mf-takahashi-2048` と顧客番号はC-493821。";
+    const findings = detectSensitiveByRules(text);
+    expect(findings.some((f) => f.category === "organization" && f.match.includes("株式会社ブルースター"))).toBe(
+      true,
+    );
+    expect(findings.some((f) => f.category === "address" && f.match.includes("東京都新宿区"))).toBe(true);
+    expect(findings.some((f) => f.category === "date_of_birth" && f.match.includes("1989年6月12日"))).toBe(
+      true,
+    );
+    expect(findings.some((f) => f.category === "identifier" && f.match.includes("mf-takahashi-2048"))).toBe(
+      true,
+    );
+    expect(findings.some((f) => f.category === "identifier" && f.match.includes("C-493821"))).toBe(true);
+  });
 });
 
 describe("detectNameCandidates", () => {
@@ -98,12 +117,31 @@ describe("detectNameCandidates", () => {
     expect(names.some((n) => n.includes("自分と") || n.includes("UM"))).toBe(false);
   });
 
-  it("敬称なしのトニー・話者ラベルを検出する", async () => {
+  it("敬称なしは話者ラベルから検出し、カタカナ自由検出はしない（FP抑制）", async () => {
     const { detectNameCandidates } = await import("@/lib/mask-check");
     const names = detectNameCandidates("高井: インシデント対応。トニーにも入ってもらう。");
     expect(names).toContain("高井");
-    expect(names).toContain("トニー");
+    // 敬称なしカタカナの自由検出は行わない
+    expect(names).not.toContain("トニー");
     expect(names).not.toContain("インシデント");
+  });
+
+  it("カタカナ人名は敬称付きなら検出する", async () => {
+    const { detectNameCandidates } = await import("@/lib/mask-check");
+    const names = detectNameCandidates("トニーさんにも入ってもらう。");
+    expect(names).toContain("トニーさん");
+  });
+
+  it("佐々木花子さんを欠かさず検出し、仕様・同様・客様は人名にしない", async () => {
+    const { detectNameCandidates } = await import("@/lib/mask-check");
+    const names = detectNameCandidates(
+      "佐々木花子さんと打ち合わせ。お客様の仕様と同様に進める。",
+    );
+    expect(names).toContain("佐々木花子さん");
+    expect(names).not.toContain("々木花子さん");
+    expect(names).not.toContain("仕様");
+    expect(names).not.toContain("同様");
+    expect(names).not.toContain("客様");
   });
 
   it("トニーさんがあるとき一覧は敬称ありのみ（bareはハイライト用に展開）", async () => {
@@ -150,14 +188,16 @@ describe("buildTextHighlights", () => {
   it("機微 match と人名をハイライト区間にする", async () => {
     const { detectSensitiveByRules, detectNameCandidates, buildTextHighlights, expandNamesForHighlight } =
       await import("@/lib/mask-check");
-    const text = "トニーがAPIキーを閉じた";
+    const text = "トニーさんがAPIキーを閉じた";
     const findings = detectSensitiveByRules(text);
     const names = detectNameCandidates(text);
     const highlights = buildTextHighlights(text, findings, expandNamesForHighlight(names));
     expect(highlights.some((h) => h.kind === "credential_mention" && h.match.includes("APIキー"))).toBe(
       true,
     );
-    expect(highlights.some((h) => h.kind === "name_candidate" && h.match === "トニー")).toBe(true);
+    expect(highlights.some((h) => h.kind === "name_candidate" && (h.match === "トニー" || h.match === "トニーさん"))).toBe(
+      true,
+    );
   });
 });
 

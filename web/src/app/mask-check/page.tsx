@@ -10,6 +10,10 @@ type SensitiveCategory =
   | "phone"
   | "url_secret"
   | "api_key_like"
+  | "address"
+  | "date_of_birth"
+  | "identifier"
+  | "organization"
   | "health"
   | "compensation"
   | "credential_mention"
@@ -41,6 +45,10 @@ const CATEGORY_LABEL: Record<SensitiveCategory, string> = {
   phone: "電話番号っぽい",
   url_secret: "URL内の秘密っぽい値",
   api_key_like: "APIキーっぽい",
+  address: "住所っぽい",
+  date_of_birth: "生年月日っぽい",
+  identifier: "ID・顧客番号っぽい",
+  organization: "企業・組織名っぽい",
   health: "健康・体調",
   compensation: "給与・評価",
   credential_mention: "認証情報の言及",
@@ -59,6 +67,10 @@ const HIGHLIGHT_STYLE: Record<TextHighlightKind, { background: string; color: st
   phone: { background: "rgba(180, 83, 9, 0.28)", color: "inherit" },
   url_secret: { background: "rgba(185, 28, 28, 0.28)", color: "inherit" },
   api_key_like: { background: "rgba(185, 28, 28, 0.28)", color: "inherit" },
+  address: { background: "rgba(180, 83, 9, 0.22)", color: "inherit" },
+  date_of_birth: { background: "rgba(180, 83, 9, 0.22)", color: "inherit" },
+  identifier: { background: "rgba(194, 65, 12, 0.28)", color: "inherit" },
+  organization: { background: "rgba(37, 99, 235, 0.28)", color: "inherit" },
   credential_mention: { background: "rgba(194, 65, 12, 0.32)", color: "inherit" },
   other_sensitive: { background: "rgba(153, 27, 27, 0.28)", color: "inherit" },
   health: { background: "rgba(13, 148, 136, 0.28)", color: "inherit" },

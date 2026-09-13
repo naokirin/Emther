@@ -37,7 +37,8 @@ export const MASK_CHECK_MAX_HIGHLIGHTS = 80;
 export const MASK_CHECK_DISCLAIMER =
   "この画面は検証専用です。保存・外部送信・データ投入は行いません。" +
   "人名以外の機微情報は自動除去しません。" +
-  "検出は推測を含み、漏れや誤検知があり得ます。目安として利用してください。";
+  "検出は推測を含み、漏れや誤検知があり得ます。" +
+  "未公開情報・財務・人事などの文脈機微は目視とローカルAIの参考候補が中心です。";
 
 export type SensitiveFindingSource = "rule" | "local-ai";
 
@@ -88,7 +89,7 @@ export type MaskCheckAiResult = {
   disclaimer: string;
 };
 
-/** 実値パターン（メール・電話・鍵文字列など）。コアとして健全。 */
+/** 実値パターン（メール・電話・鍵・住所・生年月日・ID・企業名など）。 */
 const LITERAL_PATTERNS: { category: SensitiveCategory; re: RegExp }[] = [
   {
     category: "email",
@@ -106,17 +107,55 @@ const LITERAL_PATTERNS: { category: SensitiveCategory; re: RegExp }[] = [
     category: "url_secret",
     re: /https?:\/\/[^\s<>"']+[?&](?:access_token|api_key|token|key|secret|password|auth)=[^\s&<>"']+/gi,
   },
+  {
+    category: "organization",
+    // 社名本体は漢字・カタカナ・英数字のみ（「については」等のひらがなを食い込まない）
+    re: /(?:株式会社|有限会社|合同会社|合資会社|合名会社)[一-龥々ァ-ヴーA-Za-z0-9・＝&\-]{1,30}/g,
+  },
+  {
+    category: "date_of_birth",
+    // 単独の「10月15日」等と区別するため「生年月日」文脈を要求
+    re: /生年月日[^。\n]{0,40}?\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/g,
+  },
+  {
+    category: "address",
+    re: /(?:東京都|北海道|(?:京都|大阪)府|[一-龥々]{2,3}県)[一-龥々ぁ-んァ-ヴー0-9\-−ー]{1,24}?\d+\s*丁目(?:\d+\s*番(?:地)?)?(?:\d+\s*号)?/g,
+  },
+  {
+    category: "identifier",
+    // ラベル付きID / 顧客番号らしき記号
+    re: /(?:ログインID|顧客番号|ユーザー名|ユーザ名|アカウントID)\s*[：:は]?\s*[`「『]?(?:[A-Za-z][A-Za-z0-9._\-]{2,63}|[A-Z]?-?\d{4,})[`」』]?|\bC-\d{5,}\b/g,
+  },
 ];
 
-/** 敬称付き人名（文字種を混ぜない）。 */
+/**
+ * 敬称付き人名。漢字は2〜8文字（佐々木花子など）。
+ * 「様」は仕様・同様など一般語にも含まれるため、表面形ストップで落とす。
+ */
 const HONORIFIC_NAME_RE =
-  /(?:[一-龥々]{1,4}|[ぁ-ん]{2,10}|[ァ-ヴー]{2,10}|[A-Za-z][A-Za-z\-']{1,11})(?:さん|くん|ちゃん|様|氏)/g;
+  /(?:[一-龥々]{2,8}|[ぁ-ん]{2,10}|[ァ-ヴー]{2,10}|[A-Za-z][A-Za-z\-']{1,11})(?:さん|くん|ちゃん|様|氏)/g;
+
+/** 「〜様」に誤マッチしやすい一般語（敬称として採用しない）。 */
+const HONORIFIC_SURFACE_STOPWORDS = new Set([
+  "仕様",
+  "同様",
+  "客様",
+  "神様",
+  "多様",
+  "模様",
+  "有様",
+  "異様",
+  "殿様",
+  "皆様",
+]);
 
 /** 議事録の話者ラベル（行頭〜：/:）。 */
 const SPEAKER_LABEL_RE = /(?:^|\n)\s*([^\s：:\n]{1,12})\s*[：:]/g;
 
-/** カタカナは最長一致。長い複合語は丸ごと捨て、短い候補だけ残す。 */
-const KATAKANA_MAXIMAL_RE = /[ァ-ヴー]{2,}/g;
+/**
+ * カタカナ自由検出は FP が多いため第1段では使わない（FP抑制優先）。
+ * カタカナ人名は「トニーさん」等の敬称付き、または話者ラベルから拾う。
+ */
 const KATAKANA_NAME_MAX_LEN = 5;
 
 /** 人名候補に含めたくない区切り。「と」は「とし」等のため除外。 */
@@ -127,6 +166,7 @@ const AI_CATEGORIES = new Set<SensitiveCategory>([
   "compensation",
   "credential_mention",
   "customer_or_contract",
+  "organization",
   "other_sensitive",
 ]);
 
@@ -134,10 +174,11 @@ const SENSITIVE_AI_SYSTEM_PROMPT = [
   "入力テキストから、(1)個人情報・機密情報の可能性がある箇所 (2)人物名 をJSONで列挙してください。",
   "説明や前置きは書かず、JSONオブジェクト1つだけを出力すること。",
   'フォーマット: {"findings":[{"category":string,"excerpt":string,"match":string}],"people":string[]}',
-  "categoryは次のいずれか: health, compensation, credential_mention, customer_or_contract, other_sensitive",
-  "個人情報・漏洩・インシデント・APIキー・不正アクセス・アカウント不正利用の言及は必ず findings に入れる。",
+  "categoryは次のいずれか: health, compensation, credential_mention, customer_or_contract, organization, other_sensitive",
+  "個人情報・漏洩・APIキー・認証情報・契約金額の言及は findings に入れる。",
+  "未公開のリリース日・料金・財務数字・人事の内示・組織変更など、単語だけでは断定しにくい社外秘っぽい箇所も other_sensitive の参考候補として入れてよい（確信が無くても可）。",
   "matchは問題の核となる短い語句。excerptは周辺抜粋。",
-  "peopleは人物名（敬称の有無どちらも可）。無ければ空配列。",
+  "peopleは人物名（敬称の有無どちらも可）。一般語は入れない。無ければ空配列。",
 ].join("\n");
 
 function clipExcerpt(s: string, max = 80): string {
@@ -235,6 +276,7 @@ function tryAddName(found: string[], seen: Set<string>, raw: string): void {
   if (isRegisteredOrAcked(name)) return;
 
   if (hasHonorific(name)) {
+    if (HONORIFIC_SURFACE_STOPWORDS.has(name)) return;
     const bare = stripPersonHonorific(name);
     if (!bare || NAME_INTERNAL_NOISE_RE.test(bare)) return;
     if (!isPlausiblePersonName(name)) return;
@@ -353,7 +395,8 @@ export async function filterNameCandidatesWithLocalAi(candidates: string[]): Pro
 
 /**
  * 未登録の人名っぽい語句（同期・副作用なし）。
- * 一覧は敬称ありを優先して重複除去。カタカナは最長一致かつ短いものだけ。
+ * 一覧は敬称ありを優先して重複除去。
+ * FP抑制のため、カタカナの自由検出は行わない（敬称・話者・ひらがな文脈のみ）。
  */
 export function detectNameCandidates(text: string): string[] {
   const found: string[] = [];
@@ -372,15 +415,6 @@ export function detectNameCandidates(text: string): string[] {
     const label = (m[1] ?? "").trim();
     if (!label) continue;
     tryAddName(found, seen, label);
-    if (found.length >= MASK_CHECK_MAX_NAME_CANDIDATES) break;
-  }
-
-  // カタカナ最長一致 → 短い人名だけ（長い複合語は丸ごと捨てる）
-  const kataRe = new RegExp(KATAKANA_MAXIMAL_RE.source, "g");
-  while ((m = kataRe.exec(text)) !== null) {
-    const run = m[0];
-    if (run.length < 2 || run.length > KATAKANA_NAME_MAX_LEN) continue;
-    tryAddName(found, seen, run);
     if (found.length >= MASK_CHECK_MAX_NAME_CANDIDATES) break;
   }
 
@@ -663,9 +697,10 @@ export async function runMaskCheckAi(rawText: string): Promise<MaskCheckAiResult
       : text.slice(0, MASK_CHECK_AI_EXCERPT_CHARS);
   const ruleNames = detectNameCandidates(text);
   const aiScopeNote =
-    text.length <= MASK_CHECK_AI_EXCERPT_CHARS
+    (text.length <= MASK_CHECK_AI_EXCERPT_CHARS
       ? `ローカルAIは全文（${text.length}文字）を確認しました。`
-      : `ローカルAIは先頭${MASK_CHECK_AI_EXCERPT_CHARS}文字のみを確認しました（入力 ${text.length} 文字）。`;
+      : `ローカルAIは先頭${MASK_CHECK_AI_EXCERPT_CHARS}文字のみを確認しました（入力 ${text.length} 文字）。`) +
+    "未公開・財務・人事などの文脈機微は参考候補です（必須検知ではありません）。";
 
   let sensitiveFindings: SensitiveFinding[] = [];
   let peopleFromAi: string[] = [];
