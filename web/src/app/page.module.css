@@ -312,6 +312,79 @@
   margin-bottom: 10px;
 }
 
+/* 設定「AIツール」のエージェント×CLIモデル指定。広い画面はマトリクス、狭い画面は
+   エージェント単位の縦スタック（列ヘッダは隠し、各フィールドのCLIラベルを出す）。 */
+.agentModelMatrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  max-width: 720px;
+}
+
+.agentModelMatrixHead,
+.agentModelMatrixRow {
+  display: grid;
+  grid-template-columns: minmax(7rem, 8.5rem) repeat(var(--agent-model-cols, 1), minmax(0, 1fr));
+  gap: 8px 10px;
+  align-items: end;
+}
+
+.agentModelMatrixHead {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-bottom: 2px;
+}
+
+.agentModelMatrixAgent {
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  /* 入力の margin-top（.field select/input）に合わせて、行末揃えの見た目を揃える */
+  padding-bottom: 0.25rem;
+}
+
+.agentModelMatrixRow .field {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.agentModelMatrixCliLabel {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .agentModelMatrix {
+    max-width: none;
+    gap: 0;
+  }
+
+  .agentModelMatrixHead {
+    display: none;
+  }
+
+  .agentModelMatrixRow {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .agentModelMatrixRow:last-child {
+    border-bottom: none;
+  }
+
+  .agentModelMatrixAgent {
+    font-weight: 600;
+    padding-bottom: 0;
+  }
+
+  .agentModelMatrixCliLabel {
+    display: inline;
+  }
+}
+
 .field label {
   display: block;
   font-size: 0.8125rem;

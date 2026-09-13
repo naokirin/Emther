@@ -99,6 +99,36 @@ export default function SettingsPage() {
     setDraft({ ...draft, cliOrder: next });
   }
 
+  function setAgentModelTier(agentName: string, value: ModelTier | "") {
+    const next = { ...draft.agentModelTiers };
+    if (value) {
+      next[agentName] = value;
+    } else {
+      delete next[agentName];
+    }
+    setDraft({ ...draft, agentModelTiers: next });
+  }
+
+  function setAgentAgyModel(agentName: string, value: string) {
+    const next = { ...draft.agentAgyModels };
+    if (value.trim()) {
+      next[agentName] = value;
+    } else {
+      delete next[agentName];
+    }
+    setDraft({ ...draft, agentAgyModels: next });
+  }
+
+  function setAgentCursorModel(agentName: string, value: string) {
+    const next = { ...draft.agentCursorModels };
+    if (value.trim()) {
+      next[agentName] = value;
+    } else {
+      delete next[agentName];
+    }
+    setDraft({ ...draft, agentCursorModels: next });
+  }
+
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
@@ -374,77 +404,85 @@ export default function SettingsPage() {
                   );
                 })()}
 
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル系統（claude）</h3>
-                {AGENT_OPTIONS.map((name) => (
-                  <div key={name} className={styles.field} style={{ maxWidth: 220 }}>
-                    <label>{name}
-                    <select
-                      value={draft.agentModelTiers[name] ?? ""}
-                      onChange={(e) => {
-                        const value = e.target.value as ModelTier | "";
-                        const next = { ...draft.agentModelTiers };
-                        if (value) {
-                          next[name] = value;
-                        } else {
-                          delete next[name];
-                        }
-                        setDraft({ ...draft, agentModelTiers: next });
-                      }}
-                    >
-                      <option value="">（CLIの既定のまま）</option>
-                      {MODEL_TIER_OPTIONS.map((tier) => (
-                        <option key={tier} value={tier}>
-                          {tier}
-                        </option>
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル</h3>
+                <p style={{ fontSize: "0.75rem", marginTop: 0, marginBottom: 8, maxWidth: 520, color: "var(--text-muted)" }}>
+                  上で有効なAIツールだけが表示されます（除外中の列は隠れますが、設定値は保持されます）。空欄は各CLIの既定モデルのままです。
+                </p>
+                {(() => {
+                  // 優先順位リストと同じ並び・同じ除外状態で列を出す（案1マトリクス＋案5連動）。
+                  const visibleClis = draft.cliOrder;
+                  const matrixStyle = {
+                    ["--agent-model-cols" as string]: String(visibleClis.length),
+                  };
+                  return (
+                    <div className={styles.agentModelMatrix} style={matrixStyle}>
+                      <div className={styles.agentModelMatrixHead} aria-hidden="true">
+                        <span>エージェント</span>
+                        {visibleClis.map((cli) => (
+                          <span key={cli}>{CLI_LABELS[cli]}</span>
+                        ))}
+                      </div>
+                      {AGENT_OPTIONS.map((name) => (
+                        <div key={name} className={styles.agentModelMatrixRow}>
+                          <div className={styles.agentModelMatrixAgent}>{name}</div>
+                          {visibleClis.map((cli) => {
+                            if (cli === "claude") {
+                              return (
+                                <div key={cli} className={styles.field}>
+                                  <label>
+                                    <span className={styles.agentModelMatrixCliLabel}>{CLI_LABELS.claude}</span>
+                                    <select
+                                      aria-label={`${name} / ${CLI_LABELS.claude}`}
+                                      value={draft.agentModelTiers[name] ?? ""}
+                                      onChange={(e) => setAgentModelTier(name, e.target.value as ModelTier | "")}
+                                    >
+                                      <option value="">（CLIの既定のまま）</option>
+                                      {MODEL_TIER_OPTIONS.map((tier) => (
+                                        <option key={tier} value={tier}>
+                                          {tier}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </div>
+                              );
+                            }
+                            if (cli === "agy") {
+                              return (
+                                <div key={cli} className={styles.field}>
+                                  <label>
+                                    <span className={styles.agentModelMatrixCliLabel}>{CLI_LABELS.agy}</span>
+                                    <input
+                                      type="text"
+                                      aria-label={`${name} / ${CLI_LABELS.agy}`}
+                                      value={draft.agentAgyModels[name] ?? ""}
+                                      placeholder="例: gemini-3.6-flash-medium（空欄＝既定）"
+                                      onChange={(e) => setAgentAgyModel(name, e.target.value)}
+                                    />
+                                  </label>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={cli} className={styles.field}>
+                                <label>
+                                  <span className={styles.agentModelMatrixCliLabel}>{CLI_LABELS.cursor}</span>
+                                  <input
+                                    type="text"
+                                    aria-label={`${name} / ${CLI_LABELS.cursor}`}
+                                    value={draft.agentCursorModels[name] ?? ""}
+                                    placeholder="例: gpt-5.2（空欄＝既定）"
+                                    onChange={(e) => setAgentCursorModel(name, e.target.value)}
+                                  />
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
                       ))}
-                    </select>
-                    </label>
-                  </div>
-                ))}
-
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル（agy）</h3>
-                {AGENT_OPTIONS.map((name) => (
-                  <div key={name} className={styles.field} style={{ maxWidth: 260 }}>
-                    <label>{name}
-                    <input
-                      type="text"
-                      value={draft.agentAgyModels[name] ?? ""}
-                      placeholder="例: gemini-3.6-flash-medium（空欄＝既定）"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const next = { ...draft.agentAgyModels };
-                        if (value.trim()) {
-                          next[name] = value;
-                        } else {
-                          delete next[name];
-                        }
-                        setDraft({ ...draft, agentAgyModels: next });
-                      }}
-                    /></label>
-                  </div>
-                ))}
-
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル（Cursor）</h3>
-                {AGENT_OPTIONS.map((name) => (
-                  <div key={name} className={styles.field} style={{ maxWidth: 260 }}>
-                    <label>{name}
-                    <input
-                      type="text"
-                      value={draft.agentCursorModels[name] ?? ""}
-                      placeholder="例: gpt-5.2（空欄＝既定）"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        const next = { ...draft.agentCursorModels };
-                        if (value.trim()) {
-                          next[name] = value;
-                        } else {
-                          delete next[name];
-                        }
-                        setDraft({ ...draft, agentCursorModels: next });
-                      }}
-                    /></label>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })()}
               </>
             )}
 
