@@ -15,7 +15,7 @@ export type KeywordRule = { category: SensitiveCategory; phrases: string[] };
 // CORE
 // ---------------------------------------------------------------------------
 
-/** 短い核フレーズのみ（長い言い回しは TUNING へ）。 */
+/** 短い核フレーズのみ。長い言い回しは置かない。 */
 export const CORE_KEYWORD_RULES: KeywordRule[] = [
   {
     category: "credential_mention",
@@ -23,7 +23,7 @@ export const CORE_KEYWORD_RULES: KeywordRule[] = [
   },
   {
     category: "other_sensitive",
-    phrases: ["個人情報", "機密情報", "機微情報", "情報漏洩", "漏洩"],
+    phrases: ["個人情報", "機密情報", "機微情報", "情報漏洩", "漏洩", "不正アクセス"],
   },
   {
     category: "health",
@@ -87,35 +87,15 @@ export const CORE_HIRAGANA_NAME_LOOKAHEAD = "";
 // TUNING（検証サンプル由来）
 // ---------------------------------------------------------------------------
 
-export const TUNING_KEYWORD_RULES: KeywordRule[] = [
-  {
-    category: "credential_mention",
-    phrases: ["apiキー", "認証系", "不正利用", "不正に利用", "不正アクセス", "アカウントが不正", "アクセスを遮断"],
-  },
-  {
-    category: "other_sensitive",
-    phrases: [
-      "セキュリティインシデント",
-      "個人情報の漏洩",
-      "個人情報が一部",
-      "漏洩を伴う",
-      "被害拡大",
-      "不審なアクセス",
-    ],
-  },
-  {
-    category: "health",
-    phrases: ["メンタル不調"],
-  },
-  {
-    category: "compensation",
-    phrases: ["年収交渉"],
-  },
-  {
-    category: "customer_or_contract",
-    phrases: ["顧客名"],
-  },
-];
+/**
+ * 機微キーワードの TUNING は空（2026-09-13 縮小）。
+ * 吸収済み（CORE 核で足りる）: apiキー, 個人情報の漏洩, 個人情報が一部, 漏洩を伴う, メンタル不調, 年収交渉
+ * CORE へ移した短核: 不正アクセス
+ * 削ったインシデント寄り: 認証系, 不正利用, 不正に利用, アカウントが不正, アクセスを遮断,
+ *   セキュリティインシデント, 被害拡大, 不審なアクセス, 顧客名
+ * 人名まわりの stopword / lookahead / few-shot は別（下の定数）に残す。
+ */
+export const TUNING_KEYWORD_RULES: KeywordRule[] = [];
 
 export const TUNING_KATAKANA_STOPWORDS: readonly string[] = [
   "マネージャ",

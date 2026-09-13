@@ -400,6 +400,15 @@ export function detectHonorificNameCandidates(text: string): string[] {
   return detectNameCandidates(text);
 }
 
+/** ラテン文字を含むフレーズは大小無視で検索。それ以外は原文一致。 */
+function findPhraseIndex(text: string, phrase: string, from: number): number {
+  if (!phrase) return -1;
+  if (/[A-Za-z]/.test(phrase)) {
+    return text.toLowerCase().indexOf(phrase.toLowerCase(), from);
+  }
+  return text.indexOf(phrase, from);
+}
+
 /** ルールベースの機微っぽい箇所検出（同期・副作用なし）。 */
 export function detectSensitiveByRules(text: string): SensitiveFinding[] {
   const out: SensitiveFinding[] = [];
@@ -433,6 +442,7 @@ export function detectSensitiveByRules(text: string): SensitiveFinding[] {
   }
 
   // 同一フレーズの近接重複だけ抑える（別キーワードは同じ文でも残す）
+  // ラテン文字を含むフレーズは大小無視（CORE の「APIキー」で「apiキー」も拾う）
   const hitStartsByPhrase = new Map<string, number[]>();
 
   for (const { category, phrases } of getKeywordRules()) {
@@ -440,8 +450,10 @@ export function detectSensitiveByRules(text: string): SensitiveFinding[] {
     for (const phrase of sorted) {
       let from = 0;
       while (from < text.length) {
-        const idx = text.indexOf(phrase, from);
+        const idx = findPhraseIndex(text, phrase, from);
         if (idx === -1) break;
+        const matchLen = phrase.length;
+        const surface = text.slice(idx, idx + matchLen);
         const starts = hitStartsByPhrase.get(phrase) ?? [];
         const tooClose = starts.some((s) => Math.abs(s - idx) < 20);
         if (!tooClose) {
@@ -450,18 +462,18 @@ export function detectSensitiveByRules(text: string): SensitiveFinding[] {
               f.start !== undefined &&
               f.end !== undefined &&
               f.start <= idx &&
-              f.end >= idx + phrase.length &&
-              f.match.length > phrase.length,
+              f.end >= idx + matchLen &&
+              f.match.length > matchLen,
           );
           if (!coveredByLonger) {
-            const excerpt = excerptAround(text, idx, phrase.length);
+            const excerpt = excerptAround(text, idx, matchLen);
             if (
               pushFinding(out, seen, {
                 category,
                 excerpt,
-                match: phrase,
+                match: surface,
                 start: idx,
-                end: idx + phrase.length,
+                end: idx + matchLen,
                 source: "rule",
               })
             ) {
@@ -472,7 +484,7 @@ export function detectSensitiveByRules(text: string): SensitiveFinding[] {
             }
           }
         }
-        from = idx + phrase.length;
+        from = idx + matchLen;
       }
     }
   }

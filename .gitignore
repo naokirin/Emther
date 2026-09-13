@@ -15,3 +15,7 @@ node_modules/
 
 # ローカルで作った Release 成果物
 dist/
+
+# privacy_check GiNZA ベンチ（ローカル venv / 実行成果）
+tools/privacy_check_bench/.venv/
+tools/privacy_check_bench/out_*.json

@@ -35,18 +35,29 @@ afterEach(() => {
 });
 
 /**
- * TUNING 語彙（検証サンプル由来）の回帰。
- * コアエンジンの一般仕様ではなく、積み上げた除外・言い回しの固定用。
+ * TUNING 縮小後の回帰。
+ * 機微キーワードは CORE 核に寄せ、人名まわりの stopword / lookahead は TUNING に残す。
  */
-describe("mask-check TUNING lexicon", () => {
-  it("TUNING の長い機微言い回しを検出する", async () => {
+describe("mask-check TUNING lexicon (shrunk keywords)", () => {
+  it("長いインシデント言い回しはキーワードとして検出しない（CORE 核のみ）", async () => {
     const { detectSensitiveByRules } = await import("@/lib/mask-check");
     const findings = detectSensitiveByRules(
       "セキュリティインシデントで不正利用とアクセスを遮断した。被害拡大を防ぐ。",
     );
-    expect(findings.some((f) => f.match.includes("セキュリティインシデント"))).toBe(true);
-    expect(findings.some((f) => f.match.includes("不正利用"))).toBe(true);
-    expect(findings.some((f) => f.match.includes("被害拡大"))).toBe(true);
+    expect(findings.some((f) => f.match.includes("セキュリティインシデント"))).toBe(false);
+    expect(findings.some((f) => f.match.includes("不正利用"))).toBe(false);
+    expect(findings.some((f) => f.match.includes("被害拡大"))).toBe(false);
+  });
+
+  it("CORE の不正アクセスと個人情報・漏洩は検出する", async () => {
+    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const findings = detectSensitiveByRules(
+      "個人情報の漏洩と不正アクセスが疑われる。apiキーは別管理。",
+    );
+    expect(findings.some((f) => f.match.includes("個人情報"))).toBe(true);
+    expect(findings.some((f) => f.match.includes("漏洩"))).toBe(true);
+    expect(findings.some((f) => f.match.includes("不正アクセス"))).toBe(true);
+    expect(findings.some((f) => /apiキー/i.test(f.match))).toBe(true);
   });
 
   it("TUNING のカタカナ一般語を人名候補から除外する", async () => {

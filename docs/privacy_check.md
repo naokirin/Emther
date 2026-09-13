@@ -48,9 +48,9 @@ API: `POST /api/mask-check`
 |---|---|
 | `mask-check.ts` | エンジン（実値 regex、敬称／話者／カタカナ最長一致、ハイライト、AI オーケストレーション） |
 | `mask-check-types.ts` | 共有型 |
-| `mask-check-lexicon.ts` | **CORE**（短い核フレーズ・最小 stopword）と **TUNING**（検証サンプル由来。過適合注意） |
+| `mask-check-lexicon.ts` | **CORE**（短い核フレーズ・最小 stopword）と **TUNING**（人名除外・lookahead 等。機微キーワードは縮小済みで空） |
 
-TUNING は過適合の温床になりうる。業界定石（Presidio の Recognizer 分離、GiNZA＋regex 等）を調べたうえで見直す（`docs/privacy_check_research.md`）。
+TUNING の機微キーワード羅列は過適合のため縮小した（人名まわりの辞書は残置）。業界定石との対応は `docs/privacy_check_research.md`。
 
 ### 第1段 `phase: "quick"`
 
@@ -74,5 +74,5 @@ TUNING は過適合の温床になりうる。業界定石（Presidio の Recogn
 
 ## 4. 将来
 
-- Presidio / GiNZA 等の一般解との対応検証（`docs/privacy_check_research.md`）
+- Presidio / GiNZA 等の一般解との対応検証（`docs/privacy_check_research.md` §5–7、再現は `tools/privacy_check_bench/`）
 - 本線フローへの埋め込みは需要を見て検討

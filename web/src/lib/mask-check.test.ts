@@ -71,9 +71,9 @@ describe("detectSensitiveByRules", () => {
     const cats = new Set(findings.map((f) => f.category));
     expect(cats.has("other_sensitive")).toBe(true);
     expect(cats.has("credential_mention")).toBe(true);
-    // CORE 核フレーズ（長い言い回しは TUNING）
+    // CORE 核フレーズ（TUNING キーワードは縮小済み）
     expect(findings.some((f) => f.match.includes("個人情報"))).toBe(true);
-    expect(findings.some((f) => /APIキー|認証情報/.test(f.match))).toBe(true);
+    expect(findings.some((f) => /APIキー|認証情報/i.test(f.match))).toBe(true);
   });
 });
 
