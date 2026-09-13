@@ -64,8 +64,8 @@ describe("registerName / maskNames / unmaskNames", () => {
   it("maskNamesは登録時と異なる敬称でも同じIDへ置換する", async () => {
     const pd = await loadModule();
     const id = pd.registerName("田中さん");
-    expect(pd.maskNames("田中くんと話した")).toBe(`${id}と話した`);
-    expect(pd.maskNames("田中と話した")).toBe(`${id}と話した`);
+    expect(pd.maskNames("田中くんと話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
+    expect(pd.maskNames("田中と話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
   });
 
   it("getPersonIdは敬称違いでも同一人物を返す", async () => {
@@ -75,15 +75,16 @@ describe("registerName / maskNames / unmaskNames", () => {
     expect(pd.getPersonId("田中")).toBe(id);
   });
 
-  it("maskNamesは登録済みの名前をIDに置換する", async () => {
+  it("maskNamesは登録済みの名前を区切り付きトークンに置換する", async () => {
     const pd = await loadModule();
     const id = pd.registerName("Aさん");
-    expect(pd.maskNames(`${"Aさん"}と話した`)).toBe(`${id}と話した`);
+    expect(pd.maskNames(`${"Aさん"}と話した`)).toBe(`${pd.formatPersonToken(id)}と話した`);
   });
 
-  it("unmaskNamesはIDを実名に戻す", async () => {
+  it("unmaskNamesは区切り付きトークンと裸IDの両方を実名に戻す", async () => {
     const pd = await loadModule();
     const id = pd.registerName("Aさん");
+    expect(pd.unmaskNames(`${pd.formatPersonToken(id)}と話した`)).toBe("Aさんと話した");
     expect(pd.unmaskNames(`${id}と話した`)).toBe("Aさんと話した");
   });
 
@@ -91,7 +92,7 @@ describe("registerName / maskNames / unmaskNames", () => {
     const pd = await loadModule();
     pd.registerName("山田");
     const idFull = pd.registerName("山田太郎");
-    expect(pd.maskNames("山田太郎に会った")).toBe(`${idFull}に会った`);
+    expect(pd.maskNames("山田太郎に会った")).toBe(`${pd.formatPersonToken(idFull)}に会った`);
   });
 
   it("PERSON_1とPERSON_10のように短いIDが長いIDのprefixでも壊れず復元できる", async () => {
@@ -100,6 +101,21 @@ describe("registerName / maskNames / unmaskNames", () => {
     const id10 = pd.registerName("10番目の人");
     expect(id10).toBe("PERSON_10");
     expect(pd.unmaskNames(`${id10}が来た`)).toBe("10番目の人が来た");
+    expect(pd.unmaskNames(`${pd.formatPersonToken(id10)}が来た`)).toBe("10番目の人が来た");
+  });
+
+  it("PERSON_1の直後に数字が続いてもPERSON_17と誤って復元しない", async () => {
+    const pd = await loadModule();
+    const id1 = pd.registerName("田中さん");
+    for (let i = 0; i < 15; i++) pd.registerName(`人物${i}`);
+    const id17 = pd.registerName("鈴木さん");
+    expect(id1).toBe("PERSON_1");
+    expect(id17).toBe("PERSON_17");
+
+    const masked = pd.maskNames("月曜は田中さん7回忌で休暇予定");
+    expect(masked).toBe(`月曜は${pd.formatPersonToken(id1)}7回忌で休暇予定`);
+    expect(masked).not.toContain(pd.formatPersonToken(id17));
+    expect(pd.unmaskNames(masked)).toBe("月曜は田中さん7回忌で休暇予定");
   });
 });
 
@@ -174,10 +190,10 @@ describe("addAlias / removeAlias", () => {
     const pd = await loadModule();
     const id = pd.registerName("田中さん");
     expect(pd.addAlias(id, "田中")).toEqual({ ok: true });
-    expect(pd.maskNames("田中と話した")).toBe(`${id}と話した`);
+    expect(pd.maskNames("田中と話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
     // 「田中さん」（正式名、4文字）は「田中」（別名、2文字）より長いため、
     // replaceAllAtOnceの「重なり合う候補は長い方を優先」により正式名側が一致する。
-    expect(pd.maskNames("田中さんと話した")).toBe(`${id}と話した`);
+    expect(pd.maskNames("田中さんと話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
   });
 
   it("listPeopleは別名を重複した人物としてではなく、正式名のaliasesとして返す", async () => {
@@ -231,7 +247,7 @@ describe("renamePerson", () => {
     const id = pd.registerName("田中さん");
     expect(pd.renamePerson(id, "田中")).toEqual({ ok: true });
     expect(pd.listPeople()).toEqual([{ id, name: "田中", aliases: ["田中さん"] }]);
-    expect(pd.maskNames("田中さんと話した")).toBe(`${id}と話した`);
+    expect(pd.maskNames("田中さんと話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
     expect(pd.unmaskNames(id)).toBe("田中");
   });
 
@@ -255,7 +271,7 @@ describe("mergePersons", () => {
     expect(pd.mergePersons(fromId, toId)).toEqual({ ok: true });
 
     expect(pd.listPeople()).toEqual([{ id: toId, name: "田中さん", aliases: ["たなかさん"] }]);
-    expect(pd.maskNames("たなかさんと話した")).toBe(`${toId}と話した`);
+    expect(pd.maskNames("たなかさんと話した")).toBe(`${pd.formatPersonToken(toId)}と話した`);
     expect(pd.unmaskNames(fromId)).toBe(fromId); // 統合元のIDはもう実名に戻らない
   });
 
@@ -301,7 +317,7 @@ describe("maskForStorage", () => {
     const pd = await loadModule();
     const id = pd.registerName("Aさん");
     const result = await pd.maskForStorage("Aさんと話した");
-    expect(result).toBe(`${id}と話した`);
+    expect(result).toBe(`${pd.formatPersonToken(id)}と話した`);
   });
 
   it("候補検出があっても maskForStorage 単体では自動登録しない", async () => {
@@ -371,7 +387,7 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
     await pd.ensureNameCandidatesAllowed(["田中さんと話した"], { registerNameCandidates: true });
     expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "田中さん", aliases: [] }]);
     expect(await pd.detectUnregisteredNameCandidates("田中さんと話した")).toEqual([]);
-    expect(pd.maskNames("田中くんと話した")).toBe("PERSON_1と話した");
+    expect(pd.maskNames("田中くんと話した")).toBe("{{PERSON_1}}と話した");
   });
 
   it("登録済みと敬称だけ違う候補は未登録扱いしない", async () => {

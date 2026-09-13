@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { getPersonId, ensureNameCandidatesAllowed, maskForStorage, maskNames, registerName, unmaskNames } from "@/lib/people-directory";
+import {
+  getPersonId,
+  ensureNameCandidatesAllowed,
+  maskForStorage,
+  maskNames,
+  maskNamesSearchForms,
+  registerName,
+  unmaskNames,
+} from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 import {
   filterValidTeamIds,
@@ -440,8 +448,8 @@ function toEventFilter(filter: JournalListFilter): EventPageFilter {
   return {
     entityType: "journal",
     kind: "fact",
-    textQuery: filter.query ? maskNames(filter.query) : undefined,
-    tagExact: filter.tag ? maskNames(filter.tag) : undefined,
+    textQuery: filter.query ? maskNamesSearchForms(filter.query) : undefined,
+    tagExact: filter.tag ? maskNamesSearchForms(filter.tag) : undefined,
     personExact: filter.person ? (getPersonId(filter.person) ?? UNKNOWN_PERSON_SENTINEL) : undefined,
     urgency: filter.urgency,
     sentiment: filter.sentiment,

@@ -238,12 +238,13 @@ export type EventPageFilter = {
   entityType?: KnowledgeEntityType;
   kind?: KnowledgeKind;
   // 自由記述検索（text/summary/tags_json/people_jsonへの部分一致）。text/people_jsonは
-  // PERSON_n IDでマスクされた状態で保存されているため、呼び出し側（journal-store.ts）が
-  // 検索語を渡す前にmaskNamesで変換しておくこと。
-  textQuery?: string;
+  // PERSON_n（または {{PERSON_n}}）でマスクされた状態で保存されているため、呼び出し側
+  // （journal-store.ts）が検索語を渡す前にmaskNames / maskNamesSearchFormsで変換しておくこと。
+  // 文字列1つ、または区切り付き・裸IDの両形（既存データ互換）。
+  textQuery?: string | string[];
   // タグ・人物の完全一致フィルタ（JSON配列内の要素として存在するか）。personExactは
   // PERSON_n ID、tagExactはマスク後のタグ文字列を渡すこと（textQueryと同じ理由）。
-  tagExact?: string;
+  tagExact?: string | string[];
   personExact?: string;
   urgency?: string;
   sentiment?: string;
@@ -276,13 +277,35 @@ function buildEventPageWhere(filter: EventPageFilter): { where: string; params: 
     params.push(filter.occurredAtFrom);
   }
   if (filter.textQuery) {
-    const like = `%${escapeLike(filter.textQuery)}%`;
-    conditions.push("(text LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR tags_json LIKE ? ESCAPE '\\' OR people_json LIKE ? ESCAPE '\\')");
-    params.push(like, like, like, like);
+    const queries = (Array.isArray(filter.textQuery) ? filter.textQuery : [filter.textQuery]).filter(Boolean);
+    if (queries.length === 1) {
+      const like = `%${escapeLike(queries[0])}%`;
+      conditions.push(
+        "(text LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR tags_json LIKE ? ESCAPE '\\' OR people_json LIKE ? ESCAPE '\\')",
+      );
+      params.push(like, like, like, like);
+    } else if (queries.length > 1) {
+      const parts: string[] = [];
+      for (const q of queries) {
+        const like = `%${escapeLike(q)}%`;
+        parts.push(
+          "(text LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\' OR tags_json LIKE ? ESCAPE '\\' OR people_json LIKE ? ESCAPE '\\')",
+        );
+        params.push(like, like, like, like);
+      }
+      conditions.push(`(${parts.join(" OR ")})`);
+    }
   }
   if (filter.tagExact) {
-    conditions.push("tags_json LIKE ? ESCAPE '\\'");
-    params.push(`%"${escapeLike(filter.tagExact)}"%`);
+    const tags = (Array.isArray(filter.tagExact) ? filter.tagExact : [filter.tagExact]).filter(Boolean);
+    if (tags.length === 1) {
+      conditions.push("tags_json LIKE ? ESCAPE '\\'");
+      params.push(`%"${escapeLike(tags[0])}"%`);
+    } else if (tags.length > 1) {
+      const parts = tags.map(() => "tags_json LIKE ? ESCAPE '\\'");
+      for (const t of tags) params.push(`%"${escapeLike(t)}"%`);
+      conditions.push(`(${parts.join(" OR ")})`);
+    }
   }
   if (filter.personExact) {
     conditions.push("people_json LIKE ? ESCAPE '\\'");

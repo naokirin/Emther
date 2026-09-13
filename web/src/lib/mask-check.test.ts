@@ -291,7 +291,7 @@ describe("previewNameMask", () => {
     const pd = await import("@/lib/people-directory");
     const id = pd.registerName("太郎さん");
     const preview = pd.previewNameMask("太郎さんと太郎さんが同席");
-    expect(preview.maskedText).toBe(`${id}と${id}が同席`);
-    expect(preview.replacements).toEqual([{ from: "太郎さん", to: id, count: 2 }]);
+    expect(preview.maskedText).toBe(`${pd.formatPersonToken(id)}と${pd.formatPersonToken(id)}が同席`);
+    expect(preview.replacements).toEqual([{ from: "太郎さん", to: pd.formatPersonToken(id), count: 2 }]);
   });
 });

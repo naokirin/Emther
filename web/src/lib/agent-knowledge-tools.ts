@@ -2,7 +2,7 @@ import { cosineSimilarity, embedText } from "@/lib/embeddings";
 import { listJournalEntriesPage } from "@/lib/journal-store";
 import { getIssue, listIssues, type Issue } from "@/lib/issue-store";
 import { findByIdPrefix } from "@/lib/id-prefix";
-import { maskNames, unmaskNames } from "@/lib/people-directory";
+import { maskNames, maskNamesSearchForms, unmaskNames } from "@/lib/people-directory";
 import {
   RELATED_SIMILARITY_THRESHOLD,
   searchSimilarOpenIssues,
@@ -109,7 +109,7 @@ export function extractLookup(resultText: string): LookupRequest | undefined {
   }
 }
 
-function issueMatchesKeyword(issue: Issue, needle: string): boolean {
+function issueMatchesKeyword(issue: Issue, needles: string[]): boolean {
   const hay = [
     issue.id,
     issue.title,
@@ -120,7 +120,7 @@ function issueMatchesKeyword(issue: Issue, needle: string): boolean {
   ]
     .join("\n")
     .toLowerCase();
-  return hay.includes(needle.toLowerCase());
+  return needles.some((needle) => hay.includes(needle.toLowerCase()));
 }
 
 function formatIssueBrief(issue: Issue, extra?: string): string {
@@ -137,19 +137,20 @@ function searchIssuesByKeyword(opts: {
   includeArchived: boolean;
   limit: number;
 }): { lines: string[]; totalMatched: number } {
-  const needle = maskNames(opts.query.trim());
-  if (!needle) return { lines: ["- （検索語が空です）"], totalMatched: 0 };
+  const needles = maskNamesSearchForms(opts.query.trim()).filter(Boolean);
+  if (needles.length === 0) return { lines: ["- （検索語が空です）"], totalMatched: 0 };
+  const displayNeedle = needles[0];
 
   const matched = listIssues().filter((i) => {
     if (!opts.includeArchived && i.archived) return false;
     if (!opts.includeDone && i.status === "done") return false;
-    return issueMatchesKeyword(i, needle);
+    return issueMatchesKeyword(i, needles);
   });
   const sliced = matched.slice(0, opts.limit);
   if (matched.length === 0) {
     return {
       lines: [
-        `- （キーワード「${needle}」に一致するIssueはありません。includeDone/includeArchived を true にすると範囲が広がります）`,
+        `- （キーワード「${displayNeedle}」に一致するIssueはありません。includeDone/includeArchived を true にすると範囲が広がります）`,
       ],
       totalMatched: 0,
     };

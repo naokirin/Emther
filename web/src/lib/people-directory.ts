@@ -174,11 +174,39 @@ function replaceAllAtOnce(text: string, mapping: Map<string, string>): string {
   return text.replace(pattern, (match) => mapping.get(match) ?? match);
 }
 
-// 名前をIDに置換する。同じ長さ・重なり合う候補がある場合は長い名前を優先する
+// 自由記述への埋め込みは {{PERSON_n}} にする。裸の PERSON_1 の直後に数字が続くと
+// （例: 「田中さん7回忌」→ PERSON_17回忌）、PERSON_17 が別人物として登録されている場合に
+// unmask が誤って長い ID へ解決してしまうため。構造化フィールド（people 配列等）の
+// 正規 ID は従来どおり PERSON_n のまま。
+
+/** 自由記述用の区切り付きトークン。正規 ID（PERSON_n）とは別。 */
+export function formatPersonToken(id: string): string {
+  return `{{${id}}}`;
+}
+
+function buildTokenMaskMapping(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [name, id] of buildMaskMapping()) {
+    out.set(name, formatPersonToken(id));
+  }
+  return out;
+}
+
+// 名前を区切り付きトークンに置換する。同じ長さ・重なり合う候補がある場合は長い名前を優先する
 // （例: "Aさん"と"A"を両方登録していても、"Aさん"が先に一致する）。
 // 敬称の有無・違い（さん／くん等）は buildMaskMapping で吸収する。
 export function maskNames(text: string): string {
-  return replaceAllAtOnce(text, buildMaskMapping());
+  return replaceAllAtOnce(text, buildTokenMaskMapping());
+}
+
+/**
+ * 検索用。新規保存は {{PERSON_n}}、既存データは裸の PERSON_n のため、
+ * LIKE / includes では両方を試す呼び出し側向けに返す。
+ */
+export function maskNamesSearchForms(text: string): string[] {
+  const tokenized = maskNames(text);
+  const bare = replaceAllAtOnce(text, buildMaskMapping());
+  return tokenized === bare ? [tokenized] : [tokenized, bare];
 }
 
 /** 登録済み人名のマスク結果と置換一覧（個人・機密情報チェック用。副作用なし）。 */
@@ -188,7 +216,7 @@ export function previewNameMask(text: string): {
   maskedText: string;
   replacements: NameMaskReplacement[];
 } {
-  const mapping = buildMaskMapping();
+  const mapping = buildTokenMaskMapping();
   const keys = [...mapping.keys()].filter(Boolean).sort((a, b) => b.length - a.length);
   if (keys.length === 0) return { maskedText: text, replacements: [] };
 
@@ -205,11 +233,12 @@ export function previewNameMask(text: string): {
   return { maskedText, replacements: [...counts.values()] };
 }
 
-// IDを実名に戻す。IDは"PERSON_1", "PERSON_10", "PERSON_11"のように採番されるため、
-// 短いID文字列は長いIDの文字列としてのprefixになりうるが、1回のスキャンで
-// 最長一致を優先するため、この衝突も発生しない。
+// IDを実名に戻す。区切り付き {{PERSON_n}} を先に処理し、続けてレガシーな裸 ID
+// （people 配列・移行前データ）を最長一致で戻す。短い ID が長い ID の prefix になる
+// 衝突（PERSON_1 vs PERSON_10）は最長一致で防ぎ、隣接数字との衝突は区切り付きで防ぐ。
 export function unmaskNames(text: string): string {
-  return replaceAllAtOnce(text, idToName);
+  const fromTokens = text.replace(/\{\{(PERSON_\d+)\}\}/g, (full, id: string) => idToName.get(id) ?? full);
+  return replaceAllAtOnce(fromTokens, idToName);
 }
 
 // idToName（正式名、1id=1名）を主軸に列挙する。nameToIdを主軸にすると、別名を
@@ -491,7 +520,7 @@ export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOpt
   acknowledgeUnmaskedCandidates(candidates);
 }
 
-// 既に登録済みの名前だけをPERSON_nへ置換する。候補検出による新規登録は行わない。
+// 既に登録済みの名前だけを {{PERSON_n}} トークンへ置換する。候補検出による新規登録は行わない。
 // Journal/Issue保存やAgent送信前は、呼び出し側で ensureNameCandidatesAllowed を先に呼ぶ。
 // （optsは呼び出し側の一貫したシグネチャ用。マスク自体には使わない）
 export async function maskForStorage(text: string, opts: MaskOptions = {}): Promise<string> {
