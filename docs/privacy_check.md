@@ -48,9 +48,9 @@ API: `POST /api/mask-check`
 |---|---|
 | `mask-check.ts` | エンジン（実値 regex、敬称／話者／カタカナ最長一致、ハイライト、AI オーケストレーション） |
 | `mask-check-types.ts` | 共有型 |
-| `mask-check-lexicon.ts` | **CORE**（短い核フレーズ・最小 stopword）と **TUNING**（検証サンプル由来） |
+| `mask-check-lexicon.ts` | **CORE**（短い核フレーズ・最小 stopword）と **TUNING**（検証サンプル由来。過適合注意） |
 
-TUNING は過適合の温床になりうる。業界定石（Presidio の Recognizer 分離、GiNZA＋regex 等）を調べたうえで見直す。
+TUNING は過適合の温床になりうる。業界定石（Presidio の Recognizer 分離、GiNZA＋regex 等）を調べたうえで見直す（`docs/privacy_check_research.md`）。
 
 ### 第1段 `phase: "quick"`
 

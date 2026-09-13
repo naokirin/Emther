@@ -1,15 +1,21 @@
 /**
  * 個人・機密情報チェックの語彙・ルール定義。
  *
- * - CORE: ドメイン横断で妥当な短い核
- * - TUNING: 検証サンプル由来の積み上げ（過適合の温床になりうるため分離）
+ * - CORE: ドメイン横断で妥当な短い核（実値以外のヒューリスティックの最小セット）
+ * - TUNING: 検証サンプル（インシデント議事録・リリース定例など）由来の積み上げ。
+ *   過適合の温床になりうるため、コア実装と分離して管理する。
  *
- * このコミット時点では TUNING は空。続くコミットでサンプル由来を載せる。
+ * 将来 Presidio / GiNZA 等へ寄せる場合、TUNING から見直す。
  */
 import type { SensitiveCategory } from "@/lib/mask-check-types";
 
 export type KeywordRule = { category: SensitiveCategory; phrases: string[] };
 
+// ---------------------------------------------------------------------------
+// CORE
+// ---------------------------------------------------------------------------
+
+/** 短い核フレーズのみ（長い言い回しは TUNING へ）。 */
 export const CORE_KEYWORD_RULES: KeywordRule[] = [
   {
     category: "credential_mention",
@@ -33,6 +39,7 @@ export const CORE_KEYWORD_RULES: KeywordRule[] = [
   },
 ];
 
+/** カタカナ一般語の最小セット。 */
 export const CORE_KATAKANA_STOPWORDS: readonly string[] = [
   "システム",
   "アカウント",
@@ -76,16 +83,195 @@ export const CORE_SPEAKER_KANJI_STOPWORDS: readonly string[] = [
 
 export const CORE_HIRAGANA_NAME_LOOKAHEAD = "";
 
-/** サンプル由来。コアコミットでは空。 */
-export const TUNING_KEYWORD_RULES: KeywordRule[] = [];
-export const TUNING_KATAKANA_STOPWORDS: readonly string[] = [];
-export const TUNING_HIRAGANA_STOPWORDS: readonly string[] = [];
-export const TUNING_SPEAKER_KANJI_STOPWORDS: readonly string[] = [];
-export const TUNING_HIRAGANA_NAME_LOOKAHEAD = "";
+// ---------------------------------------------------------------------------
+// TUNING（検証サンプル由来）
+// ---------------------------------------------------------------------------
+
+export const TUNING_KEYWORD_RULES: KeywordRule[] = [
+  {
+    category: "credential_mention",
+    phrases: ["apiキー", "認証系", "不正利用", "不正に利用", "不正アクセス", "アカウントが不正", "アクセスを遮断"],
+  },
+  {
+    category: "other_sensitive",
+    phrases: [
+      "セキュリティインシデント",
+      "個人情報の漏洩",
+      "個人情報が一部",
+      "漏洩を伴う",
+      "被害拡大",
+      "不審なアクセス",
+    ],
+  },
+  {
+    category: "health",
+    phrases: ["メンタル不調"],
+  },
+  {
+    category: "compensation",
+    phrases: ["年収交渉"],
+  },
+  {
+    category: "customer_or_contract",
+    phrases: ["顧客名"],
+  },
+];
+
+export const TUNING_KATAKANA_STOPWORDS: readonly string[] = [
+  "マネージャ",
+  "マネージャー",
+  "インシデント",
+  "ストレージ",
+  "クラウド",
+  "メンバー",
+  "レベル",
+  "スレッド",
+  "リリース",
+  "シークレット",
+  "キー",
+  "アジュール",
+  "サポート",
+  "オンボーディング",
+  "ミーティング",
+  "チャット",
+  "チャンネル",
+  "ステータス",
+  "コメント",
+  "レビュー",
+  "デプロイ",
+  "インフラ",
+  "プライバシー",
+  "コンプライアンス",
+  "サーバ",
+  "サーバー",
+  "クライアント",
+  "オーナー",
+  "リーダー",
+  "メンバ",
+  "テスト",
+  "コピー",
+  "サンプル",
+  "パートナー",
+  "テーブル",
+  "ログイン",
+  "ログアウト",
+  "スクリーン",
+  "ディスプレイ",
+  "ブラウザ",
+  "モバイル",
+  "デスクトップ",
+  "バックエンド",
+  "フロント",
+  "フロントエンド",
+  "データベース",
+  "クエリ",
+  "エンドポイント",
+  "リクエスト",
+  "レスポンス",
+  "セッション",
+  "キャッシュ",
+  "バックアップ",
+  "ドキュメント",
+  "マニュアル",
+  "ガイドライン",
+  "チェック",
+  "リスト",
+  "メール",
+  "アドレス",
+  "ナンバー",
+  "ファイル",
+  "フォルダ",
+  "ページ",
+  "エラー",
+  "バグ",
+  "フィックス",
+  "アップデート",
+  "バージョン",
+  "プロダクト",
+  "フィーチャー",
+  "オプション",
+  "パラメータ",
+  "コンフィグ",
+  "ポリシー",
+  "ルール",
+  "フロー",
+  "プロセス",
+  "タスク",
+  "チケット",
+  "アジェンダ",
+  "サマリー",
+  "レポート",
+  "ダッシュボード",
+  "アナリティクス",
+  "マーケティング",
+  "セールス",
+  "カスタマー",
+  "ベンダー",
+  "コンサル",
+  "エンジニア",
+  "デザイナー",
+  "ディレクター",
+  "オペレーション",
+  "オペレータ",
+];
+
+export const TUNING_HIRAGANA_STOPWORDS: readonly string[] = [
+  "いったん",
+  "あちら",
+  "なにか",
+  "ところ",
+  "あたり",
+  "かれら",
+  "みんな",
+  "ほかに",
+  "ことに",
+  "ものに",
+  "において",
+  "できる",
+  "される",
+  "ている",
+  "ているか",
+  "れている",
+  "われている",
+];
+
+export const TUNING_SPEAKER_KANJI_STOPWORDS: readonly string[] = [
+  "一部",
+  "緊急",
+  "認識",
+  "進行",
+  "残務",
+  "法務",
+  "役員",
+  "範囲",
+  "抑止",
+  "被害",
+  "議論",
+  "優先",
+  "全体",
+  "協力",
+  "確保",
+  "実行",
+  "判断",
+  "集約",
+  "議事",
+  "抜粋",
+  "個人",
+  "漏洩",
+];
+
+/** 検証で出てきた「ただとしのアカウント」向け。コアには入れない。 */
+export const TUNING_HIRAGANA_NAME_LOOKAHEAD = "のアカウント|の件";
+
+/** 人名AIフィルタの few-shot（サンプル由来の一般語例を含む）。 */
 export const TUNING_NAME_FILTER_FEWSHOT = {
-  user: ["鈴木さん", "テスト", "山田太郎さん"],
+  user: ["鈴木さん", "テスト", "ログイン", "山田太郎さん", "テーブル", "パートナー"],
   assistant: ["鈴木さん", "山田太郎さん"],
 } as const;
+
+// ---------------------------------------------------------------------------
+// 合成
+// ---------------------------------------------------------------------------
 
 function mergeKeywordRules(core: KeywordRule[], tuning: KeywordRule[]): KeywordRule[] {
   const byCat = new Map<SensitiveCategory, string[]>();
