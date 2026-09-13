@@ -2448,3 +2448,22 @@
   border-top: 1px solid var(--border);
 }
 
+/* ふりかえりタブ「日次の推移」チャート（EMの成長のチェックイン、タイムライン/レポートの
+   Journal・Issue）。Chart.js（react-chartjs-2）はresponsive+maintainAspectRatio:falseで
+   親要素の高さいっぱいに描くため、高さを明示したラッパーが必要。 */
+.trendChart {
+  min-width: 0;
+}
+
+.trendChartCanvasWrap {
+  position: relative;
+  width: 100%;
+  height: 240px;
+}
+
+.trendChartCanvasWrapSmall {
+  position: relative;
+  width: 100%;
+  height: 170px;
+}
+

@@ -4,6 +4,8 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "@/components/EmCheckinWidget";
+import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
+import { buildCheckinDailyTrend } from "@/lib/daily-trends";
 import { useReflectionNotes } from "@/lib/hooks";
 import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
 
@@ -65,6 +67,8 @@ function groupNotesByWeek(notes: EmReflectionNote[]): WeekGroup[] {
 export default function GrowthPage() {
   const { notes, setNotes, notesLoaded } = useReflectionNotes();
   const checkin = useEmCheckinController();
+  const checkinNav = usePeriodNavigator("week");
+  const checkinTrend = buildCheckinDailyTrend(checkin.checkins, checkinNav.window);
 
   const [noteType, setNoteType] = useState<ReflectionNoteType>("keep");
   const [noteText, setNoteText] = useState("");
@@ -168,6 +172,17 @@ export default function GrowthPage() {
             </p>
           )}
         </div>
+      </div>
+
+      <div className={styles.panel}>
+        <h2>チェックインの推移（日次）</h2>
+        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+          気分・エネルギー・ストレスが日ごとにどう動いたかを1本の折れ線で見ます。線が途切れている日は、その日はまだチェックインしていない日です。グラフにマウスを乗せると各日の数値を確認できます。
+        </p>
+        <div style={{ marginBottom: 10 }}>
+          <PeriodNavigator state={checkinNav} />
+        </div>
+        <CheckinTrendChart points={checkinTrend} />
       </div>
 
       <div className={styles.panel}>

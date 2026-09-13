@@ -4,7 +4,9 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { Select } from "@/components/Select";
-import { useReports } from "@/lib/hooks";
+import { JournalIssueTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
+import { buildJournalIssueDailyTrend } from "@/lib/daily-trends";
+import { useIssues, useJournal, useReports } from "@/lib/hooks";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@/lib/types";
 
 const PAGE_SIZE = 5;
@@ -158,6 +160,13 @@ export default function ReportsPage() {
   const [generating, setGenerating] = useState<ReportPeriodType | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  // 改修依頼「日毎の変化をグラフで見たい」対応。生成済みレポート（週次/月次スナップショット）
+  // とは別に、生きたJournal/Issueの全件から日次の推移を都度集計して見せる。
+  const { journalEntries } = useJournal();
+  const { issues } = useIssues();
+  const trendNav = usePeriodNavigator("month");
+  const trendPoints = buildJournalIssueDailyTrend(journalEntries, issues, trendNav.window);
+
   async function handleGenerate(periodType: ReportPeriodType) {
     setGenerating(periodType);
     setGenerateError(null);
@@ -210,6 +219,17 @@ export default function ReportsPage() {
           </button>
         </div>
         {generateError && <p className={styles.errorText} role="alert">{generateError}</p>}
+      </div>
+
+      <div className={styles.panel}>
+        <h2>日次の推移</h2>
+        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+          週次・月次のスナップショットとは別に、生きたJournal/Issueから日ごとの件数を集計しています。「この日は記録が少ない」「ネガティブ/ポジティブが多い」を積み上げ棒で、業務側の勢い（起票・解決）をIssue側の棒で見比べられます。グラフにマウスを乗せると各日の件数を確認できます。
+        </p>
+        <div style={{ marginBottom: 10 }}>
+          <PeriodNavigator state={trendNav} />
+        </div>
+        <JournalIssueTrendChart points={trendPoints} />
       </div>
 
       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: 10 }}>
