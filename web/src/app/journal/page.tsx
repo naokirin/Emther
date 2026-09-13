@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { ObservationDumpSection } from "@/components/ObservationDumpSection";
+import { PageTitleRow } from "@/components/HelpLink";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { useJournalEditing, useJournalSearch } from "@/lib/hooks";
@@ -118,12 +119,7 @@ function JournalListPageInner() {
 
   return (
     <div className={styles.screen}>
-      <div className={styles.detailHeader}>
-        <h2 style={{ margin: 0 }}>Quick Journal 一覧・検索</h2>
-      </div>
-      <p className={styles.subtitle} style={{ marginBottom: 12 }}>
-        Dashboardには直近5件のみを表示しています。ここでは全件を横断してキーワード検索・絞り込みができます。
-      </p>
+      <PageTitleRow title="現場メモ" helpAnchor="journal" />
 
       <ObservationDumpSection onAccepted={() => refreshSearch()} focusDumpId={focusDumpId} />
 

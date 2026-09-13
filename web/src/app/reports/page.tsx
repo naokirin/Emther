@@ -5,6 +5,7 @@ import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { JournalIssueTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
+import { PageTitleRow } from "@/components/HelpLink";
 import { buildJournalIssueDailyTrend } from "@/lib/daily-trends";
 import { useIssues, useJournal, useReports } from "@/lib/hooks";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@/lib/types";
@@ -203,29 +204,21 @@ export default function ReportsPage() {
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
-        <h2>Reports</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 4 }}>
-          Quick Journal・Issue進捗・組織の変更イベントを週次/月次で集計したスナップショットです。生成済みのレポートは消えず、いつでも振り返れます。
-        </p>
-        <p className={styles.subtitle} style={{ marginBottom: 12 }}>
-          🗓 週次・月次の儀式でOK。毎日見る必要はありません。
-        </p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("week")}>
-            {generating === "week" ? "生成中…" : "今週のレポートを作成"}
-          </button>
-          <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("month")}>
-            {generating === "month" ? "生成中…" : "今月のレポートを作成"}
-          </button>
-        </div>
+        <PageTitleRow title="レポート" helpAnchor="reflection">
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("week")}>
+              {generating === "week" ? "生成中…" : "今週のレポートを作成"}
+            </button>
+            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("month")}>
+              {generating === "month" ? "生成中…" : "今月のレポートを作成"}
+            </button>
+          </div>
+        </PageTitleRow>
         {generateError && <p className={styles.errorText} role="alert">{generateError}</p>}
       </div>
 
       <div className={styles.panel}>
         <h2>日次の推移</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-          週次・月次のスナップショットとは別に、生きたJournal/Issueから日ごとの件数を集計しています。「この日は記録が少ない」「ネガティブ/ポジティブが多い」を積み上げ棒で、業務側の勢い（起票・解決）をIssue側の棒で見比べられます。グラフにマウスを乗せると各日の件数を確認できます。
-        </p>
         <div style={{ marginBottom: 10 }}>
           <PeriodNavigator state={trendNav} />
         </div>

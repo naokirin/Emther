@@ -604,25 +604,19 @@ export function PersonDetailContent({ id }: { id: string }) {
             {person.hasConcerningIssue && " ／ ⚠️ 停滞・ブロッカーありの関連Issueがあります"}
           </p>
           {person.isSelf && (
-            <p className={styles.subtitle}>
-              部下一覧・1on1 Coverageの対象外です。Agentへの組織コンテキストでは「利用者本人」と明示されます。
-            </p>
+            <p className={styles.subtitle}>自分（部下一覧・1on1 Coverage 対象外）</p>
           )}
         </div>
       </div>
 
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>所属チーム</h3>
-      <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        チーム名の一部を入力すると候補が出ます。選ぶと所属に追加され、タグの✕で解除できます。「（管理外）」は自分が管理していないチーム（「チーム・メンバー」タブの「チーム」で設定）です。
-      </p>
       <div style={{ marginBottom: 10 }}>
         <TeamMembershipEditor personName={person.name} teams={teams} onChanged={handleTeamsChanged} />
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>別名（表記揺れ）</h3>
-      <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        この人物の別の呼ばれ方（漢字表記・略称等）を登録しておくと、以後Journal等の自由記述にその別名が出てきても同じ人物として認識されます。
-      </p>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }} title="別名が出てきても同じ人物として認識">
+        別名（表記揺れ）
+      </h3>
       <div style={{ marginBottom: 10 }}>
         <AliasEditor personId={person.id} aliases={person.aliases} onChanged={refreshPerson} />
       </div>
@@ -632,10 +626,12 @@ export function PersonDetailContent({ id }: { id: string }) {
         <MergeDuplicatePerson personId={person.id} personName={person.name} onMerged={refreshPerson} />
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>日常の評価ログ（目標貢献 / Value）</h3>
-      <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        Journal の事実から仮置きします。テーマ / Issue は貢献の主経路にしません。単一スコアには潰さず、A（成果）と B（Value）を分けて読みます。朝のキューには載せません。
-      </p>
+      <h3
+        style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}
+        title="Journalから仮置き。A（成果）とB（Value）を分けて読む"
+      >
+        日常の評価ログ（目標貢献 / Value）
+      </h3>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
         <button
           type="button"
@@ -714,7 +710,7 @@ export function PersonDetailContent({ id }: { id: string }) {
           </div>
         )}
 
-        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>直近のJournal（一時的な状況、有効期限内のもののみ）</h3>
+        <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>直近のJournal</h3>
         <PersonJournalComposer personName={person.name} onCreated={refreshPerson} />
         {person.facts.length === 0 ? (
           <p className={styles.subtitle}>関連するJournalはまだありません。上のフォームから記録できます。</p>

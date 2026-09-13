@@ -56,10 +56,9 @@ function QuadrantBubbleChart({
 
   return (
     <div className={styles.scoreGapScatter}>
-      <div className={styles.fieldCaption}>放置リスク × 介入コスト</div>
-      <p className={styles.subtitle} style={{ margin: "2px 0 8px" }}>
-        バブルの大きさは影響半径、色の濃さは確信度です。右上ほど放置リスクが高く介入が軽い（コスパがよい）です。中庸の値は読みやすいよう外側へ広げ、ほぼ同位置の点だけわずかにずらします（重なりは許容）。
-      </p>
+      <div className={styles.fieldCaption} title="大きさ＝影響半径、色の濃さ＝確信度。右上ほど放置リスク高・介入コスト低">
+        放置リスク × 介入コスト
+      </div>
       <svg
         viewBox={`0 0 ${w} ${h}`}
         width="100%"
@@ -277,10 +276,6 @@ export function IssueScoreGapsView({
 
   return (
     <div className={styles.scoreGapView}>
-      <p className={styles.subtitle} style={{ margin: "0 0 10px" }}>
-        グラフで位置取りを、下の表でスコアとひとつ上との差（Δ）を見ます。順位の確定ではなく、取り方の目安です。
-      </p>
-
       {summaries.length > 0 && (
         <ul className={styles.scoreGapSummary}>
           {summaries.map((line) => (
@@ -298,7 +293,7 @@ export function IssueScoreGapsView({
         <ScoreGapsTable rows={visible} onSelect={onSelect} />
         {hiddenCount > 0 && (
           <p className={styles.subtitle} style={{ marginTop: 8 }}>
-            ほか {hiddenCount} 件はスコアが低いため省略しています（フィルタで絞ると比較しやすくなります）。
+            ほか {hiddenCount} 件を省略
           </p>
         )}
       </div>

@@ -18,6 +18,7 @@ import { Select } from "@/components/Select";
 import { SlideOver } from "@/components/SlideOver";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
+import { PageTitleRow } from "@/components/HelpLink";
 import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams, useThemes } from "@/lib/hooks";
 import {
   INTERVENTION_TYPES,
@@ -416,13 +417,7 @@ function IssuesPageInner() {
           .screenの直下に並んでいたため、表形式化でセクション同士が地続きに見えて
           いた。2つのセクションをそれぞれ.panelで囲み、カードとして区切る。 */}
       <div className={styles.panel}>
-        <div className={styles.detailHeader}>
-          <div>
-            <h2 style={{ margin: 0 }}>進行中の介入ポートフォリオ</h2>
-            <p className={styles.subtitle} style={{ marginTop: 4 }}>
-              実装タスク箱ではなく、型・関連チーム・今期のKRに紐づく「介入」の一覧です。優先度（フォーカス／通常／保留）とフォーカス順で、今週〜今月の見通しと今日の順を揃えます。
-            </p>
-          </div>
+        <PageTitleRow title="課題" helpAnchor="issues">
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <div className={styles.tabs} style={{ margin: 0 }}>
               <button
@@ -460,7 +455,7 @@ function IssuesPageInner() {
               ＋ 新しいIssue
             </button>
           </div>
-        </div>
+        </PageTitleRow>
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
@@ -524,76 +519,34 @@ function IssuesPageInner() {
           )}
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 10,
-            margin: "4px 0 12px",
-            padding: "10px 12px",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            background: "var(--bg-muted, color-mix(in srgb, var(--border) 12%, transparent))",
-          }}
-        >
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>Issueの評価を一括更新</div>
-            <p className={styles.subtitle} style={{ margin: "2px 0 0" }}>
-              前回評価から内容が変わった親 Issue だけを外部AIで再採点し、フォーカス／通常／保留へ反映します（フォーカスは上位5件）。未更新はスキップします。
-            </p>
-          </div>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, margin: "4px 0 12px" }}>
           <button
             type="button"
             className={styles.btnOutline}
-            style={{ flexShrink: 0 }}
             disabled={triageSubmitting}
             onClick={handleBulkUpdateTriage}
             title="内容が変わった親 Issue だけを再採点し、提案どおり優先度へ反映します"
           >
             {triageSubmitting ? "更新中…" : "評価を一括更新"}
           </button>
-        </div>
-        {(() => {
-          const unlinkedStrategyCount = issues.filter(
-            (i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i),
-          ).length;
-          if (unlinkedStrategyCount === 0) return null;
-          return (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 10,
-                margin: "0 0 12px",
-                padding: "10px 12px",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                background: "var(--bg-muted, color-mix(in srgb, var(--border) 12%, transparent))",
-              }}
-            >
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                  戦略未接続をAIで見直す（{unlinkedStrategyCount}）
-                </div>
-                <p className={styles.subtitle} style={{ margin: "2px 0 0" }}>
-                  テーマ / Key Result 未接続の親 Issue へ紐付け案を出します（採用まで反映しません）。
-                </p>
-              </div>
+          {(() => {
+            const unlinkedStrategyCount = issues.filter(
+              (i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i),
+            ).length;
+            if (unlinkedStrategyCount === 0) return null;
+            return (
               <button
                 type="button"
                 className={styles.btnOutline}
-                style={{ flexShrink: 0 }}
                 disabled={linkSuggesting || (themes.filter((t) => t.status === "adopted").length === 0 && objectives.length === 0)}
                 onClick={handleSuggestStrategyLinks}
-                title="戦略未接続の親 Issue へ、テーマ / KR の紐付けをAIが提案します"
+                title="戦略未接続の親 Issue へ、テーマ / KR の紐付けをAIが提案します（採用まで反映しません）"
               >
-                {linkSuggesting ? "提案中…" : "🔗 戦略リンクを提案"}
+                {linkSuggesting ? "提案中…" : `🔗 戦略リンクを提案 (${unlinkedStrategyCount})`}
               </button>
-            </div>
-          );
-        })()}
+            );
+          })()}
+        </div>
         {linkError && (
           <p className={styles.errorText} role="alert">
             {linkError}

@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
 import { PersonDetailContent } from "@/components/PersonDetailContent";
+import { PageTitleRow } from "@/components/HelpLink";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, usePeople } from "@/lib/hooks";
 import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@/lib/types";
@@ -90,17 +91,7 @@ function PeoplePageInner() {
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
-        <h2>People</h2>
-        <p className={styles.subtitle}>
-          クラウドAIへ送る前にマスクする人名は、ヘッダーの「＋人を追加」・チーム名簿・この画面・Journal校正で事前登録してください（ローカルNERによる自動登録はしません）。カードをクリックすると、その人物に関するJournal・長期プロファイル・関連Issueを横断して確認できます。
-        </p>
-        {/* ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
-            円バッジはJournalの傾向から算出した「気にかけるべき度合い」を示す簡易バイタルで
-            あり、点数ではないことと色の意味を明示する（Team Vitalsと同じ判定思想）。 */}
-        <p className={styles.subtitle} style={{ marginBottom: 14 }}>
-          円は本人に関するJournalの傾向・関連Issueの状況（停滞・ブロッカー）から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。🟢安定　🟡やや注意　🔴要注意　⚪️評価不能（件数不足）
-        </p>
-
+        <PageTitleRow title="メンバー" helpAnchor="people" />
         <form onSubmit={handleAddPerson} style={{ marginBottom: 16 }}>
           <div className={styles.field}>
             <label>
@@ -128,16 +119,13 @@ function PeoplePageInner() {
           <p className={styles.subtitle}>
             {!peopleLoaded
               ? "読み込み中…"
-              : "まだ誰も登録されていません。上のフォームから追加するか、Quick Journalに記録するか、左メニューの「チーム」でメンバーを追加すると、ここに表示されます。"}
+              : "まだ誰も登録されていません。上のフォームか、チーム名簿から追加してください。"}
           </p>
         ) : (
           <>
             {selfPeople.length > 0 && (
               <>
                 <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>自分</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  利用者本人です。部下一覧・1on1 Coverageの集計対象外で、Agentへの組織コンテキストでは本人である旨が明示されます。
-                </p>
                 <div style={{ marginBottom: 20 }}>
                   <PersonCardGrid people={selfPeople} onOpen={peek.open} />
                 </div>
@@ -146,7 +134,7 @@ function PeoplePageInner() {
             <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>部下（自分が管理するチームのメンバー）</h3>
             {reports.length === 0 ? (
               <p className={styles.subtitle} style={{ marginBottom: 16 }}>
-                自分が管理するチームにメンバーが登録されていません。左メニューの「チーム」でチーム・メンバーを登録してください。
+                管理チームにメンバーがいません。「チーム」で登録してください。
               </p>
             ) : (
               <div style={{ marginBottom: 20 }}>
@@ -155,10 +143,9 @@ function PeoplePageInner() {
             )}
             {others.length > 0 && (
               <>
-                <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>その他</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  自分が管理するチーム以外で言及された人物です。1on1 Coverageの集計対象外です。
-                </p>
+                <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }} title="管理チーム以外で言及された人物">
+                  その他
+                </h3>
                 <PersonCardGrid people={others} onOpen={peek.open} />
               </>
             )}

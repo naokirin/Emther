@@ -450,9 +450,8 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
 
       {open && (
         <div style={{ marginTop: 12 }}>
-          <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            長いログを貼り付け、「列を確認する」で構文と列→意味を指定してから取り込んでください。採用分だけ
-            Journal になり、クラウドへはマスク後のみ送ります。
+          <p className={styles.subtitle} style={{ marginBottom: 10 }} title="採用分だけ Journal になり、クラウドへはマスク後のみ送信">
+            ログを貼り付け → 必要なら列を確認 → 取り込む
           </p>
 
           <form onSubmit={handleCreate}>

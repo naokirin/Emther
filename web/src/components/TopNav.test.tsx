@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { AppShell, StoryBanner, TopNav } from "./TopNav";
+import { AppShell, TopNav } from "./TopNav";
 
 let mockPathname = "/";
 vi.mock("next/navigation", () => ({
@@ -54,35 +54,6 @@ describe("TopNav", () => {
     mockPathname = "/teams";
     render(<TopNav />);
     expect(screen.getByRole("link", { name: "チーム・メンバー" }).className).toContain("tabBtnActive");
-  });
-});
-
-describe("StoryBanner", () => {
-  it("単一画面のグループでは見出しを表示する", () => {
-    mockPathname = "/journal";
-    render(<StoryBanner />);
-    expect(screen.getByText(/現場メモ/)).toBeInTheDocument();
-  });
-
-  it("複数画面を持つグループ（相談）では表示しない（サブタブと重複するため）", () => {
-    mockPathname = "/chat";
-    const { container } = render(<StoryBanner />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
-  // 切り替えられるようにしたい」対応。複数画面グループになったため、サブナビと
-  // 見出しを重複させないよう表示しない（相談グループと同じ扱い）。
-  it("複数画面を持つグループになった「チーム・メンバー」では表示しない", () => {
-    mockPathname = "/people";
-    const { container } = render(<StoryBanner />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("どのグループにも属さないパスでは表示しない", () => {
-    mockPathname = "/unknown";
-    const { container } = render(<StoryBanner />);
-    expect(container).toBeEmptyDOMElement();
   });
 });
 

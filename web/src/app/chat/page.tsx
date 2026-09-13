@@ -7,6 +7,7 @@ import { CopilotChat, ExecutionState, listIssueCandidatesFromProposal, runFallba
 import { ConsultHistoryItem } from "@/components/ConsultHistoryItem";
 import { OriginTrace } from "@/components/OriginTrace";
 import { IdLinkedText } from "@/components/IdLinkedText";
+import { PageTitleRow } from "@/components/HelpLink";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isRunStale, truncateForTitle } from "@/lib/types";
@@ -373,8 +374,7 @@ function ChatPageInner() {
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel}>
-        <h2>相談履歴</h2>
-        <p className={styles.subtitle}>Issueに起票していない、Lead Agentとの横断的な相談だけがここに並びます。</p>
+        <PageTitleRow title="相談履歴" helpAnchor="chat" />
         <button className={styles.primaryBtn} onClick={clearHistorySelection}>
           ＋ 新しい相談を始める
         </button>
@@ -428,14 +428,11 @@ function ChatPageInner() {
               {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
                 <>
                   <strong>📋 ドラフトIssue（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
-                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                    AIの自動分析の出口です。追跡するなら「Issueにする」、様子を見るなら「様子見」、不要なら却下してください。EMが選ぶまでここに残り続けます。
-                  </p>
                 </>
               )}
               {selectedRun.triageStatus && (
                 <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                  現在のステータス: {TRIAGE_LABEL[selectedRun.triageStatus]}（ボタンでいつでも変更できます）
+                  {TRIAGE_LABEL[selectedRun.triageStatus]}
                 </p>
               )}
               <div className={styles.yieldActions}>
@@ -507,10 +504,7 @@ function ChatPageInner() {
           </>
         ) : (
           <>
-            <h2>何でも相談</h2>
-            <p className={styles.subtitle}>
-              まだIssueにしないモヤモヤ・仮説検証はここ。特定のIssueに紐付けず、これまで収集されたJournal・組織情報を踏まえてLead Agentに相談できます。追跡・計画が必要になったら会話画面の「Issueにする」で昇格できます。実行中の介入の壁打ちはIssue Workspaceで行ってください。
-            </p>
+            <PageTitleRow title="何でも相談" helpAnchor="chat" />
             <form onSubmit={handleStartNew}>
               <div className={styles.field}>
                 <label>相談したいこと
@@ -530,6 +524,7 @@ function ChatPageInner() {
                   marginBottom: 12,
                   cursor: "pointer",
                 }}
+                title="Leadが組織MVV・中長期コミットの視点でExec Agentへ必須相談します"
               >
                 <input
                   type="checkbox"
@@ -538,12 +533,7 @@ function ChatPageInner() {
                   disabled={starting}
                   style={{ marginTop: 3 }}
                 />
-                <span>
-                  経営／役員目線の厳しいレビューも聞く
-                  <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", marginTop: 2 }}>
-                    Leadが組織MVV・中長期コミットの視点でExec Agentへ必須相談します（普段はOFFで十分です）
-                  </span>
-                </span>
+                <span>経営／役員目線の厳しいレビューも聞く</span>
               </label>
               <button className={styles.primaryBtn} type="submit" disabled={starting || !task.trim()}>
                 {starting ? "開始中…" : "相談を始める"}

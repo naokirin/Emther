@@ -5,6 +5,7 @@ import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
+import { PageTitleRow } from "@/components/HelpLink";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, useTimeline } from "@/lib/hooks";
 import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@/lib/types";
@@ -48,11 +49,7 @@ function TimelinePageInner() {
     <IdResolveProvider openIssueInPeek={peek.open}>
     <div className={styles.screen}>
       <div className={styles.panel}>
-        <h2>Timeline</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 4 }}>
-          Issue・Team・Objectiveの変更履歴を横断した時系列です。「組織の状態そのものがどう変わったか」を追えます。
-        </p>
-        <p className={styles.subtitle} style={{ marginBottom: 12 }}>🗓 週次の儀式でOK。毎日見る必要はありません。</p>
+        <PageTitleRow title="タイムライン" helpAnchor="reflection" />
         {groups.length === 0 ? (
           <p className={styles.subtitle}>
             {!timelineLoaded

@@ -37,7 +37,7 @@ export function ThemeOkrLinkSuggestPanel({
         </button>
       </div>
       <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
-        {suggestions.length} 件の候補（{source === "cloud" ? "AI" : "類似度フォールバック"}）。採用するまでテーマは変わりません。
+        {suggestions.length} 件（{source === "cloud" ? "AI" : "類似度"}）· 採用まで未反映
       </p>
       {source === "heuristic" && fallbackReason ? (
         <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--muted, #888)" }}>
@@ -131,7 +131,7 @@ export function IssueStrategyLinkSuggestPanel({
         </button>
       </div>
       <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
-        {suggestions.length} 件の候補（{source === "cloud" ? "AI" : "類似度フォールバック"}）。採用するまで Issue は変わりません。
+        {suggestions.length} 件（{source === "cloud" ? "AI" : "類似度"}）· 採用まで未反映
       </p>
       {source === "heuristic" && fallbackReason ? (
         <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--muted, #888)" }}>

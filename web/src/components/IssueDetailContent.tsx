@@ -13,10 +13,10 @@ import { IssueStrategyLinkSuggestPanel } from "@/components/HierarchyLinkSuggest
 import { MarkdownView } from "@/components/MarkdownView";
 import { Select } from "@/components/Select";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
+import { HelpLink } from "@/components/HelpLink";
 import { useEntityHistory, useIssue, useIssueImpact, useIssues, useObjectives, useRuns, useSettingsRules, useTeams, useThemes } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import {
-  ACTION_ITEM_VS_SUB_ISSUE_HELP,
   INTERVENTION_TYPES,
   ISSUE_PRIORITY_META,
   charterFilledCount,
@@ -1171,9 +1171,8 @@ export function IssueDetailContent({ id }: { id: string }) {
         </div>
       )}
       <div className={styles.field}>
-        <span className={styles.fieldCaption}>進捗</span>
-        <span className={styles.subtitle} style={{ display: "block", margin: "0 0 6px", fontSize: "0.75rem" }}>
-          Action Items + サブIssue（アーカイブした子は除外）
+        <span className={styles.fieldCaption} title="Action Items + サブIssue（アーカイブした子は除外）">
+          進捗
         </span>
         <div style={{ maxWidth: 260 }}>
           <ProgressBar {...issueProgress(issue, childIssues)} />
@@ -1188,16 +1187,16 @@ export function IssueDetailContent({ id }: { id: string }) {
           対応。Action Items（やる/やった）とは別に、進行中いつでも書き足せる自由記述の
           経過ログ。種別（考えたこと／アクション／結果）は分けず、EMが自由に書く。 */}
       <div className={styles.panel}>
-        <h2>経過ログ</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-          考えたこと・取ったアクション・分かった結果を、思いついた時にひとことずつ書き足してください。まとめて振り返る必要はありません。
-        </p>
+        <div className={styles.pageTitleWithHelp} style={{ marginBottom: 10 }}>
+          <h2 style={{ margin: 0 }}>経過ログ</h2>
+          <HelpLink anchor="issues" />
+        </div>
         <div className={styles.journalInputRow}>
           <textarea
             value={logText}
             onChange={(e) => setLogText(e.target.value)}
             rows={3}
-            placeholder="例: Bチームと調整し、割り込み受付時間を14〜15時に限定することで合意"
+            placeholder="考えたこと・アクション・結果をひとこと（例: 割り込み受付を14〜15時に限定で合意）"
             disabled={logPending}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing && e.keyCode !== 229) {
@@ -1253,12 +1252,13 @@ export function IssueDetailContent({ id }: { id: string }) {
 
       {issue.teamId && (
         <div className={styles.panel}>
-          <h2>介入の効果（{teams.find((t) => t.id === issue.teamId)?.name ?? "関連チーム"}）{impact?.inProgress && "・進行中"}</h2>
-          <p className={styles.subtitle}>
-            {impact?.inProgress
-              ? "「感覚」ではなく観測に基づいて判断できるよう、このIssueの介入開始前とその後（現在まで）でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。解決（ステータス完了）前の暫定値です。"
-              : "「感覚」ではなく観測に基づいてピボット判断できるよう、このIssueの解決（ステータス完了）前後でチームのJournal傾向がどう変化したかを機械的に比較します（手動でのスコア入力はありません）。"}
-          </p>
+          <div className={styles.pageTitleWithHelp} style={{ marginBottom: 10 }}>
+            <h2 style={{ margin: 0 }}>
+              介入の効果（{teams.find((t) => t.id === issue.teamId)?.name ?? "関連チーム"}）
+              {impact?.inProgress && "・進行中"}
+            </h2>
+            <HelpLink anchor="issues" />
+          </div>
           {!impactLoaded ? (
             <p className={styles.subtitle}>読み込み中…</p>
           ) : !impact ? (
@@ -1281,9 +1281,7 @@ export function IssueDetailContent({ id }: { id: string }) {
           )}
           {impact && impact.after.total === 0 && (
             <p className={styles.subtitle} style={{ marginTop: 8 }}>
-              {impact.inProgress
-                ? "介入開始後、このチームに関するJournalの記録がまだありません。効果測定のためにも、関連するJournalを記録してください。"
-                : "解決後まだ観測期間が経過していない、またはJournalの記録がありません。しばらく経ってから確認してください。"}
+              {impact.inProgress ? "介入開始後の Journal がまだありません" : "解決後の観測がまだありません"}
             </p>
           )}
         </div>
@@ -1304,9 +1302,6 @@ export function IssueDetailContent({ id }: { id: string }) {
               )}
             </div>
           </div>
-          <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            複雑な階層を避けるため、親子関係は1階層まで（サブIssueがさらに自分の子を持つことはできません）。
-          </p>
           {childIssues.length === 0 ? (
             <p className={styles.subtitle}>まだサブIssueはありません。</p>
           ) : (
@@ -1357,14 +1352,14 @@ export function IssueDetailContent({ id }: { id: string }) {
       )}
 
       <div className={`${styles.panel} ${styles.charterSection}`} key={issue.id}>
-        <h2>Why / What / How</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-          計画・実行の前に明らかにしておくべき3要素。分かっている範囲で記入し、空欄（点線＝未整理）が残っている場合は着手前に明確にしてください。
-        </p>
+        <div className={styles.pageTitleWithHelp} style={{ marginBottom: 10 }}>
+          <h2 style={{ margin: 0 }}>Why / What / How</h2>
+          <HelpLink anchor="issues" />
+        </div>
 
         {charterFilledCount(issue.charter) < 3 && (
           <div className={styles.charterWarnBanner}>
-            ⚠️ Why/What/Howが{charterFilledCount(issue.charter)}/3しか整理されていません。{charterEditing ? "点線の欄が「まだ分かっていないこと」です。" : ""}計画や実行を進める前に明確にすることを推奨します。
+            ⚠️ {charterFilledCount(issue.charter)}/3 未整理{charterEditing ? "（点線＝未記入）" : ""}
           </div>
         )}
 
@@ -1563,15 +1558,14 @@ export function IssueDetailContent({ id }: { id: string }) {
             />
           ) : (
             <p className={styles.subtitle}>
-              Agent Runが紐づいていません。Dashboardでタスクを起票するか、Issue一覧から紐づけてください。横断相談から続けたい場合は
-              <Link href="/chat"> 「何でも相談」</Link> へ。
+              Agent Run未紐付け。<Link href="/chat">何でも相談</Link>から続けることもできます。
             </p>
           )}
 
-          <h2 style={{ marginTop: 16 }}>Action Items</h2>
-          <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-            {ACTION_ITEM_VS_SUB_ISSUE_HELP}
-          </p>
+          <div className={styles.pageTitleWithHelp} style={{ marginTop: 16, marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>Action Items</h2>
+            <HelpLink anchor="issues" />
+          </div>
           {(() => {
             const nextItem = issueNextAction(issue);
             const backlog = issueBacklogActionItems(issue);
@@ -1720,7 +1714,7 @@ export function IssueDetailContent({ id }: { id: string }) {
           <h2>Copilot Workspace (Interactive)</h2>
           {linkedRun ? (
             <>
-              <p className={styles.subtitle} style={{ marginBottom: 8 }}>この Issue の壁打ちはここで行います。</p>
+              <p className={styles.subtitle} style={{ marginBottom: 8 }}>壁打ち</p>
               <CopilotChat run={linkedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="issue-chat-input" />
             </>
           ) : (

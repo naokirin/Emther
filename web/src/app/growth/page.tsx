@@ -5,6 +5,7 @@ import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "@/components/EmCheckinWidget";
 import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
+import { PageTitleRow } from "@/components/HelpLink";
 import { buildCheckinDailyTrend } from "@/lib/daily-trends";
 import { useReflectionNotes } from "@/lib/hooks";
 import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
@@ -105,9 +106,7 @@ export default function GrowthPage() {
 
   return (
     <div className={styles.screen}>
-      <p className={styles.subtitle} style={{ margin: "-8px 0 12px" }}>
-        🗓 チェックインは週次の儀式でOK。毎日は必須ではありません。下の気づきメモはその逆で、思いついたスキマ時間にひとことずつどうぞ。
-      </p>
+      <PageTitleRow title="EMの成長" helpAnchor="reflection" />
       <div className={styles.panel}>
         <h2>現在の改善方針</h2>
         {latestTryNote ? (
@@ -125,17 +124,11 @@ export default function GrowthPage() {
       <div className={styles.dashColumns}>
         <div className={styles.panel}>
           <h2>EM自身のバイタル（自己チェックイン）</h2>
-          <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            チームの状態と同じく、EM自身のコンディションも記録しなければ見えなくなります。気分・エネルギー・ストレスを自己申告で記録します（他者からの推測ではなく、あなた自身の申告そのものが根拠です）。
-          </p>
           <EmCheckinForm controller={checkin} />
         </div>
 
         <div className={styles.panel}>
           <h2>振り返り（Keep / Problem / Try）</h2>
-          <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-            思いついた時にひとことメモしておけば、週ごとに自動でまとまります。「今週の振り返り」をまとめて書く必要はありません。
-          </p>
           <form onSubmit={handleNoteSubmit}>
             <div className={styles.field}>
               {/* 改修依頼「selectの選択肢の選択のしにくさそのものの改善」対応。固定3択は
@@ -176,9 +169,6 @@ export default function GrowthPage() {
 
       <div className={styles.panel}>
         <h2>チェックインの推移（日次）</h2>
-        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-          気分・エネルギー・ストレスが日ごとにどう動いたかを1本の折れ線で見ます。線が途切れている日は、その日はまだチェックインしていない日です。グラフにマウスを乗せると各日の数値を確認できます。
-        </p>
         <div style={{ marginBottom: 10 }}>
           <PeriodNavigator state={checkinNav} />
         </div>

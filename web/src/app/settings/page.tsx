@@ -3,6 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { DataMigrationPanel } from "@/components/DataMigrationPanel";
+import { PageTitleRow } from "@/components/HelpLink";
 import { useSettingsRules } from "@/lib/hooks";
 import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@/lib/types";
 
@@ -96,15 +97,9 @@ export default function SettingsPage() {
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
-        {/* WCAG 2.4.6/1.3.1対応。以前はh1（layout.tsx側）から直接h3へ飛んでいた
-            （見出しレベルの飛び越し）。ページの主見出しとしてh2を挟む。 */}
-        <h2>Settings</h2>
+        <PageTitleRow title="設定" helpAnchor="settings" />
         {activeGroup !== "data" ? (
           <>
-            {/* ユーザー指摘「保存ボタンが右上にしかなく、押し忘れ・保存されたかの
-                わかりにくさがある」対応。左メニューでどのグループを見ていても常に同じ
-                場所に見える、ページ上部に固定した保存バーにする（グループ間で切り替えても
-                スクロール・移動が要らない）。 */}
             <div className={styles.editorPath}>
               <button className={styles.primaryBtn} onClick={handleSave} disabled={saving || !seeded || !isDirty}>
                 {saving ? "保存中…" : isDirty ? "保存" : "保存済み"}
@@ -115,18 +110,8 @@ export default function SettingsPage() {
               <p className={styles.successText} role="status">✓ {new Date(savedAt).toLocaleTimeString("ja-JP")}に保存しました</p>
             )}
             {saveError && <p className={styles.errorText} role="alert">{saveError}</p>}
-            <p className={styles.subtitle}>
-              Team Vitalsの判定に使う閾値・データ欠如とみなす期間です。Organization Context（組織のMVVや体制）とは異なり、
-              こちらはアプリの動作を調整する設定値です。
-            </p>
           </>
-        ) : (
-          <>
-            <p className={styles.subtitle}>
-              端末移行のためのバックアップ・復元と、全データのリセットです。Rules の保存とは別の操作です。
-            </p>
-          </>
-        )}
+        ) : null}
       </div>
 
       <div className={styles.appBody} style={{ marginTop: 16 }}>
@@ -217,11 +202,9 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>停滞Issue検知</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  着手済みの介入（Issue）がこの日数以上動いていなければ「停滞中」として一覧・朝キューに表示します。
-                </p>
                 <div className={styles.field} style={{ maxWidth: 160 }}>
-                  <label>停滞とみなす日数
+                  <label title="着手済みでこの日数以上動いていなければ停滞中として表示">
+                    停滞とみなす日数
                   <input
                     type="number"
                     min={1}
@@ -235,12 +218,9 @@ export default function SettingsPage() {
             {activeGroup === "agentRun" && (
               <>
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>Agent Runの同時実行数</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  エージェント1体につきCLI子プロセス（claude/agy/cursor-agent）を1つ起動します。無制限に並列起動するとメモリを大量消費し環境が不安定になるため、同時に実行できる数に上限を設けます。
-                  上限を超えた分は自動的にキューイングされ、順番が来ると起動します（Agent Run一覧で「⏳ Queued（順番待ち）」として確認できます）。
-                </p>
                 <div className={styles.field} style={{ maxWidth: 160 }}>
-                  <label>同時に実行できるAgent Runの最大数
+                  <label title="超過分はキューイングされます">
+                    同時に実行できるAgent Runの最大数
                   <input
                     type="number"
                     min={1}
@@ -250,12 +230,9 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>1ターンあたりの予算上限（claude）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Claude CLIの`--max-budget-usd`に渡す、1回の呼び出しあたりの上限額（USD）です。既定の0.5はSonnet想定で、Opusが既定の環境では起動直後に予算超過で失敗しやすいため、必要に応じて引き上げてください。
-                  相談が発生するとLead＋専門エージェント＋フォローアップで最大3回呼ばれるため、実コストはこの上限の倍数になり得ます。agy / cursor-agent側には相当するオプションが無いため、この設定はclaude試行にのみ効きます。
-                </p>
                 <div className={styles.field} style={{ maxWidth: 160 }}>
-                  <label>1ターンの上限（USD）
+                  <label title="Claude CLIの --max-budget-usd。agy / Cursor には非適用">
+                    1ターンの上限（USD）
                   <input
                     type="number"
                     min={0.01}
@@ -266,11 +243,10 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Issue分析時のチーム先行並列</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Issueに紐づくLead Agentの起動時、関連する専門エージェント（People / Process / Tech / Product）を先に並列起動し、その結果をLeadが統合します。
-                  介入型タグがあれば主担当・副担当を選び、タグが無ければ4体すべてを起動します。コストが増えるため、Lead単独＋任意consultに戻したい場合はOFFにしてください。
-                </p>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}
+                  title="関連specialistを先に並列起動しLeadが統合。コスト増のためOFF可"
+                >
                   <input
                     type="checkbox"
                     checked={draft.teamParallelKickoffEnabled}
@@ -280,9 +256,6 @@ export default function SettingsPage() {
                 </label>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  「動いていると思ったら止まっていた」を防ぐための閾値です。statusが稼働中のままログ更新が無い時間で判定します。
-                </p>
                 <div className={styles.field}>
                   <label>この秒数、ログ更新が無ければ「応答なし」と表示する
                   <input
@@ -301,11 +274,9 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>Journalファクトの有効期間（TTL）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  一時的な発言・感情（ファクト）は、この日数を過ぎるとAgent Runtimeへの注入対象から外れます（履歴としては残り、削除はされません）。長期的な解釈・プロファイルにはTTLはありません。
-                </p>
                 <div className={styles.field}>
-                  <label>Journalファクトの有効日数
+                  <label title="過ぎるとAgent注入対象外（履歴は残る）">
+                    Journalファクトの有効日数
                   <input
                     type="number"
                     value={draft.journalFactTtlDays}
@@ -317,41 +288,7 @@ export default function SettingsPage() {
 
             {activeGroup === "aiTools" && (
               <>
-                <div
-                  style={{
-                    marginBottom: 12,
-                    padding: "10px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--panel-muted, var(--panel))",
-                    fontSize: "0.8125rem",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong>プライバシー（運用前提）:</strong>{" "}
-                  人名のマスクは「ヘッダーの＋人を追加／チーム名簿で事前登録した名前」だけが対象です。
-                  利用するCLI・モデル側で学習・改善へのデータ利用がOFFになっていることを確認してください（Emther側では学習設定を強制できません）。
-                </div>
-                {/* ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との
-                    競合が発生している」「エージェントごとに設定できる必要はない、全体で
-                    1つで大丈夫」対応。以前は「利用するAIツールの優先順位」（全エージェント
-                    共通の並び順）と「agy/Cursorフォールバック」（エージェント種別ごとの
-                    ON/OFF）が別々の設定として存在し、片方だけ変えても反映されない
-                    （OFFのままだから）といった混乱があった。全エージェント共通で、
-                    チェックで候補に入れる/外す（＝除外）・↑↓で試す順（＝優先度）を同じ
-                    1つのリストで決められるようにする。
-                    ユーザー指摘「AIツール設定の先頭に持ってきておきたい」対応で、
-                    エージェント種別ごとのモデル設定より前に置く。
-                    ユーザー指摘「claude codeが外せないようになっている」対応で、
-                    claudeも他の2つと同様に除外できるようにする（最後の1つは
-                    候補ゼロを防ぐため外せない）。 */}
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Agent Runの各ターンで、チェックした順にCLIを試します（1つ失敗したら次の候補へ進みます）。
-                  チェックを外したCLIは候補から除外されます（最後の1つは候補ゼロを防ぐため外せません）。
-                  agyは会話継続（`--conversation`）、Cursor CLIは会話継続（`--resume`）に対応しているため、フォールバック後も壁打ちの複数ターンを続けられます。
-                  Cursor CLIはこのアプリのソース・データが見えない専用の空ディレクトリをワークスペースに指定して実行します。
-                </p>
                 {(() => {
                   const order = draft.cliOrder;
                   const excluded = CLI_OPTIONS.filter((c) => !order.includes(c));
@@ -406,11 +343,6 @@ export default function SettingsPage() {
                 })()}
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル系統（claude）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  claude CLIが呼び出すモデルの系統をエージェント種別ごとに事前に決めておけます。モデルは日々更新されるため、
-                  特定バージョンではなく系統名（sonnet/opus/fable/haiku）で指定します。「（CLIの既定のまま）」を選ぶと、
-                  claude CLI自身が選ぶ既定モデルのまま動きます。
-                </p>
                 {AGENT_OPTIONS.map((name) => (
                   <div key={name} className={styles.field} style={{ maxWidth: 220 }}>
                     <label>{name}
@@ -438,21 +370,14 @@ export default function SettingsPage() {
                   </div>
                 ))}
 
-                {/* ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても
-                    調整できるようにしたい」対応。claudeと違いエイリアスが無く、バージョン付きの
-                    具体名でしか指定できない実機確認済みの制約があるため自由入力にする。 */}
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル（agy）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  agy（Gemini）はモデルをエイリアスではなくバージョン付きの具体名（例:
-                  gemini-3.6-flash-medium）でのみ指定できます。空欄のエージェントは既定モデルのまま動きます。
-                </p>
                 {AGENT_OPTIONS.map((name) => (
                   <div key={name} className={styles.field} style={{ maxWidth: 260 }}>
                     <label>{name}
                     <input
                       type="text"
                       value={draft.agentAgyModels[name] ?? ""}
-                      placeholder="（既定モデルのまま）"
+                      placeholder="例: gemini-3.6-flash-medium（空欄＝既定）"
                       onChange={(e) => {
                         const value = e.target.value;
                         const next = { ...draft.agentAgyModels };
@@ -468,16 +393,13 @@ export default function SettingsPage() {
                 ))}
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル（Cursor）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Cursor CLIも同様にバージョン付きの具体名（例: gpt-5.2）でのみ指定できます。空欄のエージェントは既定モデルのまま動きます。
-                </p>
                 {AGENT_OPTIONS.map((name) => (
                   <div key={name} className={styles.field} style={{ maxWidth: 260 }}>
                     <label>{name}
                     <input
                       type="text"
                       value={draft.agentCursorModels[name] ?? ""}
-                      placeholder="（既定モデルのまま）"
+                      placeholder="例: gpt-5.2（空欄＝既定）"
                       onChange={(e) => {
                         const value = e.target.value;
                         const next = { ...draft.agentCursorModels };
@@ -496,30 +418,13 @@ export default function SettingsPage() {
 
             {activeGroup === "automation" && (
               <>
-                <div
-                  style={{
-                    marginBottom: 12,
-                    padding: "10px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--yellow-border)",
-                    background: "var(--yellow-bg)",
-                    color: "var(--yellow-fg)",
-                    fontSize: "0.8125rem",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong>推奨:</strong>{" "}
-                  Emtherの価値は「重要な情報が更新されたらAgentチームが自律的に分析・提案する」ことにあります。
-                  チャットで指示しなくてもチームが動くよう、下の自動起動をONにすることをおすすめします（コストが発生するため既定はOFFです）。
-                </div>
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動（イベント駆動・バッチ駆動）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  既定はOFFです。ONにすると、EMが何も指示していなくてもLead Agentが自動的に起動しコストが発生します。
-                  自動起動されたRunは「ドラフトIssue（起票待ち）」としてDashboardの「次の1手」に表示され、EMが起票／様子見／却下するまでそこに残り続けます。
-                </p>
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動</h3>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}
+                  title="投稿直後は起動しません。「この内容で確定」後に条件一致で起動"
+                >
                   <input
                     type="checkbox"
                     checked={draft.autoAnomalyDetectionEnabled}
@@ -527,10 +432,6 @@ export default function SettingsPage() {
                   />
                   Journalを確定（校正）したとき、条件に合うエントリをLead Agentが自動分析する
                 </label>
-                <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
-                  投稿直後は起動しません（AI抽出の誤判定を防ぐため）。修正がなくても「この内容で確定」で確定できます。
-                  自動条件に合わない／自動がOFFのときは、確定後の「分析する」で明示起動できます。
-                </p>
                 <div className={styles.field} style={{ maxWidth: 280, opacity: draft.autoAnomalyDetectionEnabled ? 1 : 0.5 }}>
                   <label>自動起動する緊急度
                   <select
@@ -572,7 +473,7 @@ export default function SettingsPage() {
                     checked={draft.autoIssueUpdateAnalysisEnabled}
                     onChange={(e) => setDraft({ ...draft, autoIssueUpdateAnalysisEnabled: e.target.checked })}
                   />
-                  Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス。待ち時間中は「あとN秒で起動」と表示）
+                  Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス）
                 </label>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>朝のサマリー（バッチ）</h3>
@@ -596,10 +497,10 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>状況の蒸留（週次バッチ）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Journal・Issue・既存テーマから「根本課題の見立て」をLead Agentが候補として出します。採用するまでIssue壁打ちの前提には入りません。
-                </p>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}
+                  title="候補テーマを出します。採用するまで前提には入りません"
+                >
                   <input
                     type="checkbox"
                     checked={draft.autoDistillationEnabled}
@@ -639,12 +540,10 @@ export default function SettingsPage() {
 
             {activeGroup === "morningMode" && (
               <>
-                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>Morning Modeの上限件数（AI主導トリアージ）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  Morning Modeで前面に出す件数に上限を設けます。超過分は「もっと見る」で3件ずつ追加表示できます。
-                </p>
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>Morning Modeの上限件数</h3>
                 <div className={styles.field} style={{ maxWidth: 160 }}>
-                  <label>判断待ち（decision）レーンの上限件数
+                  <label title="超過分は「もっと見る」で追加表示">
+                    判断待ち（decision）レーンの上限件数
                   <input
                     type="number"
                     min={1}

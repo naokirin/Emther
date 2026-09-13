@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { TagInput } from "@/components/TagInput";
+import { PageTitleRow } from "@/components/HelpLink";
 import { useEntityHistory, useIssues, useJournal, useTeams } from "@/lib/hooks";
 import { URGENCY_LABEL, charterFilledCount, teamPathSegments, type Team } from "@/lib/types";
 
@@ -289,11 +290,7 @@ function TeamsPageInner() {
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel}>
-        <h2>Teams</h2>
-        <p className={styles.subtitle}>
-          チーム構成はAgent Runtimeへ絶対の前提として注入され、Team Vitalsの算出にも使われます。チーム名に「/」を入れると組織階層を表現できます（例:
-          「Engineering / Team A」）。
-        </p>
+        <PageTitleRow title="チーム" helpAnchor="teams" />
         <form onSubmit={handleAddTeam} style={{ marginTop: 10 }}>
           <div className={styles.field}>
             <label>チーム名
@@ -305,7 +302,7 @@ function TeamsPageInner() {
               type="text"
               value={teamMembers}
               onChange={(e) => setTeamMembers(e.target.value)}
-              placeholder="例: Aさん, Bさん ※Journalのpeopleと同じ表記で"
+              placeholder="例: Aさん, Bさん"
             /></label>
           </div>
           <button className={styles.primaryBtn} type="submit" disabled={teamSubmitting || !teamName.trim()}>
@@ -369,7 +366,7 @@ function TeamsPageInner() {
             </div>
             {selectedTeam.archived && (
               <p className={styles.subtitle} style={{ marginBottom: 10 }}>
-                🗄 このチームはアーカイブ済みです。Team VitalsおよびAgent Runtimeへの注入対象からは除外されます。
+                🗄 アーカイブ済み
               </p>
             )}
             <div className={styles.field}>
@@ -382,7 +379,7 @@ function TeamsPageInner() {
                 type="text"
                 value={editMembers}
                 onChange={(e) => setEditMembers(e.target.value)}
-                placeholder="例: Aさん, Bさん ※Journalのpeopleと同じ表記で"
+                placeholder="例: Aさん, Bさん"
               /></label>
             </div>
             <div className={styles.field}>
@@ -393,19 +390,17 @@ function TeamsPageInner() {
               <label>制約（意思決定・実行にあたって前提とすべきこと）
               <textarea rows={2} value={editConstraints} onChange={(e) => setEditConstraints(e.target.value)} /></label>
             </div>
-            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-              このチームに紐付いたIssueのAgent Runにだけ、絶対の前提として注入されます（他チームへは注入されません）。
-            </p>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 10 }}>
+            <label
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 10 }}
+              title="OFFにするとメンバーは「その他」になり、1on1 Coverage対象外"
+            >
               <input type="checkbox" checked={editManagedByEm} onChange={(e) => setEditManagedByEm(e.target.checked)} />
               自分が管理するチーム
             </label>
-            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-              OFFにすると、このチームのメンバーはPeople一覧で「部下」ではなく「その他」に分類され、1on1
-              Coverageの集計対象からも外れます（パートナーチーム・ステークホルダーチームなど、EMが主体的に1on1・Issueを扱わないチーム向け）。他のチームにも所属している場合は、そちらがONであれば「部下」として扱われます。
-            </p>
             <div className={styles.field}>
-              <span className={styles.fieldCaption}>別名（表記揺れ）</span>
+              <span className={styles.fieldCaption} title="相談・起動時のチーム推定にも使われます">
+                別名（表記揺れ）
+              </span>
               <TagInput
                 values={editAliases}
                 onAdd={(v) => setEditAliases((prev) => [...prev, v])}
@@ -414,9 +409,6 @@ function TeamsPageInner() {
                 label="別名"
               />
             </div>
-            <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-              EMの自由記述からどのチームの話かを推定する際（相談・Agent Run起動時）、正式名だけでなくここに登録した別名も一致対象になります。
-            </p>
             {editError && <p className={styles.errorText} role="alert">{editError}</p>}
             <button
               className={styles.primaryBtn}

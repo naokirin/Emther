@@ -117,10 +117,8 @@ export function DataMigrationPanel() {
   return (
     <>
       <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>端末移行・データ管理</h3>
-      <p className={styles.subtitle} style={{ marginBottom: 12 }}>
-        業務データ（Journal / Issue / 設定など）と実名対応表をまとめてバックアップ・復元・削除します。
-        形式は CLI の <code>emther backup</code> / <code>emther restore</code> と同じ tar.gz です。
-        アーカイブには個人情報が含まれます。Agent CLI の認証情報やモデルキャッシュは含まれません。
+      <p className={styles.subtitle} style={{ marginBottom: 12 }} title="形式は emther backup / restore と同じ tar.gz。個人情報を含みます">
+        業務データと実名対応表のバックアップ・復元・削除（CLI 認証・モデルキャッシュは含みません）
       </p>
 
       {error && <p className={styles.errorText} role="alert">{error}</p>}

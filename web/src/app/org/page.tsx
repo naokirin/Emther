@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { ThemeOkrLinkEditor } from "@/components/ThemeOkrLinkEditor";
+import { PageTitleRow } from "@/components/HelpLink";
 import { useEntityHistory, useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "@/lib/hooks";
 import {
   isThemeOkrUnlinked,
@@ -827,11 +828,7 @@ function OrgContextPageInner() {
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
       <div className={styles.panel}>
-        <h2>方針・目標</h2>
-        <p className={styles.subtitle}>
-          組織のMVV（Strategy）、Standing Background（長期の背景事実）、OKR（Objectives）、テーマ（今期の焦点）——EMが「不動の前提」としてAgent
-          Runtimeへ注入する情報です。目標は組織全体からチームへとカスケードする構造で管理します（チームの追加・編集は「チーム・メンバー」タブで行います）。
-        </p>
+        <PageTitleRow title="方針・目標" helpAnchor="org" />
 
         <div className={styles.tree} style={{ marginTop: 14 }}>
           <div className={styles.treeFolder}>📁 Strategy（MVV）</div>
@@ -889,9 +886,6 @@ function OrgContextPageInner() {
                 {strategySaving ? "保存中…" : strategyDirty ? "保存" : "保存済み"}
               </button>
             </div>
-            <p className={styles.subtitle}>
-              組織全体のMVVはIssueに依らず常にAgent Runtimeへ絶対の前提として注入されます。未入力の項目は注入されません。OKRは「Objectives」で管理します。
-            </p>
             <div className={styles.field}>
               <label>Mission（生む価値・存在意義）
               <textarea
@@ -918,10 +912,10 @@ function OrgContextPageInner() {
             </div>
 
             <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>
-              チームごとのMission・制約（参考、編集は「チーム・メンバー」タブで）
+              チームごとの Mission・制約（参考）
             </h3>
             <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-              組織全体のMVVを受けて、各チームが自分たちのMission・制約をどう定めているかの一覧です（Mission・制約のどちらかを設定しているチームのみ表示）。
+              Mission・制約のどちらかを設定しているチームのみ（編集は「チーム」タブ）
             </p>
             {teamsWithCharter.length === 0 ? (
               <p className={styles.subtitle}>
@@ -949,11 +943,6 @@ function OrgContextPageInner() {
 
         {selection?.kind === "backgrounds" && (
           <>
-            <p className={styles.subtitle}>
-              日々の Journal ではなく、判断を長く縛る組織の背景です。事実と含意を分けて書き、注入範囲が
-              always ならほぼ全 Run に、tagged ならタグ／本文の手がかりがあるときだけ渡します（常時効くものは5〜20件程度を目安）。
-            </p>
-
             {!selectedBackground && (
               <>
                 <h3 style={{ marginTop: 4, marginBottom: 8, fontSize: "0.875rem" }}>新規追加</h3>
@@ -1170,10 +1159,6 @@ function OrgContextPageInner() {
 
         {selection?.kind === "objectives" && (
           <>
-            <p className={styles.subtitle}>
-              今期の Objective / Key Result です。組織全体からチームへカスケードする構造で管理し、Agent Runtimeへ絶対の前提として注入されます。
-            </p>
-
             {!selectedObjective && !importOpen && (
               <>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -1266,9 +1251,6 @@ function OrgContextPageInner() {
                     一覧に戻る
                   </button>
                 </div>
-                <p className={styles.subtitle}>
-                  既存のOKR全文を貼り付け、外部AI（SettingsのCLI優先順。失敗時や構造が明確なMarkdownのときはルールベース）で Objective / Key Result / メモに分解します。プレビューで直してから、追記または同一スコープの差し替えで保存できます。
-                </p>
                 <div className={styles.field}>
                   <label>OKRテキスト
                   <textarea
@@ -1432,9 +1414,6 @@ function OrgContextPageInner() {
                     style={{ width: "100%" }}
                   />
                 </div>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  チームを指定すると、そのチームが組織の上位目標を達成するために追う下位目標として、一覧でチーム配下にネスト表示されます。
-                </p>
                 {objectiveEditError && <p className={styles.errorText} role="alert">{objectiveEditError}</p>}
 
                 <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
@@ -1500,9 +1479,6 @@ function OrgContextPageInner() {
                 </form>
 
                 <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連テーマ（EM介入の焦点）</h3>
-                <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-                  期初は OKR から候補テーマを先に置き、週次蒸留で観測差分による修正を行います。OKR 紐づけは手動でも編集できます。
-                </p>
                 {(() => {
                   const linked = themes.filter(
                     (t) =>
@@ -1639,10 +1615,6 @@ function OrgContextPageInner() {
 
         {selection?.kind === "themes" && (
           <>
-            <p className={styles.subtitle}>
-              今期の焦点（OrgTheme）です。OKR との紐づけはここで手動編集できます。文言の訂正や採用取消はダッシュボードの「現在の優先テーマ」からも行えます。
-            </p>
-
             {!selectedTheme ? (
               <>
                 <h3 style={{ marginTop: 4, marginBottom: 8, fontSize: "0.875rem" }}>採用中</h3>

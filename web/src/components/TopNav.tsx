@@ -122,20 +122,6 @@ export function TopNav() {
   );
 }
 
-// docs/em_human_story_and_ux.md P1-6対応。現在地のURLから「今どの物語にいるか」を
-// 1文で示す。横タブが出ているグループ（複数画面）ではサブナビが同じ役割を果たすため、
-// 単一画面のグループでだけ表示する（同じ文言の重複を避ける）。
-export function StoryBanner() {
-  const pathname = usePathname();
-  const group = findActiveGroup(pathname);
-  if (!group || group.items.length > 1) return null;
-  return (
-    <p className={styles.subtitle} style={{ margin: "-12px 0 16px" }}>
-      📍 {group.label}: {group.hint}
-    </p>
-  );
-}
-
 // docs/em_human_story_and_ux.md 改修依頼「グローバルメニュー＋サイドメニューのグルーピング」
 // 対応。複数画面を持つグループで、グループ内の画面を選ぶサブナビを出す。
 // 本文幅を確保するため、全グループ共通で横タブにする（設定画面内のカテゴリ切替だけ

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 // 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の
 // @fontsource を使う（docs/packaging.md / ローカル実行前提）。
@@ -15,7 +16,7 @@ import "./globals.css";
 import styles from "./page.module.css";
 import { LocalModelDownloadBanner } from "@/components/LocalModelDownloadBanner";
 import { PersonQuickAdd } from "@/components/PersonQuickAdd";
-import { AppShell, StoryBanner, TopNav } from "@/components/TopNav";
+import { AppShell, TopNav } from "@/components/TopNav";
 
 // デザイン見直し（frontend-design）対応。従来はnext/font/googleでGeistを読み込みながら
 // globals.css側で参照しておらず、実際には素のOSシステムフォントのまま描画されていた
@@ -47,10 +48,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <h1 className={styles.title}>Emther</h1>
               <p className={styles.subtitle}>EM Support System</p>
             </div>
-            <PersonQuickAdd />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Link href="/help" className={styles.headerHelpLink} title="仕組み・用語の説明">
+                ヘルプ
+              </Link>
+              <PersonQuickAdd />
+            </div>
           </div>
           <TopNav />
-          <StoryBanner />
           {/* 未キャッシュのローカルモデルがあるときだけ進捗を出す（キャッシュ済みなら何も出さない）。 */}
           <LocalModelDownloadBanner />
           {/* tabIndex={-1}: スキップリンクの遷移先としてプログラム的にフォーカスできる
