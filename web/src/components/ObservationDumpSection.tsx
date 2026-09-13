@@ -87,6 +87,8 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   const [editText, setEditText] = useState("");
   const [editDate, setEditDate] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [seenFocusDumpId, setSeenFocusDumpId] = useState(focusDumpId);
+  const [seenChunkSyncKey, setSeenChunkSyncKey] = useState<string | null>(null);
 
   const selected = dumps.find((d) => d.id === selectedId) ?? null;
 
@@ -99,28 +101,45 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
     setLoaded(true);
   }, []);
 
-  useEffect(() => {
-    if (focusDumpId) {
-      setOpen(true);
-      setSelectedId(focusDumpId);
-      void reload();
-    }
-  }, [focusDumpId, reload]);
+  // focusDumpId が後から付いた／変わったとき、レンダー中に選択状態を合わせる（effect内setState回避）
+  if (focusDumpId && focusDumpId !== seenFocusDumpId) {
+    setSeenFocusDumpId(focusDumpId);
+    setOpen(true);
+    setSelectedId(focusDumpId);
+    setLoaded(false);
+  }
 
-  useEffect(() => {
-    if (open && !loaded) void reload();
-  }, [open, loaded, reload]);
-
-  useEffect(() => {
+  // Dump選択や更新に合わせて、未採用チャンクを既定選択にする（ユーザーが後からトグル可能）
+  const chunkSyncKey = selected ? `${selected.id}:${selected.updatedAt}` : null;
+  if (chunkSyncKey !== seenChunkSyncKey) {
+    setSeenChunkSyncKey(chunkSyncKey);
     if (!selected) {
       setSelectedChunkIds(new Set());
-      return;
+    } else {
+      const pending = selected.chunkDrafts
+        .filter((c) => !c.acceptedJournalId && c.disposition !== "drop")
+        .map((c) => c.id);
+      setSelectedChunkIds(new Set(pending));
     }
-    const pending = selected.chunkDrafts
-      .filter((c) => !c.acceptedJournalId && c.disposition !== "drop")
-      .map((c) => c.id);
-    setSelectedChunkIds(new Set(pending));
-  }, [selectedId, selected?.updatedAt]);
+  }
+
+  useEffect(() => {
+    if (!open || loaded) return;
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch("/api/journal/dumps");
+      if (cancelled) return;
+      const data = await res.json().catch(() => null);
+      if (cancelled) return;
+      if (res.ok && data?.dumps) {
+        setDumps(data.dumps as ObservationDumpView[]);
+      }
+      setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loaded]);
 
   async function runPreview(opts?: {
     syntaxOverride?: ImportSyntax | "auto";

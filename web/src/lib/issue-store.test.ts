@@ -6,6 +6,18 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
+const detectNameCandidatesAsyncMock = vi.hoisted(() =>
+  vi.fn(async (_text: string): Promise<string[]> => {
+    void _text;
+    return [];
+  }),
+);
+
+vi.mock("@/lib/name-candidate-detect", () => ({
+  detectNameCandidatesAsync: (text: string) => detectNameCandidatesAsyncMock(text),
+  detectNameCandidates: () => [] as string[],
+}));
+
 const embedRef = vi.hoisted(() => ({
   impl: async (_text: string): Promise<number[]> => {
     void _text;
@@ -118,22 +130,20 @@ describe("charter / title / action items / log entries", () => {
     expect(updated?.charter).toEqual({ why: "旧why", what: "新しいwhat", how: "" });
   });
 
-  it("updateIssueCharterは未変更フィールドでローカルNERを走らせない", async () => {
-    const { runLocalChat } = await import("@/lib/local-model");
+  it("updateIssueCharterは未変更フィールドで候補検出を走らせない", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    vi.mocked(runLocalChat).mockClear();
+    detectNameCandidatesAsyncMock.mockClear();
 
     const updated = await store.updateIssueCharter(issue.id, { why: "理由", what: "内容", how: "方法" });
     expect(updated?.charter).toEqual({ why: "理由", what: "内容", how: "方法" });
-    expect(runLocalChat).not.toHaveBeenCalled();
+    expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
   });
 
-  it("updateIssueCharterは既定でNERを走らせない（事前登録が正）", async () => {
-    const { runLocalChat } = await import("@/lib/local-model");
+  it("updateIssueCharterは既定で候補検出を走らせない（事前登録が正）", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    vi.mocked(runLocalChat).mockClear();
+    detectNameCandidatesAsyncMock.mockClear();
 
     const updated = await store.updateIssueCharter(issue.id, {
       why: "理由",
@@ -141,14 +151,13 @@ describe("charter / title / action items / log entries", () => {
       how: "方法",
     });
     expect(updated?.charter.what).toBe("新しい内容");
-    expect(runLocalChat).not.toHaveBeenCalled();
+    expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
   });
 
-  it("updateIssueCharterは明示オプトイン時、変更フィールドだけをまとめて1回NERする", async () => {
-    const { runLocalChat } = await import("@/lib/local-model");
+  it("updateIssueCharterは明示オプトイン時、変更フィールドだけをまとめて1回候補検出する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    vi.mocked(runLocalChat).mockClear();
+    detectNameCandidatesAsyncMock.mockClear();
 
     const updated = await store.updateIssueCharter(
       issue.id,
@@ -160,7 +169,8 @@ describe("charter / title / action items / log entries", () => {
       { allowUnmaskedCandidates: true },
     );
     expect(updated?.charter.what).toBe("新しい内容");
-    expect(runLocalChat).toHaveBeenCalledTimes(1);
+    expect(detectNameCandidatesAsyncMock).toHaveBeenCalledTimes(1);
+    expect(detectNameCandidatesAsyncMock).toHaveBeenCalledWith("新しい内容");
   });
 
   it("setIssueTitleは空文字を拒否する", async () => {
@@ -176,14 +186,13 @@ describe("charter / title / action items / log entries", () => {
     expect(updated?.title).toBe("Issue A改題");
   });
 
-  it("setIssueTitleは未変更ならローカルNERを走らせない", async () => {
-    const { runLocalChat } = await import("@/lib/local-model");
+  it("setIssueTitleは未変更なら候補検出を走らせない", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
-    vi.mocked(runLocalChat).mockClear();
+    detectNameCandidatesAsyncMock.mockClear();
     const updated = await store.setIssueTitle(issue.id, "Issue A");
     expect(updated?.title).toBe("Issue A");
-    expect(runLocalChat).not.toHaveBeenCalled();
+    expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
   });
 
   it("addActionItem/toggleActionItemで完了状態を切り替えられる", async () => {

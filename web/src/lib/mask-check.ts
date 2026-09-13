@@ -298,7 +298,7 @@ export function detectSensitiveByRules(text: string): SensitiveFinding[] {
     let m: RegExpExecArray | null;
     while ((m = local.exec(text)) !== null) {
       const match = m[0];
-      let excerpt = clipExcerpt(match);
+      const excerpt = clipExcerpt(match);
       if (!excerpt) continue;
       if (category === "phone") {
         const digits = excerpt.replace(/\D/g, "");

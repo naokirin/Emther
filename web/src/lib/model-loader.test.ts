@@ -9,20 +9,20 @@ const getLocalChatModel = vi.fn(() => ({ task: "text-generation" as const, id: "
 
 vi.mock("@huggingface/transformers", () => ({
   ModelRegistry: {
-    is_pipeline_cached: (...args: unknown[]) => isPipelineCached(...args),
+    is_pipeline_cached: (...args: unknown[]) => isPipelineCached(...(args as [])),
   },
 }));
 
 vi.mock("@/lib/local-model", () => ({
   LOCAL_CHAT_MODEL: { task: "text-generation", id: "mock/chat", dtype: "q4" },
-  getLocalChatModel: (...args: unknown[]) => getLocalChatModel(...args),
-  getLocalGenerator: (...args: unknown[]) => getLocalGenerator(...args),
+  getLocalChatModel: () => getLocalChatModel(),
+  getLocalGenerator: (...args: unknown[]) => getLocalGenerator(...(args as [])),
   clearLocalGeneratorCache: () => clearLocalGeneratorCache(),
 }));
 
 vi.mock("@/lib/embeddings", () => ({
   EMBEDDING_MODEL: { task: "feature-extraction", id: "mock/embed", dtype: "q8" },
-  getEmbedder: (...args: unknown[]) => getEmbedder(...args),
+  getEmbedder: (...args: unknown[]) => getEmbedder(...(args as [])),
   clearEmbedderCache: () => clearEmbedderCache(),
 }));
 

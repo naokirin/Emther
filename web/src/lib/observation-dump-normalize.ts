@@ -366,7 +366,6 @@ function recordsFromConfig(
 function applyMapping(
   rec: Record<string, unknown>,
   mapping: FieldMapping,
-  tsKind: TsKind,
 ): CanonicalMessage | null {
   const inverted = new Map<SemanticField, string>();
   for (const [col, field] of Object.entries(mapping)) {
@@ -482,7 +481,7 @@ export function normalizeObservationInput(
   const records = recordsFromConfig(trimmed, config);
   const messages: CanonicalMessage[] = [];
   for (const rec of records) {
-    const msg = applyMapping(rec, config.fieldMapping, config.tsKind);
+    const msg = applyMapping(rec, config.fieldMapping);
     if (msg) messages.push(msg);
   }
   const notes = [
@@ -505,7 +504,7 @@ export function parseSlackJsonlLine(line: string): CanonicalMessage | null {
   if (!trimmed || trimmed[0] !== "{") return null;
   try {
     const rec = JSON.parse(trimmed) as Record<string, unknown>;
-    return applyMapping(rec, DEFAULT_JSONL_MAPPING, "slack");
+    return applyMapping(rec, DEFAULT_JSONL_MAPPING);
   } catch {
     return null;
   }
@@ -514,7 +513,7 @@ export function parseSlackJsonlLine(line: string): CanonicalMessage | null {
 /** テスト用 */
 export function parseSlackJsonlMessages(text: string): CanonicalMessage[] {
   return parseJsonlRecords(text)
-    .map((rec) => applyMapping(rec, DEFAULT_JSONL_MAPPING, "slack"))
+    .map((rec) => applyMapping(rec, DEFAULT_JSONL_MAPPING))
     .filter((m): m is CanonicalMessage => !!m)
     .sort((a, b) => {
       const da = parseTimestampValue(a.ts, "slack")?.getTime() ?? 0;
