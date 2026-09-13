@@ -8,6 +8,7 @@ import {
   type Sentiment,
   type Urgency,
 } from "@/lib/journal-store";
+import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
 // 専用のエンドポイント。既存の/api/journal（全件取得）はDashboard・Organization Context画面
@@ -57,5 +58,11 @@ export async function GET(request: Request) {
 
   const { entries, total } = listJournalEntriesPage(filter, { limit: pageSize, offset: (page - 1) * pageSize });
   const facets = listJournalFacets();
-  return NextResponse.json({ entries: toJournalEntryViews(entries), total, page, pageSize, facets });
+  return NextResponse.json({
+    entries: toJournalEntryViews(entries, await buildSourceConsultIndex()),
+    total,
+    page,
+    pageSize,
+    facets,
+  });
 }

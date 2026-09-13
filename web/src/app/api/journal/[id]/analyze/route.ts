@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentJournalEntry, requestJournalAnalysis, toJournalEntryView } from "@/lib/journal-store";
+import { getCurrentJournalEntry, toJournalEntryView } from "@/lib/journal-store";
+import { requestJournalAnalysis } from "@/lib/journal-analysis";
 import { toRunView } from "@/lib/agent-runtime";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
@@ -27,7 +28,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/journal/[id
     return NextResponse.json(
       {
         entry: {
-          ...toJournalEntryView(result.entry),
+          ...toJournalEntryView(result.entry, new Map()),
           sourceConsultRunId: result.run.id,
         },
         run: toRunView(result.run),

@@ -20,7 +20,7 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     const { dump, entries } = await acceptDumpChunks(id, chunkIds, maskOptionsFromBody(body));
     return NextResponse.json(
-      { dump: toObservationDumpView(dump), entries: toJournalEntryViews(entries) },
+      { dump: toObservationDumpView(dump), entries: toJournalEntryViews(entries, new Map()) },
       { status: 201 },
     );
   } catch (err) {

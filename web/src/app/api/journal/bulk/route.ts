@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const { entries, skippedLines } = await addJournalEntriesBulk(text, {
       ...maskOptionsFromBody(body),
     });
-    return NextResponse.json({ entries: toJournalEntryViews(entries), skippedLines }, { status: 201 });
+    return NextResponse.json({ entries: toJournalEntryViews(entries, new Map()), skippedLines }, { status: 201 });
   } catch (err) {
     return jsonFromUnknownError(err);
   }

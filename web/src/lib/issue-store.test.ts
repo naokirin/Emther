@@ -487,7 +487,9 @@ describe("自動分析のpending登録タイミング", () => {
 
     const store = await loadModule();
     const issue = await store.createIssue("課題");
-    await store.updateIssueCharter(issue.id, { why: "なぜ今か" });
+    // issue-storeはagent-runtimeをimportしないため、本番のAPIルートと同じく
+    // onUpdatedコールバックとしてreactToIssueUpdateを呼び出し側が渡す。
+    await store.updateIssueCharter(issue.id, { why: "なぜ今か" }, { onUpdated: rt.reactToIssueUpdate });
 
     // fire-and-forgetだとここで空になり得る。await済みなら即存在する。
     const pending = rt.listPendingAgentStarts();
@@ -503,7 +505,7 @@ describe("自動分析のpending登録タイミング", () => {
 
     const store = await loadModule();
     const issue = await store.createIssue("課題");
-    await store.addLogEntry(issue.id, "対応を始めた");
+    await store.addLogEntry(issue.id, "対応を始めた", { onUpdated: rt.reactToIssueUpdate });
 
     const pending = rt.listPendingAgentStarts();
     expect(pending).toHaveLength(1);

@@ -369,26 +369,18 @@ export async function createParentIssue(
 
 const CHARTER_FIELD_LABEL: Record<keyof IssueCharter, string> = { why: "Why", what: "What", how: "How" };
 
-// agent-runtime ↔ issue-storeの循環参照を避けるため動的import。
-// クライアントが保存直後に refreshRuns しても pending を取りこぼさないよう、
-// レスポンス返却前に reactToIssueUpdate（同期・デバウンス登録のみ）まで完了させる。
-async function scheduleIssueUpdateAnalysis(
-  issueId: string,
-  trigger: "charter" | "log",
-  detail: string,
-): Promise<void> {
-  try {
-    const { reactToIssueUpdate } = await import("@/lib/agent-runtime");
-    reactToIssueUpdate(issueId, trigger, detail);
-  } catch {
-    // 自動分析の予約失敗でIssue更新自体は失敗させない。
-  }
-}
+// issue-storeはagent-runtimeを一切importしない（ドメイン層がAI連携の詳細を知らない
+// ようにするための依存性逆転）。Why/What/How・経過ログの更新をAIチームへ知らせたい
+// 呼び出し側（APIルート）が、onUpdatedコールバックとしてagent-runtimeのreactToIssueUpdate等
+// を渡す。渡さなければ何も起きない（テストや将来の別呼び出し元でも自由に選べる）。
+export type IssueUpdateReactionOptions = {
+  onUpdated?: (issueId: string, trigger: "charter" | "log", detail: string) => void;
+};
 
 export async function updateIssueCharter(
   issueId: string,
   patch: Partial<IssueCharter>,
-  opts: MaskOptions = {},
+  opts: MaskOptions & IssueUpdateReactionOptions = {},
 ): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
@@ -433,7 +425,11 @@ export async function updateIssueCharter(
   );
   const detail = changedFields.map((k) => CHARTER_FIELD_LABEL[k]).join("・");
   await scheduleIssueEmbedding(issue.id);
-  await scheduleIssueUpdateAnalysis(issue.id, "charter", detail);
+  try {
+    opts.onUpdated?.(issue.id, "charter", detail);
+  } catch {
+    // 呼び出し元の通知処理の失敗でIssue更新自体は失敗させない。
+  }
   return getIssue(issue.id) ?? issue;
 }
 
@@ -555,7 +551,7 @@ export async function promoteActionItemToChildIssue(
 export async function addLogEntry(
   issueId: string,
   text: string,
-  opts: MaskOptions = {},
+  opts: MaskOptions & IssueUpdateReactionOptions = {},
 ): Promise<Issue | undefined> {
   const issue = getIssue(issueId);
   if (!issue) return undefined;
@@ -568,7 +564,11 @@ export async function addLogEntry(
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, `経過ログを追加: 「${masked}」`);
-  await scheduleIssueUpdateAnalysis(issue.id, "log", masked);
+  try {
+    opts.onUpdated?.(issue.id, "log", masked);
+  } catch {
+    // 呼び出し元の通知処理の失敗でIssue更新自体は失敗させない。
+  }
   return issue;
 }
 

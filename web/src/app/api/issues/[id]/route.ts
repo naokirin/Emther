@@ -17,7 +17,9 @@ import {
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@/lib/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
+import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+import { reactToIssueUpdate } from "@/lib/agent-runtime";
 
 function resolveIssueForRead(id: string) {
   return resolveUniqueByPrefix(listIssues(), (i) => i.id, id);
@@ -41,7 +43,10 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]
   const issue = resolved.item;
   return NextResponse.json({
     issue: toIssueView(issue),
-    sourceJournals: toJournalEntryViews(listSourceJournalsForIssue(issue.id, issue.sourceJournalId)),
+    sourceJournals: toJournalEntryViews(
+      listSourceJournalsForIssue(issue.id, issue.sourceJournalId),
+      await buildSourceConsultIndex(),
+    ),
   });
 }
 
@@ -73,7 +78,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
         what: typeof body?.what === "string" ? body.what : undefined,
         how: typeof body?.how === "string" ? body.how : undefined,
       },
-      opts,
+      { ...opts, onUpdated: reactToIssueUpdate },
     );
     if (!issue) {
       return NextResponse.json({ error: "not found" }, { status: 404 });

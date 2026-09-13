@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { addJournalEntry, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
+import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 export async function GET() {
-  return NextResponse.json({ entries: toJournalEntryViews(listJournalEntries()) });
+  return NextResponse.json({ entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()) });
 }
 
 export async function POST(request: Request) {
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       occurredAt !== undefined
         ? await addJournalEntry(text, occurredAt, opts)
         : await addJournalEntry(text, Date.now(), opts);
-    return NextResponse.json({ entry: toJournalEntryView(entry) }, { status: 201 });
+    return NextResponse.json({ entry: toJournalEntryView(entry, new Map()) }, { status: 201 });
   } catch (err) {
     return jsonFromUnknownError(err);
   }

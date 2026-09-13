@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
+import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
+import { startJournalAutoAnalysis } from "@/lib/agent-runtime";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
@@ -8,7 +10,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/journal/[id
   const { id } = await ctx.params;
   const exact = getCurrentJournalEntry(id);
   if (exact) {
-    return NextResponse.json({ entry: toJournalEntryView(exact) });
+    return NextResponse.json({ entry: toJournalEntryView(exact, await buildSourceConsultIndex()) });
   }
   const resolved = resolveUniqueByPrefix(listJournalEntries(), (e) => e.id, id);
   if (resolved.status === "none") {
@@ -27,7 +29,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/journal/[id
       { status: 409 },
     );
   }
-  return NextResponse.json({ entry: toJournalEntryView(resolved.item) });
+  return NextResponse.json({ entry: toJournalEntryView(resolved.item, await buildSourceConsultIndex()) });
 }
 
 // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
@@ -92,12 +94,19 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
         resolvedIssueId,
         resolutionNote,
       },
-      maskOptionsFromBody(body),
+      {
+        ...maskOptionsFromBody(body),
+        onAutoAnalysisNeeded: (rawText, journalId) => {
+          void startJournalAutoAnalysis(rawText, journalId).catch(() => {
+            // 自動分析の起動失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
+          });
+        },
+      },
     );
     if (!entry) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
-    return NextResponse.json({ entry: toJournalEntryView(entry) });
+    return NextResponse.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
   } catch (err) {
     return jsonFromUnknownError(err);
   }

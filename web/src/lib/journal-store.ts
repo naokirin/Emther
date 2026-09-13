@@ -37,13 +37,11 @@ import {
   listEventFacets,
   getEventById,
   getEventHeadById,
-  listEventLineageIds,
   type EventPageFilter,
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
 import { getRulesAndConstraints, matchesJournalAutoFilters } from "@/lib/settings-store";
-import { listRuns, startJournalAnalysis, startJournalAutoAnalysis, type AgentRun } from "@/lib/agent-runtime";
 import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
 import { getIssue, toIssueView } from "@/lib/issue-store";
 
@@ -131,9 +129,11 @@ function resolveTeamNames(teamIds: string[]): string[] {
   });
 }
 
-export function toJournalEntryView(entry: JournalEntry, consultIndex?: Map<string, string>): JournalEntry {
+// consultIndexは@/lib/journal-consult-indexのbuildSourceConsultIndex()で組み立てる
+// （journal-store⇄agent-runtimeの循環参照を避けるため、journal-store自身はagent-runtimeを
+// 参照しない。呼び出し側がその橋渡しを担う）。載せる必要が無ければ空のMapを渡してよい。
+export function toJournalEntryView(entry: JournalEntry, consultIndex: Map<string, string>): JournalEntry {
   const resolvedIssue = entry.resolvedIssueId ? getIssue(entry.resolvedIssueId) : undefined;
-  const index = consultIndex ?? buildSourceConsultIndex();
   const teamIds = filterValidTeamIds(entry.teamIds ?? [], true);
   return {
     ...entry,
@@ -145,31 +145,12 @@ export function toJournalEntryView(entry: JournalEntry, consultIndex?: Map<strin
     teamNames: resolveTeamNames(teamIds),
     resolvedIssueTitle: resolvedIssue ? toIssueView(resolvedIssue).title : undefined,
     resolutionNote: entry.resolutionNote ? unmaskNames(entry.resolutionNote) : undefined,
-    sourceConsultRunId: index.get(entry.id),
+    sourceConsultRunId: consultIndex.get(entry.id),
   };
 }
 
-export function toJournalEntryViews(entries: JournalEntry[]): JournalEntry[] {
-  const index = buildSourceConsultIndex();
-  return entries.map((entry) => toJournalEntryView(entry, index));
-}
-
-export function buildSourceConsultIndex(): Map<string, string> {
-  const best = new Map<string, { runId: string; updatedAt: number }>();
-  for (const run of listRuns()) {
-    if (run.agentName !== "Lead Agent" || !run.sourceJournalId) continue;
-    for (const journalId of listEventLineageIds(run.sourceJournalId)) {
-      const prev = best.get(journalId);
-      if (!prev || run.updatedAt > prev.updatedAt) {
-        best.set(journalId, { runId: run.id, updatedAt: run.updatedAt });
-      }
-    }
-  }
-  const index = new Map<string, string>();
-  for (const [journalId, value] of best) {
-    index.set(journalId, value.runId);
-  }
-  return index;
+export function toJournalEntryViews(entries: JournalEntry[], consultIndex: Map<string, string>): JournalEntry[] {
+  return entries.map((entry) => toJournalEntryView(entry, consultIndex));
 }
 
 const SYSTEM_PROMPT = [
@@ -514,6 +495,14 @@ export async function linkJournalToIssue(
   return updateJournalEntry(current.id, { resolvedIssueId: issueId }, opts);
 }
 
+// journal-storeはagent-runtimeを一切importしない（ドメイン層がAI連携の詳細を知らない
+// ようにするための依存性逆転）。校正の内容次第で自動分析を起こしたい呼び出し側
+// （APIルート）が、onAutoAnalysisNeededコールバックとしてagent-runtimeのstartJournalAutoAnalysis
+// を渡す。渡さなければ何も起きない。
+export type JournalUpdateReactionOptions = {
+  onAutoAnalysisNeeded?: (rawText: string, journalId: string) => void;
+};
+
 // docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、
 // EMがtags/people/urgencyをその場で校正できないと「AI抽出のまま組織の事実になる」ことに
 // なってしまう。イベントソーシングの不変性は保ったまま、新しいfactイベントを
@@ -536,7 +525,7 @@ export async function updateJournalEntry(
     resolvedIssueId?: string | null;
     resolutionNote?: string | null;
   },
-  opts: MaskOptions = {},
+  opts: MaskOptions & JournalUpdateReactionOptions = {},
 ): Promise<JournalEntry | undefined> {
   const original = getEventById(id);
   if (!original || original.entityType !== "journal") return undefined;
@@ -622,35 +611,15 @@ export async function updateJournalEntry(
   // 生の抽出結果」であることの目印（校正済みの版をさらに直すような後続の編集では
   // 再度起動しない）。緊急度・感情の閾値はSettingsのフィルタで調整する。
   // 投稿直後は起動しない（誤抽出での偽緊急事態を防ぐ）。フィルタ外・自動OFF時は
-  // requestJournalAnalysis で明示起動できる。
+  // @/lib/journal-analysisのrequestJournalAnalysisで明示起動できる。
   const sentiment = (event.sentiment as Sentiment) ?? "neutral";
   if (original.supersedes === undefined && matchesJournalAutoFilters(urgency, sentiment)) {
-    void startJournalAutoAnalysis(event.text, event.id).catch(() => {
-      // 自動分析の起動失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
-    });
+    try {
+      opts.onAutoAnalysisNeeded?.(event.text, event.id);
+    } catch {
+      // 呼び出し元の通知処理の失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
+    }
   }
 
   return eventToJournalEntry(event);
-}
-
-// docs/usage_issues U16。自動フィルタ外・自動OFF・修正なし確定後でも、EMが明示して分析を起動する。
-// 未確認（AI抽出のまま）では起動しない——投稿時点起動と同じ誤検知リスクを避ける。
-export async function requestJournalAnalysis(
-  id: string,
-  opts: MaskOptions = {},
-): Promise<{ entry: JournalEntry; run: AgentRun } | undefined> {
-  const entry = getCurrentJournalEntry(id);
-  if (!entry) return undefined;
-  if (!entry.confirmed) {
-    throw new Error("未確認のJournalは分析できません。先に内容を確定してください。");
-  }
-  const run = await startJournalAnalysis(entry.rawText, entry.id, {
-    ...opts,
-    trigger: "manual",
-    onUnconfirmedNames: "throw",
-  });
-  if (!run) {
-    throw new Error("分析の起動に失敗しました");
-  }
-  return { entry, run };
 }

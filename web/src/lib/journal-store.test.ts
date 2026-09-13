@@ -55,6 +55,11 @@ vi.mock("@/lib/agent-runtime", () => ({
   listRuns: () => listRunsMock(),
 }));
 
+// journal-storeはagent-runtimeを直接呼ばなくなったため、updateJournalEntryの
+// onAutoAnalysisNeededコールバックとしてこのモックを明示的に渡す（呼び出し元＝APIルートの
+// 役割をテストが代行する）。
+const autoAnalysisOpts = { onAutoAnalysisNeeded: startJournalAutoAnalysisMock };
+
 let dir: string;
 
 beforeEach(() => {
@@ -90,7 +95,7 @@ describe("addJournalEntry", () => {
     expect(entry.confirmed).toBe(false); // 記録直後は未校正
     expect(entry.people).toEqual(["PERSON_1"]); // 内部表現はPERSON_n ID
 
-    const view = store.toJournalEntryView(entry);
+    const view = store.toJournalEntryView(entry, new Map());
     expect(view.people).toEqual(["Aさん"]);
     expect(view.summary).toBe("良い1on1だった");
   });
@@ -145,7 +150,7 @@ describe("addJournalEntry", () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("進捗が遅れている", Date.now(), { people: ["花子さん"] });
     expect(entry.people).toEqual([personId]);
-    expect(store.toJournalEntryView(entry).people).toEqual(["花子さん"]);
+    expect(store.toJournalEntryView(entry, new Map()).people).toEqual(["花子さん"]);
   });
 
   it("本文中の登録済みチーム名を自動でteamIdsに紐付ける", async () => {
@@ -155,7 +160,7 @@ describe("addJournalEntry", () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("コアチームの雰囲気が重い");
     expect(entry.teamIds).toEqual([team.id]);
-    expect(store.toJournalEntryView(entry).teamNames).toEqual(["コアチーム"]);
+    expect(store.toJournalEntryView(entry, new Map()).teamNames).toEqual(["コアチーム"]);
   });
 
   it("ローカル抽出のteams配列からも登録済みチームを紐付ける", async () => {
@@ -346,7 +351,7 @@ describe("updateJournalEntry", () => {
     settingsStore.updateRulesAndConstraints({ autoAnomalyDetectionEnabled: true });
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
-    const updated = await store.updateJournalEntry(entry.id, { urgency: "high" });
+    const updated = await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
     expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
     expect(startJournalAutoAnalysisMock).toHaveBeenCalledWith("問題発生", updated!.id);
   });
@@ -354,7 +359,7 @@ describe("updateJournalEntry", () => {
   it("autoAnomalyDetectionEnabledが既定(false)ならLead Agentを起動しない", async () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
-    await store.updateJournalEntry(entry.id, { urgency: "high" });
+    await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
     expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
   });
 
@@ -363,9 +368,9 @@ describe("updateJournalEntry", () => {
     settingsStore.updateRulesAndConstraints({ autoAnomalyDetectionEnabled: true });
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
-    const first = await store.updateJournalEntry(entry.id, { urgency: "high" });
+    const first = await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
     startJournalAutoAnalysisMock.mockClear();
-    await store.updateJournalEntry(first!.id, { tags: ["再校正"] });
+    await store.updateJournalEntry(first!.id, { tags: ["再校正"] }, autoAnalysisOpts);
     expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
   });
 
@@ -378,7 +383,7 @@ describe("updateJournalEntry", () => {
     mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
     const store = await loadModule();
     const entry = await store.addJournalEntry("気になる出来事");
-    await store.updateJournalEntry(entry.id, { urgency: "mid" });
+    await store.updateJournalEntry(entry.id, { urgency: "mid" }, autoAnalysisOpts);
     expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
   });
 
@@ -392,7 +397,7 @@ describe("updateJournalEntry", () => {
     mockExtraction = { tags: [], people: [], urgency: "high", sentiment: "positive", summary: "" };
     const store = await loadModule();
     const entry = await store.addJournalEntry("良い出来事");
-    await store.updateJournalEntry(entry.id, { urgency: "high" });
+    await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
     expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
   });
 });
@@ -400,17 +405,19 @@ describe("updateJournalEntry", () => {
 describe("requestJournalAnalysis", () => {
   it("未確認エントリはエラーにする", async () => {
     const store = await loadModule();
+    const analysis = await import("@/lib/journal-analysis");
     const entry = await store.addJournalEntry("問題発生");
-    await expect(store.requestJournalAnalysis(entry.id)).rejects.toThrow(/未確認/);
+    await expect(analysis.requestJournalAnalysis(entry.id)).rejects.toThrow(/未確認/);
     expect(startJournalAnalysisMock).not.toHaveBeenCalled();
   });
 
   it("確定済みならフィルタ／自動OFFに関係なく手動分析を起動する", async () => {
     const store = await loadModule();
+    const analysis = await import("@/lib/journal-analysis");
     const entry = await store.addJournalEntry("問題発生");
-    const confirmed = await store.updateJournalEntry(entry.id, { urgency: "low" });
+    const confirmed = await store.updateJournalEntry(entry.id, { urgency: "low" }, autoAnalysisOpts);
     startJournalAutoAnalysisMock.mockClear();
-    const result = await store.requestJournalAnalysis(confirmed!.id);
+    const result = await analysis.requestJournalAnalysis(confirmed!.id);
     expect(startJournalAnalysisMock).toHaveBeenCalledWith(
       "問題発生",
       confirmed!.id,
@@ -421,8 +428,8 @@ describe("requestJournalAnalysis", () => {
   });
 
   it("存在しないIDはundefinedを返す", async () => {
-    const store = await loadModule();
-    expect(await store.requestJournalAnalysis("missing")).toBeUndefined();
+    const analysis = await import("@/lib/journal-analysis");
+    expect(await analysis.requestJournalAnalysis("missing")).toBeUndefined();
   });
 });
 
@@ -433,21 +440,26 @@ describe("toJournalEntryView", () => {
     const issue = await issueStore.createIssue("追跡中のIssue");
     const entry = await store.addJournalEntry("問題発生");
     const updated = await store.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
-    const view = store.toJournalEntryView(updated!);
+    const view = store.toJournalEntryView(updated!, new Map());
     expect(view.resolvedIssueTitle).toBe("追跡中のIssue");
   });
 
   it("sourceJournalIdが一致するLead相談をsourceConsultRunIdに載せる", async () => {
+    const { buildSourceConsultIndex } = await import("@/lib/journal-consult-index");
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
     const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
     listRunsMock.mockReturnValue([
       { id: "run-consult", agentName: "Lead Agent", sourceJournalId: confirmed!.id, updatedAt: 10 },
     ]);
-    expect(store.toJournalEntryView(confirmed!).sourceConsultRunId).toBe("run-consult");
+    expect(store.toJournalEntryView(confirmed!, await buildSourceConsultIndex()).sourceConsultRunId).toBe(
+      "run-consult",
+    );
 
     const edited = await store.updateJournalEntry(confirmed!.id, { tags: ["再校正"] });
-    expect(store.toJournalEntryView(edited!).sourceConsultRunId).toBe("run-consult");
+    expect(store.toJournalEntryView(edited!, await buildSourceConsultIndex()).sourceConsultRunId).toBe(
+      "run-consult",
+    );
   });
 });
 
