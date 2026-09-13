@@ -223,10 +223,18 @@ describe("PATCH /api/settings/rules", () => {
       expect((await res.json()).rules.localChatModelPreset).toBe("350m");
     });
 
-    it("0.5b / 1.5b に更新できる", async () => {
+    it("0.5b / 1.2b / 1.2b-jp / 1.5b に更新できる", async () => {
       const route = await import("./route");
       const to05 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "0.5b" }));
       expect((await to05.json()).rules.localChatModelPreset).toBe("0.5b");
+      expect(ensureLocalModels).toHaveBeenCalled();
+      ensureLocalModels.mockClear();
+      const to12 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.2b" }));
+      expect((await to12.json()).rules.localChatModelPreset).toBe("1.2b");
+      expect(ensureLocalModels).toHaveBeenCalled();
+      ensureLocalModels.mockClear();
+      const to12jp = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.2b-jp" }));
+      expect((await to12jp.json()).rules.localChatModelPreset).toBe("1.2b-jp");
       expect(ensureLocalModels).toHaveBeenCalled();
       ensureLocalModels.mockClear();
       const to15 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.5b" }));

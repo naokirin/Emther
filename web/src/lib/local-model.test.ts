@@ -52,6 +52,12 @@ describe("getLocalChatModel", () => {
     settings.updateRulesAndConstraints({ localChatModelPreset: "0.5b" });
     expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["0.5b"].id);
 
+    settings.updateRulesAndConstraints({ localChatModelPreset: "1.2b" });
+    expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["1.2b"].id);
+
+    settings.updateRulesAndConstraints({ localChatModelPreset: "1.2b-jp" });
+    expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["1.2b-jp"].id);
+
     settings.updateRulesAndConstraints({ localChatModelPreset: "1.5b" });
     expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["1.5b"].id);
   });

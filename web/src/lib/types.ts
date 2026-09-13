@@ -335,7 +335,7 @@ export type RulesAndConstraints = {
   // Peopleの PERSON_n を利用者本人（EM）として紐付ける任意設定。未設定は null。
   selfPersonId: string | null;
   // Journal抽出等のローカルチャットモデルプリセット（既定 "350m"）。埋め込みは対象外。
-  localChatModelPreset: "350m" | "0.5b" | "1.5b";
+  localChatModelPreset: "350m" | "0.5b" | "1.2b" | "1.2b-jp" | "1.5b";
 };
 
 // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
