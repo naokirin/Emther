@@ -8,8 +8,9 @@ import { ObservationDumpSection } from "@/components/ObservationDumpSection";
 import { PageTitleRow } from "@/components/HelpLink";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
-import { useJournalEditing, useJournalSearch } from "@/lib/hooks";
+import { useJournalSearch } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
+import { useJournalEditing } from "@/lib/useJournalEditing";
 
 const PAGE_SIZE = 10;
 

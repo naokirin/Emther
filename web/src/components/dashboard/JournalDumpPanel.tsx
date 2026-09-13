@@ -4,8 +4,8 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import type { AgentRun } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
-import type { useJournalEditing } from "@/lib/hooks";
 import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
+import type { useJournalEditing } from "@/lib/useJournalEditing";
 import type { DayPhase } from "@/lib/dashboard-day-phase";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;

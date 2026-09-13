@@ -18,7 +18,6 @@ import {
   useGoToRunIssue,
   useIssues,
   useJournal,
-  useJournalEditing,
   useObjectives,
   useOrgStrategy,
   usePeople,
@@ -28,6 +27,7 @@ import {
   useThemes,
   useVitals,
 } from "@/lib/hooks";
+import { useJournalEditing } from "@/lib/useJournalEditing";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isIssueStrategyUnlinked, isRunStale, type PendingUnmaskedSend } from "@/lib/types";
 
