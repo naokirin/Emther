@@ -1,4 +1,5 @@
 import { loadJSON, saveJSON } from "@/lib/persistence";
+import type { LocalChatModelPresetId } from "@/lib/local-chat-presets";
 import type { CliName, ModelTier } from "@/lib/types";
 
 // docs 3.1.1「判定閾値およびデータ欠如とみなす期間はCore Context（Rules_and_Constraints）
@@ -104,6 +105,10 @@ export type RulesAndConstraints = {
   // null/未設定時は従来どおり（誰も本人扱いにしない）。1on1 Coverage・部下一覧から除外し、
   // Org Context注入では本人である旨を明示するために使う。
   selfPersonId: string | null;
+  // ユーザー要望「メモリに余裕がある場合にローカルAIをより大きいパラメータ数へ」対応。
+  // Journal抽出・人物名検出など Transformers.js のチャット用ローカルモデルのプリセット。
+  // 既定 "350m"。埋め込みモデルは対象外。
+  localChatModelPreset: LocalChatModelPresetId;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -137,6 +142,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentCursorModels: {},
   cliOrder: ["claude"],
   selfPersonId: null,
+  localChatModelPreset: "350m",
 };
 
 let rules: RulesAndConstraints = {

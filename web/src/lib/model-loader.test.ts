@@ -5,6 +5,7 @@ const getLocalGenerator = vi.fn();
 const getEmbedder = vi.fn();
 const clearLocalGeneratorCache = vi.fn();
 const clearEmbedderCache = vi.fn();
+const getLocalChatModel = vi.fn(() => ({ task: "text-generation" as const, id: "mock/chat", dtype: "q4" as const }));
 
 vi.mock("@huggingface/transformers", () => ({
   ModelRegistry: {
@@ -14,6 +15,7 @@ vi.mock("@huggingface/transformers", () => ({
 
 vi.mock("@/lib/local-model", () => ({
   LOCAL_CHAT_MODEL: { task: "text-generation", id: "mock/chat", dtype: "q4" },
+  getLocalChatModel: (...args: unknown[]) => getLocalChatModel(...args),
   getLocalGenerator: (...args: unknown[]) => getLocalGenerator(...args),
   clearLocalGeneratorCache: () => clearLocalGeneratorCache(),
 }));
@@ -33,12 +35,14 @@ import {
 
 describe("model-loader", () => {
   beforeEach(() => {
-    resetModelLoaderStateForTests();
     isPipelineCached.mockReset();
     getLocalGenerator.mockReset();
     getEmbedder.mockReset();
     clearLocalGeneratorCache.mockReset();
     clearEmbedderCache.mockReset();
+    getLocalChatModel.mockReset();
+    getLocalChatModel.mockReturnValue({ task: "text-generation", id: "mock/chat", dtype: "q4" });
+    resetModelLoaderStateForTests();
   });
 
   it("両方キャッシュ済みなら pipeline を呼ばず ready になる", async () => {
@@ -108,5 +112,27 @@ describe("model-loader", () => {
     resolveChat();
     await Promise.all([a, b]);
     expect(getLocalGenerator).toHaveBeenCalledTimes(1);
+  });
+
+  it("チャットモデルIDが変わるとスロットをリセットして再確認する", async () => {
+    isPipelineCached.mockResolvedValue(true);
+    await ensureLocalModels();
+    expect(getModelLoadSnapshot().models[0].modelId).toBe("mock/chat");
+    expect(getModelLoadSnapshot().models[0].phase).toBe("ready");
+
+    getLocalChatModel.mockReturnValue({
+      task: "text-generation",
+      id: "mock/chat-large",
+      dtype: "q4",
+    });
+
+    const snap = getModelLoadSnapshot();
+    expect(snap.models[0].modelId).toBe("mock/chat-large");
+    expect(snap.models[0].phase).toBe("idle");
+    expect(clearLocalGeneratorCache).toHaveBeenCalled();
+
+    await ensureLocalModels();
+    expect(getModelLoadSnapshot().models[0].phase).toBe("ready");
+    expect(getModelLoadSnapshot().models[0].modelId).toBe("mock/chat-large");
   });
 });

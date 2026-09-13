@@ -8,6 +8,8 @@ import {
   type AutoJournalUrgencyFilter,
 } from "@/lib/settings-store";
 import { listPeople } from "@/lib/people-directory";
+import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@/lib/local-chat-presets";
+import { ensureLocalModels } from "@/lib/model-loader";
 import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@/lib/types";
 
 export async function GET() {
@@ -98,6 +100,10 @@ function cliOrder(value: unknown): CliName[] | undefined {
   return names as CliName[];
 }
 
+function localChatModelPreset(value: unknown): LocalChatModelPresetId | undefined {
+  return isLocalChatModelPresetId(value) ? value : undefined;
+}
+
 // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
 // null / 空文字 = 解除。存在する PERSON_n のみ受け付ける（不正IDは undefined で無視しないよう
 // 呼び出し側で 400 にする）。
@@ -119,6 +125,7 @@ export async function PATCH(request: Request) {
   if (selfPersonParsed && !selfPersonParsed.ok) {
     return NextResponse.json({ error: selfPersonParsed.error }, { status: 400 });
   }
+  const previousPreset = getRulesAndConstraints().localChatModelPreset;
   const patch = {
     teamWindowDays: num(body?.teamWindowDays),
     minEntriesForJudgement: num(body?.minEntriesForJudgement),
@@ -156,8 +163,14 @@ export async function PATCH(request: Request) {
     agentCursorModels: agentCliModels(body?.agentCursorModels),
     cliOrder: cliOrder(body?.cliOrder),
     selfPersonId: selfPersonParsed?.ok ? selfPersonParsed.value : undefined,
+    localChatModelPreset: localChatModelPreset(body?.localChatModelPreset),
   };
   const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
   const rules = updateRulesAndConstraints(filtered);
+  // プリセット変更時は新モデルのキャッシュ確認／未取得ならダウンロードを開始する
+  // （バナー表示のため ensure を起こす。失敗しても設定保存自体は成功扱い）。
+  if (rules.localChatModelPreset !== previousPreset) {
+    void ensureLocalModels();
+  }
   return NextResponse.json({ rules });
 }

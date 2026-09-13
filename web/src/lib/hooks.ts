@@ -668,6 +668,7 @@ export function useSettingsRules(intervalMs = 8000) {
       agentCursorModels: {},
       cliOrder: ["claude"],
       selfPersonId: null,
+      localChatModelPreset: "350m",
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

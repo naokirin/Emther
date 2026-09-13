@@ -2,10 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 import { jsonRequest } from "@/lib/test-helpers/api-route";
 
+const ensureLocalModels = vi.fn(async () => undefined);
+
+vi.mock("@/lib/model-loader", () => ({
+  ensureLocalModels: () => ensureLocalModels(),
+}));
+
 let dir: string;
 
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
+  ensureLocalModels.mockClear();
   vi.resetModules();
 });
 
@@ -205,6 +212,32 @@ describe("PATCH /api/settings/rules", () => {
       const route = await import("./route");
       const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { selfPersonId: "PERSON_999" }));
       expect(res.status).toBe(400);
+    });
+  });
+
+  // ユーザー要望「メモリに余裕がある場合にローカルAIをより大きいパラメータ数へ」対応。
+  describe("localChatModelPreset", () => {
+    it("既定は350m", async () => {
+      const route = await import("./route");
+      const res = await route.GET();
+      expect((await res.json()).rules.localChatModelPreset).toBe("350m");
+    });
+
+    it("0.5b / 1.5b に更新できる", async () => {
+      const route = await import("./route");
+      const to05 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "0.5b" }));
+      expect((await to05.json()).rules.localChatModelPreset).toBe("0.5b");
+      expect(ensureLocalModels).toHaveBeenCalled();
+      ensureLocalModels.mockClear();
+      const to15 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.5b" }));
+      expect((await to15.json()).rules.localChatModelPreset).toBe("1.5b");
+      expect(ensureLocalModels).toHaveBeenCalled();
+    });
+
+    it("不正な値は無視する（既定値のまま）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "7b" }));
+      expect((await res.json()).rules.localChatModelPreset).toBe("350m");
     });
   });
 });

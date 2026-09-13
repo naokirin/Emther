@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
 import { extractFirstJsonObject } from "@/lib/local-model";
 
 describe("extractFirstJsonObject", () => {
@@ -27,5 +28,31 @@ describe("extractFirstJsonObject", () => {
 
   it("開き括弧に対応する閉じ括弧が無ければundefinedを返す", () => {
     expect(extractFirstJsonObject('{"a":1')).toBeUndefined();
+  });
+});
+
+describe("getLocalChatModel", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = setupIsolatedStoreEnv();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    teardownIsolatedStoreEnv(dir);
+  });
+
+  it("設定のプリセットに応じたモデルIDを返す", async () => {
+    const settings = await import("@/lib/settings-store");
+    const { getLocalChatModel, LOCAL_CHAT_MODEL_PRESETS } = await import("@/lib/local-model");
+
+    expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["350m"].id);
+
+    settings.updateRulesAndConstraints({ localChatModelPreset: "0.5b" });
+    expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["0.5b"].id);
+
+    settings.updateRulesAndConstraints({ localChatModelPreset: "1.5b" });
+    expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["1.5b"].id);
   });
 });

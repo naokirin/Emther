@@ -6,6 +6,11 @@ import { DataMigrationPanel } from "@/components/DataMigrationPanel";
 import { PageTitleRow } from "@/components/HelpLink";
 import { useSettingsRules } from "@/lib/hooks";
 import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@/lib/types";
+import {
+  LOCAL_CHAT_MODEL_PRESET_IDS,
+  LOCAL_CHAT_MODEL_PRESETS,
+  type LocalChatModelPresetId,
+} from "@/lib/local-chat-presets";
 
 // Rules_and_Constraints（Team Vitalsの判定閾値）はOrganization Context（組織のMVVや
 // 体制などの「不動の前提」）とは性質が異なり、アプリの挙動を調整する設定値なので、
@@ -288,6 +293,33 @@ export default function SettingsPage() {
 
             {activeGroup === "aiTools" && (
               <>
+                <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>ローカルAI（ジャーナル抽出）</h3>
+                <div className={styles.field} style={{ maxWidth: 360 }}>
+                  <label title="機微情報を外部送信しないローカル推論。埋め込みモデルは対象外">
+                    チャットモデルのサイズ
+                    <select
+                      value={draft.localChatModelPreset ?? "350m"}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          localChatModelPreset: e.target.value as LocalChatModelPresetId,
+                        })
+                      }
+                    >
+                      {LOCAL_CHAT_MODEL_PRESET_IDS.map((id) => (
+                        <option key={id} value={id}>
+                          {LOCAL_CHAT_MODEL_PRESETS[id].label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p style={{ fontSize: "0.75rem", marginTop: 0, marginBottom: 16, maxWidth: 420, color: "var(--text-muted)" }}>
+                  {LOCAL_CHAT_MODEL_PRESETS[draft.localChatModelPreset ?? "350m"].hint}
+                  {" "}
+                  保存後、未取得ならダウンロードが始まります。大きいモデルはメモリ不足でプロセスが落ちることがあります。
+                </p>
+
                 <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
                 {(() => {
                   const order = draft.cliOrder;

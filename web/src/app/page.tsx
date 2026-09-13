@@ -2110,7 +2110,7 @@ function DashboardPageInner() {
               className={`${styles.subtitle} ${styles.axisTooltip}`}
               style={{ fontWeight: 400 }}
               data-tooltip={
-                "入力後、完全ローカルの軽量モデル（LFM2.5-350M、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。\n分割・Issue昇格は翌朝提案に寄せられます。"
+                "入力後、完全ローカルの軽量モデル（設定のプリセット、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。\n分割・Issue昇格は翌朝提案に寄せられます。"
               }
               tabIndex={0}
             >

@@ -1,9 +1,10 @@
 import { ModelRegistry, type ProgressInfo } from "@huggingface/transformers";
 import {
   clearLocalGeneratorCache,
+  getLocalChatModel,
   getLocalGenerator,
-  LOCAL_CHAT_MODEL,
 } from "@/lib/local-model";
+import { DEFAULT_LOCAL_CHAT_MODEL } from "@/lib/local-chat-presets";
 import {
   clearEmbedderCache,
   EMBEDDING_MODEL,
@@ -12,7 +13,8 @@ import {
 
 // ローカルモデル（チャット生成・埋め込み）のディスクキャッシュ有無を見て、
 // 未取得なら起動直後にダウンロード＋メモリロードを開始し、進捗をUIへ返すための状態機械。
-// モデルIDの設定切替はスコープ外（定数のまま）。キャッシュ済みなら pipeline() は呼ばず、
+// チャットモデルは設定（localChatModelPreset）で切替可能。切替時はスロットをリセットし、
+// 未キャッシュなら再ダウンロードする。キャッシュ済みなら pipeline() は呼ばず、
 // 従来通り初回利用時の遅延ロードに任せる（メモリを起動時点で食わない）。
 
 export type ModelSlotKey = "chat" | "embedding";
@@ -53,12 +55,14 @@ type SlotRuntime = {
 };
 
 const slots: Record<ModelSlotKey, SlotRuntime> = {
+  // モジュール初期化時は既定プリセットで埋め、ensure / snapshot 時に設定と同期する
+  // （テストの mock がまだ効いていない時点で getLocalChatModel を呼ばないため）。
   chat: {
     key: "chat",
     label: "ジャーナル抽出",
-    modelId: LOCAL_CHAT_MODEL.id,
-    task: LOCAL_CHAT_MODEL.task,
-    dtype: LOCAL_CHAT_MODEL.dtype,
+    modelId: DEFAULT_LOCAL_CHAT_MODEL.id,
+    task: DEFAULT_LOCAL_CHAT_MODEL.task,
+    dtype: DEFAULT_LOCAL_CHAT_MODEL.dtype,
     phase: "idle",
     progress: 0,
     loadedBytes: null,
@@ -83,9 +87,36 @@ const slots: Record<ModelSlotKey, SlotRuntime> = {
 
 let warmPromise: Promise<void> | null = null;
 
+/**
+ * 設定のチャットモデルがスロットと食い違っていれば、キャッシュを捨ててスロットを初期化する。
+ * プリセット切替後の ensure / スナップショット取得のたびに呼ぶ。
+ */
+function syncChatSlotWithSettings(): void {
+  const model = getLocalChatModel();
+  const slot = slots.chat;
+  if (slot.modelId === model.id && slot.task === model.task && slot.dtype === model.dtype) {
+    return;
+  }
+  clearLocalGeneratorCache();
+  slot.modelId = model.id;
+  slot.task = model.task;
+  slot.dtype = model.dtype;
+  slot.phase = "idle";
+  slot.progress = 0;
+  slot.loadedBytes = null;
+  slot.totalBytes = null;
+  slot.cached = null;
+  slot.error = null;
+  warmPromise = null;
+}
+
 /** テスト用: モジュール内状態を初期化する。本番コードからは呼ばない。 */
 export function resetModelLoaderStateForTests() {
   warmPromise = null;
+  const model = getLocalChatModel();
+  slots.chat.modelId = model.id;
+  slots.chat.task = model.task;
+  slots.chat.dtype = model.dtype;
   for (const slot of Object.values(slots)) {
     slot.phase = "idle";
     slot.progress = 0;
@@ -111,6 +142,7 @@ function snapshotSlot(slot: SlotRuntime): ModelSlotSnapshot {
 }
 
 export function getModelLoadSnapshot(): ModelLoadSnapshot {
+  syncChatSlotWithSettings();
   const models = [snapshotSlot(slots.chat), snapshotSlot(slots.embedding)];
   const phases = models.map((m) => m.phase);
   let overall: ModelLoadOverall = "idle";
@@ -203,6 +235,7 @@ async function warmSlot(slot: SlotRuntime): Promise<void> {
  * チャット（大きい方）→埋め込みの順で、同時ロードによるメモリ逼迫を避ける。
  */
 export function ensureLocalModels(): Promise<void> {
+  syncChatSlotWithSettings();
   if (!warmPromise) {
     warmPromise = (async () => {
       await warmSlot(slots.chat);
@@ -217,6 +250,7 @@ export function ensureLocalModels(): Promise<void> {
 
 /** 失敗したスロットだけ idle に戻して ensure を再実行する。 */
 export function retryFailedLocalModels(): Promise<void> {
+  syncChatSlotWithSettings();
   for (const slot of Object.values(slots)) {
     if (slot.phase === "error") {
       slot.phase = "idle";

@@ -1,43 +1,64 @@
 import { pipeline, type ProgressCallback } from "@huggingface/transformers";
+import {
+  DEFAULT_LOCAL_CHAT_MODEL,
+  isLocalChatModelPresetId,
+  LOCAL_CHAT_MODEL_PRESETS,
+  type LocalChatModelPresetId,
+  type LocalChatModelSpec,
+} from "@/lib/local-chat-presets";
+import { getRulesAndConstraints } from "@/lib/settings-store";
 
 // このモジュールが提供するローカル推論は、機微情報を外部に一切送信しないことが目的。
 // journal-store.ts（ジャーナルの自動タグ付け）と people-directory.ts 経由の
 // agent-runtime.ts（クラウドLLMに送る前の人物名検出）の両方から共有で使う。
 //
-// モデルサイズはこのリポジトリの検証環境（メモリ7.7GB、常時スワップ逼迫気味）での安定性を
-// 優先して小型モデルを採用（1.5Bだとリクエスト後にプロセスが落ちることを複数回確認した）。
-// 2026-09-08にも1.5Bへの切り替えを再検証したが、1リクエストでnext-serverのRSSが
-// 約5GBまで増加してシステム空きメモリが150MB台まで低下し、生成自体も
-// JSON抽出失敗（500）に終わったため小型へ差し戻した。
-// 当初は Qwen2.5-0.5B-Instruct を使っていたが、要約などが中国語に寄りやすいため、
-// 日本語を含む多言語対応の LFM2.5-350M へ切り替えた。
-// （同規模の日本語特化 Sarashina2.2-0.5B の onnx-community 版は tokenizer 欠落で
-// Transformers.js から使えなかった。）
-// より余裕のあるマシンで動かす場合はLOCAL_CHAT_MODELを差し替えるとよい。
+// 既定は検証環境（メモリ7.7GB、常時スワップ逼迫気味）での安定性を優先した 350M。
+// 1.5Bは人物抽出やJSON整形の精度は高いが、同環境では1リクエストでnext-serverのRSSが
+// 約5GBまで増加して空きメモリが逼迫し、生成失敗に至った実績がある。
+// メモリに余裕があるマシンでは設定（localChatModelPreset）で 0.5B / 1.5B を選べる。
 //
+// プリセット定義本体は local-chat-presets.ts（UIからも参照するため分離）。
 // 未キャッシュ時の起動ダウンロード＋進捗表示は model-loader.ts が担う。
-export const LOCAL_CHAT_MODEL = {
-  task: "text-generation" as const,
-  id: "onnx-community/LFM2.5-350M-ONNX",
-  dtype: "q4" as const,
-};
+
+export type { LocalChatModelPresetId, LocalChatModelSpec };
+export {
+  DEFAULT_LOCAL_CHAT_MODEL as LOCAL_CHAT_MODEL,
+  isLocalChatModelPresetId,
+  LOCAL_CHAT_MODEL_PRESET_IDS,
+  LOCAL_CHAT_MODEL_PRESETS,
+} from "@/lib/local-chat-presets";
+
+/** 現在の設定に対応するチャットモデル仕様。不正値は 350m にフォールバック。 */
+export function getLocalChatModel(): LocalChatModelSpec {
+  const preset = getRulesAndConstraints().localChatModelPreset;
+  if (isLocalChatModelPresetId(preset)) return LOCAL_CHAT_MODEL_PRESETS[preset];
+  return DEFAULT_LOCAL_CHAT_MODEL;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let generatorPromise: Promise<any> | null = null;
+/** 現在キャッシュしている pipeline のモデルID。設定切替検知用。 */
+let loadedModelId: string | null = null;
 
 export function getLocalGenerator(progress_callback?: ProgressCallback) {
+  const model = getLocalChatModel();
+  if (generatorPromise && loadedModelId !== model.id) {
+    clearLocalGeneratorCache();
+  }
   if (!generatorPromise) {
-    generatorPromise = pipeline(LOCAL_CHAT_MODEL.task, LOCAL_CHAT_MODEL.id, {
-      dtype: LOCAL_CHAT_MODEL.dtype,
+    loadedModelId = model.id;
+    generatorPromise = pipeline(model.task, model.id, {
+      dtype: model.dtype,
       progress_callback,
     });
   }
   return generatorPromise;
 }
 
-/** pipeline() 失敗後に再試行できるよう、拒否済み Promise を捨てる。 */
+/** pipeline() 失敗後・プリセット切替時に再試行できるよう、拒否済み Promise を捨てる。 */
 export function clearLocalGeneratorCache() {
   generatorPromise = null;
+  loadedModelId = null;
 }
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
