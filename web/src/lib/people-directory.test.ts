@@ -103,6 +103,37 @@ describe("registerName / maskNames / unmaskNames", () => {
   });
 });
 
+describe("empty persist guard", () => {
+  it("空メモリからのpersistはディスク上の名簿を消さない", async () => {
+    const { mkdirSync, writeFileSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const secureDir = process.env.EM_SECURE_DATA_DIR!;
+    mkdirSync(secureDir, { recursive: true });
+    const path = join(secureDir, "people-directory.json");
+
+    const pd = await loadModule();
+    expect(pd.listPeople()).toEqual([]);
+
+    writeFileSync(
+      path,
+      JSON.stringify({ entries: [["花子さん", "PERSON_1"]], counter: 1, acknowledgedUnmasked: [] }),
+      "utf8",
+    );
+
+    pd.acknowledgeUnmaskedCandidates(["試験語"]);
+
+    expect(pd.unmaskNames("PERSON_1")).toBe("花子さん");
+    expect(JSON.parse(readFileSync(path, "utf8")).entries).toEqual([["花子さん", "PERSON_1"]]);
+  });
+
+  it("deletePersonで最後の1人を消した場合は空保存を許可する", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("花子さん");
+    expect(pd.deletePerson(id)).toBe(true);
+    expect(pd.listPeople()).toEqual([]);
+  });
+});
+
 describe("listPeople / getPersonId / deletePerson", () => {
   it("登録済みの人物を一覧できる", async () => {
     const pd = await loadModule();

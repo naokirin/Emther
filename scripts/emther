@@ -302,6 +302,43 @@ cmd_doctor() {
     doctor_warn "secure ディレクトリ未作成（初回 start で作成されます）"
   fi
 
+  # people-directory と業務データの整合（空の対応表だと UI で PERSON_n のまま残る）
+  local people_file="$SECURE_DIR/people-directory.json"
+  local people_bak="$SECURE_DIR/people-directory.json.bak"
+  if [[ -f "$people_file" || -f "$people_bak" ]]; then
+    local entry_count
+    entry_count="$(
+      node -e '
+        const fs = require("fs");
+        for (const p of process.argv.slice(1)) {
+          try {
+            const j = JSON.parse(fs.readFileSync(p, "utf8"));
+            const n = Array.isArray(j.entries) ? j.entries.length : 0;
+            if (n > 0) { console.log(n); process.exit(0); }
+          } catch {}
+        }
+        console.log(0);
+      ' "$people_file" "$people_bak" 2>/dev/null || echo 0
+    )"
+    if [[ "$entry_count" -gt 0 ]]; then
+      doctor_ok "people-directory に ${entry_count} 件の登録あり"
+    else
+      local has_person_refs=0
+      if [[ -d "$DATA_DIR" ]] && command -v grep >/dev/null 2>&1; then
+        if grep -R -E -q 'PERSON_[0-9]+' "$DATA_DIR" --include='*.json' 2>/dev/null; then
+          has_person_refs=1
+        fi
+      fi
+      if [[ "$has_person_refs" -eq 1 ]]; then
+        doctor_warn "people-directory が空ですが業務データに PERSON_n が残っています（UIで名前がマスクされたままになります。secure/people-directory.json.bak や emther backup からの復元を検討してください）"
+      else
+        doctor_ok "people-directory は空（業務データにも PERSON_n 参照なし）"
+      fi
+    fi
+  else
+    doctor_warn "people-directory.json 未作成（初回の人物登録で作成されます）"
+  fi
+
   # Port
   if command -v ss >/dev/null 2>&1; then
     if ss -ltn 2>/dev/null | grep -E ":${PORT}\\s" >/dev/null; then

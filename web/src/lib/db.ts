@@ -17,7 +17,10 @@ export function getDb(): DatabaseSync {
   // importし、開発サーバーが同じ.data/app.dbを開いたままの状態と鉢合わせすることがある。
   // busy_timeoutを設定し、一時的なロック競合では即座にエラーにせず数秒リトライさせる。
   db.exec("PRAGMA busy_timeout = 5000;");
+  // WAL: 書き込み中クラッシュしてもコミット済みトランザクションを失いにくい
+  // （JSON の atomicWrite と同趣旨の耐久性。JSON 配列ストアより耐障害性が高い）。
   db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA synchronous = NORMAL;");
   migrate(db);
   return db;
 }

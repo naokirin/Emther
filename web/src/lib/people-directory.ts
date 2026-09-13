@@ -20,7 +20,7 @@
 // 候補検出は allowUnmaskedCandidates / registerNameCandidates の明示オプトイン時だけ使う
 // （実装は name-candidate-detect＝mask-check と同系統）。
 
-import { loadSecureJSON, saveSecureJSON } from "@/lib/persistence";
+import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "@/lib/persistence";
 import { listTeams } from "@/lib/org-context-store";
 import { UnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { teamPathSegments } from "@/lib/types";
@@ -33,15 +33,49 @@ type PersistedState = {
   acknowledgedUnmasked?: string[];
 };
 
-const initial = loadSecureJSON<PersistedState>("people-directory.json", { entries: [], counter: 0 });
+const PEOPLE_DIRECTORY_FILE = "people-directory.json";
+
+const initial = loadSecureJSON<PersistedState>(PEOPLE_DIRECTORY_FILE, { entries: [], counter: 0 });
 
 const nameToId = new Map<string, string>(initial.entries);
 const idToName = new Map<string, string>(initial.entries.map(([name, id]) => [id, name]));
 let counter = initial.counter;
 const acknowledgedUnmasked = new Set<string>((initial.acknowledgedUnmasked ?? []).map((s) => s.trim()).filter(Boolean));
 
+/** deletePerson で最後の1人を消すなど、意図的に空へ落とすときだけ true。 */
+let allowEmptyPersist = false;
+
+function hydrateFromPersisted(state: PersistedState): void {
+  nameToId.clear();
+  idToName.clear();
+  for (const [name, id] of state.entries ?? []) {
+    if (!name || !id) continue;
+    nameToId.set(name, id);
+    if (!idToName.has(id)) idToName.set(id, name);
+  }
+  counter = typeof state.counter === "number" && state.counter >= 0 ? state.counter : idToName.size;
+  acknowledgedUnmasked.clear();
+  for (const raw of state.acknowledgedUnmasked ?? []) {
+    const trimmed = raw.trim();
+    if (trimmed) acknowledgedUnmasked.add(trimmed);
+  }
+}
+
 function persist(): void {
-  saveSecureJSON("people-directory.json", {
+  // ロード失敗→空 fallback のまま ack 等で persist すると名簿が消える。
+  // ディスク／.bak にエントリがあるのにメモリが空なら拒否してディスクから戻す。
+  if (nameToId.size === 0 && !allowEmptyPersist) {
+    const onDisk = peekSecureJSON<PersistedState>(PEOPLE_DIRECTORY_FILE);
+    const diskEntries = onDisk?.entries ?? [];
+    if (diskEntries.length > 0) {
+      console.error(
+        "[people-directory] refused to persist empty directory over non-empty on-disk state; reloading from disk/bak",
+      );
+      hydrateFromPersisted(onDisk!);
+      return;
+    }
+  }
+  saveSecureJSON(PEOPLE_DIRECTORY_FILE, {
     entries: Array.from(nameToId.entries()),
     counter,
     acknowledgedUnmasked: Array.from(acknowledgedUnmasked),
@@ -207,7 +241,12 @@ export function deletePerson(id: string): boolean {
   for (const [n, i] of nameToId.entries()) {
     if (i === id) nameToId.delete(n);
   }
-  persist();
+  allowEmptyPersist = nameToId.size === 0;
+  try {
+    persist();
+  } finally {
+    allowEmptyPersist = false;
+  }
   return true;
 }
 

@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -17,6 +18,10 @@ import { dirname, join } from "node:path";
 // EM_DATA_DIR / EM_SECURE_DATA_DIR はテスト・Docker・明示上書き用。
 // 呼び出しのたびに process.env を読むのは、テストがモジュールをリセットせずに
 // 環境変数だけを差し替えても正しく反映されるようにするため。
+//
+// JSON 書き込みは「.bak 退避 → .tmp へ書いて rename」で行い、OOM／強制終了で
+// 途中切れの不完全 JSON が本体になる事故と、その後の空 fallback→persist による
+// 二次消失を抑える（Knowledge/Issue 等の蓄積データを守る）。
 
 const APP_STATE_ROOT = join(homedir(), ".local", "state", "emther");
 const PREVIOUS_APP_STATE_ROOT = join(homedir(), ".local", "state", "em-ai-team");
@@ -169,20 +174,97 @@ export function getBackupDir(): string {
   return backupDir();
 }
 
+function readJsonFile<T>(path: string): T | undefined {
+  if (!existsSync(path)) return undefined;
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function loadJsonWithBackup<T>(dir: string, filename: string, fallback: T): T {
+  const primary = readJsonFile<T>(join(dir, filename));
+  if (primary !== undefined) return primary;
+  // 本体が無い／壊れているときは直前の .bak を試す（空 fallback→再保存で消すのを防ぐ）。
+  const backup = readJsonFile<T>(join(dir, `${filename}.bak`));
+  if (backup !== undefined) return backup;
+  return fallback;
+}
+
+/**
+ * 同一ディレクトリ内で原子的に JSON を差し替える。
+ * 1) 既存の健全な本体があれば .bak へコピー
+ * 2) .tmp に書いてから rename（途中 kill でも旧本体が残る）
+ */
+function atomicWriteJson(dir: string, filename: string, data: unknown, fileMode?: number): void {
+  ensureDir(dir, fileMode === 0o600 ? 0o700 : 0o755);
+  const path = join(dir, filename);
+  const bakPath = join(dir, `${filename}.bak`);
+  const tmpPath = join(dir, `${filename}.tmp`);
+  const payload = JSON.stringify(data, null, 2);
+
+  if (existsSync(path) && readJsonFile<unknown>(path) !== undefined) {
+    try {
+      copyFileSync(path, bakPath);
+      if (fileMode !== undefined) chmodSync(bakPath, fileMode);
+    } catch {
+      // バックアップ失敗でも本体の保存は試みる
+    }
+  }
+
+  writeFileSync(tmpPath, payload, "utf8");
+  if (fileMode !== undefined) chmodSync(tmpPath, fileMode);
+  renameSync(tmpPath, path);
+  if (fileMode !== undefined) chmodSync(path, fileMode);
+}
+
+/** ディスク上の現行（または .bak）を覗く。空上書きガード用。 */
+export function peekJSON<T>(filename: string): T | undefined {
+  try {
+    const dir = dataDir();
+    return readJsonFile<T>(join(dir, filename)) ?? readJsonFile<T>(join(dir, `${filename}.bak`));
+  } catch {
+    return undefined;
+  }
+}
+
+export function peekSecureJSON<T>(filename: string): T | undefined {
+  try {
+    const dir = secureDataDir();
+    return readJsonFile<T>(join(dir, filename)) ?? readJsonFile<T>(join(dir, `${filename}.bak`));
+  } catch {
+    return undefined;
+  }
+}
+
+export type SaveJsonOptions = {
+  /** true のとき、配列が空でも既存の非空配列を上書きしてよい（意図的クリア）。 */
+  allowEmpty?: boolean;
+};
+
+function shouldRefuseEmptyArrayOverwrite(filename: string, data: unknown, allowEmpty: boolean, peek: <T>(f: string) => T | undefined): boolean {
+  if (allowEmpty) return false;
+  if (!Array.isArray(data) || data.length > 0) return false;
+  const onDisk = peek<unknown>(filename);
+  return Array.isArray(onDisk) && onDisk.length > 0;
+}
+
 export function loadJSON<T>(filename: string, fallback: T): T {
   try {
-    const path = join(dataDir(), filename);
-    if (!existsSync(path)) return fallback;
-    return JSON.parse(readFileSync(path, "utf8")) as T;
+    return loadJsonWithBackup(dataDir(), filename, fallback);
   } catch {
     return fallback;
   }
 }
 
-export function saveJSON(filename: string, data: unknown): void {
+export function saveJSON(filename: string, data: unknown, opts: SaveJsonOptions = {}): void {
   try {
-    ensureDir(dataDir());
-    writeFileSync(join(dataDir(), filename), JSON.stringify(data, null, 2), "utf8");
+    if (shouldRefuseEmptyArrayOverwrite(filename, data, opts.allowEmpty === true, peekJSON)) {
+      console.error(`[persistence] refused to overwrite non-empty ${filename} with empty array`);
+      return;
+    }
+    atomicWriteJson(dataDir(), filename, data);
   } catch {
     // 永続化の失敗でアプリの動作自体は止めない（ベストエフォート）
   }
@@ -196,22 +278,20 @@ export function dataFilePath(filename: string): string {
 
 export function loadSecureJSON<T>(filename: string, fallback: T): T {
   try {
-    const path = join(secureDataDir(), filename);
-    if (!existsSync(path)) return fallback;
-    return JSON.parse(readFileSync(path, "utf8")) as T;
+    return loadJsonWithBackup(secureDataDir(), filename, fallback);
   } catch {
     return fallback;
   }
 }
 
-export function saveSecureJSON(filename: string, data: unknown): void {
+export function saveSecureJSON(filename: string, data: unknown, opts: SaveJsonOptions = {}): void {
   try {
-    ensureDir(secureDataDir(), 0o700);
-    const path = join(secureDataDir(), filename);
-    writeFileSync(path, JSON.stringify(data, null, 2), "utf8");
-    // writeFileSyncのmodeオプションはumaskの影響を受け、かつ既存ファイルの権限は
-    // 変更しないため、書き込みのたびに明示的にchmodして0600を保証する。
-    chmodSync(path, 0o600);
+    if (shouldRefuseEmptyArrayOverwrite(filename, data, opts.allowEmpty === true, peekSecureJSON)) {
+      console.error(`[persistence] refused to overwrite non-empty ${filename} with empty array`);
+      return;
+    }
+    // people-directory 等は所有者のみ読み書き（0600）。
+    atomicWriteJson(secureDataDir(), filename, data, 0o600);
   } catch {
     // 永続化の失敗でアプリの動作自体は止めない（ベストエフォート）
   }

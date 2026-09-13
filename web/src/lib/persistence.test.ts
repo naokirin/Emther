@@ -141,4 +141,47 @@ describe("loadSecureJSON / saveSecureJSON", () => {
     expect(existsSync(join(process.env.EM_DATA_DIR!, "b.json"))).toBe(false);
     expect(existsSync(join(process.env.EM_SECURE_DATA_DIR!, "a.json"))).toBe(false);
   });
+
+  it("上書き前に.bakを残し、破損した本体は.bakから復旧する", () => {
+    saveSecureJSON("people-directory.json", { entries: [["Aさん", "PERSON_1"]], counter: 1 });
+    saveSecureJSON("people-directory.json", {
+      entries: [
+        ["Aさん", "PERSON_1"],
+        ["Bさん", "PERSON_2"],
+      ],
+      counter: 2,
+    });
+    const path = join(process.env.EM_SECURE_DATA_DIR!, "people-directory.json");
+    const bak = join(process.env.EM_SECURE_DATA_DIR!, "people-directory.json.bak");
+    expect(existsSync(bak)).toBe(true);
+    expect(JSON.parse(readFileSync(bak, "utf8")).counter).toBe(1);
+
+    writeFileSync(path, "{ truncated", "utf8");
+    expect(loadSecureJSON("people-directory.json", { entries: [], counter: 0 })).toEqual({
+      entries: [["Aさん", "PERSON_1"]],
+      counter: 1,
+    });
+  });
+});
+
+describe("saveJSON durability", () => {
+  it("上書き前に.bakを残し、破損時は.bakから読む", () => {
+    saveJSON("issues.json", [{ id: "1" }]);
+    saveJSON("issues.json", [{ id: "1" }, { id: "2" }]);
+    const path = join(process.env.EM_DATA_DIR!, "issues.json");
+    const bak = join(process.env.EM_DATA_DIR!, "issues.json.bak");
+    expect(JSON.parse(readFileSync(bak, "utf8"))).toEqual([{ id: "1" }]);
+
+    writeFileSync(path, "not-json", "utf8");
+    expect(loadJSON("issues.json", [])).toEqual([{ id: "1" }]);
+  });
+
+  it("非空配列を空配列で上書きしない（allowEmptyで明示した場合のみ可）", () => {
+    saveJSON("teams.json", [{ id: "t1" }]);
+    saveJSON("teams.json", []);
+    expect(loadJSON("teams.json", null)).toEqual([{ id: "t1" }]);
+
+    saveJSON("teams.json", [], { allowEmpty: true });
+    expect(loadJSON("teams.json", null)).toEqual([]);
+  });
 });
