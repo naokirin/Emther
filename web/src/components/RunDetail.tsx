@@ -3,15 +3,23 @@
 import { useEffect, useRef } from "react";
 import styles from "@/app/page.module.css";
 import { IdLinkedText } from "@/components/IdLinkedText";
-import { IdFragmentLink } from "@/components/IdFragmentLink";
 import { MarkdownView } from "@/components/MarkdownView";
 import {
   issueTitleFromConclusion,
   YIELD_KIND_META,
-  ISSUE_PRIORITY_META,
   type IssuePriority,
   type YieldKind,
 } from "@/lib/types";
+import { listIssueCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
+import { YieldBlock } from "./run-detail/YieldBlock";
+import { ProposalBlock } from "./run-detail/ProposalBlock";
+import { SuggestedActionItemsBlock } from "./run-detail/SuggestedActionItemsBlock";
+import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
+import { SuggestedPriorityBlock } from "./run-detail/SuggestedPriorityBlock";
+import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
+import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
+
+export { listIssueCandidatesFromProposal, resolveYieldKind };
 
 // "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
 // CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
@@ -46,22 +54,6 @@ export type Proposal = {
   // 親なしの独立Issue候補（複数）。ある場合は issueTitle より優先して起票UIに出す。
   issueCandidates?: { title: string; rationale?: string }[];
 };
-
-/** proposal から起票タイトル候補を返す（issueCandidates優先、なければ issueTitle）。 */
-export function listIssueCandidatesFromProposal(
-  proposal?: Proposal | null,
-): { title: string; rationale?: string }[] {
-  if (!proposal) return [];
-  const fromArray = (proposal.issueCandidates ?? [])
-    .map((c) => ({
-      title: c.title.trim(),
-      ...(c.rationale?.trim() ? { rationale: c.rationale.trim() } : {}),
-    }))
-    .filter((c) => c.title.length > 0);
-  if (fromArray.length > 0) return fromArray;
-  const single = proposal.issueTitle?.trim();
-  return single ? [{ title: single }] : [];
-}
 
 export type SuggestedSubIssue = {
   title: string;
@@ -153,14 +145,6 @@ export function StatusBadge({ status, stale }: { status: AgentStatus; stale?: bo
       {meta.icon} {meta.label}
     </span>
   );
-}
-
-// docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。サーバー側（agent-runtime.ts）は
-// 既にkindを正規化して返すが、キャッシュされた古いrunデータ等との保険として同じ
-// フォールバック（options有無からdecide/informへ）をクライアント側にも持たせる。
-export function resolveYieldKind(kind: YieldKind | undefined, optionsLength: number): YieldKind {
-  if (kind) return kind;
-  return optionsLength === 0 ? "inform" : "decide";
 }
 
 // docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
@@ -269,350 +253,71 @@ export function ExecutionState({
   onDismissThemes?: () => void;
   themesSubmitting?: boolean;
 }) {
-  const CHARTER_FIELD_LABEL: Record<"why" | "what" | "how", string> = {
-    why: "Why（生む価値・誰のため・なぜ今か）",
-    what: "What（何を・どこまで・どのくらい・完了の定義）",
-    how: "How（どのように実現するか・前提や制約）",
-  };
   return (
     <>
       <p className={styles.contextText}>
         <strong>Context:</strong> <IdLinkedText text={run.task} />
       </p>
 
-      {run.status === "yield" && run.yieldRequest && (() => {
-        const kind = resolveYieldKind(run.yieldRequest.kind, run.yieldRequest.options.length);
-        const kindMeta = YIELD_KIND_META[kind];
-        return (
-        <div className={`${styles.yieldBlock} ${styles[kind]}`}>
-          <strong>
-            {kindMeta.icon} {kindMeta.label}: {kindMeta.description}
-          </strong>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-            <IdLinkedText text={run.yieldRequest.reason} />
-          </p>
-
-          {run.yieldRequest.options.map((opt) => (
-            <div
-              key={opt.id}
-              className={`${styles.option} ${selectedOptionId === opt.id ? styles.optionSelected : ""}`}
-              onClick={() => onSelectOption(opt.id)}
-              role="radio"
-              aria-checked={selectedOptionId === opt.id}
-              tabIndex={0}
-            >
-              <strong>
-                {selectedOptionId === opt.id ? "◉" : "○"} Option {opt.id}: <IdLinkedText text={opt.label} />
-              </strong>
-              {opt.detail && (
-                <div>
-                  <IdLinkedText text={opt.detail} />
-                </div>
-              )}
-              {opt.risk && (
-                <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                  ※Risk: <IdLinkedText text={opt.risk} />
-                </div>
-              )}
-            </div>
-          ))}
-
-          <div className={styles.yieldActions}>
-            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={!selectedOptionId || deciding} onClick={onConfirmOption}>
-              選択してStateを更新
-            </button>
-            <button className={styles.btnOutline} onClick={onFocusChat}>
-              別の案をチャットで壁打ち
-            </button>
-          </div>
-        </div>
-        );
-      })()}
+      {run.status === "yield" && run.yieldRequest && (
+        <YieldBlock
+          yieldRequest={run.yieldRequest}
+          selectedOptionId={selectedOptionId}
+          onSelectOption={onSelectOption}
+          onConfirmOption={onConfirmOption}
+          onFocusChat={onFocusChat}
+          deciding={deciding}
+        />
+      )}
 
       {run.status === "idle" && run.proposal && (
         <div className={styles.proposalBlock}>
-          <strong>✅ 結論</strong>
-          <p style={{ fontSize: "0.8125rem", marginTop: 4 }}>
-            <IdLinkedText text={run.proposal.conclusion} />
-          </p>
-
-          {run.proposal.facts.length > 0 && (
-            <>
-              <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
-              <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                {run.proposal.facts.map((f, i) => (
-                  <li key={i}>
-                    <IdLinkedText text={f} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
-            <IdLinkedText text={run.proposal.logic} />
-          </p>
-
-          {run.proposal.rejectedAlternatives.length > 0 && (
-            <>
-              <strong style={{ fontSize: "0.75rem" }}>棄却した代替案</strong>
-              {run.proposal.rejectedAlternatives.map((r, i) => (
-                <div key={i} style={{ fontSize: "0.75rem", marginTop: 4 }}>
-                  <strong>
-                    <IdLinkedText text={r.option} />
-                  </strong>
-                  <span style={{ color: "var(--text-muted)" }}>
-                    {" "}
-                    — <IdLinkedText text={r.reason} />
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-
-          {(() => {
-            const candidates = listIssueCandidatesFromProposal(run.proposal);
-            if (candidates.length <= 1) return null;
-            return (
-              <>
-                <strong style={{ fontSize: "0.75rem" }}>Issue化候補（親なし・独立）</strong>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 6px" }}>
-                  別介入として並列に切る案です。子Issue（分解）ではありません。起票する件は相談画面のチェックで選んでください。
-                </p>
-                <ul style={{ margin: "0 0 8px 18px", fontSize: "0.75rem" }}>
-                  {candidates.map((c, i) => (
-                    <li key={i}>
-                      <IdLinkedText text={c.title} />
-                      {c.rationale ? (
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {" "}
-                          — <IdLinkedText text={c.rationale} />
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            );
-          })()}
+          <ProposalBlock proposal={run.proposal} />
 
           {run.suggestedActionItems && run.suggestedActionItems.length > 0 && (
-            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
-              <strong>💡 AIが提案するAction Items</strong>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                採用すると先頭の1件が「次の一手」、残りは「あとでやる」に入ります。
-              </p>
-              <ul style={{ margin: "6px 0 8px 18px", fontSize: "0.75rem" }}>
-                {run.suggestedActionItems.map((item, i) => (
-                  <li key={i}>
-                    {i === 0 ? <strong>次の一手: </strong> : null}
-                    <IdLinkedText text={item} />
-                  </li>
-                ))}
-              </ul>
-              <div className={styles.yieldActions}>
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  disabled={actionItemsSubmitting}
-                  onClick={() => onAdoptActionItems?.(run.suggestedActionItems ?? [])}
-                >
-                  採用する（先頭を次の一手に）
-                </button>
-                <button className={styles.btnOutline} disabled={actionItemsSubmitting} onClick={onDismissActionItems}>
-                  却下する
-                </button>
-              </div>
-            </div>
+            <SuggestedActionItemsBlock
+              items={run.suggestedActionItems}
+              onAdopt={onAdoptActionItems}
+              onDismiss={onDismissActionItems}
+              submitting={actionItemsSubmitting}
+            />
           )}
 
           {run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
-            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
-              <strong>🔭 AIが提案する分解案（サブIssue）</strong>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                独自の Why/What/How を持つ別の介入として切り出す案です。この介入の「次の一手」なら Action Item のままにしてください。採用すると実際にサブIssueが作成されます（優先度も一緒に反映）。
-              </p>
-              <ul style={{ margin: "6px 0 8px 18px", fontSize: "0.75rem" }}>
-                {run.suggestedSubIssues.map((item, i) => {
-                  const p = item.priority ? ISSUE_PRIORITY_META[item.priority] : undefined;
-                  return (
-                    <li key={i}>
-                      <IdLinkedText text={item.title} />
-                      {p ? (
-                        <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>
-                          {p.icon} {p.label}
-                        </span>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className={styles.yieldActions}>
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  disabled={subIssuesSubmitting}
-                  onClick={() => onAdoptSubIssues?.(run.suggestedSubIssues ?? [])}
-                >
-                  採用してサブIssueを作成
-                </button>
-                <button className={styles.btnOutline} disabled={subIssuesSubmitting} onClick={onDismissSubIssues}>
-                  却下する
-                </button>
-              </div>
-            </div>
+            <SuggestedSubIssuesBlock
+              items={run.suggestedSubIssues}
+              onAdopt={onAdoptSubIssues}
+              onDismiss={onDismissSubIssues}
+              submitting={subIssuesSubmitting}
+            />
           )}
 
           {run.suggestedPriority && (
-            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
-              <strong>🔥 AIが提案する優先度</strong>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                今週〜今月の介入ポートフォリオ上の位置づけです。採用するとIssueの優先度に反映されます。
-              </p>
-              <p style={{ fontSize: "0.8125rem", marginTop: 6 }}>
-                {ISSUE_PRIORITY_META[run.suggestedPriority].icon} {ISSUE_PRIORITY_META[run.suggestedPriority].label}
-                <span style={{ color: "var(--text-muted)", marginLeft: 8 }}>
-                  — {ISSUE_PRIORITY_META[run.suggestedPriority].hint}
-                </span>
-              </p>
-              <div className={styles.yieldActions}>
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  disabled={prioritySubmitting}
-                  onClick={() => onAdoptPriority?.(run.suggestedPriority!)}
-                >
-                  採用して優先度に反映
-                </button>
-                <button className={styles.btnOutline} disabled={prioritySubmitting} onClick={onDismissPriority}>
-                  却下する
-                </button>
-              </div>
-            </div>
+            <SuggestedPriorityBlock
+              priority={run.suggestedPriority}
+              onAdopt={onAdoptPriority}
+              onDismiss={onDismissPriority}
+              submitting={prioritySubmitting}
+            />
           )}
 
           {run.suggestedCharter && Object.keys(run.suggestedCharter).length > 0 && (
-            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
-              <strong>📝 AIが提案するWhy/What/How</strong>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                未整理だった項目の埋め合わせ案です。採用すると、この項目だけIssueのWhy/What/Howに反映されます（既に書かれている項目は上書きしません）。
-              </p>
-              {(["why", "what", "how"] as const).map(
-                (key) =>
-                  run.suggestedCharter?.[key] && (
-                    <div key={key} style={{ fontSize: "0.75rem", marginTop: 6 }}>
-                      <strong>{CHARTER_FIELD_LABEL[key]}</strong>
-                      <p style={{ margin: "2px 0 0" }}>
-                        <IdLinkedText text={run.suggestedCharter[key]!} />
-                      </p>
-                    </div>
-                  ),
-              )}
-              <div className={styles.yieldActions}>
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  disabled={charterSubmitting}
-                  onClick={() => onAdoptCharter?.(run.suggestedCharter ?? {})}
-                >
-                  採用してWhy/What/Howに反映
-                </button>
-                <button className={styles.btnOutline} disabled={charterSubmitting} onClick={onDismissCharter}>
-                  却下する
-                </button>
-              </div>
-            </div>
+            <SuggestedCharterBlock
+              charter={run.suggestedCharter}
+              onAdopt={onAdoptCharter}
+              onDismiss={onDismissCharter}
+              submitting={charterSubmitting}
+            />
           )}
 
           {run.suggestedThemes && run.suggestedThemes.length > 0 && (
-            <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
-              <strong>🧭 AIが提案するテーマ解釈（状況蒸留）</strong>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-                組織の上段課題の見立てです。採用すると今日タブの「現在の優先テーマ」になり、Issue壁打ちの前提に入ります。誤りや不足はチャットで壁打ちしてから再提案させるか、採用後に詳細から編集できます。
-              </p>
-              {run.suggestedThemes.map((theme, i) => (
-                <div key={i} style={{ fontSize: "0.75rem", marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                  <strong>
-                    <IdLinkedText text={theme.title} />
-                  </strong>
-                  <p style={{ margin: "4px 0" }}>
-                    <IdLinkedText text={theme.summary} />
-                  </p>
-                  <strong style={{ display: "block", marginTop: 4 }}>なぜこの結果に至ったか</strong>
-                  <p style={{ color: "var(--text-muted)", margin: "2px 0 4px" }}>
-                    <IdLinkedText text={theme.rationale} />
-                  </p>
-                  {theme.facts.length > 0 && (
-                    <ul style={{ margin: "4px 0 4px 16px" }}>
-                      {theme.facts.map((f, fi) => (
-                        <li key={fi}>
-                          <IdLinkedText text={f} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {theme.rootCause && (
-                    <p style={{ margin: "4px 0" }}>
-                      <strong>根本原因: </strong>
-                      <IdLinkedText text={theme.rootCause} />
-                    </p>
-                  )}
-                  {theme.suggestedDirection && (
-                    <p style={{ margin: "4px 0" }}>
-                      <strong>解決の方向性: </strong>
-                      <IdLinkedText text={theme.suggestedDirection} />
-                    </p>
-                  )}
-                  {(theme.evidenceIssueIds?.length || theme.evidenceJournalIds?.length) ? (
-                    <div style={{ marginTop: 6 }}>
-                      {theme.evidenceIssueIds && theme.evidenceIssueIds.length > 0 && (
-                        <p style={{ margin: "2px 0" }}>
-                          <strong>根拠 Issue: </strong>
-                          {theme.evidenceIssueIds.map((id, ii) => (
-                            <span key={id}>
-                              {ii > 0 ? "、" : ""}
-                              <IdFragmentLink fragment={id} className={styles.idFragmentLink}>
-                                {id.slice(0, 8)}
-                              </IdFragmentLink>
-                            </span>
-                          ))}
-                        </p>
-                      )}
-                      {theme.evidenceJournalIds && theme.evidenceJournalIds.length > 0 && (
-                        <p style={{ margin: "2px 0" }}>
-                          <strong>根拠 Journal: </strong>
-                          {theme.evidenceJournalIds.map((id, ii) => (
-                            <span key={id}>
-                              {ii > 0 ? "、" : ""}
-                              <IdFragmentLink fragment={id} className={styles.idFragmentLink}>
-                                {id.slice(0, 8)}
-                              </IdFragmentLink>
-                            </span>
-                          ))}
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-              <div className={styles.yieldActions}>
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  disabled={themesSubmitting}
-                  onClick={() => onAdoptThemes?.()}
-                >
-                  採用してテーマにする
-                </button>
-                <button className={styles.btnOutline} disabled={themesSubmitting} onClick={onDismissThemes}>
-                  却下する
-                </button>
-                <button className={styles.btnOutline} onClick={onFocusChat}>
-                  壁打ちで訂正する
-                </button>
-              </div>
-            </div>
+            <SuggestedThemesBlock
+              themes={run.suggestedThemes}
+              onAdopt={onAdoptThemes}
+              onDismiss={onDismissThemes}
+              submitting={themesSubmitting}
+              onFocusChat={onFocusChat}
+            />
           )}
         </div>
       )}
