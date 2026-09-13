@@ -3,28 +3,13 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { CopilotChat, ExecutionState, listIssueCandidatesFromProposal, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
-import { ConsultHistoryItem } from "@/components/ConsultHistoryItem";
-import { OriginTrace } from "@/components/OriginTrace";
-import { IdLinkedText } from "@/components/IdLinkedText";
-import { PageTitleRow } from "@/components/HelpLink";
+import { listIssueCandidatesFromProposal, type AgentRun } from "@/components/RunDetail";
+import { ChatHistoryPanel } from "@/components/chat/ChatHistoryPanel";
+import { ConsultReviewPanel } from "@/components/chat/ConsultReviewPanel";
+import { NewConsultForm } from "@/components/chat/NewConsultForm";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { isRunStale, truncateForTitle } from "@/lib/types";
-import { journalExcerptFromTask } from "@/lib/origin-trace";
-
-const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
-  manual: "",
-  "auto-anomaly": "Journal自動分析",
-  "auto-summary": "朝のサマリー",
-  "auto-issue-update": "Issue更新分析",
-  "auto-distill": "状況蒸留",
-};
-
-const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {
-  watching: "👀 様子見",
-  dismissed: "却下",
-};
+import { isRunStale } from "@/lib/types";
 
 // docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、
 // 質問ができるチャットを用意する」への対応。特定のIssueに紐付けないLead Agentのrunを
@@ -143,7 +128,6 @@ function ChatPageInner() {
 
   function clearHistorySelection() {
     setSelectedId(null);
-    setStartError(null);
     replaceChatQuery((params) => {
       params.delete("runId");
     });
@@ -170,377 +154,52 @@ function ChatPageInner() {
     document.getElementById(`chat-history-${selectedId}`)?.scrollIntoView({ block: "nearest" });
   }, [selectedId, chatHistoryLoaded, historyRuns.length]);
 
-  // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
-  // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
-  const [task, setTask] = useState(searchParams.get("prefill") ?? "");
-  const [requireExecConsult, setRequireExecConsult] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState<string | null>(null);
-
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const [deciding, setDeciding] = useState(false);
-  const [decideError, setDecideError] = useState<string | null>(null);
-
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewError, setReviewError] = useState<string | null>(null);
   // 複数候補時のチェック状態。run切り替えで null に戻し、そのときは全選択扱い。
+  // selectHistoryRunが明示的にリセットする既存の挙動を保つため、ConsultReviewPanel側に
+  // 移さずここに残している。
   const [candidatePick, setCandidatePick] = useState<{ runId: string; selected: boolean[] } | null>(null);
   const queryJournalId = searchParams.get("journalId");
   const { entry: sourceJournal } = useJournalEntry(selectedRun?.sourceJournalId);
 
   const issueCandidates = listIssueCandidatesFromProposal(selectedRun?.proposal);
-  const candidateSelectedFlags =
-    selectedRun && candidatePick?.runId === selectedRun.id && candidatePick.selected.length === issueCandidates.length
-      ? candidatePick.selected
-      : issueCandidates.map(() => true);
-  const selectedCandidateTitles = issueCandidates
-    .filter((_, i) => candidateSelectedFlags[i])
-    .map((c) => c.title);
 
-  function toggleCandidate(index: number) {
-    if (!selectedRun) return;
-    const next = [...candidateSelectedFlags];
-    next[index] = !next[index];
-    setCandidatePick({ runId: selectedRun.id, selected: next });
-  }
-
-  async function handlePromoteToIssue() {
-    if (!selectedRun) return;
-    const titles =
-      issueCandidates.length > 1
-        ? selectedCandidateTitles
-        : issueCandidates.length === 1
-          ? [issueCandidates[0].title]
-          : [runFallbackTitle(selectedRun)];
-    if (titles.length === 0) {
-      setReviewError("起票する候補を1件以上選んでください");
-      return;
-    }
-    setReviewSubmitting(true);
-    setReviewError(null);
-    try {
-      const createdIds: string[] = [];
-      for (let i = 0; i < titles.length; i++) {
-        const title = truncateForTitle(titles[i]);
-        // 先頭だけ agentRunId を付けて Run レビュー／Journal 単数紐付け。以降は sourceRunId のみ（親なし独立Issue）。
-        const body =
-          i === 0
-            ? { title, agentRunId: selectedRun.id }
-            : {
-                title,
-                sourceRunId: selectedRun.id,
-                ...(selectedRun.sourceJournalId ? { sourceJournalId: selectedRun.sourceJournalId } : {}),
-              };
-        const { res, data } = await fetchWithNameConfirm("/api/issues", { method: "POST", body }, "保存する");
-        if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "Issue化に失敗しました");
-        createdIds.push((data as { issue: { id: string } }).issue.id);
-      }
-      await refreshIssues();
-      setCandidatePick(null);
-      if (createdIds.length === 1) {
-        router.push(`/issues/${createdIds[0]}`);
-      } else {
-        router.push("/issues");
-      }
-    } catch (err) {
-      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
-        setReviewError((err as Error).message);
-      }
-    } finally {
-      setReviewSubmitting(false);
-    }
-  }
-
-  async function handleTriage(status: "watching" | "dismissed") {
-    if (!selectedRun) return;
-    setReviewSubmitting(true);
-    setReviewError(null);
-    try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ triageStatus: status }),
-      });
-      if (!res.ok) throw new Error("記録に失敗しました");
-      await refreshRuns();
-    } catch (err) {
-      setReviewError((err as Error).message);
-    } finally {
-      setReviewSubmitting(false);
-    }
-  }
-
-  async function handleStartNew(e: React.FormEvent) {
-    e.preventDefault();
-    if (!task.trim()) return;
-    setStarting(true);
-    setStartError(null);
-    try {
-      const { res, data } = await fetchWithNameConfirm(
-        "/api/agents",
-        {
-          method: "POST",
-          body: {
-            agentName: "Lead Agent",
-            task,
-            sourceJournalId: queryJournalId || undefined,
-            requireExecConsult: requireExecConsult || undefined,
-          },
-        },
-        "送信する",
-      );
-      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
-      setTask("");
-      setRequireExecConsult(false);
-      selectHistoryRun((data as { run: { id: string } }).run.id);
-      await refreshRuns();
-    } catch (err) {
-      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
-        setStartError((err as Error).message);
-      }
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  async function sendDecision(text: string) {
-    if (!selectedRun || !text.trim()) return;
-    setDeciding(true);
-    setDecideError(null);
-    try {
-      const { res, data } = await fetchWithNameConfirm(
-        `/api/agents/${selectedRun.id}/decide`,
-        { method: "POST", body: { message: text } },
-        "送信する",
-      );
-      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "送信に失敗しました");
-      setMessage("");
-      setSelectedOptionId(null);
-      await refreshRuns();
-    } catch (err) {
-      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
-        setDecideError((err as Error).message);
-      }
-    } finally {
-      setDeciding(false);
-    }
-  }
-
-  function handleConfirmOption() {
-    if (!selectedRun || !selectedOptionId) return;
-    const opt = selectedRun.yieldRequest?.options.find((o) => o.id === selectedOptionId);
-    if (!opt) return;
-    sendDecision(`Option ${opt.id}（${opt.label}）を採用します。この方針で進めてください。`);
-  }
-
-  function handleFocusChat() {
-    document.getElementById("chat-page-input")?.focus();
-  }
-
-  const [themesSubmitting, setThemesSubmitting] = useState(false);
-
-  async function handleAdoptThemes() {
-    if (!selectedRun) return;
-    setThemesSubmitting(true);
-    setDecideError(null);
-    try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/themes`, { method: "POST" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "テーマの採用に失敗しました");
-      await refreshRuns();
-    } catch (err) {
-      setDecideError((err as Error).message);
-    } finally {
-      setThemesSubmitting(false);
-    }
-  }
-
-  async function handleDismissThemes() {
-    if (!selectedRun) return;
-    setThemesSubmitting(true);
-    setDecideError(null);
-    try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/themes`, { method: "DELETE" });
-      if (!res.ok) throw new Error("テーマ提案の却下に失敗しました");
-      await refreshRuns();
-    } catch (err) {
-      setDecideError((err as Error).message);
-    } finally {
-      setThemesSubmitting(false);
-    }
+  async function handleConsultStarted(runId: string) {
+    selectHistoryRun(runId);
+    await refreshRuns();
   }
 
   return (
     <div className={`${styles.layout} ${styles.screen}`}>
-      <div className={styles.panel}>
-        <PageTitleRow title="相談履歴" helpAnchor="chat" />
-        <button className={styles.primaryBtn} onClick={clearHistorySelection}>
-          ＋ 新しい相談を始める
-        </button>
-        <div className={styles.runList}>
-          {historyRuns.length === 0 && (
-            <p className={styles.subtitle}>{!chatHistoryLoaded ? "読み込み中…" : "まだ相談履歴はありません。"}</p>
-          )}
-          {pinError && (
-            <p className={styles.errorText} role="alert">
-              {pinError}
-            </p>
-          )}
-          {historyRuns.map((r) => (
-            <ConsultHistoryItem
-              key={r.id}
-              run={r}
-              selected={selectedId === r.id}
-              stale={staleRunIds.has(r.id)}
-              onSelect={() => selectHistoryRun(r.id)}
-            />
-          ))}
-        </div>
-      </div>
+      <ChatHistoryPanel
+        historyRuns={historyRuns}
+        selectedId={selectedId}
+        staleRunIds={staleRunIds}
+        chatHistoryLoaded={chatHistoryLoaded}
+        pinError={pinError}
+        onSelect={selectHistoryRun}
+        onNewConsult={clearHistorySelection}
+      />
 
       <div className={styles.panel}>
         {selectedRun ? (
-          <>
-            <h2>Lead Agentへの相談</h2>
-            <OriginTrace
-              journals={
-                sourceJournal
-                  ? [sourceJournal]
-                  : selectedRun.sourceJournalId
-                    ? [
-                        {
-                          id: selectedRun.sourceJournalId,
-                          rawText: journalExcerptFromTask(selectedRun.task) ?? "",
-                        },
-                      ]
-                    : journalExcerptFromTask(selectedRun.task)
-                      ? [
-                          {
-                            id: "",
-                            rawText: journalExcerptFromTask(selectedRun.task) ?? "",
-                          },
-                        ]
-                      : []
-              }
-            />
-            <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
-              {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
-                <>
-                  <strong>📋 ドラフトIssue（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
-                </>
-              )}
-              {selectedRun.triageStatus && (
-                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                  {TRIAGE_LABEL[selectedRun.triageStatus]}
-                </p>
-              )}
-              <div className={styles.yieldActions}>
-                {issueCandidates.length > 1 && (
-                  <div style={{ width: "100%", marginBottom: 8 }}>
-                    <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
-                      AIが親なしの独立Issue候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
-                    </p>
-                    <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                      {issueCandidates.map((c, i) => (
-                        <li key={`${c.title}-${i}`} style={{ marginBottom: 4 }}>
-                          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.8125rem", cursor: "pointer" }}>
-                            <input
-                              type="checkbox"
-                              checked={candidateSelectedFlags[i] ?? false}
-                              onChange={() => toggleCandidate(i)}
-                              disabled={reviewSubmitting}
-                              style={{ marginTop: 3 }}
-                            />
-                            <span>
-                              <IdLinkedText text={c.title} />
-                              {c.rationale ? (
-                                <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.75rem" }}>
-                                  <IdLinkedText text={c.rationale} />
-                                </span>
-                              ) : null}
-                            </span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <button
-                  className={styles.primaryBtn}
-                  style={{ width: "auto" }}
-                  disabled={reviewSubmitting || (issueCandidates.length > 1 && selectedCandidateTitles.length === 0)}
-                  onClick={handlePromoteToIssue}
-                >
-                  {issueCandidates.length > 1
-                    ? `📌 選択した${selectedCandidateTitles.length}件をIssueにする`
-                    : "📌 Issueにする"}
-                </button>
-                <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
-                  👀 様子見
-                </button>
-                <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
-                  却下する（対応不要）
-                </button>
-              </div>
-              {reviewError && <p className={styles.errorText} role="alert">{reviewError}</p>}
-            </div>
-            <ExecutionState
-              run={selectedRun}
-              selectedOptionId={selectedOptionId}
-              onSelectOption={setSelectedOptionId}
-              onConfirmOption={handleConfirmOption}
-              onFocusChat={handleFocusChat}
-              deciding={deciding}
-              stale={staleRunIds.has(selectedRun.id)}
-              onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
-              onAdoptThemes={handleAdoptThemes}
-              onDismissThemes={handleDismissThemes}
-              themesSubmitting={themesSubmitting}
-            />
-            <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />
-            <CopilotChat run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="chat-page-input" />
-            {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
-          </>
+          <ConsultReviewPanel
+            selectedRun={selectedRun}
+            sourceJournal={sourceJournal}
+            issueCandidates={issueCandidates}
+            candidatePick={candidatePick}
+            setCandidatePick={setCandidatePick}
+            stale={staleRunIds.has(selectedRun.id)}
+            fetchWithNameConfirm={fetchWithNameConfirm}
+            refreshRuns={refreshRuns}
+            refreshIssues={refreshIssues}
+          />
         ) : (
-          <>
-            <PageTitleRow title="何でも相談" helpAnchor="chat" />
-            <form onSubmit={handleStartNew}>
-              <div className={styles.field}>
-                <label>相談したいこと
-                <textarea
-                  value={task}
-                  onChange={(e) => setTask(e.target.value)}
-                  rows={3}
-                  placeholder="例: 最近チーム全体の元気度が心配。何を確認すればいい？"
-                /></label>
-              </div>
-              <label
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "flex-start",
-                  fontSize: "0.8125rem",
-                  marginBottom: 12,
-                  cursor: "pointer",
-                }}
-                title="Leadが組織MVV・中長期コミットの視点でExec Agentへ必須相談します"
-              >
-                <input
-                  type="checkbox"
-                  checked={requireExecConsult}
-                  onChange={(e) => setRequireExecConsult(e.target.checked)}
-                  disabled={starting}
-                  style={{ marginTop: 3 }}
-                />
-                <span>経営／役員目線の厳しいレビューも聞く</span>
-              </label>
-              <button className={styles.primaryBtn} type="submit" disabled={starting || !task.trim()}>
-                {starting ? "開始中…" : "相談を始める"}
-              </button>
-            </form>
-            {startError && <p className={styles.errorText} role="alert">{startError}</p>}
-          </>
+          <NewConsultForm
+            initialTask={searchParams.get("prefill") ?? ""}
+            queryJournalId={queryJournalId}
+            fetchWithNameConfirm={fetchWithNameConfirm}
+            onStarted={handleConsultStarted}
+          />
         )}
       </div>
       {nameCandidateDialog}
