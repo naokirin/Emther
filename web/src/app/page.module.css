@@ -2498,16 +2498,20 @@
 }
 
 /* ---------- 方針・目標 > つながりを見る（/org/thread） ---------- */
+/* Objective › KR › Issue › Journal の階層差を、字サイズ・ウェイト・余白で明示する。
+   インデントだけでは切れ目が読めないため、見出し行ごとに十分な上下マージンを取る。 */
 .threadTree {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 
 .threadObjective {
-  padding: 10px 0;
+  padding: 18px 0 14px;
 }
 
 .threadObjective + .threadObjective {
   border-top: 1px solid var(--border);
+  margin-top: 6px;
 }
 
 .threadObjectiveHeader {
@@ -2516,24 +2520,95 @@
   justify-content: space-between;
   gap: 12px;
   cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.threadObjectiveTitle {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.threadObjectiveMeta {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .threadKr {
-  margin: 8px 0 0 18px;
-  padding-left: 12px;
+  margin: 16px 0 0 18px;
+  padding: 2px 0 6px 14px;
   border-left: 2px solid var(--border);
+}
+
+.threadKr + .threadKr {
+  margin-top: 20px;
+  padding-top: 4px;
+}
+
+.threadKrHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.threadKrTitle {
+  font-size: 0.975rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+  white-space: pre-wrap;
 }
 
 .threadIssue {
-  margin: 6px 0 0 18px;
-  padding-left: 12px;
+  margin: 12px 0 0 18px;
+  padding: 2px 0 4px 14px;
   border-left: 2px solid var(--border);
 }
 
+.threadIssue + .threadIssue {
+  margin-top: 14px;
+}
+
+.threadIssueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.threadIssueTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .threadJournal {
-  margin: 4px 0 0 18px;
-  padding-left: 12px;
+  margin: 8px 0 0 18px;
+  padding: 2px 0 2px 14px;
   border-left: 2px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.threadJournal + .threadJournal {
+  margin-top: 6px;
+}
+
+.threadEmptyHint {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 

@@ -91,15 +91,15 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                 }
               }}
             >
-              <strong style={{ whiteSpace: "pre-wrap" }}>🎯 {o.title}</strong>
-              <span className={styles.subtitle} style={{ margin: 0 }}>
+              <h3 className={styles.threadObjectiveTitle}>🎯 {o.title}</h3>
+              <span className={styles.threadObjectiveMeta}>
                 {o.keyResults.length} KR ・ {totalIssues} Issue {isOpen ? "▾" : "▸"}
               </span>
             </div>
             {isOpen && (
               <>
                 {o.keyResults.length === 0 && (
-                  <p className={styles.subtitle} style={{ marginLeft: 18 }}>
+                  <p className={styles.threadEmptyHint} style={{ marginLeft: 18 }}>
                     KeyResultが未登録です。
                   </p>
                 )}
@@ -108,25 +108,23 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                   const krIssues = issuesForKeyResult(issues, kr.id);
                   return (
                     <div key={kr.id} className={styles.threadKr}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <span style={{ whiteSpace: "pre-wrap" }}>📈 {kr.title}</span>
+                      <div className={styles.threadKrHeader}>
+                        <span className={styles.threadKrTitle}>📈 {kr.title}</span>
                         <div style={{ maxWidth: 160, flexShrink: 0 }}>
                           <ProgressBar done={progress?.done ?? 0} total={progress?.total ?? 0} />
                         </div>
                       </div>
                       {krIssues.length === 0 ? (
-                        <p className={styles.subtitle} style={{ margin: "4px 0 0" }}>
-                          このKey Resultに紐づくIssueはまだありません。
-                        </p>
+                        <p className={styles.threadEmptyHint}>このKey Resultに紐づくIssueはまだありません。</p>
                       ) : (
                         krIssues.map((issue) => {
                           const journals = journalsForIssue(journalEntries, issue);
                           return (
                             <div key={issue.id} className={styles.threadIssue}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                              <div className={styles.threadIssueHeader}>
                                 <Link
                                   href={`/issues/${issue.id}`}
-                                  className={styles.tableRowLink}
+                                  className={`${styles.tableRowLink} ${styles.threadIssueTitle}`}
                                   style={{ display: "inline", width: "auto" }}
                                 >
                                   🗂 {issue.title}
@@ -134,9 +132,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                                 <IssueStatusBadge status={issue.status} />
                               </div>
                               {journals.length === 0 ? (
-                                <p className={styles.subtitle} style={{ margin: "2px 0 0" }}>
-                                  このIssueに紐づくJournalはまだありません。
-                                </p>
+                                <p className={styles.threadEmptyHint}>このIssueに紐づくJournalはまだありません。</p>
                               ) : (
                                 <>
                                   {journals.slice(0, JOURNAL_PER_ISSUE_LIMIT).map((j) => (
@@ -151,9 +147,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                                     </div>
                                   ))}
                                   {journals.length > JOURNAL_PER_ISSUE_LIMIT && (
-                                    <p className={styles.threadJournal} style={{ margin: "2px 0 0" }}>
-                                      他 {journals.length - JOURNAL_PER_ISSUE_LIMIT} 件
-                                    </p>
+                                    <p className={styles.threadJournal}>他 {journals.length - JOURNAL_PER_ISSUE_LIMIT} 件</p>
                                   )}
                                 </>
                               )}
