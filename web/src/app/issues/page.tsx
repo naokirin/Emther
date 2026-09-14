@@ -3,12 +3,8 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { IssueBoard } from "@/components/IssueBoard";
-import { IssueScoreGapsView } from "@/components/IssueScoreGapsView";
 import { SlideOver } from "@/components/SlideOver";
-import { IssueCreateDialog } from "@/components/issues/IssueCreateDialog";
 import { IssueFilterBar, type IssueViewMode } from "@/components/issues/IssueFilterBar";
-import { IssueTriageToolbar } from "@/components/issues/IssueTriageToolbar";
 import { IssueListTable } from "@/components/issues/IssueListTable";
 import { IssueActionsTable } from "@/components/issues/IssueActionsTable";
 import { UnlinkedRunsPanel } from "@/components/issues/UnlinkedRunsPanel";
@@ -27,8 +23,9 @@ import {
 
 const ISSUES_PAGE_SIZE = 8;
 
-// Issue一覧画面。起票は一般的なIssue管理サービスと同様、一覧上の「＋ 新しいIssue」ボタンから
-// ダイアログを開いて行う（画面遷移しない）。Issueを選ぶと/issues/[id]の詳細画面に遷移する。
+// Issue一覧画面。docs/2nd_pivot_version.md Phase 2.2対応。手動起票（「＋新しいIssue」）は
+// 廃止し、Issue化はAI提案の承認（/chatのConsultReviewPanel）経路のみに一本化した。
+// Issueを選ぶと/issues/[id]の詳細画面に遷移する。
 export default function IssuesPage() {
   return (
     <Suspense fallback={null}>
@@ -58,9 +55,7 @@ function IssuesPageInner() {
 
   // docs/em_ui_ux_issue.md 4節「ビューの切り替え機能」対応。
   // Action Itemsビュー: Issue横断で「次の一手」だけを優先度順に捌く（週〜月の見通し）。
-  // スコア差ビュー: 優先スコアの長さと隣との差で取り方を補佐する。
   const [viewMode, setViewMode] = useState<IssueViewMode>("list");
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
@@ -68,11 +63,8 @@ function IssuesPageInner() {
   // 並びは compareIssuesByPriority（フォーカス → 通常 → 保留、フォーカス内は focusOrder）。
   const [statusFilter, setStatusFilter] = useState<"open" | "active" | "all" | IssueStatus>("open");
   const [priorityFilter, setPriorityFilter] = useState<"all" | IssuePriority>("all");
-  // ボード: 子Issueを自身のステータス列へ独立カードとして出すか。
-  const [showChildIssuesOnBoard, setShowChildIssuesOnBoard] = useState(false);
 
   // アーカイブ済みは既定で隠す（docs/memo.md TODO対応）。EMが明示的にトグルした場合のみ表示する。
-  // リストはトップレベルを主行とし、展開時の子／ボードの子トグルも同じフィルタを通す。
   const archivedCount = issues.filter((i) => !i.parentId && i.archived).length;
 
   function matchesIssueFilters(i: Issue): boolean {
@@ -99,14 +91,6 @@ function IssuesPageInner() {
     .filter(matchesIssueFilters)
     .slice()
     .sort(compareIssuesByPriority);
-  const filteredChildIssues = issues
-    .filter((i) => !!i.parentId)
-    .filter(matchesIssueFilters)
-    .slice()
-    .sort(compareIssuesByPriority);
-  const boardIssues = showChildIssuesOnBoard
-    ? [...filteredIssues, ...filteredChildIssues].slice().sort(compareIssuesByPriority)
-    : filteredIssues;
   const issuesPagination = usePagination(filteredIssues, ISSUES_PAGE_SIZE);
 
   return (
@@ -119,7 +103,6 @@ function IssuesPageInner() {
         <IssueFilterBar
           viewMode={viewMode}
           setViewMode={setViewMode}
-          onOpenCreateDialog={() => setDialogOpen(true)}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           archivedCount={archivedCount}
@@ -132,40 +115,15 @@ function IssuesPageInner() {
           tagFilter={tagFilter}
           setTagFilter={setTagFilter}
           allTags={allTags}
-          showChildIssuesOnBoard={showChildIssuesOnBoard}
-          setShowChildIssuesOnBoard={setShowChildIssuesOnBoard}
-          filteredChildIssuesCount={filteredChildIssues.length}
         />
 
-        <IssueTriageToolbar
-          issues={issues}
-          themes={themes}
-          objectives={objectives}
-          refreshIssues={refreshIssues}
-          onPeekOpen={peek.open}
-        />
-
-        {viewMode === "board" ? (
-          <IssueBoard
-            issues={boardIssues}
-            allIssues={issues}
-            now={now}
-            staleInterventionDays={rules.staleInterventionDays}
-            onSelect={(id) => peek.open(id)}
-          />
-        ) : viewMode === "actions" ? (
+        {viewMode === "actions" ? (
           <IssueActionsTable
             issuesLoaded={issuesLoaded}
             filteredIssues={filteredIssues}
             refreshIssues={refreshIssues}
             onPeekOpen={peek.open}
           />
-        ) : viewMode === "gaps" ? (
-          !issuesLoaded ? (
-            <p className={styles.subtitle}>読み込み中…</p>
-          ) : (
-            <IssueScoreGapsView issues={filteredIssues} onSelect={(id) => peek.open(id)} />
-          )
         ) : (
           <IssueListTable
             issuesPagination={issuesPagination}
@@ -194,16 +152,6 @@ function IssuesPageInner() {
         refreshRuns={refreshRuns}
         onNavigateChat={(runId) => router.push(`/chat?runId=${runId}`)}
         onNavigateIssue={(issueId) => router.push(`/issues/${issueId}`)}
-      />
-
-      <IssueCreateDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        runs={runs}
-        teams={teams}
-        themes={themes}
-        objectives={objectives}
-        onCreated={(issueId) => router.push(`/issues/${issueId}`)}
       />
 
       {peek.id &&

@@ -63,8 +63,8 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 #### Phase 2.1 — ダッシュボードのIssueグルーミング誘導を止める（完了）
 `dashboard-next-actions.ts`から、EMにIssueの構造を手入れさせる方向の次アクションを外した。「Issue未整理」「次の一手未設定」カードを削除、`issueNeedsCharter`関数も削除。「介入の観測不足」（効果を観測したか）と実行モードのAction Item一覧は維持。Issueのデータ・API・`/issues`UI・agent-runtimeには触れていない。
 
-#### Phase 2.2（未着手）— 新規の人間発のIssue管理を止める
-`IssueCreateDialog`・`IssueHierarchyDialog`（手動作成・階層追加）をUIから外す。Issue化は「AI提案を承認する」（`ConsultReviewPanel`）経路のみに一本化。`/issues`一覧のボード表示・一括再採点ツールバー・スコアギャップ可視化を段階的に縮小。
+#### Phase 2.2 — 新規の人間発のIssue管理を止める（完了）
+`IssueCreateDialog`（一覧の「＋新しいIssue」）・`IssueHierarchyDialog`（詳細の「＋サブIssueを追加」「⬆上位Issueを作る」）を削除。Issue化は「AI提案を承認する」（`ConsultReviewPanel`、`POST /api/issues`自体は維持）経路のみに一本化した。ユーザー確認: 相談したい場合は「今後システム内でIssueを管理していない状態でも、相談チャット（/chat）で十分カバーできる」との方針。あわせて`/issues`一覧の「ボード」「スコア差」ビューと一括再採点ツールバー（`IssueTriageToolbar`）を削除（ステータス・優先度の手入れを促す機能のため）。「リスト」「アクション」ビューと既存の親子関係の読み取り表示は維持。Issueのデータ・API（作成含む）・agent-runtimeには触れていない。
 
 #### Phase 2.3（未着手）— 周辺モジュールの依存を外す
 `dashboard-next-actions.ts`の`priority`/`actionItems`/`parentId`依存を除去。`people-hub.ts`の`PersonRelatedIssue`を`IssueCharter`全体ではなく要約テキストに変更。`report-store.ts`の`ReportIssueStats`を`parentId`/charter非依存の指標に再定義。
@@ -110,13 +110,19 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - テスト: `web/src/lib/daily-situation.test.ts`（6件）。`npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（新規分含め成功、既存の一部テストはローカルモデル起動待ちで時々タイムアウトするが今回の変更とは無関係）を確認済み。ブラウザでの目視確認は今回未実施（Claude in Chrome未接続のため）。
   - 次の課題: Issueデータモデルには未着手（Phase 2で対応）。「過去との比較」は今回テキスト一致（人物名）ベースの素朴な紐付けで、Embedding類似検索（`knowledge-store.searchSimilarEvents`）を使ったより広い比較は今後の改善余地。
   - デザイン見直し（ユーザー指摘、2026-09-14）: 「テキスト・バイタル・ステータスが同じレイアウトのカードに入っている」への対応として、気になる兆候／良い状態／評価できないことの3カテゴリ（実体はTeam/PersonのVitalsステータス）を、既存`TeamStatePanel`と同じ🟢🟡🔴⚪の色分けチップ1本（`.situationChipRow`）にまとめた。昨日から変わったこと／過去との比較は文章カード、判断する価値がありそうなことは`TodayActionsPanel`との重複を避け先頭1件だけのティーザーにした。
-  - バグ修正（ユーザー指摘、2026-09-14）: `unmaskNames`（`web/src/lib/people-directory.ts`）が、対応表に登録の無い裸ID（例: カウンタリセット等で失効した`PERSON_20`）を、短い既登録ID（`PERSON_2`）への部分一致で誤って「佐藤さん0」のような別人名に化けさせていた。`/PERSON_\d+/`で数字列を貪欲に消費してから解決するよう修正し、未登録IDは誤帰属せず素通しにした。回帰テスト追加済み（`people-directory.test.ts`）。なお現在のローカルDB（`.data/app.db`）には明らかな開発時テストデータ（「非同期テスト」「動作確認」等）が`PERSON_18`以降の失効IDとともに残っており、表示は直ったが内容自体は不要データなので、次回クリーンアップを検討。
+  - バグ修正（ユーザー指摘、2026-09-14）: `unmaskNames`（`web/src/lib/people-directory.ts`）が、対応表に登録の無い裸ID（例: カウンタリセット等で失効した`PERSON_20`）を、短い既登録ID（`PERSON_2`）への部分一致で誤って「佐藤さん0」のような別人名に化けさせていた。`/PERSON_\d+/`で数字列を貪欲に消費してから解決するよう修正し、未登録IDは誤帰属せず素通しにした。回帰テスト追加済み（`people-directory.test.ts`）。ローカルDBは同日中にリセット＋クリーンなテストデータで再投入済み（詳細はメモリ`project_data_reset_seed_2026-09-14`参照）。
   - 追加修正（ユーザー指摘、2026-09-14）: 「Journalもチップ化されている／リンク先とチップのテキストが違う」対応。状態チップ（`.situationChipRow`）はTeam/PersonのVitals（継続的な状態）専用にし、緊急ネガティブJournal（個別の出来事）は`SituationItem.status`を付けないことで区別し、「気になる兆候（出来事）」という別の文章カードへ分離した。また、チームのチップは以前`/teams`（一覧）へ飛ぶだけでその場でどのチームか分からなかったため、`/journal?focus=`と同じ導線で`/teams?focus=<teamId>`へ飛ぶようにし、チップのテキストとリンク先の対象を一致させた（Personチップはもともと`/people/<id>`で一致していた）。
   - レイアウト再調整（ユーザー指摘、2026-09-14）: 「過去との比較は常に1行しかないので専用の1行に」「昨日から変わったこと・気になる兆候（出来事）は2段組みで幅を使いたい」対応。過去との比較はカード化せず区切り線1本の全幅帯（`.situationCompareRow`）にし、昨日から変わったこと／気になる兆候（出来事）は小さいカードのグリッドではなく既存の`.dashColumns`（固定2カラム、1000px以下で縦積み）を再利用してウィンドウ幅を使うようにした。「過去との比較の下にマージンが無い」「チーム・メンバーのチップはステータス色でわかるので名前だけで良い」「チーム・メンバーが混合で並んでいる」という追加指摘にも対応: `.situationCompareRow`に`margin-bottom`を追加、`SituationItem.text`はチーム名／メンバー名のみにして詳細（旧text）は`SituationItem.detail`（チップのホバーtitle）へ逃がし、`SituationItem.entityKind`（team/person）でチーム段落・メンバー段落に分けて表示するようにした。「過去との比較」を「チーム・メンバーの状態」の直下に配置する並び順変更も反映済み。
 - [x] Phase 2.1 — ダッシュボードのIssueグルーミング誘導を止める（2026-09-14）
   - `web/src/lib/dashboard-next-actions.ts`: 「Issue未整理」（`charter-${issue.id}`）「次の一手未設定」（`missing-next-${issue.id}`）カードと、それらでのみ使われていた`issueNeedsCharter`関数を削除。「介入の観測不足」（`stale-issue-*`）とexecuteモードのAction Item一覧（`buildExecutionMoves`）は維持。Issueのデータ・API・`/issues`UI・agent-runtimeは未変更。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1108件）を確認済み。ダッシュボードの実描画も確認済み。
-  - Phase 2.2以降（手動Issue管理UIの縮小、周辺モジュールの依存除去、データモデル・API・UI本体の差し替え）は未着手。
+- [x] Phase 2.2 — 新規の人間発のIssue管理を止める（2026-09-14）
+  - 削除: `IssueCreateDialog.tsx`（一覧の手動起票）、`IssueHierarchyDialog.tsx`（詳細のサブIssue追加／上位Issue作成）、`IssueBoard.tsx`＋`IssueBoard.test.tsx`（ボードビュー）、`IssueScoreGapsView.tsx`（スコア差ビュー）、`IssueTriageToolbar.tsx`（一括再採点）。
+  - 変更: `src/app/issues/page.tsx`（ダイアログ・ボード/スコア差ビュー・ツールバーの配線を除去）、`IssueFilterBar.tsx`（`IssueViewMode`を`"list" | "actions"`に縮小、作成ボタン・ボードタブ・ボード用チェックボックスを削除）、`IssueDetailContent.tsx`／`IssueSubIssuesPanel.tsx`（階層作成ダイアログの配線を除去、既存の親子関係は読み取り表示のまま維持）。
+  - ユーザー確認（2026-09-14）: 「相談したい課題があれば、Issueを管理していない状態でも相談チャット（/chat）で十分カバーできる」との方針を受け、手動作成系UIを削除する判断をした。
+  - Issueのデータ・API（`POST /api/issues`＝ConsultReviewPanel経由のAI提案承認フローは維持）・agent-runtimeには触れていない。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1103件、IssueBoard.test.tsx削除分で5件減）を確認済み。`/issues`・`/issues/[id]`（存在しないID）・ダッシュボードの実描画も確認済み。既存Issueが無い状態での確認のため、子Issueが実在する詳細画面の見た目は未確認。
+  - Phase 2.3以降（周辺モジュールの依存除去、データモデル・API・UI本体の差し替え）は未着手。
 - [ ] Phase 3 — 入力導線の簡素化
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

@@ -5,12 +5,11 @@ import { PageTitleRow } from "@/components/HelpLink";
 import { Select } from "@/components/Select";
 import { ISSUE_PRIORITY_META, ISSUE_STATUS_META, type IssuePriority, type IssueStatus } from "@/lib/types";
 
-export type IssueViewMode = "list" | "board" | "actions" | "gaps";
+export type IssueViewMode = "list" | "actions";
 
 type Props = {
   viewMode: IssueViewMode;
   setViewMode: (mode: IssueViewMode) => void;
-  onOpenCreateDialog: () => void;
   showArchived: boolean;
   setShowArchived: (value: boolean) => void;
   archivedCount: number;
@@ -23,16 +22,15 @@ type Props = {
   tagFilter: string;
   setTagFilter: (value: string) => void;
   allTags: string[];
-  showChildIssuesOnBoard: boolean;
-  setShowChildIssuesOnBoard: (value: boolean) => void;
-  filteredChildIssuesCount: number;
 };
 
-// Issue一覧のビュー切替タブ・「＋新しいIssue」ボタン・フィルタ行。
+// Issue一覧のビュー切替タブ・フィルタ行。
+// docs/2nd_pivot_version.md Phase 2.2対応。「＋新しいIssue」ボタン（手動作成）と、
+// ボード／スコア差ビュー（ステータス・優先度の手入れを促す画面）は廃止した。
+// Issue化はAI提案の承認（/chatのConsultReviewPanel）経路のみに一本化する。
 export function IssueFilterBar({
   viewMode,
   setViewMode,
-  onOpenCreateDialog,
   showArchived,
   setShowArchived,
   archivedCount,
@@ -45,9 +43,6 @@ export function IssueFilterBar({
   tagFilter,
   setTagFilter,
   allTags,
-  showChildIssuesOnBoard,
-  setShowChildIssuesOnBoard,
-  filteredChildIssuesCount,
 }: Props) {
   return (
     <>
@@ -63,31 +58,13 @@ export function IssueFilterBar({
             </button>
             <button
               type="button"
-              className={`${styles.tabBtn} ${viewMode === "board" ? styles.tabBtnActive : ""}`}
-              onClick={() => setViewMode("board")}
-            >
-              ボード
-            </button>
-            <button
-              type="button"
               className={`${styles.tabBtn} ${viewMode === "actions" ? styles.tabBtnActive : ""}`}
               onClick={() => setViewMode("actions")}
               title="各介入の次の一手を横断表示"
             >
               アクション
             </button>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${viewMode === "gaps" ? styles.tabBtnActive : ""}`}
-              onClick={() => setViewMode("gaps")}
-              title="優先スコアの差と介入コストで取り方を見る"
-            >
-              スコア差
-            </button>
           </div>
-          <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={onOpenCreateDialog}>
-            ＋ 新しいIssue
-          </button>
         </div>
       </PageTitleRow>
 
@@ -141,16 +118,6 @@ export function IssueFilterBar({
             style={{ minWidth: 160 }}
           />
         </label>
-        {viewMode === "board" && (
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            <input
-              type="checkbox"
-              checked={showChildIssuesOnBoard}
-              onChange={(e) => setShowChildIssuesOnBoard(e.target.checked)}
-            />
-            子Issueも表示する（{filteredChildIssuesCount}件）
-          </label>
-        )}
       </div>
     </>
   );

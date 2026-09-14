@@ -13,7 +13,6 @@ import { IssueStatusPriorityPanel } from "@/components/issue-detail/IssueStatusP
 import { IssueLogSection } from "@/components/issue-detail/IssueLogSection";
 import { IssueImpactPanel } from "@/components/issue-detail/IssueImpactPanel";
 import { IssueSubIssuesPanel } from "@/components/issue-detail/IssueSubIssuesPanel";
-import { IssueHierarchyDialog } from "@/components/issue-detail/IssueHierarchyDialog";
 import { IssueCharterSection } from "@/components/issue-detail/IssueCharterSection";
 import { IssueActionItemsPanel } from "@/components/issue-detail/IssueActionItemsPanel";
 import { useIssueDecision } from "@/components/issue-detail/useIssueDecision";
@@ -49,12 +48,11 @@ export function IssueDetailContent({ id }: { id: string }) {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  // 親子関係は1階層のみ。子（parentIdあり）は自分の子を持てないので
-  // 「サブIssueを追加」は表示せず、「上位Issueを作る」も既に親を持つなら表示しない。
+  // 親子関係は1階層のみ。docs/2nd_pivot_version.md Phase 2.2対応で新規作成の起点は
+  // 廃止したが、既存の親子関係は引き続き読み取り表示する。
   const parentIssue = issue?.parentId ? issues.find((i) => i.id === issue.parentId) ?? null : null;
   const childIssues = issue ? issues.filter((i) => i.parentId === issue.id) : [];
 
-  const [hierarchyDialog, setHierarchyDialog] = useState<"child" | "parent" | null>(null);
   const [archiving, setArchiving] = useState(false);
 
   const linkedRun: AgentRun | null = issue ? runs.find((r) => r.id === issue.agentRunId) ?? null : null;
@@ -149,14 +147,7 @@ export function IssueDetailContent({ id }: { id: string }) {
 
       <IssueImpactPanel issue={issue} impact={impact} impactLoaded={impactLoaded} teams={teams} />
 
-      <IssueSubIssuesPanel
-        issue={issue}
-        childIssues={childIssues}
-        runs={runs}
-        staleRunIds={staleRunIds}
-        onOpenChildDialog={() => setHierarchyDialog("child")}
-        onOpenParentDialog={() => setHierarchyDialog("parent")}
-      />
+      <IssueSubIssuesPanel issue={issue} childIssues={childIssues} runs={runs} staleRunIds={staleRunIds} />
 
       <IssueCharterSection
         issue={issue}
@@ -227,15 +218,6 @@ export function IssueDetailContent({ id }: { id: string }) {
         </div>
       </div>
 
-      {hierarchyDialog && (
-        <IssueHierarchyDialog
-          mode={hierarchyDialog}
-          issueId={issue.id}
-          onClose={() => setHierarchyDialog(null)}
-          fetchWithNameConfirm={fetchWithNameConfirm}
-          refreshIssues={refreshIssues}
-        />
-      )}
       {nameCandidateDialog}
     </>
   );
