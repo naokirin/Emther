@@ -52,7 +52,6 @@ export function JournalEntryCard({
   editSubmitting,
   editError,
   resolutionNoteDraft,
-  linkIssueIdDraft,
   pending,
   pendingError,
   onChangeEditRawText,
@@ -63,7 +62,6 @@ export function JournalEntryCard({
   onChangeEditSentiment,
   onChangeEditDate,
   onChangeResolutionNoteDraft,
-  onChangeLinkIssueIdDraft,
   onConfirmEdit,
   onConfirmAsIs,
   onStartAnalysis,
@@ -71,7 +69,6 @@ export function JournalEntryCard({
   onStartEdit,
   onResolveWithNote,
   onResolveWithNewIssue,
-  onLinkToExistingIssue,
   onClearResolution,
   onAcknowledgeSentiment,
   onClearSentimentAck,
@@ -92,8 +89,6 @@ export function JournalEntryCard({
   editSubmitting: boolean;
   editError: string | null;
   resolutionNoteDraft: string;
-  // docs/memo.md「Issue の関連JournalをIssue詳細で見れるようにしたい」対応。
-  linkIssueIdDraft: string;
   // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
   // スピナーだけ表示する」対応。pending中はこのエントリの編集フォームを閉じたまま
   // バックグラウンドで更新中であることだけを示す（他のエントリの編集は妨げない）。
@@ -107,7 +102,6 @@ export function JournalEntryCard({
   onChangeEditSentiment: (value: JournalEntry["sentiment"]) => void;
   onChangeEditDate: (value: string) => void;
   onChangeResolutionNoteDraft: (value: string) => void;
-  onChangeLinkIssueIdDraft: (value: string) => void;
   onConfirmEdit: () => void;
   // docs/usage_issues U16。未確認エントリを編集せずに確定する。
   onConfirmAsIs?: () => void;
@@ -117,7 +111,6 @@ export function JournalEntryCard({
   onStartEdit: () => void;
   onResolveWithNote: () => void;
   onResolveWithNewIssue: () => Promise<string | undefined>;
-  onLinkToExistingIssue: () => void;
   onClearResolution: () => void;
   // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
   onAcknowledgeSentiment: () => void;
@@ -368,23 +361,6 @@ export function JournalEntryCard({
               <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCreateIssue} style={{ marginBottom: 8 }}>
                 Issueを起票してこの件を追跡する
               </button>
-              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                <input
-                  type="text"
-                  aria-label="紐付け先のIssue ID"
-                  value={linkIssueIdDraft}
-                  onChange={(e) => onChangeLinkIssueIdDraft(e.target.value)}
-                  placeholder="既存Issue ID（先頭8桁以上でも可）"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  className={styles.btnOutline}
-                  disabled={editSubmitting || !linkIssueIdDraft.trim()}
-                  onClick={onLinkToExistingIssue}
-                >
-                  既存Issueに紐付ける
-                </button>
-              </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <textarea
                   aria-label="解決メモ"

@@ -209,7 +209,6 @@ function JournalListPageInner() {
                 editSubmitting={editing.editSubmitting}
                 editError={editing.editError}
                 resolutionNoteDraft={editing.resolutionNoteDraft}
-                linkIssueIdDraft={editing.linkIssueIdDraft}
                 pending={editing.isEntryPending(entry.id)}
                 pendingError={editing.pendingEntryErrors[entry.id]}
                 onDismissPendingError={() => editing.dismissPendingError(entry.id)}
@@ -221,7 +220,6 @@ function JournalListPageInner() {
                 onChangeEditSentiment={editing.setEditSentiment}
                 onChangeEditDate={editing.setEditDate}
                 onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
-                onChangeLinkIssueIdDraft={editing.setLinkIssueIdDraft}
                 onConfirmEdit={() => editing.confirmEdit(entry.id)}
                 onConfirmAsIs={() => editing.confirmAsIs(entry)}
                 onStartAnalysis={() => editing.startAnalysis(entry)}
@@ -229,7 +227,6 @@ function JournalListPageInner() {
                 onStartEdit={() => editing.startEditing(entry)}
                 onResolveWithNote={() => editing.resolveWithNote(entry.id)}
                 onResolveWithNewIssue={() => editing.resolveWithNewIssue(entry)}
-                onLinkToExistingIssue={() => editing.linkToExistingIssue(entry.id)}
                 onClearResolution={() => editing.clearResolution(entry.id)}
                 onAcknowledgeSentiment={() => editing.acknowledgeSentiment(entry.id)}
                 onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}

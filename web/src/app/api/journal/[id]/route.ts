@@ -58,10 +58,10 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
 
   // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない」
   // 対応。未指定（キー自体が無い）=変更しない、null=解除、文字列=設定、の3値。
-  // docs/memo.md「Issue の関連JournalをIssue詳細で見れるようにしたい」対応。既存のIssueへの
-  // 手動紐付け（EMがIssue IDを入力するケース）はタイプミスで存在しないIDがそのまま保存
-  // されると壊れたリンクになるため、他のID参照（/go/<fragment>等）と同じくプレフィックス
-  // 解決を通す（Issue作成直後の自動紐付けはissue.id自体を渡すため常に完全一致でヒットする）。
+  // docs/2nd_pivot_version.md Phase 3対応。既存Issueへの手動紐付けUIは廃止し、現在この経路を
+  // 呼ぶのは「Issueを起票してこの件を追跡する」（作成直後のIssueへの自動紐付け、常にissue.id
+  // 自体を渡すため完全一致でヒットする）のみ。プレフィックス解決は他のID参照
+  // （/go/<fragment>等）と共通の汎用ロジックのため、そのまま残している。
   let resolvedIssueId: string | null | undefined;
   if (body?.resolvedIssueId === undefined) {
     resolvedIssueId = undefined;

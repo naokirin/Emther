@@ -111,9 +111,15 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件、変化なし）を確認済み。dev server再起動後にダッシュボード・`/issues`・Issue詳細ページの実描画（200応答・エラーマーカー無し）も確認済み。
 - **これでPhase 2.4の持ち越し項目（Action Item CRUD・Charter編集UI）は両方解消し、Phase 2.4は完全完了。**
 
-### Phase 3 — 入力導線の簡素化
-- Journal / observation-dump からの投入が「どのIssueに紐付けるか」を人間に決めさせず、AIがKnowledgeEventへ直接分類する流れを徹底する。
-- `person-evaluation-store.ts`（評価ログ）等、Issue以外の構造化入力も同様に「入力→AI整理→必要なら訂正」の型になっているか点検する。
+### Phase 3 — 入力導線の簡素化（完了）
+
+**2026-09-15、Phase 2.4完全完了後に着手。計画モードで調査した結果、元の課題文（「どのIssueに紐付けるか人間に決めさせない」）は既に大部分解消済みと判明した。** Journal作成・observation-dump受理・KnowledgeEventへの分類はすべて完全にAI駆動で、`ConsultReviewPanel`のIssue化もAI提案候補の採用/却下のみ（既存Issueを選ばせない）。唯一残っていた人間決定UIは`JournalEntryCard.tsx`の「解決 / 追跡」ブロック内、EMがIssue IDを手入力して既存Issueに紐付ける「既存Issueに紐付ける」テキスト入力＋ボタンだった。
+
+実施内容:
+- `JournalEntryCard.tsx`から「既存Issueに紐付ける」のID手入力＋ボタンを削除。`useJournalEditing.ts`の`linkIssueIdDraft`ステート・`linkToExistingIssue`関数を削除し、呼び出し側2箇所（`JournalDumpPanel.tsx`、`app/journal/page.tsx`）のprop配線も追従。テスト（`useJournalEditing.test.tsx`の3件、`JournalEntryCard.test.tsx`の不要プロパティ）も追従。
+- **維持**: 「Issueを起票してこの件を追跡する」（`resolveWithNewIssue`、作成直後の新規Issueへの自動紐付けであり複数の既存Issueから選ぶ操作ではないため）、「メモを残して解決にする」（自由記述の解決メモ）、「解決を取り消す」——いずれもIssue選択とは無関係。`PATCH /api/journal/[id]`の`resolvedIssueId`処理・プレフィックス解決ロジックも`resolveWithNewIssue`が引き続き使うため無変更（コメントのみ実情に合わせて更新）。
+- Issue以外の構造化入力の点検結果: **評価ログ**（`person-evaluation-store.ts`、手動作成フォーム自体が無くAI提案`suggest-from-journal`のみ）・**Journal作成**（自由記述＋任意日付のみ、タグ/緊急度は事後AI付与）・**Theme**（`createThemeCandidate`はagent-runtime/OKR由来のみ）は**既にAI起点で完了**、追加対応不要と確認。Team（名前・メンバー・Mission/制約）とOKR入力は現状すべて手動構造化入力（OKRのみ「テキストから取り込む」というAI下書きパスが別途ある）だが、**ユーザー判断によりPhase 3の対象外**とした——新規AI下書き機能の設計は、実際に手間だと感じてから別セッションで改めて計画する。
+- `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1050件、テスト3件減）を確認済み。dev server再起動後にダッシュボード・`/journal`・`/issues`の実描画（200応答）も確認済み。
 
 ### Phase 4 — レガシー面の縮小
 - `issue-triage.ts`の永続スコアリング機構を廃止し、「判断する価値がありそうなこと」のランキングはブリーフ生成時にその場で計算する一時的なものにする。
@@ -189,6 +195,10 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - `issue-store.ts`の`updateIssueCharter`、`/api/issues/[id]`のPATCH、agent-runtimeのcharter読み取り・AI提案採用フロー一式は無変更で維持。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件、変化なし）を確認済み。dev server再起動後にダッシュボード・`/issues`・Issue詳細ページの実描画も確認済み。
   - Phase 2.4の持ち越し項目（Action Item CRUD・Charter編集UI）は両方解消し、Phase 2.4完全完了。
-- [ ] Phase 3 — 入力導線の簡素化
+- [x] Phase 3 — 入力導線の簡素化（2026-09-15）
+  - 調査の結果、Journal作成・observation-dump受理・KnowledgeEvent分類・`ConsultReviewPanel`のIssue化はすべて既にAI起点と確認。唯一の人間決定UIは`JournalEntryCard.tsx`の「既存Issueに紐付ける」ID手入力＋ボタンで、これを削除（`useJournalEditing.ts`の`linkIssueIdDraft`/`linkToExistingIssue`も削除、`JournalDumpPanel.tsx`/`app/journal/page.tsx`が追従）。
+  - 「Issueを起票してこの件を追跡する」「メモを残して解決にする」「解決を取り消す」は無変更（Issue選択とは無関係）。
+  - 評価ログ/Journal作成/Themeは既にAI起点と確認（追加対応不要）。Team/OKRの手動構造化入力はユーザー判断によりPhase 3対象外（将来、必要になれば別セッションで計画）。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1050件、テスト3件減）を確認済み。dev server再起動後の実描画も確認済み。
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

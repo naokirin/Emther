@@ -456,7 +456,6 @@ export function JournalDumpPanel({
           editSubmitting={journalEditing.editSubmitting}
           editError={journalEditing.editError}
           resolutionNoteDraft={journalEditing.resolutionNoteDraft}
-          linkIssueIdDraft={journalEditing.linkIssueIdDraft}
           pending={journalEditing.isEntryPending(entry.id)}
           pendingError={journalEditing.pendingEntryErrors[entry.id]}
           onDismissPendingError={() => journalEditing.dismissPendingError(entry.id)}
@@ -468,7 +467,6 @@ export function JournalDumpPanel({
           onChangeEditSentiment={journalEditing.setEditSentiment}
           onChangeEditDate={journalEditing.setEditDate}
           onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}
-          onChangeLinkIssueIdDraft={journalEditing.setLinkIssueIdDraft}
           onConfirmEdit={() => journalEditing.confirmEdit(entry.id)}
           onConfirmAsIs={() => journalEditing.confirmAsIs(entry)}
           onStartAnalysis={() => journalEditing.startAnalysis(entry)}
@@ -476,7 +474,6 @@ export function JournalDumpPanel({
           onStartEdit={() => journalEditing.startEditing(entry)}
           onResolveWithNote={() => journalEditing.resolveWithNote(entry.id)}
           onResolveWithNewIssue={() => journalEditing.resolveWithNewIssue(entry)}
-          onLinkToExistingIssue={() => journalEditing.linkToExistingIssue(entry.id)}
           onClearResolution={() => journalEditing.clearResolution(entry.id)}
           onAcknowledgeSentiment={() => journalEditing.acknowledgeSentiment(entry.id)}
           onClearSentimentAck={() => journalEditing.clearSentimentAck(entry.id)}
