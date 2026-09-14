@@ -121,14 +121,18 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - Issue以外の構造化入力の点検結果: **評価ログ**（`person-evaluation-store.ts`、手動作成フォーム自体が無くAI提案`suggest-from-journal`のみ）・**Journal作成**（自由記述＋任意日付のみ、タグ/緊急度は事後AI付与）・**Theme**（`createThemeCandidate`はagent-runtime/OKR由来のみ）は**既にAI起点で完了**、追加対応不要と確認。Team（名前・メンバー・Mission/制約）とOKR入力は現状すべて手動構造化入力（OKRのみ「テキストから取り込む」というAI下書きパスが別途ある）だが、**ユーザー判断によりPhase 3の対象外**とした——新規AI下書き機能の設計は、実際に手間だと感じてから別セッションで改めて計画する。
 - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1050件、テスト3件減）を確認済み。dev server再起動後にダッシュボード・`/journal`・`/issues`の実描画（200応答）も確認済み。
 
-### Phase 4 — レガシー面の縮小
-- `issue-triage.ts`の永続スコアリング機構を廃止し、「判断する価値がありそうなこと」のランキングはブリーフ生成時にその場で計算する一時的なものにする。
-- `/org/thread`（つながりを見る、`strategy-trail.ts` / `related-context.ts` / `origin-trace.ts`）はObjective→KeyResult→Issue→Journalの縦の接続を可視化する機能として価値が確認済み（`docs/memo.md`参照）なので**維持**するが、参照先をIssue階層から新モデル（KnowledgeEventのIssue化フラグ）に付け替える。
-- ナビゲーションから「Issue管理」の位置付けを外し、「判断待ち」の一部として扱う。
+### Phase 4 — レガシー面の縮小（完了・当初計画は大部分が既に無効化済みと判明）
 
-### Phase 5 — Reports / Timeline の追従
-- `report-store.ts`の`ReportIssueStats`を「解決したIssue数」から「観測された状態変化」ベースの指標に更新。
-- `timeline.ts`（journal/person/team/issue/org横断フィード）は構造を維持しつつ、issueエントリの参照先を新モデルに更新。
+**2026-09-15、Phase 3完了後に着手。計画モードで再調査した結果、元の3方針のうち2つは既に他フェーズで実質解決済み・または前提（KnowledgeEventへの移行）が撤回済みのため無効化されていると判明した。**
+
+- 「`issue-triage.ts`の永続スコアリング機構を廃止...」→ **完了・無効化済み**。`issue-triage.ts`はPhase 2.4（コミットba152cc）で既に全削除済み。「判断する価値がありそうなこと」（`daily-situation.ts`の`worthDeciding`、`dashboard-next-actions.ts`の`buildNextActions`）はPhase 1時点から一貫して永続フィールドを読まず、呼び出しごとにその場で計算している。副産物として、Phase 2.2の削除漏れだった**呼び出し元ゼロの死んだコード**`issue-score-gaps.ts`＋テストを削除した。
+- 「`/org/thread`の参照先をIssue階層から新モデル（KnowledgeEvent）へ付け替える」→ **前提が撤回済みのため無効**。IssueをKnowledgeEventへ移行する方針自体をPhase 2.4で撤回し、Issueは`issues.json`のままの実体として残すことに決めている。`/org/thread`（`StrategyThreadTree.tsx`）と`strategy-trail.ts`は素のIssueフィールド（`keyResultId`/`id`/`title`/`status`/`sourceJournalId`）だけを軽く読んでおり、既に問題なく動作しているため**変更不要**と確認した。
+- 「ナビゲーションから『Issue管理』の位置付けを外す」→ **文言としては既に解消・構造は現状維持と判断**。`TopNav.tsx`に「Issue管理」というラベル自体は元から存在せず、既に「課題」「課題一覧」へ軟化済み。「課題」タブを「今日」配下へ統合するかはユーザーに確認し、**現状維持**の判断を得た（`/issues`は既に作成・編集UIがほぼ無く、AI提案のIssueを閲覧するだけのページになっているため、独立タブのままでも「EMが管理する場所」という誤解は生まれにくいという判断）。
+- `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1041件、削除した死んだコードのテスト分減）を確認済み。
+
+### Phase 5 — Reports / Timeline の追従（未着手・要再調査）
+
+元の計画文（`report-store.ts`の指標を「新モデル」ベースに、`timeline.ts`のissueエントリ参照先を「新モデル」に）はPhase 4と同じくKnowledgeEventへの移行前提のまま書かれている。**そのため着手前に必ず再調査すること**——Phase 4と同様、`report-store.ts`/`timeline.ts`の現状のIssue参照が、KnowledgeEvent移行を前提とせず素のIssueフィールドに対して既に問題なく動作しているかを確認してから、実際に必要な作業だけをスコープする。
 
 ---
 
@@ -143,7 +147,7 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - `npm run lint` と既存Vitestスイート（現状503件、issue関連テストは書き換え/削除が必要）を都度実行。
 - Phase 1完了時点でダッシュボードを実際に開き、6カテゴリのブリーフがJournal/KnowledgeEventの実データから生成されることを確認。
 - Phase 2完了時点で `/issues` 配下に作成・階層・Action Item UIが残っていないこと、既存Issueデータが記憶として閲覧できることを確認。
-- Phase 4完了時点で `/org/thread` のパンくずが新モデルでも壊れていないことを確認。
+- Phase 4完了時点で `/org/thread` のパンくずが壊れていないことを確認（新モデルへの移行はPhase 2.4で撤回済みのため、素のIssueフィールドに対する動作確認のみ）。
 
 ---
 
@@ -200,5 +204,8 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - 「Issueを起票してこの件を追跡する」「メモを残して解決にする」「解決を取り消す」は無変更（Issue選択とは無関係）。
   - 評価ログ/Journal作成/Themeは既にAI起点と確認（追加対応不要）。Team/OKRの手動構造化入力はユーザー判断によりPhase 3対象外（将来、必要になれば別セッションで計画）。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1050件、テスト3件減）を確認済み。dev server再起動後の実描画も確認済み。
-- [ ] Phase 4 — レガシー面の縮小
-- [ ] Phase 5 — Reports / Timeline の追従
+- [x] Phase 4 — レガシー面の縮小（2026-09-15、当初計画は大部分が無効化済みと判明・縮小版で実施）
+  - 調査の結果、元の3方針のうち「issue-triage.ts廃止」「ナビからIssue管理位置付けを外す」は既に他フェーズで実質解決済み、「`/org/thread`の参照先を新モデルへ付け替え」はKnowledgeEvent移行自体の撤回で前提無効と判明。
+  - 実施したのは、Phase 2.2の削除漏れだった死んだコード`issue-score-gaps.ts`＋テストの削除のみ。ナビ構造（「課題」タブ独立維持）はユーザー確認の上で現状維持と判断。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1041件）を確認済み。
+- [ ] Phase 5 — Reports / Timeline の追従（要再調査。Phase 4と同じくKnowledgeEvent移行前提のまま書かれた計画文のため、着手前に現状のIssue参照が既に問題なく動作していないか確認すること）
