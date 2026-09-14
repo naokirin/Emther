@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runFallbackTitle, type AgentRun } from "@/components/RunDetail";
+import type { InterpretationEvent } from "@/lib/daily-situation";
 import { truncateForTitle, type PendingAgentStart, type PendingUnmaskedSend } from "@/lib/types";
 import type {
   EmCheckin,
@@ -367,6 +368,17 @@ export function usePeople(intervalMs = 5000) {
 export function useThemes(intervalMs = 8000) {
   const { data, loaded, refresh } = usePolling<{ themes: OrgTheme[] }>("/api/themes", { themes: [] }, intervalMs);
   return { themes: data.themes, themesLoaded: loaded, refreshThemes: refresh };
+}
+
+// docs/2nd_pivot_version.md Phase 1対応。ダッシュボードの「今日の状況」の
+// 「過去との比較」で使う、既存の長期解釈（KnowledgeEvent kind:interpretation）。
+export function useInterpretations(intervalMs = 15000) {
+  const { data, loaded } = usePolling<{ interpretations: InterpretationEvent[] }>(
+    "/api/knowledge/interpretations",
+    { interpretations: [] },
+    intervalMs,
+  );
+  return { interpretations: data.interpretations, interpretationsLoaded: loaded };
 }
 
 export function usePersonProfile(id: string, intervalMs = 5000) {

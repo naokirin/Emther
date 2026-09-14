@@ -6,6 +6,7 @@ import styles from "./page.module.css";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
 import { SetupGapsBanner } from "@/components/dashboard/SetupGapsBanner";
 import { DailyBriefBanner, type Brief } from "@/components/dashboard/DailyBriefBanner";
+import { DailySituationPanel } from "@/components/dashboard/DailySituationPanel";
 import { EveningModeCard } from "@/components/dashboard/EveningModeCard";
 import { ThemesPanel } from "@/components/dashboard/ThemesPanel";
 import { TodayActionsPanel } from "@/components/dashboard/TodayActionsPanel";
@@ -13,9 +14,11 @@ import { TeamStatePanel } from "@/components/dashboard/TeamStatePanel";
 import { JournalDumpPanel } from "@/components/dashboard/JournalDumpPanel";
 import { DAY_PHASE_GUIDANCE, getDayPhase } from "@/lib/dashboard-day-phase";
 import { buildExecutionMoves, buildNextActions, rankActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
+import { buildDailySituation } from "@/lib/daily-situation";
 import {
   useEmCheckins,
   useGoToRunIssue,
+  useInterpretations,
   useIssues,
   useJournal,
   useObjectives,
@@ -83,6 +86,8 @@ function DashboardPageInner() {
   // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
   const { people, peopleLoaded } = usePeople();
   const { themes, themesLoaded, refreshThemes } = useThemes();
+  // docs/2nd_pivot_version.md Phase 1対応。「今日の状況」の「過去との比較」で使う。
+  const { interpretations, interpretationsLoaded } = useInterpretations();
   // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
   // SettingsのrulesLoadedと同じ考え方（usePollingのloaded）。
   const setupLoaded = strategyLoaded && teamsLoaded && objectivesLoaded;
@@ -152,6 +157,19 @@ function DashboardPageInner() {
     onConfirmUnmasked: setConfirmingUnmasked,
   });
   const executionMoves = buildExecutionMoves(issues);
+
+  // docs/2nd_pivot_version.md Phase 1対応。pivot_policy.md「目指すUX」の6項目で
+  // 今日の状況をまとめる（Issue駆動ではなく Journal/Vitals/People/KnowledgeEvent 駆動）。
+  const dailySituation = buildDailySituation({
+    now,
+    journalEntries,
+    vitals,
+    people,
+    interpretations,
+    nextActions,
+    push: (path: string) => router.push(path),
+  });
+  const dailySituationLoaded = nextActionsLoaded && interpretationsLoaded;
 
   // docs/em_human_story_and_ux.md P0-4対応。「1日の上限感」をUIで示す（ハード制限はせず、
   // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）。
@@ -229,6 +247,8 @@ function DashboardPageInner() {
       />
 
       <DailyBriefBanner brief={brief} guidance={guidance} onScrollToActions={scrollToTodayActions} onFocusJournal={focusJournalInput} />
+
+      <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
 
       {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
           記録先（/growth）への導線のみを置く。 */}

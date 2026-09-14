@@ -228,11 +228,18 @@ export function previewNameMask(text: string): {
 }
 
 // IDを実名に戻す。区切り付き {{PERSON_n}} を先に処理し、続けてレガシーな裸 ID
-// （people 配列・移行前データ）を最長一致で戻す。短い ID が長い ID の prefix になる
-// 衝突（PERSON_1 vs PERSON_10）は最長一致で防ぎ、隣接数字との衝突は区切り付きで防ぐ。
+// （people 配列・移行前データ）を戻す。
+// ユーザー指摘「PERSON_10がPERSON_1(登録済み)の時点で置き換えられ『◯◯さん0』になる」対応。
+// 裸IDは登録済みIDの集合から作ったパターンで置換していたため、カウンタのリセットや
+// deletePersonで対応表から消えたIDが本文に残っていると（例: 本文は"PERSON_20"だが
+// idToNameにはPERSON_1〜PERSON_17しか無い）、"PERSON_20"の先頭8文字が短い登録済みID
+// "PERSON_2"に部分一致し、末尾の"0"だけが取り残されて別人（PERSON_2）の名前に化けて
+// しまっていた。/PERSON_\d+/は数字列を必ず最後まで貪欲に消費してから1つのトークンとして
+// 引くため、この部分一致は起こらない。該当IDが対応表に無ければ、別人へ誤帰属させるより
+// 未解決のまま残す方が安全なので置換しない。
 export function unmaskNames(text: string): string {
   const fromTokens = text.replace(/\{\{(PERSON_\d+)\}\}/g, (full, id: string) => idToName.get(id) ?? full);
-  return replaceAllAtOnce(fromTokens, idToName);
+  return fromTokens.replace(/PERSON_\d+/g, (full) => idToName.get(full) ?? full);
 }
 
 // idToName（正式名、1id=1名）を主軸に列挙する。nameToIdを主軸にすると、別名を

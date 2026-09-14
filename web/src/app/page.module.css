@@ -2756,3 +2756,198 @@
   height: 170px;
 }
 
+/* docs/2nd_pivot_version.md Phase 1対応。「今日の状況」の文章系2カード（昨日から
+   変わったこと／気になる兆候（出来事））。ウィンドウ幅を使って読みやすくするため、
+   3枚以上並ぶ小さいカードのグリッドではなく、既存の.dashColumns（固定2カラム、
+   1000px以下で縦積み）をそのまま使う。ステータス系（気になる兆候・良い状態・
+   評価できないこと）は.situationChipRowへ、過去との比較は常に1〜2行程度しかない
+   ため.situationCompareRow（カード化せず全幅の1本）へ、それぞれ分離する。 */
+.situationCard {
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
+  min-width: 0;
+}
+
+.situationCardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.situationCardTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.situationCardHint {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.situationEmpty {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.situationList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.situationItem {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.situationItemBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.situationItemBtn:hover {
+  color: var(--blue-text);
+}
+
+.situationMore {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  border: none;
+  background: none;
+  color: var(--blue-text);
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 「気になる兆候・良い状態・評価できないこと」はTeam/PersonのVitalsステータスという
+   同じ性質のデータなので、文章カードではなくvitalCardと同じ色語彙のチップ1本にまとめる。 */
+.situationStatusBlock {
+  margin: 10px 0 14px 0;
+}
+
+/* ユーザー指摘「チーム・メンバーが混合で並んでいる」対応。チーム／メンバーを
+   別の段落に分ける。 */
+.situationChipGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.situationChipGroupLabel {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 3.5em;
+  white-space: nowrap;
+}
+
+.situationChipGroupEmpty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.situationChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.situationChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+button.situationChip {
+  cursor: pointer;
+}
+
+button.situationChip:hover {
+  filter: brightness(0.97);
+}
+
+.situationChipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.situationChip-good {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+  color: var(--green-fg);
+}
+
+.situationChip-warn {
+  background: var(--yellow-bg);
+  border-color: var(--yellow-border);
+  color: var(--yellow-fg);
+}
+
+.situationChip-bad {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  color: var(--red-fg);
+}
+
+.situationChip-unknown {
+  background: var(--gray-bg);
+  border: 1.5px dashed var(--gray-border);
+  color: var(--gray-fg);
+}
+
+/* ユーザー指摘「過去との比較は常に1行しかないので専用の1行で見せたい」対応。
+   他のカテゴリのようなカード（背景・枠）にはせず、区切り線1本だけの全幅の帯にする。 */
+.situationCompareRow {
+  margin-top: 14px;
+  margin-bottom: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.situationCompareRow .situationList {
+  margin-top: 4px;
+}
+
+/* 「判断する価値がありそうなこと」はTodayActionsPanelと内容が重複するため、
+   一覧を繰り返さず先頭1件だけのティーザーにする。 */
+.situationDecisionTeaser {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--yellow-border);
+  background: var(--yellow-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.situationDecisionTeaser .situationCardTitle {
+  margin-bottom: 2px;
+}
+

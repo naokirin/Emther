@@ -104,6 +104,16 @@ describe("registerName / maskNames / unmaskNames", () => {
     expect(pd.unmaskNames(`${pd.formatPersonToken(id10)}が来た`)).toBe("10番目の人が来た");
   });
 
+  it("対応表に無い裸IDは、短い既登録IDへの部分一致で別人の名前に化けさせず未解決のまま残す", async () => {
+    // ユーザー指摘の再現: カウンタのリセット等でPERSON_1のみ登録された状態で、
+    // 本文中に(存在しない)PERSON_10が残っていても「田中さん0」のような誤帰属をしない。
+    const pd = await loadModule();
+    const id1 = pd.registerName("田中さん");
+    expect(id1).toBe("PERSON_1");
+    expect(pd.unmaskNames("PERSON_10が発生した")).toBe("PERSON_10が発生した");
+    expect(pd.unmaskNames("PERSON_1が発生した")).toBe("田中さんが発生した");
+  });
+
   it("PERSON_1の直後に数字が続いてもPERSON_17と誤って復元しない", async () => {
     const pd = await loadModule();
     const id1 = pd.registerName("田中さん");
