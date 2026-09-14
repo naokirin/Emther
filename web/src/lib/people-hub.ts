@@ -76,9 +76,13 @@ export type PersonProfile = PersonSummary & {
 
 const FACTS_LIMIT = 20;
 
+// ユーザー指摘「確認済み（対応不要）の所見があってもバイタルのアラート色が落ちない」対応。
+// hasConcerningRelatedIssue（Issue側）と同様、noActionNeededAt済みのfactはtrend（バイタルの
+// 強調トリガー）の集計から除外する。fact自体はfacts一覧にconfirmed済みとして残り続ける。
 function computeTrend(facts: KnowledgeEvent[]): PersonTrend {
   const trend: PersonTrend = { positive: 0, negative: 0, neutral: 0 };
   for (const f of facts) {
+    if (f.noActionNeededAt) continue;
     if (f.sentiment === "positive") trend.positive += 1;
     else if (f.sentiment === "negative") trend.negative += 1;
     else trend.neutral += 1;
