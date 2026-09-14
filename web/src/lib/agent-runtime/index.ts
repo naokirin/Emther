@@ -67,10 +67,8 @@ export {
 } from "./store";
 
 export {
-  buildDistillationContextBlock,
   buildInterventionTypeGuidance,
   buildIssueContextBlock,
-  buildMorningSummaryContextBlock,
   buildObjectivesBlock,
   buildOrgBackgroundBlock,
   buildOrgContextBlock,
@@ -82,6 +80,8 @@ export {
   relevantTeams,
   selectRelatedSpecialists,
 } from "./context-blocks";
+
+export { buildDistillationContextBlock, buildMorningSummaryContextBlock } from "./batch-context-blocks";
 
 export {
   buildDistillationTask,
