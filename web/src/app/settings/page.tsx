@@ -84,14 +84,20 @@ export default function SettingsPage() {
   return (
     <div className={styles.screen}>
       <div className={styles.panel}>
-        <PageTitleRow title="設定" helpAnchor="settings" />
+        <PageTitleRow title="設定" helpAnchor="settings">
+          {activeGroup !== "data" ? (
+            <button
+              className={styles.primaryBtn}
+              style={{ width: "auto" }}
+              onClick={handleSave}
+              disabled={saving || !seeded || !isDirty}
+            >
+              {saving ? "保存中…" : isDirty ? "保存" : "保存済み"}
+            </button>
+          ) : null}
+        </PageTitleRow>
         {activeGroup !== "data" ? (
           <>
-            <div className={styles.editorPath}>
-              <button className={styles.primaryBtn} onClick={handleSave} disabled={saving || !seeded || !isDirty}>
-                {saving ? "保存中…" : isDirty ? "保存" : "保存済み"}
-              </button>
-            </div>
             {isDirty && <p className={styles.errorText} role="status">⚠️ 未保存の変更があります</p>}
             {!isDirty && savedAt !== null && (
               <p className={styles.successText} role="status">✓ {new Date(savedAt).toLocaleTimeString("ja-JP")}に保存しました</p>
