@@ -6,9 +6,20 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
-  embedText: vi.fn(async () => [1, 0, 0]),
-}));
+// suggestEvaluationLogsFromRecentJournalsのテスト用に、テキストに含まれる目印
+// （TOPIC_A/TOPIC_B）に応じてベクトルを変える簡易埋め込み。cosineSimilarityは
+// 実装（@/lib/embeddings）をそのまま使う。
+vi.mock("@/lib/embeddings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/embeddings")>();
+  return {
+    ...actual,
+    embedText: vi.fn(async (text: string) => {
+      if (text.includes("TOPIC_A")) return [1, 0, 0];
+      if (text.includes("TOPIC_B")) return [0, 1, 0];
+      return [0, 0, 1];
+    }),
+  };
+});
 
 let dir: string;
 
@@ -55,5 +66,83 @@ describe("person-evaluation-store", () => {
     expect(bundle.outcome).toHaveLength(1);
     expect(bundle.value).toHaveLength(0);
     expect(bundle.missing).toContain("Value 体現ログが不足");
+  });
+
+  it("suggest-from-journalは意味的に関連するFactだけを仮置きする", async () => {
+    const store = await import("@/lib/person-evaluation-store");
+    const { recordEvent } = await import("@/lib/knowledge-store");
+    const { addObjective } = await import("@/lib/org-context-store");
+    const { updateOrgStrategy } = await import("@/lib/org-context-store");
+
+    const objective = await addObjective("TOPIC_A の目標");
+    await updateOrgStrategy({ values: "TOPIC_B というValue" });
+
+    // Objectiveに関連するFact
+    recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "TOPIC_A に取り組んだ",
+      tags: [],
+      occurredAt: Date.now(),
+      embedding: [1, 0, 0],
+    });
+    // Valueに関連するFact
+    recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "TOPIC_B を体現した",
+      tags: [],
+      occurredAt: Date.now(),
+      embedding: [0, 1, 0],
+    });
+    // どちらにも意味的に無関係なFact
+    recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "無関係な出来事",
+      tags: [],
+      occurredAt: Date.now(),
+      embedding: [0, 0, 1],
+    });
+
+    const created = await store.suggestEvaluationLogsFromRecentJournals("PERSON_1", "太郎");
+
+    const outcomeLogs = created.filter((l) => l.lens === "outcome");
+    const valueLogs = created.filter((l) => l.lens === "value");
+    expect(outcomeLogs).toHaveLength(1);
+    expect(outcomeLogs[0].targetObjectiveId).toBe(objective.id);
+    expect(valueLogs).toHaveLength(1);
+    expect(valueLogs[0].valueSnapshot).toBe("TOPIC_B というValue");
+    // 無関係なFactからはA/Bどちらも仮置きされない
+    expect(created).toHaveLength(2);
+  });
+
+  it("suggest-from-journalは埋め込みの無いFactを仮置きしない（関連性を確認できないため）", async () => {
+    const store = await import("@/lib/person-evaluation-store");
+    const { recordEvent } = await import("@/lib/knowledge-store");
+    const { addObjective, updateOrgStrategy } = await import("@/lib/org-context-store");
+
+    await addObjective("TOPIC_A の目標");
+    await updateOrgStrategy({ values: "TOPIC_B というValue" });
+
+    recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "TOPIC_A に取り組んだが埋め込みは未生成",
+      tags: [],
+      occurredAt: Date.now(),
+      // embeddingを持たせない（生成失敗を模す）
+    });
+
+    const created = await store.suggestEvaluationLogsFromRecentJournals("PERSON_1", "太郎");
+    expect(created).toHaveLength(0);
   });
 });
