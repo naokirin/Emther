@@ -30,7 +30,7 @@ function OrgThreadPageInner() {
   return (
     <div className={styles.screen}>
       <PageTitleRow title="つながりを見る" helpAnchor="org" />
-      <p className={styles.subtitle} style={{ marginTop: -8, marginBottom: 14 }}>
+      <p className={styles.subtitle} style={{ marginTop: 8, marginBottom: 14 }}>
         方針・目標(Objective/Key Result)から、それを担うIssue、その根拠となったJournalまでを辿れます。編集は「方針・目標」タブで行ってください。
       </p>
       <div className={styles.panel}>
