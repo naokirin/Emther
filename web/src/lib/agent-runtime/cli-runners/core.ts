@@ -1,12 +1,8 @@
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
 import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "@/lib/agent-knowledge-tools";
-import { dataFilePath } from "@/lib/persistence";
-import { assertNoRealNamesLeaked } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { CLI_LABELS, type CliName } from "@/lib/types";
-import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt, perTurnBudgetUsdArg, selectRelatedSpecialists } from "./context-blocks";
+import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt, selectRelatedSpecialists } from "../context-blocks";
 import {
   consultQuestionFor,
   ensureRequiredConsult,
@@ -18,9 +14,12 @@ import {
   extractSubIssues,
   extractThemes,
   extractYield,
-} from "./extraction";
-import { appendLog, liveProcesses, runs, sanitizeForCloud, setRunTriageStatus } from "./store";
-import type { AgentRun, AgentStatus, ConsultRequest } from "./types";
+} from "../extraction";
+import { appendLog, runs, sanitizeForCloud, setRunTriageStatus } from "../store";
+import type { AgentRun, AgentStatus, ConsultRequest } from "../types";
+import { runAgyCliAttempt } from "./agy";
+import { runClaudeCliAttempt } from "./claude";
+import { runCursorCliAttempt } from "./cursor";
 
 // 個人情報の分離（ユーザー指摘対応）: クラウドが返すテキストは、渡したプロンプトが
 // PERSON_n IDでマスクされている以上、常にPERSON_n IDのままである（クラウドが実名を
@@ -28,7 +27,7 @@ import type { AgentRun, AgentStatus, ConsultRequest } from "./types";
 // マスクされたままrun.log/yieldRequest/proposal等へ保存する。実名への復元は、EM向けの
 // API応答を組み立てる境界（各APIルート）でだけ行う——保存経路には実名が一切乗らない。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
+export function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
   switch (event.type) {
     case "assistant": {
       const content = event.message?.content ?? [];
@@ -63,7 +62,7 @@ function handleStreamEvent(run: AgentRun, event: any, allowConsult: boolean) {
 // 個人情報の分離対応: 呼び出し側は「マスクされたまま」のテキストを渡すこと
 // （unmaskNamesを通した後のテキストを渡してはいけない——yieldRequest/proposal/
 // suggestedActionItemsはそのままSQLiteへ保存されるため、実名が混入する）。
-function applyAssistantResultText(run: AgentRun, resultText: string, allowConsult: boolean): void {
+export function applyAssistantResultText(run: AgentRun, resultText: string, allowConsult: boolean): void {
   // U19: lookup は consult / proposal / yield より優先（事実確認を先に済ませる）。
   const lookupRequest = extractLookup(resultText);
   if (lookupRequest) {
@@ -200,7 +199,7 @@ function releaseRunSlot(): void {
 // CLI子プロセスを1回起動する処理（fn）を同時実行数の枠で囲む。枠が空くまではrun.statusが
 // "queued"のまま待機し、空いたら"active"に戻してfnを実行する。fn完了後（成功・失敗問わず）は
 // 必ず枠を解放し、キュー待ちがいれば次の枠を渡す。
-async function withRunSlot<T>(run: AgentRun, fn: () => Promise<T>): Promise<T> {
+export async function withRunSlot<T>(run: AgentRun, fn: () => Promise<T>): Promise<T> {
   await acquireRunSlot(run);
   try {
     return await fn();
@@ -222,7 +221,7 @@ function runCliAttempt(cli: CliName, run: AgentRun, prompt: string, systemPrompt
   return withRunSlot(run, () => runCursorCliAttempt(run, prompt, systemPrompt, allowConsult));
 }
 
-async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true, precomputedPrompt?: string): Promise<void> {
+export async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true, precomputedPrompt?: string): Promise<void> {
   // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
   // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
   // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
@@ -281,394 +280,6 @@ async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = tr
     run.pendingConsult = undefined;
     await handleConsult(run, consult);
   }
-}
-
-// 戻り値はこの試行が失敗した（run.statusが"error"で終わった）かどうか。
-// 相談待ち（pendingConsult）・追加照会待ち（pendingLookup）は失敗ではない。
-function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。ここまでの保存時マスク・
-    // クラウド応答の非アンマスク化がすべて正しく機能している前提だが、それに頼らず、
-    // 外部プロセスへ渡す直前のテキストそのものを検査する。実名が1件でも残っていたら
-    // このrunをerrorにして送信自体を止める（実名をログにも残さない）。
-    try {
-      assertNoRealNamesLeaked(prompt);
-      assertNoRealNamesLeaked(systemPrompt);
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", (err as Error).message);
-      resolve(true);
-      return;
-    }
-
-    const args = [
-      "-p",
-      prompt,
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      "--tools",
-      "",
-      "--max-budget-usd",
-      perTurnBudgetUsdArg(),
-      "--append-system-prompt",
-      systemPrompt,
-    ];
-    if (run.sessionId) {
-      args.push("--resume", run.sessionId);
-    }
-    // ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。設定で
-    // このエージェント種別に系統が指定されていれば渡す。未設定ならclaude CLIの既定に任せる
-    // （挙動を変えないデフォルト）。
-    const modelTier = getRulesAndConstraints().agentModelTiers[run.agentName];
-    if (modelTier) {
-      args.push("--model", modelTier);
-    }
-
-    appendLog(run, "meta", run.sessionId ? "エージェントを再開しています…" : "エージェントを起動しています…");
-
-    let child;
-    try {
-      child = spawn("claude", args, { stdio: ["ignore", "pipe", "pipe"] });
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", `起動エラー: ${(err as Error).message}`);
-      resolve(true);
-      return;
-    }
-    liveProcesses.set(run.id, child);
-
-    let buffer = "";
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      buffer += chunk.toString("utf8");
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        if (!line.trim()) continue;
-        try {
-          handleStreamEvent(run, JSON.parse(line), allowConsult);
-        } catch {
-          appendLog(run, "system", line);
-        }
-      }
-    });
-
-    child.stderr.on("data", (chunk: Buffer) => {
-      const text = chunk.toString("utf8").trim();
-      if (text) appendLog(run, "system", `[stderr] ${text}`);
-    });
-
-    child.on("close", (code) => {
-      liveProcesses.delete(run.id);
-      if (buffer.trim()) {
-        try {
-          handleStreamEvent(run, JSON.parse(buffer), allowConsult);
-        } catch {
-          appendLog(run, "system", buffer.trim());
-        }
-      }
-      if (run.status === "active" && !run.pendingConsult && !run.pendingLookup) {
-        run.status = "error";
-        appendLog(run, "system", `プロセスが結果を返さずに終了しました (exit code: ${code})`);
-      }
-      resolve(run.status === "error");
-    });
-
-    child.on("error", (err) => {
-      liveProcesses.delete(run.id);
-      run.status = "error";
-      appendLog(run, "system", `起動エラー: ${err.message}`);
-      resolve(true);
-    });
-  });
-}
-
-// agy（複数モデル対応CLI）経由でのGeminiフォールバックに使うモデル。agyのモデル一覧は
-// バージョン付きの名前（例: gemini-3.6-flash-medium）でしか指定できず、汎用エイリアスは
-// 無いことを実機で確認済み。将来モデルが更新されたら定数を差し替える想定
-// （local-model.tsのLOCAL_CHAT_MODELと同じ考え方）。
-const AGY_GEMINI_MODEL = "gemini-3.6-flash-medium";
-
-// docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
-// cursor-agentも複数モデルに対応するマルチモデルCLIで、汎用モデル名（コーディング特化で
-// ない一般的なモデル）として"gpt-5.2"を使う。`--mode ask`は実機確認済みで
-// 書き込み・シェル実行を拒否する（安全側）が、Glob/Read等の読み取り専用ツールは
-// 承認無しで実行してしまうため、`--workspace`で空の専用ディレクトリに限定し、
-// 万一読み取りツールが呼ばれてもこのアプリのソース・`.data`が見えないようにする。
-const CURSOR_MODEL = "gpt-5.2";
-const CURSOR_WORKSPACE_DIR = dataFilePath("cursor-sandbox");
-mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
-
-// agy経由でのGeminiフォールバック実行。agyのstream-json出力はclaudeと同じ選択肢名を
-// 持つが、実際のイベント構造は別物（{"event": "result", "result": {"status", "response",
-// "conversation_id", ...}}等）であることを実機で確認済み。会話継続はagyの
-// `--conversation <id>`（claudeの--resumeと違い実際のUUID指定に対応）を使い、
-// run.agyConversationIdに保存して次回以降のフォールバックで引き継ぐ。
-// 明示的なツール無効化フラグは無いが、非対話（-p）実行中のツール承認はヘッドレスでは
-// 自動拒否される（実機で確認済み）ため、claudeの`--tools ""`ほど厳格ではないものの
-// 実質的にツールが実行されることはない。--append-system-prompt相当のフラグも無いため、
-// システムプロンプトをプロンプト本文の先頭に連結して渡す。
-function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
-  return new Promise<void>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
-    try {
-      assertNoRealNamesLeaked(prompt);
-      assertNoRealNamesLeaked(systemPrompt);
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", (err as Error).message);
-      resolve();
-      return;
-    }
-
-    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-    // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば
-    // それを使い、未設定なら既定モデルのまま動く。
-    const agyModel = getRulesAndConstraints().agentAgyModels[run.agentName] || AGY_GEMINI_MODEL;
-    const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
-    const args = ["-p", combinedPrompt, "--model", agyModel, "--output-format", "stream-json"];
-    if (run.agyConversationId) {
-      args.push("--conversation", run.agyConversationId);
-    }
-
-    appendLog(run, "meta", run.agyConversationId ? "agy（Gemini）で会話を再開しています…" : "agy（Gemini）でこのターンを実行しています…");
-
-    let child;
-    try {
-      child = spawn("agy", args, { stdio: ["ignore", "pipe", "pipe"] });
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", `agy起動エラー: ${(err as Error).message}`);
-      resolve();
-      return;
-    }
-    liveProcesses.set(run.id, child);
-
-    let sawResult = false;
-
-    function handleAgyLine(line: string) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let event: any;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        appendLog(run, "system", line);
-        return;
-      }
-
-      if (event.event === "step_update") {
-        const step = event.step_update;
-        if (step?.step_type === "tool" && step?.state === "ERROR") {
-          appendLog(run, "system", `[agy] ツール呼び出しが拒否されました: ${step.tool_name ?? "unknown"}`);
-        }
-        return;
-      }
-
-      if (event.event === "result") {
-        sawResult = true;
-        const result = event.result ?? {};
-        if (typeof result.conversation_id === "string" && result.conversation_id) {
-          run.agyConversationId = result.conversation_id;
-        }
-        if (result.status !== "SUCCESS") {
-          run.status = "error";
-          appendLog(run, "system", `agy（Gemini）も失敗しました: ${result.error ?? "(no message)"}`);
-          return;
-        }
-        const text = typeof result.response === "string" ? result.response.trim() : "";
-        if (!text) {
-          run.status = "error";
-          appendLog(
-            run,
-            "system",
-            "agy（Gemini）が空の応答を返しました（ツール呼び出しが拒否され、テキストでの結論に至らなかった可能性があります）。",
-          );
-          return;
-        }
-        appendLog(run, "agent", text);
-        applyAssistantResultText(run, text, allowConsult);
-      }
-    }
-
-    let buffer = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      buffer += chunk.toString("utf8");
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        if (line.trim()) handleAgyLine(line);
-      }
-    });
-
-    let stderr = "";
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-
-    child.on("close", (code) => {
-      liveProcesses.delete(run.id);
-      if (buffer.trim()) handleAgyLine(buffer.trim());
-      if (!sawResult) {
-        run.status = "error";
-        appendLog(
-          run,
-          "system",
-          `agyも結果を返さずに終了しました (exit code: ${code})${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
-        );
-      }
-      resolve();
-    });
-
-    child.on("error", (err) => {
-      liveProcesses.delete(run.id);
-      run.status = "error";
-      appendLog(run, "system", `agy起動エラー: ${err.message}`);
-      resolve();
-    });
-  });
-}
-
-// cursor-agent（Cursor CLI）経由でのフォールバック実行。`--output-format stream-json`の
-// イベント構造はclaudeの`handleStreamEvent`とほぼ同じ形（type: "assistant"/"result"等）だが、
-// session_idはclaude用のrun.sessionIdとは別のID空間なので、handleStreamEventは再利用せず
-// 専用のパーサーを実装し、run.cursorSessionIdに保存する。
-// 安全面: `--mode ask`は書き込み・シェル実行を拒否することを実機確認済みだが、
-// Glob/Read等の読み取り専用ツールは承認無しで実行してしまうことも確認したため、
-// `--workspace`で空の専用ディレクトリ（CURSOR_WORKSPACE_DIR）に限定し、
-// 万一読み取りツールが呼ばれてもこのアプリのソース・`.data`が見えないようにしている。
-// `--append-system-prompt`相当のフラグも無いため、システムプロンプトをプロンプト本文の
-// 先頭に連結して渡す。
-function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
-  return new Promise<void>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
-    try {
-      assertNoRealNamesLeaked(prompt);
-      assertNoRealNamesLeaked(systemPrompt);
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", (err as Error).message);
-      resolve();
-      return;
-    }
-
-    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-    // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば
-    // それを使い、未設定なら既定モデルのまま動く。
-    const cursorModel = getRulesAndConstraints().agentCursorModels[run.agentName] || CURSOR_MODEL;
-    const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
-    const args = [
-      "--print",
-      "--mode",
-      "ask",
-      "--trust",
-      "--workspace",
-      CURSOR_WORKSPACE_DIR,
-      "--output-format",
-      "stream-json",
-      "--model",
-      cursorModel,
-    ];
-    if (run.cursorSessionId) {
-      args.push("--resume", run.cursorSessionId);
-    }
-    args.push(combinedPrompt);
-
-    appendLog(run, "meta", run.cursorSessionId ? "Cursor CLIで会話を再開しています…" : "Cursor CLIでこのターンを実行しています…");
-
-    let child;
-    try {
-      child = spawn("cursor-agent", args, { stdio: ["ignore", "pipe", "pipe"] });
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", `Cursor CLI起動エラー: ${(err as Error).message}`);
-      resolve();
-      return;
-    }
-    liveProcesses.set(run.id, child);
-
-    let sawResult = false;
-
-    function handleCursorLine(line: string) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let event: any;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        appendLog(run, "system", line);
-        return;
-      }
-
-      if (event.type === "assistant") {
-        const content = event.message?.content ?? [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const block of content as any[]) {
-          if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
-            appendLog(run, "agent", block.text.trim());
-          }
-        }
-        return;
-      }
-
-      if (event.type === "result") {
-        sawResult = true;
-        if (typeof event.session_id === "string" && event.session_id) {
-          run.cursorSessionId = event.session_id;
-        }
-        if (event.is_error) {
-          run.status = "error";
-          appendLog(run, "system", `Cursor CLIも失敗しました: ${typeof event.result === "string" ? event.result : "(no message)"}`);
-          return;
-        }
-        const text = typeof event.result === "string" ? event.result.trim() : "";
-        if (!text) {
-          run.status = "error";
-          appendLog(run, "system", "Cursor CLIが空の応答を返しました。");
-          return;
-        }
-        applyAssistantResultText(run, text, allowConsult);
-      }
-    }
-
-    let buffer = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      buffer += chunk.toString("utf8");
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        if (line.trim()) handleCursorLine(line);
-      }
-    });
-
-    let stderr = "";
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-
-    child.on("close", (code) => {
-      liveProcesses.delete(run.id);
-      if (buffer.trim()) handleCursorLine(buffer.trim());
-      if (!sawResult) {
-        run.status = "error";
-        appendLog(
-          run,
-          "system",
-          `Cursor CLIも結果を返さずに終了しました (exit code: ${code})${stderr.trim() ? `: ${stderr.trim().slice(0, 500)}` : ""}`,
-        );
-      }
-      resolve();
-    });
-
-    child.on("error", (err) => {
-      liveProcesses.delete(run.id);
-      run.status = "error";
-      appendLog(run, "system", `Cursor CLI起動エラー: ${err.message}`);
-      resolve();
-    });
-  });
 }
 
 function buildSpecialistKickoffQuestion(task: string): string {
@@ -844,5 +455,3 @@ async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promis
   // followUpもanswerText（クラウド由来・マスク済み）から組み立てただけなので実名を含まない。
   await runClaudeTurn(leadRun, followUp, false, followUp);
 }
-
-export { runClaudeTurn };
