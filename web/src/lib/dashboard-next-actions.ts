@@ -8,6 +8,7 @@ import {
   INTERVENTION_NEXT_ACTION_LIMIT,
   charterFilledCount,
   compareIssuesByPriority,
+  isJournalEntryResolved,
   issueNextAction,
   type Issue,
   type IssuePriority,
@@ -271,6 +272,11 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
 
   for (const entry of journalEntries) {
     if (now - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
+    // バグ修正（docs/memo.md「観測不足に解決済みJournalが残り続ける」）対応。表示ウィンドウ
+    // （24時間）だけで自然に外れる設計だったため、対応済み/Issue化済みのJournalも
+    // ウィンドウ内は「観測不足」レーンに載り続けていた。すでに解決済みなら観測を
+    // 増やす必要はないため、ここで除外する。
+    if (isJournalEntryResolved(entry)) continue;
     if (entry.urgency === "mid" && entry.sentiment === "negative") {
       nextActions.push({
         id: `journal-${entry.id}`,
@@ -388,22 +394,13 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
+  // docs/memo.md「今日タブの今日やるべきに『チームリスク』が表示されるが『チームの状態』と
+  // 内容的には被っている」対応。bad/warnは同じダッシュボード上のTeamStatePanel（チームの状態）
+  // に常に表示されており、同じ情報を指す別カードを「今日やるべき」に重ねて出す必要はない
+  // ため、ここでは出さない。unknown（評価不能）は「観測を増やす」という行動への誘導であり
+  // TeamStatePanel側の表示とは役割が異なるため引き続き載せる。
   for (const v of vitals.teams) {
-    if (v.status === "bad" || v.status === "warn") {
-      nextActions.push({
-        id: `vital-${v.teamId}`,
-        severity: v.status === "bad" ? "urgent" : "warn",
-        lane: "decision",
-        icon: v.status === "bad" ? "🔴" : "🟡",
-        kindLabel: "チームリスク",
-        text: `${v.teamName}のチーム状態: ${v.label}`,
-        // チーム管理は/teamsへ移設済み。方針・目標(/org)ではなく該当チームを選択した
-        // 状態で開けるよう ?focus= を付ける（/journal?focus= と同じパターン）。
-        onSelect: () => push(`/teams?focus=${encodeURIComponent(v.teamId)}`),
-        // Team Vitalsは実測値の再計算結果であり個別のタイムスタンプを持たないため0固定。
-        since: 0,
-      });
-    } else if (v.status === "unknown") {
+    if (v.status === "unknown") {
       // docs/memo.md「D」対応。診断で止まらせず、観測を増やす行動（Quick Journal）へ誘導する。
       nextActions.push({
         id: `vital-unknown-${v.teamId}`,

@@ -15,6 +15,7 @@ import {
   isIssueStalled,
   isIssueStrategyUnlinked,
   issueNextAction,
+  issueOverviewText,
   issueProgress,
   type Issue,
   type ObjectiveWithProgress,
@@ -167,7 +168,11 @@ export function IssueListTable({
                         <span className={styles.issueTreeToggleSpacer} aria-hidden />
                       )}
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <button className={styles.tableRowLink} onClick={() => onPeekOpen(issue.id)}>
+                        <button
+                          className={`${styles.tableRowLink} ${styles.axisTooltip}`}
+                          data-tooltip={issueOverviewText(issue.charter)}
+                          onClick={() => onPeekOpen(issue.id)}
+                        >
                           {issue.title}
                         </button>
                         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -324,7 +329,11 @@ export function IssueListTable({
                       <div className={styles.issueTitleCell}>
                         <span className={styles.issueTreeToggleSpacer} aria-hidden />
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <button className={styles.tableRowLink} onClick={() => onPeekOpen(child.id)}>
+                          <button
+                            className={`${styles.tableRowLink} ${styles.axisTooltip}`}
+                            data-tooltip={issueOverviewText(child.charter)}
+                            onClick={() => onPeekOpen(child.id)}
+                          >
                             {child.title}
                           </button>
                           <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

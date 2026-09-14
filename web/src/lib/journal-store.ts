@@ -596,6 +596,13 @@ export async function updateJournalEntry(
     sentiment: original.sentiment,
     summary: original.summary,
     occurredAt,
+    // バグ修正（docs/memo.md「入力順と表示順が変わる」）対応。recordedAtを指定しないと
+    // recordEvent()がDate.now()を採番し、校正のたびに「記録した実時刻」が編集時刻へ
+    // 進んでしまう。一覧はoccurred_at DESC, recorded_at DESCの順で並ぶため、occurredAtが
+    // 同値（まとめ入力の同日エントリ等）の集団内で、後から校正しただけのエントリが
+    // 本来の入力順を追い越して先頭寄りに移動してしまっていた。supersedeしても
+    // 「最初に記録された時刻」は不変であるべきなので、originalのrecordedAtを引き継ぐ。
+    recordedAt: original.recordedAt,
     ttlDays: original.ttlDays,
     supersedes: id,
     sourceJournalId: original.sourceJournalId,

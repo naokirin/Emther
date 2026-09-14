@@ -5,7 +5,7 @@ import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { IssueStatusBadge } from "@/components/IssueStatus";
 import { ProgressBar } from "@/components/ProgressBar";
-import { charterFilledCount, issueProgress, type Issue } from "@/lib/types";
+import { charterFilledCount, issueOverviewText, issueProgress, type Issue } from "@/lib/types";
 
 type Props = {
   issue: Issue;
@@ -60,7 +60,11 @@ export function IssueSubIssuesPanel({ issue, childIssues, runs, staleRunIds, onO
                 return (
                   <tr key={child.id} style={child.archived ? { opacity: 0.6 } : undefined}>
                     <td>
-                      <button className={styles.tableRowLink} onClick={() => router.push(`/issues/${child.id}`)}>
+                      <button
+                        className={`${styles.tableRowLink} ${styles.axisTooltip}`}
+                        data-tooltip={issueOverviewText(child.charter)}
+                        onClick={() => router.push(`/issues/${child.id}`)}
+                      >
                         {child.title}
                       </button>
                       <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

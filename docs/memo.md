@@ -1,63 +1,28 @@
 # MEMO
 
 ## TODO
-* EMが忙しいなどであとから一気にデータを追加するパターンがあると、いまの「1個ずつ追加する」のが非常に大変になる可能性がある。とくに1日単位だけでも十分に発生しうる。一気に追加するための仕組みにより、EMがツールを使うこと自体で疲弊しないようにする必要がある
-* Issue以外の組織情報や目標の不足など、明示化されていないAIエージェントチームを精度高く動かすために必要なアクションも、ダッシュボードで示すようにする
-* ~~ローカルNER（`people-directory.ts`の`detectAndRegisterNames`）の誤検出対策。~~ → DONE（自動登録を廃止し、未登録候補は「登録せず未マスクのまま進めてよいか」をEMに確認する方式へ。許可した語句は acknowledge リストに残し再確認を避ける。誤登録による `assertNoRealNamesLeaked` 誤発火で Agent 送信が止まる問題への根本対策）
 
-## 保留
-* CLIのインタラクティブモード（REPL）とWeb UIを標準入出力で直接ストリーム接続する設計への変更（docs/first_implession 3.4の要求。現状は非対話実行＋`--resume`によるセッション再開方式。体験は同等のため保留）
-* Quick Journalの表示側サニタイズ（画面表示時のマスキング、docs/first_implession 3.2の要求）。**2026-09-08に再検討**: 「個人名は人間に見せるときは実名で表示したい」（本メモDONE参照）は既存の設計決定であり、EM自身の画面から実名を隠すことは目的にできない。対象読者はEM以外の第三者（Reports等を画面共有・スキップレベル1on1で見せる場面）に限られ、その場合も人名だけマスクすればJournalの生テキスト（文脈）から本人特定できてしまうため、名前マスキングという解決策自体が不十分——実施するなら要約・匿名化集計のみを見せる別ビューが必要。対象読者・対策方法とも未確定なため保留を継続
+### バグ
+* [対応済み] まれにJournalの入力順と表示順が変わることがある → 校正（updateJournalEntry）のたびにrecordedAtが編集時刻へ進んでしまい、occurredAtが同値のグループ内で入力順が崩れていた。originalのrecordedAtを引き継ぐよう修正（journal-store.ts）
+* [対応済み] 観測不足に解決済みJournalが残り続ける → ダッシュボード「今日やるべき」の観測不足レーンが表示ウィンドウ（24時間）だけで自然に外れる設計で、対応済み/Issue化済みかを見ていなかった。isJournalEntryResolvedで除外するよう修正（dashboard-next-actions.ts）
 
-## DONE
-* 個人・機密情報チェック（`/mask-check`）。投入前のオプトイン検証。登録済み人名マスク＋ルール／ローカルAIの機微候補リスト。副作用ゼロ・投入なし。詳細は `docs/privacy_check.md`
-* 個人名は人間に見せるときは実名（特定できる名前）で表示したいが、LLMに渡すときにはマスクしたい。ただし、マスクした後で誰のことを指しているか不明になるのは避けたい。そこでスクリプトやローカルLLMのみ読める場所にID:名前の組み合わせをデータベースとして持ち、インプット時はIDに置き換えてから外部LLMに送信、ダッシュボード等への表示時にはプログラムでID→名前に戻して表示するといったことをする。
-* Issueのアーカイブなどができないのでできるようにする
-* チームの編集・アーカイブができるようにする
-* チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、Organization Context から確認できるようにする
-* チームの組織階層を入力できるようにする（チーム名で `/` をつけると組織階層をつけられるようにする。`/` の前後の空白は名前として無視するようにする）
-* Issue にカテゴリ・タグ付けをしたい
-* リストにおける、フィルタ機能の拡充、ページネーションの追加を行う
-* ワイヤーフレームのスタイルテーマを適用する
-* ダッシュボードで「人間のEMが次になにをするべきか？」がすぐに分かり、詳細に遷移できる状態にする
-* Agent Runが「動いていると思ったら止まっていた」を防ぐ無応答検知（応答なしの警告表示＋一定時間超過後の子プロセス強制終了による自己修復）
-* 永続化データモデルの再設計 Phase 1（イベントソーシング＋バイテンポラル＋ファクト/解釈分離のKnowledgeEventモデルを導入し、Journal・Agent Runの実行ログをSQLiteへ移行。TTLによる重み付けをAgent Runtimeへの注入に反映）
-* 永続化データモデルの再設計 Phase 2（Issue/Teamの変更履歴もKnowledgeEventとしてイベント化する）
-* 永続化データモデルの再設計 Phase 3（ローカル完結のベクトル検索。埋め込みはtransformers.jsでローカル生成し、ブルートフォースのコサイン類似度検索を実装。副次的にmaskNames/unmaskNamesの自己破壊バグも修正）
-* Claude Code が使えない場合に、Gemini CLI を使うようにする（Settingsでエージェント種別ごとにON/OFF可能。トリガーは実行失敗・予算/レート制限の両方。実装は生の`gemini` CLIではなく`agy`経由に変更——実際のGemini応答成功・複数ターンの会話継続まで実機で検証済み）
-* AIエージェントが権限制約でファイル更新できないパターンなどの例外に対しての扱いと解決方針を決めておく（claudeは`--tools ""`で構造的に発生しない。agyフォールバックのみ発生し得るが、既存のエラー処理・無応答検知にそのまま乗せる方針とし、自動リトライはしない）
-* 初回に組織情報やMVV、目標等の情報を大量に投入する必要があるため、その方法を検討しておく（MVVは既存のStrategy自由記述で対応可能、チームは`POST /api/teams/bulk`で1行1チームの簡易フォーマットによる一括登録に対応）
-* 一時的なエラー等で止まった場合の再開させるボタンの追加をする（Issue詳細のExecution Stateに「同じ内容で再試行する」ボタンを追加。既存の`decideRun`をそのまま利用）
-* 人間EMからのインプットパターン（始業時・随時・終業時など）を設計してダッシュボードに組み込む（時間帯に応じた1行案内バナーをDashboardに追加。朝は「次にすべきこと」確認、日中・終業時はQuick Journalへの誘導）
-* これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、質問ができるチャットを用意する（`/chat`を新設。Issue未起票のLead Agent runを相談スレッドとして扱い、既存のAgent Runtime/ExecutionState/CopilotChatをそのまま流用）
-* 人から「〇〇の指示があった」「〇〇と伝えられた」などをもとにその人の志向性、認知傾向、パーソナリティを整理する（Dashboardの長期プロファイルフォームに「AIに下書きを提案してもらう」ボタンを追加。People Agentへ通常のタスクとして投げるだけで、既存のファクト注入・匿名化がそのまま働く。下書きのまま自動保存はせずEMの「記録」操作を必須にする）
-* サポートするAIエージェント CLI に Cursor CLI を追加する（claude→agyに続く3段目のフォールバックとして`cursor-agent`を追加。`--mode ask`でも読み取り専用ツールは自動実行してしまうことを実機発見し、`--workspace`で空の専用ディレクトリに隔離することで対処。実際のGPT-5応答成功・`--resume`による会話継続まで実機で検証済み）
-* AIによる異常検知経由のドラフトIssue起票を実装する（Journalの緊急度がhighになったらLead Agentが自動分析し、結論でIssue化を検討する旨を示す。Issue作成自体は既存のInbox→Issue化フローを流用。EMが「Issueにする」/「却下する」を選ぶまでDashboardに残り続ける）
-* エージェントの起動トリガーにイベント駆動・バッチ駆動を追加する（イベント駆動は上記の異常検知と共通実装。バッチ駆動は毎朝指定時刻に1回だけ「朝のサマリー」runを自動起動。どちらもSettingsで既定OFF）
-* 壁打ちチャットのAI提案からIssueのState（Action Items）を直接・動的に更新できるようにする（Issue紐づきのタスクに限り`action_items`ブロックでの提案を許可し、Execution Stateに「採用してAction Itemsに追加」/「却下する」ボタンを追加。EMが選ぶまでIssue本体は変化しない）
-* 【大規模改善B】「何でも相談」↔Issueの昇格物語をはっきりさせる（`reviewed`とは別に`triageStatus`（"watching"|"dismissed"）を追加し、様子見と却下を区別。`/chat`の選択中スレッド上部に「Issueにする／様子見／却下する」を常設し、手動相談にも開放。Dashboard朝バナーとIssue詳細の未紐付け／紐付き文言も更新）
-* 【大規模改善A】Inboxを組織リスクのトリアージにする（`NextAction`に`kindLabel`を追加し「次にすべきこと」の各カードに種別チップ（異常検知／朝のサマリー／Yield／実行異常／Issue未整理／チームリスク／1on1不足）を表示。Inbox一覧にも同じ語彙のラベルを追加して語彙を統一。異常検知ドラフトはtask要約より`proposal.conclusion`を優先表示）
-* 【大規模改善D】「評価不能」→観測アクション（`TeamVital`に`members`、`CoverageVital`に`uncoveredMembers`を構造化フィールドとして追加し、`reason`の自由文からのパースを回避。評価不能チームを「次にすべきこと」にも表示し、Team Vitalsカードと1on1 Coverageカードに「Quick Journalにメモする」「〇さんの1on1を記録」CTAを追加してQuick Journal欄へプリフィル。`/api/vitals`側でPERSON_n IDをunmaskNamesして実名化）
-* 【大規模改善C】Journalセンシング→行動（イベントソーシングの不変性を保ったまま、`supersedes`で新イベントを繋いで「その場微修正」を実現。`PATCH /api/journal/[id]`と`journal-store.ts`の`updateJournalEntry`を追加し、Submit直後は自動で人物/タグ/Urgencyの編集モードに入る。既存エントリにも「編集」ボタンを追加。Quick Journalの`@人物`クリックで`/chat?prefill=`へ、`#タグ`クリックで`/issues?tag=`へ遷移する導線を追加。urgency:mid＋sentiment:negativeの直近24時間以内のエントリを「次にすべきこと」に「要注目Journal」カードとして表示）
-* 【大規模改善G】Issueに「介入の型」を足す（`types.ts`に8種類の`INTERVENTION_TYPES`プリセットを追加。起票モーダル・詳細画面の両方にチップ列を表示し、選択すると既存の`tags`へ追加/削除、Why/What/Howのplaceholderを型に応じて差し替え。新規フィールドは増やさず保存は既存tagsのまま。実装中、詳細画面でissueが非同期取得のため初回チップハイライトが同期しないバグを発見・修正（useEffectでのsetStateはこのプロジェクトのlintで禁止されているため、レンダー中に前回issueIdと比較して同期する方式で対応））
-* 【大規模改善F】Product Agentの追加（`AGENT_OPTIONS`・`SPECIALIST_AGENTS`（Leadのconsult先候補）・consultプロンプト文言2箇所にProduct Agentを追加。実装前の調査では「専門エージェントごとの説明1段落」が別途存在する想定だったが、実際にはPeople/Process/Techも含めエージェント名以外の役割ペルソナ記述はagent-runtime.tsに存在せず、モデルがagentNameだけから役割を推論する設計だったため、Product Agentも同じ方式に揃え追加の説明文は書かなかった。実機でRunを起動しproposalブロックまで正常応答することを確認）
-* 【大規模改善E／TODO「Agent Activity Streamパネル」】横断Activity Stream（新規パネルはFleetの直下・Vitalsの上に配置。既存`runs[].log`を時刻順にマージして表示するだけで新基盤は導入せず、ポーリングも既存`useRuns`のまま。行は`[エージェント名] アイコン テキスト`形式、クリックで紐付くIssueがあればそこへ、無ければLead Agentの場合は`/chat?runId=`へ、それ以外は既存の`goToRunIssue`と同じくその場でIssue化して遷移する）
-* 【大規模改善H】戦略→Issue→結果の一本線（自由記述1本だった`OrgStrategy.okr`を廃止し、Objective（目標）ごとにKeyResult（主要な結果）を持つ最小構造へ置き換え。`org-context-store.ts`にObjective/KeyResultのCRUDと、KeyResultへ紐付いたIssueの完了（archived）件数から進捗を自動算出する`listObjectivesWithProgress`を追加（手動での進捗入力はしない）。Issueに`keyResultId`を追加し、起票モーダル・詳細画面の両方でKey Resultへ紐付け可能に。`/org`にObjectivesツリー・エディタパネルを追加（Strategyと同じUIパターン）。Agent Runtimeのプロンプトにも`buildObjectivesBlock`でObjective/KR一覧を絶対の前提として注入。検証中、ローカルNER（`maskForStorage`内の`detectAndRegisterNames`）がObjective/Issueタイトルの一部やタグ的な短い語（例:「NPS」「H項目」等）を人物名と誤検出して`people-directory`に登録し、その後の`assertNoRealNamesLeaked`が正当なテキストを実名漏洩と誤判定してAgent Run送信を止める事象を複数回確認——H機能自体のバグではなく、Journal/Issue/Strategy等あらゆる自由記述に共通する既存のローカルモデル精度の課題）
-* 【大規模改善I】チーム単位の憲法（ミッション／制約）（`Team`に`charter: {mission, constraints}`を追加（`org-context-store.ts`、既存teams.jsonへのマイグレーションも対応）。`/org`のチーム編集画面にMission/制約欄を追加。IssueにH同様の`teamId`を追加し、起票モーダル・詳細画面で関連チームを紐付け可能に。Agent Runtimeに`buildTeamCharterBlock`を追加し、そのRunが紐づくIssueにteamIdがある場合だけ、そのチームのMission/制約を絶対の前提として動的に注入（docs/memo.md TODO「Organization Contextの動的ロードを対象Issueに関連するチームのみに絞る」に対応する部分。全チームの名簿一覧`buildOrgContextBlock`は従来通り常時注入のまま維持し、チーム憲法の方だけ紐づくIssue単位でスコープする設計）。検証中、Issueタイトルに含まれていた既存チーム名「検証チーム」がまるごとローカルNERに誤検出され、`buildOrgContextBlock`が意図的にマスクせず注入しているチーム名と衝突して`assertNoRealNamesLeaked`が誤発火し、そのチームに関するAgent Run送信が止まる状態を実機確認——上記NER誤検出TODOに詳細を追記済み）
-* 【大規模改善J】Peopleを第一級ハブに（新規の永続化エンティティは持たず、既存のpeople-directory（誰がいるか）・knowledge-store（Journal fact・長期解釈）・org-context-store（チーム所属）・issue-store（関連Issue、名前一致の簡易抽出）を人物軸で束ねる集約レイヤー`people-hub.ts`を新設。`/people`（一覧）・`/people/[id]`（詳細：長期プロファイル・直近Journal・関連Issueを横断表示、傾向はJournalのsentiment集計から機械的に算出）を追加し、`TopNav`に新規タブを追加。詳細ページはPERSON_n IDだけでなく実名でもアクセス可能にし（`getPersonProfile`が両対応）、Organization ContextのMembers_Profileチップから直接遷移できるようにした。実ブラウザ確認で花子さんの既存の長期プロファイル「花子さんはリーダー志向がある」と関連Issue「花子さんのオンボーディング改善」が実データのまま正しく横断表示されることを確認——テストデータを一切作らずに実データだけで検証できた数少ない項目）
-* 【大規模改善K】ズームイン／ズームアウトの協働計画（既存のaction_items提案の仕組み（AIが下書きを提案し、EMが「採用」するまでIssue本体は変化しないHuman-in-the-Loop）を子Issue分解へ横展開。トップレベルのIssue（1階層制限のため子Issueはさらに分解できない）に紐づくRunに限り、system promptへ`sub_issues`ブロックのルールを追加し、AIが「このIssueは抽象的すぎる」と判断した場合に具体的な子Issue案を提案できるようにした。`AgentRun`に`suggestedSubIssues`を追加（DB永続化・unmask含めaction_itemsと同じ配線）、`RunDetail.tsx`に採用/却下UIを追加、採用時は既存の`POST /api/issues`（parentId指定）を複数回叩くだけで新しい起票経路は増やしていない。実機のLead Agent runで実際に「新機能のリリースプロセス全体を整備する」というIssueに対し、proposal・action_items・sub_issues（5件の具体的な子Issue案）が同時に生成されることを確認。Playwright検証で採用ボタンから5件すべての子IssueがparentId付きで正しく作成され、提案ブロックが消え、独立して残るAction Items提案には影響しないこと、既に子Issueを持つIssueでは「上位Issueを作る」ボタンが自動的に非表示になる（既存の1階層制限ロジックが正しく反応する）ことまで、実ブラウザで最後まで完走させて確認した。却下（`/api/agents/[id]/sub-issues/dismiss`）が提案を正しくクリアすることもAPIレベルで確認。検証中、EMからの壁打ちメッセージに含まれていた「Issue」「Option B」という単語がまるごとローカルNERに誤登録され、agent-runtime.ts側のシステムプロンプトのテンプレート文言そのもの（「このタスクはIssueに紐づいています」等）と衝突して**アプリ全体のAgent Run送信が止まる**という、上記NER誤検出問題の中でも最も深刻な事例を実機確認——TODOに追記済み）
-* 【大規模改善L】介入の閉ループ（やった→組織が変わったか）（新しいVitalsロジックは作らず、既存のcomputeTeamVital（直近teamWindowDays日間のJournal sentiment集計）と同じ考え方を「アーカイブ前のteamWindowDays日間」「アーカイブ後のteamWindowDays日間」の2つの窓に分けて適用する`computeIssueImpact`を`vitals.ts`に追加。Issueに`archivedAt`を追加（`updatedAt`は他の編集でも動くため、いつアーカイブされたかを正確に知るための専用フィールドとして分離）。`GET /api/issues/[id]/impact`を新設し、アーカイブ済み・チーム紐付き済みのIssueに限り介入前後比較を返す（それ以外はnull）。Issue詳細画面に「介入の効果」パネルを追加し、観測データがまだ無い場合は「感覚」で埋めず「しばらく経ってから確認してください」と明示（Team Vitalsの評価不能と同じ設計思想）。実機確認でAPIが正しい形状のレスポンス（アーカイブ・チーム紐付き双方の条件を満たさない場合はnull）を返すこと、UI上でパネルの出し分けと表示内容が正しく機能することを確認）
-* 【大規模改善M】AIエージェント“チーム”の本格協働（並列相談を採用。`ConsultRequest`を`{agent: string}`から`{agents: string[]}`へ変更し、Lead Agentが1ターンで複数の専門エージェントに同時に相談できるようにした。`extractConsult`は`agents`配列（SPECIALIST_AGENTSに無い値は除外、重複除去、後方互換で単数`agent`も受理）をパースし、`handleConsult`は`Promise.all`で全専門エージェントのrunを並行実行、全員の回答をラベル付きでLead Agentに返して統合結論を出させる（連鎖相談は無限ループリスクのため引き続き禁止＝specialistRunはallowConsult=false）。新しいデータモデル・APIは増やさず、既存のFleet/Inbox/Activity Streamが複数run同時activeをそのまま表示するため、UI側の変更は不要だった。実機のLead Agent runで「メンバーのモチベーション低下とリリース遅延」という人材面・プロセス面にまたがるタスクを与え、実際にPeople Agent・Process Agentへ同時相談→両者の回答をLead Agentが統合し、見解の一致点・相違点を踏まえた上で本当に必要な追加情報（対象者の特定）をyieldで求めるところまで実機確認。Fleet・Inboxに両専門エージェントが同時に表示されることも確認）
-* 【大規模改善N】時系列変化をEMが読む物語に（横断タイムラインを新設。新しい永続化エンティティは持たず、既存のIssue/Team/ObjectiveのKnowledgeEvent変更履歴（`kind:"fact" context:"official"`、Journalの`context:"observation"`とは区別）を横断集計する`listRecentChangeEvents`（`knowledge-store.ts`）と、entityId→現在の表示名・リンクへ解決する`listTimelineEntries`（新設の`timeline.ts`）を追加。`GET /api/timeline`と`/timeline`ページを新設し、TopNavにタブを追加。日付ごとにグルーピングして表示し、Issueへは直接リンク、Team/Objectiveは`/org`への遷移に留める（`/org`が選択状態をURLで持たないため）。実装・検証中に、これまでのA〜M検証で作成→削除したテスト用Issue/Objectiveの変更履歴イベントが、削除されたエンティティを参照したまま`knowledge_events`に残り続けていたことを発見——エンティティ自体は正しく削除されていたが、変更履歴（イベントソーシングの「削除しない」原則）は残っていたため、このタイムライン機能で初めて可視化されて気づいた。現在有効なissues.json/teams.json/objectives.jsonのIDと突き合わせて孤立イベントを削除し、実データのみのクリーンな状態に復旧）。**Playwrightによる再検証（後日実施）**: 実ブラウザから`/org`で新規Objectiveを作成→`/timeline`に「Objectiveを作成」イベントが即座に反映され表示されること、そのエントリの表示名リンクをクリックすると`/org`へ遷移すること、既存のIssueエントリ（「花子さんのオンボーディング改善」）をクリックするとそのIssue詳細ページ（`<h1>`のタイトルが一致）へ直接遷移することをコンソール・ページエラー0件で確認。検証で作成したObjectiveを削除すると「Objectiveを削除しました」イベントが積み増され、エンティティが存在しない場合は`entityLabel`が「(削除済み)」として表示されることも実機で再確認できた（Nの実装時に発見した「削除しても履歴は残る」設計通りの挙動）。検証で生じた試験用イベント（`text`に`PWTEST`を含む10件）はSQLiteから直接削除し、実データのみの状態に復旧済み
-* 【大規模改善O】期初の憲法づくりオンボーディング（新規ウィザード画面は作らず、Dashboard上部に「⚙️ 初回セットアップ」バナーを追加。MVV（Mission/Vision/Valuesが全て空）・Team（0件）・Objective（0件）のうち未設定のものだけを列挙し、`/org`への導線を出す。EMが明示的に消す仕組みは持たず、実際に揃うと自然に消える設計。既存の時間帯案内バナー（B項目）の上に積む形で配置し、新しいpanelパターンは増やしていない。実機確認で、Mission設定済み・Team 1件・Objective 0件という実データの状態に対して「Objective 0件」のみが正しく表示されることを確認）。**Playwrightによる再検証（後日実施）**: 「Objective 0件」というギャップ表示→バナーの「Organization Contextへ」ボタンで`/org`に遷移→Objectiveを1件追加するとDashboardのバナーが完全に消えること、その後そのObjectiveを削除するとバナーが「Objective 0件」として再び現れることの往復を実ブラウザで確認（EMが明示的に消す手段が無く、状態に追従して自然に出没する設計が意図通り動くことの確認）
-* 【大規模改善S／TODO「Timelineのアイテムがつまりすぎている」】Timeline一覧の行間を拡大（各エントリの`marginBottom`を6pxから16pxへ、本文の`marginTop`を2pxから4pxへ拡大し、エントリ間に`border-bottom`の区切り線を追加。新しいCSSクラスは増やさず`timeline/page.tsx`内のインラインstyleのみの調整。Playwrightのスクリーンショットで、変更前は隣接エントリが視覚的に密着していたのに対し、変更後は1エントリ＝1ブロックとして区別しやすくなったことを確認）
-* 【大規模改善P】Quick Journalの一覧・検索画面を分離（Dashboardは直近5件のみ表示に変更し、全件の横断検索・絞り込みは新設の`/journal`に寄せた。編集（その場校正）のロジックはDashboard/`/journal`の両方で必要なため、状態とfetch処理を`@/lib/hooks`の`useJournalEditing`に、表示・編集フォームのJSXを`@/components/JournalEntryCard.tsx`に切り出して共通化した。`/journal`側の検索・タグ／人物／Urgency／感情／期間フィルタは、Issue一覧と同じくクライアント側フィルタ（単一ローカルユーザー規模のため専用検索APIは作らない）。実装中、`.filter()`内で直接`Date.now()`を呼ぶとreact-hooks/purityのlintエラーになることを発見し、`useState(() => Date.now())`による遅延初期化に変更して解消（Dashboard側の既存コードは同種の呼び出しがforループ内にあり複雑度が高くコンパイラの解析がバイパスされているため検知されていない、という違いも確認した）。Playwrightで実ブラウザから両画面を確認し、コンソール・ページエラー無しを確認）
-* 【大規模改善Q】Quick Journal・Issue進捗・各種イベントの週次/月次レポート機能（新しい判定ロジックは作らず、Team Vitalsと同じく既存の観測データ（Journal/Issue/`context:"official"`の変更履歴）を機械的に集計するだけの`@/lib/report-store.ts`を新設。「レポートを一過性にしない」という要求に対応するため、生成のたびにその場で再計算する画面にはせず、生成結果（stats）をSQLite新設テーブル`reports`へスナップショットとして保存し、過去に生成したレポートがIssueのアーカイブ等の後続の状態変化で数字が変わらないようにした。EMが後から書き足せる所感欄（`note`）だけは`PATCH /api/reports/[id]`で更新可能。個人情報の分離方針に合わせ、集計はマスク済みテキストのまま行い、API応答直前の`toReportView`でのみ実名へ復元する。`/reports`ページに「今週/今月のレポートを作成」ボタンと、種別絞り込み・ページネーション付きの蓄積済みレポート一覧を追加し、TopNavにタブを追加。実機でレポート生成→詳細展開→所感保存→再取得までcurlとPlaywrightの両方で確認した）
-* 【大規模改善R】人間EM自体の成長への向き合い（EM本人のバイタル・週次振り返り・改善方針）（他者のTeam Vitalsは「感覚」で埋めず観測から機械的に算出する方針だが、これはEM自身についての自己申告であり本人の申告そのものが根拠になるため、良好/要注意といったアルゴリズム判定はせず数値をそのまま記録する方針にした。件数・更新頻度が単一ユーザーの手入力程度の規模のため、Issue/Teamと同じ`loadJSON`/`saveJSON`（`.data/em-checkins.json`・`.data/em-reflections.json`）で新設`@/lib/em-self-store.ts`を実装。自己チェックイン（気分・エネルギー・ストレスの1〜5段階＋メモ）とKPT形式の週次振り返り（Keep/Problem/Try）を記録でき、直近の振り返りのTryを「現在の改善方針」として画面上部に常設表示する。自由記述欄はJournal等と同じくmaskForStorage/unmaskNamesを通す。新設`/growth`ページにTopNavからアクセスできるようにした。動作確認中、KPTの試験入力（「1on1」「割り込み」という一般語）がまるごと人物名としてローカルNERに誤登録される事例を実機で踏み抜いた——上記NER誤検出TODOに追記済み。誤登録・試験データは`people-directory.json`を含め手動で復旧し、開発サーバーも再起動して確認し直した）
-* ローカルNER誤検出対策（上記TODO対応。抽出候補が`registerName`へ渡る前に通す`isPlausiblePersonName`フィルタを`people-directory.ts`に追加——極端に短い/長い候補の除外、システムプロンプトのテンプレート語・実機確認済みの一般語（NPS/1on1/KPT/Issue/Option A/Option B/Team/割り込み等）のブロックリスト、記号・英数字のみの候補除外、既存チーム名との衝突チェック（`/`区切りの階層セグメント単位も含む）。完全な言語判定はしない前提のため、フィルタで拾いきれない誤登録に対する最後の安全弁として`deletePerson`と`DELETE /api/people/[id]`、People詳細画面に「誤登録として削除」ボタンを追加。詳細は`docs/em_human_story_and_ux.md` P2-12）
-* Organization Contextの動的ロードを「対象Issueに関連するチームのみ」に絞る（上記TODO対応。`agent-runtime.ts`の`buildOrgContextBlock`に`relevantTeams`を追加し、紐づくIssueの`teamId`、またはタスク本文中のチーム名の言及（`/`区切りの階層セグメント単位も含む）を手がかりに関連チームへ絞り込む。手がかりが一つも無い場合のみ、MVP当初の方針どおり全チーム注入にフォールバック。Lead⇔専門エージェントのconsultパスも同じ`runClaudeTurn`経由のため追加変更なしで対象になる。詳細は`docs/em_human_story_and_ux.md` P2-13）
-* 配布方針 Phase 0（`docs/packaging.md`）— GitHub公開・npm非公開を前提に、既定データパスを`~/.local/state/emther/{data,secure}`へ。旧`em-ai-team/{data,secure}`・`cwd/.data`・`~/.local/state/em-ai-team-secure`からは宛先が空のとき一度だけ自動移行。Dockerは隔離用プロファイルとして維持
-* 配布方針 Phase 1 — Next.js `output: "standalone"` と `scripts/emther`（install/build/start/stop/status）。standalone は `build:standalone`（webpack）で作成し `~/.local/share/emther/app` へ配置。既定バインドは 127.0.0.1
-* 配布方針 Phase 2 — `emther doctor` / `backup` / `restore` とリポジトリ直下の配布用 `README.md`（詳細方針は `docs/packaging.md`）
-* 配布方針 Phase 3 — タグ `v*` で `.github/workflows/release.yml` が linux-x64 / darwin-arm64 の standalone tarball + SHA256 を GitHub Release に添付。`scripts/package-standalone.sh` / `install-release.sh`、`emther install-release`
-* Issue Tracker 契約の整理（`docs/issue_tracker_contract.md`）— Intake（明示Issue化・watching再浮上）／`done`＝解決・`archived`＝追わないの分離／`doneAt` を介入効果の起点（案α）／KR・親プログレスは done と !archived で算出・suggested は数えない
+### UI / UX 改善
+* [対応済み] Issue の Action Items が一番下にあるので扱いにくい → Why / What / How（IssueCharterSection）の直後に移動（IssueDetailContent.tsx）
+* [対応済み] Issue / Journal リンク等について、ツールチップ等で概要（長い場合は省略）が表示されると嬉しい → 既存のaxisTooltip機構を使い、charter（Why優先）を表示中のIssueデータで賄える範囲（Issue一覧・サブIssue一覧・メンバー詳細の関連Issue）に適用。ID/リンクのみでJournal本文などを保持していない箇所（例: 評価ログの「根拠Journal」）は追加のデータ取得が要るため未対応のまま
+* [対応済み] 今日タブの今日やるべきに「チームリスク」が表示されるが「チームの状態」と内容的には被っている → 同一ダッシュボード上のTeamStatePanelと重複するbad/warnのカードは今日やるべきから削除（評価不能＝観測を増やす誘導は役割が違うため残す）
+
+### 機能追加
+* 現場メモのタブでも単発のメモ入力をしたい
+* メンバーの詳細にJournalのような流れるものではなく、固定情報を残せるメモ欄を作成したい
+* Issue の関連JournalをIssue詳細で見れるようにしたい
+* Journal等から見つかった情報をもとに、コンテキスト化したものなどをまとめてみたいが見れる場所がない
+* 自動で先週分・先月分のレポートを作ってほしい。手動で今週のレポート等しか作れないので、先週分を作りたい
+  * → 2026-09-14に方針確認済み: 完全自動化（cron）ではなく、既存の「今週のレポート」生成と同様に「先週」「先月」ボタンを追加する手動生成でよい
+* スケジュールを引くのと、ロードマップ的な期日の見せ方ができる状態にし、「SMARTな目標」でいうところのTime-boundを明確化する仕組みをいれる
+  * → 2026-09-14に方針確認済み: ガントチャート的な専用画面は不要。Issueに期限（due date）フィールドを追加し一覧・詳細に表示する最小版でよい（下記「情報設計・運用改善」の期限管理と統合）
+* Agentが相談などから他Issueなどへ記録することができない。APIなどをAgentが実行してできるように捺せられると良さそう
+  * → 2026-09-14に方針確認済み: 作成・ステータス変更は含めず、Issueへの追記（コメント/メモ）のみできる安全側のAPIにする
+
+### 情報設計・運用改善
+* Issue等で期限管理ができないので、特定の期限が決まっているものを管理しきれない（上記スケジュール機能の最小版と同一スコープ）
+* EMとしてのIssueと、備忘に近いタスク系のものが混在すると大量にやることが積まれてしまい、管理がむずかしい。このあたりはどうにかしたいかも

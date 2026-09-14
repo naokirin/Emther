@@ -509,6 +509,15 @@ export function charterFilledCount(charter: IssueCharter): number {
   return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
 }
 
+// docs/memo.md「Issue/Journalリンク等について、ツールチップ等で概要が表示されると嬉しい」対応。
+// Issueへのリンクにホバーした際、クリックする前にWhy優先（無ければWhat/How）の概要を
+// 短く見せる。charter未整理のIssueも多いため、その場合は整理を促す文言にする。
+export function issueOverviewText(charter: IssueCharter, maxLength = 140): string {
+  const text = charter.why.trim() || charter.what.trim() || charter.how.trim();
+  if (!text) return "Why/What/Howが未整理です";
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 // docs/issue_tracker_contract.md §3。朝キュー・ボード・停滞の共通定義。
 export function isIssueActive(issue: Pick<Issue, "archived" | "status">): boolean {
   return !issue.archived && issue.status !== "done";

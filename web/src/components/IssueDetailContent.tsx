@@ -166,6 +166,18 @@ export function IssueDetailContent({ id }: { id: string }) {
         fetchWithNameConfirm={fetchWithNameConfirm}
       />
 
+      {/* docs/memo.md「Action Itemsが一番下にあるので扱いにくい」対応。Why/What/How
+          （IssueCharterSection）を整理した直後にやること（Action Items）を確認できるよう、
+          従来はExecution Stateパネルの下（ページ最下部寄り）にあったものをここへ移す。 */}
+      <div className={styles.panel}>
+        <IssueActionItemsPanel
+          issue={issue}
+          refreshIssue={refreshIssue}
+          refreshIssues={refreshIssues}
+          fetchWithNameConfirm={fetchWithNameConfirm}
+        />
+      </div>
+
       <div className={styles.issueColumns}>
         <div className={styles.panel}>
           <h2>Execution State</h2>
@@ -197,13 +209,6 @@ export function IssueDetailContent({ id }: { id: string }) {
               Agent Run未紐付け。<Link href="/chat">何でも相談</Link>から続けることもできます。
             </p>
           )}
-
-          <IssueActionItemsPanel
-            issue={issue}
-            refreshIssue={refreshIssue}
-            refreshIssues={refreshIssues}
-            fetchWithNameConfirm={fetchWithNameConfirm}
-          />
         </div>
 
         <div className={styles.panel}>

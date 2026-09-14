@@ -3,7 +3,7 @@
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { PersonJournalComposer } from "@/components/person-detail/PersonJournalComposer";
-import { URGENCY_LABEL, charterFilledCount, type PersonProfile } from "@/lib/types";
+import { URGENCY_LABEL, charterFilledCount, issueOverviewText, type PersonProfile } from "@/lib/types";
 
 export function PersonRecordsSection({
   person,
@@ -112,7 +112,11 @@ export function PersonRecordsSection({
               {person.relatedIssues.map((issue) => (
                 <tr key={issue.id}>
                   <td>
-                    <Link href={`/issues/${issue.id}`} className={styles.tableRowLink}>
+                    <Link
+                      href={`/issues/${issue.id}`}
+                      className={`${styles.tableRowLink} ${styles.axisTooltip}`}
+                      data-tooltip={issueOverviewText(issue.charter)}
+                    >
                       {issue.title}
                     </Link>
                     {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
