@@ -1969,6 +1969,21 @@
   opacity: 1;
 }
 
+/* ユーザー指摘「サイドピークで開いたときにツールチップがヘッダーに隠れる」対応。
+   PersonScoreBadge等、パネル上部（.slideOverBodyの先頭付近）に置かれる要素は、
+   上向きに開くと親のoverflow-y: autoでクリップされ、直上のslideOverHeaderの
+   裏に隠れて見えなくなる。この種の要素だけ下向きに開く。
+   ユーザー指摘「サイドピークの外側（左側）にはみ出すと切れる」対応。中央揃え
+   （left: 50% + translateX(-50%)）だと、パネル左端近くの要素では左側にはみ出し、
+   .slideOverBodyのoverflow-y: auto（overflow-xも暗黙にautoになる）でクリップされる。
+   この種の要素は左端をそろえて右方向にだけ広がるようにする。 */
+.axisTooltipDown::after {
+  bottom: auto;
+  top: calc(100% + 6px);
+  left: 0;
+  transform: none;
+}
+
 .issueStatusNotStarted {
   background: var(--gray-bg);
   color: var(--gray-fg);

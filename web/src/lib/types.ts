@@ -674,6 +674,27 @@ export function personVitalStatus(trend: PersonTrend, hasConcerningIssue = false
   return base;
 }
 
+// ユーザー指摘「気にかけるべき度合いがなぜ高いのかメンバー詳細を見てもわかりにくい」対応。
+// personVitalStatusの判定根拠（Journalのsentiment内訳／関連Issueの停滞・ブロッカー）を、
+// バッジのtitleツールチップ頼みにせず、詳細画面に文章として表示できるようにする。
+export function personVitalReason(trend: PersonTrend, hasConcerningIssue = false): string {
+  const total = trend.positive + trend.negative + trend.neutral;
+  const reasons: string[] = [];
+  if (total < 2) {
+    reasons.push("直近Journalが少なく判断材料が不足しています");
+  } else if (trend.negative > trend.positive) {
+    reasons.push(`ネガティブなJournalが多いです（🙂${trend.positive} 🙁${trend.negative}）`);
+  } else if (trend.negative === trend.positive && trend.negative > 0) {
+    reasons.push(`ポジティブ・ネガティブが同数で拮抗しています（🙂${trend.positive} 🙁${trend.negative}）`);
+  } else {
+    reasons.push(`ポジティブなJournalが優勢、または気になる兆候はありません（🙂${trend.positive} 🙁${trend.negative}）`);
+  }
+  if (hasConcerningIssue) {
+    reasons.push("停滞・ブロッカーありの関連Issueがあります");
+  }
+  return reasons.join(" ／ ");
+}
+
 // ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
 // lib/vitals.ts（Team Vitals）の文言（bad="要注意"／warn="やや注意"／good="安定"）と
 // 揃え、アプリ全体で同じVitalStatusの意味付けにする。

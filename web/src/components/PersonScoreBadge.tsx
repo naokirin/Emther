@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { PERSON_VITAL_LABEL, VITAL_ICON, personVitalStatus, type PersonTrend } from "@/lib/types";
+import { PERSON_VITAL_LABEL, VITAL_ICON, personVitalReason, personVitalStatus, type PersonTrend } from "@/lib/types";
 
 const STATUS_CLS: Record<string, string> = {
   good: styles.personScoreGood,
@@ -18,8 +18,16 @@ const STATUS_CLS: Record<string, string> = {
 // →「どのくらい気をかけるべきかのバイタル表示にしたい」対応。裸の数字（何点中の何か
 // わからないスコアに見えてしまう）はやめ、Team Vitalsと同じ状態アイコン（VITAL_ICON）＋
 // ラベル（PERSON_VITAL_LABEL）で「気にかけるべき度合い」を直接示す。判定根拠の件数・
-// 内訳はtitleツールチップに残す（呼び出し側でラベルを併記する場合はPERSON_VITAL_LABELを
+// 内訳はツールチップに残す（呼び出し側でラベルを併記する場合はPERSON_VITAL_LABELを
 // 直接参照する）。
+// ユーザー指摘「気にかけるべき度合いがなぜ高いのかわかりにくい」対応。ネイティブ
+// title（表示が遅い・改行やスタイルを制御できない）ではなく、IssueStatus.tsxの
+// AxisTooltipと同じ.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）に
+// 揃え、判定根拠（personVitalReason）をそのまま見せる。
+// ユーザー指摘「サイドピークで開いたときにツールチップがヘッダーに隠れる」対応。
+// このバッジは常にPersonHeaderの先頭（.slideOverBodyの一番上）に置かれ、上向きに
+// 開くとoverflow-y: autoでクリップされてslideOverHeaderの裏に隠れるため、
+// .axisTooltipDownで下向きに開く。
 export function PersonScoreBadge({
   trend,
   factCount,
@@ -31,11 +39,12 @@ export function PersonScoreBadge({
   hasConcerningIssue?: boolean;
 }) {
   const status = personVitalStatus(trend, hasConcerningIssue);
-  const issueNote = hasConcerningIssue ? "・停滞/ブロッカーありの関連Issueがあります" : "";
+  const tooltip = `${PERSON_VITAL_LABEL[status]}（Journal ${factCount}件）\n${personVitalReason(trend, hasConcerningIssue)}`;
   return (
     <div
-      className={`${styles.personScoreBadge} ${STATUS_CLS[status]}`}
-      title={`${PERSON_VITAL_LABEL[status]}（Journal ${factCount}件、🙂${trend.positive} 🙁${trend.negative}${issueNote}）`}
+      className={`${styles.personScoreBadge} ${STATUS_CLS[status]} ${styles.axisTooltip} ${styles.axisTooltipDown}`}
+      data-tooltip={tooltip}
+      tabIndex={0}
     >
       {VITAL_ICON[status]}
     </div>

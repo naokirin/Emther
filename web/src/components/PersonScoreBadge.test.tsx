@@ -20,9 +20,12 @@ describe("PersonScoreBadge", () => {
     expect(icon.className).toContain("personScoreBad");
   });
 
-  it("titleに「気にかけるべき度合い」のラベル・Journal件数・傾向の内訳を持つ", () => {
+  it("data-tooltipに「気にかけるべき度合い」のラベル・Journal件数・傾向の内訳を持つ", () => {
     render(<PersonScoreBadge trend={{ positive: 2, negative: 1, neutral: 0 }} factCount={3} />);
-    expect(screen.getByText("🟢")).toHaveAttribute("title", "安定（Journal 3件、🙂2 🙁1）");
+    expect(screen.getByText("🟢")).toHaveAttribute(
+      "data-tooltip",
+      "安定（Journal 3件）\nポジティブなJournalが優勢、または気になる兆候はありません（🙂2 🙁1）",
+    );
   });
 
   it("拮抗しているときは🟡（やや注意）を表示する", () => {
@@ -45,8 +48,11 @@ describe("PersonScoreBadge", () => {
     expect(screen.getByText("🔴")).toBeInTheDocument();
   });
 
-  it("hasConcerningIssueがtrueのときtitleに注記を追加する", () => {
+  it("hasConcerningIssueがtrueのときdata-tooltipに注記を追加する", () => {
     render(<PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningIssue />);
-    expect(screen.getByText("🟡")).toHaveAttribute("title", "やや注意（Journal 3件、🙂3 🙁0・停滞/ブロッカーありの関連Issueがあります）");
+    expect(screen.getByText("🟡")).toHaveAttribute(
+      "data-tooltip",
+      "やや注意（Journal 3件）\nポジティブなJournalが優勢、または気になる兆候はありません（🙂3 🙁0） ／ 停滞・ブロッカーありの関連Issueがあります",
+    );
   });
 });

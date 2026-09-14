@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
-import { PERSON_VITAL_LABEL, personVitalStatus, type PersonProfile } from "@/lib/types";
+import { PERSON_VITAL_LABEL, personVitalReason, personVitalStatus, type PersonProfile } from "@/lib/types";
 
 export function PersonHeader({
   person,
@@ -148,11 +148,12 @@ export function PersonHeader({
         {selfError && <p className={styles.errorText} role="alert">{selfError}</p>}
         <p className={styles.subtitle}>
           {person.isSelf ? "自分（利用者本人）" : person.isDirectReport ? "部下" : "その他（自分が管理するチーム以外）"} ／
-          気にかけるべき度合い: {PERSON_VITAL_LABEL[personVitalStatus(person.trend, person.hasConcerningIssue)]} ／
           {person.teamNames.length > 0 ? ` 所属: ${person.teamNames.join(", ")}` : " 所属チームなし"} ／ 直近Journal {person.factCount}件
-          {person.trend.positive > 0 && ` ／ 🙂${person.trend.positive}`}
-          {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
-          {person.hasConcerningIssue && " ／ ⚠️ 停滞・ブロッカーありの関連Issueがあります"}
+        </p>
+        <p className={styles.subtitle}>
+          気にかけるべき度合い: <strong>{PERSON_VITAL_LABEL[personVitalStatus(person.trend, person.hasConcerningIssue)]}</strong>
+          {" — "}
+          {personVitalReason(person.trend, person.hasConcerningIssue)}
         </p>
         {person.hasConcerningIssue && (
           <p className={styles.subtitle}>
