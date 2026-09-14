@@ -451,6 +451,7 @@ export function JournalDumpPanel({
           editPeople={journalEditing.editPeople}
           editTeams={journalEditing.editTeams}
           editUrgency={journalEditing.editUrgency}
+          editSentiment={journalEditing.editSentiment}
           editDate={journalEditing.editDate}
           editSubmitting={journalEditing.editSubmitting}
           editError={journalEditing.editError}
@@ -464,6 +465,7 @@ export function JournalDumpPanel({
           onChangeEditPeople={journalEditing.setEditPeople}
           onChangeEditTeams={journalEditing.setEditTeams}
           onChangeEditUrgency={journalEditing.setEditUrgency}
+          onChangeEditSentiment={journalEditing.setEditSentiment}
           onChangeEditDate={journalEditing.setEditDate}
           onChangeResolutionNoteDraft={journalEditing.setResolutionNoteDraft}
           onChangeLinkIssueIdDraft={journalEditing.setLinkIssueIdDraft}

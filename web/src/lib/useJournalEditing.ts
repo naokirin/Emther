@@ -24,6 +24,8 @@ export function useJournalEditing(
   const [editPeople, setEditPeople] = useState("");
   const [editTeams, setEditTeams] = useState("");
   const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
+  // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。urgencyと同じ扱い。
+  const [editSentiment, setEditSentiment] = useState<JournalEntry["sentiment"]>("neutral");
   // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
   // 訂正を扱えるように」対応。"YYYY-MM-DD"（<input type="date">の値）で保持する。
   const [editDate, setEditDate] = useState("");
@@ -74,6 +76,7 @@ export function useJournalEditing(
     setEditPeople(entry.people.join(", "));
     setEditTeams((entry.teamNames ?? []).join(", "));
     setEditUrgency(entry.urgency);
+    setEditSentiment(entry.sentiment);
     setEditDate(timestampToDateInputValue(entry.createdAt));
     setResolutionNoteDraft(entry.resolutionNote ?? "");
     setEditError(null);
@@ -91,6 +94,7 @@ export function useJournalEditing(
       people: editPeople.split(",").map((p) => p.trim()).filter(Boolean),
       teams: editTeams.split(",").map((t) => t.trim()).filter(Boolean),
       urgency: editUrgency,
+      sentiment: editSentiment,
       occurredAtDate: editDate || undefined,
     };
   }
@@ -396,6 +400,8 @@ export function useJournalEditing(
     setEditTeams,
     editUrgency,
     setEditUrgency,
+    editSentiment,
+    setEditSentiment,
     editDate,
     setEditDate,
     editSubmitting,

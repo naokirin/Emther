@@ -47,6 +47,7 @@ export function JournalEntryCard({
   editPeople,
   editTeams,
   editUrgency,
+  editSentiment,
   editDate,
   editSubmitting,
   editError,
@@ -59,6 +60,7 @@ export function JournalEntryCard({
   onChangeEditPeople,
   onChangeEditTeams,
   onChangeEditUrgency,
+  onChangeEditSentiment,
   onChangeEditDate,
   onChangeResolutionNoteDraft,
   onChangeLinkIssueIdDraft,
@@ -84,6 +86,8 @@ export function JournalEntryCard({
   editPeople: string;
   editTeams: string;
   editUrgency: JournalEntry["urgency"];
+  // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。
+  editSentiment: JournalEntry["sentiment"];
   editDate: string;
   editSubmitting: boolean;
   editError: string | null;
@@ -100,6 +104,7 @@ export function JournalEntryCard({
   onChangeEditPeople: (value: string) => void;
   onChangeEditTeams: (value: string) => void;
   onChangeEditUrgency: (value: JournalEntry["urgency"]) => void;
+  onChangeEditSentiment: (value: JournalEntry["sentiment"]) => void;
   onChangeEditDate: (value: string) => void;
   onChangeResolutionNoteDraft: (value: string) => void;
   onChangeLinkIssueIdDraft: (value: string) => void;
@@ -267,6 +272,23 @@ export function JournalEntryCard({
                 onClick={() => onChangeEditUrgency(u)}
               >
                 {u === "low" ? "Low" : u === "mid" ? "Mid" : "High"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.field}>
+          {/* ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。
+              ローカルモデルの自動判定が実態と違う場合に、EMがその場で直せるようにする。 */}
+          <span className={styles.fieldCaption}>ネガティブ・ポジティブ</span>
+          <div role="group" aria-label="ネガティブ・ポジティブ" style={{ display: "flex", gap: 6 }}>
+            {(["positive", "neutral", "negative"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`${styles.typeChip} ${editSentiment === s ? styles.typeChipSelected : ""}`}
+                onClick={() => onChangeEditSentiment(s)}
+              >
+                {s === "positive" ? "ポジティブ" : s === "negative" ? "ネガティブ" : "ニュートラル"}
               </button>
             ))}
           </div>

@@ -548,6 +548,9 @@ export async function updateJournalEntry(
     // Team.id の明示指定。teams と併用時は和集合。
     teamIds?: string[];
     urgency?: Urgency;
+    // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。sentimentは
+    // ローカルモデルの自動抽出値だが、誤判定をEMが直接直せるようにする（urgencyと同じ扱い）。
+    sentiment?: Sentiment;
     occurredAt?: number;
     // docs/em_human_story_and_ux.md 改修依頼対応。undefined=変更しない、null=解除、
     // string=設定、という3値の意味を持たせる（他フィールドと違い「未指定=既存値を保持」が
@@ -564,6 +567,8 @@ export async function updateJournalEntry(
   const people = patch.people !== undefined ? patch.people.map((p) => registerName(p)) : original.people;
   const tags = patch.tags !== undefined ? patch.tags.map((t) => maskNames(t)) : original.tags;
   const urgency = patch.urgency !== undefined && isUrgency(patch.urgency) ? patch.urgency : original.urgency ?? "mid";
+  const sentiment =
+    patch.sentiment !== undefined && isSentiment(patch.sentiment) ? patch.sentiment : original.sentiment ?? "neutral";
   // docs/em_human_story_and_ux.md 改修依頼「通常投入でも日付レベルの訂正を扱えるように」
   // 対応。まとめ入力から生成された（または単に日付を勘違いした）エントリの発生日を、
   // 校正のタイミングで直せるようにする。
@@ -623,7 +628,7 @@ export async function updateJournalEntry(
     text,
     tags,
     urgency,
-    sentiment: original.sentiment,
+    sentiment,
     summary: original.summary,
     occurredAt,
     // バグ修正（docs/memo.md「入力順と表示順が変わる」）対応。recordedAtを指定しないと
@@ -649,7 +654,6 @@ export async function updateJournalEntry(
   // 再度起動しない）。緊急度・感情の閾値はSettingsのフィルタで調整する。
   // 投稿直後は起動しない（誤抽出での偽緊急事態を防ぐ）。フィルタ外・自動OFF時は
   // @/lib/journal-analysisのrequestJournalAnalysisで明示起動できる。
-  const sentiment = (event.sentiment as Sentiment) ?? "neutral";
   if (original.supersedes === undefined && matchesJournalAutoFilters(urgency, sentiment)) {
     try {
       opts.onAutoAnalysisNeeded?.(event.text, event.id);

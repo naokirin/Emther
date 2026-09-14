@@ -110,6 +110,10 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
           ? body.teamIds.filter((t: unknown): t is string => typeof t === "string")
           : undefined,
         urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
+        sentiment:
+          body?.sentiment === "positive" || body?.sentiment === "negative" || body?.sentiment === "neutral"
+            ? body.sentiment
+            : undefined,
         occurredAt,
         resolvedIssueId,
         resolutionNote,
