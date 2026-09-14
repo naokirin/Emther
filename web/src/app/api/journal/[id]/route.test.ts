@@ -102,21 +102,49 @@ describe("PATCH /api/journal/[id]", () => {
 
   it("resolvedIssueId/resolutionNoteの3値（未指定=維持・null=解除・文字列=設定）", async () => {
     const journalStore = await import("@/lib/journal-store");
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("対象Issue");
     const entry = await journalStore.addJournalEntry("問題発生");
     const route = await import("./route");
 
     const withResolution = await route.PATCH(
-      jsonRequest("http://localhost/x", "PATCH", { resolvedIssueId: "issue-1" }),
+      jsonRequest("http://localhost/x", "PATCH", { resolvedIssueId: issue.id }),
       routeCtx({ id: entry.id }),
     );
     const withResolutionJson = await withResolution.json();
-    expect(withResolutionJson.entry.resolvedIssueId).toBe("issue-1");
+    expect(withResolutionJson.entry.resolvedIssueId).toBe(issue.id);
 
     const untouched = await route.PATCH(
       jsonRequest("http://localhost/x", "PATCH", { tags: ["x"] }),
       routeCtx({ id: withResolutionJson.entry.id }),
     );
-    expect((await untouched.json()).entry.resolvedIssueId).toBe("issue-1");
+    expect((await untouched.json()).entry.resolvedIssueId).toBe(issue.id);
+  });
+
+  it("resolvedIssueIdはプレフィックス一致でも解決できる", async () => {
+    const journalStore = await import("@/lib/journal-store");
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("対象Issue");
+    const entry = await journalStore.addJournalEntry("問題発生");
+    const route = await import("./route");
+
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", { resolvedIssueId: issue.id.slice(0, 8) }),
+      routeCtx({ id: entry.id }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).entry.resolvedIssueId).toBe(issue.id);
+  });
+
+  it("存在しないresolvedIssueIdは400", async () => {
+    const journalStore = await import("@/lib/journal-store");
+    const entry = await journalStore.addJournalEntry("問題発生");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", { resolvedIssueId: "00000000-0000-0000-0000-000000000000" }),
+      routeCtx({ id: entry.id }),
+    );
+    expect(res.status).toBe(400);
   });
 });
 

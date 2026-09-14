@@ -18,6 +18,7 @@ import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
 import { SuggestedPriorityBlock } from "./run-detail/SuggestedPriorityBlock";
 import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
+import { SuggestedIssueNotesBlock } from "./run-detail/SuggestedIssueNotesBlock";
 
 export { listIssueCandidatesFromProposal, resolveYieldKind };
 
@@ -71,6 +72,12 @@ export type SuggestedTheme = {
   evidenceIssueIds?: string[];
 };
 
+// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+export type SuggestedIssueNote = {
+  issueId: string;
+  text: string;
+};
+
 export type AgentRun = {
   id: string;
   agentName: string;
@@ -85,6 +92,7 @@ export type AgentRun = {
   suggestedCharter?: { why?: string; what?: string; how?: string };
   suggestedPriority?: IssuePriority;
   suggestedThemes?: SuggestedTheme[];
+  suggestedIssueNotes?: SuggestedIssueNote[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -228,6 +236,9 @@ export function ExecutionState({
   onAdoptThemes,
   onDismissThemes,
   themesSubmitting,
+  onAdoptIssueNotes,
+  onDismissIssueNotes,
+  issueNotesSubmitting,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -252,6 +263,9 @@ export function ExecutionState({
   onAdoptThemes?: () => void;
   onDismissThemes?: () => void;
   themesSubmitting?: boolean;
+  onAdoptIssueNotes?: () => void;
+  onDismissIssueNotes?: () => void;
+  issueNotesSubmitting?: boolean;
 }) {
   return (
     <>
@@ -317,6 +331,15 @@ export function ExecutionState({
               onDismiss={onDismissThemes}
               submitting={themesSubmitting}
               onFocusChat={onFocusChat}
+            />
+          )}
+
+          {run.suggestedIssueNotes && run.suggestedIssueNotes.length > 0 && (
+            <SuggestedIssueNotesBlock
+              notes={run.suggestedIssueNotes}
+              onAdopt={onAdoptIssueNotes}
+              onDismiss={onDismissIssueNotes}
+              submitting={issueNotesSubmitting}
             />
           )}
         </div>

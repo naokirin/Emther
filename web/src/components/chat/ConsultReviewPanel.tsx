@@ -61,6 +61,7 @@ export function ConsultReviewPanel({
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [themesSubmitting, setThemesSubmitting] = useState(false);
+  const [issueNotesSubmitting, setIssueNotesSubmitting] = useState(false);
 
   const candidateSelectedFlags =
     candidatePick?.runId === selectedRun.id && candidatePick.selected.length === issueCandidates.length
@@ -203,6 +204,36 @@ export function ConsultReviewPanel({
     }
   }
 
+  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+  async function handleAdoptIssueNotes() {
+    setIssueNotesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Issueへの追記の採用に失敗しました");
+      await Promise.all([refreshIssues(), refreshRuns()]);
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setIssueNotesSubmitting(false);
+    }
+  }
+
+  async function handleDismissIssueNotes() {
+    setIssueNotesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Issueへの追記提案の却下に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setIssueNotesSubmitting(false);
+    }
+  }
+
   return (
     <>
       <h2>Lead Agentへの相談</h2>
@@ -300,6 +331,9 @@ export function ConsultReviewPanel({
         onAdoptThemes={handleAdoptThemes}
         onDismissThemes={handleDismissThemes}
         themesSubmitting={themesSubmitting}
+        onAdoptIssueNotes={handleAdoptIssueNotes}
+        onDismissIssueNotes={handleDismissIssueNotes}
+        issueNotesSubmitting={issueNotesSubmitting}
       />
       <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />
       <CopilotChat run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="chat-page-input" />

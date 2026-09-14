@@ -59,4 +59,22 @@ describe("POST /api/reports", () => {
     expect(res.status).toBe(201);
     expect((await res.json()).report.periodType).toBe("week");
   });
+
+  it("periodsAgo=1なら1期間前を対象に生成する", async () => {
+    vi.useFakeTimers();
+    try {
+      const fixedNow = new Date("2026-03-10T00:00:00.000Z").getTime();
+      vi.setSystemTime(fixedNow);
+      const route = await import("./route");
+      const nowRes = await route.POST(jsonRequest("http://localhost/x", "POST", { periodType: "week" }));
+      const now = (await nowRes.json()).report;
+      const agoRes = await route.POST(jsonRequest("http://localhost/x", "POST", { periodType: "week", periodsAgo: 1 }));
+      expect(agoRes.status).toBe(201);
+      const ago = (await agoRes.json()).report;
+      expect(ago.periodEnd).toBe(now.periodStart);
+      expect(ago.periodEnd - ago.periodStart).toBe(now.periodEnd - now.periodStart);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

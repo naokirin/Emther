@@ -35,6 +35,10 @@ export function useJournalEditing(
   // 編集内容を一緒に反映する（別のフォームとして分離すると二度手間になるため）。
   const [resolutionNoteDraft, setResolutionNoteDraft] = useState("");
 
+  // docs/memo.md「Issue の関連JournalをIssue詳細で見れるようにしたい」対応。新規Issueの
+  // 起票（resolveWithNewIssue）とは別に、既存のIssueへ直接紐付けたいケース用。
+  const [linkIssueIdDraft, setLinkIssueIdDraft] = useState("");
+
   // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
   // スピナーだけ表示する」対応。resolutionNote／rawTextを伴う更新はmaskForStorage
   // （ローカルNER）を通るため数十秒かかることがある。編集フォームでその完了を
@@ -263,6 +267,39 @@ export function useJournalEditing(
     }
   }
 
+  // docs/memo.md「Issue の関連JournalをIssue詳細で見れるようにしたい」対応。
+  // resolveWithNewIssueが常に新規Issueを作るのに対し、こちらはEMが既に知っている
+  // 既存のIssue（IDまたは先頭8桁以上のプレフィックス）へ直接紐付ける。存在しない/
+  // 曖昧なIDは/api/journal/[id]側で400/409として弾かれるため、そのままeditErrorに出す
+  // （resolveWithNewIssueと同じくフォームを開いたまま結果を待つ）。
+  async function linkToExistingIssue(entryId: string) {
+    const issueId = linkIssueIdDraft.trim();
+    if (!issueId) return;
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/journal/${entryId}`,
+        { method: "PATCH", body: { ...currentEditPatch(), resolvedIssueId: issueId } },
+        "保存する",
+      );
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string } | null)?.error ?? "Issueへの紐付けに失敗しました",
+        );
+      }
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      setLinkIssueIdDraft("");
+      setEditingEntryId(null);
+    } catch (err) {
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setEditError((err as Error).message);
+      }
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
   // 解決状態の取り消し（誤ってIssue化/メモした場合の巻き戻し）。編集フォームを
   // 閉じない操作であり、resolutionNote/rawTextを含まないため通常は速い。意図的に
   // sendJournalPatchは使わず、フォームを開いたままeditErrorでエラーを出す
@@ -319,6 +356,9 @@ export function useJournalEditing(
     setResolutionNoteDraft,
     resolveWithNote,
     resolveWithNewIssue,
+    linkIssueIdDraft,
+    setLinkIssueIdDraft,
+    linkToExistingIssue,
     clearResolution,
     isEntryPending,
     pendingEntryErrors,

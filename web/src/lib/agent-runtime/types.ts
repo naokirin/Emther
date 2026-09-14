@@ -78,6 +78,15 @@ export type SuggestedSubIssue = {
   priority?: IssuePriority;
 };
 
+// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+// lookupで見つけた「このタスクとは別の」Issueへの追記提案。EMが「採用」するまで
+// 対象Issueのlog（IssueLogEntry）へは反映しない（action_items等と同じHuman-in-the-Loop）。
+// 作成・ステータス変更等の破壊的操作は含めず、追記のみに限定する。
+export type SuggestedIssueNote = {
+  issueId: string;
+  text: string;
+};
+
 export type LogLine = {
   ts: number;
   channel: "meta" | "agent" | "system";
@@ -113,6 +122,8 @@ export type AgentRun = {
   suggestedCharter?: Partial<IssueCharter>;
   // 介入の優先帯（focus/normal/parked）の提案。採用までIssue.priorityへは反映しない。
   suggestedPriority?: IssuePriority;
+  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+  suggestedIssueNotes?: SuggestedIssueNote[];
   // docs/knowledge_distillation.md。状況蒸留で提案するテーマ解釈の下書き。
   // EMが「採用」するまで OrgTheme(adopted) にはならない。
   suggestedThemes?: SuggestedTheme[];

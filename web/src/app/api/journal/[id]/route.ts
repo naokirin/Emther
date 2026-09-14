@@ -5,6 +5,7 @@ import { startJournalAutoAnalysis } from "@/lib/agent-runtime";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+import { listIssues } from "@/lib/issue-store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/journal/[id]">) {
   const { id } = await ctx.params;
@@ -57,14 +58,33 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
 
   // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない」
   // 対応。未指定（キー自体が無い）=変更しない、null=解除、文字列=設定、の3値。
-  const resolvedIssueId =
-    body?.resolvedIssueId === undefined
-      ? undefined
-      : body.resolvedIssueId === null
-        ? null
-        : typeof body.resolvedIssueId === "string"
-          ? body.resolvedIssueId
-          : undefined;
+  // docs/memo.md「Issue の関連JournalをIssue詳細で見れるようにしたい」対応。既存のIssueへの
+  // 手動紐付け（EMがIssue IDを入力するケース）はタイプミスで存在しないIDがそのまま保存
+  // されると壊れたリンクになるため、他のID参照（/go/<fragment>等）と同じくプレフィックス
+  // 解決を通す（Issue作成直後の自動紐付けはissue.id自体を渡すため常に完全一致でヒットする）。
+  let resolvedIssueId: string | null | undefined;
+  if (body?.resolvedIssueId === undefined) {
+    resolvedIssueId = undefined;
+  } else if (body.resolvedIssueId === null) {
+    resolvedIssueId = null;
+  } else if (typeof body.resolvedIssueId === "string") {
+    const resolved = resolveUniqueByPrefix(listIssues(), (i) => i.id, body.resolvedIssueId);
+    if (resolved.status === "none") {
+      return NextResponse.json({ error: "指定されたIssueが見つかりません" }, { status: 400 });
+    }
+    if (resolved.status === "ambiguous") {
+      return NextResponse.json(
+        {
+          error: "ambiguous",
+          candidates: resolved.items.map((i) => ({ id: i.id, label: i.title, href: `/issues/${i.id}` })),
+        },
+        { status: 409 },
+      );
+    }
+    resolvedIssueId = resolved.item.id;
+  } else {
+    resolvedIssueId = undefined;
+  }
   const resolutionNote =
     body?.resolutionNote === undefined
       ? undefined

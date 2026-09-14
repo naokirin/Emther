@@ -484,6 +484,19 @@ export function buildSystemPrompt(
         ]
       : [];
 
+  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。lookupは
+  // 常に使えるため、runIdやlinkedIssueの有無に関わらず提示する。対象は「このタスクとは別の」
+  // Issueに限定し（同じIssueへの追記はaction_items/charter/logの既存経路がある）、
+  // 作成・ステータス変更等は許可せず追記のみに絞ることで、EMの確認前に破壊的な変更が
+  // 起きないようにする（Human-in-the-Loopを維持）。
+  const issueNoteRule = [
+    "- 相談やlookupの過程で、このタスクとは別のIssueに関わる重要な事実・懸念・進捗を見つけた場合は、そのIssueへの一言記録を提案できます。proposal（と上記の各ブロック）に続けて以下の形式でissue_noteブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと。issueIdはlookup結果で得た実在のIssue IDのみを使い、推測や新規作成はしないこと）。",
+    "```issue_note",
+    '[{ "issueId": "lookupで見つけたIssue ID", "text": "そのIssueに追記する短い一言（1〜2文）" }]',
+    "```",
+    "",
+  ];
+
   // 介入ポートフォリオの優先帯提案。紐づくIssueがある場合は原則提案する（EMが採用するまで本体は不変）。
   const linkedIssueForPriority = runId ? getIssueByRunId(runId) : undefined;
   const priorityRule = linkedIssueForPriority
@@ -551,6 +564,7 @@ export function buildSystemPrompt(
     ...subIssuesRule,
     ...charterRule,
     ...priorityRule,
+    ...issueNoteRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき（kind: \"decide\"）",

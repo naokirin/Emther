@@ -94,6 +94,10 @@ export type Issue = {
   // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
   // 紐付け（任意）。
   teamId?: string;
+  // docs/memo.md「Issue等で期限管理ができない」対応。特定の期日が決まっているIssueのための
+  // 最小限の期限（任意、1日単位）。ガントチャート的なロードマップ画面は設けず、
+  // 一覧・詳細への表示と期限超過の強調だけを対象にする。
+  dueAt?: number;
   // docs/value_hierarchy_and_flow.md §4。帯付けの内部根拠（UI主面は priority）。
   triage?: IssueTriageScores;
   // docs/knowledge_distillation.md 後続1。title+charter のローカル埋め込み（横断類似検索用）。
@@ -745,6 +749,20 @@ export function setIssueTheme(issueId: string, themeId: string | null): Issue | 
   issue.updatedAt = Date.now();
   persist();
   recordChangeEvent("issue", issue.id, next ? "テーマに紐付けました" : "テーマの紐付けを解除しました");
+  return issue;
+}
+
+// docs/memo.md「Issue等で期限管理ができない」対応。dueAtはEMが自由記述する値ではない
+// （日付ピッカーからのタイムスタンプ）ためmaskForStorageは不要——keyResultId/themeIdと同じ扱い。
+export function setIssueDueAt(issueId: string, dueAt: number | null): Issue | undefined {
+  const issue = getIssue(issueId);
+  if (!issue) return undefined;
+  const next = dueAt ?? undefined;
+  if ((issue.dueAt ?? null) === (next ?? null)) return issue;
+  issue.dueAt = next;
+  issue.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("issue", issue.id, next ? "期限を設定しました" : "期限を解除しました");
   return issue;
 }
 

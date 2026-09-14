@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   listIssues,
   moveFocusIssue,
+  setIssueDueAt,
   setIssueKeyResult,
   setIssuePriority,
   setIssueStatus,
@@ -69,6 +70,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
   if ("moveFocus" in (body ?? {}) && body.moveFocus !== "up" && body.moveFocus !== "down") {
     return NextResponse.json({ error: "moveFocusは up または down です" }, { status: 400 });
   }
+  if ("dueAt" in (body ?? {}) && body.dueAt !== null && typeof body.dueAt !== "number") {
+    return NextResponse.json({ error: "dueAtは数値（Unixミリ秒）またはnullである必要があります" }, { status: 400 });
+  }
 
   try {
     let issue = await updateIssueCharter(
@@ -101,6 +105,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/issues/[id
     if ("teamId" in (body ?? {})) {
       const teamId = typeof body.teamId === "string" && body.teamId ? body.teamId : null;
       issue = setIssueTeam(id, teamId) ?? issue;
+    }
+    if ("dueAt" in (body ?? {})) {
+      issue = setIssueDueAt(id, typeof body.dueAt === "number" ? body.dueAt : null) ?? issue;
     }
     if ("status" in (body ?? {})) {
       issue = setIssueStatus(id, body.status as IssueStatus) ?? issue;

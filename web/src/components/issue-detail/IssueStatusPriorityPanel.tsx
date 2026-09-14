@@ -7,17 +7,34 @@ import { ISSUE_PRIORITY_META, type Issue, type IssuePriority, type IssueStatus }
 
 type Props = {
   issue: Issue;
+  now: number;
   refreshIssue: () => Promise<void>;
   refreshIssues: () => Promise<void>;
 };
 
 // docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。ステータス切替・優先度切替・
 // トリアージ再評価・フォーカス順の入れ替えをまとめたパネル。
-export function IssueStatusPriorityPanel({ issue, refreshIssue, refreshIssues }: Props) {
+// docs/memo.md「Issue等で期限管理ができない」対応。<input type="date">はローカルタイムゾーンの
+// YYYY-MM-DD文字列を扱うため、保存前後でepoch msと相互変換する。時刻までは求めない
+// （期限は「日」単位で十分というスコープの割り切り）。
+function dueAtToDateInput(dueAt: number | undefined): string {
+  if (dueAt === undefined) return "";
+  const d = new Date(dueAt);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function dateInputToDueAt(value: string): number | null {
+  if (!value) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
+
+export function IssueStatusPriorityPanel({ issue, now, refreshIssue, refreshIssues }: Props) {
   const [statusSaving, setStatusSaving] = useState(false);
   const [prioritySaving, setPrioritySaving] = useState(false);
   const [triageRescoring, setTriageRescoring] = useState(false);
   const [triageRescoreMessage, setTriageRescoreMessage] = useState<string | null>(null);
+  const [dueAtSaving, setDueAtSaving] = useState(false);
 
   // カンバンのドラッグ&ドロップは実装しないため、列（ステータス）の切り替えはここから行う。
   async function handleChangeStatus(status: IssueStatus) {
@@ -75,6 +92,20 @@ export function IssueStatusPriorityPanel({ issue, refreshIssue, refreshIssues }:
     }
   }
 
+  async function handleChangeDueAt(value: string) {
+    setDueAtSaving(true);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueAt: dateInputToDueAt(value) }),
+      });
+      if (res.ok) await Promise.all([refreshIssue(), refreshIssues()]);
+    } finally {
+      setDueAtSaving(false);
+    }
+  }
+
   async function handleMoveFocus(direction: "up" | "down") {
     setPrioritySaving(true);
     try {
@@ -94,6 +125,19 @@ export function IssueStatusPriorityPanel({ issue, refreshIssue, refreshIssues }:
       <div className={styles.field}>
         <span className={styles.fieldCaption}>ステータス</span>
         <IssueStatusSelector status={issue.status} onChange={handleChangeStatus} disabled={statusSaving} />
+      </div>
+      <div className={styles.field}>
+        <span className={styles.fieldCaption}>期限</span>
+        <input
+          type="date"
+          value={dueAtToDateInput(issue.dueAt)}
+          onChange={(e) => handleChangeDueAt(e.target.value)}
+          disabled={dueAtSaving}
+          style={{ maxWidth: 160 }}
+        />
+        {issue.dueAt !== undefined && issue.status !== "done" && issue.dueAt < now && (
+          <span style={{ marginLeft: 8, color: "var(--warning, #b45309)" }}>⚠ 期限切れです</span>
+        )}
       </div>
       {!issue.parentId && (
         <div className={styles.field}>

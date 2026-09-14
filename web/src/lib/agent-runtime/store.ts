@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { getDb } from "@/lib/db";
+import { findByIdPrefix } from "@/lib/id-prefix";
+import { addLogEntry, getIssue, listIssues } from "@/lib/issue-store";
 import { maskForStorage, unmaskNames } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { adoptTheme, createThemeCandidate } from "@/lib/theme-store";
@@ -30,6 +32,7 @@ type AgentRunRow = {
   suggested_charter_json: string | null;
   suggested_priority_json: string | null;
   suggested_themes_json: string | null;
+  suggested_issue_notes_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -58,8 +61,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -72,6 +75,7 @@ function persistRunMeta(run: AgentRun): void {
          suggested_charter_json = excluded.suggested_charter_json,
          suggested_priority_json = excluded.suggested_priority_json,
          suggested_themes_json = excluded.suggested_themes_json,
+         suggested_issue_notes_json = excluded.suggested_issue_notes_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -93,6 +97,7 @@ function persistRunMeta(run: AgentRun): void {
       run.suggestedCharter ? JSON.stringify(run.suggestedCharter) : null,
       run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
       run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
+      run.suggestedIssueNotes ? JSON.stringify(run.suggestedIssueNotes) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -147,6 +152,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
         ? parseSuggestedPriority(JSON.parse(row.suggested_priority_json))
         : undefined,
       suggestedThemes: row.suggested_themes_json ? JSON.parse(row.suggested_themes_json) : undefined,
+      suggestedIssueNotes: row.suggested_issue_notes_json ? JSON.parse(row.suggested_issue_notes_json) : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -301,6 +307,10 @@ export function toRunView(run: AgentRun): AgentRun {
       evidenceJournalIds: t.evidenceJournalIds,
       evidenceIssueIds: t.evidenceIssueIds,
     })),
+    suggestedIssueNotes: run.suggestedIssueNotes?.map((n) => ({
+      issueId: n.issueId,
+      text: unmaskNames(n.text),
+    })),
   };
 }
 
@@ -411,6 +421,42 @@ export function clearSuggestedThemes(id: string): AgentRun | undefined {
   run.suggestedThemes = undefined;
   persistRunMeta(run);
   return run;
+}
+
+export function clearSuggestedIssueNotes(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.suggestedIssueNotes = undefined;
+  persistRunMeta(run);
+  return run;
+}
+
+// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+// suggestedIssueNotes を対象Issueのlog（IssueLogEntry）へ書き込んで確定する。issueIdは
+// lookup結果由来のためフルID一致を優先し、無ければ8桁以上のプレフィックス一致（1件のみ）を
+// 許容する（Issue詳細のURL欄と同じ解決規則）。存在しない/曖昧なissueIdの要素は書き込まず
+// スキップする（作成・ステータス変更等は行わない——追記のみの安全側API）。
+export async function adoptSuggestedIssueNotesFromRun(
+  id: string,
+): Promise<{ run: AgentRun; written: { issueId: string; text: string }[]; skipped: string[] } | undefined> {
+  const run = runs.get(id);
+  if (!run?.suggestedIssueNotes?.length) return undefined;
+  const written: { issueId: string; text: string }[] = [];
+  const skipped: string[] = [];
+  for (const note of run.suggestedIssueNotes) {
+    const exact = getIssue(note.issueId);
+    const target = exact ?? findByIdPrefix(listIssues(), (i) => i.id, note.issueId).at(0);
+    const matchCount = exact ? 1 : findByIdPrefix(listIssues(), (i) => i.id, note.issueId).length;
+    if (!target || matchCount !== 1) {
+      skipped.push(note.issueId);
+      continue;
+    }
+    await addLogEntry(target.id, note.text);
+    written.push({ issueId: target.id, text: note.text });
+  }
+  run.suggestedIssueNotes = undefined;
+  persistRunMeta(run);
+  return { run, written, skipped };
 }
 
 // docs/knowledge_distillation.md。suggestedThemes を OrgTheme(candidate→adopted) として確定する。

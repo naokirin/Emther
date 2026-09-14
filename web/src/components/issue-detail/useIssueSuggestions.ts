@@ -146,6 +146,33 @@ export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, re
     }
   }
 
+  const [issueNotesSubmitting, setIssueNotesSubmitting] = useState(false);
+
+  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。対象は
+  // 「このタスクとは別の」Issueのため、書き込み先はissueではなくrunに紐づくAPIが決める
+  // （suggestedThemesと同じく、採用・却下いずれもrun単位のエンドポイントを叩くだけでよい）。
+  async function handleAdoptSuggestedIssueNotes() {
+    if (!linkedRun) return;
+    setIssueNotesSubmitting(true);
+    try {
+      await fetch(`/api/agents/${linkedRun.id}/issue-notes`, { method: "POST" });
+      await Promise.all([refreshIssues(), refreshRuns()]);
+    } finally {
+      setIssueNotesSubmitting(false);
+    }
+  }
+
+  async function handleDismissSuggestedIssueNotes() {
+    if (!linkedRun) return;
+    setIssueNotesSubmitting(true);
+    try {
+      await fetch(`/api/agents/${linkedRun.id}/issue-notes`, { method: "DELETE" });
+      await refreshRuns();
+    } finally {
+      setIssueNotesSubmitting(false);
+    }
+  }
+
   return {
     actionItemsSubmitting,
     handleAdoptSuggestedActionItems,
@@ -159,5 +186,8 @@ export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, re
     prioritySubmitting,
     handleAdoptSuggestedPriority,
     handleDismissSuggestedPriority,
+    issueNotesSubmitting,
+    handleAdoptSuggestedIssueNotes,
+    handleDismissSuggestedIssueNotes,
   };
 }

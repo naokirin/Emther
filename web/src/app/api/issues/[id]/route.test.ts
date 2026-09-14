@@ -181,4 +181,33 @@ describe("PATCH /api/issues/[id]", () => {
     expect(json.issue.keyResultId).toBeUndefined();
     expect(json.issue.teamId).toBeUndefined();
   });
+
+  it("dueAtを設定・nullで解除できる", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    const route = await import("./route");
+
+    const withDue = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${issue.id}`, "PATCH", { dueAt: 12345 }),
+      routeCtx({ id: issue.id }),
+    );
+    expect((await withDue.json()).issue.dueAt).toBe(12345);
+
+    const cleared = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${issue.id}`, "PATCH", { dueAt: null }),
+      routeCtx({ id: issue.id }),
+    );
+    expect((await cleared.json()).issue.dueAt).toBeUndefined();
+  });
+
+  it("不正なdueAtは400", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("Issue");
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest(`http://localhost/api/issues/${issue.id}`, "PATCH", { dueAt: "tomorrow" }),
+      routeCtx({ id: issue.id }),
+    );
+    expect(res.status).toBe(400);
+  });
 });

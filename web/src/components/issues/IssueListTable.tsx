@@ -35,6 +35,23 @@ function formatRelativeDays(ts: number, now: number): string {
   return `${days}日前`;
 }
 
+// docs/memo.md「Issue等で期限管理ができない」対応。一覧では期限そのものと、
+// 過ぎている場合の強調だけを見せる（ロードマップ画面は別スコープ）。
+function formatDueDate(dueAt: number): string {
+  const d = new Date(dueAt);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function DueBadge({ issue, now }: { issue: Pick<Issue, "dueAt" | "status">; now: number }) {
+  if (issue.dueAt === undefined) return null;
+  const overdue = issue.status !== "done" && issue.dueAt < now;
+  return (
+    <span className={styles.tableMuted} style={overdue ? { color: "var(--warning, #b45309)" } : undefined}>
+      {overdue ? "⚠ " : "📅 "}期限 {formatDueDate(issue.dueAt)}
+    </span>
+  );
+}
+
 type Props = {
   issuesPagination: ReturnType<typeof usePagination<Issue>>;
   issuesLoaded: boolean;
@@ -187,6 +204,7 @@ export function IssueListTable({
                           {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
                           {issue.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                           {issue.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
+                          <DueBadge issue={issue} now={now} />
                         </div>
                         {topicTags.length > 0 && (
                           <div className={styles.tagRow} style={{ marginTop: 4 }}>
@@ -344,6 +362,7 @@ export function IssueListTable({
                             {child.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
                             {child.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                             {child.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
+                            <DueBadge issue={child} now={now} />
                           </div>
                           {childTopicTags.length > 0 && (
                             <div className={styles.tagRow} style={{ marginTop: 4 }}>

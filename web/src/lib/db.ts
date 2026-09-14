@@ -172,6 +172,11 @@ function migrate(database: DatabaseSync): void {
   // docs/knowledge_distillation.md。状況蒸留のテーマ解釈下書き。
   addColumnIfMissing(database, "agent_runs", "suggested_themes_json", "TEXT");
 
+  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+  // lookupで見つけた「このタスクとは別の」Issueへの追記提案の下書き。採用までは
+  // 対象Issueのlogへは反映しない（既存のsuggested_*_jsonと同じHuman-in-the-Loop設計）。
+  addColumnIfMissing(database, "agent_runs", "suggested_issue_notes_json", "TEXT");
+
   // Journal自動分析・Journalからの手動相談で、生成元Journalへ戻れるようにする。
   // origin=auto-anomaly だけでは ID が残らず、相談画面で「なぜ生まれたか」が分からなかった。
   addColumnIfMissing(database, "agent_runs", "source_journal_id", "TEXT");

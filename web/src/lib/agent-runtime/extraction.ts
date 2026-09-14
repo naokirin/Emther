@@ -2,7 +2,17 @@ import { ISSUE_PRIORITIES, type IssuePriority, type YieldKind } from "@/lib/type
 import type { IssueCharter } from "@/lib/issue-store";
 import type { SuggestedTheme } from "@/lib/theme-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
-import type { AgentRun, ConsultRequest, IssueCandidate, Proposal, RejectedAlternative, SuggestedSubIssue, YieldOption, YieldRequest } from "./types";
+import type {
+  AgentRun,
+  ConsultRequest,
+  IssueCandidate,
+  Proposal,
+  RejectedAlternative,
+  SuggestedIssueNote,
+  SuggestedSubIssue,
+  YieldOption,
+  YieldRequest,
+} from "./types";
 
 /** proposal から起票用タイトル候補を返す。issueCandidates があればそれを使い、無ければ issueTitle 1件。 */
 export function listIssueCandidatesFromProposal(proposal?: Proposal | null): IssueCandidate[] {
@@ -128,6 +138,32 @@ export function extractSubIssues(resultText: string): SuggestedSubIssue[] | unde
     return normalizeSuggestedSubIssues(parsed);
   } catch {
     // 不正なsub_issuesブロックは「提案なし」として扱う
+  }
+  return undefined;
+}
+
+// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
+// lookupで見つけた別Issueへの追記提案。extractActionItems/extractSubIssuesと同じ
+// 壊れにくいパースの考え方（不正な形式・issueId/text欠落の要素は捨てるだけで、
+// ブロック自体は「提案なし」として扱う）。
+export function extractIssueNotes(resultText: string): SuggestedIssueNote[] | undefined {
+  const match = resultText.match(/```issue_note\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!Array.isArray(parsed)) return undefined;
+    const items = parsed.filter(
+      (n: unknown): n is SuggestedIssueNote =>
+        !!n &&
+        typeof n === "object" &&
+        typeof (n as SuggestedIssueNote).issueId === "string" &&
+        (n as SuggestedIssueNote).issueId.trim().length > 0 &&
+        typeof (n as SuggestedIssueNote).text === "string" &&
+        (n as SuggestedIssueNote).text.trim().length > 0,
+    );
+    return items.length > 0 ? items : undefined;
+  } catch {
+    // 不正なissue_noteブロックは「提案なし」として扱う
   }
   return undefined;
 }

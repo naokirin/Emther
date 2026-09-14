@@ -16,7 +16,7 @@ import { charterFilledCount } from "@/lib/types";
 
 export type ReportPeriodType = "week" | "month";
 
-const PERIOD_DAYS: Record<ReportPeriodType, number> = { week: 7, month: 30 };
+export const PERIOD_DAYS: Record<ReportPeriodType, number> = { week: 7, month: 30 };
 
 export type ReportJournalStats = {
   total: number;

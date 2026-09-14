@@ -298,6 +298,18 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractPriority('```priority\n"urgent"\n```')).toBeUndefined();
   });
 
+  it("extractIssueNotesはissueId/textが揃った要素だけをパースする", async () => {
+    const rt = await loadModule();
+    const text = '```issue_note\n[{ "issueId": "abc123", "text": "関連する事実" }, { "issueId": "" , "text": "x" }, { "text": "issueId無し" }]\n```';
+    expect(rt.extractIssueNotes(text)).toEqual([{ issueId: "abc123", text: "関連する事実" }]);
+  });
+
+  it("extractIssueNotesは全項目が空/ブロックなしの場合undefined", async () => {
+    const rt = await loadModule();
+    expect(rt.extractIssueNotes('```issue_note\n[]\n```')).toBeUndefined();
+    expect(rt.extractIssueNotes("ブロックなし")).toBeUndefined();
+  });
+
   it("extractThemesは必須フィールドがあるテーマだけをパースする", async () => {
     const rt = await loadModule();
     const text = `\`\`\`themes
@@ -799,6 +811,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
       suggested_sub_issues_json: null,
       suggested_charter_json: null,
       suggested_priority_json: null,
+      suggested_issue_notes_json: null,
       total_cost_usd: 0,
       created_at: 1000,
       updated_at: 1000,
@@ -811,8 +824,8 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     };
     db.prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_priority_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_issue_notes_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_priority_json, @suggested_issue_notes_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
     ).run(base);
   }
 
@@ -953,6 +966,54 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("run-1")?.suggestedPriority).toBe("focus");
     rt.clearSuggestedPriority("run-1");
     expect(rt.getRun("run-1")?.suggestedPriority).toBeUndefined();
+  });
+
+  it("clearSuggestedIssueNotesは提案を消す", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_issue_notes_json: JSON.stringify([{ issueId: "issue-1", text: "メモ" }]),
+    });
+    const rt = await loadModule();
+    expect(rt.getRun("run-1")?.suggestedIssueNotes).toEqual([{ issueId: "issue-1", text: "メモ" }]);
+    rt.clearSuggestedIssueNotes("run-1");
+    expect(rt.getRun("run-1")?.suggestedIssueNotes).toBeUndefined();
+  });
+
+  it("adoptSuggestedIssueNotesFromRunは対象Issueのlogへ追記し、提案を消す", async () => {
+    const issueStore = await import("@/lib/issue-store");
+    const issue = await issueStore.createIssue("対象Issue");
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_issue_notes_json: JSON.stringify([{ issueId: issue.id, text: "見つけた事実" }]),
+    });
+    const rt = await loadModule();
+    const result = await rt.adoptSuggestedIssueNotesFromRun("run-1");
+    expect(result?.written).toEqual([{ issueId: issue.id, text: "見つけた事実" }]);
+    expect(result?.skipped).toEqual([]);
+    expect(rt.getRun("run-1")?.suggestedIssueNotes).toBeUndefined();
+    const updated = issueStore.getIssue(issue.id);
+    expect(updated?.logEntries.map((l) => l.text)).toEqual(["見つけた事実"]);
+  });
+
+  it("adoptSuggestedIssueNotesFromRunは存在しないissueIdをスキップする", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_issue_notes_json: JSON.stringify([{ issueId: "no-such-issue-id", text: "メモ" }]),
+    });
+    const rt = await loadModule();
+    const result = await rt.adoptSuggestedIssueNotesFromRun("run-1");
+    expect(result?.written).toEqual([]);
+    expect(result?.skipped).toEqual(["no-such-issue-id"]);
+  });
+
+  it("adoptSuggestedIssueNotesFromRunは提案が無ければundefinedを返す", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "run-1" });
+    const rt = await loadModule();
+    expect(await rt.adoptSuggestedIssueNotesFromRun("run-1")).toBeUndefined();
   });
 
   it("存在しないIDへの操作はundefinedを返す", async () => {

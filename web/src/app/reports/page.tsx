@@ -158,7 +158,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
 export default function ReportsPage() {
   const [periodFilter, setPeriodFilter] = useState<ReportPeriodType | "">("");
   const { reports, setReports, reportsLoaded, refreshReports } = useReports(periodFilter);
-  const [generating, setGenerating] = useState<ReportPeriodType | null>(null);
+  const [generating, setGenerating] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   // 改修依頼「日毎の変化をグラフで見たい」対応。生成済みレポート（週次/月次スナップショット）
@@ -168,14 +168,16 @@ export default function ReportsPage() {
   const trendNav = usePeriodNavigator("month");
   const trendPoints = buildJournalIssueDailyTrend(journalEntries, issues, trendNav.window);
 
-  async function handleGenerate(periodType: ReportPeriodType) {
-    setGenerating(periodType);
+  // 改修依頼「自動で先週分・先月分のレポートを作ってほしい」対応。自動化はせず、
+  // 既存の「今すぐ生成」と同じ手動ボタンで、対象期間を1つ前（先週・先月）にずらせるようにする。
+  async function handleGenerate(periodType: ReportPeriodType, periodsAgo = 0) {
+    setGenerating(`${periodType}-${periodsAgo}`);
     setGenerateError(null);
     try {
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodType }),
+        body: JSON.stringify({ periodType, periodsAgo }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "レポートの生成に失敗しました");
@@ -205,12 +207,18 @@ export default function ReportsPage() {
     <div className={styles.screen}>
       <div className={styles.panel}>
         <PageTitleRow title="レポート" helpAnchor="reflection">
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("week")}>
-              {generating === "week" ? "生成中…" : "今週のレポートを作成"}
+              {generating === "week-0" ? "生成中…" : "今週のレポートを作成"}
+            </button>
+            <button className={styles.btnOutline} disabled={generating !== null} onClick={() => handleGenerate("week", 1)}>
+              {generating === "week-1" ? "生成中…" : "先週のレポートを作成"}
             </button>
             <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("month")}>
-              {generating === "month" ? "生成中…" : "今月のレポートを作成"}
+              {generating === "month-0" ? "生成中…" : "今月のレポートを作成"}
+            </button>
+            <button className={styles.btnOutline} disabled={generating !== null} onClick={() => handleGenerate("month", 1)}>
+              {generating === "month-1" ? "生成中…" : "先月のレポートを作成"}
             </button>
           </div>
         </PageTitleRow>

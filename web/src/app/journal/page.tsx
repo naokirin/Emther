@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { ObservationDumpSection } from "@/components/ObservationDumpSection";
+import { QuickJournalNoteForm } from "@/components/QuickJournalNoteForm";
 import { PageTitleRow } from "@/components/HelpLink";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
@@ -122,6 +123,8 @@ function JournalListPageInner() {
     <div className={styles.screen}>
       <PageTitleRow title="現場メモ" helpAnchor="journal" />
 
+      <QuickJournalNoteForm onCreated={() => refreshSearch()} />
+
       <ObservationDumpSection onAccepted={() => refreshSearch()} focusDumpId={focusDumpId} />
 
       <div className={styles.panel}>
@@ -204,6 +207,7 @@ function JournalListPageInner() {
                 editSubmitting={editing.editSubmitting}
                 editError={editing.editError}
                 resolutionNoteDraft={editing.resolutionNoteDraft}
+                linkIssueIdDraft={editing.linkIssueIdDraft}
                 pending={editing.isEntryPending(entry.id)}
                 pendingError={editing.pendingEntryErrors[entry.id]}
                 onDismissPendingError={() => editing.dismissPendingError(entry.id)}
@@ -214,6 +218,7 @@ function JournalListPageInner() {
                 onChangeEditUrgency={editing.setEditUrgency}
                 onChangeEditDate={editing.setEditDate}
                 onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
+                onChangeLinkIssueIdDraft={editing.setLinkIssueIdDraft}
                 onConfirmEdit={() => editing.confirmEdit(entry.id)}
                 onConfirmAsIs={() => editing.confirmAsIs(entry)}
                 onStartAnalysis={() => editing.startAnalysis(entry)}
@@ -221,6 +226,7 @@ function JournalListPageInner() {
                 onStartEdit={() => editing.startEditing(entry)}
                 onResolveWithNote={() => editing.resolveWithNote(entry.id)}
                 onResolveWithNewIssue={() => editing.resolveWithNewIssue(entry)}
+                onLinkToExistingIssue={() => editing.linkToExistingIssue(entry.id)}
                 onClearResolution={() => editing.clearResolution(entry.id)}
               />
             </div>

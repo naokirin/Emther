@@ -9,6 +9,7 @@ import {
   extractActionItems,
   extractCharter,
   extractConsult,
+  extractIssueNotes,
   extractPriority,
   extractProposal,
   extractSubIssues,
@@ -81,6 +82,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       run.suggestedCharter = undefined;
       run.suggestedPriority = undefined;
       run.suggestedThemes = undefined;
+      run.suggestedIssueNotes = undefined;
       appendLog(run, "system", `[追加照会] 上限（${LOOKUP_MAX_ROUNDS}回）到達のため拒否し、EMへ確認を求めました`);
       return;
     }
@@ -127,6 +129,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.suggestedCharter = undefined;
     run.suggestedPriority = undefined;
     run.suggestedThemes = undefined;
+    run.suggestedIssueNotes = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
@@ -137,6 +140,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.suggestedCharter = run.proposal ? extractCharter(resultText) : undefined;
     run.suggestedPriority = run.proposal ? extractPriority(resultText) : undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
+    run.suggestedIssueNotes = run.proposal ? extractIssueNotes(resultText) : undefined;
     appendLog(
       run,
       "system",
@@ -156,6 +160,9 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     }
     if (run.suggestedThemes) {
       appendLog(run, "system", `[テーマ解釈提案] ${run.suggestedThemes.length}件`);
+    }
+    if (run.suggestedIssueNotes) {
+      appendLog(run, "system", `[他Issueへの追記提案] ${run.suggestedIssueNotes.length}件`);
     }
     // docs/usage_issues U2。Journal自動分析が追跡不要と明示したときだけ自動却下する。
     // 手動相談やIssue更新分析はEMのトリアージ対象のまま残す。

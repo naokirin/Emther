@@ -26,6 +26,7 @@ export type {
   Proposal,
   ProposalRecommendation,
   RejectedAlternative,
+  SuggestedIssueNote,
   SuggestedSubIssue,
   YieldOption,
   YieldRequest,
@@ -38,6 +39,7 @@ export {
   extractActionItems,
   extractCharter,
   extractConsult,
+  extractIssueNotes,
   extractJournalAutoAnalysisText,
   extractPriority,
   extractProposal,
@@ -50,10 +52,12 @@ export {
 } from "./extraction";
 
 export {
+  adoptSuggestedIssueNotesFromRun,
   adoptSuggestedThemesFromRun,
   checkStaleRuns,
   clearSuggestedActionItems,
   clearSuggestedCharter,
+  clearSuggestedIssueNotes,
   clearSuggestedPriority,
   clearSuggestedSubIssues,
   clearSuggestedThemes,

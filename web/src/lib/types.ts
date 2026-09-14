@@ -481,6 +481,8 @@ export type Issue = {
   // 紐付け（任意）。Agent Runtimeへの動的ロードで、そのチームのMission/制約だけを
   // 絶対の前提として注入するために使う。
   teamId?: string;
+  // docs/memo.md「Issue等で期限管理ができない」対応。
+  dueAt?: number;
   triage?: IssueTriageScores;
   createdAt: number;
   updatedAt: number;

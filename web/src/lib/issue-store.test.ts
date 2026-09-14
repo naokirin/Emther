@@ -339,6 +339,16 @@ describe("archive / keyResult / team / tags", () => {
     expect(clearedTeam?.teamId).toBeUndefined();
   });
 
+  it("setIssueDueAtは設定・nullで解除ができる", async () => {
+    const store = await loadModule();
+    const issue = await store.createIssue("Issue A");
+    expect(issue.dueAt).toBeUndefined();
+    const withDue = store.setIssueDueAt(issue.id, 12345);
+    expect(withDue?.dueAt).toBe(12345);
+    const cleared = store.setIssueDueAt(issue.id, null);
+    expect(cleared?.dueAt).toBeUndefined();
+  });
+
   it("setIssueTagsは重複除去・trimして更新する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");

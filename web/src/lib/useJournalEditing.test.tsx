@@ -258,4 +258,47 @@ describe("useJournalEditing", () => {
     expect(body.resolutionNote).toBeNull();
     expect(result.current.entries[0].resolvedIssueId).toBeUndefined();
   });
+
+  it("linkToExistingIssueはlinkIssueIdDraftを紐付け先としてPATCHし、成功時はentriesを更新してフォームを閉じる", async () => {
+    const entry = baseEntry();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ entry: { ...entry, resolvedIssueId: "issue-9" } }) });
+    const { result } = renderHook(() => useHarness([entry]));
+    act(() => result.current.startEditing(entry));
+    act(() => result.current.setLinkIssueIdDraft("issue-9"));
+
+    await act(async () => {
+      await result.current.linkToExistingIssue(entry.id);
+    });
+    expect(fetchMock).toHaveBeenCalledWith(`/api/journal/${entry.id}`, expect.objectContaining({ method: "PATCH" }));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.resolvedIssueId).toBe("issue-9");
+    expect(result.current.entries[0].resolvedIssueId).toBe("issue-9");
+    expect(result.current.linkIssueIdDraft).toBe("");
+    expect(result.current.editingEntryId).toBeNull();
+  });
+
+  it("linkToExistingIssueは失敗時にeditErrorを出しフォームを開いたままにする", async () => {
+    const entry = baseEntry();
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "指定されたIssueが見つかりません" }) });
+    const { result } = renderHook(() => useHarness([entry]));
+    act(() => result.current.startEditing(entry));
+    act(() => result.current.setLinkIssueIdDraft("no-such-issue"));
+
+    await act(async () => {
+      await result.current.linkToExistingIssue(entry.id);
+    });
+    expect(result.current.editError).toBe("指定されたIssueが見つかりません");
+    expect(result.current.editingEntryId).toBe(entry.id);
+  });
+
+  it("linkToExistingIssueは空欄なら何もしない", async () => {
+    const entry = baseEntry();
+    const { result } = renderHook(() => useHarness([entry]));
+    act(() => result.current.startEditing(entry));
+
+    await act(async () => {
+      await result.current.linkToExistingIssue(entry.id);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

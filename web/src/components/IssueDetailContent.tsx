@@ -127,7 +127,7 @@ export function IssueDetailContent({ id }: { id: string }) {
         refreshIssues={refreshIssues}
       />
 
-      <IssueStatusPriorityPanel issue={issue} refreshIssue={refreshIssue} refreshIssues={refreshIssues} />
+      <IssueStatusPriorityPanel issue={issue} now={now} refreshIssue={refreshIssue} refreshIssues={refreshIssues} />
 
       <div className={styles.field}>
         <span className={styles.fieldCaption} title="Action Items + サブIssue（アーカイブした子は除外）">
@@ -203,6 +203,9 @@ export function IssueDetailContent({ id }: { id: string }) {
               onAdoptPriority={suggestions.handleAdoptSuggestedPriority}
               onDismissPriority={suggestions.handleDismissSuggestedPriority}
               prioritySubmitting={suggestions.prioritySubmitting}
+              onAdoptIssueNotes={suggestions.handleAdoptSuggestedIssueNotes}
+              onDismissIssueNotes={suggestions.handleDismissSuggestedIssueNotes}
+              issueNotesSubmitting={suggestions.issueNotesSubmitting}
             />
           ) : (
             <p className={styles.subtitle}>
