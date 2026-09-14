@@ -125,13 +125,13 @@ function PeoplePageInner() {
           <>
             {selfPeople.length > 0 && (
               <>
-                <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>自分</h3>
+                <h3 style={{ fontSize: "0.875rem", marginBottom: 8 }}>自分</h3>
                 <div style={{ marginBottom: 20 }}>
                   <PersonCardGrid people={selfPeople} onOpen={peek.open} />
                 </div>
               </>
             )}
-            <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }}>部下（自分が管理するチームのメンバー）</h3>
+            <h3 style={{ fontSize: "0.875rem", marginBottom: 8 }}>部下（自分が管理するチームのメンバー）</h3>
             {reports.length === 0 ? (
               <p className={styles.subtitle} style={{ marginBottom: 16 }}>
                 管理チームにメンバーがいません。「チーム」で登録してください。
@@ -143,7 +143,7 @@ function PeoplePageInner() {
             )}
             {others.length > 0 && (
               <>
-                <h3 style={{ fontSize: "0.8125rem", marginBottom: 8 }} title="管理チーム以外で言及された人物">
+                <h3 style={{ fontSize: "0.875rem", marginBottom: 8 }} title="管理チーム以外で言及された人物">
                   その他
                 </h3>
                 <PersonCardGrid people={others} onOpen={peek.open} />

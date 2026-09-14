@@ -86,7 +86,7 @@ export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activ
         /></label>
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>
         チームごとの Mission・制約（参考）
       </h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
@@ -102,10 +102,10 @@ export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activ
             <div key={t.id} className={styles.field} style={{ margin: 0 }}>
               <span className={styles.fieldCaption}>{teamDisplayName(t.name)}</span>
               {t.charter.mission.trim() && (
-                <p style={{ margin: "2px 0", fontSize: "0.8125rem" }}>Mission: {t.charter.mission}</p>
+                <p style={{ margin: "2px 0", fontSize: "0.875rem" }}>Mission: {t.charter.mission}</p>
               )}
               {t.charter.constraints.trim() && (
-                <p style={{ margin: "2px 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                <p style={{ margin: "2px 0", fontSize: "0.875rem", color: "var(--text-muted)" }}>
                   制約: {t.charter.constraints}
                 </p>
               )}

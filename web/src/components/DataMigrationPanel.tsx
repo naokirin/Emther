@@ -98,13 +98,13 @@ export function DataMigrationPanel() {
   if (restartRequired) {
     return (
       <div role="alert">
-        <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 8 }}>
+        <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 8 }}>
           {restartReason === "reset" ? "リセットが完了しました" : "復元が完了しました"}
         </h3>
         <p className={styles.subtitle}>
           サーバーを停止しました。変更を反映するにはアプリを再起動してください。
         </p>
-        <pre style={{ fontSize: "0.8125rem", padding: 12, overflow: "auto" }}>
+        <pre style={{ fontSize: "0.875rem", padding: 12, overflow: "auto" }}>
           emther start
         </pre>
         <p className={styles.subtitle} style={{ marginTop: 8 }}>
@@ -116,7 +116,7 @@ export function DataMigrationPanel() {
 
   return (
     <>
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>端末移行・データ管理</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>端末移行・データ管理</h3>
       <p className={styles.subtitle} style={{ marginBottom: 12 }} title="形式は emther backup / restore と同じ tar.gz。個人情報を含みます">
         業務データと実名対応表のバックアップ・復元・削除（CLI 認証・モデルキャッシュは含みません）
       </p>
@@ -124,7 +124,7 @@ export function DataMigrationPanel() {
       {error && <p className={styles.errorText} role="alert">{error}</p>}
 
       <section style={{ marginBottom: 24 }}>
-        <h4 style={{ fontSize: "0.8125rem", margin: "0 0 8px" }}>バックアップ</h4>
+        <h4 style={{ fontSize: "0.875rem", margin: "0 0 8px" }}>バックアップ</h4>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           ダウンロードしたファイルを新しい端末へ移し、そちらで復元してください。サーバー側の
           backups ディレクトリにも同じファイルが残ります。
@@ -135,7 +135,7 @@ export function DataMigrationPanel() {
       </section>
 
       <section style={{ marginBottom: 24 }}>
-        <h4 style={{ fontSize: "0.8125rem", margin: "0 0 8px" }}>復元（インポート）</h4>
+        <h4 style={{ fontSize: "0.875rem", margin: "0 0 8px" }}>復元（インポート）</h4>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           現在の data / secure はすべて置き換わります。完了後サーバーは停止します。
         </p>
@@ -153,7 +153,7 @@ export function DataMigrationPanel() {
       </section>
 
       <section>
-        <h4 style={{ fontSize: "0.8125rem", margin: "0 0 8px" }}>全データをリセット</h4>
+        <h4 style={{ fontSize: "0.875rem", margin: "0 0 8px" }}>全データをリセット</h4>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
           data と secure の中身をすべて削除します。取り消せません。確認のため下に{" "}
           <code>RESET</code> と入力してください。

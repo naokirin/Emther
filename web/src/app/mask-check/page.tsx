@@ -138,7 +138,7 @@ export default function PrivacyCheckPage() {
           {disclaimer && (
             <p
               style={{
-                fontSize: "0.8125rem",
+                fontSize: "0.875rem",
                 margin: 0,
                 padding: "10px 12px",
                 background: "var(--surface-2, rgba(0,0,0,0.04))",
@@ -155,12 +155,12 @@ export default function PrivacyCheckPage() {
             </p>
           )}
           {busyAi && (
-            <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>
+            <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
               ローカルAIで機微っぽい箇所を追加確認しています…
             </p>
           )}
           {aiScopeNote && !busyAi && (
-            <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>{aiScopeNote}</p>
+            <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>{aiScopeNote}</p>
           )}
 
           <HighlightedTextSection sourceText={sourceText} highlights={highlights} />

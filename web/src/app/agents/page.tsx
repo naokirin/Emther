@@ -235,7 +235,7 @@ export default function AgentsPage() {
         {error && <p className={styles.errorText} role="alert">{error}</p>}
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             状態で絞り込み:
             <Select
               value={statusFilter}

@@ -13,7 +13,7 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
   return (
     <>
       <strong>✅ 結論</strong>
-      <p style={{ fontSize: "0.8125rem", marginTop: 4 }}>
+      <p style={{ fontSize: "0.875rem", marginTop: 4 }}>
         <IdLinkedText text={proposal.conclusion} />
       </p>
 

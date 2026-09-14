@@ -114,7 +114,7 @@ export function KeyResultManager({ selectedObjective, refreshObjectives }: Props
 
   return (
     <>
-      <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.8125rem" }}>Key Results</h3>
+      <h3 style={{ marginTop: 16, marginBottom: 4, fontSize: "0.875rem" }}>Key Results</h3>
       {selectedObjective.keyResults.length === 0 ? (
         <p className={styles.subtitle}>まだKey Resultがありません。</p>
       ) : (

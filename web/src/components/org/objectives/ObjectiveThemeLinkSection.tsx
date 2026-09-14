@@ -109,11 +109,11 @@ export function ObjectiveThemeLinkSection({
 
   return (
     <>
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連テーマ（EM介入の焦点）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連テーマ（EM介入の焦点）</h3>
       {linked.length === 0 ? (
         <p className={styles.subtitle}>この Objective に紐付くテーマはまだありません。</p>
       ) : (
-        <ul style={{ margin: "0 0 8px 16px", fontSize: "0.8125rem", listStyle: "none", padding: 0 }}>
+        <ul style={{ margin: "0 0 8px 16px", fontSize: "0.875rem", listStyle: "none", padding: 0 }}>
           {linked.map((t) => (
             <li key={t.id} style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>

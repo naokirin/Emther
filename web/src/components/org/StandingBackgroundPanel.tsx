@@ -255,7 +255,7 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
                     {b.status === "archived" ? " · アーカイブ" : ""}
                     {b.tags.length > 0 ? ` · ${b.tags.join(", ")}` : ""}
                   </div>
-                  <div style={{ marginTop: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                  <div style={{ marginTop: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
                     {b.fact.length > 120 ? `${b.fact.slice(0, 120)}…` : b.fact}
                   </div>
                 </button>
@@ -349,7 +349,7 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
           </div>
           {backgroundHistory.length > 0 && (
             <>
-              <h3 style={{ marginTop: 20, marginBottom: 6, fontSize: "0.8125rem" }}>変更履歴</h3>
+              <h3 style={{ marginTop: 20, marginBottom: 6, fontSize: "0.875rem" }}>変更履歴</h3>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: "0.75rem", color: "var(--text-muted)" }}>
                 {backgroundHistory.slice(0, 8).map((ev) => (
                   <li key={ev.id}>{ev.text}</li>

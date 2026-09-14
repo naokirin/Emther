@@ -137,11 +137,11 @@ function JournalListPageInner() {
           /></label>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             期間:
             <Select value={periodDays} onChange={updateFilter(setPeriodDays)} options={PERIOD_OPTIONS} style={{ minWidth: 140 }} />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             人物:
             <Select
               value={personFilter}
@@ -150,7 +150,7 @@ function JournalListPageInner() {
               style={{ minWidth: 140 }}
             />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             タグ:
             <Select
               value={tagFilter}
@@ -159,7 +159,7 @@ function JournalListPageInner() {
               style={{ minWidth: 140 }}
             />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             Urgency:
             <Select
               value={urgencyFilter}
@@ -168,7 +168,7 @@ function JournalListPageInner() {
               style={{ minWidth: 120 }}
             />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             感情:
             <Select
               value={sentimentFilter}
@@ -177,7 +177,7 @@ function JournalListPageInner() {
               style={{ minWidth: 140 }}
             />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
             <input
               type="checkbox"
               checked={excludeResolved}

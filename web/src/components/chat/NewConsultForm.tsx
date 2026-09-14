@@ -70,7 +70,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
             display: "flex",
             gap: 8,
             alignItems: "flex-start",
-            fontSize: "0.8125rem",
+            fontSize: "0.875rem",
             marginBottom: 12,
             cursor: "pointer",
           }}

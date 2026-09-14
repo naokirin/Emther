@@ -233,7 +233,7 @@ export default function ReportsPage() {
         <JournalIssueTrendChart points={trendPoints} />
       </div>
 
-      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: 10 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: 10 }}>
         種別で絞り込み:
         <Select
           value={periodFilter}

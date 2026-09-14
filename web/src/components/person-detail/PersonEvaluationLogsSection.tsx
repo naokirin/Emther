@@ -93,7 +93,7 @@ export function PersonEvaluationLogsSection({
     const visible = logs.filter((l) => l.status !== "discarded");
     return (
       <div style={{ marginBottom: 12 }}>
-        <h4 style={{ margin: "0 0 6px", fontSize: "0.8125rem" }}>{title}</h4>
+        <h4 style={{ margin: "0 0 6px", fontSize: "0.875rem" }}>{title}</h4>
         {visible.length === 0 ? (
           <p className={styles.subtitle}>まだありません。</p>
         ) : (
@@ -106,7 +106,7 @@ export function PersonEvaluationLogsSection({
                   borderRadius: 8,
                   padding: 10,
                   marginBottom: 8,
-                  fontSize: "0.8125rem",
+                  fontSize: "0.875rem",
                 }}
               >
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
@@ -202,7 +202,7 @@ export function PersonEvaluationLogsSection({
   return (
     <>
       <h3
-        style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}
+        style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}
         title="Journalから仮置き。A（成果）とB（Value）を分けて読む"
       >
         日常の評価ログ（目標貢献 / Value）

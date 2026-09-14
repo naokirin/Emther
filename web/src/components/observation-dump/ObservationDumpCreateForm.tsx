@@ -273,7 +273,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
           </label>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
-          <label style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+          <label style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
             期間ヒント（任意）:
             <input
               type="date"
@@ -304,7 +304,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
             border: "1px solid var(--border)",
             borderRadius: 6,
             padding: "8px 10px",
-            fontSize: "0.8125rem",
+            fontSize: "0.875rem",
             fontFamily: "inherit",
             resize: "vertical",
           }}
@@ -322,7 +322,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
           }}
         >
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-            <label style={{ fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: 6 }}>
+            <label style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: 6 }}>
               構文:
               <Select
                 value={syntax}
@@ -342,7 +342,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
           </div>
 
           {profiles.length > 0 && (
-            <label style={{ fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: 6 }}>
+            <label style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: 6 }}>
               保存済みプロファイル:
               <Select
                 value={selectedProfileId}
@@ -362,7 +362,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
                 preview.suggestedSyntax === "csv" ||
                 syntax === "tsv" ||
                 syntax === "csv") && (
-                <label style={{ fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: 6 }}>
+                <label style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: 6 }}>
                   <input
                     type="checkbox"
                     checked={hasHeader}
@@ -378,7 +378,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
                   先頭行をヘッダとして使う
                 </label>
               )}
-              <label style={{ fontSize: "0.8125rem", display: "flex", alignItems: "center", gap: 6 }}>
+              <label style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: 6 }}>
                 日時の解釈:
                 <Select
                   value={tsKind}
@@ -387,7 +387,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
                   style={{ minWidth: 200 }}
                 />
               </label>
-              <div style={{ fontSize: "0.8125rem" }}>
+              <div style={{ fontSize: "0.875rem" }}>
                 <strong>列 → 意味</strong>
                 <span className={styles.subtitle}>（{preview.rowCount} 行検出）</span>
               </div>

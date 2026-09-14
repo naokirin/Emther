@@ -170,7 +170,7 @@ export function TeamEditPanel({
         <textarea rows={2} value={editConstraints} onChange={(e) => setEditConstraints(e.target.value)} /></label>
       </div>
       <label
-        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 10 }}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 10 }}
         title="OFFにするとメンバーは「その他」になり、1on1 Coverage対象外"
       >
         <input type="checkbox" checked={editManagedByEm} onChange={(e) => setEditManagedByEm(e.target.checked)} />
@@ -210,7 +210,7 @@ export function TeamEditPanel({
         </div>
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Issue</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
         メンバー名がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
       </p>
@@ -246,7 +246,7 @@ export function TeamEditPanel({
         </div>
       )}
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Journal（Issue化されていない特性・所感）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Journal（Issue化されていない特性・所感）</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
         このチームに明示紐付けされたJournal、またはメンバーが登場するJournal（直近10件）です。
       </p>

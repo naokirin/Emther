@@ -110,7 +110,7 @@ export function IssueLogSection({ issue, refreshIssue, refreshRuns, fetchWithNam
         <ul style={{ listStyle: "none", marginTop: 10 }}>
           {[...issue.logEntries].reverse().map((entry) => (
             <li key={entry.id} className={styles.field} style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: "0.8125rem" }}>{entry.text}</div>
+              <div style={{ fontSize: "0.875rem" }}>{entry.text}</div>
               <div className={styles.subtitle}>{new Date(entry.createdAt).toLocaleString("ja-JP")}</div>
             </li>
           ))}

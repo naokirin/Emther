@@ -31,7 +31,7 @@ export function PendingAgentStartNotice({
         border: "1px solid var(--blue)",
         background: "var(--blue-bg)",
         color: "var(--blue-text)",
-        fontSize: "0.8125rem",
+        fontSize: "0.875rem",
         lineHeight: 1.5,
       }}
     >

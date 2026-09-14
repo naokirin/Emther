@@ -73,7 +73,7 @@ export function ObjectiveListCard({
         {objectiveProgressLabel(objective)}
       </div>
       {objective.note?.trim() && (
-        <div style={{ marginTop: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+        <div style={{ marginTop: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
           {objective.note.length > 120 ? `${objective.note.slice(0, 120)}…` : objective.note}
         </div>
       )}
@@ -96,7 +96,7 @@ export function ObjectiveTeamListView({
         <div key={`${depth}-${node.segment}`} style={{ marginTop: depth === 0 ? 12 : 8 }}>
           <div
             style={{
-              fontSize: "0.8125rem",
+              fontSize: "0.875rem",
               fontWeight: 600,
               color: "var(--text)",
               marginBottom: 4,

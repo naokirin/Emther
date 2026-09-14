@@ -213,7 +213,7 @@ export function ObjectivesPanel({
           <p className={styles.subtitle}>まだObjectiveが登録されていません。</p>
         ) : (
           <>
-            <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
+            <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               組織全体
             </div>
             {orgWideObjectives.length === 0 ? (

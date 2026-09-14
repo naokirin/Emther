@@ -95,7 +95,7 @@ export function TeamCreatePanel({
       {teamError && <p className={styles.errorText} role="alert">{teamError}</p>}
 
       <details style={{ marginTop: 10 }}>
-        <summary style={{ cursor: "pointer", fontSize: "0.8125rem" }}>複数チームを一括登録（初回投入用）</summary>
+        <summary style={{ cursor: "pointer", fontSize: "0.875rem" }}>複数チームを一括登録（初回投入用）</summary>
         <form onSubmit={handleBulkAddTeams} style={{ marginTop: 8 }}>
           <div className={styles.field}>
             <label>1行1チーム、「チーム名: メンバー1, メンバー2」の形式で貼り付け
@@ -104,7 +104,7 @@ export function TeamCreatePanel({
               onChange={(e) => setBulkText(e.target.value)}
               rows={5}
               placeholder={"例:\nEngineering / Team A: Aさん, Bさん\nEngineering / Team B: Cさん\nDesign: Dさん, Eさん"}
-              style={{ width: "100%", fontFamily: "inherit", fontSize: "0.8125rem" }}
+              style={{ width: "100%", fontFamily: "inherit", fontSize: "0.875rem" }}
             /></label>
           </div>
           <button className={styles.primaryBtn} type="submit" disabled={bulkSubmitting || !bulkText.trim()}>

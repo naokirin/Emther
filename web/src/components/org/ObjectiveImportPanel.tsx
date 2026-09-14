@@ -161,7 +161,7 @@ export function ObjectiveImportPanel({ teamOptions, refreshObjectives, onClose, 
       </div>
       <div className={styles.field}>
         <span className={styles.fieldCaption}>保存モード</span>
-        <div style={{ display: "flex", gap: 12, fontSize: "0.8125rem" }}>
+        <div style={{ display: "flex", gap: 12, fontSize: "0.875rem" }}>
           <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <input
               type="radio"

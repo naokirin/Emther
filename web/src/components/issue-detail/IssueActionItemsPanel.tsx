@@ -103,7 +103,7 @@ export function IssueActionItemsPanel({ issue, refreshIssue, refreshIssues, fetc
       ) : (
         <div
           style={{
-            fontSize: "0.8125rem",
+            fontSize: "0.875rem",
             marginBottom: 12,
             padding: "8px 10px",
             border: "1px solid var(--border)",
@@ -144,7 +144,7 @@ export function IssueActionItemsPanel({ issue, refreshIssue, refreshIssues, fetc
           <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>あとでやる</h3>
           <ul style={{ listStyle: "none", marginBottom: 10 }}>
             {backlog.map((item) => (
-              <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 8 }}>
+              <li key={item.id} style={{ fontSize: "0.875rem", marginBottom: 8 }}>
                 <label style={{ display: "flex", gap: 6, alignItems: "flex-start", cursor: "pointer" }}>
                   <input type="checkbox" checked={false} onChange={() => handleToggleActionItem(item.id)} style={{ marginTop: 2 }} />
                   <span style={{ flex: 1 }}>{item.text}</span>
@@ -189,7 +189,7 @@ export function IssueActionItemsPanel({ issue, refreshIssue, refreshIssues, fetc
           <h3 style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>完了</h3>
           <ul style={{ listStyle: "none", marginBottom: 10 }}>
             {doneItems.map((item) => (
-              <li key={item.id} style={{ fontSize: "0.8125rem", marginBottom: 6 }}>
+              <li key={item.id} style={{ fontSize: "0.875rem", marginBottom: 6 }}>
                 <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
                   <input type="checkbox" checked onChange={() => handleToggleActionItem(item.id)} />
                   <span style={{ flex: 1, textDecoration: "line-through", color: "var(--text-muted)" }}>{item.text}</span>

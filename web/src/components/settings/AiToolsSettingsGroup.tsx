@@ -66,7 +66,7 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
 
   return (
     <>
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>ローカルAI（ジャーナル抽出）</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>ローカルAI（ジャーナル抽出）</h3>
       <div className={styles.field} style={{ maxWidth: 420 }}>
         <label title="機微情報を外部送信しないローカル推論。埋め込みモデルは対象外">
           チャットモデルのサイズ
@@ -92,14 +92,14 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
         保存後、未取得ならダウンロードが始まります。大きいモデルはメモリ不足でプロセスが落ちることがあります。
       </p>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
       {(() => {
         const order = draft.cliOrder;
         const excluded = CLI_OPTIONS.filter((c) => !order.includes(c));
         return (
           <ol style={{ listStyle: "none", margin: 0, padding: 0, maxWidth: 340, marginBottom: 12 }}>
             {order.map((cli, index) => (
-              <li key={cli} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8125rem" }}>
+              <li key={cli} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.875rem" }}>
                 <span style={{ width: 16, color: "var(--text-muted)" }}>{index + 1}.</span>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
                   <input
@@ -133,7 +133,7 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
             {excluded.map((cli) => (
               <li
                 key={cli}
-                style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8125rem", color: "var(--text-muted)" }}
+                style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}
               >
                 <span style={{ width: 16 }} />
                 <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
@@ -146,7 +146,7 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
         );
       })()}
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>エージェント種別ごとのモデル</h3>
       <p style={{ fontSize: "0.75rem", marginTop: 0, marginBottom: 8, maxWidth: 520, color: "var(--text-muted)" }}>
         上で有効なAIツールだけが表示されます（除外中の列は隠れますが、設定値は保持されます）。空欄は各CLIの既定モデルのままです。
       </p>

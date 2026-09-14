@@ -227,7 +227,7 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
                             border: "1px solid var(--border)",
                             borderRadius: 4,
                             padding: "6px 8px",
-                            fontSize: "0.8125rem",
+                            fontSize: "0.875rem",
                             fontFamily: "inherit",
                             resize: "vertical",
                           }}
@@ -265,7 +265,7 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
                       </>
                     ) : (
                       <>
-                        <div style={{ whiteSpace: "pre-wrap", fontSize: "0.8125rem" }}>{c.text}</div>
+                        <div style={{ whiteSpace: "pre-wrap", fontSize: "0.875rem" }}>{c.text}</div>
                         <div className={styles.subtitle} style={{ marginTop: 4 }}>
                           {c.suggestedOccurredAt ? `日付案: ${c.suggestedOccurredAt} · ` : ""}
                           confidence: {c.confidence.toFixed(2)}

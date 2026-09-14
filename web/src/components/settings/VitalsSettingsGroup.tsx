@@ -9,7 +9,7 @@ type Props = {
 export function VitalsSettingsGroup({ draft, onChange }: Props) {
   return (
     <>
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>Team Vital</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>Team Vital</h3>
       <div className={styles.field}>
         <label>判定に使う参照期間（日）
         <input
@@ -45,7 +45,7 @@ export function VitalsSettingsGroup({ draft, onChange }: Props) {
         /></label>
       </div>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>1on1 Coverage</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>1on1 Coverage</h3>
       <div className={styles.field}>
         <label>判定に使う参照期間（日）
         <input
@@ -73,7 +73,7 @@ export function VitalsSettingsGroup({ draft, onChange }: Props) {
         /></label>
       </div>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 20, marginBottom: 4 }}>停滞Issue検知</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>停滞Issue検知</h3>
       <div className={styles.field} style={{ maxWidth: 160 }}>
         <label title="着手済みでこの日数以上動いていなければ停滞中として表示">
           停滞とみなす日数

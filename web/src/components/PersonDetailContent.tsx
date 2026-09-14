@@ -213,19 +213,19 @@ export function PersonDetailContent({ id }: { id: string }) {
         onDeleted={() => router.push("/people")}
       />
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>所属チーム</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>所属チーム</h3>
       <div style={{ marginBottom: 10 }}>
         <TeamMembershipEditor personName={person.name} teams={teams} onChanged={handleTeamsChanged} />
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }} title="別名が出てきても同じ人物として認識">
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }} title="別名が出てきても同じ人物として認識">
         別名（表記揺れ）
       </h3>
       <div style={{ marginBottom: 10 }}>
         <AliasEditor personId={person.id} aliases={person.aliases} onChanged={refreshPerson} />
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>重複を統合</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>重複を統合</h3>
       <div style={{ marginBottom: 10 }}>
         <MergeDuplicatePerson personId={person.id} personName={person.name} onMerged={refreshPerson} />
       </div>

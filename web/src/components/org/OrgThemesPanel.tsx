@@ -148,7 +148,7 @@ export function OrgThemesPanel({
             ? "候補"
             : selectedTheme.status}
       </p>
-      <p style={{ fontSize: "0.8125rem", marginTop: 8 }}>{selectedTheme.summary}</p>
+      <p style={{ fontSize: "0.875rem", marginTop: 8 }}>{selectedTheme.summary}</p>
       {selectedTheme.rationale && (
         <p className={styles.subtitle} style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>
           {selectedTheme.rationale}

@@ -376,7 +376,7 @@ export function JournalDumpPanel({
                 border: "1px solid var(--border)",
                 borderRadius: 6,
                 padding: "8px 10px",
-                fontSize: "0.8125rem",
+                fontSize: "0.875rem",
                 fontFamily: "inherit",
                 resize: "vertical",
               }}

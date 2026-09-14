@@ -145,7 +145,7 @@ export function PersonRecordsSection({
 }) {
   return (
     <>
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>長期プロファイル（解釈、TTLなし）</h3>
       <PersonProfileComposer personName={person.name} onCreated={onProfileCreated} />
       {person.interpretations.length === 0 ? (
         <p className={styles.subtitle}>まだ記録がありません。上のフォームから記録できます。</p>
@@ -170,7 +170,7 @@ export function PersonRecordsSection({
         </div>
       )}
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>直近のJournal</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>直近のJournal</h3>
       <PersonJournalComposer personName={person.name} onCreated={onJournalCreated} />
       {person.facts.length === 0 ? (
         <p className={styles.subtitle}>関連するJournalはまだありません。上のフォームから記録できます。</p>
@@ -218,7 +218,7 @@ export function PersonRecordsSection({
         </Link>
       </p>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>関連Issue（EM介入。貢献評価の主経路ではない）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Issue（EM介入。貢献評価の主経路ではない）</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
         Issue は EM の介入単位です。メンバー貢献の主材料にはしません（上の評価ログを正とします）。
       </p>

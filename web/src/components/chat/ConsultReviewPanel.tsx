@@ -278,7 +278,7 @@ export function ConsultReviewPanel({
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {issueCandidates.map((c, i) => (
                   <li key={`${c.title}-${i}`} style={{ marginBottom: 4 }}>
-                    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.8125rem", cursor: "pointer" }}>
+                    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.875rem", cursor: "pointer" }}>
                       <input
                         type="checkbox"
                         checked={candidateSelectedFlags[i] ?? false}

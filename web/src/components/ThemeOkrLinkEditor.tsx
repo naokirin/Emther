@@ -92,7 +92,7 @@ export function ThemeOkrLinkEditor({
             padding: "8px 10px",
             border: "1px solid var(--input-border)",
             borderRadius: 6,
-            fontSize: "0.8125rem",
+            fontSize: "0.875rem",
           }}
         >
           {objectives.map((o) => (

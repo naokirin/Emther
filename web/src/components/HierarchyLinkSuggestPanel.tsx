@@ -27,7 +27,7 @@ export function ThemeOkrLinkSuggestPanel({
         padding: 10,
         border: "1px solid var(--border)",
         borderRadius: 8,
-        fontSize: "0.8125rem",
+        fontSize: "0.875rem",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
@@ -121,7 +121,7 @@ export function IssueStrategyLinkSuggestPanel({
         padding: 10,
         border: "1px solid var(--border)",
         borderRadius: 8,
-        fontSize: "0.8125rem",
+        fontSize: "0.875rem",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>

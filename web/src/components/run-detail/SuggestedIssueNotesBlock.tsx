@@ -27,7 +27,7 @@ export function SuggestedIssueNotesBlock({
         作成・ステータス変更は行いません。
       </p>
       {notes.map((note, i) => (
-        <div key={i} style={{ fontSize: "0.8125rem", marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+        <div key={i} style={{ fontSize: "0.875rem", marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <strong>
             Issue:{" "}
             <IdFragmentLink fragment={note.issueId} className={styles.idFragmentLink}>

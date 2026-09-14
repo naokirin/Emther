@@ -29,7 +29,7 @@ export function SetupGapsBanner({ setupGaps, teamsCount, hasMvv, objectivesCount
         border: "1px solid var(--yellow-border)",
       }}
     >
-      <span style={{ fontSize: "0.8125rem" }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
+      <span style={{ fontSize: "0.875rem" }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
       {/* ユーザー要望「チーム・メンバータブにチームの追加・編集を統合したい」対応。チームの
           追加は/teams（チーム・メンバータブの「チーム」）へ、MVV/Objectiveの設定は
           方針・目標タブへ、と行き先が分かれたためボタンも分ける（不足している方だけ出す）。 */}

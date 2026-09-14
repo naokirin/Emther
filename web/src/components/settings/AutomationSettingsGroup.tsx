@@ -9,11 +9,11 @@ type Props = {
 export function AutomationSettingsGroup({ draft, onChange }: Props) {
   return (
     <>
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動</h3>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>
       <label
-        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
         title="投稿直後は起動しません。「この内容で確定」後に条件一致で起動"
       >
         <input
@@ -55,8 +55,8 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
         </select></label>
       </div>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>Issue更新時の自動分析</h3>
-      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>Issue更新時の自動分析</h3>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}>
         <input
           type="checkbox"
           checked={draft.autoIssueUpdateAnalysisEnabled}
@@ -65,8 +65,8 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
         Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス）
       </label>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>朝のサマリー（バッチ）</h3>
-      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>朝のサマリー（バッチ）</h3>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}>
         <input
           type="checkbox"
           checked={draft.autoMorningSummaryEnabled}
@@ -85,9 +85,9 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
         /></label>
       </div>
 
-      <h3 style={{ fontSize: "0.8125rem", marginTop: 16, marginBottom: 4 }}>状況の蒸留（週次バッチ）</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>状況の蒸留（週次バッチ）</h3>
       <label
-        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 6 }}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
         title="候補テーマを出します。採用するまで前提には入りません"
       >
         <input

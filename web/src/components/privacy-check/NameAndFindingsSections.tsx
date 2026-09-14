@@ -13,7 +13,7 @@ export function NameAndFindingsSections({ replacements, unregistered, findings, 
       <section>
         <h3 style={{ margin: "0 0 8px", fontSize: "1rem" }}>人名の置換一覧</h3>
         {replacements.length === 0 ? (
-          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
             登録済み人名の置換はありません（People に未登録の名前はマスクされません）。
           </p>
         ) : (
@@ -31,9 +31,9 @@ export function NameAndFindingsSections({ replacements, unregistered, findings, 
       <section>
         <h3 style={{ margin: "0 0 8px", fontSize: "1rem" }}>未登録の人名っぽい語句</h3>
         {unregistered.length === 0 && busyAi ? (
-          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>追加確認中…</p>
+          <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>追加確認中…</p>
         ) : unregistered.length === 0 ? (
-          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
             人名っぽい候補は見つかりませんでした。
           </p>
         ) : (
@@ -58,11 +58,11 @@ export function NameAndFindingsSections({ replacements, unregistered, findings, 
       <section>
         <h3 style={{ margin: "0 0 8px", fontSize: "1rem" }}>個人情報・機密情報っぽい箇所</h3>
         {findings.length === 0 && !busyAi ? (
-          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
             候補は見つかりませんでした。保証ではありません。
           </p>
         ) : findings.length === 0 && busyAi ? (
-          <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: 0 }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
             ルールでは未検出。ローカルAIの結果を待っています…
           </p>
         ) : (

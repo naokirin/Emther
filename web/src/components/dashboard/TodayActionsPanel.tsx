@@ -34,7 +34,7 @@ function RankBadge({ n }: { n: number }) {
         alignItems: "center",
         justifyContent: "center",
         fontWeight: 800,
-        fontSize: "0.8125rem",
+        fontSize: "0.875rem",
         background: "var(--panel)",
         border: "1px solid var(--border)",
       }}

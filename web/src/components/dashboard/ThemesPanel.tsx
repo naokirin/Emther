@@ -223,7 +223,7 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
                   marginTop: 10,
                   paddingTop: 10,
                   borderTop: "1px solid var(--border)",
-                  fontSize: "0.8125rem",
+                  fontSize: "0.875rem",
                 }}
               >
                 {themeEditId === t.id ? (
