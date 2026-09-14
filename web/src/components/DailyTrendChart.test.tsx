@@ -55,20 +55,19 @@ function journalEntry(ts: number, sentiment: JournalEntry["sentiment"]): Journal
   };
 }
 
-function issue(createdAt: number, doneAt?: number): Issue {
+function issue(createdAt: number): Issue {
   return {
     id: `i-${Math.random()}`,
     title: "",
     charter: { why: "", what: "", how: "" },
     actionItems: [],
     logEntries: [],
-    status: doneAt != null ? "done" : "not_started",
+    status: "not_started",
     priority: "normal",
     archived: false,
     tags: [],
     createdAt,
     updatedAt: createdAt,
-    doneAt,
   };
 }
 
@@ -76,7 +75,7 @@ describe("JournalIssueTrendChart", () => {
   it("記録が無い期間はJournal/Issue両方の空状態メッセージを出す", () => {
     render(<JournalIssueTrendChart points={buildJournalIssueDailyTrend([], [], WEEK)} />);
     expect(screen.getByText("この期間のJournalはまだありません。")).toBeInTheDocument();
-    expect(screen.getByText("この期間のIssueの起票・解決はまだありません。")).toBeInTheDocument();
+    expect(screen.getByText("この期間のIssueの起票はまだありません。")).toBeInTheDocument();
   });
 
   it("Journalはネガティブ・ニュートラル・ポジティブの順（積み上げの最下段から）で渡す", () => {
@@ -93,13 +92,12 @@ describe("JournalIssueTrendChart", () => {
     expect(chart.datasets[2]!.data[0]).toBe(2);
   });
 
-  it("Issueは起票・解決の日次件数を渡す", () => {
-    const issues: Issue[] = [issue(WEEK.start), issue(WEEK.start, WEEK.start + DAY_MS)];
+  it("Issueは起票の日次件数を渡す", () => {
+    const issues: Issue[] = [issue(WEEK.start), issue(WEEK.start)];
     render(<JournalIssueTrendChart points={buildJournalIssueDailyTrend([], issues, WEEK)} />);
     const bars = screen.getAllByTestId("bar-chart");
     const issueChart = JSON.parse(bars[0]!.getAttribute("data-chart")!) as ChartData<"bar">;
-    expect(issueChart.datasets.map((d) => d.label)).toEqual(["起票", "解決"]);
+    expect(issueChart.datasets.map((d) => d.label)).toEqual(["起票"]);
     expect(issueChart.datasets[0]!.data[0]).toBe(2);
-    expect(issueChart.datasets[1]!.data[1]).toBe(1);
   });
 });

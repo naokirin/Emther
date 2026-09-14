@@ -109,11 +109,12 @@ export type JournalIssueDailyPoint = {
   journalNegative: number;
   journalTotal: number;
   issueCreated: number;
-  issueDone: number;
 };
 
-// Journalはsentiment別の件数、Issueは起票日・解決日ベースの件数を日毎に積む。
+// Journalはsentiment別の件数、Issueは起票日ベースの件数を日毎に積む。
 // 「ネガティブ・ポジティブが多い/少ない」はJournal側、「業務状況」の量感はIssue側で見る。
+// docs/2nd_pivot_version.md Phase 5対応。issueDone（doneAtベースの日次解決件数）は、
+// Phase 2.4でstatus編集UI自体が廃止されdoneAtが書き込めなくなったため削除した。
 export function buildJournalIssueDailyTrend(
   journalEntries: JournalEntry[],
   issues: Issue[],
@@ -128,15 +129,10 @@ export function buildJournalIssueDailyTrend(
     journalByDay.set(key, agg);
   }
   const createdByDay = new Map<string, number>();
-  const doneByDay = new Map<string, number>();
   for (const issue of issues) {
     if (issue.createdAt >= window.start && issue.createdAt < window.end) {
       const createdKey = dateKeyOf(issue.createdAt);
       createdByDay.set(createdKey, (createdByDay.get(createdKey) ?? 0) + 1);
-    }
-    if (issue.doneAt != null && issue.doneAt >= window.start && issue.doneAt < window.end) {
-      const doneKey = dateKeyOf(issue.doneAt);
-      doneByDay.set(doneKey, (doneByDay.get(doneKey) ?? 0) + 1);
     }
   }
   return dateKeysInWindow(window).map((key) => {
@@ -149,7 +145,6 @@ export function buildJournalIssueDailyTrend(
       journalNegative: j?.negative ?? 0,
       journalTotal: (j?.positive ?? 0) + (j?.neutral ?? 0) + (j?.negative ?? 0),
       issueCreated: createdByDay.get(key) ?? 0,
-      issueDone: doneByDay.get(key) ?? 0,
     };
   });
 }

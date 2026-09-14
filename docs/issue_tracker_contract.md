@@ -46,6 +46,8 @@ Issue 周りが煩雑化した主因を、「Work item・Task・Inbox・Executio
 active = !archived && status != done
 ```
 
+> **2026-09-15追記（docs/2nd_pivot_version.md Phase 5）:** `status=done`への遷移UI（ステータス選択パネル）はPhase 2.4で廃止された。`setIssueStatus`関数・`Issue.status`型・`doneAt`フィールド自体は残っているため上記の概念・型定義は引き続き有効だが、現在この状態への実際の書き込み経路は存在しない（EM向けUIからは到達不能）。Reports機能（`report-store.ts`）はこれを踏まえ、`status=done`ベースの集計指標（`doneCount`等）をPhase 5で削除し、KnowledgeEventベースの`ReportEventStats`に一本化した。
+
 ### 禁止（以前の実装との差分）
 
 - アーカイブ時に `status` を `done` へ自動変更しない

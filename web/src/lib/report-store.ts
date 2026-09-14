@@ -28,11 +28,8 @@ export type ReportJournalStats = {
 
 export type ReportIssueStats = {
   createdCount: number;
-  // docs/issue_tracker_contract.md §3: done=解決、archived=追わない（別集計）。
-  doneCount: number;
   archivedCount: number;
   createdTitles: { id: string; title: string }[];
-  doneTitles: { id: string; title: string }[];
   archivedTitles: { id: string; title: string }[];
 };
 
@@ -124,19 +121,21 @@ function computeJournalStats(periodStart: number, periodEnd: number): ReportJour
 
 // docs/2nd_pivot_version.md Phase 2.3対応。以前はopenIncompleteCount（parentId・charter
 // 充足度に依存する「Why/What/How未整理のIssue数」）も含んでいたが、EMにIssueの構造を
-// 手入れさせない方針と衝突するため廃止した。作成・解決・アーカイブの件数のみ扱う。
+// 手入れさせない方針と衝突するため廃止した。作成・アーカイブの件数のみ扱う。
+// docs/2nd_pivot_version.md Phase 5対応。doneCount/doneTitles（status=doneの集計）は
+// Phase 2.4でstatus編集UI自体が廃止されdoneAtが書き込めなくなったため削除した
+// （常に0になる指標を表示し続けるのは実害があるバグのため）。Issueの「観測された状態変化」は
+// 代わりにReportEventStats.byEntityType.issue（KnowledgeEventベース、起票/アーカイブ/
+// タイトル変更等あらゆる変化を捉える）で見る。
 function computeIssueStats(periodStart: number, periodEnd: number): ReportIssueStats {
   const issues = listIssues();
   const created = issues.filter((i) => i.createdAt >= periodStart && i.createdAt < periodEnd);
-  const done = issues.filter((i) => i.doneAt && i.doneAt >= periodStart && i.doneAt < periodEnd);
   const archived = issues.filter((i) => i.archivedAt && i.archivedAt >= periodStart && i.archivedAt < periodEnd);
 
   return {
     createdCount: created.length,
-    doneCount: done.length,
     archivedCount: archived.length,
     createdTitles: created.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
-    doneTitles: done.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
     archivedTitles: archived.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
   };
 }
@@ -221,7 +220,6 @@ export function toReportView(report: Report): Report {
       issues: {
         ...report.stats.issues,
         createdTitles: report.stats.issues.createdTitles.map((i) => ({ ...i, title: unmaskNames(i.title) })),
-        doneTitles: (report.stats.issues.doneTitles ?? []).map((i) => ({ ...i, title: unmaskNames(i.title) })),
         archivedTitles: report.stats.issues.archivedTitles.map((i) => ({ ...i, title: unmaskNames(i.title) })),
       },
     },

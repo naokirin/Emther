@@ -176,11 +176,11 @@ export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
   );
 }
 
-// ---------- Journal(sentiment別)・Issue(起票/解決)の日次件数 ----------
+// ---------- Journal(sentiment別)・Issue(起票)の日次件数 ----------
 
 type CountSeriesKey = keyof Pick<
   JournalIssueDailyPoint,
-  "journalPositive" | "journalNeutral" | "journalNegative" | "issueCreated" | "issueDone"
+  "journalPositive" | "journalNeutral" | "journalNegative" | "issueCreated"
 >;
 type CountSeries = { key: CountSeriesKey; label: string; color: string };
 
@@ -193,10 +193,7 @@ const SENTIMENT_SERIES: CountSeries[] = [
   { key: "journalPositive", label: "ポジティブ", color: CHART_COLORS.green },
 ];
 
-const ISSUE_SERIES: CountSeries[] = [
-  { key: "issueCreated", label: "起票", color: CHART_COLORS.blue },
-  { key: "issueDone", label: "解決", color: CHART_COLORS.green },
-];
+const ISSUE_SERIES: CountSeries[] = [{ key: "issueCreated", label: "起票", color: CHART_COLORS.blue }];
 
 function countChartOptions(stacked: boolean): ChartOptions<"bar"> {
   return {
@@ -228,12 +225,12 @@ function buildCountChartData(points: JournalIssueDailyPoint[], series: CountSeri
   };
 }
 
-// タイムライン／レポート: Journal(sentiment別)とIssue(起票・解決)の日次件数。
+// タイムライン／レポート: Journal(sentiment別)とIssue(起票)の日次件数。
 // 「この日は記録が少ない」「ネガティブ・ポジティブの多寡」を積み上げ棒で、
-// 「業務状況（起票・解決の勢い）」をIssue側の棒で読む。
+// 「業務状況（起票の勢い）」をIssue側の棒で読む。
 export function JournalIssueTrendChart({ points }: { points: JournalIssueDailyPoint[] }) {
   const hasJournal = points.some((p) => p.journalTotal > 0);
-  const hasIssue = points.some((p) => p.issueCreated > 0 || p.issueDone > 0);
+  const hasIssue = points.some((p) => p.issueCreated > 0);
 
   return (
     <div className={styles.trendChart}>
@@ -247,14 +244,14 @@ export function JournalIssueTrendChart({ points }: { points: JournalIssueDailyPo
       )}
 
       <div className={styles.fieldCaption} style={{ marginTop: 18 }}>
-        Issue（起票・解決の日次件数）
+        Issue（起票の日次件数）
       </div>
       {hasIssue ? (
         <div className={styles.trendChartCanvasWrapSmall}>
           <Bar data={buildCountChartData(points, ISSUE_SERIES)} options={countChartOptions(false)} />
         </div>
       ) : (
-        <p className={styles.tableEmpty}>この期間のIssueの起票・解決はまだありません。</p>
+        <p className={styles.tableEmpty}>この期間のIssueの起票はまだありません。</p>
       )}
     </div>
   );

@@ -82,20 +82,19 @@ function journalEntry(daysAgo: number, sentiment: JournalEntry["sentiment"]): Jo
   };
 }
 
-function issue(daysAgo: number, doneDaysAgo?: number): Issue {
+function issue(daysAgo: number): Issue {
   return {
     id: `i-${daysAgo}-${Math.random()}`,
     title: "",
     charter: { why: "", what: "", how: "" },
     actionItems: [],
     logEntries: [],
-    status: doneDaysAgo != null ? "done" : "not_started",
+    status: "not_started",
     priority: "normal",
     archived: false,
     tags: [],
     createdAt: TODAY - daysAgo * DAY_MS,
     updatedAt: TODAY - daysAgo * DAY_MS,
-    doneAt: doneDaysAgo != null ? TODAY - doneDaysAgo * DAY_MS : undefined,
   };
 }
 
@@ -111,17 +110,11 @@ describe("buildJournalIssueDailyTrend", () => {
     expect(points[1]).toMatchObject({ journalPositive: 2, journalNegative: 1, journalNeutral: 0, journalTotal: 3 });
   });
 
-  it("Issueは起票日・解決日それぞれの日で数える", () => {
+  it("Issueは起票日ごとに数える", () => {
     const window = { start: TODAY - DAY_MS, end: TODAY + DAY_MS };
-    const points = buildJournalIssueDailyTrend([], [issue(1), issue(1, 0)], window);
-    expect(points[0]).toMatchObject({ issueCreated: 2, issueDone: 0 });
-    expect(points[1]).toMatchObject({ issueCreated: 0, issueDone: 1 });
-  });
-
-  it("doneAtが無いIssueは解決件数に数えない", () => {
-    const window = { start: TODAY, end: TODAY + DAY_MS };
-    const points = buildJournalIssueDailyTrend([], [issue(0)], window);
-    expect(points[0]).toMatchObject({ issueCreated: 1, issueDone: 0 });
+    const points = buildJournalIssueDailyTrend([], [issue(1), issue(1)], window);
+    expect(points[0]).toMatchObject({ issueCreated: 2 });
+    expect(points[1]).toMatchObject({ issueCreated: 0 });
   });
 
   it("ウィンドウ外のIssue/Journalは数えない", () => {

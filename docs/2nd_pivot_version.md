@@ -130,9 +130,24 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - 「ナビゲーションから『Issue管理』の位置付けを外す」→ **文言としては既に解消・構造は現状維持と判断**。`TopNav.tsx`に「Issue管理」というラベル自体は元から存在せず、既に「課題」「課題一覧」へ軟化済み。「課題」タブを「今日」配下へ統合するかはユーザーに確認し、**現状維持**の判断を得た（`/issues`は既に作成・編集UIがほぼ無く、AI提案のIssueを閲覧するだけのページになっているため、独立タブのままでも「EMが管理する場所」という誤解は生まれにくいという判断）。
 - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1041件、削除した死んだコードのテスト分減）を確認済み。
 
-### Phase 5 — Reports / Timeline の追従（未着手・要再調査）
+### Phase 5 — Reports / Timeline の追従（完了・想定と異なる実在バグが見つかった）
 
-元の計画文（`report-store.ts`の指標を「新モデル」ベースに、`timeline.ts`のissueエントリ参照先を「新モデル」に）はPhase 4と同じくKnowledgeEventへの移行前提のまま書かれている。**そのため着手前に必ず再調査すること**——Phase 4と同様、`report-store.ts`/`timeline.ts`の現状のIssue参照が、KnowledgeEvent移行を前提とせず素のIssueフィールドに対して既に問題なく動作しているかを確認してから、実際に必要な作業だけをスコープする。
+**2026-09-15、Phase 4完了後に着手。計画モードで元の2方針を再調査した結果、「新モデルへの付け替え」（`timeline.ts`側）は想定通り前提無効で対応不要だったが、Phase 4までとは異なり「`report-store.ts`の指標更新」側には実在する具体的な不具合が見つかった。**
+
+- 「`timeline.ts`のissueエントリ参照先を新モデルに更新する」→ **無効（変更不要）**。`resolveEntity`は`issue.id`/`issue.title`のみを読んでおり、既に素のIssueフィールドに対して問題なく動作している。
+- 「`report-store.ts`の`ReportIssueStats`を『解決したIssue数』から『観測された状態変化』ベースの指標に更新する」→ **前提は無効だが、元の問題意識自体は正しく、実在する不具合があった。** `ReportIssueStats.doneCount`/`doneTitles`（`daily-trends.ts`の`issueDone`、`DailyTrendChart.tsx`の「解決」系列も同様）は`Issue.doneAt`を集計していたが、`doneAt`を書き込む唯一のUI（`IssueStatusPriorityPanel.tsx`）はPhase 2.4で削除済みで、この値を設定する経路は実質存在しない。つまりPhase 2.4以降に作られたIssueの`doneCount`は**構造的に必ず0のまま**なのに、`/reports`画面は「解決 N件」を主要指標として表示し続けていた——達成できないはずの実績を約束する実害のあるバグだった。
+
+実施内容:
+- `report-store.ts`の`ReportIssueStats`型・`computeIssueStats`・`toReportView`から`doneCount`/`doneTitles`を削除（`types.ts`のクライアント向け型も追従）。
+- `daily-trends.ts`の`JournalIssueDailyPoint`・`buildJournalIssueDailyTrend`から`issueDone`（`doneByDay`集計含む）を削除。`DailyTrendChart.tsx`の`ISSUE_SERIES`から「解決」系列を削除し、関連する空状態メッセージ・コメントも「起票」のみに整理。
+- `reports/page.tsx`のサマリー行・「Issue進捗」セクションから「解決」関連の表示を削除。起票・アーカイブの表示は維持。
+- `report-store.test.ts`・`daily-trends.test.ts`・`DailyTrendChart.test.tsx`の関連アサーション・テストヘルパー（`setIssueStatus(..., "done")`のテスト用セットアップ含む）を削除・調整。
+- 元のPhase 5の意図（「観測された状態変化」ベースの指標）は、**既に存在し正しく機能している`ReportEventStats.byEntityType`**（KnowledgeEventベース、起票/アーカイブ/タイトル変更等あらゆるIssueの変化を記録済み、`/reports`の「各種イベント」セクションで既に表示中）で満たされていると確認し、新規の集計ロジックは追加しなかった。
+- `docs/issue_tracker_contract.md`§3に、`status=done`への書き込みUIがPhase 2.4で廃止され現在は実質到達不能である旨を追記した（ドキュメントの整合性維持）。
+- **触れていない**: `Issue.status`型・`setIssueStatus`関数・PATCHルートのstatus処理自体（削除・無効化はしない）、`createdCount`/`archivedCount`とその表示、`timeline.ts`・`/timeline`のIssueエントリ処理。
+- `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1040件）を確認済み。dev server再起動後に`/reports`・`/timeline`・ダッシュボードの実描画（200応答）、および実際にレポートを新規生成してレスポンスに`doneCount`/`doneTitles`が含まれないことも確認済み。
+
+**これでPhase 1〜5すべて完了。**
 
 ---
 
@@ -208,4 +223,7 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - 調査の結果、元の3方針のうち「issue-triage.ts廃止」「ナビからIssue管理位置付けを外す」は既に他フェーズで実質解決済み、「`/org/thread`の参照先を新モデルへ付け替え」はKnowledgeEvent移行自体の撤回で前提無効と判明。
   - 実施したのは、Phase 2.2の削除漏れだった死んだコード`issue-score-gaps.ts`＋テストの削除のみ。ナビ構造（「課題」タブ独立維持）はユーザー確認の上で現状維持と判断。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1041件）を確認済み。
-- [ ] Phase 5 — Reports / Timeline の追従（要再調査。Phase 4と同じくKnowledgeEvent移行前提のまま書かれた計画文のため、着手前に現状のIssue参照が既に問題なく動作していないか確認すること）
+- [x] Phase 5 — Reports / Timeline の追従（2026-09-15、Phase 1〜5すべて完了）
+  - `timeline.ts`の「新モデルへ付け替え」は前提無効で変更不要と確認。`report-store.ts`側は再調査の結果、実在する不具合を発見: `doneCount`（Issue解決数の指標）が、Phase 2.4でstatus編集UIが削除されたため書き込み経路が無くなり構造的に必ず0になっていたのに、`/reports`が「解決 N件」を表示し続けていた。
+  - `report-store.ts`/`types.ts`/`daily-trends.ts`/`DailyTrendChart.tsx`/`reports/page.tsx`から`doneCount`/`doneTitles`/`issueDone`（死んだ指標）を削除。「観測された状態変化」の指標は既存の`ReportEventStats.byEntityType`（KnowledgeEventベース）で満たされていると確認し新規実装は不要だった。`docs/issue_tracker_contract.md`にも軽微な追記。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1040件）を確認済み。`/reports`・`/timeline`の実描画、実際のレポート新規生成での確認も実施済み。

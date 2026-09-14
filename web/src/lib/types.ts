@@ -881,10 +881,8 @@ export type ReportJournalStats = {
 
 export type ReportIssueStats = {
   createdCount: number;
-  doneCount?: number;
   archivedCount: number;
   createdTitles: { id: string; title: string }[];
-  doneTitles?: { id: string; title: string }[];
   archivedTitles: { id: string; title: string }[];
 };
 
