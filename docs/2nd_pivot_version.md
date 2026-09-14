@@ -49,10 +49,28 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - この段階ではIssueの内部データモデルには触れず、ダッシュボードの情報源をIssue駆動から「KnowledgeEvent + Journal + Vitals」駆動へ寄せることに集中する。
 
 ### Phase 2 — Issueのデータモデルを解体する
-- `KnowledgeEvent`に「Issue化しうる」フラグ・状態（open/acknowledged/archived）を追加。
-- 既存Issueデータ（DB上の実データ）は **削除しない**。読み取り専用の記憶として`KnowledgeEvent`（interpretation）へ変換し、Charter/Logの文章はナラティブとして保持する。階層・Action Item・永続Priority・Triageスコアは移行時に破棄する（構造情報であり、記憶として残す価値が低いため）。
-- `/api/issues/[id]/action-items/*`, `/parent`, `/archive`, `/triage`, `/impact`, `/log` を廃止。残すのは「確認（acknowledge）」「却下（dismiss/archive）」「コピー用テキスト出力」程度。
-- `/issues`, `/issues/[id]` は新モデル用の軽量な一覧（作成・編集UIなし、階層UIなし）に置き換える。移行期間中は旧データを読み取り専用アーカイブとして残す。
+
+**2026-09-14、Phase 1完了後に調査した結果、当初見積りより依存が深いことが分かった。** 一括では行わず、下記のサブフェーズへ分割する。
+
+**調査で分かったこと（要点）:**
+- Issue作成は**人間駆動**（`IssueCreateDialog`／`IssueHierarchyDialog`／`ConsultReviewPanel`の3箇所）。作成後にLead Agent runが起動する（逆方向で、エージェントが自発的にIssueを作るわけではない）。
+- agent-runtimeはIssueへほぼ書き込まない（例外: `issue-notes`採用時の`log`追記）が、`charter`は`context-blocks.ts`等でAIへの**プロンプト文脈として重く読まれている**（17箇所）。
+- `dashboard-next-actions.ts`は`priority`・`actionItems.length`・`parentId`・`charterFilledCount`を判定ロジックへ使っている。
+- `people-hub.ts`の`PersonRelatedIssue`は`IssueCharter`をまるごと人物詳細UIへ渡している。`report-store.ts`の`ReportIssueStats`は`parentId`・charter充足度に依存。
+- `strategy-trail.ts`（つながりを見る）は`keyResultId`と`id`/`title`だけしか使っておらず軽量——当初計画通り温存できる。
+- `/issues`一覧・詳細だけで18コンポーネントファイル（ボード表示・一括再採点ツールバー・スコアギャップ可視化など、想定より機能が多い）。
+
+#### Phase 2.1 — ダッシュボードのIssueグルーミング誘導を止める（完了）
+`dashboard-next-actions.ts`から、EMにIssueの構造を手入れさせる方向の次アクションを外した。「Issue未整理」「次の一手未設定」カードを削除、`issueNeedsCharter`関数も削除。「介入の観測不足」（効果を観測したか）と実行モードのAction Item一覧は維持。Issueのデータ・API・`/issues`UI・agent-runtimeには触れていない。
+
+#### Phase 2.2（未着手）— 新規の人間発のIssue管理を止める
+`IssueCreateDialog`・`IssueHierarchyDialog`（手動作成・階層追加）をUIから外す。Issue化は「AI提案を承認する」（`ConsultReviewPanel`）経路のみに一本化。`/issues`一覧のボード表示・一括再採点ツールバー・スコアギャップ可視化を段階的に縮小。
+
+#### Phase 2.3（未着手）— 周辺モジュールの依存を外す
+`dashboard-next-actions.ts`の`priority`/`actionItems`/`parentId`依存を除去。`people-hub.ts`の`PersonRelatedIssue`を`IssueCharter`全体ではなく要約テキストに変更。`report-store.ts`の`ReportIssueStats`を`parentId`/charter非依存の指標に再定義。
+
+#### Phase 2.4（未着手）— データモデル・API・UIの本体差し替え
+`KnowledgeEvent`に「Issue化しうる」フラグ・状態（open/acknowledged/archived）を追加。既存Issueデータは削除せず読み取り専用の記憶へ変換（階層・Action Item・永続Priority・Triageスコアは破棄）。`/api/issues/[id]/action-items/*`, `/parent`, `/archive`, `/triage`, `/impact`, `/log` を廃止。`/issues`, `/issues/[id]` を新モデル用の軽量な一覧に置き換え。agent-runtimeのcharter依存箇所をKnowledgeEvent由来のナラティブ文脈へ置き換える。
 
 ### Phase 3 — 入力導線の簡素化
 - Journal / observation-dump からの投入が「どのIssueに紐付けるか」を人間に決めさせず、AIがKnowledgeEventへ直接分類する流れを徹底する。
@@ -95,7 +113,10 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - バグ修正（ユーザー指摘、2026-09-14）: `unmaskNames`（`web/src/lib/people-directory.ts`）が、対応表に登録の無い裸ID（例: カウンタリセット等で失効した`PERSON_20`）を、短い既登録ID（`PERSON_2`）への部分一致で誤って「佐藤さん0」のような別人名に化けさせていた。`/PERSON_\d+/`で数字列を貪欲に消費してから解決するよう修正し、未登録IDは誤帰属せず素通しにした。回帰テスト追加済み（`people-directory.test.ts`）。なお現在のローカルDB（`.data/app.db`）には明らかな開発時テストデータ（「非同期テスト」「動作確認」等）が`PERSON_18`以降の失効IDとともに残っており、表示は直ったが内容自体は不要データなので、次回クリーンアップを検討。
   - 追加修正（ユーザー指摘、2026-09-14）: 「Journalもチップ化されている／リンク先とチップのテキストが違う」対応。状態チップ（`.situationChipRow`）はTeam/PersonのVitals（継続的な状態）専用にし、緊急ネガティブJournal（個別の出来事）は`SituationItem.status`を付けないことで区別し、「気になる兆候（出来事）」という別の文章カードへ分離した。また、チームのチップは以前`/teams`（一覧）へ飛ぶだけでその場でどのチームか分からなかったため、`/journal?focus=`と同じ導線で`/teams?focus=<teamId>`へ飛ぶようにし、チップのテキストとリンク先の対象を一致させた（Personチップはもともと`/people/<id>`で一致していた）。
   - レイアウト再調整（ユーザー指摘、2026-09-14）: 「過去との比較は常に1行しかないので専用の1行に」「昨日から変わったこと・気になる兆候（出来事）は2段組みで幅を使いたい」対応。過去との比較はカード化せず区切り線1本の全幅帯（`.situationCompareRow`）にし、昨日から変わったこと／気になる兆候（出来事）は小さいカードのグリッドではなく既存の`.dashColumns`（固定2カラム、1000px以下で縦積み）を再利用してウィンドウ幅を使うようにした。「過去との比較の下にマージンが無い」「チーム・メンバーのチップはステータス色でわかるので名前だけで良い」「チーム・メンバーが混合で並んでいる」という追加指摘にも対応: `.situationCompareRow`に`margin-bottom`を追加、`SituationItem.text`はチーム名／メンバー名のみにして詳細（旧text）は`SituationItem.detail`（チップのホバーtitle）へ逃がし、`SituationItem.entityKind`（team/person）でチーム段落・メンバー段落に分けて表示するようにした。「過去との比較」を「チーム・メンバーの状態」の直下に配置する並び順変更も反映済み。
-- [ ] Phase 2 — Issueデータモデルの解体
+- [x] Phase 2.1 — ダッシュボードのIssueグルーミング誘導を止める（2026-09-14）
+  - `web/src/lib/dashboard-next-actions.ts`: 「Issue未整理」（`charter-${issue.id}`）「次の一手未設定」（`missing-next-${issue.id}`）カードと、それらでのみ使われていた`issueNeedsCharter`関数を削除。「介入の観測不足」（`stale-issue-*`）とexecuteモードのAction Item一覧（`buildExecutionMoves`）は維持。Issueのデータ・API・`/issues`UI・agent-runtimeは未変更。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1108件）を確認済み。ダッシュボードの実描画も確認済み。
+  - Phase 2.2以降（手動Issue管理UIの縮小、周辺モジュールの依存除去、データモデル・API・UI本体の差し替え）は未着手。
 - [ ] Phase 3 — 入力導線の簡素化
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

@@ -1,11 +1,12 @@
 // docs/em_human_story_and_ux.md TODO「ダッシュボードで『人間のEMが次になにをするべきか？』が
-// すぐに分かり、詳細に遷移できる状態にする」への対応。Yield/Error/Issue charter未整理/
-// Team Vitals不調などのシグナルを、EMが今すぐ対応すべき順（urgent→warn）に束ねて
-// 1箇所に見せるための、JSXを持たない純粋なデータ組み立てロジック（app/page.tsxから分離）。
+// すぐに分かり、詳細に遷移できる状態にする」への対応。Yield/Error/Team Vitals不調などの
+// シグナルを、EMが今すぐ対応すべき順（urgent→warn）に束ねて1箇所に見せるための、JSXを
+// 持たない純粋なデータ組み立てロジック（app/page.tsxから分離）。
+// docs/2nd_pivot_version.md Phase 2.1対応。「Issue未整理」「次の一手未設定」のような、
+// EMにIssueの構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions, type AgentRun } from "@/components/RunDetail";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import {
-  INTERVENTION_NEXT_ACTION_LIMIT,
   charterFilledCount,
   compareIssuesByPriority,
   isJournalEntryResolved,
@@ -70,10 +71,6 @@ export function rankActions(actions: NextAction[]): NextAction[] {
   });
 }
 
-export function issueNeedsCharter(issue: Issue): boolean {
-  return !issue.parentId && !issue.archived && charterFilledCount(issue.charter) < 3;
-}
-
 // docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
 // で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
 // 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
@@ -86,7 +83,7 @@ const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 // docs/em_human_story_and_ux.md P1-10対応。進行中（未アーカイブ）の介入のうち、着手は
 // されているのに長期間動きが無いものは「やりっぱなし」になりやすい。観測不足として
-// 朝キューに載せる（着手前の空のIssueは「Issue未整理」側で既に拾っているため対象外）。
+// 朝キューに載せる（charter・Action Itemどちらも空の未着手Issueは対象外）。
 const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
 
 // docs/em_human_story_and_ux.md P0-4対応。並列consult(M)や自動検知の連続起動で、AIの
@@ -312,19 +309,9 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     }
   }
 
-  for (const issue of issues) {
-    if (!issueNeedsCharter(issue)) continue;
-    nextActions.push({
-      id: `charter-${issue.id}`,
-      severity: "warn",
-      lane: "maintenance",
-      icon: "❓",
-      kindLabel: "Issue未整理",
-      text: `Issue「${issue.title}」のWhy/What/Howが${charterFilledCount(issue.charter)}/3しか整理されていません`,
-      onSelect: () => push(`/issues/${issue.id}`),
-      since: issue.updatedAt,
-    });
-  }
+  // docs/2nd_pivot_version.md Phase 2.1対応。「Issue未整理」（Why/What/Howの充足を
+  // 埋めるよう促すカード）は、pivot_policy.mdの方針（EMにIssueの構造を手入れさせない）
+  // と衝突するため廃止した。
 
   // docs/em_human_story_and_ux.md P1-10対応。要注目人物（ネガティブ傾向が優勢）を
   // 朝キューにも薄く載せる（Peopleハブは「ある画面」のままだと朝の物語に編入されないため）。
@@ -371,28 +358,8 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
-  const activeInterventionsForMissingNext = issues.filter(
-    (i) =>
-      !i.archived &&
-      !i.parentId &&
-      (i.status === "in_progress" || i.status === "blocked") &&
-      (i.priority ?? "normal") !== "parked",
-  );
-  const missingNext = activeInterventionsForMissingNext
-    .filter((i) => !issueNextAction(i) && (i.priority ?? "normal") === "focus")
-    .slice(0, INTERVENTION_NEXT_ACTION_LIMIT);
-  for (const issue of missingNext) {
-    nextActions.push({
-      id: `missing-next-${issue.id}`,
-      severity: "warn",
-      lane: "maintenance",
-      icon: "📋",
-      kindLabel: "次の一手未設定",
-      text: `フォーカス「${issue.title}」の次の一手が未設定です`,
-      onSelect: () => push(`/issues/${issue.id}`),
-      since: issue.updatedAt,
-    });
-  }
+  // docs/2nd_pivot_version.md Phase 2.1対応。「次の一手未設定」（Action Itemを設定する
+  // よう促すカード）も、Issue未整理と同じ理由（EMにIssueの構造を手入れさせない）で廃止した。
 
   // docs/memo.md「今日タブの今日やるべきに『チームリスク』が表示されるが『チームの状態』と
   // 内容的には被っている」対応。bad/warnは同じダッシュボード上のTeamStatePanel（チームの状態）
