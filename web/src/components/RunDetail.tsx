@@ -15,7 +15,6 @@ import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
 import { SuggestedActionItemsBlock } from "./run-detail/SuggestedActionItemsBlock";
 import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
-import { SuggestedPriorityBlock } from "./run-detail/SuggestedPriorityBlock";
 import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
 import { SuggestedIssueNotesBlock } from "./run-detail/SuggestedIssueNotesBlock";
@@ -230,9 +229,6 @@ export function ExecutionState({
   onAdoptCharter,
   onDismissCharter,
   charterSubmitting,
-  onAdoptPriority,
-  onDismissPriority,
-  prioritySubmitting,
   onAdoptThemes,
   onDismissThemes,
   themesSubmitting,
@@ -257,9 +253,6 @@ export function ExecutionState({
   onAdoptCharter?: (charter: { why?: string; what?: string; how?: string }) => void;
   onDismissCharter?: () => void;
   charterSubmitting?: boolean;
-  onAdoptPriority?: (priority: IssuePriority) => void;
-  onDismissPriority?: () => void;
-  prioritySubmitting?: boolean;
   onAdoptThemes?: () => void;
   onDismissThemes?: () => void;
   themesSubmitting?: boolean;
@@ -303,15 +296,6 @@ export function ExecutionState({
               onAdopt={onAdoptSubIssues}
               onDismiss={onDismissSubIssues}
               submitting={subIssuesSubmitting}
-            />
-          )}
-
-          {run.suggestedPriority && (
-            <SuggestedPriorityBlock
-              priority={run.suggestedPriority}
-              onAdopt={onAdoptPriority}
-              onDismiss={onDismissPriority}
-              submitting={prioritySubmitting}
             />
           )}
 

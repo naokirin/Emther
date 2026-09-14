@@ -9,7 +9,6 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
 import { IssueTitleHeader } from "@/components/issue-detail/IssueTitleHeader";
 import { IssueStrategyMetaPanel } from "@/components/issue-detail/IssueStrategyMetaPanel";
-import { IssueStatusPriorityPanel } from "@/components/issue-detail/IssueStatusPriorityPanel";
 import { IssueLogSection } from "@/components/issue-detail/IssueLogSection";
 import { IssueImpactPanel } from "@/components/issue-detail/IssueImpactPanel";
 import { IssueSubIssuesPanel } from "@/components/issue-detail/IssueSubIssuesPanel";
@@ -125,8 +124,6 @@ export function IssueDetailContent({ id }: { id: string }) {
         refreshIssues={refreshIssues}
       />
 
-      <IssueStatusPriorityPanel issue={issue} now={now} refreshIssue={refreshIssue} refreshIssues={refreshIssues} />
-
       <div className={styles.field}>
         <span className={styles.fieldCaption} title="Action Items + サブIssue（アーカイブした子は除外）">
           進捗
@@ -191,9 +188,6 @@ export function IssueDetailContent({ id }: { id: string }) {
               onAdoptCharter={suggestions.handleAdoptSuggestedCharter}
               onDismissCharter={suggestions.handleDismissSuggestedCharter}
               charterSubmitting={suggestions.charterSubmitting}
-              onAdoptPriority={suggestions.handleAdoptSuggestedPriority}
-              onDismissPriority={suggestions.handleDismissSuggestedPriority}
-              prioritySubmitting={suggestions.prioritySubmitting}
               onAdoptIssueNotes={suggestions.handleAdoptSuggestedIssueNotes}
               onDismissIssueNotes={suggestions.handleDismissSuggestedIssueNotes}
               issueNotesSubmitting={suggestions.issueNotesSubmitting}

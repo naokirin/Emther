@@ -69,8 +69,19 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 #### Phase 2.3 — 周辺モジュールの依存を外す（完了）
 `dashboard-next-actions.ts`の`buildExecutionMoves`（Action Item完了チェックのある「実行モード」）を削除し、`TodayActionsPanel`から実行タブ自体を除去（判断待ちのみの単一ビューに）。`staleInterventions`（介入の観測不足）の「着手済みか」判定を`charterFilledCount`/`actionItems.length`/`parentId`から`issue.status !== "not_started"`へ置き換え。`people-hub.ts`の`PersonRelatedIssue`は`charter: IssueCharter`を`overview: string`（`issueOverviewText`で要約）に変更し、`PersonRecordsSection.tsx`の「Why/What/How N/3」完了度バッジを削除。`report-store.ts`の`ReportIssueStats`から`openIncompleteCount`（Why/What/How未整理Issue数）を削除し、`/reports`の表示・テストも追従。
 
-#### Phase 2.4（未着手）— データモデル・API・UIの本体差し替え
-`KnowledgeEvent`に「Issue化しうる」フラグ・状態（open/acknowledged/archived）を追加。既存Issueデータは削除せず読み取り専用の記憶へ変換（階層・Action Item・永続Priority・Triageスコアは破棄）。`/api/issues/[id]/action-items/*`, `/parent`, `/archive`, `/triage`, `/impact`, `/log` を廃止。`/issues`, `/issues/[id]` を新モデル用の軽量な一覧に置き換え。agent-runtimeのcharter依存箇所をKnowledgeEvent由来のナラティブ文脈へ置き換える。
+#### Phase 2.4 — 残るIssue管理UI・API（ステータス／優先度／期限／手動採点）を削除（完了・方針変更あり）
+
+**2026-09-15、着手前に再調査した結果、当初案（KnowledgeEventへの全面移行）を取りやめた。** Issue作成はPhase 2.2の結果すでに`ConsultReviewPanel`（title＋出所のみ送信）に一本化されており、新規Issueは既に「タイトル＋根拠だけの軽量な提案」になっている。charterはagent-runtimeのプロンプト文脈として今も補助的に使われており（titleは常に渡る保証がある）、`issues.json`は単なるJSONファイルで動いているプロセス内でしか安全に移行できない——という調査結果を踏まえ、**データモデル（Issue型・`issues.json`）は変えずに、残っている「手入れ用UI」と対応する書き込みAPIだけを削る**方針に変更した。詳細はplanファイルの記録を参照。
+
+実施内容:
+- `IssueStatusPriorityPanel.tsx`（ステータス選択・優先度選択・期限・手動再採点ボタン）を`IssueDetailContent.tsx`から削除。
+- 対になっていたAI優先度提案の採用/却下（`useIssueSuggestions.ts`の`handleAdopt/DismissSuggestedPriority`、`RunDetail.tsx`の`SuggestedPriorityBlock`表示、`SuggestedPriorityBlock.tsx`本体）を削除。
+- `/api/issues/[id]/triage`・`/api/issues/triage/suggest`・`/api/agents/[id]/priority/dismiss`・`/api/issues/[id]/parent`（Phase 2.2の時点で既に呼び出し元が無かった）を削除。
+- 呼び出し元が無くなった`issue-store.ts`の書き込み関数（`setIssueTriage`/`rescoreIssueTriage`/`suggestTriageForActiveParents`/`createParentIssue`）と、それらが依存していた優先度自動採点モジュール`issue-triage.ts`全体を削除。`IssueTriageScores`型は「既存の採点結果を読み取り専用で表示する」ためだけに`issue-store.ts`へ残した（`IssueListTable`・`IssueStatus`の`IssueTriageAxes`が引き続き読む）。
+- **維持**: `IssueTitleHeader`（タイトル編集＋アーカイブ＝却下）、`IssueStrategyMetaPanel`（チーム/テーマ/KR紐付け——つながりを見るが依存）、`IssueLogSection`（自由記述メモ）、`IssueImpactPanel`・`IssueSubIssuesPanel`（既に読み取り専用）、`IssueCharterSection`・`IssueActionItemsPanel`とそのAI提案採用フロー（agent-runtimeのプロンプト・出力形式と直結するため次のサブフェーズへ持ち越し）。
+- Issueのデータ（`issues.json`）・`POST /api/issues`（作成）・agent-runtimeのプロンプト構築には触れていない。
+
+持ち越し: Action Item CRUD（Lead Agentのプロンプト見直しが必要）、Charter編集UI（charter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える設計が必要）、`/issues`一覧・詳細のさらなる軽量化。
 
 ### Phase 3 — 入力導線の簡素化
 - Journal / observation-dump からの投入が「どのIssueに紐付けるか」を人間に決めさせず、AIがKnowledgeEventへ直接分類する流れを徹底する。
@@ -129,7 +140,14 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - `web/src/lib/report-store.ts`／`web/src/lib/types.ts`: `ReportIssueStats`から`openIncompleteCount`（現在Why/What/How未整理のIssue数）を削除。`web/src/app/reports/page.tsx`の表示・`report-store.test.ts`のテストも追従。
   - Issueのデータ・API・`/issues`UI・agent-runtimeには触れていない（`priority`/`actionItems`フィールド自体はまだIssueに残っている。使う側を減らしただけ）。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1102件、openIncompleteCountのテスト削除分で1件減）を確認済み。ダッシュボード・`/reports`・`/people/[id]`（実データ）の実描画も確認済み。
-  - Phase 2.4（データモデル・API・UI本体の差し替え）は未着手。
+- [x] Phase 2.4 — 残るIssue管理UI・API（ステータス／優先度／期限／手動採点）を削除（2026-09-15）
+  - 方針変更: 当初案（`issues.json`をKnowledgeEventへ全面移行）は取りやめ、Issueのデータモデルは維持したまま「手入れ用UI」と対応APIだけを削る方針にした（理由の詳細は本ファイル上部のPhase 2.4節）。
+  - 削除: `IssueStatusPriorityPanel.tsx`（ステータス/優先度/期限/手動再採点）、`SuggestedPriorityBlock.tsx`＋`RunDetail.tsx`内の表示、`useIssueSuggestions.ts`の優先度採用/却下ハンドラ、`/api/issues/[id]/triage`、`/api/issues/triage/suggest`、`/api/agents/[id]/priority/dismiss`、`/api/issues/[id]/parent`（既に呼び出し元なし）。
+  - `web/src/lib/issue-store.ts`: 呼び出し元が無くなった`setIssueTriage`/`rescoreIssueTriage`/`suggestTriageForActiveParents`/`createParentIssue`を削除。優先度自動採点モジュール`web/src/lib/issue-triage.ts`は依存元が無くなったため全体削除（`IssueTriageScores`型は既存データの読み取り専用表示用に`issue-store.ts`へ残置）。
+  - 維持: タイトル編集＋アーカイブ、チーム/テーマ/KR紐付け（つながりを見るが依存）、自由記述ログ、介入前後比較、既存階層の読み取り表示、Charter編集・Action Item CRUD（次のサブフェーズへ持ち越し）。
+  - Issueのデータ（`issues.json`）・`POST /api/issues`（作成）・agent-runtimeのプロンプト構築には触れていない。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1081件）を確認済み。`/issues`・実データで作成したIssue詳細ページ（作成→アーカイブまで実施）・ダッシュボードの実描画も確認済み。
+  - 持ち越し: Action Item CRUD（Lead Agentのプロンプト見直しが必要）、Charter編集UI（agent-runtimeのcharter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える設計が必要）、`/issues`のさらなる軽量化。
 - [ ] Phase 3 — 入力導線の簡素化
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

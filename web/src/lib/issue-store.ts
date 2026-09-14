@@ -4,13 +4,6 @@ import { embedText } from "@/lib/embeddings";
 import { recordChangeEvent } from "@/lib/knowledge-store";
 import { ensureNameCandidatesAllowed, maskForStorage, maskNames, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
-import {
-  scoreIssueTriage,
-  scoreIssuesTriageBatch,
-  type IssueTriageScores,
-} from "@/lib/issue-triage";
-
-export type { IssueTriageScores };
 
 // 個人情報の分離（ユーザー指摘対応）: title・charter（why/what/how）はEMが自由記述する
 // フィールドで人物名を含み得るため、保存前にensureNameCandidatesAllowed（未登録候補の確認）と
@@ -48,6 +41,21 @@ export type IssueLogEntry = {
   id: string;
   text: string;
   createdAt: number;
+};
+
+// docs/2nd_pivot_version.md Phase 2.4対応。優先度の自動採点機構（旧issue-triage.ts）は
+// 廃止したが、既存Issueに残る過去の採点結果は読み取り専用の記録として引き続き保持・表示する
+// （IssueListTable・IssueStatusのIssueTriageAxesが読む）。以後この値が更新されることはない。
+export type IssueTriageSource = "ai" | "heuristic";
+export type IssueTriageScores = {
+  costOfDelay: number;
+  effort: number;
+  blastRadius: number;
+  confidence: number;
+  score: number;
+  suggestedPriority: IssuePriority;
+  scoredAt: number;
+  source?: IssueTriageSource;
 };
 
 // Issueは重要な意思決定の単位であり、計画・実行の前に
@@ -334,67 +342,6 @@ export async function createIssue(
   }
   await scheduleIssueEmbedding(result.id);
   return getIssue(result.id) ?? result;
-}
-
-// 既存のIssueの「上位」に新しいIssueを作り、既存のIssueをその子として付け替える
-// （＝ズームアウト。大きな課題として括り直す）。既存のIssueが既に子（親を持つ）か、
-// 既に自分の子を持っている場合は2階層を超えてしまうため拒否する。
-export async function createParentIssue(
-  childId: string,
-  title: string,
-  charter?: Partial<IssueCharter>,
-  opts: MaskOptions = {},
-): Promise<Issue> {
-  const child = getIssue(childId);
-  if (!child) {
-    throw new Error("対象のIssueが見つかりません");
-  }
-  if (child.parentId) {
-    throw new Error("このIssueは既に子Issueのため、さらに上位Issueを作ることはできません（親子関係は1階層まで）");
-  }
-  if (issues.some((i) => i.parentId === childId)) {
-    throw new Error("このIssueには既に子Issueがあるため、上位Issueを作ると2階層を超えてしまいます");
-  }
-
-  const titleTrimmed = title.trim();
-  const whyTrimmed = charter?.why?.trim() ?? "";
-  const whatTrimmed = charter?.what?.trim() ?? "";
-  const howTrimmed = charter?.how?.trim() ?? "";
-  await ensureNameCandidatesAllowed([titleTrimmed, whyTrimmed, whatTrimmed, howTrimmed], opts);
-
-  const [maskedTitle, maskedWhy, maskedWhat, maskedHow] = await Promise.all([
-    maskForStorage(titleTrimmed),
-    whyTrimmed ? maskForStorage(whyTrimmed) : Promise.resolve(""),
-    whatTrimmed ? maskForStorage(whatTrimmed) : Promise.resolve(""),
-    howTrimmed ? maskForStorage(howTrimmed) : Promise.resolve(""),
-  ]);
-
-  const now = Date.now();
-  const parent: Issue = {
-    id: randomUUID(),
-    title: maskedTitle,
-    charter: {
-      why: maskedWhy,
-      what: maskedWhat,
-      how: maskedHow,
-    },
-    actionItems: [],
-    logEntries: [],
-    status: "not_started",
-    priority: "normal",
-    archived: false,
-    tags: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-  issues.push(parent);
-  child.parentId = parent.id;
-  child.updatedAt = now;
-  persist();
-  recordChangeEvent("issue", parent.id, `Issueを起票: 「${parent.title}」（「${child.title}」の上位Issueとして）`);
-  recordChangeEvent("issue", child.id, `上位Issue「${parent.title}」の下に再編されました`);
-  await scheduleIssueEmbedding(parent.id);
-  return getIssue(parent.id) ?? parent;
 }
 
 const CHARTER_FIELD_LABEL: Record<keyof IssueCharter, string> = { why: "Why", what: "What", how: "How" };
@@ -764,173 +711,6 @@ export function setIssueDueAt(issueId: string, dueAt: number | null): Issue | un
   persist();
   recordChangeEvent("issue", issue.id, next ? "期限を設定しました" : "期限を解除しました");
   return issue;
-}
-
-export function setIssueTriage(issueId: string, triage: IssueTriageScores): Issue | undefined {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  issue.triage = triage;
-  // scoredAt のみの更新では「EMが触った」扱いにしない（updatedAt は据え置き）。
-  persist();
-  return issue;
-}
-
-/** 単一 Issue の4軸を再採点。詳細画面は force で常に再評価。applySuggested なら帯も反映。 */
-export async function rescoreIssueTriage(
-  issueId: string,
-  opts: { applySuggested?: boolean; now?: number; force?: boolean } = {},
-): Promise<
-  | {
-      issue: Issue;
-      changed: boolean;
-      from?: IssuePriority;
-      to?: IssuePriority;
-      skipped: boolean;
-      source?: IssueTriageScores["source"];
-    }
-  | undefined
-> {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  const { triage, skipped } = await scoreIssueTriage(issue, {
-    now: opts.now ?? Date.now(),
-    force: opts.force ?? true,
-  });
-  if (!skipped) {
-    setIssueTriage(issueId, triage);
-  }
-  let changed = false;
-  let from: IssuePriority | undefined;
-  let to: IssuePriority | undefined;
-  const effectiveTriage = getIssue(issueId)?.triage ?? triage;
-  if (opts.applySuggested) {
-    const current = getIssue(issueId)?.priority ?? "normal";
-    const suggested = effectiveTriage.suggestedPriority;
-    if (current !== suggested) {
-      from = current;
-      setIssuePriority(issueId, suggested);
-      to = getIssue(issueId)?.priority ?? suggested;
-      changed = from !== to;
-    }
-  }
-  const fresh = getIssue(issueId)!;
-  return {
-    issue: fresh,
-    changed,
-    from,
-    to,
-    skipped,
-    source: fresh.triage?.source ?? effectiveTriage.source,
-  };
-}
-
-/** アクティブな親 Issue を AI 採点（未更新はスキップ）し、triage を書き戻す。 */
-export type TriageChange = {
-  issueId: string;
-  title: string;
-  from: IssuePriority;
-  to: IssuePriority;
-};
-
-export type TriageSuggestResult = {
-  issues: Issue[];
-  focusCandidates: Issue[];
-  /** 提案帯ごとの件数（N件圧縮後の「実際に当てる帯」ではなく raw suggested） */
-  counts: Record<IssuePriority, number>;
-  /** 現在帯と提案帯（圧縮後の適用先）が違うもの */
-  differing: Array<{
-    issueId: string;
-    title: string;
-    current: IssuePriority;
-    suggested: IssuePriority;
-    effective: IssuePriority;
-    score: number;
-  }>;
-  /** applySuggested 時に実際に priority を変えたもの */
-  changes: TriageChange[];
-  rescoredCount: number;
-  skippedUnchangedCount: number;
-  deferredCount: number;
-  aiCount: number;
-  heuristicCount: number;
-};
-
-export async function suggestTriageForActiveParents(opts: {
-  applySuggested?: boolean;
-  focusLimit?: number;
-  now?: number;
-  /** true なら未更新でも全件再採点（既定 false＝差分のみ） */
-  force?: boolean;
-} = {}): Promise<TriageSuggestResult> {
-  const now = opts.now ?? Date.now();
-  const focusLimit = opts.focusLimit ?? 5;
-  const parents = issues.filter((i) => !i.archived && i.status !== "done" && !i.parentId);
-  const batch = await scoreIssuesTriageBatch(parents, {
-    now,
-    force: opts.force === true,
-  });
-
-  for (const issue of parents) {
-    const triage = batch.byId.get(issue.id);
-    if (triage) setIssueTriage(issue.id, triage);
-  }
-
-  const scored = parents.map((i) => getIssue(i.id)!);
-  const ranked = [...scored].sort((a, b) => (b.triage?.score ?? 0) - (a.triage?.score ?? 0));
-  const focusCandidates = ranked.filter((i) => i.triage?.suggestedPriority === "focus").slice(0, focusLimit);
-  const focusCandidateIds = new Set(focusCandidates.map((i) => i.id));
-
-  const counts: Record<IssuePriority, number> = { focus: 0, normal: 0, parked: 0 };
-  const differing: TriageSuggestResult["differing"] = [];
-  const changes: TriageChange[] = [];
-
-  for (const issue of scored) {
-    const suggested = issue.triage?.suggestedPriority ?? "normal";
-    counts[suggested] += 1;
-    // focus 提案でも上位 N 件以外は適用時に normal へ圧縮する
-    const effective: IssuePriority =
-      suggested === "focus" && !focusCandidateIds.has(issue.id) ? "normal" : suggested;
-    const current = issue.priority ?? "normal";
-    if (current !== effective) {
-      differing.push({
-        issueId: issue.id,
-        title: issue.title,
-        current,
-        suggested,
-        effective,
-        score: issue.triage?.score ?? 0,
-      });
-    }
-  }
-
-  if (opts.applySuggested) {
-    for (const d of differing) {
-      const before = getIssue(d.issueId);
-      if (!before) continue;
-      const from = before.priority ?? "normal";
-      setIssuePriority(d.issueId, d.effective);
-      const after = getIssue(d.issueId);
-      if (after && (after.priority ?? "normal") !== from) {
-        changes.push({ issueId: d.issueId, title: after.title, from, to: after.priority ?? "normal" });
-      }
-    }
-  }
-
-  return {
-    issues: scored.map((i) => getIssue(i.id)!),
-    focusCandidates: focusCandidates.map((i) => getIssue(i.id)!),
-    counts,
-    differing: differing.map((d) => {
-      const fresh = getIssue(d.issueId);
-      return fresh ? { ...d, title: fresh.title } : d;
-    }),
-    changes,
-    rescoredCount: batch.rescoredIds.length,
-    skippedUnchangedCount: batch.skippedUnchangedIds.length,
-    deferredCount: batch.deferredIds.length,
-    aiCount: batch.aiCount,
-    heuristicCount: batch.heuristicCount,
-  };
 }
 
 // docs/memo.md「I. チーム単位の憲法」対応。teamIdはIDそのものなのでmaskForStorageは不要

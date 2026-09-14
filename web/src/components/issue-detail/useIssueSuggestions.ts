@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AgentRun, SuggestedSubIssue } from "@/components/RunDetail";
-import type { Issue, IssuePriority } from "@/lib/types";
+import type { Issue } from "@/lib/types";
 import type { FetchWithNameConfirm } from "./types";
 
 type Params = {
@@ -86,7 +86,6 @@ export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, re
   }
 
   const [charterSubmitting, setCharterSubmitting] = useState(false);
-  const [prioritySubmitting, setPrioritySubmitting] = useState(false);
 
   // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
   // 対応。AIが提案したWhy/What/Howの埋め合わせ案を、実際にIssue.charterへ反映するか
@@ -116,33 +115,6 @@ export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, re
       await refreshRuns();
     } finally {
       setCharterSubmitting(false);
-    }
-  }
-
-  async function handleAdoptSuggestedPriority(priority: IssuePriority) {
-    if (!issue || !linkedRun) return;
-    setPrioritySubmitting(true);
-    try {
-      await fetch(`/api/issues/${issue.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priority }),
-      });
-      await fetch(`/api/agents/${linkedRun.id}/priority/dismiss`, { method: "POST" });
-      await Promise.all([refreshIssue(), refreshIssues(), refreshRuns()]);
-    } finally {
-      setPrioritySubmitting(false);
-    }
-  }
-
-  async function handleDismissSuggestedPriority() {
-    if (!linkedRun) return;
-    setPrioritySubmitting(true);
-    try {
-      await fetch(`/api/agents/${linkedRun.id}/priority/dismiss`, { method: "POST" });
-      await refreshRuns();
-    } finally {
-      setPrioritySubmitting(false);
     }
   }
 
@@ -183,9 +155,6 @@ export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, re
     charterSubmitting,
     handleAdoptSuggestedCharter,
     handleDismissSuggestedCharter,
-    prioritySubmitting,
-    handleAdoptSuggestedPriority,
-    handleDismissSuggestedPriority,
     issueNotesSubmitting,
     handleAdoptSuggestedIssueNotes,
     handleDismissSuggestedIssueNotes,

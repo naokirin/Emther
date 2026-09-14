@@ -99,30 +99,6 @@ describe("createIssue", () => {
   });
 });
 
-describe("createParentIssue", () => {
-  it("既存Issueの上位Issueを作り、既存Issueをその子として付け替える", async () => {
-    const store = await loadModule();
-    const child = await store.createIssue("既存Issue");
-    const parent = await store.createParentIssue(child.id, "上位Issue");
-    const updatedChild = store.getIssue(child.id);
-    expect(updatedChild?.parentId).toBe(parent.id);
-  });
-
-  it("既に子を持つIssueに対してはエラー", async () => {
-    const store = await loadModule();
-    const parent = await store.createIssue("親Issue");
-    await store.createIssue("子Issue", undefined, undefined, parent.id);
-    await expect(store.createParentIssue(parent.id, "祖父Issue")).rejects.toThrow("既に子Issueがある");
-  });
-
-  it("既に子であるIssueに対してはエラー", async () => {
-    const store = await loadModule();
-    const parent = await store.createIssue("親Issue");
-    const child = await store.createIssue("子Issue", undefined, undefined, parent.id);
-    await expect(store.createParentIssue(child.id, "さらに上位")).rejects.toThrow("既に子Issueのため");
-  });
-});
-
 describe("charter / title / action items / log entries", () => {
   it("updateIssueCharterは指定フィールドだけ更新する", async () => {
     const store = await loadModule();
