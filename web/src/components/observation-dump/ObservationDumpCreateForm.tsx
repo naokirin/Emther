@@ -257,7 +257,6 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
               value={sourceType}
               onChange={setSourceType}
               options={SOURCE_OPTIONS}
-              style={{ minWidth: 220 }}
             />
           </label>
         </div>

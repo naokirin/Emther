@@ -423,6 +423,14 @@
   font-family: inherit;
 }
 
+/* カスタムSelect（.customSelect）は既定がinline-blockのため、.field label内で
+   「ログの種類」等のキャプションと同一行に並び、右側の余白がほぼ無く見える。
+   ネイティブ.field selectと同じく縦積み・幅いっぱいにする。 */
+.field .customSelect {
+  display: block;
+  width: 100%;
+}
+
 .field textarea {
   resize: vertical;
 }

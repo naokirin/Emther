@@ -294,7 +294,7 @@ export function JournalDumpPanel({
         </button>
       </div>
       {dayPhase === "evening" && (
-        <p className={styles.subtitle} style={{ marginTop: 0 }}>
+        <p className={styles.subtitle} style={{ marginTop: 0, marginBottom: 10 }}>
           分割を考えず書いてください。記録と構造化は分離します。
         </p>
       )}
