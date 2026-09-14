@@ -66,8 +66,8 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 #### Phase 2.2 — 新規の人間発のIssue管理を止める（完了）
 `IssueCreateDialog`（一覧の「＋新しいIssue」）・`IssueHierarchyDialog`（詳細の「＋サブIssueを追加」「⬆上位Issueを作る」）を削除。Issue化は「AI提案を承認する」（`ConsultReviewPanel`、`POST /api/issues`自体は維持）経路のみに一本化した。ユーザー確認: 相談したい場合は「今後システム内でIssueを管理していない状態でも、相談チャット（/chat）で十分カバーできる」との方針。あわせて`/issues`一覧の「ボード」「スコア差」ビューと一括再採点ツールバー（`IssueTriageToolbar`）を削除（ステータス・優先度の手入れを促す機能のため）。「リスト」「アクション」ビューと既存の親子関係の読み取り表示は維持。Issueのデータ・API（作成含む）・agent-runtimeには触れていない。
 
-#### Phase 2.3（未着手）— 周辺モジュールの依存を外す
-`dashboard-next-actions.ts`の`priority`/`actionItems`/`parentId`依存を除去。`people-hub.ts`の`PersonRelatedIssue`を`IssueCharter`全体ではなく要約テキストに変更。`report-store.ts`の`ReportIssueStats`を`parentId`/charter非依存の指標に再定義。
+#### Phase 2.3 — 周辺モジュールの依存を外す（完了）
+`dashboard-next-actions.ts`の`buildExecutionMoves`（Action Item完了チェックのある「実行モード」）を削除し、`TodayActionsPanel`から実行タブ自体を除去（判断待ちのみの単一ビューに）。`staleInterventions`（介入の観測不足）の「着手済みか」判定を`charterFilledCount`/`actionItems.length`/`parentId`から`issue.status !== "not_started"`へ置き換え。`people-hub.ts`の`PersonRelatedIssue`は`charter: IssueCharter`を`overview: string`（`issueOverviewText`で要約）に変更し、`PersonRecordsSection.tsx`の「Why/What/How N/3」完了度バッジを削除。`report-store.ts`の`ReportIssueStats`から`openIncompleteCount`（Why/What/How未整理Issue数）を削除し、`/reports`の表示・テストも追従。
 
 #### Phase 2.4（未着手）— データモデル・API・UIの本体差し替え
 `KnowledgeEvent`に「Issue化しうる」フラグ・状態（open/acknowledged/archived）を追加。既存Issueデータは削除せず読み取り専用の記憶へ変換（階層・Action Item・永続Priority・Triageスコアは破棄）。`/api/issues/[id]/action-items/*`, `/parent`, `/archive`, `/triage`, `/impact`, `/log` を廃止。`/issues`, `/issues/[id]` を新モデル用の軽量な一覧に置き換え。agent-runtimeのcharter依存箇所をKnowledgeEvent由来のナラティブ文脈へ置き換える。
@@ -122,7 +122,14 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - ユーザー確認（2026-09-14）: 「相談したい課題があれば、Issueを管理していない状態でも相談チャット（/chat）で十分カバーできる」との方針を受け、手動作成系UIを削除する判断をした。
   - Issueのデータ・API（`POST /api/issues`＝ConsultReviewPanel経由のAI提案承認フローは維持）・agent-runtimeには触れていない。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1103件、IssueBoard.test.tsx削除分で5件減）を確認済み。`/issues`・`/issues/[id]`（存在しないID）・ダッシュボードの実描画も確認済み。既存Issueが無い状態での確認のため、子Issueが実在する詳細画面の見た目は未確認。
-  - Phase 2.3以降（周辺モジュールの依存除去、データモデル・API・UI本体の差し替え）は未着手。
+- [x] Phase 2.3 — 周辺モジュールの依存を外す（2026-09-15）
+  - `web/src/lib/dashboard-next-actions.ts`: `ExecutionMove`型と`buildExecutionMoves`を削除。`staleInterventions`の判定を`charterFilledCount(i.charter) > 0 || i.actionItems.length > 0`から`i.status !== "not_started"`へ変更、`!i.parentId`フィルタも撤廃。
+  - `web/src/components/dashboard/TodayActionsPanel.tsx`: 「判断／実行」タブと実行モード一式（Action Item完了チェックボックス、`handleCompleteExecutionMove`等）を削除し、判断待ちのみの単一ビューにした。`web/src/app/page.tsx`の`handMode`状態・`executionMoves`計算・関連propsも削除。
+  - `web/src/lib/people-hub.ts`／`web/src/lib/types.ts`: `PersonRelatedIssue.charter: IssueCharter`を`overview: string`（`issueOverviewText`で要約）に変更。`web/src/components/person-detail/PersonRecordsSection.tsx`の「Why/What/How N/3」完了度バッジ列を削除し、要約テキスト表示に変更。
+  - `web/src/lib/report-store.ts`／`web/src/lib/types.ts`: `ReportIssueStats`から`openIncompleteCount`（現在Why/What/How未整理のIssue数）を削除。`web/src/app/reports/page.tsx`の表示・`report-store.test.ts`のテストも追従。
+  - Issueのデータ・API・`/issues`UI・agent-runtimeには触れていない（`priority`/`actionItems`フィールド自体はまだIssueに残っている。使う側を減らしただけ）。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1102件、openIncompleteCountのテスト削除分で1件減）を確認済み。ダッシュボード・`/reports`・`/people/[id]`（実データ）の実描画も確認済み。
+  - Phase 2.4（データモデル・API・UI本体の差し替え）は未着手。
 - [ ] Phase 3 — 入力導線の簡素化
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

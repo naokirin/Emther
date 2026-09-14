@@ -5,14 +5,7 @@ import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { PersonJournalComposer } from "@/components/person-detail/PersonJournalComposer";
 import { PersonProfileComposer } from "@/components/person-detail/PersonProfileComposer";
-import {
-  URGENCY_LABEL,
-  charterFilledCount,
-  issueOverviewText,
-  type PersonFact,
-  type PersonProfile,
-  type PersonRelatedIssue,
-} from "@/lib/types";
+import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedIssue } from "@/lib/types";
 
 // ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブの強調を減らせない」対応。
 // sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した場合だけ、
@@ -233,28 +226,20 @@ export function PersonRecordsSection({
             <thead>
               <tr>
                 <th>タイトル</th>
-                <th>Why/What/How</th>
+                <th>概要</th>
               </tr>
             </thead>
             <tbody>
               {person.relatedIssues.map((issue) => (
                 <tr key={issue.id}>
                   <td>
-                    <Link
-                      href={`/issues/${issue.id}`}
-                      className={`${styles.tableRowLink} ${styles.axisTooltip}`}
-                      data-tooltip={issueOverviewText(issue.charter)}
-                    >
+                    <Link href={`/issues/${issue.id}`} className={styles.tableRowLink}>
                       {issue.title}
                     </Link>
                     {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
                     <IssueConcernTag personId={person.id} issue={issue} onChanged={() => void onRecordChanged()} />
                   </td>
-                  <td>
-                    <span className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
-                      {charterFilledCount(issue.charter)}/3
-                    </span>
-                  </td>
+                  <td className={styles.tableMuted}>{issue.overview}</td>
                 </tr>
               ))}
             </tbody>

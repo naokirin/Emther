@@ -13,7 +13,7 @@ import { TodayActionsPanel } from "@/components/dashboard/TodayActionsPanel";
 import { TeamStatePanel } from "@/components/dashboard/TeamStatePanel";
 import { JournalDumpPanel } from "@/components/dashboard/JournalDumpPanel";
 import { DAY_PHASE_GUIDANCE, getDayPhase } from "@/lib/dashboard-day-phase";
-import { buildExecutionMoves, buildNextActions, rankActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
+import { buildNextActions, rankActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
 import { buildDailySituation } from "@/lib/daily-situation";
 import {
   useEmCheckins,
@@ -112,10 +112,6 @@ function DashboardPageInner() {
   const [confirmingUnmasked, setConfirmingUnmasked] = useState<PendingUnmaskedSend | null>(null);
   const [confirmingUnmaskedBusy, setConfirmingUnmaskedBusy] = useState(false);
 
-  // 次の1手を「判断」（Yield等）と「実行」（Action Itemの次の一手）に分ける。
-  // DailyBriefBannerの「確認する」ボタンから判断タブへ強制切り替えるため、ここで持つ。
-  const [handMode, setHandMode] = useState<"decide" | "execute">("decide");
-
   function focusJournalInput() {
     const el = document.getElementById("quick-journal-input");
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -130,10 +126,8 @@ function DashboardPageInner() {
   }
 
   // ユーザー指摘「『判断待ちがN件あります』の確認先がわからない」対応。AIブリーフィングの
-  // 一言診断から、実際にその件数の内訳が並ぶ「今日やるべき3つ」まで確実に辿れるようにする
-  // （実行モードで開いていた場合も判断モードへ切り替えてから飛ぶ）。
+  // 一言診断から、実際にその件数の内訳が並ぶ「今日やるべき3つ」まで確実に辿れるようにする。
   function scrollToTodayActions() {
-    setHandMode("decide");
     requestAnimationFrame(() => {
       document.getElementById("today-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -156,7 +150,6 @@ function DashboardPageInner() {
     prefillJournal,
     onConfirmUnmasked: setConfirmingUnmasked,
   });
-  const executionMoves = buildExecutionMoves(issues);
 
   // docs/2nd_pivot_version.md Phase 1対応。pivot_policy.md「目指すUX」の6項目で
   // 今日の状況をまとめる（Issue駆動ではなく Journal/Vitals/People/KnowledgeEvent 駆動）。
@@ -272,14 +265,12 @@ function DashboardPageInner() {
         onNavigate={(path) => router.push(path)}
       />
 
-      {/* 「次の1手」をヒーローに固定。判断（Yield等）と実行（Next Action）をモードで分ける。 */}
+      {/* 「次の1手」をヒーローに固定。 */}
       <div className={styles.dashColumns}>
         <TodayActionsPanel
           now={now}
           nextActions={nextActions}
-          executionMoves={executionMoves}
           nextActionsLoaded={nextActionsLoaded}
-          issuesLoaded={issuesLoaded}
           decisionQueueLimit={rules.decisionQueueLimit}
           observationQueueLimit={rules.observationQueueLimit}
           watchingItems={watchingItems}
@@ -287,8 +278,6 @@ function DashboardPageInner() {
           unlinkedParentCount={unlinkedParentCount}
           krTotals={krTotals}
           autoRunsToday={autoRunsToday}
-          handMode={handMode}
-          onHandModeChange={setHandMode}
           onNavigate={(path) => router.push(path)}
           refreshIssues={refreshIssues}
         />

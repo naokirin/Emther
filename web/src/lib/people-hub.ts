@@ -8,9 +8,9 @@ import {
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
 import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-store";
-import { listIssues, toIssueView, type Issue, type IssueCharter } from "@/lib/issue-store";
+import { listIssues, toIssueView, type Issue } from "@/lib/issue-store";
 import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@/lib/settings-store";
-import { isIssueStalled } from "@/lib/types";
+import { isIssueStalled, issueOverviewText } from "@/lib/types";
 import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "@/lib/person-concern-ack-store";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
@@ -58,7 +58,10 @@ export type PersonRelatedIssue = {
   id: string;
   title: string;
   archived: boolean;
-  charter: IssueCharter;
+  // docs/2nd_pivot_version.md Phase 2.3対応。IssueCharterをまるごと渡すと、UI側が
+  // 「Why/What/Howの充足度」のような管理指標を組み立てやすくなってしまうため、
+  // 要約テキスト1本（issueOverviewText）だけを渡す。
+  overview: string;
   // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
   // このIssue単体が、hasConcerningIssueの根拠（停滞・ブロッカーあり、未アーカイブ）に
   // 該当するか。確認済み(concernAcknowledgedAt)であっても実際の状態はconcerning=trueの
@@ -182,7 +185,7 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
       id: i.id,
       title: i.title,
       archived: i.archived,
-      charter: i.charter,
+      overview: issueOverviewText(i.charter),
       concerning: isConcerningIssue(i, now, staleInterventionDays),
       concernAcknowledgedAt: ack?.createdAt,
       concernAcknowledgedNote: ack?.note,

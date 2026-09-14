@@ -99,7 +99,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
                 <strong>Issue進捗</strong>
                 <div className={styles.subtitle}>
                   期間中に起票: {issues.createdCount}件 / 解決（完了）: {issues.doneCount ?? 0}件 / アーカイブ（追わない）:{" "}
-                  {issues.archivedCount}件 / 現在Why・What・How未整理のIssue: {issues.openIncompleteCount}件
+                  {issues.archivedCount}件
                 </div>
                 {issues.createdTitles.length > 0 && <div style={{ marginTop: 4 }}>起票: {issues.createdTitles.map((i) => i.title).join(" / ")}</div>}
                 {(issues.doneTitles?.length ?? 0) > 0 && (

@@ -6,8 +6,8 @@ import { consultListMetaParts } from "@/components/ConsultHistoryItem";
 import type { AgentRun } from "@/components/RunDetail";
 import { IssueStrategyLinkSuggestPanel } from "@/components/HierarchyLinkSuggestPanel";
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@/lib/origin-trace";
-import { ISSUE_PRIORITY_META, type IssueStrategyLinkSuggestion } from "@/lib/types";
-import { LANE_META, rankActions, type ExecutionMove, type Lane, type NextAction } from "@/lib/dashboard-next-actions";
+import type { IssueStrategyLinkSuggestion } from "@/lib/types";
+import { LANE_META, rankActions, type Lane, type NextAction } from "@/lib/dashboard-next-actions";
 
 // 整備レーンの初期表示件数。判断待ち・観測不足は設定（decisionQueueLimit /
 // observationQueueLimit）で変えられるが、整備は設定項目が無いため定数で揃える。
@@ -17,7 +17,6 @@ const LANE_EXPAND_STEP = 3;
 // UI/UX見直し（今日タブ）対応。「何をすべきか不明瞭」への対処として、単一のヒーロー＋
 // 残り一覧ではなく「今日やるべき3つ」を明示する。
 const TOP_ACTIONS_LIMIT = 3;
-const INTERVENTION_NEXT_ACTION_LIMIT = 3;
 
 /** 「今日やるべき3つ」「進める次の一手」の各カード先頭に付ける順位バッジ。 */
 function RankBadge({ n }: { n: number }) {
@@ -47,9 +46,7 @@ function RankBadge({ n }: { n: number }) {
 type Props = {
   now: number;
   nextActions: NextAction[];
-  executionMoves: ExecutionMove[];
   nextActionsLoaded: boolean;
-  issuesLoaded: boolean;
   decisionQueueLimit: number;
   observationQueueLimit: number;
   watchingItems: AgentRun[];
@@ -57,8 +54,6 @@ type Props = {
   unlinkedParentCount: number;
   krTotals: { done: number; total: number };
   autoRunsToday: number;
-  handMode: "decide" | "execute";
-  onHandModeChange: (mode: "decide" | "execute") => void;
   onNavigate: (path: string) => void;
   refreshIssues: () => Promise<void>;
 };
@@ -66,9 +61,7 @@ type Props = {
 export function TodayActionsPanel({
   now,
   nextActions,
-  executionMoves,
   nextActionsLoaded,
-  issuesLoaded,
   decisionQueueLimit,
   observationQueueLimit,
   watchingItems,
@@ -76,25 +69,20 @@ export function TodayActionsPanel({
   unlinkedParentCount,
   krTotals,
   autoRunsToday,
-  handMode,
-  onHandModeChange,
   onNavigate,
   refreshIssues,
 }: Props) {
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
-  const [completingActionKey, setCompletingActionKey] = useState<string | null>(null);
   // レーンごとの「もっと見る」で追加表示した件数。初期上限（設定 or MAINTENANCE_LANE_LIMIT）
-  // を超えた分だけをここに積む。タブ切替後もレーン別に覚える。
+  // を超えた分だけをここに積む。
   const [laneExtraVisible, setLaneExtraVisible] = useState<Record<Lane, number>>({
     decision: 0,
     observation: 0,
     maintenance: 0,
   });
-  const [executeExtraVisible, setExecuteExtraVisible] = useState(0);
   // UI/UX見直し（今日タブ）対応。既定は「今日やるべき3つ」だけを見せ、残りは
   // EMが明示的に開いたときだけ表示する（重要度が埋もれない密度に抑える）。
   const [restActionsOpen, setRestActionsOpen] = useState(false);
-  const [restExecuteOpen, setRestExecuteOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [issueLinkSuggesting, setIssueLinkSuggesting] = useState(false);
   const [issueLinkError, setIssueLinkError] = useState<string | null>(null);
@@ -155,17 +143,6 @@ export function TodayActionsPanel({
     }
   }
 
-  async function handleCompleteExecutionMove(issueId: string, itemId: string) {
-    const key = `${issueId}:${itemId}`;
-    setCompletingActionKey(key);
-    try {
-      const res = await fetch(`/api/issues/${issueId}/action-items/${itemId}`, { method: "PATCH" });
-      if (res.ok) await refreshIssues();
-    } finally {
-      setCompletingActionKey(null);
-    }
-  }
-
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
   // 初期上限を分ける。超過分は非表示にせず、「もっと見る」で +LANE_EXPAND_STEP 件ずつ
   // 同じリストに追加表示する（情報を失わない）。
@@ -183,19 +160,12 @@ export function TodayActionsPanel({
   const laneLimit = LANE_LIMITS[laneFilter] + laneExtraVisible[laneFilter];
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   const hiddenActionCount = Math.max(0, laneActionsForFilter.length - laneLimit);
-  const top3ExecutionMoves = executionMoves.slice(0, TOP_ACTIONS_LIMIT);
-  const overflowExecutionMoves = executionMoves.slice(TOP_ACTIONS_LIMIT);
-  const executeLimit = INTERVENTION_NEXT_ACTION_LIMIT + executeExtraVisible;
-  const visibleExecutionMoves = overflowExecutionMoves.slice(0, executeLimit);
-  const hiddenExecutionCount = Math.max(0, overflowExecutionMoves.length - executeLimit);
   // 未ロード中は「課題はありません」と断定しない（空fallbackを実データと誤認させない）。
   const headline = !nextActionsLoaded
     ? "読み込み中…"
-    : handMode === "execute"
-      ? "進める次の一手"
-      : top3Actions.length > 0
-        ? "🎯 今日やるべき3つ"
-        : "✅ 今日、判断待ちの組織課題はありません。";
+    : top3Actions.length > 0
+      ? "🎯 今日やるべき3つ"
+      : "✅ 今日、判断待ちの組織課題はありません。";
   const restCount = overflowActions.length;
 
   return (
@@ -256,27 +226,7 @@ export function TodayActionsPanel({
         </p>
       )}
 
-      <div className={styles.tabs} style={{ margin: "0 0 12px" }}>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${handMode === "decide" ? styles.tabBtnActive : ""}`}
-          onClick={() => onHandModeChange("decide")}
-          title="Yield・起票待ち・異常など、人の判断が要るもの"
-        >
-          判断{nextActionsLoaded ? `（${nextActions.length}）` : ""}
-        </button>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${handMode === "execute" ? styles.tabBtnActive : ""}`}
-          onClick={() => onHandModeChange("execute")}
-          title="介入の次の一手をフォーカス順で進める"
-        >
-          実行{issuesLoaded ? `（${executionMoves.length}）` : ""}
-        </button>
-      </div>
-
-      {handMode === "decide" ? (
-        <>
+      <>
           {!nextActionsLoaded ? (
             <p className={styles.subtitle}>読み込み中…</p>
           ) : top3Actions.length === 0 ? (
@@ -387,118 +337,7 @@ export function TodayActionsPanel({
               )}
             </div>
           )}
-        </>
-      ) : !issuesLoaded ? (
-        <p className={styles.subtitle}>読み込み中…</p>
-      ) : executionMoves.length === 0 ? (
-        <p className={styles.subtitle}>✅ 進める次の一手はありません。</p>
-      ) : (
-        <>
-          <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
-            介入の優先度順（フォーカス → 通常）。完了すると次の未完了が繰り上がります。
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-            {top3ExecutionMoves.map((move, i) => {
-              const key = `${move.issueId}:${move.itemId}`;
-              const priorityMeta = ISSUE_PRIORITY_META[move.priority];
-              return (
-                <div
-                  key={key}
-                  className={`${styles.runItem} ${move.blocked ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", textAlign: "left" }}
-                >
-                  <RankBadge n={i + 1} />
-                  <input
-                    type="checkbox"
-                    checked={false}
-                    disabled={completingActionKey === key}
-                    aria-label={`「${move.itemText}」を完了`}
-                    onChange={() => void handleCompleteExecutionMove(move.issueId, move.itemId)}
-                    style={{ marginTop: 5, flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-                      <span className={styles.badge}>
-                        {priorityMeta.icon} {priorityMeta.label}
-                      </span>
-                      {move.blocked && <span className={styles.badge}>Waiting</span>}
-                      <button type="button" className={styles.tableRowLink} onClick={() => onNavigate(`/issues/${move.issueId}`)}>
-                        {move.issueTitle}
-                      </button>
-                    </div>
-                    <div className={styles.runItemTask} style={{ whiteSpace: "normal", fontSize: "0.9375rem" }}>
-                      {move.itemText}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {overflowExecutionMoves.length > 0 && (
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-              <button
-                type="button"
-                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                onClick={() => setRestExecuteOpen(!restExecuteOpen)}
-              >
-                {restExecuteOpen ? "閉じる" : `ほかに ${overflowExecutionMoves.length} 件をすべて見る`}
-              </button>
-              {restExecuteOpen && (
-                <>
-                  <div className={styles.runList} style={{ maxHeight: "none", marginTop: 10 }}>
-                    {visibleExecutionMoves.map((move) => {
-                      const key = `${move.issueId}:${move.itemId}`;
-                      const priorityMeta = ISSUE_PRIORITY_META[move.priority];
-                      return (
-                        <div
-                          key={key}
-                          className={`${styles.runItem} ${move.blocked ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                          style={{ display: "flex", alignItems: "flex-start", gap: 10, textAlign: "left" }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            disabled={completingActionKey === key}
-                            aria-label={`「${move.itemText}」を完了`}
-                            onChange={() => void handleCompleteExecutionMove(move.issueId, move.itemId)}
-                            style={{ marginTop: 4, flexShrink: 0 }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-                              <span className={styles.badge}>
-                                {priorityMeta.icon} {priorityMeta.label}
-                              </span>
-                              {move.blocked && <span className={styles.badge}>Waiting</span>}
-                              <button
-                                type="button"
-                                className={styles.tableRowLink}
-                                onClick={() => onNavigate(`/issues/${move.issueId}`)}
-                              >
-                                {move.issueTitle}
-                              </button>
-                            </div>
-                            <div className={styles.runItemTask}>{move.itemText}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {hiddenExecutionCount > 0 && (
-                    <button
-                      className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                      style={{ marginTop: 8 }}
-                      onClick={() => setExecuteExtraVisible((n) => n + LANE_EXPAND_STEP)}
-                    >
-                      もっと見る（残り{hiddenExecutionCount}件）
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      </>
 
       {watchingItems.length > 0 && (
         <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 10 }}>

@@ -736,7 +736,8 @@ export type PersonRelatedIssue = {
   id: string;
   title: string;
   archived: boolean;
-  charter: IssueCharter;
+  // docs/2nd_pivot_version.md Phase 2.3対応。IssueCharterそのものではなく要約テキスト。
+  overview: string;
   // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
   concerning: boolean;
   concernAcknowledgedAt?: number;
@@ -882,7 +883,6 @@ export type ReportIssueStats = {
   createdCount: number;
   doneCount?: number;
   archivedCount: number;
-  openIncompleteCount: number;
   createdTitles: { id: string; title: string }[];
   doneTitles?: { id: string; title: string }[];
   archivedTitles: { id: string; title: string }[];

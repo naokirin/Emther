@@ -96,22 +96,6 @@ describe("generateReport", () => {
     expect(report.stats.issues.doneCount).toBe(1);
   });
 
-  it("openIncompleteCountはcharter未整理かつアクティブ（!archived && status!=done）の親Issue数", async () => {
-    const issueStore = await import("@/lib/issue-store");
-    const store = await loadModule();
-
-    await issueStore.createIssue("charter未整理");
-    const complete = await issueStore.createIssue("charter整理済み", undefined, { why: "a", what: "b", how: "c" });
-    const archived = await issueStore.createIssue("アーカイブ済み");
-    issueStore.setIssueArchived(archived.id, true);
-    const done = await issueStore.createIssue("解決済み未整理");
-    issueStore.setIssueStatus(done.id, "done");
-
-    const report = store.generateReport("week");
-    expect(report.stats.issues.openIncompleteCount).toBe(1);
-    expect(complete.charter.why).toBe("a");
-  });
-
   it("知識イベント(context:official)を種別ごとに集計する", async () => {
     const knowledgeStore = await import("@/lib/knowledge-store");
     const store = await loadModule();

@@ -4,7 +4,6 @@ import { listEvents, type KnowledgeEntityType } from "@/lib/knowledge-store";
 import { listIssues } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
 import { maskForStorage, unmaskNames } from "@/lib/people-directory";
-import { charterFilledCount } from "@/lib/types";
 
 // docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする
 // 機能を追加する。レポートを一過性とせず、蓄積して過去のものも参照できるようにする」対応。
@@ -32,8 +31,6 @@ export type ReportIssueStats = {
   // docs/issue_tracker_contract.md §3: done=解決、archived=追わない（別集計）。
   doneCount: number;
   archivedCount: number;
-  // 現在時点のスナップショット（期間で絞らない）。Dashboardの「Issue未整理」と同じ定義。
-  openIncompleteCount: number;
   createdTitles: { id: string; title: string }[];
   doneTitles: { id: string; title: string }[];
   archivedTitles: { id: string; title: string }[];
@@ -125,21 +122,19 @@ function computeJournalStats(periodStart: number, periodEnd: number): ReportJour
   };
 }
 
+// docs/2nd_pivot_version.md Phase 2.3対応。以前はopenIncompleteCount（parentId・charter
+// 充足度に依存する「Why/What/How未整理のIssue数」）も含んでいたが、EMにIssueの構造を
+// 手入れさせない方針と衝突するため廃止した。作成・解決・アーカイブの件数のみ扱う。
 function computeIssueStats(periodStart: number, periodEnd: number): ReportIssueStats {
   const issues = listIssues();
   const created = issues.filter((i) => i.createdAt >= periodStart && i.createdAt < periodEnd);
   const done = issues.filter((i) => i.doneAt && i.doneAt >= periodStart && i.doneAt < periodEnd);
   const archived = issues.filter((i) => i.archivedAt && i.archivedAt >= periodStart && i.archivedAt < periodEnd);
-  // Dashboardの「Issue未整理」（issueNeedsCharter）と同じ定義。期間ではなく現在の状態。
-  const openIncomplete = issues.filter(
-    (i) => !i.parentId && !i.archived && i.status !== "done" && charterFilledCount(i.charter) < 3,
-  );
 
   return {
     createdCount: created.length,
     doneCount: done.length,
     archivedCount: archived.length,
-    openIncompleteCount: openIncomplete.length,
     createdTitles: created.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
     doneTitles: done.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
     archivedTitles: archived.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),

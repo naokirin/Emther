@@ -7,12 +7,8 @@
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions, type AgentRun } from "@/components/RunDetail";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
 import {
-  charterFilledCount,
-  compareIssuesByPriority,
   isJournalEntryResolved,
-  issueNextAction,
   type Issue,
-  type IssuePriority,
   type JournalEntry,
   type OrgVitals,
   type PendingAgentStart,
@@ -83,7 +79,10 @@ const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 // docs/em_human_story_and_ux.md P1-10対応。進行中（未アーカイブ）の介入のうち、着手は
 // されているのに長期間動きが無いものは「やりっぱなし」になりやすい。観測不足として
-// 朝キューに載せる（charter・Action Itemどちらも空の未着手Issueは対象外）。
+// 朝キューに載せる（status:not_startedの未着手Issueは対象外）。
+// docs/2nd_pivot_version.md Phase 2.3対応。以前はcharter充足・Action Item有無を
+// 「着手済みかどうか」のシグナルにしていたが、両方とも人間に管理させたくないフィールド
+// なので、既に持っているstatus（ワークフロー状態）で判定する形に変えた。
 const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
 
 // docs/em_human_story_and_ux.md P0-4対応。並列consult(M)や自動検知の連続起動で、AIの
@@ -91,45 +90,6 @@ const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
 // 埋もれる。同種のドラフトが閾値を超えたら個別表示をやめ、1件のまとめ表示にする
 // （クリック先は相談履歴一覧。個別に見たい場合はそちらから辿れる）。
 const AUTO_DRAFT_BUNDLE_THRESHOLD = 3;
-
-export type ExecutionMove = {
-  issueId: string;
-  issueTitle: string;
-  priority: IssuePriority;
-  itemId: string;
-  itemText: string;
-  blocked: boolean;
-  updatedAt: number;
-};
-
-// Action Items進行管理: 進行中・Waiting の介入。parked は朝の実行キュー外。
-// 「次の一手」本体は判断レーンに混ぜず、実行モード専用リストへ載せる。
-export function buildExecutionMoves(issues: Issue[]): ExecutionMove[] {
-  const activeInterventions = issues
-    .filter(
-      (i) =>
-        !i.archived &&
-        !i.parentId &&
-        (i.status === "in_progress" || i.status === "blocked") &&
-        (i.priority ?? "normal") !== "parked",
-    )
-    .sort(compareIssuesByPriority);
-  return activeInterventions.flatMap((issue) => {
-    const next = issueNextAction(issue);
-    if (!next) return [];
-    return [
-      {
-        issueId: issue.id,
-        issueTitle: issue.title,
-        priority: (issue.priority ?? "normal") as IssuePriority,
-        itemId: next.id,
-        itemText: next.text,
-        blocked: issue.status === "blocked",
-        updatedAt: issue.updatedAt,
-      },
-    ];
-  });
-}
 
 // docs/em_human_story_and_ux.md P0-3対応。「様子見」のまま一定期間が過ぎたrunは
 // 判断待ちレーンへ再浮上させ、「様子見＝忘れられる」にしない。期限内のものは
@@ -334,13 +294,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   }
 
   const staleInterventions = issues
-    .filter(
-      (i) =>
-        !i.archived &&
-        !i.parentId &&
-        (charterFilledCount(i.charter) > 0 || i.actionItems.length > 0) &&
-        now - i.updatedAt > STALE_INTERVENTION_MS,
-    )
+    .filter((i) => !i.archived && i.status !== "not_started" && now - i.updatedAt > STALE_INTERVENTION_MS)
     .sort((a, b) => a.updatedAt - b.updatedAt)
     .slice(0, 3);
   for (const issue of staleInterventions) {
