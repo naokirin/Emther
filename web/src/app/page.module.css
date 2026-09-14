@@ -2452,6 +2452,76 @@
   color: var(--blue-text);
 }
 
+/* Objective › KeyResult › Issue › Journal の縦の接続パンくず（StrategyTrail） */
+.strategyTrail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.8125rem;
+  margin: 0 0 10px;
+}
+
+.strategyTrailItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.strategyTrailSep {
+  color: var(--text-muted);
+  margin: 0 4px;
+}
+
+.strategyTrailLink {
+  color: var(--blue-text);
+}
+
+.strategyTrailCurrent {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- 方針・目標 > つながりを見る（/org/thread） ---------- */
+.threadTree {
+  font-size: 0.8125rem;
+}
+
+.threadObjective {
+  padding: 10px 0;
+}
+
+.threadObjective + .threadObjective {
+  border-top: 1px solid var(--border);
+}
+
+.threadObjectiveHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.threadKr {
+  margin: 8px 0 0 18px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.threadIssue {
+  margin: 6px 0 0 18px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+
+.threadJournal {
+  margin: 4px 0 0 18px;
+  padding-left: 12px;
+  border-left: 2px dashed var(--border);
+  color: var(--text-muted);
+}
+
 /* 課題タブ「スコア差」ビュー。4象限バブル + Δ付き表。 */
 .scoreGapView {
   margin-top: 4px;

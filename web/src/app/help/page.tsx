@@ -97,6 +97,10 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
           tagged ならタグ／本文の手がかりがあるときだけ渡します（常時効くものは 5〜20 件程度を目安）。
         </p>
         <p>チームの追加・編集は「チーム・メンバー」タブで行います。</p>
+        <p>
+          「つながりを見る」サブタブでは、Objective › Key Result › Issue › Journal の縦の接続をツリーで一望できます
+          （Issue の Key Result 紐付け・起点 Journal から都度組み立てる閲覧専用ビューで、ここでは編集できません）。
+        </p>
       </>
     ),
   },

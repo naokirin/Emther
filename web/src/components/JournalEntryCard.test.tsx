@@ -126,6 +126,36 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(pushMock).toHaveBeenCalledWith("/issues/issue-1");
   });
 
+  it("resolvedIssueIdとissues/objectivesがあれば戦略のつながりパンくずを表示する", () => {
+    render(
+      <JournalEntryCard
+        {...baseProps({
+          entry: baseEntry({ resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }),
+          issues: [{ id: "issue-1", title: "追跡中Issue", keyResultId: "kr-1" }],
+          objectives: [
+            {
+              id: "obj-1",
+              title: "エンジニア満足度向上",
+              keyResults: [{ id: "kr-1", title: "1on1カバレッジ90%" }],
+              createdAt: 0,
+              updatedAt: 0,
+              progress: [{ keyResultId: "kr-1", total: 1, done: 0 }],
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByRole("link", { name: /エンジニア満足度向上/ })).toHaveAttribute(
+      "href",
+      "/org/thread?objective=obj-1",
+    );
+  });
+
+  it("resolvedIssueIdが無ければ戦略のつながりパンくずを表示しない", () => {
+    render(<JournalEntryCard {...baseProps()} />);
+    expect(screen.queryByRole("navigation", { name: "戦略のつながり" })).not.toBeInTheDocument();
+  });
+
   it("sourceConsultRunIdがあれば「相談を開く」を表示しクリックで相談へ遷移する", async () => {
     const user = userEvent.setup();
     render(<JournalEntryCard {...baseProps({ entry: baseEntry({ sourceConsultRunId: "run-1" }) })} />);

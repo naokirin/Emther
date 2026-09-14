@@ -5,6 +5,8 @@ import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { IssueStrategyLinkSuggestPanel } from "@/components/HierarchyLinkSuggestPanel";
+import { StrategyTrail } from "@/components/StrategyTrail";
+import { buildIssueStrategyTrail } from "@/lib/strategy-trail";
 import {
   isIssueStrategyUnlinked,
   type Issue,
@@ -160,6 +162,7 @@ export function IssueStrategyMetaPanel({ issue, teams, themes, objectives, refre
         .find((x) => x.kr.id === issue.keyResultId)
     : undefined;
   const strategyUnlinked = isIssueStrategyUnlinked(issue);
+  const strategyTrail = buildIssueStrategyTrail(issue, objectives);
 
   return (
     // 関連チーム・上位目標（テーマ / OKR）はタイトル直後に置き、詳細確認中に文脈を見失わないようにする。
@@ -201,21 +204,15 @@ export function IssueStrategyMetaPanel({ issue, teams, themes, objectives, refre
               "なし（クリックして設定）"
             )}
           </p>
-          <p className={styles.subtitle} style={{ margin: strategyUnlinked ? "0 0 4px" : 0 }}>
-            📈 関連OKR:{" "}
-            {krRef ? (
-              <Link
-                href={`/org?objective=${encodeURIComponent(krRef.objectiveId)}`}
-                className={styles.tableRowLink}
-                style={{ display: "inline", width: "auto" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {krRef.objTitle} ＞ {krRef.kr.title}
-              </Link>
-            ) : (
-              "なし（クリックして設定）"
-            )}
-          </p>
+          {krRef ? (
+            <div onClick={(e) => e.stopPropagation()} style={{ margin: strategyUnlinked ? "0 0 4px" : 0 }}>
+              <StrategyTrail nodes={strategyTrail} currentKind="issue" />
+            </div>
+          ) : (
+            <p className={styles.subtitle} style={{ margin: strategyUnlinked ? "0 0 4px" : 0 }}>
+              📈 関連OKR: なし（クリックして設定）
+            </p>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

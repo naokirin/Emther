@@ -9,7 +9,7 @@ import { QuickJournalNoteForm } from "@/components/QuickJournalNoteForm";
 import { PageTitleRow } from "@/components/HelpLink";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
-import { useJournalSearch } from "@/lib/hooks";
+import { useIssues, useJournalSearch, useObjectives } from "@/lib/hooks";
 import type { JournalEntry } from "@/lib/types";
 import { useJournalEditing } from "@/lib/useJournalEditing";
 
@@ -96,6 +96,8 @@ function JournalListPageInner() {
     activeFocusId,
   );
   const editing = useJournalEditing(entries, setEntries);
+  const { issues } = useIssues();
+  const { objectives } = useObjectives();
   const pagination = paginationMeta(total, activeFocusId ? resolvedPage : page, PAGE_SIZE);
 
   // focusIdが指すエントリがサーバーから返ってきたら、ページ番号をそちらへ同期し、
@@ -197,6 +199,8 @@ function JournalListPageInner() {
             <div key={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
               <JournalEntryCard
                 entry={entry}
+                issues={issues}
+                objectives={objectives}
                 editing={editing.editingEntryId === entry.id}
                 editRawText={editing.editRawText}
                 editTags={editing.editTags}

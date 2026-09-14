@@ -88,13 +88,28 @@ const STORY_GROUPS: StoryGroup[] = [
     // ユーザー要望「方針・目標タブは方針・目標の設定によりフォーカスした形にしたい」対応。
     // チーム（体制）はメンバータブへ移設したため、ここはMVV・OKRの前提設定に絞る。
     hint: "組織の憲法＝MVV・目標（OKR）という前提を置く",
-    items: [{ href: "/org", label: "方針・目標" }],
+    // docs/memo.md「戦略→Issue→Journalの縦の接続が見えづらい」対応。/orgは登録・編集面の
+    // ままにし、Objective→KR→Issue→Journalを辿る閲覧専用ビューは「振り返り」グループと同じ
+    // パターンで別ルートのサブタブへ分離する（/org自体は肥大化させない）。
+    items: [
+      { href: "/org", label: "方針・目標" },
+      { href: "/org/thread", label: "つながりを見る" },
+    ],
   },
   { key: "settings", label: "設定", hint: "しきい値・自動起動の挙動を調整する", items: [{ href: "/settings", label: "設定" }] },
 ];
 
 function isItemActive(href: string, pathname: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+// /org（管理）と/org/thread（閲覧）のようにhrefが入れ子のサブタブが増えたため、
+// 一致した中で最もhrefが長いもの＝最も具体的なものだけをアクティブにする
+// （素朴にisItemActiveだけで判定すると、/org/threadで/orgも同時にアクティブになってしまう）。
+function bestMatchingHref(items: NavItem[], pathname: string): string | undefined {
+  const matches = items.filter((i) => isItemActive(i.href, pathname));
+  if (matches.length === 0) return undefined;
+  return matches.reduce((best, cur) => (cur.href.length > best.href.length ? cur : best)).href;
 }
 
 function findActiveGroup(pathname: string): StoryGroup | undefined {
@@ -136,11 +151,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
+  const activeHref = bestMatchingHref(group.items, pathname);
+
   return (
     <div>
       <nav className={styles.subTabs} aria-label={group.label} title={group.hint}>
         {group.items.map((item) => {
-          const isActive = isItemActive(item.href, pathname);
+          const isActive = item.href === activeHref;
           return (
             <Link key={item.href} href={item.href} className={`${styles.subTabBtn} ${isActive ? styles.subTabBtnActive : ""}`}>
               {item.label}
