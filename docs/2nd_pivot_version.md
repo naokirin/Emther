@@ -98,6 +98,19 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件）を確認済み。dev serverを再起動した上でダッシュボード・`/issues`・既存Issue詳細ページの実描画（200応答・エラーマーカー無し）も確認済み。
 - 持ち越し: Charter編集UI（Phase 2.4の唯一の残タスク。agent-runtimeのcharter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える設計が必要なため、着手前に計画モードへ戻る想定）。
 
+#### Phase 2.4（続きその2） — Charter編集UIを削除（完了・Phase 2.4完全完了）
+
+**2026-09-15、計画モードへ戻って再調査した結果、当初懸念していた「agent-runtimeのcharter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える」規模の作業は不要と判明し、スコープを大幅に縮小できた。** charterの読み取り消費箇所（`context-blocks.ts`/`batch-context-blocks.ts`/`run-actions.ts`/`scheduled-tasks.ts`/`agent-knowledge-tools.ts`/`related-context.ts`の7〜8箇所）はすべて`issue.charter`というデータを直接読むだけで、EMの手入力UIとは無関係。加えて、charterには既に「AIが提案しEMが採用/却下する」経路（`charterRule`→`extractCharter`→`SuggestedCharterBlock`→`useIssueSuggestions.ts`の採用ハンドラ）が実装済みで、これはPhase 2.4本体で維持したsub_issues/issue_notesと同じ「AIがSuggest→EMがDecide」構造であり、pivot方針と衝突しない。衝突しているのは`IssueCharterSection.tsx`の**編集モード**（textarea自由入力＋Save）だけだった。
+
+実施内容:
+- `IssueCharterSection.tsx`を読み取り専用に書き換え。`charterEditing`状態・textarea 3つ・介入の型タグ選択・タグ入力・`handleSaveCharter`等の編集系ロジックを全削除。Why/What/Howの閲覧表示（MarkdownView）・`charterFilledCount`警告バナー（クリック不可の純表示）・タグのチップ表示（読み取りのみ）・変更履歴は維持。Props を`{issue, history}`のみに縮小し、`IssueDetailContent.tsx`の呼び出し側も追従。
+- 「介入の型」タグ編集UIも同時に削除。`selectRelatedSpecialists`（`context-blocks.ts`）はタグが空なら全専門エージェントにフォールバックするだけで機能停止せず、かつPhase 2.2確認済みの通り現行のIssue作成経路（`ConsultReviewPanel`）は既にタグを送っていないため、新規Issueの挙動は変化しない。
+- `page.module.css`の`.charterField textarea`／`.charterField textarea.charterEmpty`／`.charterField label`（textarea専用ルール、使用箇所ゼロ化）を削除。`.charterEmptyView`から`cursor: pointer`（クリック不可になったため）を除去。`.charterField`/`.charterWarnBanner`/`.editableTextView`/`.charterSection`は他コンポーネント（`IssueSubIssuesPanel`/`EveningModeCard`/`JournalEntryCard`/`IssueStrategyMetaPanel`）と共有のため維持。
+- **触れていない**（挙動を完全維持）: `issue-store.ts`の`updateIssueCharter`（AI提案採用フローが引き続き呼ぶ）、`/api/issues/[id]`のPATCHルート、`context-blocks.ts`の`charterRule`/`buildIssueContextBlock`/`buildOrgBackgroundBlock`、`batch-context-blocks.ts`の朝サマリー/週次蒸留、`run-actions.ts`の`buildIssueDraftTask`、`scheduled-tasks.ts`の`buildIssueUpdateTask`、`extraction.ts`の`extractCharter`、`RunDetail.tsx`の`SuggestedCharterBlock`表示、`useIssueSuggestions.ts`の`handleAdopt/DismissSuggestedCharter`、`IssueListTable.tsx`等の`charterFilledCount`/`issueOverviewText`読み取り表示。
+- `IssueCharterSection`専用のテストファイルが存在しなかったため、テスト破壊は無し。
+- `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件、変化なし）を確認済み。dev server再起動後にダッシュボード・`/issues`・Issue詳細ページの実描画（200応答・エラーマーカー無し）も確認済み。
+- **これでPhase 2.4の持ち越し項目（Action Item CRUD・Charter編集UI）は両方解消し、Phase 2.4は完全完了。**
+
 ### Phase 3 — 入力導線の簡素化
 - Journal / observation-dump からの投入が「どのIssueに紐付けるか」を人間に決めさせず、AIがKnowledgeEventへ直接分類する流れを徹底する。
 - `person-evaluation-store.ts`（評価ログ）等、Issue以外の構造化入力も同様に「入力→AI整理→必要なら訂正」の型になっているか点検する。
@@ -169,6 +182,13 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - agent-runtime: `context-blocks.ts`から`actionItemsRule`を削除し関連文言を整理。あわせて表示先の無くなっていた`priorityRule`（Phase 2.4本体の削除で宙に浮いていた）も削除。`extraction.ts`/`store.ts`/`index.ts`/`cli-runners/core.ts`/`run-actions.ts`/`scheduled-tasks.ts`が追従。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件）を確認済み。dev server再起動後にダッシュボード・`/issues`・Issue詳細ページの実描画も確認済み。
   - 持ち越し: Charter編集UI（Phase 2.4唯一の残タスク。着手前に計画モードへ戻る想定）。
+- [x] Phase 2.4（続きその2） — Charter編集UIを削除（2026-09-15、Phase 2.4完全完了）
+  - 計画モードで再調査した結果、charterの読み取り消費箇所（7〜8箇所）はUIと無関係、かつ「AIが提案しEMが採用/却下する」経路（`SuggestedCharterBlock`）が既に実装済みと判明し、スコープを`IssueCharterSection.tsx`の編集モード削除のみに縮小できた。
+  - `IssueCharterSection.tsx`を読み取り専用化（textarea編集・介入の型タグ選択・保存ロジックを全削除、Why/What/How閲覧表示・警告バナー・タグ表示・変更履歴は維持）。Propsを`{issue, history}`に縮小。
+  - `page.module.css`のtextarea専用ルール（`.charterField textarea`等）を削除、`.charterEmptyView`からクリック用cursorを除去。
+  - `issue-store.ts`の`updateIssueCharter`、`/api/issues/[id]`のPATCH、agent-runtimeのcharter読み取り・AI提案採用フロー一式は無変更で維持。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件、変化なし）を確認済み。dev server再起動後にダッシュボード・`/issues`・Issue詳細ページの実描画も確認済み。
+  - Phase 2.4の持ち越し項目（Action Item CRUD・Charter編集UI）は両方解消し、Phase 2.4完全完了。
 - [ ] Phase 3 — 入力導線の簡素化
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

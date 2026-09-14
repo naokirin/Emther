@@ -146,13 +146,7 @@ export function IssueDetailContent({ id }: { id: string }) {
 
       <IssueSubIssuesPanel issue={issue} childIssues={childIssues} runs={runs} staleRunIds={staleRunIds} />
 
-      <IssueCharterSection
-        issue={issue}
-        history={history}
-        refreshIssue={refreshIssue}
-        refreshRuns={refreshRuns}
-        fetchWithNameConfirm={fetchWithNameConfirm}
-      />
+      <IssueCharterSection issue={issue} history={history} />
 
       {issue.actionItems.length > 0 && (
         <div className={styles.panel}>

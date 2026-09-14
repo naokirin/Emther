@@ -1665,28 +1665,6 @@
   margin-bottom: 10px;
 }
 
-.charterField label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.charterField textarea {
-  width: 100%;
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 0.875rem;
-  font-family: inherit;
-  resize: vertical;
-}
-
-.charterField textarea.charterEmpty {
-  border: 1.5px dashed var(--gray-border);
-  background: repeating-linear-gradient(135deg, #22252e, #22252e 6px, #2a2e3a 6px, #2a2e3a 12px);
-}
-
 /* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。閲覧モードの自由記述
    テキスト領域（Issue charter・Journal本文など）に共通で使う。クリックで編集モードに
    入れることを示すため、ホバー時だけ枠を出す（常時枠を出すと読んでいる最中の視覚ノイズ
@@ -1706,7 +1684,6 @@
 
 .charterEmptyView {
   display: block;
-  cursor: pointer;
   border: 1.5px dashed var(--gray-border);
   background: repeating-linear-gradient(135deg, #22252e, #22252e 6px, #2a2e3a 6px, #2a2e3a 12px);
   border-radius: 6px;
