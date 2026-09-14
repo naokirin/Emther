@@ -109,26 +109,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
   return undefined;
 }
 
-// docs/first_implession 3.8対応。AIが提案するAction Itemsの下書き。EMが個別に採用する
-// までIssue.actionItemsへは反映しない（extractYield/extractProposalと同じ壊れにくい
-// パースの考え方: 不正な形式は「提案なし」として扱うだけで、proposal自体は無効にしない）。
-export function extractActionItems(resultText: string): string[] | undefined {
-  const match = resultText.match(/```action_items\s*\n?([\s\S]*?)```/);
-  if (!match) return undefined;
-  try {
-    const parsed = JSON.parse(match[1].trim());
-    if (Array.isArray(parsed)) {
-      const items = parsed.filter((i: unknown): i is string => typeof i === "string" && i.trim().length > 0);
-      return items.length > 0 ? items : undefined;
-    }
-  } catch {
-    // 不正なaction_itemsブロックは「提案なし」として扱う
-  }
-  return undefined;
-}
-
 // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案。
-// extractActionItemsと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
+// extractYield/extractProposalと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
 // 要素は文字列、または { title, priority? }。旧DBの文字列配列も normalize で吸収する。
 export function extractSubIssues(resultText: string): SuggestedSubIssue[] | undefined {
   const match = resultText.match(/```sub_issues\s*\n?([\s\S]*?)```/);
@@ -143,7 +125,7 @@ export function extractSubIssues(resultText: string): SuggestedSubIssue[] | unde
 }
 
 // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-// lookupで見つけた別Issueへの追記提案。extractActionItems/extractSubIssuesと同じ
+// lookupで見つけた別Issueへの追記提案。extractSubIssuesと同じ
 // 壊れにくいパースの考え方（不正な形式・issueId/text欠落の要素は捨てるだけで、
 // ブロック自体は「提案なし」として扱う）。
 export function extractIssueNotes(resultText: string): SuggestedIssueNote[] | undefined {
@@ -189,20 +171,6 @@ export function normalizeSuggestedSubIssues(parsed: unknown): SuggestedSubIssue[
     items.push(priority ? { title: title.trim(), priority } : { title: title.trim() });
   }
   return items.length > 0 ? items : undefined;
-}
-
-// 介入の優先帯提案。`"focus"` または `{ "priority": "focus" }` を受理する。
-export function extractPriority(resultText: string): IssuePriority | undefined {
-  const match = resultText.match(/```priority\s*\n?([\s\S]*?)```/);
-  if (!match) return undefined;
-  try {
-    const parsed = JSON.parse(match[1].trim());
-    if (typeof parsed === "string") return parseSuggestedPriority(parsed);
-    if (parsed && typeof parsed === "object") return parseSuggestedPriority((parsed as { priority?: unknown }).priority);
-  } catch {
-    // 不正なpriorityブロックは「提案なし」として扱う
-  }
-  return undefined;
 }
 
 // docs/knowledge_distillation.md。状況蒸留のテーマ候補。

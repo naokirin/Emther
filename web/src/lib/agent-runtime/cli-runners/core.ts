@@ -6,11 +6,9 @@ import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt,
 import {
   consultQuestionFor,
   ensureRequiredConsult,
-  extractActionItems,
   extractCharter,
   extractConsult,
   extractIssueNotes,
-  extractPriority,
   extractProposal,
   extractSubIssues,
   extractThemes,
@@ -135,10 +133,10 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.status = "idle";
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
-    run.suggestedActionItems = run.proposal ? extractActionItems(resultText) : undefined;
+    run.suggestedActionItems = undefined;
     run.suggestedSubIssues = run.proposal ? extractSubIssues(resultText) : undefined;
     run.suggestedCharter = run.proposal ? extractCharter(resultText) : undefined;
-    run.suggestedPriority = run.proposal ? extractPriority(resultText) : undefined;
+    run.suggestedPriority = undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
     run.suggestedIssueNotes = run.proposal ? extractIssueNotes(resultText) : undefined;
     appendLog(
@@ -146,17 +144,11 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       "system",
       run.proposal ? "タスクが完了しました（人間の入力は不要です）。" : "タスクが完了しました（proposal形式には従いませんでした）。",
     );
-    if (run.suggestedActionItems) {
-      appendLog(run, "system", `[Action Items提案] ${run.suggestedActionItems.length}件`);
-    }
     if (run.suggestedSubIssues) {
       appendLog(run, "system", `[サブIssue分解案] ${run.suggestedSubIssues.length}件`);
     }
     if (run.suggestedCharter) {
       appendLog(run, "system", `[Why/What/How提案] ${Object.keys(run.suggestedCharter).length}件`);
-    }
-    if (run.suggestedPriority) {
-      appendLog(run, "system", `[優先度提案] ${run.suggestedPriority}`);
     }
     if (run.suggestedThemes) {
       appendLog(run, "system", `[テーマ解釈提案] ${run.suggestedThemes.length}件`);

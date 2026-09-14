@@ -4,9 +4,8 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { SlideOver } from "@/components/SlideOver";
-import { IssueFilterBar, type IssueViewMode } from "@/components/issues/IssueFilterBar";
+import { IssueFilterBar } from "@/components/issues/IssueFilterBar";
 import { IssueListTable } from "@/components/issues/IssueListTable";
-import { IssueActionsTable } from "@/components/issues/IssueActionsTable";
 import { UnlinkedRunsPanel } from "@/components/issues/UnlinkedRunsPanel";
 import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
@@ -53,9 +52,6 @@ function IssuesPageInner() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  // docs/em_ui_ux_issue.md 4節「ビューの切り替え機能」対応。
-  // Action Itemsビュー: Issue横断で「次の一手」だけを優先度順に捌く（週〜月の見通し）。
-  const [viewMode, setViewMode] = useState<IssueViewMode>("list");
   const [showArchived, setShowArchived] = useState(false);
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
@@ -101,8 +97,6 @@ function IssuesPageInner() {
           いた。2つのセクションをそれぞれ.panelで囲み、カードとして区切る。 */}
       <div className={styles.panel}>
         <IssueFilterBar
-          viewMode={viewMode}
-          setViewMode={setViewMode}
           showArchived={showArchived}
           setShowArchived={setShowArchived}
           archivedCount={archivedCount}
@@ -117,31 +111,22 @@ function IssuesPageInner() {
           allTags={allTags}
         />
 
-        {viewMode === "actions" ? (
-          <IssueActionsTable
-            issuesLoaded={issuesLoaded}
-            filteredIssues={filteredIssues}
-            refreshIssues={refreshIssues}
-            onPeekOpen={peek.open}
-          />
-        ) : (
-          <IssueListTable
-            issuesPagination={issuesPagination}
-            issuesLoaded={issuesLoaded}
-            issues={issues}
-            runs={runs}
-            teams={teams}
-            themes={themes}
-            objectives={objectives}
-            staleRunIds={staleRunIds}
-            now={now}
-            staleInterventionDays={rules.staleInterventionDays}
-            showArchived={showArchived}
-            matchesIssueFilters={matchesIssueFilters}
-            refreshIssues={refreshIssues}
-            onPeekOpen={peek.open}
-          />
-        )}
+        <IssueListTable
+          issuesPagination={issuesPagination}
+          issuesLoaded={issuesLoaded}
+          issues={issues}
+          runs={runs}
+          teams={teams}
+          themes={themes}
+          objectives={objectives}
+          staleRunIds={staleRunIds}
+          now={now}
+          staleInterventionDays={rules.staleInterventionDays}
+          showArchived={showArchived}
+          matchesIssueFilters={matchesIssueFilters}
+          refreshIssues={refreshIssues}
+          onPeekOpen={peek.open}
+        />
       </div>
 
       <UnlinkedRunsPanel

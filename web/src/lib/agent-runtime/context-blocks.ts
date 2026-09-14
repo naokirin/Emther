@@ -15,7 +15,7 @@ import { buildRelatedBundleBlock } from "@/lib/related-context";
 import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@/lib/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
 import { listAdoptedThemes } from "@/lib/theme-store";
-import { INTERVENTION_TYPES, ISSUE_PRIORITY_META, teamDisplayName, teamPathSegments } from "@/lib/types";
+import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import { buildDistillationContextBlock, buildMorningSummaryContextBlock } from "./batch-context-blocks";
 import { extractJournalAutoAnalysisText } from "./extraction";
@@ -430,22 +430,9 @@ export function buildSystemPrompt(
         ]
       : [];
 
-  // docs/first_implession 3.8「壁打ちによるState更新: AIからのサジェストによってIssueの
-  // 状態（タスクリスト）を直接・動的に上書きできる仕組み」対応。Issueに紐づくタスクの場合
-  // だけ、Action Itemsの下書きを提案できるようにする。EMが「採用」を押すまでは
-  // 提案のままで、Action Items自体は書き換わらない（Human-in-the-Loopを維持）。
-  const actionItemsRule =
-    runId && getIssueByRunId(runId)
-      ? [
-          "- このタスクはIssueに紐づいています。結論を踏まえて次にやるべき具体的な作業（Action Item）があれば、proposalブロックの直後に以下の形式でaction_itemsブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと）。",
-          "- Action Itemは「この介入の次の一手」（数日〜短期間で閉じられる具体作業）です。配列の先頭がEMの「次の一手」になるため、最も今やるべき1件を先頭に書いてください。",
-          "- 独自のWhy/What/Howを持つ別の介入物語に切り出すべきものはAction Itemにせず、下のsub_issuesを使ってください（両方出す場合は、分解が主ならsub_issuesのみとし、親の手は『どの子から着手するか』1件だけをaction_itemsに含めてください）。",
-          "```action_items",
-          '["今やるべき次の一手", "あとでやる作業2"]',
-          "```",
-          "",
-        ]
-      : [];
+  // docs/2nd_pivot_version.md Phase 2.4対応。Action Items（EMが次の一手として管理する
+  // チェックリスト）の下書き提案は、Issueを人間管理のタスクリストにしない方針と衝突する
+  // ため廃止した。次の一手の見立てはproposalの結論文の中で述べれば十分とする。
 
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルのIssue
   // （子Issueは1階層制限のため、さらに分解できない）に紐づく場合だけ、抽象的すぎる
@@ -455,8 +442,8 @@ export function buildSystemPrompt(
   const subIssuesRule =
     linkedIssueForSubIssues && !linkedIssueForSubIssues.parentId
       ? [
-          "- このタスクが紐づくIssueが抽象的で、複数の具体的な子Issueに分解した方が計画・実行しやすいと判断した場合は、proposal/action_itemsブロックに続けて以下の形式でsub_issuesブロックを追加してください（分解の必要が無ければ省略して構いません。yieldする場合は出力しないこと）。",
-          "- 子Issueは「独自のWhy/What/Howを持つ別の介入」です。親の次の一手にすぎない具体作業はsub_issuesではなくaction_itemsへ書いてください。",
+          "- このタスクが紐づくIssueが抽象的で、複数の具体的な子Issueに分解した方が計画・実行しやすいと判断した場合は、proposalブロックに続けて以下の形式でsub_issuesブロックを追加してください（分解の必要が無ければ省略して構いません。yieldする場合は出力しないこと）。",
+          "- 子Issueは「独自のWhy/What/Howを持つ別の介入」です。単なる次の一手にすぎない具体的な作業は分解せず、proposalの結論文の中で触れるに留めてください。",
           "- 各子Issueには、今週〜今月の見通しとして priority（focus / normal / parked）を付けてください。focus=今期の主戦場、parked=様子見。",
           "```sub_issues",
           '[{ "title": "具体的な子Issue案1", "priority": "focus" }, { "title": "具体的な子Issue案2", "priority": "normal" }]',
@@ -466,7 +453,7 @@ export function buildSystemPrompt(
       : [];
 
   // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
-  // 対応。action_items/sub_issuesと同じ形式で、紐づくIssueのWhy/What/Howのうち
+  // 対応。sub_issuesと同じ形式で、紐づくIssueのWhy/What/Howのうち
   // 未整理（空欄）の項目だけを埋める提案を許可する。既に書かれている項目を上書き提案しない
   // のは、EMが既に整理した内容をAIが勝手に書き換えたと誤解しないようにするため。
   const linkedIssueForCharter = runId ? getIssueByRunId(runId) : undefined;
@@ -476,7 +463,7 @@ export function buildSystemPrompt(
   const charterRule =
     linkedIssueForCharter && missingCharterFields.length > 0
       ? [
-          `- このタスクが紐づくIssueは、Why/What/Howのうち次の項目が未整理です: ${missingCharterFields.join(", ")}。与えられた前提から埋められるものがあれば、proposal/action_items/sub_issuesブロックに続けて以下の形式でcharterブロックを追加してください（未整理のうち埋められる項目だけを含め、既に書かれている項目・埋められない項目はキー自体を含めないこと。1つも埋められなければ省略して構いません。yieldする場合は出力しないこと）。`,
+          `- このタスクが紐づくIssueは、Why/What/Howのうち次の項目が未整理です: ${missingCharterFields.join(", ")}。与えられた前提から埋められるものがあれば、proposal/sub_issuesブロックに続けて以下の形式でcharterブロックを追加してください（未整理のうち埋められる項目だけを含め、既に書かれている項目・埋められない項目はキー自体を含めないこと。1つも埋められなければ省略して構いません。yieldする場合は出力しないこと）。`,
           "```charter",
           '{ "why": "生む価値・誰のため・なぜ今か", "what": "何を・どこまで・どのくらい・完了の定義", "how": "どのように実現するか・前提や制約" }',
           "```",
@@ -486,7 +473,7 @@ export function buildSystemPrompt(
 
   // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。lookupは
   // 常に使えるため、runIdやlinkedIssueの有無に関わらず提示する。対象は「このタスクとは別の」
-  // Issueに限定し（同じIssueへの追記はaction_items/charter/logの既存経路がある）、
+  // Issueに限定し（同じIssueへの追記はcharter/logの既存経路がある）、
   // 作成・ステータス変更等は許可せず追記のみに絞ることで、EMの確認前に破壊的な変更が
   // 起きないようにする（Human-in-the-Loopを維持）。
   const issueNoteRule = [
@@ -497,18 +484,8 @@ export function buildSystemPrompt(
     "",
   ];
 
-  // 介入ポートフォリオの優先帯提案。紐づくIssueがある場合は原則提案する（EMが採用するまで本体は不変）。
-  const linkedIssueForPriority = runId ? getIssueByRunId(runId) : undefined;
-  const priorityRule = linkedIssueForPriority
-    ? [
-        "- このタスクが紐づくIssueについて、今週〜今月の介入ポートフォリオ上の優先帯を提案してください（yieldする場合は出力しないこと）。",
-        `- focus=今週〜今月の主戦場（朝の次の一手の主対象）、normal=進行中だが主戦場ではない、parked=様子見・後回し。現在の優先帯は「${linkedIssueForPriority.priority ?? "normal"}」（${ISSUE_PRIORITY_META[linkedIssueForPriority.priority ?? "normal"].label}）です。`,
-        "```priority",
-        '"focus"',
-        "```",
-        "",
-      ]
-    : [];
+  // docs/2nd_pivot_version.md Phase 2.4対応。優先度（focus/normal/parked）の提案は、
+  // 採用/却下UIを廃止したため出力させても宙に浮くだけになった。プロンプトからも外す。
 
   const roleBlockLines = ROLE_BLOCKS[agentName] ?? [];
   const roleBlock =
@@ -558,12 +535,10 @@ export function buildSystemPrompt(
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
     'Issue化を勧める場合（recommendation: "issue"、または結論でIssue化を勧める場合）は、短い課題名を付けてください（「〜と判断します」等の結論文は入れないこと）。',
-    "- 課題が1つなら issueTitle のみ（issueCandidates は省略可）。別責任・別チーム・別KR・別のWhyになりうる介入が同居するなら、無理に1件や親子にまとめず issueCandidates に最大5件程度まで列挙すること（親Issueは作らない・各候補はトップレベルの独立Issue）。同じ介入の次の一手への分解は issueCandidates ではなく、既にIssueへ紐づいたあとの action_items / sub_issues の役割。",
+    "- 課題が1つなら issueTitle のみ（issueCandidates は省略可）。別責任・別チーム・別KR・別のWhyになりうる介入が同居するなら、無理に1件や親子にまとめず issueCandidates に最大5件程度まで列挙すること（親Issueは作らない・各候補はトップレベルの独立Issue）。同じ介入の次の一手への分解は issueCandidates ではなく、既にIssueへ紐づいたあとの sub_issues の役割。",
     "- issueCandidates を出すときは recommendation は \"issue\" とし、issueTitle は代表の1件を書いても省略してもよい。",
-    ...actionItemsRule,
     ...subIssuesRule,
     ...charterRule,
-    ...priorityRule,
     ...issueNoteRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",

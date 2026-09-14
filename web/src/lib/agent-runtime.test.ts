@@ -264,18 +264,6 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(proposal?.rejectedAlternatives).toEqual([{ option: "ok" }]);
   });
 
-  it("extractActionItemsは文字列配列をパースし、空文字列は除外する", async () => {
-    const rt = await loadModule();
-    const text = '```action_items\n["やること1", "", "やること2"]\n```';
-    expect(rt.extractActionItems(text)).toEqual(["やること1", "やること2"]);
-  });
-
-  it("extractActionItemsは全項目が空/存在しない場合undefined", async () => {
-    const rt = await loadModule();
-    expect(rt.extractActionItems('```action_items\n[]\n```')).toBeUndefined();
-    expect(rt.extractActionItems("ブロックなし")).toBeUndefined();
-  });
-
   it("extractSubIssuesも同様にパースする", async () => {
     const rt = await loadModule();
     const text = '```sub_issues\n["子課題A", "子課題B"]\n```';
@@ -289,13 +277,6 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
       { title: "子A", priority: "focus" },
       { title: "子B" },
     ]);
-  });
-
-  it("extractPriorityはfocus/normal/parkedをパースする", async () => {
-    const rt = await loadModule();
-    expect(rt.extractPriority('```priority\n"focus"\n```')).toBe("focus");
-    expect(rt.extractPriority('```priority\n{ "priority": "parked" }\n```')).toBe("parked");
-    expect(rt.extractPriority('```priority\n"urgent"\n```')).toBeUndefined();
   });
 
   it("extractIssueNotesはissueId/textが揃った要素だけをパースする", async () => {
@@ -730,15 +711,6 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("推測で埋めず、proposalではなくyieldしてください");
   });
 
-  it("Issueに紐づくrunにはaction_itemsブロックの説明が付く", async () => {
-    const issueStore = await import("@/lib/issue-store");
-    await issueStore.createIssue("Issue", "run-1");
-    const rt = await loadModule();
-    const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
-    expect(prompt).toContain("```action_items");
-    expect(prompt).toContain("次の一手");
-  });
-
   it("トップレベルIssueに紐づくrunにはsub_issuesブロックの説明が付く", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("トップレベルIssue", "run-1");
@@ -746,14 +718,6 @@ describe("buildSystemPrompt", () => {
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
     expect(prompt).toContain("```sub_issues");
     expect(prompt).toContain("独自のWhy/What/How");
-    expect(prompt).toContain("```priority");
-  });
-
-  it("Issueに紐づくrunにはpriorityブロックの説明が付く", async () => {
-    const issueStore = await import("@/lib/issue-store");
-    await issueStore.createIssue("Issue", "run-1");
-    const rt = await loadModule();
-    expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).toContain("```priority");
   });
 
   it("子Issueに紐づくrunにはsub_issuesブロックの説明が付かない（1階層制限）", async () => {
@@ -764,12 +728,10 @@ describe("buildSystemPrompt", () => {
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```sub_issues");
   });
 
-  it("Issueに紐づかないrunにはaction_items/sub_issues/priorityの説明が付かない", async () => {
+  it("Issueに紐づかないrunにはsub_issuesの説明が付かない", async () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-without-issue");
-    expect(prompt).not.toContain("```action_items");
     expect(prompt).not.toContain("```sub_issues");
-    expect(prompt).not.toContain("```priority");
   });
 
   it("Why/What/Howが未整理のIssueに紐づくrunにはcharterブロックの説明が付く（子Issueでも同様）", async () => {
@@ -940,32 +902,16 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("spec-1")?.reviewed).toBe(true);
   });
 
-  it("clearSuggestedActionItems/clearSuggestedSubIssuesは提案を消す", async () => {
+  it("clearSuggestedSubIssuesは提案を消す", async () => {
     const { getDb } = await import("@/lib/db");
     insertRunRow(getDb(), {
       id: "run-1",
-      suggested_action_items_json: JSON.stringify(["a"]),
       suggested_sub_issues_json: JSON.stringify(["b"]),
     });
     const rt = await loadModule();
-    expect(rt.getRun("run-1")?.suggestedActionItems).toEqual(["a"]);
     expect(rt.getRun("run-1")?.suggestedSubIssues).toEqual([{ title: "b" }]);
-    rt.clearSuggestedActionItems("run-1");
-    expect(rt.getRun("run-1")?.suggestedActionItems).toBeUndefined();
     rt.clearSuggestedSubIssues("run-1");
     expect(rt.getRun("run-1")?.suggestedSubIssues).toBeUndefined();
-  });
-
-  it("clearSuggestedPriorityは優先度提案を消す", async () => {
-    const { getDb } = await import("@/lib/db");
-    insertRunRow(getDb(), {
-      id: "run-1",
-      suggested_priority_json: JSON.stringify("focus"),
-    });
-    const rt = await loadModule();
-    expect(rt.getRun("run-1")?.suggestedPriority).toBe("focus");
-    rt.clearSuggestedPriority("run-1");
-    expect(rt.getRun("run-1")?.suggestedPriority).toBeUndefined();
   });
 
   it("clearSuggestedIssueNotesは提案を消す", async () => {
@@ -1020,7 +966,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     const rt = await loadModule();
     expect(rt.markRunReviewed("missing")).toBeUndefined();
     expect(rt.setRunTriageStatus("missing", "dismissed")).toBeUndefined();
-    expect(rt.clearSuggestedActionItems("missing")).toBeUndefined();
+    expect(rt.clearSuggestedSubIssues("missing")).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();
   });
 

@@ -220,33 +220,6 @@ describe("ExecutionState", () => {
     expect(screen.getByText("案X")).toBeInTheDocument();
   });
 
-  it("提案されたAction Itemsを採用/却下できる", async () => {
-    const onAdoptActionItems = vi.fn();
-    const onDismissActionItems = vi.fn();
-    const user = userEvent.setup();
-    const run = baseRun({
-      status: "idle",
-      proposal: { conclusion: "c", facts: [], logic: "l", rejectedAlternatives: [] },
-      suggestedActionItems: ["やること1"],
-    });
-    render(
-      <ExecutionState
-        run={run}
-        selectedOptionId={null}
-        onSelectOption={noop}
-        onConfirmOption={noop}
-        onFocusChat={noop}
-        deciding={false}
-        onAdoptActionItems={onAdoptActionItems}
-        onDismissActionItems={onDismissActionItems}
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: "採用する（先頭を次の一手に）" }));
-    expect(onAdoptActionItems).toHaveBeenCalledWith(["やること1"]);
-    await user.click(screen.getByRole("button", { name: "却下する" }));
-    expect(onDismissActionItems).toHaveBeenCalledTimes(1);
-  });
-
   it("提案されたWhy/What/Howを採用/却下できる", async () => {
     const onAdoptCharter = vi.fn();
     const onDismissCharter = vi.fn();

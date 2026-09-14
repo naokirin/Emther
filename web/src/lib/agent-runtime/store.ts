@@ -375,17 +375,6 @@ export function setRunTriageStatus(id: string, status: "watching" | "dismissed")
   return run;
 }
 
-// docs/first_implession 3.8対応。AIが提案したAction Itemsを、EMが採用した後（実際の
-// 追加は呼び出し側がIssueのaction-items APIを個別に叩く）または却下した後に、
-// 提案自体をrunから消す（採用・却下いずれの場合も、同じ提案が表示され続けないように）。
-export function clearSuggestedActionItems(id: string): AgentRun | undefined {
-  const run = runs.get(id);
-  if (!run) return undefined;
-  run.suggestedActionItems = undefined;
-  persistRunMeta(run);
-  return run;
-}
-
 // docs/memo.md「K」対応。AIが提案した子Issue分解案を、EMが採用した後（実際の作成は
 // 呼び出し側が/api/issuesを個別に叩く）または却下した後に、提案自体をrunから消す。
 export function clearSuggestedSubIssues(id: string): AgentRun | undefined {
@@ -403,14 +392,6 @@ export function clearSuggestedCharter(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
   run.suggestedCharter = undefined;
-  persistRunMeta(run);
-  return run;
-}
-
-export function clearSuggestedPriority(id: string): AgentRun | undefined {
-  const run = runs.get(id);
-  if (!run) return undefined;
-  run.suggestedPriority = undefined;
   persistRunMeta(run);
   return run;
 }

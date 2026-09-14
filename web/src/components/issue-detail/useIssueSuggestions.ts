@@ -12,45 +12,11 @@ type Params = {
   refreshRuns: () => Promise<void>;
 };
 
-// AIが提案したAction Items/サブIssue/Charter/優先度の下書きを、EMが個別に採用・却下
-// するためのハンドラ群。JSX本体は持たず ExecutionState（RunDetail.tsx）へpropsとして
-// 配るだけなので、独立したフックとして集約する。
+// docs/2nd_pivot_version.md Phase 2.4対応。Action Items/優先度の提案採用フローは
+// 廃止した（対応UIが無くなったため）。AIが提案したサブIssue/Charter/他Issueへの
+// 一言記録の下書きを、EMが個別に採用・却下するためのハンドラ群。JSX本体は持たず
+// ExecutionState（RunDetail.tsx）へpropsとして配るだけなので、独立したフックとして集約する。
 export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, refreshIssue, refreshIssues, refreshRuns }: Params) {
-  const [actionItemsSubmitting, setActionItemsSubmitting] = useState(false);
-
-  // docs/first_implession 3.8対応。AIが提案したAction Itemsを、実際にIssue.actionItemsへ
-  // 追加するかどうかはEMが選ぶ（採用/却下いずれの場合も提案自体はrunから消し、
-  // 同じ提案が表示され続けないようにする）。
-  // 先頭1件だけ asNext で「次の一手」にし、残りは backlog へ追加する。
-  async function handleAdoptSuggestedActionItems(items: string[]) {
-    if (!issue || !linkedRun) return;
-    setActionItemsSubmitting(true);
-    try {
-      for (let i = 0; i < items.length; i++) {
-        await fetch(`/api/issues/${issue.id}/action-items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: items[i], asNext: i === 0 }),
-        });
-      }
-      await fetch(`/api/agents/${linkedRun.id}/action-items/dismiss`, { method: "POST" });
-      await Promise.all([refreshIssue(), refreshRuns()]);
-    } finally {
-      setActionItemsSubmitting(false);
-    }
-  }
-
-  async function handleDismissSuggestedActionItems() {
-    if (!linkedRun) return;
-    setActionItemsSubmitting(true);
-    try {
-      await fetch(`/api/agents/${linkedRun.id}/action-items/dismiss`, { method: "POST" });
-      await refreshRuns();
-    } finally {
-      setActionItemsSubmitting(false);
-    }
-  }
-
   const [subIssuesSubmitting, setSubIssuesSubmitting] = useState(false);
 
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案した子Issue分解案を、
@@ -146,9 +112,6 @@ export function useIssueSuggestions({ issue, linkedRun, fetchWithNameConfirm, re
   }
 
   return {
-    actionItemsSubmitting,
-    handleAdoptSuggestedActionItems,
-    handleDismissSuggestedActionItems,
     subIssuesSubmitting,
     handleAdoptSuggestedSubIssues,
     handleDismissSuggestedSubIssues,

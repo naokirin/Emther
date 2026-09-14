@@ -127,7 +127,7 @@ export function buildIssueDraftTask(title: string, charter: { why?: string; what
   if (charter.what) lines.push(`What（記録時点）: ${charter.what}`);
   if (charter.how) lines.push(`How（記録時点）: ${charter.how}`);
   lines.push(
-    "Why/What/Howのうち未整理な項目があれば埋める提案をし、今週〜今月の介入ポートフォリオ上の優先帯（focus/normal/parked）もpriorityブロックで提案してください。そのうえで改善の方向性を判断してください。次にやるべき具体的なAction Itemsや、課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。",
+    "Why/What/Howのうち未整理な項目があれば埋める提案をし、そのうえで改善の方向性を判断してください。課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。",
   );
   return lines.join("\n");
 }

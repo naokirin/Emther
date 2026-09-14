@@ -154,17 +154,11 @@ export function IssueDetailContent({ id }: { id: string }) {
         fetchWithNameConfirm={fetchWithNameConfirm}
       />
 
-      {/* docs/memo.md「Action Itemsが一番下にあるので扱いにくい」対応。Why/What/How
-          （IssueCharterSection）を整理した直後にやること（Action Items）を確認できるよう、
-          従来はExecution Stateパネルの下（ページ最下部寄り）にあったものをここへ移す。 */}
-      <div className={styles.panel}>
-        <IssueActionItemsPanel
-          issue={issue}
-          refreshIssue={refreshIssue}
-          refreshIssues={refreshIssues}
-          fetchWithNameConfirm={fetchWithNameConfirm}
-        />
-      </div>
+      {issue.actionItems.length > 0 && (
+        <div className={styles.panel}>
+          <IssueActionItemsPanel issue={issue} />
+        </div>
+      )}
 
       <div className={styles.issueColumns}>
         <div className={styles.panel}>
@@ -179,9 +173,6 @@ export function IssueDetailContent({ id }: { id: string }) {
               deciding={deciding}
               stale={staleRunIds.has(linkedRun.id)}
               onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
-              onAdoptActionItems={suggestions.handleAdoptSuggestedActionItems}
-              onDismissActionItems={suggestions.handleDismissSuggestedActionItems}
-              actionItemsSubmitting={suggestions.actionItemsSubmitting}
               onAdoptSubIssues={suggestions.handleAdoptSuggestedSubIssues}
               onDismissSubIssues={suggestions.handleDismissSuggestedSubIssues}
               subIssuesSubmitting={suggestions.subIssuesSubmitting}

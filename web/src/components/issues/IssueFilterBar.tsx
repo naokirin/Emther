@@ -1,15 +1,10 @@
 "use client";
 
-import styles from "@/app/page.module.css";
 import { PageTitleRow } from "@/components/HelpLink";
 import { Select } from "@/components/Select";
 import { ISSUE_PRIORITY_META, ISSUE_STATUS_META, type IssuePriority, type IssueStatus } from "@/lib/types";
 
-export type IssueViewMode = "list" | "actions";
-
 type Props = {
-  viewMode: IssueViewMode;
-  setViewMode: (mode: IssueViewMode) => void;
   showArchived: boolean;
   setShowArchived: (value: boolean) => void;
   archivedCount: number;
@@ -24,13 +19,13 @@ type Props = {
   allTags: string[];
 };
 
-// Issue一覧のビュー切替タブ・フィルタ行。
+// Issue一覧のフィルタ行。
 // docs/2nd_pivot_version.md Phase 2.2対応。「＋新しいIssue」ボタン（手動作成）と、
 // ボード／スコア差ビュー（ステータス・優先度の手入れを促す画面）は廃止した。
 // Issue化はAI提案の承認（/chatのConsultReviewPanel）経路のみに一本化する。
+// docs/2nd_pivot_version.md Phase 2.4対応。「アクション」ビュー（Action Item横断完了）
+// も、Action Item CRUD廃止に伴い削除し、ビュー切替タブ自体を無くした。
 export function IssueFilterBar({
-  viewMode,
-  setViewMode,
   showArchived,
   setShowArchived,
   archivedCount,
@@ -46,27 +41,7 @@ export function IssueFilterBar({
 }: Props) {
   return (
     <>
-      <PageTitleRow title="課題" helpAnchor="issues">
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <div className={styles.tabs} style={{ margin: 0 }}>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${viewMode === "list" ? styles.tabBtnActive : ""}`}
-              onClick={() => setViewMode("list")}
-            >
-              リスト
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${viewMode === "actions" ? styles.tabBtnActive : ""}`}
-              onClick={() => setViewMode("actions")}
-              title="各介入の次の一手を横断表示"
-            >
-              アクション
-            </button>
-          </div>
-        </div>
-      </PageTitleRow>
+      <PageTitleRow title="課題" helpAnchor="issues" />
 
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>

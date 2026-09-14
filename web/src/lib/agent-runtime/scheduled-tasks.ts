@@ -241,7 +241,7 @@ function buildIssueUpdateTask(
       `タイトル: ${issue.title}`,
       ...charterLines,
       `今回更新された項目: ${detail}`,
-      "不足している観点・リスク・次の一手（Action Itemsや子Issue分解）があれば提案してください。",
+      "不足している観点・リスク・次の一手（必要なら子Issueへの分解）があれば提案してください。",
       "判断や介入の実行が必要ならYieldしてください。Issue本体の直接変更は提案に留め、EMの採用を待ってください。",
     ].join("\n");
   }
@@ -250,7 +250,7 @@ function buildIssueUpdateTask(
     `タイトル: ${issue.title}`,
     ...charterLines,
     `追加された経過: ${detail}`,
-    "必要ならAction Itemsや子Issue分解を提案し、判断が必要ならYieldしてください。",
+    "必要なら子Issueへの分解を提案し、判断が必要ならYieldしてください。",
   ].join("\n");
 }
 

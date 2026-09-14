@@ -83,6 +83,21 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 
 持ち越し: Action Item CRUD（Lead Agentのプロンプト見直しが必要）、Charter編集UI（charter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える設計が必要）、`/issues`一覧・詳細のさらなる軽量化。
 
+#### Phase 2.4（続き） — Action Item CRUDを削除（完了）
+
+**2026-09-15、Phase 2.4完了後にユーザーから続行指示を受け、持ち越し項目のうちAction Item CRUDに着手した。** Charterと異なりAction Itemはagent-runtimeのどのプロンプトからも文脈として読まれておらず（提案生成のみに使われる一方通行）、削除してもAIの状況把握力への影響が無いことを確認済みだったため、計画モードへ戻らず着手した。
+
+実施内容:
+- UI: `IssueActionItemsPanel.tsx`を追加・完了チェック・削除・子Issueへの昇格の無い読み取り専用表示（次の一手／あとでやる予定／完了、の3グループ）に書き換え。クロスIssueの「アクション」一覧ビュー`IssueActionsTable.tsx`と、それに紐づく`IssueFilterBar.tsx`のタブ切り替えUI（`IssueViewMode`型ごと）を削除し、`/issues`一覧は常にリスト表示に一本化。
+- AI提案の採用/却下フロー: `SuggestedActionItemsBlock.tsx`、`useIssueSuggestions.ts`のAction Item採用/却下ハンドラ、`RunDetail.tsx`側の配線を削除。
+- API: `/api/issues/[id]/action-items/*`（追加・トグル・削除・子Issue昇格）、`/api/agents/[id]/action-items/dismiss`を削除。
+- `issue-store.ts`: `addActionItem`/`setActionItemAsNext`/`promoteActionItemToChildIssue`/`toggleActionItem`/`removeActionItem`を削除。自由記述ログ用の`addLogEntry`（pivot_policy §2が明示的に許容する入力のため維持）はそのまま残置。
+- agent-runtime: `context-blocks.ts`から`actionItemsRule`（Action Item下書き提案の指示）を削除し、`subIssuesRule`/`charterRule`の文言から`action_items`ブロックへの参照を除去。`run-actions.ts`（`buildIssueDraftTask`）・`scheduled-tasks.ts`（`buildIssueUpdateTask`）のタスク文言からもAction Items関連の指示を除去。`extraction.ts`の`extractActionItems`、`store.ts`の`clearSuggestedActionItems`を削除し、`index.ts`の再エクスポート・`cli-runners/core.ts`の呼び出しも追従。
+- ついでの修正: 調査の過程で、`priorityRule`（優先度提案の指示）がPhase 2.4本体で採用/却下UIを削除した後も**プロンプトへ出力させ続けているだけの無駄**になっていたことが分かったため、`priorityRule`・`extractPriority`・`clearSuggestedPriority`も同時に削除した（`parseSuggestedPriority`は`normalizeSuggestedSubIssues`のサブIssue優先度パースに使われているため維持）。
+- Issueのデータ（`issues.json`）・Charter編集UI・`POST /api/issues`（作成）には触れていない。
+- `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件）を確認済み。dev serverを再起動した上でダッシュボード・`/issues`・既存Issue詳細ページの実描画（200応答・エラーマーカー無し）も確認済み。
+- 持ち越し: Charter編集UI（Phase 2.4の唯一の残タスク。agent-runtimeのcharter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える設計が必要なため、着手前に計画モードへ戻る想定）。
+
 ### Phase 3 — 入力導線の簡素化
 - Journal / observation-dump からの投入が「どのIssueに紐付けるか」を人間に決めさせず、AIがKnowledgeEventへ直接分類する流れを徹底する。
 - `person-evaluation-store.ts`（評価ログ）等、Issue以外の構造化入力も同様に「入力→AI整理→必要なら訂正」の型になっているか点検する。
@@ -148,6 +163,12 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - Issueのデータ（`issues.json`）・`POST /api/issues`（作成）・agent-runtimeのプロンプト構築には触れていない。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1081件）を確認済み。`/issues`・実データで作成したIssue詳細ページ（作成→アーカイブまで実施）・ダッシュボードの実描画も確認済み。
   - 持ち越し: Action Item CRUD（Lead Agentのプロンプト見直しが必要）、Charter編集UI（agent-runtimeのcharter依存7〜8箇所をKnowledgeEventベースの文脈へ置き換える設計が必要）、`/issues`のさらなる軽量化。
+- [x] Phase 2.4（続き） — Action Item CRUDを削除（2026-09-15）
+  - UI: `IssueActionItemsPanel.tsx`を読み取り専用化、`IssueActionsTable.tsx`（アクションビュー）と`IssueFilterBar.tsx`のビュー切り替えタブを削除、`SuggestedActionItemsBlock.tsx`とその採用/却下フローを削除。
+  - API: `/api/issues/[id]/action-items/*`・`/api/agents/[id]/action-items/dismiss`を削除。`issue-store.ts`の`addActionItem`等5関数を削除（`addLogEntry`は維持）。
+  - agent-runtime: `context-blocks.ts`から`actionItemsRule`を削除し関連文言を整理。あわせて表示先の無くなっていた`priorityRule`（Phase 2.4本体の削除で宙に浮いていた）も削除。`extraction.ts`/`store.ts`/`index.ts`/`cli-runners/core.ts`/`run-actions.ts`/`scheduled-tasks.ts`が追従。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1053件）を確認済み。dev server再起動後にダッシュボード・`/issues`・Issue詳細ページの実描画も確認済み。
+  - 持ち越し: Charter編集UI（Phase 2.4唯一の残タスク。着手前に計画モードへ戻る想定）。
 - [ ] Phase 3 — 入力導線の簡素化
 - [ ] Phase 4 — レガシー面の縮小
 - [ ] Phase 5 — Reports / Timeline の追従

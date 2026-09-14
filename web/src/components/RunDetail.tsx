@@ -13,7 +13,6 @@ import {
 import { listIssueCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
-import { SuggestedActionItemsBlock } from "./run-detail/SuggestedActionItemsBlock";
 import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
 import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
@@ -220,9 +219,6 @@ export function ExecutionState({
   deciding,
   stale,
   onRetry,
-  onAdoptActionItems,
-  onDismissActionItems,
-  actionItemsSubmitting,
   onAdoptSubIssues,
   onDismissSubIssues,
   subIssuesSubmitting,
@@ -244,9 +240,6 @@ export function ExecutionState({
   deciding: boolean;
   stale?: boolean;
   onRetry?: () => void;
-  onAdoptActionItems?: (items: string[]) => void;
-  onDismissActionItems?: () => void;
-  actionItemsSubmitting?: boolean;
   onAdoptSubIssues?: (items: SuggestedSubIssue[]) => void;
   onDismissSubIssues?: () => void;
   subIssuesSubmitting?: boolean;
@@ -280,15 +273,6 @@ export function ExecutionState({
       {run.status === "idle" && run.proposal && (
         <div className={styles.proposalBlock}>
           <ProposalBlock proposal={run.proposal} />
-
-          {run.suggestedActionItems && run.suggestedActionItems.length > 0 && (
-            <SuggestedActionItemsBlock
-              items={run.suggestedActionItems}
-              onAdopt={onAdoptActionItems}
-              onDismiss={onDismissActionItems}
-              submitting={actionItemsSubmitting}
-            />
-          )}
 
           {run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
             <SuggestedSubIssuesBlock

@@ -172,82 +172,6 @@ describe("charter / title / action items / log entries", () => {
     expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
   });
 
-  it("addActionItem/toggleActionItemで完了状態を切り替えられる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const withItem = await store.addActionItem(issue.id, "レビューを依頼する");
-    const itemId = withItem!.actionItems[0].id;
-    expect(withItem!.actionItems[0].done).toBe(false);
-
-    const toggled = store.toggleActionItem(issue.id, itemId);
-    expect(toggled?.actionItems[0].done).toBe(true);
-    const toggledAgain = store.toggleActionItem(issue.id, itemId);
-    expect(toggledAgain?.actionItems[0].done).toBe(false);
-  });
-
-  it("空白のみのaddActionItemは追加しない", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const result = await store.addActionItem(issue.id, "   ");
-    expect(result?.actionItems).toHaveLength(0);
-  });
-
-  it("removeActionItemで未完了・完了済みを配列から除去できる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    await store.addActionItem(issue.id, "残す");
-    const withSecond = await store.addActionItem(issue.id, "消す");
-    const removeId = withSecond!.actionItems[1].id;
-    store.toggleActionItem(issue.id, removeId);
-
-    const removed = store.removeActionItem(issue.id, removeId);
-    expect(removed?.actionItems.map((a) => a.text)).toEqual(["残す"]);
-
-    const missing = store.removeActionItem(issue.id, "no-such-item");
-    expect(missing).toBeUndefined();
-  });
-
-  it("次の一手をremoveActionItemすると残りの未完了先頭が次の一手になる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    await store.addActionItem(issue.id, "今やる", { asNext: true });
-    await store.addActionItem(issue.id, "あとで");
-    const nextId = store.getIssue(issue.id)!.actionItems[0].id;
-
-    const updated = store.removeActionItem(issue.id, nextId);
-    expect(updated?.actionItems.map((a) => a.text)).toEqual(["あとで"]);
-  });
-
-  it("asNextで先頭に挿入し、setActionItemAsNextで繰り上げできる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    await store.addActionItem(issue.id, "後で");
-    const withNext = await store.addActionItem(issue.id, "今やる", { asNext: true });
-    expect(withNext!.actionItems.map((a) => a.text)).toEqual(["今やる", "後で"]);
-
-    const moved = store.setActionItemAsNext(issue.id, withNext!.actionItems[1].id);
-    expect(moved!.actionItems.map((a) => a.text)).toEqual(["後で", "今やる"]);
-  });
-
-  it("promoteActionItemToChildIssueは子Issueを作り元を完了にする", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("親Issue");
-    const withItem = await store.addActionItem(issue.id, "別介入として切り出す");
-    const itemId = withItem!.actionItems[0].id;
-    const result = await store.promoteActionItemToChildIssue(issue.id, itemId);
-    expect(result?.child.parentId).toBe(issue.id);
-    expect(result?.child.title).toBe("別介入として切り出す");
-    expect(result?.parent.actionItems[0].done).toBe(true);
-  });
-
-  it("子Issueからは昇格できない", async () => {
-    const store = await loadModule();
-    const parent = await store.createIssue("親");
-    const child = await store.createIssue("子", undefined, undefined, parent.id);
-    const withItem = await store.addActionItem(child.id, "一手");
-    await expect(store.promoteActionItemToChildIssue(child.id, withItem!.actionItems[0].id)).rejects.toThrow(/1階層/);
-  });
-
   it("setIssuePriorityでfocusになり、moveFocusIssueで順序が入れ替わる", async () => {
     const store = await loadModule();
     const a = await store.createIssue("A");
@@ -406,13 +330,6 @@ describe("status", () => {
     expect(issue.status).toBe("not_started");
   });
 
-  it("addActionItemでnot_startedからin_progressへ自動昇格する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const updated = await store.addActionItem(issue.id, "レビューを依頼する");
-    expect(updated?.status).toBe("in_progress");
-  });
-
   it("addLogEntryでnot_startedからin_progressへ自動昇格する", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
@@ -420,11 +337,11 @@ describe("status", () => {
     expect(updated?.status).toBe("in_progress");
   });
 
-  it("setIssueStatusでblockedにした後はAction Item追加で上書きされない", async () => {
+  it("setIssueStatusでblockedにした後は経過ログ追加で上書きされない", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("Issue A");
     store.setIssueStatus(issue.id, "blocked");
-    const updated = await store.addActionItem(issue.id, "待ち");
+    const updated = await store.addLogEntry(issue.id, "待ち");
     expect(updated?.status).toBe("blocked");
   });
 

@@ -443,88 +443,12 @@ function bumpToInProgressIfNotStarted(issue: Issue): void {
   if (issue.status === "not_started") issue.status = "in_progress";
 }
 
-export type AddActionItemOptions = MaskOptions & {
-  // trueのとき配列先頭へ挿入し、未完了の「次の一手」（issueNextAction）にする。
-  asNext?: boolean;
-};
-
-export async function addActionItem(
-  issueId: string,
-  text: string,
-  opts: AddActionItemOptions = {},
-): Promise<Issue | undefined> {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  const trimmed = text.trim();
-  if (!trimmed) return issue;
-  const { asNext, ...maskOpts } = opts;
-  await ensureNameCandidatesAllowed([trimmed], maskOpts);
-  const masked = await maskForStorage(trimmed);
-  const item = { id: randomUUID(), text: masked, done: false };
-  if (asNext) {
-    issue.actionItems.unshift(item);
-  } else {
-    issue.actionItems.push(item);
-  }
-  bumpToInProgressIfNotStarted(issue);
-  issue.updatedAt = Date.now();
-  persist();
-  recordChangeEvent(
-    "issue",
-    issue.id,
-    asNext ? `次の一手としてAction Itemを追加: 「${masked}」` : `Action Itemを追加: 「${masked}」`,
-  );
-  return issue;
-}
-
-// 指定した未完了Action Itemを配列先頭へ移し、次の一手にする。
-export function setActionItemAsNext(issueId: string, itemId: string): Issue | undefined {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  const index = issue.actionItems.findIndex((a) => a.id === itemId);
-  if (index < 0) return undefined;
-  const [item] = issue.actionItems.splice(index, 1);
-  if (item.done) {
-    // 完了済みを次の一手にはできない——元の位置へ戻す。
-    issue.actionItems.splice(index, 0, item);
-    return undefined;
-  }
-  issue.actionItems.unshift(item);
-  bumpToInProgressIfNotStarted(issue);
-  issue.updatedAt = Date.now();
-  persist();
-  recordChangeEvent("issue", issue.id, `「${item.text}」を次の一手にしました`);
-  return issue;
-}
-
-// Action Itemを子Issueへ昇格する。親が既に子Issueの場合は1階層制限で拒否。
-// 元のAction Itemは完了にし、二重管理（親のチェックと子のstatus）を避ける。
-export async function promoteActionItemToChildIssue(
-  issueId: string,
-  itemId: string,
-  opts: MaskOptions = {},
-): Promise<{ parent: Issue; child: Issue } | undefined> {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  if (issue.parentId) {
-    throw new Error("子IssueのAction Itemはさらに子Issueへ昇格できません（親子関係は1階層まで）");
-  }
-  const item = issue.actionItems.find((a) => a.id === itemId);
-  if (!item) return undefined;
-
-  const child = await createIssue(item.text, undefined, undefined, issueId, undefined, undefined, undefined, opts);
-  item.done = true;
-  bumpToInProgressIfNotStarted(issue);
-  issue.updatedAt = Date.now();
-  persist();
-  recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を子Issueへ昇格しました`);
-  return { parent: issue, child };
-}
-
 // ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
-// addActionItemと同じ最小限の作りだが、done等の状態を持たない単純な追記のみ（種別を
-// 分けない自由記述のため、後から編集・削除もしない——イベントソーシング的な記録として
-// 積み上げるだけにする）。recordChangeEventも呼ぶため、Timelineにも自然に現れる。
+// done等の状態を持たない単純な追記のみ（種別を分けない自由記述のため、後から編集・
+// 削除もしない——イベントソーシング的な記録として積み上げるだけにする）。
+// recordChangeEventも呼ぶため、Timelineにも自然に現れる。
+// docs/2nd_pivot_version.md Phase 2.4対応。Action ItemのCRUD（addActionItem等）は
+// 廃止したが、この自由記述ログはpivot_policy §2が明示的に許容する入力のため維持する。
 export async function addLogEntry(
   issueId: string,
   text: string,
@@ -546,33 +470,6 @@ export async function addLogEntry(
   } catch {
     // 呼び出し元の通知処理の失敗でIssue更新自体は失敗させない。
   }
-  return issue;
-}
-
-export function toggleActionItem(issueId: string, itemId: string): Issue | undefined {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  const item = issue.actionItems.find((a) => a.id === itemId);
-  if (!item) return undefined;
-  item.done = !item.done;
-  bumpToInProgressIfNotStarted(issue);
-  issue.updatedAt = Date.now();
-  persist();
-  recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を${item.done ? "完了" : "未完了"}にしました`);
-  return issue;
-}
-
-// 誤登録の取り消し用。完了済みも含め配列から除去する（アーカイブではなくハード削除）。
-// 「次の一手」を消した場合は、残りの未完了先頭が自然に次の一手になる。
-export function removeActionItem(issueId: string, itemId: string): Issue | undefined {
-  const issue = getIssue(issueId);
-  if (!issue) return undefined;
-  const index = issue.actionItems.findIndex((a) => a.id === itemId);
-  if (index < 0) return undefined;
-  const [item] = issue.actionItems.splice(index, 1);
-  issue.updatedAt = Date.now();
-  persist();
-  recordChangeEvent("issue", issue.id, `Action Item「${item.text}」を削除しました`);
   return issue;
 }
 
