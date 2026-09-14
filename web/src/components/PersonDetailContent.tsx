@@ -237,7 +237,7 @@ export function PersonDetailContent({ id }: { id: string }) {
         refreshEvaluationLogs={refreshEvaluationLogs}
       />
 
-      <PersonRecordsSection person={person} onJournalCreated={refreshPerson} />
+      <PersonRecordsSection person={person} onJournalCreated={refreshPerson} onProfileCreated={refreshPerson} />
     </>
   );
 }

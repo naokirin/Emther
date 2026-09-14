@@ -3,20 +3,24 @@
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { PersonJournalComposer } from "@/components/person-detail/PersonJournalComposer";
+import { PersonProfileComposer } from "@/components/person-detail/PersonProfileComposer";
 import { URGENCY_LABEL, charterFilledCount, issueOverviewText, type PersonProfile } from "@/lib/types";
 
 export function PersonRecordsSection({
   person,
   onJournalCreated,
+  onProfileCreated,
 }: {
   person: PersonProfile;
   onJournalCreated: () => Promise<void> | void;
+  onProfileCreated: () => Promise<void> | void;
 }) {
   return (
     <>
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.8125rem" }}>長期プロファイル（解釈、TTLなし）</h3>
+      <PersonProfileComposer personName={person.name} onCreated={onProfileCreated} />
       {person.interpretations.length === 0 ? (
-        <p className={styles.subtitle}>まだ記録がありません。Dashboardの長期プロファイルから記録できます。</p>
+        <p className={styles.subtitle}>まだ記録がありません。上のフォームから記録できます。</p>
       ) : (
         <div className={styles.tableWrap} style={{ marginBottom: 10 }}>
           <table className={styles.table}>
