@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import type { ObservationDumpView } from "@/lib/observation-dump-types";
 import { ObservationDumpCreateForm } from "./observation-dump/ObservationDumpCreateForm";
@@ -10,13 +9,15 @@ import { ObservationDumpDetailPanel } from "./observation-dump/ObservationDumpDe
 
 type Props = {
   onAccepted?: () => void;
-  /** `/journal?dump=` から深いリンク。あればセクションを開き当該 Dump を選択する */
+  /** `/journal?dump=` から深いリンク。あれば当該 Dump を選択する */
   focusDumpId?: string | null;
 };
 
+// ユーザー指摘「折りたたみをやめて最初から表示したい」対応。自身での開閉は持たず、
+// 呼び出し元（JournalInputSwitcher）のタブ切り替えで表示/非表示（マウント/アンマウント）を
+// 制御する。マウントされている間は常に読み込み済み状態を目指す。
 export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
-  const [open, setOpen] = useState(!!focusDumpId);
   const [dumps, setDumps] = useState<ObservationDumpView[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(focusDumpId ?? null);
@@ -36,13 +37,12 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   // focusDumpId が後から付いた／変わったとき、レンダー中に選択状態を合わせる（effect内setState回避）
   if (focusDumpId && focusDumpId !== seenFocusDumpId) {
     setSeenFocusDumpId(focusDumpId);
-    setOpen(true);
     setSelectedId(focusDumpId);
     setLoaded(false);
   }
 
   useEffect(() => {
-    if (!open || loaded) return;
+    if (loaded) return;
     let cancelled = false;
     void (async () => {
       const res = await fetch("/api/journal/dumps");
@@ -57,40 +57,24 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open, loaded]);
+  }, [loaded]);
 
   return (
-    <div className={styles.panel} style={{ marginBottom: 16 }}>
-      <button
-        type="button"
-        className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-        onClick={() => setOpen(!open)}
-      >
-        📥 観測を取り込む（チャット / MTG / その他） {open ? "▲" : "▼"}
-      </button>
+    <>
+      <ObservationDumpCreateForm fetchWithNameConfirm={fetchWithNameConfirm} reload={reload} onCreated={setSelectedId} />
 
-      {open && (
-        <div style={{ marginTop: 12 }}>
-          <ObservationDumpCreateForm
-            fetchWithNameConfirm={fetchWithNameConfirm}
-            reload={reload}
-            onCreated={setSelectedId}
-          />
+      <ObservationDumpList dumps={dumps} loaded={loaded} selectedId={selectedId} onSelect={setSelectedId} />
 
-          <ObservationDumpList dumps={dumps} loaded={loaded} selectedId={selectedId} onSelect={setSelectedId} />
-
-          {selected && (
-            <ObservationDumpDetailPanel
-              selected={selected}
-              fetchWithNameConfirm={fetchWithNameConfirm}
-              reload={reload}
-              onAccepted={onAccepted}
-              onDiscarded={() => setSelectedId(null)}
-            />
-          )}
-        </div>
+      {selected && (
+        <ObservationDumpDetailPanel
+          selected={selected}
+          fetchWithNameConfirm={fetchWithNameConfirm}
+          reload={reload}
+          onAccepted={onAccepted}
+          onDiscarded={() => setSelectedId(null)}
+        />
       )}
       {nameCandidateDialog}
-    </div>
+    </>
   );
 }

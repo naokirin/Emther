@@ -4,8 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
-import { ObservationDumpSection } from "@/components/ObservationDumpSection";
-import { QuickJournalNoteForm } from "@/components/QuickJournalNoteForm";
+import { JournalInputSwitcher } from "@/components/JournalInputSwitcher";
 import { PageTitleRow } from "@/components/HelpLink";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
@@ -125,9 +124,7 @@ function JournalListPageInner() {
     <div className={styles.screen}>
       <PageTitleRow title="現場メモ" helpAnchor="journal" />
 
-      <QuickJournalNoteForm onCreated={() => refreshSearch()} />
-
-      <ObservationDumpSection onAccepted={() => refreshSearch()} focusDumpId={focusDumpId} />
+      <JournalInputSwitcher onSaved={() => refreshSearch()} focusDumpId={focusDumpId} />
 
       <div className={styles.panel}>
         <div className={styles.field}>

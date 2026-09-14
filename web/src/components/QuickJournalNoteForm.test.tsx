@@ -19,17 +19,16 @@ describe("QuickJournalNoteForm", () => {
     vi.unstubAllGlobals();
   });
 
-  it("既定では折りたたまれており、入力欄が表示されない", () => {
+  it("最初から入力欄が表示されている", () => {
     render(<QuickJournalNoteForm onCreated={vi.fn()} />);
-    expect(screen.queryByPlaceholderText(/1on1/)).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/1on1/)).toBeInTheDocument();
   });
 
-  it("開いてテキストを入力し保存すると、/api/journalへPOSTしonCreatedを呼ぶ", async () => {
+  it("テキストを入力し保存すると、/api/journalへPOSTしonCreatedを呼ぶ", async () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
     render(<QuickJournalNoteForm onCreated={onCreated} />);
 
-    await user.click(screen.getByRole("button", { name: /単発でメモする/ }));
     const textarea = screen.getByPlaceholderText(/1on1/);
     await user.type(textarea, "テストメモ");
     await user.click(screen.getByRole("button", { name: "保存する" }));
@@ -46,10 +45,8 @@ describe("QuickJournalNoteForm", () => {
     expect((textarea as HTMLTextAreaElement).value).toBe("");
   });
 
-  it("空欄では保存ボタンが無効", async () => {
-    const user = userEvent.setup();
+  it("空欄では保存ボタンが無効", () => {
     render(<QuickJournalNoteForm onCreated={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /単発でメモする/ }));
     expect(screen.getByRole("button", { name: "保存する" })).toBeDisabled();
   });
 
@@ -57,7 +54,6 @@ describe("QuickJournalNoteForm", () => {
     fetchMock.mockImplementation(async () => ({ ok: false, json: async () => ({ error: "保存失敗" }) }));
     const user = userEvent.setup();
     render(<QuickJournalNoteForm onCreated={vi.fn()} />);
-    await user.click(screen.getByRole("button", { name: /単発でメモする/ }));
     await user.type(screen.getByPlaceholderText(/1on1/), "テストメモ");
     await user.click(screen.getByRole("button", { name: "保存する" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("保存失敗");
