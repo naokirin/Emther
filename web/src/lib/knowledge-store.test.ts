@@ -353,6 +353,43 @@ describe("toEventView", () => {
   });
 });
 
+// ユーザー指摘「確認したが対応不要だった、を示せず強調を減らせない」対応。
+describe("setEventNoActionNeeded / clearEventNoActionNeeded", () => {
+  it("sentiment等は変えずno_action_needed系だけをin-placeで更新する", async () => {
+    const { knowledgeStore } = await loadModules();
+    const event = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "つらい",
+      sentiment: "negative",
+      tags: [],
+      occurredAt: 1,
+    });
+    const acked = knowledgeStore.setEventNoActionNeeded(event.id, "確認済み・対応不要");
+    expect(acked?.id).toBe(event.id);
+    expect(acked?.sentiment).toBe("negative");
+    expect(acked?.noActionNeededAt).toBeDefined();
+    expect(acked?.noActionNeededNote).toBe("確認済み・対応不要");
+
+    const fetched = knowledgeStore.getEventById(event.id);
+    expect(fetched?.noActionNeededAt).toBe(acked?.noActionNeededAt);
+    expect(fetched?.noActionNeededNote).toBe("確認済み・対応不要");
+
+    const cleared = knowledgeStore.clearEventNoActionNeeded(event.id);
+    expect(cleared?.noActionNeededAt).toBeUndefined();
+    expect(cleared?.noActionNeededNote).toBeUndefined();
+    expect(knowledgeStore.getEventById(event.id)?.noActionNeededAt).toBeUndefined();
+  });
+
+  it("存在しないIDはundefinedを返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    expect(knowledgeStore.setEventNoActionNeeded("nope", undefined)).toBeUndefined();
+    expect(knowledgeStore.clearEventNoActionNeeded("nope")).toBeUndefined();
+  });
+});
+
 describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () => {
   it("recordChangeEventはkind:fact context:officialで記録する", async () => {
     const { knowledgeStore } = await loadModules();

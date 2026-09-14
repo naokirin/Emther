@@ -28,6 +28,12 @@ export type PersonEvaluationLog = {
   rationale: string;
   createdAt: number;
   updatedAt: number;
+  // ユーザー指摘「確認したが対応不要だった、を示せず懸念の強調を減らせない」対応。
+  // polarity（AIが検出した当初の判定）は書き換えず、EMが確認して対応不要と判断した
+  // 事実だけを別途持たせる。statusの確定/仮置き/破棄とは独立（破棄は記録自体を隠す操作、
+  // これは「懸念としての強調」だけを弱める操作）。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 type Row = {
@@ -44,6 +50,8 @@ type Row = {
   rationale: string;
   created_at: number;
   updated_at: number;
+  no_action_needed_at: number | null;
+  no_action_needed_note: string | null;
 };
 
 function rowToLog(row: Row): PersonEvaluationLog {
@@ -61,6 +69,8 @@ function rowToLog(row: Row): PersonEvaluationLog {
     rationale: row.rationale,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    noActionNeededAt: row.no_action_needed_at ?? undefined,
+    noActionNeededNote: row.no_action_needed_note ?? undefined,
   };
 }
 
@@ -70,6 +80,7 @@ export function toEvaluationLogView(log: PersonEvaluationLog): PersonEvaluationL
     snapshotText: unmaskNames(log.snapshotText),
     rationale: unmaskNames(log.rationale),
     valueSnapshot: log.valueSnapshot !== undefined ? unmaskNames(log.valueSnapshot) : undefined,
+    noActionNeededNote: log.noActionNeededNote !== undefined ? unmaskNames(log.noActionNeededNote) : undefined,
   };
 }
 
@@ -165,6 +176,32 @@ export function setEvaluationLogStatus(
     .prepare(`UPDATE person_evaluation_logs SET status = ?, updated_at = ? WHERE id = ?`)
     .run(status, now, id);
   return { ...log, status, updatedAt: now };
+}
+
+/**
+ * ユーザー指摘「懸念(polarity: concern)を確認したが対応不要だった、を示せず強調を
+ * 減らせない」対応。polarity自体（AIが当初検出した判定）は書き換えず、EMの確認結果だけを
+ * 別軸に記録する。noteは任意の自由記述（人物名を含み得るため保存前にmaskForStorageを通す）。
+ */
+export async function setEvaluationLogNoActionNeeded(id: string, note?: string): Promise<PersonEvaluationLog | undefined> {
+  const log = getEvaluationLog(id);
+  if (!log) return undefined;
+  const now = Date.now();
+  const trimmed = note?.trim();
+  const masked = trimmed ? await maskForStorage(trimmed) : undefined;
+  getDb()
+    .prepare(`UPDATE person_evaluation_logs SET no_action_needed_at = ?, no_action_needed_note = ? WHERE id = ?`)
+    .run(now, masked ?? null, id);
+  return { ...log, noActionNeededAt: now, noActionNeededNote: masked };
+}
+
+export function clearEvaluationLogNoActionNeeded(id: string): PersonEvaluationLog | undefined {
+  const log = getEvaluationLog(id);
+  if (!log) return undefined;
+  getDb()
+    .prepare(`UPDATE person_evaluation_logs SET no_action_needed_at = NULL, no_action_needed_note = NULL WHERE id = ?`)
+    .run(id);
+  return { ...log, noActionNeededAt: undefined, noActionNeededNote: undefined };
 }
 
 /** 同一 Journal×人物×レンズの仮置きが既にあればスキップ。 */

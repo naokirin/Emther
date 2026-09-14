@@ -154,6 +154,11 @@ export function PersonHeader({
           {person.trend.negative > 0 && ` ／ 🙁${person.trend.negative}`}
           {person.hasConcerningIssue && " ／ ⚠️ 停滞・ブロッカーありの関連Issueがあります"}
         </p>
+        {person.hasConcerningIssue && (
+          <p className={styles.subtitle}>
+            確認のうえ対応不要と判断した場合は、下の「関連Issue」一覧の該当行から「確認した（対応不要）」を押すとこの強調は消えます。
+          </p>
+        )}
         {person.isSelf && (
           <p className={styles.subtitle}>自分（部下一覧・1on1 Coverage 対象外）</p>
         )}

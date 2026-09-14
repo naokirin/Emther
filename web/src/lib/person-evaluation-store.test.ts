@@ -123,6 +123,27 @@ describe("person-evaluation-store", () => {
     expect(created).toHaveLength(2);
   });
 
+  it("懸念(polarity: concern)を確認済み（対応不要）にでき、取り消せる", async () => {
+    const store = await import("@/lib/person-evaluation-store");
+    const log = await store.createEvaluationLog({
+      personId: "PERSON_1",
+      lens: "outcome",
+      polarity: "concern",
+      sourceJournalId: "j1",
+      snapshotText: "懸念のある出来事",
+      rationale: "r",
+    });
+
+    const acked = await store.setEvaluationLogNoActionNeeded(log.id, "確認済み・対応不要");
+    expect(acked?.polarity).toBe("concern"); // polarity自体は書き換えない
+    expect(acked?.noActionNeededAt).toBeDefined();
+    expect(acked?.noActionNeededNote).toBe("確認済み・対応不要");
+
+    const cleared = store.clearEvaluationLogNoActionNeeded(log.id);
+    expect(cleared?.noActionNeededAt).toBeUndefined();
+    expect(cleared?.noActionNeededNote).toBeUndefined();
+  });
+
   it("suggest-from-journalは埋め込みの無いFactを仮置きしない（関連性を確認できないため）", async () => {
     const store = await import("@/lib/person-evaluation-store");
     const { recordEvent } = await import("@/lib/knowledge-store");

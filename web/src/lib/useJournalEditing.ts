@@ -328,6 +328,59 @@ export function useJournalEditing(
     }
   }
 
+  // ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブ等の強調を減らせない」対応。
+  // sentimentは観測値のまま書き換えず、EMが確認済み・対応不要と判断した事実だけを別途
+  // 記録する専用エンドポイントを叩く（通常のPATCH/supersedesチェーンとは別経路）。
+  // 頻度の低い操作であり、自由記述のノートを毎回求めると手間になるため、既定はメモなしの
+  // ワンクリックにする（一覧側は確認済みの理由まで示す必要はなく、強調を弱めれば十分）。
+  async function acknowledgeSentiment(entryId: string) {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
+    try {
+      const res = await fetch(`/api/journal/${entryId}/no-action-needed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "確認の記録に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+    } catch (err) {
+      const retry = () => {
+        void acknowledgeSentiment(entryId);
+      };
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }
+
+  async function clearSentimentAck(entryId: string) {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
+    try {
+      const res = await fetch(`/api/journal/${entryId}/no-action-needed`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "取り消しに失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+    } catch (err) {
+      const retry = () => {
+        void clearSentimentAck(entryId);
+      };
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }
+
   return {
     editingEntryId,
     editRawText,
@@ -360,6 +413,8 @@ export function useJournalEditing(
     setLinkIssueIdDraft,
     linkToExistingIssue,
     clearResolution,
+    acknowledgeSentiment,
+    clearSentimentAck,
     isEntryPending,
     pendingEntryErrors,
     dismissPendingError,

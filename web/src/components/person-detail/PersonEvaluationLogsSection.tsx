@@ -65,6 +65,30 @@ export function PersonEvaluationLogsSection({
     }
   }
 
+  // ユーザー指摘「懸念(polarity: concern)を確認したが対応不要だった、を示せず強調を
+  // 減らせない」対応。statusの確定/破棄とは独立に、赤い「乖離・懸念」の強調だけを
+  // 弱める・戻すトグル。AIが当初検出したpolarity自体は書き換えない（監査性のため）。
+  async function handleEvalNoActionNeeded(logId: string, noActionNeeded: boolean) {
+    setEvalBusyId(logId);
+    setEvalError(null);
+    try {
+      const res = await fetch(`/api/people/${personId}/evaluation-logs/${logId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noActionNeeded }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "更新に失敗しました");
+      }
+      await refreshEvaluationLogs();
+    } catch (err) {
+      setEvalError((err as Error).message);
+    } finally {
+      setEvalBusyId(null);
+    }
+  }
+
   function renderEvalSection(title: string, logs: PersonEvaluationLog[]) {
     const visible = logs.filter((l) => l.status !== "discarded");
     return (
@@ -89,9 +113,21 @@ export function PersonEvaluationLogsSection({
                   <span className={styles.tableMuted}>
                     {log.status === "provisional" ? "仮置き" : log.status === "confirmed" ? "確定" : log.status}
                   </span>
-                  {log.polarity === "concern" && (
-                    <span style={{ color: "var(--warning, #b45309)" }}>乖離・懸念</span>
-                  )}
+                  {log.polarity === "concern" &&
+                    (log.noActionNeededAt ? (
+                      <span
+                        className={styles.tableMuted}
+                        title={
+                          log.noActionNeededNote
+                            ? `確認済み（対応不要と判断）: ${log.noActionNeededNote}`
+                            : "確認済み（対応不要と判断）"
+                        }
+                      >
+                        ✓ 乖離・懸念（確認済み）
+                      </span>
+                    ) : (
+                      <span style={{ color: "var(--warning, #b45309)" }}>乖離・懸念</span>
+                    ))}
                   <span className={styles.tableMuted}>{new Date(log.createdAt).toLocaleDateString("ja-JP")}</span>
                 </div>
                 <p style={{ margin: "0 0 4px" }}>{log.snapshotText}</p>
@@ -103,6 +139,27 @@ export function PersonEvaluationLogsSection({
                   <Link href={`/journal?focus=${log.sourceJournalId}`} className={styles.detailToggle}>
                     根拠 Journal
                   </Link>
+                  {log.polarity === "concern" &&
+                    (log.noActionNeededAt ? (
+                      <button
+                        type="button"
+                        className={styles.btnOutline}
+                        disabled={evalBusyId === log.id}
+                        onClick={() => handleEvalNoActionNeeded(log.id, false)}
+                      >
+                        確認を取り消す
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.btnOutline}
+                        disabled={evalBusyId === log.id}
+                        onClick={() => handleEvalNoActionNeeded(log.id, true)}
+                        title="確認したが対応は不要だった場合に押してください（記録自体は残ります）"
+                      >
+                        確認した（対応不要）
+                      </button>
+                    ))}
                   {log.status === "provisional" && (
                     <>
                       <button

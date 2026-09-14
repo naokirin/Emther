@@ -57,6 +57,8 @@ export function JournalEntryCard({
   onResolveWithNewIssue,
   onLinkToExistingIssue,
   onClearResolution,
+  onAcknowledgeSentiment,
+  onClearSentimentAck,
   onDismissPendingError,
 }: {
   entry: JournalEntry;
@@ -96,6 +98,9 @@ export function JournalEntryCard({
   onResolveWithNewIssue: () => Promise<string | undefined>;
   onLinkToExistingIssue: () => void;
   onClearResolution: () => void;
+  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
+  onAcknowledgeSentiment: () => void;
+  onClearSentimentAck: () => void;
   onDismissPendingError: () => void;
 }) {
   const router = useRouter();
@@ -416,11 +421,44 @@ export function JournalEntryCard({
             #{t}
           </button>
         ))}
-        {entry.sentiment !== "neutral" && (
-          <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-            #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-          </span>
-        )}
+        {/* ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブ等の強調を減らせない」
+            対応。sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した
+            場合だけ、#ネガティブの赤い強調を中立色に弱める（別途取り消しもできる）。 */}
+        {entry.sentiment !== "neutral" &&
+          (entry.sentiment === "negative" && entry.noActionNeededAt ? (
+            <span
+              className={`${styles.tag} ${styles.tagPerson}`}
+              title={
+                entry.noActionNeededNote
+                  ? `確認済み（対応不要と判断）: ${entry.noActionNeededNote}`
+                  : "確認済み（対応不要と判断）"
+              }
+            >
+              ✓ ネガティブ（確認済み）
+            </span>
+          ) : (
+            <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
+              #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
+            </span>
+          ))}
+        {entry.sentiment === "negative" &&
+          (entry.noActionNeededAt ? (
+            <button
+              className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+              onClick={onClearSentimentAck}
+              title="確認済み（対応不要）を取り消し、通常の強調表示に戻します"
+            >
+              確認を取り消す
+            </button>
+          ) : (
+            <button
+              className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
+              onClick={onAcknowledgeSentiment}
+              title="確認したが対応は不要だった場合に押してください。ネガティブの強調を弱めます（出来事の記録自体は変わりません）"
+            >
+              確認した（対応不要）
+            </button>
+          ))}
         <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
         {/* docs/em_human_story_and_ux.md 改修依頼対応。urgencyは記録のまま変えないため、
             「今どこで管理されているか」をurgencyバッジとは別に見せる。 */}

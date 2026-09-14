@@ -11,6 +11,7 @@ import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-stor
 import { listIssues, toIssueView, type Issue, type IssueCharter } from "@/lib/issue-store";
 import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@/lib/settings-store";
 import { isIssueStalled } from "@/lib/types";
+import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "@/lib/person-concern-ack-store";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
 // 既存のpeople-directory（誰がいるか）・knowledge-store（Journal fact／長期解釈）・
@@ -48,6 +49,9 @@ export type PersonFact = {
   sentiment?: KnowledgeEvent["sentiment"];
   urgency?: KnowledgeEvent["urgency"];
   occurredAt: number;
+  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 export type PersonRelatedIssue = {
@@ -55,6 +59,13 @@ export type PersonRelatedIssue = {
   title: string;
   archived: boolean;
   charter: IssueCharter;
+  // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
+  // このIssue単体が、hasConcerningIssueの根拠（停滞・ブロッカーあり、未アーカイブ）に
+  // 該当するか。確認済み(concernAcknowledgedAt)であっても実際の状態はconcerning=trueの
+  // まま返し、UI側は「確認済みだから強調を弱める」判断に使う（Issue自体の状態は隠さない）。
+  concerning: boolean;
+  concernAcknowledgedAt?: number;
+  concernAcknowledgedNote?: string;
 };
 
 export type PersonProfile = PersonSummary & {
@@ -76,7 +87,16 @@ function computeTrend(facts: KnowledgeEvent[]): PersonTrend {
 }
 
 function toPersonFact(e: KnowledgeEvent): PersonFact {
-  return { id: e.id, text: e.text, tags: e.tags, sentiment: e.sentiment, urgency: e.urgency, occurredAt: e.occurredAt };
+  return {
+    id: e.id,
+    text: e.text,
+    tags: e.tags,
+    sentiment: e.sentiment,
+    urgency: e.urgency,
+    occurredAt: e.occurredAt,
+    noActionNeededAt: e.noActionNeededAt,
+    noActionNeededNote: e.noActionNeededNote,
+  };
 }
 
 // org/page.tsxの関連Issue抽出（selectedTeam.members.some(m => haystack.includes(m))）と
@@ -90,8 +110,21 @@ function findRelatedIssues(personName: string): Issue[] {
 
 // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。未アーカイブの
 // 関連Issueに、ブロッカーあり・停滞中のものが1件でもあるかどうか。
-function hasConcerningRelatedIssue(relatedIssues: Issue[], now: number, staleDays: number): boolean {
-  return relatedIssues.some((i) => !i.archived && (i.status === "blocked" || isIssueStalled(i, now, staleDays)));
+// ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
+// EMが確認済み（対応不要）と判断したIssue（acknowledgedIssueIds）は、Issue自体は
+// concerning=trueのまま関連Issue一覧に出しつつ、hasConcerningIssue（一覧・バイタルの
+// 強調トリガー）の判定からは除外する。
+function isConcerningIssue(i: Issue, now: number, staleDays: number): boolean {
+  return !i.archived && (i.status === "blocked" || isIssueStalled(i, now, staleDays));
+}
+
+function hasConcerningRelatedIssue(
+  relatedIssues: Issue[],
+  now: number,
+  staleDays: number,
+  acknowledgedIssueIds: Set<string>,
+): boolean {
+  return relatedIssues.some((i) => isConcerningIssue(i, now, staleDays) && !acknowledgedIssueIds.has(i.id));
 }
 
 export function listPersonSummaries(): PersonSummary[] {
@@ -103,6 +136,7 @@ export function listPersonSummaries(): PersonSummary[] {
   return listPeople().map((p) => {
     const facts = listActiveFactsForPerson(p.id, FACTS_LIMIT);
     const isSelf = selfPersonId !== null && p.id === selfPersonId;
+    const acknowledgedIssueIds = new Set(listPersonIssueConcernAcks(p.id).map((a) => a.issueId));
     return {
       id: p.id,
       name: p.name,
@@ -113,7 +147,7 @@ export function listPersonSummaries(): PersonSummary[] {
       isSelf,
       // 本人は「部下」に含めない（1on1 Coverage対象外と同じ考え方）。
       isDirectReport: !isSelf && managedTeams.some((t) => t.members.includes(p.id)),
-      hasConcerningIssue: hasConcerningRelatedIssue(findRelatedIssues(p.name), now, staleInterventionDays),
+      hasConcerningIssue: hasConcerningRelatedIssue(findRelatedIssues(p.name), now, staleInterventionDays, acknowledgedIssueIds),
     };
   });
 }
@@ -133,7 +167,23 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     .map((e) => ({ id: e.id, text: e.text, occurredAt: e.occurredAt }));
 
   const relatedIssuesRaw = findRelatedIssues(person.name);
-  const relatedIssues = relatedIssuesRaw.map((i) => ({ id: i.id, title: i.title, archived: i.archived, charter: i.charter }));
+  const now = Date.now();
+  const { staleInterventionDays } = getRulesAndConstraints();
+  const acks = new Map(
+    listPersonIssueConcernAcks(id).map((a) => [a.issueId, toPersonIssueConcernAckView(a)] as const),
+  );
+  const relatedIssues = relatedIssuesRaw.map((i) => {
+    const ack = acks.get(i.id);
+    return {
+      id: i.id,
+      title: i.title,
+      archived: i.archived,
+      charter: i.charter,
+      concerning: isConcerningIssue(i, now, staleInterventionDays),
+      concernAcknowledgedAt: ack?.createdAt,
+      concernAcknowledgedNote: ack?.note,
+    };
+  });
   const selfPersonId = getSelfPersonId();
   const isSelf = selfPersonId !== null && person.id === selfPersonId;
 
@@ -151,8 +201,9 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     isDirectReport: !isSelf && teams.some((t) => t.managedByEm),
     hasConcerningIssue: hasConcerningRelatedIssue(
       relatedIssuesRaw,
-      Date.now(),
-      getRulesAndConstraints().staleInterventionDays,
+      now,
+      staleInterventionDays,
+      new Set(acks.keys()),
     ),
   };
 }

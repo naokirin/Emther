@@ -37,6 +37,8 @@ import {
   listEventFacets,
   getEventById,
   getEventHeadById,
+  setEventNoActionNeeded,
+  clearEventNoActionNeeded,
   type EventPageFilter,
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
@@ -86,6 +88,10 @@ export type JournalEntry = {
   // docs/observation_dump_journal.md: 外部ログ取り込み由来。
   sourceDumpId?: string;
   sourceChunkId?: string;
+  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
+  // sentimentは観測値のまま書き換えず、EMが確認済み・対応不要と判断した事実だけを別軸で持つ。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 /**
@@ -119,6 +125,8 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     resolutionNote: e.resolutionNote,
     sourceDumpId: e.sourceDumpId,
     sourceChunkId: e.sourceChunkId,
+    noActionNeededAt: e.noActionNeededAt,
+    noActionNeededNote: e.noActionNeededNote,
   };
 }
 
@@ -146,7 +154,29 @@ export function toJournalEntryView(entry: JournalEntry, consultIndex: Map<string
     resolvedIssueTitle: resolvedIssue ? toIssueView(resolvedIssue).title : undefined,
     resolutionNote: entry.resolutionNote ? unmaskNames(entry.resolutionNote) : undefined,
     sourceConsultRunId: consultIndex.get(entry.id),
+    noActionNeededNote: entry.noActionNeededNote ? unmaskNames(entry.noActionNeededNote) : undefined,
   };
+}
+
+// ユーザー指摘「確認したが対応不要だった、をUIに反映したい」対応。ネガティブ/ポジティブの
+// sentimentタグは観測事実として残すが、EMがこの1件を確認済み・対応不要と判断したことを
+// 記録し、一覧側で強調を弱める（例: 赤い#ネガティブタグを中立色に）。内容の訂正ではない
+// ためsupersedesは使わず、既存イベントへのin-place更新（knowledge-store.ts参照）。
+export async function setJournalNoActionNeeded(id: string, note?: string): Promise<JournalEntry | undefined> {
+  // 渡されたidがsupersedesチェーンの旧版でも、現行版（一覧に出ている版）へ付ける。
+  const head = getEventHeadById(id);
+  if (!head || head.entityType !== "journal") return undefined;
+  const trimmed = note?.trim();
+  const masked = trimmed ? await maskForStorage(trimmed) : undefined;
+  const event = setEventNoActionNeeded(head.id, masked);
+  return event ? eventToJournalEntry(event) : undefined;
+}
+
+export function clearJournalNoActionNeeded(id: string): JournalEntry | undefined {
+  const head = getEventHeadById(id);
+  if (!head || head.entityType !== "journal") return undefined;
+  const event = clearEventNoActionNeeded(head.id);
+  return event ? eventToJournalEntry(event) : undefined;
 }
 
 export function toJournalEntryViews(entries: JournalEntry[], consultIndex: Map<string, string>): JournalEntry[] {

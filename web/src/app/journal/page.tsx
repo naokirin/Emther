@@ -228,6 +228,8 @@ function JournalListPageInner() {
                 onResolveWithNewIssue={() => editing.resolveWithNewIssue(entry)}
                 onLinkToExistingIssue={() => editing.linkToExistingIssue(entry.id)}
                 onClearResolution={() => editing.clearResolution(entry.id)}
+                onAcknowledgeSentiment={() => editing.acknowledgeSentiment(entry.id)}
+                onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}
               />
             </div>
           ))

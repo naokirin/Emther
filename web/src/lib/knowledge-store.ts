@@ -56,6 +56,11 @@ export type KnowledgeEvent = {
   // docs/observation_dump_journal.md: 外部ログ取り込み Dump／チャンクへの弱いリンク。
   sourceDumpId?: string;
   sourceChunkId?: string;
+  // ユーザー指摘「確認したが対応不要だった、をEM側から示せない・UI上の強調を減らせない」
+  // 対応。sentiment等の観測値自体は書き換えず、EMが確認して対応不要と判断した事実だけを
+  // 別途持たせる（in-place更新。内容の訂正ではないためsupersedesチェーンは使わない）。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt" | "teamIds"> & {
@@ -87,6 +92,8 @@ type Row = {
   resolution_note: string | null;
   source_dump_id: string | null;
   source_chunk_id: string | null;
+  no_action_needed_at: number | null;
+  no_action_needed_note: string | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -113,7 +120,31 @@ function rowToEvent(row: Row): KnowledgeEvent {
     resolutionNote: row.resolution_note ?? undefined,
     sourceDumpId: row.source_dump_id ?? undefined,
     sourceChunkId: row.source_chunk_id ?? undefined,
+    noActionNeededAt: row.no_action_needed_at ?? undefined,
+    noActionNeededNote: row.no_action_needed_note ?? undefined,
   };
+}
+
+// ユーザー指摘「確認したが対応不要だった、をUIに反映したい」対応。sentiment等の観測値は
+// そのままに、EMの確認結果だけをin-placeで上書きする（新しいイベントは作らない＝
+// このイベント自身のsupersedesチェーンや一覧の並び順には影響しない）。
+export function setEventNoActionNeeded(id: string, note: string | undefined): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  if (!row) return undefined;
+  const now = Date.now();
+  getDb()
+    .prepare("UPDATE knowledge_events SET no_action_needed_at = ?, no_action_needed_note = ? WHERE id = ?")
+    .run(now, note ?? null, id);
+  return rowToEvent({ ...row, no_action_needed_at: now, no_action_needed_note: note ?? null });
+}
+
+export function clearEventNoActionNeeded(id: string): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  if (!row) return undefined;
+  getDb()
+    .prepare("UPDATE knowledge_events SET no_action_needed_at = NULL, no_action_needed_note = NULL WHERE id = ?")
+    .run(id);
+  return rowToEvent({ ...row, no_action_needed_at: null, no_action_needed_note: null });
 }
 
 export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
@@ -416,6 +447,8 @@ export function toEventView(event: KnowledgeEvent): KnowledgeEvent {
     text: unmaskNames(event.text),
     summary: event.summary !== undefined ? unmaskNames(event.summary) : event.summary,
     people: event.people.map(unmaskNames),
+    noActionNeededNote:
+      event.noActionNeededNote !== undefined ? unmaskNames(event.noActionNeededNote) : event.noActionNeededNote,
   };
 }
 

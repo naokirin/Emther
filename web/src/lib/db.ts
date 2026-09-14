@@ -231,4 +231,28 @@ function migrate(database: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_person_eval_person ON person_evaluation_logs(person_id);
     CREATE INDEX IF NOT EXISTS idx_person_eval_journal ON person_evaluation_logs(source_journal_id);
   `);
+
+  // ユーザー指摘「確認したが対応不要だった、をEM側から示せない・UI上の強調を減らせない
+  // ものがある（メンバーのアラート表示、評価ログ、Journalのネガポジなど）」対応。
+  // AIやヒューリスティックが検出した状態（sentiment/polarity/停滞Issue等）自体は観測事実
+  // として書き換えず、「EMが確認し、対応不要と判断した」という上書き情報だけを別途持たせ、
+  // UI側はこれがあれば強調を弱める。3箇所で同じ考え方・同じカラム名ペア
+  // （no_action_needed_at / no_action_needed_note）を使う。
+  addColumnIfMissing(database, "knowledge_events", "no_action_needed_at", "INTEGER");
+  addColumnIfMissing(database, "knowledge_events", "no_action_needed_note", "TEXT");
+  addColumnIfMissing(database, "person_evaluation_logs", "no_action_needed_at", "INTEGER");
+  addColumnIfMissing(database, "person_evaluation_logs", "no_action_needed_note", "TEXT");
+
+  // メンバー詳細の「関連Issue（停滞・ブロッカーあり）」アラートは、Issueそのものではなく
+  // 「この人物にとって」対応不要と判断した、という人物×Issue単位の判断のため、
+  // 既存のknowledge_events/person_evaluation_logsとは別に person_id×issue_id のペアで持つ。
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS person_issue_concern_acks (
+      person_id TEXT NOT NULL,
+      issue_id TEXT NOT NULL,
+      note TEXT,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (person_id, issue_id)
+    );
+  `);
 }

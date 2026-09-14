@@ -63,6 +63,8 @@ function baseProps(overrides: Partial<Parameters<typeof JournalEntryCard>[0]> = 
     onResolveWithNewIssue: asyncNoop,
     onLinkToExistingIssue: noop,
     onClearResolution: noop,
+    onAcknowledgeSentiment: noop,
+    onClearSentimentAck: noop,
     onDismissPendingError: noop,
     ...overrides,
   };

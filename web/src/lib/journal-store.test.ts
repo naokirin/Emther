@@ -319,6 +319,38 @@ describe("listJournalFacets", () => {
   });
 });
 
+// ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
+describe("setJournalNoActionNeeded / clearJournalNoActionNeeded", () => {
+  it("sentimentは変えずno-action-needed系だけを設定し、現行版（headの版）に反映される", async () => {
+    const store = await loadModule();
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative", summary: "" };
+    const entry = await store.addJournalEntry("つらい状況");
+    // 一度校正して新しいid（supersedesチェーンのhead）にした状態で確認する。
+    const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
+
+    const acked = await store.setJournalNoActionNeeded(confirmed!.id, "確認済み、対応不要");
+    expect(acked?.sentiment).toBe("negative");
+    expect(acked?.noActionNeededAt).toBeDefined();
+    expect(acked?.noActionNeededNote).toBe("確認済み、対応不要");
+
+    // 古い（supersedesされた）idを渡しても現行版へ反映される。
+    const ackedFromOldId = await store.setJournalNoActionNeeded(entry.id, "別の理由");
+    expect(ackedFromOldId?.id).toBe(confirmed!.id);
+    expect(ackedFromOldId?.noActionNeededNote).toBe("別の理由");
+
+    const cleared = await store.clearJournalNoActionNeeded(entry.id);
+    expect(cleared?.id).toBe(confirmed!.id);
+    expect(cleared?.noActionNeededAt).toBeUndefined();
+    expect(cleared?.noActionNeededNote).toBeUndefined();
+  });
+
+  it("存在しないIDはundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(await store.setJournalNoActionNeeded("missing")).toBeUndefined();
+    expect(store.clearJournalNoActionNeeded("missing")).toBeUndefined();
+  });
+});
+
 describe("updateJournalEntry", () => {
   it("存在しないIDはundefinedを返す", async () => {
     const store = await loadModule();

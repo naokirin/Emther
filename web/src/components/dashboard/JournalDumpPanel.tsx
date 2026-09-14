@@ -476,6 +476,8 @@ export function JournalDumpPanel({
           onResolveWithNewIssue={() => journalEditing.resolveWithNewIssue(entry)}
           onLinkToExistingIssue={() => journalEditing.linkToExistingIssue(entry.id)}
           onClearResolution={() => journalEditing.clearResolution(entry.id)}
+          onAcknowledgeSentiment={() => journalEditing.acknowledgeSentiment(entry.id)}
+          onClearSentimentAck={() => journalEditing.clearSentimentAck(entry.id)}
         />
       ))}
       {visibleJournalEntries.length > JOURNAL_DASHBOARD_LIMIT && (

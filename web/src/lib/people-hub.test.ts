@@ -157,6 +157,22 @@ describe("listPersonSummaries", () => {
     const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
     expect(summary?.hasConcerningIssue).toBe(false);
   });
+
+  // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
+  it("確認済み（対応不要）にしたIssueはhasConcerningIssueの判定から除外する", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const issueStore = await import("@/lib/issue-store");
+    const concernAckStore = await import("@/lib/person-concern-ack-store");
+    const hub = await loadModule();
+    const personId = peopleDirectory.registerName("Aさん");
+    const issue = await issueStore.createIssue("Aさんの育成計画");
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    expect(hub.listPersonSummaries().find((s) => s.name === "Aさん")?.hasConcerningIssue).toBe(true);
+
+    await concernAckStore.acknowledgePersonIssueConcern(personId, issue.id, "対応不要と判断");
+    expect(hub.listPersonSummaries().find((s) => s.name === "Aさん")?.hasConcerningIssue).toBe(false);
+  });
 });
 
 describe("getPersonProfile", () => {
@@ -199,6 +215,31 @@ describe("getPersonProfile", () => {
     const profile = hub.getPersonProfile("Aさん");
     expect(profile?.isDirectReport).toBe(true);
     expect(profile?.hasConcerningIssue).toBe(true);
+  });
+
+  // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
+  // relatedIssuesは、確認済み後もIssue自体の状態(concerning)はtrueのまま返す一方、
+  // hasConcerningIssue（アラートの強調トリガー）からは除外される。
+  it("relatedIssuesはconcerning/確認済みの情報を持ち、確認済みでもIssue自体の状態は隠さない", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    const issueStore = await import("@/lib/issue-store");
+    const concernAckStore = await import("@/lib/person-concern-ack-store");
+    const hub = await loadModule();
+    const personId = peopleDirectory.registerName("Aさん");
+    const issue = await issueStore.createIssue("Aさんの育成計画");
+    issueStore.setIssueStatus(issue.id, "blocked");
+
+    const before = hub.getPersonProfile("Aさん");
+    expect(before?.relatedIssues[0].concerning).toBe(true);
+    expect(before?.relatedIssues[0].concernAcknowledgedAt).toBeUndefined();
+    expect(before?.hasConcerningIssue).toBe(true);
+
+    await concernAckStore.acknowledgePersonIssueConcern(personId, issue.id, "対応不要と判断");
+    const after = hub.getPersonProfile("Aさん");
+    expect(after?.relatedIssues[0].concerning).toBe(true);
+    expect(after?.relatedIssues[0].concernAcknowledgedAt).toBeDefined();
+    expect(after?.relatedIssues[0].concernAcknowledgedNote).toBe("対応不要と判断");
+    expect(after?.hasConcerningIssue).toBe(false);
   });
 
   it("factsとinterpretationsを分けて返す", async () => {

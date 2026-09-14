@@ -37,6 +37,10 @@ export type JournalEntry = {
   // docs/observation_dump_journal.md: 外部ログ取り込み由来。
   sourceDumpId?: string;
   sourceChunkId?: string;
+  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
+  // sentimentは観測値のまま残しつつ、EMが確認済み・対応不要と判断した事実を別軸で持つ。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {
@@ -702,6 +706,9 @@ export type PersonFact = {
   sentiment?: "positive" | "negative" | "neutral";
   urgency?: "low" | "mid" | "high";
   occurredAt: number;
+  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 export type PersonRelatedIssue = {
@@ -709,6 +716,10 @@ export type PersonRelatedIssue = {
   title: string;
   archived: boolean;
   charter: IssueCharter;
+  // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
+  concerning: boolean;
+  concernAcknowledgedAt?: number;
+  concernAcknowledgedNote?: string;
 };
 
 export type PersonProfile = PersonSummary & {
@@ -736,6 +747,9 @@ export type PersonEvaluationLog = {
   rationale: string;
   createdAt: number;
   updatedAt: number;
+  // ユーザー指摘「懸念を確認したが対応不要だった、を示せず強調を減らせない」対応。
+  noActionNeededAt?: number;
+  noActionNeededNote?: string;
 };
 
 // docs/knowledge_distillation.md。組織状況の統括解釈（テーマ）。
