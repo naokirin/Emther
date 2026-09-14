@@ -91,7 +91,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                 }
               }}
             >
-              <strong>🎯 {o.title}</strong>
+              <strong style={{ whiteSpace: "pre-wrap" }}>🎯 {o.title}</strong>
               <span className={styles.subtitle} style={{ margin: 0 }}>
                 {o.keyResults.length} KR ・ {totalIssues} Issue {isOpen ? "▾" : "▸"}
               </span>
@@ -109,7 +109,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                   return (
                     <div key={kr.id} className={styles.threadKr}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <span>📈 {kr.title}</span>
+                        <span style={{ whiteSpace: "pre-wrap" }}>📈 {kr.title}</span>
                         <div style={{ maxWidth: 160, flexShrink: 0 }}>
                           <ProgressBar done={progress?.done ?? 0} total={progress?.total ?? 0} />
                         </div>
