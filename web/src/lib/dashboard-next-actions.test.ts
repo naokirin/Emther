@@ -1,8 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { buildNextActions, type BuildNextActionsParams } from "@/lib/dashboard-next-actions";
-import type { OrgVitals, PersonSummary } from "@/lib/types";
+import type { Issue, OrgVitals, PersonSummary } from "@/lib/types";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(2026, 8, 13, 12, 0, 0).getTime();
+
+function issue(overrides: Partial<Issue> & { id: string }): Issue {
+  return {
+    title: "テスト提案",
+    charter: { why: "", what: "", how: "" },
+    actionItems: [],
+    logEntries: [],
+    status: "in_progress",
+    reviewStatus: "unreviewed",
+    priority: "normal",
+    archived: false,
+    tags: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
 
 const EMPTY_VITALS: OrgVitals = {
   teams: [],
@@ -63,5 +81,37 @@ describe("buildNextActions の要注目人物（観測不足レーン）", () =>
     const actions = buildNextActions(baseParams({ people }));
     const card = actions.find((a) => a.id === "person-p-managed");
     expect(card?.lane).toBe("observation");
+  });
+});
+
+// ユーザー要望「期日超過の提案を朝キューにも自動で出してほしい」対応。
+describe("buildNextActions の確認期日超過（判断待ちレーン）", () => {
+  it("reviewDueAtを過ぎている提案を判断待ちレーンへ出す", () => {
+    const issues: Issue[] = [
+      issue({ id: "i-overdue", title: "期日超過の提案", reviewDueAt: NOW - 2 * DAY_MS }),
+    ];
+    const actions = buildNextActions(baseParams({ issues }));
+    const card = actions.find((a) => a.id === "review-due-i-overdue");
+    expect(card).toBeDefined();
+    expect(card?.lane).toBe("decision");
+    expect(card?.text).toContain("期日超過の提案");
+    expect(card?.text).toContain("2日前");
+  });
+
+  it("reviewDueAtが未来、または未設定なら出さない", () => {
+    const issues: Issue[] = [
+      issue({ id: "i-future", reviewDueAt: NOW + DAY_MS }),
+      issue({ id: "i-none" }),
+    ];
+    const actions = buildNextActions(baseParams({ issues }));
+    expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
+  });
+
+  it("確認済み(done)またはアーカイブ済みの提案は期日を過ぎていても出さない", () => {
+    const issues: Issue[] = [
+      issue({ id: "i-done", reviewDueAt: NOW - DAY_MS, status: "done", reviewStatus: "done", archived: true }),
+    ];
+    const actions = buildNextActions(baseParams({ issues }));
+    expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
   });
 });

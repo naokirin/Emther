@@ -16,6 +16,7 @@ import {
   compareSuggestionsByConfirmPriority,
   isRunStale,
   isSuggestionOpen,
+  isSuggestionReviewOverdue,
   type ConfirmPriority,
   type Suggestion,
   type SuggestionReviewStatus,
@@ -171,9 +172,10 @@ function SuggestionsPageInner() {
                 value={statusFilter}
                 onChange={(v) => setStatusFilter(v as typeof statusFilter)}
                 options={[
-                  { value: "open", label: "未確認・確認保留" },
+                  { value: "open", label: "未確認・確認中・確認保留" },
                   { value: "all", label: "すべて" },
                   { value: "unreviewed", label: "未確認のみ" },
+                  { value: "in_review", label: "確認中のみ" },
                   { value: "deferred", label: "確認保留のみ" },
                   { value: "done", label: "確認済みのみ" },
                 ]}
@@ -205,13 +207,14 @@ function SuggestionsPageInner() {
                   <th>確認状態</th>
                   <th>確認優先度</th>
                   <th>根拠</th>
+                  <th>確認期日</th>
                   <th>最終更新</th>
                 </tr>
               </thead>
               <tbody>
                 {pagination.total === 0 && (
                   <tr>
-                    <td colSpan={5} className={styles.tableEmpty}>
+                    <td colSpan={6} className={styles.tableEmpty}>
                       {!suggestionsLoaded ? "読み込み中…" : "条件に一致する提案はありません。"}
                     </td>
                   </tr>
@@ -265,6 +268,11 @@ function SuggestionsPageInner() {
                       </td>
                       <td className={styles.tableMuted}>
                         {s.sourceJournalId ? "Journal" : s.sourceRunId ? "相談" : linkedRun ? "Agent" : "—"}
+                      </td>
+                      <td className={isSuggestionReviewOverdue(s, now) ? styles.errorText : styles.tableMuted}>
+                        {s.reviewDueAt
+                          ? `${isSuggestionReviewOverdue(s, now) ? "⚠ " : ""}${new Date(s.reviewDueAt).toLocaleDateString("ja-JP")}まで`
+                          : "—"}
                       </td>
                       <td className={styles.tableMuted}>{formatRelativeDays(s.updatedAt, now)}</td>
                     </tr>

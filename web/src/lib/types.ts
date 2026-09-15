@@ -380,15 +380,18 @@ export type OrgVitals = {
 
 // docs/2nd_pivot_version.md Phase 7 / pivot_policy.md。Issue管理を廃し、AIの提案を
  // EMが確認するための第一級エンティティ。アクション管理は対象外。
-export type SuggestionReviewStatus = "unreviewed" | "deferred" | "done";
+// ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。unreviewed（未着手）と
+// deferred（いったん保留）の間に、「今まさに検討している最中」を明示できる状態を挟む。
+export type SuggestionReviewStatus = "unreviewed" | "in_review" | "deferred" | "done";
 
-export const SUGGESTION_REVIEW_STATUSES: SuggestionReviewStatus[] = ["unreviewed", "deferred", "done"];
+export const SUGGESTION_REVIEW_STATUSES: SuggestionReviewStatus[] = ["unreviewed", "in_review", "deferred", "done"];
 
 export const SUGGESTION_REVIEW_STATUS_META: Record<
   SuggestionReviewStatus,
   { icon: string; label: string; hint: string }
 > = {
   unreviewed: { icon: "🆕", label: "未確認", hint: "まだ内容を確認していない" },
+  in_review: { icon: "🔎", label: "確認中", hint: "内容を確認・検討している最中" },
   deferred: { icon: "👀", label: "確認保留", hint: "いったん保留し、後で見直す" },
   done: { icon: "✅", label: "確認済み", hint: "もう追わない（Emther上では閉じる）" },
 };
@@ -431,10 +434,22 @@ export type Suggestion = {
   // 独立に持たせる（「確認済み（もう追わない）」＝有効に完了、との混同を避けるため）。
   // 重複起票・誤操作等で「もう存在しなかったことにしたい」ときに使う。
   archivedAt?: number;
+  // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
+  // 対応。reviewStatusとは独立（後回しに限らず、未確認・確認中でも設定できる）。
+  // 日付レベルの粒度（lib/journal-date-parser.tsのdateStringToNoonTimestampと同じ、
+  // その日の正午のタイムスタンプ）で持つ。
+  reviewDueAt?: number;
 };
 
 export function isSuggestionOpen(s: Pick<Suggestion, "reviewStatus" | "archivedAt">): boolean {
   return s.reviewStatus !== "done" && !s.archivedAt;
+}
+
+export function isSuggestionReviewOverdue(
+  s: Pick<Suggestion, "reviewStatus" | "archivedAt" | "reviewDueAt">,
+  now: number,
+): boolean {
+  return isSuggestionOpen(s) && s.reviewDueAt !== undefined && s.reviewDueAt < now;
 }
 
 export function isSuggestionStrategyUnlinked(s: Pick<Suggestion, "themeId" | "keyResultId">): boolean {
@@ -555,6 +570,9 @@ export type Issue = {
   // 提案も一律「進行中」に見えてしまう。EMが実際に確認した状態を出したい画面向けに、
   // Suggestion.reviewStatusをそのまま持たせておく。
   reviewStatus: SuggestionReviewStatus;
+  // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
+  // 対応。Suggestion.reviewDueAtをそのまま持たせ、朝キューでの期日超過判定に使う。
+  reviewDueAt?: number;
   // 介入ポートフォリオの優先帯。focus=今週〜今月の主戦場、parked=朝キュー外。
   // 未設定の旧データは normal 扱い（issue-store の読み込み補完）。
   priority: IssuePriority;

@@ -52,6 +52,9 @@ export type Issue = {
   // 提案も一律「進行中」に見えてしまう。EMが実際に確認した状態（確認状態）を出したい画面
   // 向けに、Suggestion.reviewStatusをそのまま持たせておく。
   reviewStatus: SuggestionReviewStatus;
+  // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
+  // 対応。Suggestion.reviewDueAtをそのまま持たせ、朝キューでの期日超過判定に使う。
+  reviewDueAt?: number;
   priority: IssuePriority;
   focusOrder?: number;
   archived: boolean;

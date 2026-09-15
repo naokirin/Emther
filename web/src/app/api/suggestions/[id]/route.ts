@@ -6,6 +6,7 @@ import {
   setConfirmPriority,
   setReviewStatus,
   setSuggestionKeyResult,
+  setSuggestionReviewDueAt,
   setSuggestionTeam,
   setSuggestionTheme,
   setSuggestionTitle,
@@ -77,6 +78,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
   if ("archived" in (body ?? {}) && typeof body.archived !== "boolean") {
     return NextResponse.json({ error: "archivedはtrue/falseです" }, { status: 400 });
   }
+  if ("reviewDueAt" in (body ?? {}) && body.reviewDueAt !== null && typeof body.reviewDueAt !== "number") {
+    return NextResponse.json({ error: "reviewDueAtは数値（タイムスタンプ）またはnullです" }, { status: 400 });
+  }
 
   const suggestionId = resolveSuggestionId(id);
   if (!suggestionId) {
@@ -115,6 +119,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
     }
     if ("archived" in (body ?? {})) {
       suggestion = (body.archived ? archiveSuggestion(suggestionId) : unarchiveSuggestion(suggestionId)) ?? suggestion;
+    }
+    if ("reviewDueAt" in (body ?? {})) {
+      suggestion = setSuggestionReviewDueAt(suggestionId, typeof body.reviewDueAt === "number" ? body.reviewDueAt : null) ?? suggestion;
     }
 
     return NextResponse.json({ suggestion: toSuggestionView(suggestion) });

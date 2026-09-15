@@ -320,6 +320,29 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
+  // ユーザー要望「期日超過の提案を朝キューにも自動で出してほしい」対応。EMがreviewDueAt
+  // （「いつまでに確認したいか」）を自ら設定した提案が、その期日を過ぎても未確認・確認中・
+  // 確認保留のままなら、様子見の期限切れ（watch-expired、下記）と同じ考え方で判断待ち
+  // レーンへ出す。archived（確認済みdoneを含む）は対象外。
+  const overdueReviews = issues
+    .filter((i): i is typeof i & { reviewDueAt: number } => !i.archived && i.reviewDueAt !== undefined && now > i.reviewDueAt)
+    .sort((a, b) => a.reviewDueAt - b.reviewDueAt)
+    .slice(0, 3);
+  for (const issue of overdueReviews) {
+    const days = Math.floor((now - issue.reviewDueAt) / (24 * 60 * 60 * 1000));
+    nextActions.push({
+      id: `review-due-${issue.id}`,
+      severity: "warn",
+      lane: "decision",
+      icon: "⏰",
+      kindLabel: "確認期日超過",
+      text: days > 0 ? `「${issue.title}」の確認期日（${days}日前）を過ぎています` : `「${issue.title}」の確認期日を過ぎています`,
+      onSelect: () => push(`/suggestions/${issue.id}`),
+      // 期限切れ自体は「以前からの期日設定」なので新着扱いにはしない（watch-expiredと同じ）。
+      since: 0,
+    });
+  }
+
   // docs/2nd_pivot_version.md Phase 2.1対応。「次の一手未設定」（Action Itemを設定する
   // よう促すカード）も、Issue未整理と同じ理由（EMにIssueの構造を手入れさせない）で廃止した。
 

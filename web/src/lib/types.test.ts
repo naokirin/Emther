@@ -5,6 +5,7 @@ import {
   isIssueActive,
   isIssueStalled,
   isJournalEntryResolved,
+  isSuggestionReviewOverdue,
   journalResolutionLabel,
   isRunStale,
   issueBacklogActionItems,
@@ -20,6 +21,31 @@ import {
   type IssueCharter,
   type JournalEntry,
 } from "@/lib/types";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
+describe("isSuggestionReviewOverdue", () => {
+  it("確認期日が過ぎており、未確認/確認保留/確認中なら期日超過とみなす", () => {
+    const now = 1000 * DAY_MS;
+    expect(isSuggestionReviewOverdue({ reviewStatus: "deferred", reviewDueAt: now - DAY_MS }, now)).toBe(true);
+    expect(isSuggestionReviewOverdue({ reviewStatus: "in_review", reviewDueAt: now - DAY_MS }, now)).toBe(true);
+  });
+
+  it("期日が未来、または未設定なら期日超過ではない", () => {
+    const now = 1000 * DAY_MS;
+    expect(isSuggestionReviewOverdue({ reviewStatus: "deferred", reviewDueAt: now + DAY_MS }, now)).toBe(false);
+    expect(isSuggestionReviewOverdue({ reviewStatus: "deferred" }, now)).toBe(false);
+  });
+
+  it("確認済み(done)またはアーカイブ済みなら、期日を過ぎていても期日超過扱いにしない", () => {
+    const now = 1000 * DAY_MS;
+    expect(isSuggestionReviewOverdue({ reviewStatus: "done", reviewDueAt: now - DAY_MS }, now)).toBe(false);
+    expect(isSuggestionReviewOverdue({ reviewStatus: "deferred", reviewDueAt: now - DAY_MS, archivedAt: now - DAY_MS }, now)).toBe(
+      false,
+    );
+  });
+});
 
 describe("teamPathSegments", () => {
   it("「/」区切りで分割し前後の空白を除去する", () => {

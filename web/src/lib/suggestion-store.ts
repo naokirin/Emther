@@ -281,6 +281,13 @@ export async function setSuggestionTitle(
   return getSuggestion(s.id) ?? s;
 }
 
+const REVIEW_STATUS_LABEL: Record<SuggestionReviewStatus, string> = {
+  unreviewed: "未確認",
+  in_review: "確認中",
+  deferred: "確認保留",
+  done: "確認済み（もう追わない）",
+};
+
 export function setReviewStatus(id: string, reviewStatus: SuggestionReviewStatus): Suggestion | undefined {
   const s = getSuggestion(id);
   if (!s) return undefined;
@@ -289,9 +296,25 @@ export function setReviewStatus(id: string, reviewStatus: SuggestionReviewStatus
   s.reviewedAt = reviewStatus === "unreviewed" ? undefined : Date.now();
   s.updatedAt = Date.now();
   persist();
-  const label =
-    reviewStatus === "done" ? "確認済み（もう追わない）" : reviewStatus === "deferred" ? "確認保留" : "未確認";
-  recordChangeEvent("suggestion", s.id, `確認状態を変更しました: ${label}`);
+  recordChangeEvent("suggestion", s.id, `確認状態を変更しました: ${REVIEW_STATUS_LABEL[reviewStatus]}`);
+  return s;
+}
+
+// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
+// 対応。reviewStatusとは独立に設定・解除できる（nullで解除）。
+export function setSuggestionReviewDueAt(id: string, dueAt: number | null): Suggestion | undefined {
+  const s = getSuggestion(id);
+  if (!s) return undefined;
+  const next = dueAt ?? undefined;
+  if ((s.reviewDueAt ?? null) === (next ?? null)) return s;
+  s.reviewDueAt = next;
+  s.updatedAt = Date.now();
+  persist();
+  recordChangeEvent(
+    "suggestion",
+    s.id,
+    next ? `確認期日を設定しました: ${new Date(next).toLocaleDateString("ja-JP")}` : "確認期日を解除しました",
+  );
   return s;
 }
 

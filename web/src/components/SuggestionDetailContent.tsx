@@ -18,12 +18,14 @@ import {
   useThemes,
 } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
+import { dateStringToNoonTimestamp, timestampToDateInputValue } from "@/lib/journal-date-parser";
 import {
   CONFIRM_PRIORITIES,
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUSES,
   SUGGESTION_REVIEW_STATUS_META,
   isRunStale,
+  isSuggestionReviewOverdue,
   isSuggestionStrategyUnlinked,
   type ConfirmPriority,
   type SuggestionReviewStatus,
@@ -34,6 +36,8 @@ import { buildIssueStrategyTrail } from "@/lib/strategy-trail";
 
 // docs/2nd_pivot_version.md Phase 7。提案詳細: 確認状態・確認優先度・メモ・壁打ちに絞る。
 export function SuggestionDetailContent({ id }: { id: string }) {
+  // eslint-disable-next-line react-hooks/purity -- 確認期日の期日超過表示にのみ使う
+  const now = Date.now();
   const { suggestion, sourceJournals, suggestionLoaded, refreshSuggestion } = useSuggestion(id);
   const { refreshSuggestions } = useSuggestions();
   const { runs, pendingAgentStarts, refreshRuns } = useRuns();
@@ -208,6 +212,34 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               label: `${CONFIRM_PRIORITY_META[v].icon} ${CONFIRM_PRIORITY_META[v].label}`,
             }))}
           />
+        </label>
+        <label className={styles.field} style={{ margin: 0 }}>
+          <span className={styles.fieldCaption}>
+            確認期日{isSuggestionReviewOverdue(suggestion, now) && <span className={styles.errorText}> ⚠ 期日超過</span>}
+          </span>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="date"
+              aria-label="確認期日"
+              value={suggestion.reviewDueAt ? timestampToDateInputValue(suggestion.reviewDueAt) : ""}
+              disabled={saving}
+              onChange={(e) => {
+                const v = e.target.value;
+                void patchSuggestion({ reviewDueAt: v ? (dateStringToNoonTimestamp(v) ?? null) : null });
+              }}
+            />
+            {suggestion.reviewDueAt && (
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                disabled={saving}
+                onClick={() => void patchSuggestion({ reviewDueAt: null })}
+              >
+                解除
+              </button>
+            )}
+          </div>
         </label>
       </div>
 

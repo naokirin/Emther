@@ -129,6 +129,36 @@ describe("createSuggestion / review / memo", () => {
     store.setReviewStatus(s.id, "done");
     expect(store.getSuggestion(s.id)?.reviewStatus).toBe("done");
   });
+
+  // ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。
+  it("確認中(in_review)ステータスへ変更できる", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("検討中の提案");
+    const updated = store.setReviewStatus(s.id, "in_review");
+    expect(updated?.reviewStatus).toBe("in_review");
+    expect(updated?.reviewedAt).toBeTypeOf("number");
+  });
+});
+
+// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
+describe("setSuggestionReviewDueAt", () => {
+  it("確認期日を設定・解除できる。reviewStatusとは独立に変更できる", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("期日つきの提案");
+    expect(s.reviewDueAt).toBeUndefined();
+
+    const withDue = store.setSuggestionReviewDueAt(s.id, 12345);
+    expect(withDue?.reviewDueAt).toBe(12345);
+    expect(withDue?.reviewStatus).toBe("unreviewed");
+
+    const cleared = store.setSuggestionReviewDueAt(s.id, null);
+    expect(cleared?.reviewDueAt).toBeUndefined();
+  });
+
+  it("存在しないIDにはundefinedを返す", async () => {
+    const store = await import("@/lib/suggestion-store");
+    expect(store.setSuggestionReviewDueAt("no-such-id", 1)).toBeUndefined();
+  });
 });
 
 describe("archiveSuggestion / unarchiveSuggestion", () => {
