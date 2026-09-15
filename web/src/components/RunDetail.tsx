@@ -197,13 +197,13 @@ export function isDraftAwaitingTriage(
 }
 
 /**
- * ダッシュボード／相談の「ドラフトIssue」語彙。
+ * ダッシュボード／相談の「ドラフト提案」語彙。
  * idle完了＝起票待ち、active/queued＝分析中。yield/error は従来の種別ラベルを優先。
  */
 export function draftKindLabel(run: AgentRun): string {
   if (!isDraftAwaitingTriage(run)) return runKindLabel(run);
   if (run.status === "active" || run.status === "queued") return "ドラフト分析中";
-  if (run.status === "idle") return "ドラフトIssue";
+  if (run.status === "idle") return "ドラフト提案";
   return runKindLabel(run);
 }
 
@@ -230,6 +230,7 @@ export function ExecutionState({
   themesSubmitting,
   onAdoptIssueNotes,
   onDismissIssueNotes,
+  onMarkHandledIssueNotes,
   issueNotesSubmitting,
 }: {
   run: AgentRun;
@@ -249,8 +250,9 @@ export function ExecutionState({
   onAdoptThemes?: () => void;
   onDismissThemes?: () => void;
   themesSubmitting?: boolean;
-  onAdoptIssueNotes?: () => void;
-  onDismissIssueNotes?: () => void;
+  onAdoptIssueNotes?: (indices: number[]) => void;
+  onDismissIssueNotes?: (indices: number[]) => void;
+  onMarkHandledIssueNotes?: (indices: number[]) => void;
   issueNotesSubmitting?: boolean;
 }) {
   return (
@@ -307,6 +309,7 @@ export function ExecutionState({
               notes={run.suggestedIssueNotes}
               onAdopt={onAdoptIssueNotes}
               onDismiss={onDismissIssueNotes}
+              onMarkHandled={onMarkHandledIssueNotes}
               submitting={issueNotesSubmitting}
             />
           )}

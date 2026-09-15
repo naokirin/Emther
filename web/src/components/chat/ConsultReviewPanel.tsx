@@ -6,6 +6,7 @@ import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, listIssueCandidatesFromProposal, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { OriginTrace, type OriginTraceJournal } from "@/components/OriginTrace";
 import { IdLinkedText } from "@/components/IdLinkedText";
+import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import type { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { truncateForTitle } from "@/lib/types";
 import { journalExcerptFromTask } from "@/lib/origin-trace";
@@ -54,6 +55,7 @@ export function ConsultReviewPanel({
   refreshIssues,
 }: Props) {
   const router = useRouter();
+  const suggestionPeek = useSuggestionPeek();
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [deciding, setDeciding] = useState(false);
@@ -110,7 +112,7 @@ export function ConsultReviewPanel({
       await refreshIssues();
       setCandidatePick(null);
       if (createdIds.length === 1) {
-        router.push(`/suggestions/${createdIds[0]}`);
+        suggestionPeek.open(createdIds[0]);
       } else {
         router.push("/suggestions");
       }
@@ -205,13 +207,18 @@ export function ConsultReviewPanel({
   }
 
   // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-  async function handleAdoptIssueNotes() {
+  // 「他Issueへの追記提案で追記対象を個別に選択できるようにする」対応でindicesを渡すよう拡張。
+  async function handleAdoptIssueNotes(indices: number[]) {
     setIssueNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, { method: "POST" });
+      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices }),
+      });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "Issueへの追記の採用に失敗しました");
+      if (!res.ok) throw new Error(data?.error ?? "追記の採用に失敗しました");
       await Promise.all([refreshIssues(), refreshRuns()]);
     } catch (err) {
       setDecideError((err as Error).message);
@@ -220,12 +227,36 @@ export function ConsultReviewPanel({
     }
   }
 
-  async function handleDismissIssueNotes() {
+  async function handleDismissIssueNotes(indices: number[]) {
     setIssueNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Issueへの追記提案の却下に失敗しました");
+      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices, reason: "dismissed" }),
+      });
+      if (!res.ok) throw new Error("追記提案の却下に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setIssueNotesSubmitting(false);
+    }
+  }
+
+  // docs/memo.md「却下だけでなく対応済みも」対応。却下（提案自体が誤り）と違い、別口ですでに
+  // 対応済みであることをrunのログに残した上で提案を消す。
+  async function handleMarkHandledIssueNotes(indices: number[]) {
+    setIssueNotesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices, reason: "handled" }),
+      });
+      if (!res.ok) throw new Error("追記提案を対応済みにできませんでした");
       await refreshRuns();
     } catch (err) {
       setDecideError((err as Error).message);
@@ -261,7 +292,7 @@ export function ConsultReviewPanel({
       <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
         {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
           <>
-            <strong>📋 ドラフトIssue（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
+            <strong>📋 ドラフト提案（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
           </>
         )}
         {selectedRun.triageStatus && (
@@ -273,7 +304,7 @@ export function ConsultReviewPanel({
           {issueCandidates.length > 1 && (
             <div style={{ width: "100%", marginBottom: 8 }}>
               <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
-                AIが親なしの独立Issue候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
+                AIが親なしの独立提案候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
               </p>
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {issueCandidates.map((c, i) => (
@@ -333,6 +364,7 @@ export function ConsultReviewPanel({
         themesSubmitting={themesSubmitting}
         onAdoptIssueNotes={handleAdoptIssueNotes}
         onDismissIssueNotes={handleDismissIssueNotes}
+        onMarkHandledIssueNotes={handleMarkHandledIssueNotes}
         issueNotesSubmitting={issueNotesSubmitting}
       />
       <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />

@@ -404,10 +404,34 @@ export function clearSuggestedThemes(id: string): AgentRun | undefined {
   return run;
 }
 
-export function clearSuggestedIssueNotes(id: string): AgentRun | undefined {
+// docs/memo.md「他Issueへの追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
+// 対応済みも」対応。indicesを指定するとsuggestedIssueNotes配列中の該当要素のみを対象にし、
+// 残りは提案として残す（未指定時は従来どおり全件対象・全消去、後方互換を維持）。
+// reason:"handled"は「却下」（提案自体が誤り）ではなく「別口で対応済みなので追わない」ことを
+// runのログに残す——却下と違い何の記録も残らないと後から見分けがつかないため。
+export function clearSuggestedIssueNotes(
+  id: string,
+  opts?: { indices?: number[]; reason?: "dismissed" | "handled" },
+): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
-  run.suggestedIssueNotes = undefined;
+  const notes = run.suggestedIssueNotes ?? [];
+  const selected = opts?.indices ? new Set(opts.indices) : undefined;
+  if (opts?.reason === "handled") {
+    const targets = notes.filter((_, i) => !selected || selected.has(i));
+    const ts = Date.now();
+    for (const note of targets) {
+      run.log.push({
+        ts,
+        channel: "meta",
+        text: `📝 他Issueへの追記提案を対応済みとして却下しました（対象Issue: ${note.issueId.slice(0, 8)}）: ${note.text}`,
+      });
+    }
+  }
+  run.suggestedIssueNotes = selected
+    ? notes.filter((_, i) => !selected.has(i))
+    : undefined;
+  if (run.suggestedIssueNotes?.length === 0) run.suggestedIssueNotes = undefined;
   persistRunMeta(run);
   return run;
 }
@@ -416,15 +440,20 @@ export function clearSuggestedIssueNotes(id: string): AgentRun | undefined {
 // suggestedIssueNotes を対象Issueのlog（IssueLogEntry）へ書き込んで確定する。issueIdは
 // lookup結果由来のためフルID一致を優先し、無ければ8桁以上のプレフィックス一致（1件のみ）を
 // 許容する（Issue詳細のURL欄と同じ解決規則）。存在しない/曖昧なissueIdの要素は書き込まず
-// スキップする（作成・ステータス変更等は行わない——追記のみの安全側API）。
+// スキップする（作成・ステータス変更等は行わない——追記のみの安全側API）。indices未指定時は
+// 従来どおり全件を対象にする。
 export async function adoptSuggestedIssueNotesFromRun(
   id: string,
+  indices?: number[],
 ): Promise<{ run: AgentRun; written: { issueId: string; text: string }[]; skipped: string[] } | undefined> {
   const run = runs.get(id);
   if (!run?.suggestedIssueNotes?.length) return undefined;
+  const selected = indices ? new Set(indices) : undefined;
+  const targetNotes = run.suggestedIssueNotes.filter((_, i) => !selected || selected.has(i));
+  if (targetNotes.length === 0) return undefined;
   const written: { issueId: string; text: string }[] = [];
   const skipped: string[] = [];
-  for (const note of run.suggestedIssueNotes) {
+  for (const note of targetNotes) {
     const exact = getIssue(note.issueId);
     const target = exact ?? findByIdPrefix(listIssues(), (i) => i.id, note.issueId).at(0);
     const matchCount = exact ? 1 : findByIdPrefix(listIssues(), (i) => i.id, note.issueId).length;
@@ -435,7 +464,10 @@ export async function adoptSuggestedIssueNotesFromRun(
     await addLogEntry(target.id, note.text);
     written.push({ issueId: target.id, text: note.text });
   }
-  run.suggestedIssueNotes = undefined;
+  run.suggestedIssueNotes = selected
+    ? run.suggestedIssueNotes.filter((_, i) => !selected.has(i))
+    : undefined;
+  if (run.suggestedIssueNotes?.length === 0) run.suggestedIssueNotes = undefined;
   persistRunMeta(run);
   return { run, written, skipped };
 }

@@ -118,9 +118,9 @@ describe("isDraftAwaitingTriage / draftKindLabel", () => {
     ).toBe(false);
   });
 
-  it("idleのドラフトはドラフトIssue、実行中はドラフト分析中", () => {
+  it("idleのドラフトはドラフト提案、実行中はドラフト分析中", () => {
     expect(draftKindLabel(baseRun({ origin: "auto-summary", reviewed: false, status: "idle" }))).toBe(
-      "ドラフトIssue",
+      "ドラフト提案",
     );
     expect(draftKindLabel(baseRun({ origin: "auto-summary", reviewed: false, status: "active" }))).toBe(
       "ドラフト分析中",
