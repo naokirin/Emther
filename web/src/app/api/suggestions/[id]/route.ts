@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  archiveSuggestion,
   listSuggestions,
   moveFocusSuggestion,
   setConfirmPriority,
@@ -9,6 +10,7 @@ import {
   setSuggestionTheme,
   setSuggestionTitle,
   toSuggestionView,
+  unarchiveSuggestion,
   getSuggestion,
 } from "@/lib/suggestion-store";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@/lib/types";
@@ -72,6 +74,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
   if ("moveFocus" in (body ?? {}) && body.moveFocus !== "up" && body.moveFocus !== "down") {
     return NextResponse.json({ error: "moveFocusは up または down です" }, { status: 400 });
   }
+  if ("archived" in (body ?? {}) && typeof body.archived !== "boolean") {
+    return NextResponse.json({ error: "archivedはtrue/falseです" }, { status: 400 });
+  }
 
   const suggestionId = resolveSuggestionId(id);
   if (!suggestionId) {
@@ -107,6 +112,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
     if ("teamId" in (body ?? {})) {
       const teamId = typeof body.teamId === "string" && body.teamId ? body.teamId : null;
       suggestion = setSuggestionTeam(suggestionId, teamId) ?? suggestion;
+    }
+    if ("archived" in (body ?? {})) {
+      suggestion = (body.archived ? archiveSuggestion(suggestionId) : unarchiveSuggestion(suggestionId)) ?? suggestion;
     }
 
     return NextResponse.json({ suggestion: toSuggestionView(suggestion) });

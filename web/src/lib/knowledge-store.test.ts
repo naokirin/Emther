@@ -390,6 +390,46 @@ describe("setEventNoActionNeeded / clearEventNoActionNeeded", () => {
   });
 });
 
+// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+describe("setEventArchived / clearEventArchived", () => {
+  it("in-placeでarchived_atだけを更新し、excludeArchivedで絞り込める", async () => {
+    const { knowledgeStore } = await loadModules();
+    const event = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "重複して記録してしまった",
+      tags: [],
+      occurredAt: 1,
+    });
+    const archived = knowledgeStore.setEventArchived(event.id);
+    expect(archived?.id).toBe(event.id);
+    expect(archived?.archivedAt).toBeDefined();
+    expect(knowledgeStore.getEventById(event.id)?.archivedAt).toBe(archived?.archivedAt);
+
+    const { total } = knowledgeStore.listEventsPage(
+      { entityType: "journal", excludeArchived: true },
+      { limit: 10, offset: 0 },
+    );
+    expect(total).toBe(0);
+
+    const cleared = knowledgeStore.clearEventArchived(event.id);
+    expect(cleared?.archivedAt).toBeUndefined();
+    const { total: totalAfter } = knowledgeStore.listEventsPage(
+      { entityType: "journal", excludeArchived: true },
+      { limit: 10, offset: 0 },
+    );
+    expect(totalAfter).toBe(1);
+  });
+
+  it("存在しないIDはundefinedを返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    expect(knowledgeStore.setEventArchived("nope")).toBeUndefined();
+    expect(knowledgeStore.clearEventArchived("nope")).toBeUndefined();
+  });
+});
+
 describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () => {
   it("recordChangeEventはkind:fact context:officialで記録する", async () => {
     const { knowledgeStore } = await loadModules();

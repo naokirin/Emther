@@ -181,6 +181,10 @@ function migrate(database: DatabaseSync): void {
   // origin=auto-anomaly だけでは ID が残らず、相談画面で「なぜ生まれたか」が分からなかった。
   addColumnIfMissing(database, "agent_runs", "source_journal_id", "TEXT");
 
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。誤って起票した・
+  // テストで作った等の相談を、相談履歴一覧・AIの判断材料（context-blocks等）から除外する。
+  addColumnIfMissing(database, "agent_runs", "archived_at", "INTEGER");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -242,6 +246,11 @@ function migrate(database: DatabaseSync): void {
   addColumnIfMissing(database, "knowledge_events", "no_action_needed_note", "TEXT");
   addColumnIfMissing(database, "person_evaluation_logs", "no_action_needed_at", "INTEGER");
   addColumnIfMissing(database, "person_evaluation_logs", "no_action_needed_note", "TEXT");
+
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。noActionNeededと
+  // 同じ考え方（内容の訂正ではないためsupersedesチェーンは使わず、in-place更新）で、
+  // 重複記録・誤入力等のJournalを一覧・AIの判断材料から除外する。
+  addColumnIfMissing(database, "knowledge_events", "archived_at", "INTEGER");
 
   // メンバー詳細の「関連Issue（停滞・ブロッカーあり）」アラートは、Issueそのものではなく
   // 「この人物にとって」対応不要と判断した、という人物×Issue単位の判断のため、

@@ -41,6 +41,9 @@ export type JournalEntry = {
   // sentimentは観測値のまま残しつつ、EMが確認済み・対応不要と判断した事実を別軸で持つ。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
+  // Journalを一覧・AIの判断材料から除外するためのフラグ（記録自体は削除しない）。
+  archivedAt?: number;
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {
@@ -424,10 +427,14 @@ export type Suggestion = {
   createdAt: number;
   updatedAt: number;
   reviewedAt?: number;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。reviewStatusとは
+  // 独立に持たせる（「確認済み（もう追わない）」＝有効に完了、との混同を避けるため）。
+  // 重複起票・誤操作等で「もう存在しなかったことにしたい」ときに使う。
+  archivedAt?: number;
 };
 
-export function isSuggestionOpen(s: Pick<Suggestion, "reviewStatus">): boolean {
-  return s.reviewStatus !== "done";
+export function isSuggestionOpen(s: Pick<Suggestion, "reviewStatus" | "archivedAt">): boolean {
+  return s.reviewStatus !== "done" && !s.archivedAt;
 }
 
 export function isSuggestionStrategyUnlinked(s: Pick<Suggestion, "themeId" | "keyResultId">): boolean {

@@ -56,4 +56,24 @@ describe("POST /api/agents/[id]/review", () => {
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", { triageStatus: "watching" }), routeCtx({ id: "run-1" }));
     expect((await res.json()).run.triageStatus).toBe("watching");
   });
+
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+  it("archived:trueでアーカイブし、falseで解除できる（reviewedは強制しない）", async () => {
+    await insertRunRow();
+    const route = await import("./route");
+    const archiveRes = await route.POST(jsonRequest("http://localhost/x", "POST", { archived: true }), routeCtx({ id: "run-1" }));
+    const archived = await archiveRes.json();
+    expect(archived.run.archivedAt).toBeTypeOf("number");
+    expect(archived.run.reviewed).toBe(false);
+
+    const unarchiveRes = await route.POST(jsonRequest("http://localhost/x", "POST", { archived: false }), routeCtx({ id: "run-1" }));
+    expect((await unarchiveRes.json()).run.archivedAt).toBeUndefined();
+  });
+
+  it("archivedが真偽値でない場合は400", async () => {
+    await insertRunRow();
+    const route = await import("./route");
+    const res = await route.POST(jsonRequest("http://localhost/x", "POST", { archived: "yes" }), routeCtx({ id: "run-1" }));
+    expect(res.status).toBe(400);
+  });
 });

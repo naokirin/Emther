@@ -903,6 +903,22 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("spec-1")?.reviewed).toBe(true);
   });
 
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+  it("setRunArchivedはarchivedAtを設定・解除する（triageStatusとは独立）", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "run-1", triage_status: "watching" });
+    const rt = await loadModule();
+
+    const archived = rt.setRunArchived("run-1", true);
+    expect(archived?.archivedAt).toBeTypeOf("number");
+    expect(archived?.triageStatus).toBe("watching");
+    expect(rt.getRun("run-1")?.archivedAt).toBeTypeOf("number");
+
+    const unarchived = rt.setRunArchived("run-1", false);
+    expect(unarchived?.archivedAt).toBeUndefined();
+    expect(rt.getRun("run-1")?.archivedAt).toBeUndefined();
+  });
+
   it("clearSuggestedSubIssuesは提案を消す", async () => {
     const { getDb } = await import("@/lib/db");
     insertRunRow(getDb(), {
@@ -967,6 +983,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     const rt = await loadModule();
     expect(rt.markRunReviewed("missing")).toBeUndefined();
     expect(rt.setRunTriageStatus("missing", "dismissed")).toBeUndefined();
+    expect(rt.setRunArchived("missing", true)).toBeUndefined();
     expect(rt.clearSuggestedSubIssues("missing")).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();
   });

@@ -162,11 +162,27 @@ export function SuggestionDetailContent({ id }: { id: string }) {
                 }}
               >
                 編集
+              </button>{" "}
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                disabled={saving}
+                onClick={() => void patchSuggestion({ archived: !suggestion.archivedAt })}
+              >
+                {suggestion.archivedAt ? "アーカイブを解除" : "アーカイブする"}
               </button>
             </h1>
           )}
         </div>
       </div>
+
+      {suggestion.archivedAt && (
+        // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+        <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+          🗄 アーカイブ済み（一覧・AIの判断材料からは除外されています）
+        </p>
+      )}
 
       <div className={styles.panel} style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end" }}>
         <label className={styles.field} style={{ margin: 0 }}>

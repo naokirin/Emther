@@ -39,6 +39,8 @@ import {
   getEventHeadById,
   setEventNoActionNeeded,
   clearEventNoActionNeeded,
+  setEventArchived,
+  clearEventArchived,
   type EventPageFilter,
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
@@ -92,6 +94,9 @@ export type JournalEntry = {
   // sentimentは観測値のまま書き換えず、EMが確認済み・対応不要と判断した事実だけを別軸で持つ。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
+  // Journalを一覧・AIの判断材料から除外するためのフラグ（イベント自体は削除しない）。
+  archivedAt?: number;
 };
 
 /**
@@ -127,6 +132,7 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     sourceChunkId: e.sourceChunkId,
     noActionNeededAt: e.noActionNeededAt,
     noActionNeededNote: e.noActionNeededNote,
+    archivedAt: e.archivedAt,
   };
 }
 
@@ -176,6 +182,22 @@ export function clearJournalNoActionNeeded(id: string): JournalEntry | undefined
   const head = getEventHeadById(id);
   if (!head || head.entityType !== "journal") return undefined;
   const event = clearEventNoActionNeeded(head.id);
+  return event ? eventToJournalEntry(event) : undefined;
+}
+
+// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
+// Journalを一覧・AIの判断材料から除外する（イベント自体は削除しない）。
+export function archiveJournalEntry(id: string): JournalEntry | undefined {
+  const head = getEventHeadById(id);
+  if (!head || head.entityType !== "journal") return undefined;
+  const event = setEventArchived(head.id);
+  return event ? eventToJournalEntry(event) : undefined;
+}
+
+export function unarchiveJournalEntry(id: string): JournalEntry | undefined {
+  const head = getEventHeadById(id);
+  if (!head || head.entityType !== "journal") return undefined;
+  const event = clearEventArchived(head.id);
   return event ? eventToJournalEntry(event) : undefined;
 }
 
@@ -427,12 +449,17 @@ export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions =
   return { entries, skippedLines };
 }
 
-export function listJournalEntries(): JournalEntry[] {
+export function listJournalEntries(opts: { includeArchived?: boolean } = {}): JournalEntry[] {
   const events = listEvents({ entityType: "journal", kind: "fact" });
   // docs/memo.md「C」対応。イベントは不変のまま、supersedesで置き換えられた（＝EMが
   // 修正した）版だけを一覧から除外する。履歴自体はSQLiteに残り続ける（削除しない）。
   const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
-  return events.filter((e) => !supersededIds.has(e.id)).map(eventToJournalEntry);
+  return events
+    .filter((e) => !supersededIds.has(e.id))
+    // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定では
+    // アーカイブ済み（重複記録・誤入力等）を一覧・AIの判断材料から除外する。
+    .filter((e) => opts.includeArchived || !e.archivedAt)
+    .map(eventToJournalEntry);
 }
 
 // ユーザー指摘「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
@@ -447,6 +474,7 @@ export type JournalListFilter = {
   sentiment?: Sentiment;
   sinceMs?: number;
   excludeResolved?: boolean;
+  includeArchived?: boolean;
 };
 
 // 未登録の人物名（people-directoryにgetPersonIdで見つからない名前）が渡された場合、
@@ -467,6 +495,7 @@ function toEventFilter(filter: JournalListFilter): EventPageFilter {
     occurredAtFrom: filter.sinceMs,
     excludeResolved: filter.excludeResolved,
     excludeSuperseded: true,
+    excludeArchived: !filter.includeArchived,
   };
 }
 
@@ -492,7 +521,12 @@ export function findJournalEntryOffset(id: string, filter: JournalListFilter): n
 // （タグ・人物）用の選択肢一覧。全件からの重複排除が必要なため、これ自体は全行を
 // 走査するが、読むのはtags_json/people_jsonの2カラムのみ（本文・要約等は含まない）。
 export function listJournalFacets(): { tags: string[]; people: string[] } {
-  const { tags, people } = listEventFacets({ entityType: "journal", kind: "fact", excludeSuperseded: true });
+  const { tags, people } = listEventFacets({
+    entityType: "journal",
+    kind: "fact",
+    excludeSuperseded: true,
+    excludeArchived: true,
+  });
   return {
     tags: tags.map(unmaskNames).sort((a, b) => a.localeCompare(b, "ja")),
     people: people.map(unmaskNames).sort((a, b) => a.localeCompare(b, "ja")),

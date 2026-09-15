@@ -40,6 +40,12 @@ function emptyCharter(): IssueCharter {
 
 export function suggestionToLegacyIssue(s: Suggestion): Issue {
   const done = s.reviewStatus === "done";
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。旧Issue側の
+  // archived/archivedAtは「AI/Vitals等が判断材料から除外すべきか」の唯一の判定軸として
+  // 各所（vitals.ts・related-context.ts・dashboard-next-actions.ts等）から直接参照されている
+  // ため、"確認済み（done）" と "明示アーカイブ（重複・誤操作等での削除）" の両方をここで
+  // 合流させる。s.archivedAtが立っていれば、reviewStatusに関わらずarchived扱いにする。
+  const archived = done || Boolean(s.archivedAt);
   return {
     id: s.id,
     title: s.title,
@@ -52,8 +58,8 @@ export function suggestionToLegacyIssue(s: Suggestion): Issue {
     status: done ? "done" : s.reviewStatus === "deferred" ? "blocked" : "in_progress",
     priority: s.confirmPriority,
     focusOrder: s.focusOrder,
-    archived: done,
-    archivedAt: done ? s.reviewedAt : undefined,
+    archived,
+    archivedAt: s.archivedAt ?? (done ? s.reviewedAt : undefined),
     doneAt: done ? s.reviewedAt : undefined,
     tags: [],
     keyResultId: s.keyResultId,

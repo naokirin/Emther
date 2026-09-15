@@ -100,6 +100,8 @@ export type AgentRun = {
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
   triageAt?: number;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+  archivedAt?: number;
 };
 
 // ユーザー指摘対応: run.taskが空文字のrun（何らかの理由でtask保存に失敗した壊れたデータ）を

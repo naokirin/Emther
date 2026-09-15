@@ -138,6 +138,26 @@ export function ConsultReviewPanel({
     }
   }
 
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。誤って起票した・
+  // テストで作った等の相談を、相談履歴一覧・AIの判断材料から除外する（却下とは独立の軸）。
+  async function handleToggleArchived() {
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: !selectedRun.archivedAt }),
+      });
+      if (!res.ok) throw new Error("記録に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setReviewError((err as Error).message);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
   async function sendDecision(text: string) {
     if (!text.trim()) return;
     setDeciding(true);
@@ -295,6 +315,11 @@ export function ConsultReviewPanel({
             {TRIAGE_LABEL[selectedRun.triageStatus]}
           </p>
         )}
+        {selectedRun.archivedAt && (
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            🗄 アーカイブ済み（相談履歴一覧・AIの判断材料からは除外されています）
+          </p>
+        )}
         <div className={styles.yieldActions}>
           {issueCandidates.length > 1 && (
             <div style={{ width: "100%", marginBottom: 8 }}>
@@ -341,6 +366,9 @@ export function ConsultReviewPanel({
           </button>
           <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
             却下する（対応不要）
+          </button>
+          <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={handleToggleArchived}>
+            {selectedRun.archivedAt ? "アーカイブを解除" : "アーカイブする"}
           </button>
         </div>
         {reviewError && <p className={styles.errorText} role="alert">{reviewError}</p>}

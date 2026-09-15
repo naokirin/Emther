@@ -49,6 +49,16 @@ describe("issue-store compatibility", () => {
     expect(archived?.status).toBe("done");
   });
 
+  it("Suggestionの明示アーカイブ（重複起票等）は、reviewStatusがunreviewedのままでも archived: true になる", async () => {
+    const store = await loadModule();
+    const { archiveSuggestion } = await import("@/lib/suggestion-store");
+    const issue = await store.createIssue("重複してしまった提案");
+    archiveSuggestion(issue.id);
+    const view = store.getIssue(issue.id);
+    expect(view?.archived).toBe(true);
+    expect(view?.status).not.toBe("done");
+  });
+
   it("addLogEntryはメモとして残る", async () => {
     const store = await loadModule();
     const issue = await store.createIssue("メモ付き");

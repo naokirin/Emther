@@ -66,6 +66,9 @@ function JournalListPageInner() {
   // ユーザー指摘「対応済みを除外するフィルタを追加してほしい」対応。対応済みの定義は
   // JournalEntryCard.tsxの「✅ 対応済み」表示と同じ（isJournalEntryResolved）。
   const [excludeResolved, setExcludeResolved] = useState(false);
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定ではアーカイブ済み
+  // （重複記録・誤入力等）を一覧から除外し、必要なときだけ表示できるようにする。
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [page, setPage] = useState(1);
 
   // フィルタが変わったら1ページ目に戻す（サーバー側の総件数が変わり、保持していた
@@ -89,6 +92,7 @@ function JournalListPageInner() {
       sentiment: sentimentFilter,
       periodDays,
       excludeResolved,
+      includeArchived,
     },
     page,
     PAGE_SIZE,
@@ -195,6 +199,14 @@ function JournalListPageInner() {
             />
             ✅ 対応済み/提案化済みを除外
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => updateFilter(setIncludeArchived)(e.target.checked)}
+            />
+            🗄 アーカイブ済みも表示する
+          </label>
         </div>
       </div>
 
@@ -240,6 +252,8 @@ function JournalListPageInner() {
                 onClearResolution={() => editing.clearResolution(entry.id)}
                 onAcknowledgeSentiment={() => editing.acknowledgeSentiment(entry.id)}
                 onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}
+                onArchive={() => editing.archiveEntry(entry.id)}
+                onUnarchive={() => editing.unarchiveEntry(entry.id)}
               />
             </div>
           ))

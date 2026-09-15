@@ -12,6 +12,10 @@ type Props = {
   promotedRunIds: Set<string>;
   chatHistoryLoaded: boolean;
   pinError: string | null;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+  showArchivedConsults: boolean;
+  onChangeShowArchivedConsults: (value: boolean) => void;
+  archivedConsultCount: number;
   onSelect: (id: string) => void;
   onNewConsult: () => void;
 };
@@ -23,6 +27,9 @@ export function ChatHistoryPanel({
   promotedRunIds,
   chatHistoryLoaded,
   pinError,
+  showArchivedConsults,
+  onChangeShowArchivedConsults,
+  archivedConsultCount,
   onSelect,
   onNewConsult,
 }: Props) {
@@ -32,6 +39,14 @@ export function ChatHistoryPanel({
       <button className={styles.primaryBtn} onClick={onNewConsult}>
         ＋ 新しい相談を始める
       </button>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", margin: "8px 0" }}>
+        <input
+          type="checkbox"
+          checked={showArchivedConsults}
+          onChange={(e) => onChangeShowArchivedConsults(e.target.checked)}
+        />
+        🗄 アーカイブ済みも表示する（{archivedConsultCount}件）
+      </label>
       <div className={styles.runList}>
         {historyRuns.length === 0 && (
           <p className={styles.subtitle}>{!chatHistoryLoaded ? "読み込み中…" : "まだ相談履歴はありません。"}</p>

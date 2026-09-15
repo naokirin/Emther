@@ -26,6 +26,8 @@ export function buildMorningSummaryContextBlock(): string {
   const omitRun = (run: AgentRun) => {
     if (run.consultedBy) return true;
     if (run.triageStatus === "dismissed") return true;
+    // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+    if (run.archivedAt) return true;
     return issues.some((i) => i.agentRunId === run.id && i.archived);
   };
 

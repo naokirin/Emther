@@ -116,12 +116,14 @@ function SuggestionsPageInner() {
   );
 
   const [showDone, setShowDone] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"open" | SuggestionReviewStatus | "all">("open");
   const [priorityFilter, setPriorityFilter] = useState<"all" | ConfirmPriority>("all");
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
 
   const filtered = suggestions
     .filter((s) => {
+      if (!showArchived && s.archivedAt) return false;
       if (!showDone && s.reviewStatus === "done") return false;
       if (statusFilter === "open") return isSuggestionOpen(s);
       if (statusFilter === "all") return true;
@@ -133,6 +135,7 @@ function SuggestionsPageInner() {
 
   const pagination = usePagination(filtered, PAGE_SIZE);
   const doneCount = suggestions.filter((s) => s.reviewStatus === "done").length;
+  const archivedCount = suggestions.filter((s) => s.archivedAt).length;
 
   async function moveFocus(id: string, direction: "up" | "down") {
     setFocusMovingId(id);
@@ -157,6 +160,10 @@ function SuggestionsPageInner() {
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
               <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
               確認済み（もう追わない）も表示する（{doneCount}件）
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+              🗄 アーカイブ済みも表示する（{archivedCount}件）
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
               確認状態:
@@ -225,6 +232,7 @@ function SuggestionsPageInner() {
                           )}
                           {s.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                           {s.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
+                          {s.archivedAt && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
                         </div>
                       </td>
                       <td>

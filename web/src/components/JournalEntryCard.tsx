@@ -73,6 +73,8 @@ export function JournalEntryCard({
   onClearResolution,
   onAcknowledgeSentiment,
   onClearSentimentAck,
+  onArchive,
+  onUnarchive,
   onDismissPendingError,
 }: {
   entry: JournalEntry;
@@ -116,6 +118,10 @@ export function JournalEntryCard({
   // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
   onAcknowledgeSentiment: () => void;
   onClearSentimentAck: () => void;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。呼び出し側が省略
+  // した場合はボタン自体を出さない（Dashboard等、まだ配線していない画面向け）。
+  onArchive?: () => void;
+  onUnarchive?: () => void;
   onDismissPendingError: () => void;
 }) {
   const router = useRouter();
@@ -543,9 +549,27 @@ export function JournalEntryCard({
             {analysisStarting ? "起動中…" : "分析する"}
           </button>
         )}
+        {entry.archivedAt && (
+          <span className={`${styles.tag} ${styles.tagTopic}`} title="一覧・AIの判断材料からは除外されています">
+            🗄 アーカイブ済み
+          </span>
+        )}
         <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={onStartEdit}>
           編集
         </button>
+        {(entry.archivedAt ? onUnarchive : onArchive) && (
+          <button
+            className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+            onClick={entry.archivedAt ? onUnarchive : onArchive}
+            title={
+              entry.archivedAt
+                ? "アーカイブを解除します"
+                : "重複記録・誤入力等のとき、一覧・AIの判断材料から除外します（記録自体は削除しません）"
+            }
+          >
+            {entry.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+          </button>
+        )}
       </div>
     </div>
   );

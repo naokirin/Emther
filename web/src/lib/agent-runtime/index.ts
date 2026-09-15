@@ -62,6 +62,7 @@ export {
   listRuns,
   listRunsPage,
   markRunReviewed,
+  setRunArchived,
   setRunTriageStatus,
   toRunView,
 } from "./store";

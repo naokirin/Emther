@@ -496,6 +496,8 @@ export function JournalDumpPanel({
           onClearResolution={() => journalEditing.clearResolution(entry.id)}
           onAcknowledgeSentiment={() => journalEditing.acknowledgeSentiment(entry.id)}
           onClearSentimentAck={() => journalEditing.clearSentimentAck(entry.id)}
+          onArchive={() => journalEditing.archiveEntry(entry.id)}
+          onUnarchive={() => journalEditing.unarchiveEntry(entry.id)}
         />
       ))}
       {visibleJournalEntries.length > JOURNAL_DASHBOARD_LIMIT && (

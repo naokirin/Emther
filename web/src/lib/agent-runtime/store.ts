@@ -42,6 +42,7 @@ type AgentRunRow = {
   reviewed: number;
   triage_status: string | null;
   triage_at: number | null;
+  archived_at: number | null;
 };
 
 type AgentRunLogRow = {
@@ -61,8 +62,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -80,7 +81,8 @@ function persistRunMeta(run: AgentRun): void {
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
          triage_status = excluded.triage_status,
-         triage_at = excluded.triage_at`,
+         triage_at = excluded.triage_at,
+         archived_at = excluded.archived_at`,
     )
     .run(
       run.id,
@@ -107,6 +109,7 @@ function persistRunMeta(run: AgentRun): void {
       run.reviewed ? 1 : 0,
       run.triageStatus ?? null,
       run.triageAt ?? null,
+      run.archivedAt ?? null,
     );
 }
 
@@ -162,6 +165,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       reviewed: !!row.reviewed,
       triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
       triageAt: row.triage_at ?? undefined,
+      archivedAt: row.archived_at ?? undefined,
     };
     // "queued"（同時実行数の上限による起動待ち）もキュー自体がメモリ上にしか無いため、
     // "active"と同じく再起動をまたいで復元できない。
@@ -372,6 +376,18 @@ export function setRunTriageStatus(id: string, status: "watching" | "dismissed")
       persistRunMeta(child);
     }
   }
+  return run;
+}
+
+// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。誤って起票した・
+// テストで作った等の相談を、相談履歴一覧・AIの判断材料（context-blocks等）から除外する
+// （ログ・run自体は削除しない）。triageStatusとは独立（却下済みの相談も後から
+// アーカイブできるように、意味を混同しない）。
+export function setRunArchived(id: string, archived: boolean): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  run.archivedAt = archived ? Date.now() : undefined;
+  persistRunMeta(run);
   return run;
 }
 

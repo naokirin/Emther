@@ -36,8 +36,16 @@ function ChatPageInner() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定ではアーカイブ済み
+  // （誤って起票した・テストで作った等）を履歴一覧から除外し、必要なときだけ表示できるようにする。
+  const [showArchivedConsults, setShowArchivedConsults] = useState(false);
+
   // 提案化済みでも相談履歴に残す（提案詳細専用の分析 Run だけ除外）。
-  const chatRuns = runs.filter(isConsultHistoryRun).sort((a, b) => b.updatedAt - a.updatedAt);
+  const consultRuns = runs.filter(isConsultHistoryRun);
+  const archivedConsultCount = consultRuns.filter((r) => r.archivedAt).length;
+  const chatRuns = consultRuns
+    .filter((r) => showArchivedConsults || !r.archivedAt)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
   const promotedRunIds = new Set(
     issues.flatMap((i) => [i.agentRunId, i.sourceRunId].filter((id): id is string => Boolean(id))),
   );
@@ -178,6 +186,9 @@ function ChatPageInner() {
         promotedRunIds={promotedRunIds}
         chatHistoryLoaded={chatHistoryLoaded}
         pinError={pinError}
+        showArchivedConsults={showArchivedConsults}
+        onChangeShowArchivedConsults={setShowArchivedConsults}
+        archivedConsultCount={archivedConsultCount}
         onSelect={selectHistoryRun}
         onNewConsult={clearHistorySelection}
       />

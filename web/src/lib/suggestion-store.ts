@@ -295,6 +295,30 @@ export function setReviewStatus(id: string, reviewStatus: SuggestionReviewStatus
   return s;
 }
 
+// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。reviewStatusは変えず、
+// archivedAtだけを立てる（一覧・AIの判断材料から外すが、確認状態の履歴自体は残す）。
+export function archiveSuggestion(id: string): Suggestion | undefined {
+  const s = getSuggestion(id);
+  if (!s) return undefined;
+  if (s.archivedAt) return s;
+  s.archivedAt = Date.now();
+  s.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("suggestion", s.id, "アーカイブしました（一覧・AIの判断材料から除外）");
+  return s;
+}
+
+export function unarchiveSuggestion(id: string): Suggestion | undefined {
+  const s = getSuggestion(id);
+  if (!s) return undefined;
+  if (!s.archivedAt) return s;
+  s.archivedAt = undefined;
+  s.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("suggestion", s.id, "アーカイブを解除しました");
+  return s;
+}
+
 function compactFocusOrders(): void {
   const focus = suggestions
     .filter((s) => s.confirmPriority === "focus")

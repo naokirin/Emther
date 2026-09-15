@@ -61,6 +61,10 @@ export type KnowledgeEvent = {
   // 別途持たせる（in-place更新。内容の訂正ではないためsupersedesチェーンは使わない）。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。noActionNeededAtと
+  // 同様のin-place更新（内容の訂正ではないためsupersedesチェーンは使わない）。立っている
+  // イベントは一覧・AIの判断材料から除外する（イベント自体は削除しない）。
+  archivedAt?: number;
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt" | "teamIds"> & {
@@ -94,6 +98,7 @@ type Row = {
   source_chunk_id: string | null;
   no_action_needed_at: number | null;
   no_action_needed_note: string | null;
+  archived_at: number | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -122,6 +127,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     sourceChunkId: row.source_chunk_id ?? undefined,
     noActionNeededAt: row.no_action_needed_at ?? undefined,
     noActionNeededNote: row.no_action_needed_note ?? undefined,
+    archivedAt: row.archived_at ?? undefined,
   };
 }
 
@@ -145,6 +151,23 @@ export function clearEventNoActionNeeded(id: string): KnowledgeEvent | undefined
     .prepare("UPDATE knowledge_events SET no_action_needed_at = NULL, no_action_needed_note = NULL WHERE id = ?")
     .run(id);
   return rowToEvent({ ...row, no_action_needed_at: null, no_action_needed_note: null });
+}
+
+// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。noActionNeededと同様の
+// in-place更新。重複記録・誤入力等のJournalを一覧・AIの判断材料から除外する用途。
+export function setEventArchived(id: string): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  if (!row) return undefined;
+  const now = Date.now();
+  getDb().prepare("UPDATE knowledge_events SET archived_at = ? WHERE id = ?").run(now, id);
+  return rowToEvent({ ...row, archived_at: now });
+}
+
+export function clearEventArchived(id: string): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  if (!row) return undefined;
+  getDb().prepare("UPDATE knowledge_events SET archived_at = NULL WHERE id = ?").run(id);
+  return rowToEvent({ ...row, archived_at: null });
 }
 
 export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
@@ -282,6 +305,7 @@ export type EventPageFilter = {
   occurredAtFrom?: number;
   excludeResolved?: boolean;
   excludeSuperseded?: boolean;
+  excludeArchived?: boolean;
 };
 
 function buildEventPageWhere(filter: EventPageFilter): { where: string; params: (string | number)[] } {
@@ -348,6 +372,9 @@ function buildEventPageWhere(filter: EventPageFilter): { where: string; params: 
   if (filter.excludeSuperseded) {
     conditions.push("id NOT IN (SELECT supersedes FROM knowledge_events WHERE supersedes IS NOT NULL)");
   }
+  if (filter.excludeArchived) {
+    conditions.push("archived_at IS NULL");
+  }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return { where, params };
 }
@@ -388,6 +415,7 @@ export function listEventFacets(filter: {
   entityType?: KnowledgeEntityType;
   kind?: KnowledgeKind;
   excludeSuperseded?: boolean;
+  excludeArchived?: boolean;
 }): { tags: string[]; people: string[] } {
   const conditions: string[] = [];
   const params: string[] = [];
@@ -401,6 +429,9 @@ export function listEventFacets(filter: {
   }
   if (filter.excludeSuperseded) {
     conditions.push("id NOT IN (SELECT supersedes FROM knowledge_events WHERE supersedes IS NOT NULL)");
+  }
+  if (filter.excludeArchived) {
+    conditions.push("archived_at IS NULL");
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = getDb()

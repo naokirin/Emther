@@ -130,3 +130,19 @@ describe("createSuggestion / review / memo", () => {
     expect(store.getSuggestion(s.id)?.reviewStatus).toBe("done");
   });
 });
+
+describe("archiveSuggestion / unarchiveSuggestion", () => {
+  it("reviewStatusを変えずにarchivedAtだけを立てる／解除できる", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("重複して起票してしまった提案");
+    expect(s.archivedAt).toBeUndefined();
+
+    const archived = store.archiveSuggestion(s.id);
+    expect(archived?.archivedAt).toBeTypeOf("number");
+    expect(archived?.reviewStatus).toBe("unreviewed");
+
+    const unarchived = store.unarchiveSuggestion(s.id);
+    expect(unarchived?.archivedAt).toBeUndefined();
+    expect(unarchived?.reviewStatus).toBe("unreviewed");
+  });
+});

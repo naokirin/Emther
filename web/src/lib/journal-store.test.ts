@@ -243,6 +243,16 @@ describe("listJournalEntries", () => {
     expect(list).toHaveLength(1);
     expect(list[0].rawText).toBe("訂正後のテキスト");
   });
+
+  it("アーカイブ済みは既定で除外され、includeArchivedで表示できる", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("重複して記録してしまった");
+    await store.addJournalEntry("通常のエントリ", 2);
+    store.archiveJournalEntry(entry.id);
+
+    expect(store.listJournalEntries().map((e) => e.id)).not.toContain(entry.id);
+    expect(store.listJournalEntries({ includeArchived: true }).map((e) => e.id)).toContain(entry.id);
+  });
 });
 
 describe("listJournalEntriesPage", () => {
@@ -348,6 +358,33 @@ describe("setJournalNoActionNeeded / clearJournalNoActionNeeded", () => {
     const store = await loadModule();
     expect(await store.setJournalNoActionNeeded("missing")).toBeUndefined();
     expect(store.clearJournalNoActionNeeded("missing")).toBeUndefined();
+  });
+});
+
+// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
+describe("archiveJournalEntry / unarchiveJournalEntry", () => {
+  it("一覧・ページングから除外され、解除すると戻る（現行版=headに反映される）", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("元のテキスト");
+    const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
+
+    // 古い（supersedesされた）idを渡しても現行版へ反映される。
+    const archived = store.archiveJournalEntry(entry.id);
+    expect(archived?.id).toBe(confirmed!.id);
+    expect(archived?.archivedAt).toBeTypeOf("number");
+    expect(store.listJournalEntriesPage({}, { limit: 10, offset: 0 }).total).toBe(0);
+    expect(store.listJournalEntriesPage({ includeArchived: true }, { limit: 10, offset: 0 }).total).toBe(1);
+
+    const unarchived = store.unarchiveJournalEntry(entry.id);
+    expect(unarchived?.id).toBe(confirmed!.id);
+    expect(unarchived?.archivedAt).toBeUndefined();
+    expect(store.listJournalEntriesPage({}, { limit: 10, offset: 0 }).total).toBe(1);
+  });
+
+  it("存在しないIDはundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(store.archiveJournalEntry("missing")).toBeUndefined();
+    expect(store.unarchiveJournalEntry("missing")).toBeUndefined();
   });
 });
 

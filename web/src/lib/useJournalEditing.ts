@@ -339,6 +339,52 @@ export function useJournalEditing(
     }
   }
 
+  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。内容の訂正
+  // （PATCH/supersedesチェーン）とは別の専用エンドポイント（acknowledgeSentimentと同じ形）。
+  async function archiveEntry(entryId: string) {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
+    try {
+      const res = await fetch(`/api/journal/${entryId}/archive`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "アーカイブに失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+    } catch (err) {
+      const retry = () => {
+        void archiveEntry(entryId);
+      };
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }
+
+  async function unarchiveEntry(entryId: string) {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
+    try {
+      const res = await fetch(`/api/journal/${entryId}/archive`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "アーカイブ解除に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+    } catch (err) {
+      const retry = () => {
+        void unarchiveEntry(entryId);
+      };
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }
+
   return {
     editingEntryId,
     editRawText,
@@ -372,6 +418,8 @@ export function useJournalEditing(
     clearResolution,
     acknowledgeSentiment,
     clearSentimentAck,
+    archiveEntry,
+    unarchiveEntry,
     isEntryPending,
     pendingEntryErrors,
     dismissPendingError,
