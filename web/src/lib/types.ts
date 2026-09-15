@@ -44,7 +44,7 @@ export type JournalEntry = {
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {
-  if (entry.resolvedIssueId) return "対応済み/Issue化済み";
+  if (entry.resolvedIssueId) return "対応済み/提案化済み";
   if (entry.resolutionNote) return "対応済み";
   return "";
 }

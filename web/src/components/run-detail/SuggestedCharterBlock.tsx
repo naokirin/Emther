@@ -24,7 +24,7 @@ export function SuggestedCharterBlock({
     <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
       <strong>📝 AIが提案するWhy/What/How</strong>
       <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-        未整理だった項目の埋め合わせ案です。採用すると、この項目だけIssueのWhy/What/Howに反映されます（既に書かれている項目は上書きしません）。
+        未整理だった項目の埋め合わせ案です。採用すると、この項目だけ提案のWhy/What/Howに反映されます（既に書かれている項目は上書きしません）。
       </p>
       {(["why", "what", "how"] as const).map(
         (key) =>

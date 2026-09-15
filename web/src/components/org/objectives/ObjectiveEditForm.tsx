@@ -61,7 +61,7 @@ export function ObjectiveEditForm({
         </div>
       </div>
       <p className={styles.subtitle}>
-        KeyResultへ紐付けたIssue（追っていない・アーカイブ済みのものを除く）の件数を表示します。Issueは達成度を自動追跡する管理項目ではなく、AIが提案した判断材料です。
+        KeyResultへ紐付けた提案（追っていない・アーカイブ済みのものを除く）の件数を表示します。提案は達成度を自動追跡する管理項目ではなく、AIが提案した判断材料です。
       </p>
       <div className={styles.field}>
         <label>Objective（目標）

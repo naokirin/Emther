@@ -24,7 +24,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
     body: (
       <>
         <p>
-          提案は Issue 管理ではなく、AIが観測・解釈した結果として現れる<strong>判断材料</strong>です。
+          提案は管理対象のタスクではなく、AIが観測・解釈した結果として現れる<strong>判断材料</strong>です。
           確認状態（未確認／確認保留／確認済み＝もう追わない）と確認優先度（今すぐ／通常／後で）で切り分け、
           メモを残し、紐づく Agent と壁打ちして理解を深めます。アクションの完了管理は Emther の対象外です。
         </p>

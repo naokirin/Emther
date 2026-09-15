@@ -17,7 +17,7 @@ export function EveningModeCard({ checkinsLoaded, hasCheckinToday, onFocusJourna
     <div className={styles.panel} style={{ borderColor: "var(--accent, var(--border))" }}>
       <h2 style={{ margin: 0, fontSize: "1rem" }}>夜の書き連ね</h2>
       <p className={styles.subtitle} style={{ marginTop: 4 }}>
-        今日あったことを分割せず 10〜15 分で書いてください。Issue 化・分割は翌朝の提案に寄せます。
+        今日あったことを分割せず 10〜15 分で書いてください。提案化・分割は翌朝の提案に寄せます。
       </p>
       {!checkinsLoaded ? (
         <p className={styles.subtitle}>読み込み中…</p>

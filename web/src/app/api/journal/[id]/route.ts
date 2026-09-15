@@ -70,7 +70,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
   } else if (typeof body.resolvedIssueId === "string") {
     const resolved = resolveUniqueByPrefix(listIssues(), (i) => i.id, body.resolvedIssueId);
     if (resolved.status === "none") {
-      return NextResponse.json({ error: "指定されたIssueが見つかりません" }, { status: 400 });
+      return NextResponse.json({ error: "指定された提案が見つかりません" }, { status: 400 });
     }
     if (resolved.status === "ambiguous") {
       return NextResponse.json(

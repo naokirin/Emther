@@ -244,14 +244,14 @@ export function JournalIssueTrendChart({ points }: { points: JournalIssueDailyPo
       )}
 
       <div className={styles.fieldCaption} style={{ marginTop: 18 }}>
-        Issue（起票の日次件数）
+        提案（起票の日次件数）
       </div>
       {hasIssue ? (
         <div className={styles.trendChartCanvasWrapSmall}>
           <Bar data={buildCountChartData(points, ISSUE_SERIES)} options={countChartOptions(false)} />
         </div>
       ) : (
-        <p className={styles.tableEmpty}>この期間のIssueの起票はまだありません。</p>
+        <p className={styles.tableEmpty}>この期間の提案の起票はまだありません。</p>
       )}
     </div>
   );

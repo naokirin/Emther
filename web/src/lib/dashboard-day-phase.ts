@@ -22,7 +22,7 @@ export const DAY_PHASE_GUIDANCE: Record<DayPhase, { icon: string; text: string; 
   },
   evening: {
     icon: "🌆",
-    text: "終業前に、今日あったことを分割を考えず書き連ねましょう（分割・Issue化は翌朝の提案に寄せます）。",
+    text: "終業前に、今日あったことを分割を考えず書き連ねましょう（分割・提案化は翌朝の提案に寄せます）。",
     cta: "書き連ねる",
   },
 };

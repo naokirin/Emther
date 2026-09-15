@@ -54,7 +54,7 @@ function TimelinePageInner() {
           <p className={styles.subtitle}>
             {!timelineLoaded
               ? "読み込み中…"
-              : "まだ変更履歴はありません。Issueの起票やチーム編集などを行うとここに記録されます。"}
+              : "まだ変更履歴はありません。提案の起票やチーム編集などを行うとここに記録されます。"}
           </p>
         ) : (
           groups.map((group) => (

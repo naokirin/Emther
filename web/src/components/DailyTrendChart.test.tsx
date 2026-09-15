@@ -75,7 +75,7 @@ describe("JournalIssueTrendChart", () => {
   it("記録が無い期間はJournal/Issue両方の空状態メッセージを出す", () => {
     render(<JournalIssueTrendChart points={buildJournalIssueDailyTrend([], [], WEEK)} />);
     expect(screen.getByText("この期間のJournalはまだありません。")).toBeInTheDocument();
-    expect(screen.getByText("この期間のIssueの起票はまだありません。")).toBeInTheDocument();
+    expect(screen.getByText("この期間の提案の起票はまだありません。")).toBeInTheDocument();
   });
 
   it("Journalはネガティブ・ニュートラル・ポジティブの順（積み上げの最下段から）で渡す", () => {

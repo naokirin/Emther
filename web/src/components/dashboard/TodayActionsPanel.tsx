@@ -173,13 +173,13 @@ export function TodayActionsPanel({
       <h2 className={styles.heroHeadline}>{headline}</h2>
       {unlinkedParentCount > 0 && (
         <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
-          ⚠ 戦略未接続の親 Issue が {unlinkedParentCount} 件あります
+          ⚠ 戦略未接続の親 提案 が {unlinkedParentCount} 件あります
           <button
             className={styles.detailToggle}
             style={{ marginLeft: 6 }}
             disabled={issueLinkSuggesting}
             onClick={handleSuggestIssueStrategyLinks}
-            title="戦略未接続の親 Issue へ、テーマ / KR の紐付けをAIが提案します"
+            title="戦略未接続の親 提案 へ、テーマ / KR の紐付けをAIが提案します"
           >
             {issueLinkSuggesting ? "提案中…" : "AIで見直す"}
           </button>
@@ -211,7 +211,7 @@ export function TodayActionsPanel({
 
       {krTotals.total > 0 && (
         <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
-          📈 今期のKRに紐づくIssue: {krTotals.total}件
+          📈 今期のKRに紐づく提案: {krTotals.total}件
           <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => onNavigate("/org")}>
             詳細
           </button>

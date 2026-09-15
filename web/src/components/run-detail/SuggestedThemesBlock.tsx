@@ -22,7 +22,7 @@ export function SuggestedThemesBlock({
     <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
       <strong>🧭 AIが提案するテーマ解釈（状況蒸留）</strong>
       <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}>
-        組織の上段課題の見立てです。採用すると今日タブの「現在の優先テーマ」になり、Issue壁打ちの前提に入ります。誤りや不足はチャットで壁打ちしてから再提案させるか、採用後に詳細から編集できます。
+        組織の上段課題の見立てです。採用すると今日タブの「現在の優先テーマ」になり、提案の壁打ちの前提に入ります。誤りや不足はチャットで壁打ちしてから再提案させるか、採用後に詳細から編集できます。
       </p>
       {themes.map((theme, i) => (
         <div key={i} style={{ fontSize: "0.75rem", marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
@@ -61,7 +61,7 @@ export function SuggestedThemesBlock({
             <div style={{ marginTop: 6 }}>
               {theme.evidenceIssueIds && theme.evidenceIssueIds.length > 0 && (
                 <p style={{ margin: "2px 0" }}>
-                  <strong>根拠 Issue: </strong>
+                  <strong>根拠 提案: </strong>
                   {theme.evidenceIssueIds.map((id, ii) => (
                     <span key={id}>
                       {ii > 0 ? "、" : ""}

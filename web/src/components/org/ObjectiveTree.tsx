@@ -7,7 +7,7 @@ export function treeTitle(title: string): string {
 
 export function objectiveProgressLabel(o: ObjectiveWithProgress): string {
   const total = o.progress.reduce((sum, p) => sum + p.total, 0);
-  return `KR ${o.keyResults.length}件` + (total > 0 ? ` · Issue ${total}件` : "");
+  return `KR ${o.keyResults.length}件` + (total > 0 ? ` · 提案 ${total}件` : "");
 }
 
 // docs/memo.md TODO「チームの組織階層を入力できるようにする」への対応と同じツリー構造を、

@@ -44,7 +44,7 @@ export default async function GoByIdPrefixPage({ params }: { params: Promise<{ p
         </Link>
         <h1>一致する項目がありません</h1>
         <p className={styles.subtitle}>
-          プレフィックス <code>{prefix}</code> に一致する Issue / Journal / 相談はありませんでした。
+          プレフィックス <code>{prefix}</code> に一致する 提案 / Journal / 相談はありませんでした。
         </p>
       </div>
     );

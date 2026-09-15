@@ -238,8 +238,8 @@ describe("isJournalEntryResolved", () => {
 });
 
 describe("journalResolutionLabel", () => {
-  it("Issue化済みは対応済み/Issue化済み", () => {
-    expect(journalResolutionLabel(baseEntry({ resolvedIssueId: "issue-1" }))).toBe("対応済み/Issue化済み");
+  it("提案化済みは対応済み/提案化済み", () => {
+    expect(journalResolutionLabel(baseEntry({ resolvedIssueId: "issue-1" }))).toBe("対応済み/提案化済み");
   });
 
   it("解決メモだけなら対応済み", () => {

@@ -54,9 +54,9 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
 
       {candidates.length > 1 && (
         <>
-          <strong style={{ fontSize: "0.75rem" }}>Issue化候補（親なし・独立）</strong>
+          <strong style={{ fontSize: "0.75rem" }}>提案化候補（親なし・独立）</strong>
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 6px" }}>
-            別介入として並列に切る案です。子Issue（分解）ではありません。起票する件は相談画面のチェックで選んでください。
+            別介入として並列に切る案です。子提案（分解）ではありません。起票する件は相談画面のチェックで選んでください。
           </p>
           <ul style={{ margin: "0 0 8px 18px", fontSize: "0.75rem" }}>
             {candidates.map((c, i) => (
