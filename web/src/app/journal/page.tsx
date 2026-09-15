@@ -124,7 +124,17 @@ function JournalListPageInner() {
     <div className={styles.screen}>
       <PageTitleRow title="現場メモ" helpAnchor="journal" />
 
-      <JournalInputSwitcher onSaved={() => refreshSearch()} focusDumpId={focusDumpId} />
+      {/* docs/memo.md「Journalが書き込み順にならず、書き込み直後に見失ってしまう」対応。
+          新しいJournalは常に一覧の先頭（ページ1）に来るが、他のページを見ている最中に
+          記録するとrefreshSearchだけでは今見ているページのままなので、記録直後は
+          ページ1へ戻して見失わないようにする（ページ1のときは従来通り即時再取得だけ行う）。 */}
+      <JournalInputSwitcher
+        onSaved={() => {
+          if (page === 1) refreshSearch();
+          else setPage(1);
+        }}
+        focusDumpId={focusDumpId}
+      />
 
       <div className={styles.panel}>
         <div className={styles.field}>
@@ -183,7 +193,7 @@ function JournalListPageInner() {
               checked={excludeResolved}
               onChange={(e) => updateFilter(setExcludeResolved)(e.target.checked)}
             />
-            ✅ 対応済み/Issue化済みを除外
+            ✅ 対応済み/提案化済みを除外
           </label>
         </div>
       </div>
