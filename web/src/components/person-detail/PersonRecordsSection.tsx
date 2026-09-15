@@ -12,7 +12,34 @@ import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedI
 // sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した場合だけ、
 // 赤い#ネガティブの強調を弱める（Dashboard/Journal一覧のJournalEntryCardと同じ考え方・
 // 同じAPI: POST/DELETE /api/journal/[id]/no-action-needed）。
-function FactSentimentTag({ fact, onChanged }: { fact: PersonFact; onChanged: () => void }) {
+// ユーザー指摘「タグやステータスの情報のところにアクションを混ぜてしまっているのが問題。
+// 行の右端のほうに分けて配置してほしい」対応。ステータス表示（このコンポーネント）と
+// 操作ボタン（FactSentimentAction）を分離し、呼び出し側でUrgencyより後ろ（行末）に
+// アクションを配置する。
+function FactSentimentTag({ fact }: { fact: PersonFact }) {
+  if (fact.sentiment !== "negative") {
+    return (
+      <span className={`${styles.tag} ${fact.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
+        #{fact.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
+      </span>
+    );
+  }
+
+  if (fact.noActionNeededAt) {
+    return (
+      <span
+        className={`${styles.tag} ${styles.tagPerson}`}
+        title={fact.noActionNeededNote ? `確認済み（対応不要と判断）: ${fact.noActionNeededNote}` : "確認済み（対応不要と判断）"}
+      >
+        ✓ ネガティブ（確認済み）
+      </span>
+    );
+  }
+
+  return <span className={`${styles.tag} ${styles.tagNeg}`}>#ネガティブ</span>;
+}
+
+function FactSentimentAction({ fact, onChanged }: { fact: PersonFact; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
 
   async function toggle(ack: boolean) {
@@ -25,42 +52,26 @@ function FactSentimentTag({ fact, onChanged }: { fact: PersonFact; onChanged: ()
     }
   }
 
-  if (fact.sentiment !== "negative") {
-    return (
-      <span className={`${styles.tag} ${fact.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-        #{fact.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-      </span>
-    );
-  }
+  if (fact.sentiment !== "negative") return null;
 
   if (fact.noActionNeededAt) {
     return (
-      <>
-        <span
-          className={`${styles.tag} ${styles.tagPerson}`}
-          title={fact.noActionNeededNote ? `確認済み（対応不要と判断）: ${fact.noActionNeededNote}` : "確認済み（対応不要と判断）"}
-        >
-          ✓ ネガティブ（確認済み）
-        </span>
-        <button className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`} disabled={busy} onClick={() => toggle(false)}>
-          確認を取り消す
-        </button>
-      </>
+      <button className={styles.btnOutline} style={{ padding: "2px 10px", fontSize: "0.75rem" }} disabled={busy} onClick={() => toggle(false)}>
+        確認を取り消す
+      </button>
     );
   }
 
   return (
-    <>
-      <span className={`${styles.tag} ${styles.tagNeg}`}>#ネガティブ</span>
-      <button
-        className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-        disabled={busy}
-        onClick={() => toggle(true)}
-        title="確認したが対応は不要だった場合に押してください（出来事の記録自体は変わりません）"
-      >
-        確認した（対応不要）
-      </button>
-    </>
+    <button
+      className={styles.btnOutline}
+      style={{ padding: "2px 10px", fontSize: "0.75rem" }}
+      disabled={busy}
+      onClick={() => toggle(true)}
+      title="確認したが対応は不要だった場合に押してください（出来事の記録自体は変わりません）"
+    >
+      確認済み/対応不要とする
+    </button>
   );
 }
 
@@ -120,7 +131,7 @@ function IssueConcernTag({
         onClick={() => toggle(true)}
         title="確認したが対応は不要だった場合に押してください（提案自体の状態は変わりません）"
       >
-        確認した（対応不要）
+        確認済み/対応不要とする
       </button>
     </div>
   );
@@ -176,6 +187,11 @@ export function PersonRecordsSection({
                 <th>内容</th>
                 <th>タグ / 緊急度</th>
                 <th>発生日時</th>
+                {/* ユーザー指摘「メンバー詳細のJournal一覧ではまだタグ等と混ざって表示されている」
+                    対応。同じ列に置くと折り返し表示上は分かれていてもタグの続きに見えてしまう
+                    ため、操作は独立した列に分ける（Journal一覧のJournalEntryCardと同じ、
+                    情報とアクションを分離する考え方）。 */}
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -193,13 +209,14 @@ export function PersonRecordsSection({
                           #{t}
                         </span>
                       ))}
-                      {f.sentiment && f.sentiment !== "neutral" && <FactSentimentTag fact={f} onChanged={() => void onRecordChanged()} />}
+                      {f.sentiment && f.sentiment !== "neutral" && <FactSentimentTag fact={f} />}
                       {f.urgency && (
                         <span className={`${styles.urgencyLabel} ${styles[`urgency${f.urgency}`]}`}>{URGENCY_LABEL[f.urgency]}</span>
                       )}
                     </div>
                   </td>
                   <td className={styles.tableMuted}>{new Date(f.occurredAt).toLocaleString("ja-JP")}</td>
+                  <td>{f.sentiment === "negative" && <FactSentimentAction fact={f} onChanged={() => void onRecordChanged()} />}</td>
                 </tr>
               ))}
             </tbody>

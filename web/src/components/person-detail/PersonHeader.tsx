@@ -157,7 +157,7 @@ export function PersonHeader({
         </p>
         {person.hasConcerningIssue && (
           <p className={styles.subtitle}>
-            確認のうえ対応不要と判断した場合は、下の「関連提案」一覧の該当行から「確認した（対応不要）」を押すとこの強調は消えます。
+            確認のうえ対応不要と判断した場合は、下の「関連提案」一覧の該当行から「確認済み/対応不要とする」を押すとこの強調は消えます。
           </p>
         )}
         {person.isSelf && (

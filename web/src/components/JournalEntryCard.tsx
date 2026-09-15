@@ -466,24 +466,6 @@ export function JournalEntryCard({
               #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
             </span>
           ))}
-        {entry.sentiment === "negative" &&
-          (entry.noActionNeededAt ? (
-            <button
-              className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-              onClick={onClearSentimentAck}
-              title="確認済み（対応不要）を取り消し、通常の強調表示に戻します"
-            >
-              確認を取り消す
-            </button>
-          ) : (
-            <button
-              className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-              onClick={onAcknowledgeSentiment}
-              title="確認したが対応は不要だった場合に押してください。ネガティブの強調を弱めます（出来事の記録自体は変わりません）"
-            >
-              確認した（対応不要）
-            </button>
-          ))}
         <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
         {/* docs/em_human_story_and_ux.md 改修依頼対応。urgencyは記録のまま変えないため、
             「今どこで管理されているか」をurgencyバッジとは別に見せる。 */}
@@ -549,6 +531,30 @@ export function JournalEntryCard({
             {analysisStarting ? "起動中…" : "分析する"}
           </button>
         )}
+        {/* ユーザー指摘「タグやステータスの情報のところにアクションを混ぜてしまっているのが
+            問題。一般的なアクションと同様、行の右端のほうに分けて配置してほしい」対応。
+            #ネガティブ等のタグ・ステータス表示のすぐ隣ではなく、編集・アーカイブするなど
+            他のアクションと同じ行末のクラスタへ移す。 */}
+        {entry.sentiment === "negative" &&
+          (entry.noActionNeededAt ? (
+            <button
+              className={styles.btnOutline}
+              style={{ padding: "2px 10px", fontSize: "0.75rem" }}
+              onClick={onClearSentimentAck}
+              title="確認済み（対応不要）を取り消し、通常の強調表示に戻します"
+            >
+              確認を取り消す
+            </button>
+          ) : (
+            <button
+              className={styles.btnOutline}
+              style={{ padding: "2px 10px", fontSize: "0.75rem" }}
+              onClick={onAcknowledgeSentiment}
+              title="確認したが対応は不要だった場合に押してください。ネガティブの強調を弱めます（出来事の記録自体は変わりません）"
+            >
+              確認済み/対応不要とする
+            </button>
+          ))}
         {entry.archivedAt && (
           <span className={`${styles.tag} ${styles.tagTopic}`} title="一覧・AIの判断材料からは除外されています">
             🗄 アーカイブ済み

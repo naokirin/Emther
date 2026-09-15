@@ -157,7 +157,7 @@ export function PersonEvaluationLogsSection({
                         onClick={() => handleEvalNoActionNeeded(log.id, true)}
                         title="確認したが対応は不要だった場合に押してください（記録自体は残ります）"
                       >
-                        確認した（対応不要）
+                        確認済み/対応不要とする
                       </button>
                     ))}
                   {log.status === "provisional" && (
