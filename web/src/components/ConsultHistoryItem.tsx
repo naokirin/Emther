@@ -61,16 +61,21 @@ export function ConsultHistoryItem({
   run,
   selected,
   stale,
+  promoted,
   onSelect,
 }: {
   run: AgentRun;
   selected: boolean;
   stale?: boolean;
+  promoted?: boolean;
   onSelect: () => void;
 }) {
   const title = truncateExcerpt(consultListTitle(run), TITLE_MAX);
   const secondary = consultListSecondary(run);
-  const meta = consultListMetaParts(run, { stale }).join(" · ");
+  const meta = [
+    ...consultListMetaParts(run, { stale }),
+    ...(promoted ? ["提案化済み"] : []),
+  ].join(" · ");
 
   return (
     <button

@@ -104,4 +104,9 @@ describe("ConsultHistoryItem", () => {
     await userEvent.click(screen.getByRole("button"));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
+
+  it("提案化済みならメタ行に表示する", () => {
+    render(<ConsultHistoryItem run={baseRun()} selected={false} promoted onSelect={() => {}} />);
+    expect(screen.getByText(/提案化済み/)).toBeInTheDocument();
+  });
 });

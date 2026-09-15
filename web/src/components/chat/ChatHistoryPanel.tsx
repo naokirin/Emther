@@ -9,6 +9,7 @@ type Props = {
   historyRuns: AgentRun[];
   selectedId: string | null;
   staleRunIds: Set<string>;
+  promotedRunIds: Set<string>;
   chatHistoryLoaded: boolean;
   pinError: string | null;
   onSelect: (id: string) => void;
@@ -19,6 +20,7 @@ export function ChatHistoryPanel({
   historyRuns,
   selectedId,
   staleRunIds,
+  promotedRunIds,
   chatHistoryLoaded,
   pinError,
   onSelect,
@@ -45,6 +47,7 @@ export function ChatHistoryPanel({
             run={r}
             selected={selectedId === r.id}
             stale={staleRunIds.has(r.id)}
+            promoted={promotedRunIds.has(r.id)}
             onSelect={() => onSelect(r.id)}
           />
         ))}

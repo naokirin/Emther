@@ -9,13 +9,13 @@ import { ConsultReviewPanel } from "@/components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "@/components/chat/NewConsultForm";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
+import { isConsultHistoryRun } from "@/lib/origin-trace";
 import { isRunStale } from "@/lib/types";
 
 // docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、
-// 質問ができるチャットを用意する」への対応。特定のIssueに紐付けないLead Agentのrunを
-// この画面専用の「相談」として扱う（Issue化されていないLead Agent runがそれに相当する）。
-// 新規のデータモデル・APIは増やさず、既存のAgent Runtime（startRun/decideRun）と
-// 既存のExecutionState/CopilotChat UIをそのまま流用する。
+// 質問ができるチャットを用意する」への対応。Lead Agent の相談スレッドをこの画面で扱う。
+// 提案化後も履歴に残し、分割起票や提案に紐づかない続きの壁打ちができるようにする
+// （提案詳細専用の起票分析／更新分析だけ除外。isConsultHistoryRun）。
 
 export default function ChatPage() {
   return (
@@ -36,10 +36,11 @@ function ChatPageInner() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  // Issueに紐付いていないLead Agent runだけを「相談履歴」として扱う。
-  const chatRuns = runs
-    .filter((r) => r.agentName === "Lead Agent" && !issues.some((i) => i.agentRunId === r.id))
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+  // 提案化済みでも相談履歴に残す（提案詳細専用の分析 Run だけ除外）。
+  const chatRuns = runs.filter(isConsultHistoryRun).sort((a, b) => b.updatedAt - a.updatedAt);
+  const promotedRunIds = new Set(
+    issues.flatMap((i) => [i.agentRunId, i.sourceRunId].filter((id): id is string => Boolean(id))),
+  );
   const chatHistoryLoaded = runsLoaded && issuesLoaded;
 
   // docs/usage_issues U6。runs+issuesの両方が揃ってから runId を選択する。
@@ -133,9 +134,9 @@ function ChatPageInner() {
     });
   }
 
-  // URLで指定されたLead runが一覧フィルタ外でも履歴に出す（Issue化済みや取得遅延の保険）。
+  // URLで指定されたLead runが一覧に無いときも履歴へピン留め（取得遅延の保険）。
   const historyRuns = (() => {
-    if (!pinnedRun || pinnedRun.agentName !== "Lead Agent") return chatRuns;
+    if (!pinnedRun || !isConsultHistoryRun(pinnedRun)) return chatRuns;
     if (chatRuns.some((r) => r.id === pinnedRun.id)) {
       return chatRuns.map((r) => (r.id === pinnedRun.id ? pinnedRun : r));
     }
@@ -174,6 +175,7 @@ function ChatPageInner() {
         historyRuns={historyRuns}
         selectedId={selectedId}
         staleRunIds={staleRunIds}
+        promotedRunIds={promotedRunIds}
         chatHistoryLoaded={chatHistoryLoaded}
         pinError={pinError}
         onSelect={selectHistoryRun}

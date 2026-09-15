@@ -11,7 +11,9 @@ export async function GET() {
 }
 
 // docs/2nd_pivot_version.md Phase 7。相談／Journal／未紐付け Run から提案を残す入口。
-// agentRunId が無い場合は Lead Agent の分析 Run を自動起動する（旧 Issue 起票と同じ）。
+// - agentRunId あり: その Run を提案の主分析として紐付け、reviewed 化（Inbox 等からの起票）。
+// - sourceRunId のみ: 相談スレッドは相談履歴に残し、提案専用の新規分析 Run は起動しない。
+// - どちらも無し: Lead Agent の分析 Run を自動起動する（旧 Issue 起票と同じ）。
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const title = typeof body?.title === "string" ? body.title.trim() : "";
@@ -54,6 +56,14 @@ export async function POST(request: Request) {
     });
     if (agentRunId) {
       markRunReviewed(agentRunId);
+      if (sourceJournalId) {
+        await linkJournalToIssue(sourceJournalId, suggestion.id, opts).catch(() => {
+          // Journal 紐付け失敗で提案作成自体は失敗させない。
+        });
+      }
+    } else if (sourceRunId) {
+      // 相談からの提案化: 相談 Run を提案の主分析に吸収せず、履歴・続きの壁打ちを残す。
+      markRunReviewed(sourceRunId);
       if (sourceJournalId) {
         await linkJournalToIssue(sourceJournalId, suggestion.id, opts).catch(() => {
           // Journal 紐付け失敗で提案作成自体は失敗させない。

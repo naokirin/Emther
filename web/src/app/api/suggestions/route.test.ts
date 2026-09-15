@@ -1,0 +1,95 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+
+vi.mock("@/lib/local-model", () => ({
+  runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
+  extractFirstJsonObject: (text: string) => text,
+}));
+
+vi.mock("@/lib/embeddings", () => ({
+  embedText: vi.fn(async () => [1, 0, 0]),
+  cosineSimilarity: () => 0,
+}));
+
+let dir: string;
+
+beforeEach(() => {
+  dir = setupIsolatedStoreEnv();
+  vi.resetModules();
+});
+
+afterEach(() => {
+  teardownIsolatedStoreEnv(dir);
+});
+
+async function insertRun(id: string, reviewed = 0) {
+  const { getDb } = await import("@/lib/db");
+  getDb()
+    .prepare(
+      `INSERT INTO agent_runs
+        (id, agent_name, task, status, total_cost_usd, created_at, updated_at, origin, reviewed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(id, "Lead Agent", "方針を相談したい", "idle", 0, 1, 1, "manual", reviewed);
+}
+
+describe("POST /api/suggestions", () => {
+  it("sourceRunIdのみのときは相談を吸収せず、新規分析Runも起動しない", async () => {
+    await insertRun("run-consult", 0);
+    const runtime = await import("@/lib/agent-runtime");
+    const startSpy = vi.spyOn(runtime, "startRun").mockResolvedValue({
+      id: "should-not-run",
+      agentName: "Lead Agent",
+      task: "x",
+      status: "idle",
+      log: [],
+      totalCostUsd: 0,
+      createdAt: 1,
+      updatedAt: 1,
+      origin: "manual",
+      reviewed: true,
+    });
+    const route = await import("./route");
+    const res = await route.POST(
+      new Request("http://localhost/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "分割提案A", sourceRunId: "run-consult" }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.suggestion.sourceRunId).toBe("run-consult");
+    expect(json.suggestion.agentRunId).toBeUndefined();
+    expect(startSpy).not.toHaveBeenCalled();
+    expect(runtime.getRun("run-consult")?.reviewed).toBe(true);
+    startSpy.mockRestore();
+  });
+
+  it("agentRunIdもsourceRunIdも無いときは分析Runを起動する", async () => {
+    const runtime = await import("@/lib/agent-runtime");
+    const startSpy = vi.spyOn(runtime, "startRun").mockResolvedValue({
+      id: "run-new",
+      agentName: "Lead Agent",
+      task: "新しいIssueが起票されました",
+      status: "active",
+      log: [],
+      totalCostUsd: 0,
+      createdAt: 1,
+      updatedAt: 1,
+      origin: "manual",
+      reviewed: true,
+    });
+    const route = await import("./route");
+    const res = await route.POST(
+      new Request("http://localhost/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Journalから提案" }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    startSpy.mockRestore();
+  });
+});

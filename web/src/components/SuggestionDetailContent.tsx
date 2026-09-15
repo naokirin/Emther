@@ -286,7 +286,19 @@ export function SuggestionDetailContent({ id }: { id: string }) {
             />
           ) : (
             <p className={styles.subtitle}>
-              Agent Run未紐付け。<Link href="/chat">何でも相談</Link>から続けることもできます。
+              この提案に紐づく Agent Run はありません。
+              {sourceConsult ? (
+                <>
+                  {" "}
+                  <Link href={`/chat?runId=${encodeURIComponent(sourceConsult.id)}`}>元の相談を開く</Link>
+                  から続きの壁打ちができます。
+                </>
+              ) : (
+                <>
+                  {" "}
+                  <Link href="/chat">何でも相談</Link>から続けることもできます。
+                </>
+              )}
             </p>
           )}
         </div>
@@ -302,7 +314,11 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               inputId="suggestion-chat-input"
             />
           ) : (
-            <p className={styles.subtitle}>Agent Runが無いため会話はありません。</p>
+            <p className={styles.subtitle}>
+              {sourceConsult
+                ? "相談から提案化した場合、会話は相談履歴側に残っています。「元の相談を開く」から続けられます。"
+                : "Agent Runが無いため会話はありません。"}
+            </p>
           )}
         </div>
       </div>

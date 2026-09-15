@@ -103,3 +103,16 @@ export function resolveSourceConsultRun<T extends { id: string; task: string; or
   if (isIssueDraftAnalysisTask(linked.task)) return undefined;
   return linked;
 }
+
+// 相談履歴に載せる Lead Agent run。提案化後も残す（分割起票・提案に紐づかない続きの壁打ち用）。
+// 提案詳細専用の分析（起票直後ドラフト／提案更新）だけ除外する。
+export function isConsultHistoryRun(run: {
+  agentName: string;
+  origin: string;
+  task: string;
+}): boolean {
+  if (run.agentName !== "Lead Agent") return false;
+  if (run.origin === "auto-issue-update") return false;
+  if (isIssueDraftAnalysisTask(run.task)) return false;
+  return true;
+}

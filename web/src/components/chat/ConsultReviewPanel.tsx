@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, listIssueCandidatesFromProposal, runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { OriginTrace, type OriginTraceJournal } from "@/components/OriginTrace";
@@ -54,7 +53,6 @@ export function ConsultReviewPanel({
   refreshRuns,
   refreshIssues,
 }: Props) {
-  const router = useRouter();
   const suggestionPeek = useSuggestionPeek();
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -96,26 +94,23 @@ export function ConsultReviewPanel({
       const createdIds: string[] = [];
       for (let i = 0; i < titles.length; i++) {
         const title = truncateForTitle(titles[i]);
-        // 先頭だけ agentRunId を付けて Run レビュー／Journal 単数紐付け。以降は sourceRunId のみ（親なし独立Issue）。
-        const body =
-          i === 0
-            ? { title, agentRunId: selectedRun.id }
-            : {
-                title,
-                sourceRunId: selectedRun.id,
-                ...(selectedRun.sourceJournalId ? { sourceJournalId: selectedRun.sourceJournalId } : {}),
-              };
+        // 相談スレッドは提案の agentRunId に吸収しない（履歴残存・続きの壁打ち・分割起票のため）。
+        // sourceRunId のみ渡し、API 側で reviewed 化と Journal 紐付けを行う。
+        const body = {
+          title,
+          sourceRunId: selectedRun.id,
+          ...(i === 0 && selectedRun.sourceJournalId ? { sourceJournalId: selectedRun.sourceJournalId } : {}),
+        };
         const { res, data } = await fetchWithNameConfirm("/api/suggestions", { method: "POST", body }, "保存する");
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "提案の保存に失敗しました");
         createdIds.push((data as { suggestion: { id: string } }).suggestion.id);
       }
-      await refreshIssues();
+      await Promise.all([refreshIssues(), refreshRuns()]);
       setCandidatePick(null);
       if (createdIds.length === 1) {
         suggestionPeek.open(createdIds[0]);
-      } else {
-        router.push("/suggestions");
       }
+      // 複数件時も相談画面に留まり、続きの壁打ち・追加の提案化ができるようにする。
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setReviewError((err as Error).message);

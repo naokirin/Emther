@@ -6,6 +6,7 @@ import {
   isIssueDraftAnalysisTask,
   issueDraftTitleFromTask,
   journalExcerptFromTask,
+  isConsultHistoryRun,
   resolveSourceConsultRun,
   truncateExcerpt,
 } from "./origin-trace";
@@ -138,5 +139,26 @@ describe("resolveSourceConsultRun", () => {
     expect(resolveSourceConsultRun({ agentRunId: "run-consult" }, [consult])?.id).toBe("run-consult");
     expect(resolveSourceConsultRun({ agentRunId: "run-draft" }, [draft])).toBeUndefined();
     expect(resolveSourceConsultRun({ agentRunId: "run-update" }, [update])).toBeUndefined();
+  });
+});
+
+describe("isConsultHistoryRun", () => {
+  it("通常の相談・自動分析は履歴対象", () => {
+    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "manual", task: "方針を相談" })).toBe(true);
+    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "auto-anomaly", task: "x" })).toBe(true);
+    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "auto-summary", task: "x" })).toBe(true);
+    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "auto-distill", task: "x" })).toBe(true);
+  });
+
+  it("提案詳細専用の分析は履歴対象外", () => {
+    expect(
+      isConsultHistoryRun({
+        agentName: "Lead Agent",
+        origin: "manual",
+        task: "新しいIssueが起票されました。タイトル: x",
+      }),
+    ).toBe(false);
+    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "auto-issue-update", task: "更新" })).toBe(false);
+    expect(isConsultHistoryRun({ agentName: "Exec Agent", origin: "manual", task: "相談" })).toBe(false);
   });
 });
