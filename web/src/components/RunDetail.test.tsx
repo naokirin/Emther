@@ -140,6 +140,12 @@ describe("shouldOmitRunFromNextActions", () => {
     expect(shouldOmitRunFromNextActions(baseRun({ id: "run-open" }), issues)).toBe(false);
     expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "watching" }), issues)).toBe(false);
   });
+
+  it("相談自体がアーカイブ済み（archivedAt設定済み）のrunを除外する", () => {
+    const issues: { agentRunId?: string; archived: boolean }[] = [];
+    expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: Date.now() }), issues)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: undefined }), issues)).toBe(false);
+  });
 });
 
 describe("StatusBadge", () => {

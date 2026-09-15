@@ -174,15 +174,17 @@ export function runKindLabel(run: AgentRun): string {
 
 /**
  * ダッシュボードの「次の1手」から外す run。
- * 専門Agentへの相談子run、EMが却下したもの、紐づくIssueがアーカイブ済みのもの。
+ * 専門Agentへの相談子run、EMが却下したもの、相談自体がアーカイブ済みのもの、
+ * 紐づくIssueがアーカイブ済みのもの。
  * 様子見は呼び出し側で別扱い（期限内は非表示、期限切れは再浮上）。
  */
 export function shouldOmitRunFromNextActions(
-  run: Pick<AgentRun, "id" | "consultedBy" | "triageStatus">,
+  run: Pick<AgentRun, "id" | "consultedBy" | "triageStatus" | "archivedAt">,
   issues: { agentRunId?: string; archived: boolean }[],
 ): boolean {
   if (run.consultedBy) return true;
   if (run.triageStatus === "dismissed") return true;
+  if (run.archivedAt) return true;
   return issues.some((i) => i.agentRunId === run.id && i.archived);
 }
 
