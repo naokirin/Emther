@@ -54,10 +54,14 @@ export type BuildDailySituationParams = {
   people: PersonSummary[];
   nextActions: NextAction[];
   push: (path: string) => void;
+  /** ユーザー指摘「1on1 Coverageチップが誰の1on1不足か分からないままチーム画面へ
+   * 飛ばすだけ」対応。未実施メンバーが分かっている場合は、遷移ではなく
+   * Quick Journalへのプリフィルで直接記録へ誘導する。 */
+  prefillJournal: (text: string) => void;
 };
 
 export function buildDailySituation(params: BuildDailySituationParams): DailySituation {
-  const { now, journalEntries, vitals, people: allPeople, nextActions, push } = params;
+  const { now, journalEntries, vitals, people: allPeople, nextActions, push, prefillJournal } = params;
   // docs/memo.md「今日の状況に表示するメンバーを自分の管理するチームのメンバーだけに
   // する」対応。ステータスチップ・比較欄で扱う「メンバー」は、自分が管理するチーム
   // （Team.managedByEm、兼務含む）に所属する人物（PersonSummary.isDirectReport）に限る。
@@ -178,12 +182,19 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
   const unevaluable: SituationItem[] = [];
   // good側と同様、メンバー数が多いとteam/personループに押し出されて消えないよう先頭に置く。
   if (vitals.oneOnOneCoverage.status === "bad" || vitals.oneOnOneCoverage.status === "warn") {
+    const uncovered = vitals.oneOnOneCoverage.uncoveredMembers;
+    // ユーザー指摘「誰の1on1が不足しているか分からないまま、押すとチーム画面へ飛ばされる
+    // だけ」対応。未実施メンバー名をdetail（ホバー）に出し、クリックは/teamsへの遷移では
+    // なく、先頭の未実施メンバーの1on1をQuick Journalへプリフィルする行動に変える
+    // （dashboard-next-actions.tsの「1on1不足」カードと同じ導線に揃える）。
+    const uncoveredNote =
+      uncovered.length > 0 ? `（未実施: ${uncovered.slice(0, 3).join("、")}${uncovered.length > 3 ? ` ほか${uncovered.length - 3}名` : ""}）` : "";
     unevaluable.push({
       id: "unevaluable-coverage",
       text: "1on1 Coverage",
-      detail: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件と少なく、観測が不足しています`,
+      detail: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件と少なく、観測が不足しています${uncoveredNote}`,
       since: 0,
-      onSelect: () => push("/teams"),
+      onSelect: () => prefillJournal(uncovered[0] ? `#1on1 @${uncovered[0]} ` : ""),
       status: vitals.oneOnOneCoverage.status,
       entityKind: "team",
     });

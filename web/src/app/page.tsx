@@ -166,6 +166,7 @@ function DashboardPageInner() {
     people,
     nextActions,
     push: (path: string) => router.push(path),
+    prefillJournal,
   });
   const dailySituationLoaded = nextActionsLoaded;
 

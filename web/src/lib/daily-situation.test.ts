@@ -68,6 +68,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.changes.map((i) => i.id)).toEqual(["changes-journal-recent"]);
   });
@@ -93,6 +94,7 @@ describe("buildDailySituation", () => {
       people,
       nextActions: [],
       push,
+      prefillJournal: noop,
     });
     expect(result.concerns.map((i) => i.id)).toContain("concern-team-t-bad");
     expect(result.concerns.map((i) => i.id)).toContain("concern-person-p-bad");
@@ -131,6 +133,7 @@ describe("buildDailySituation", () => {
       people,
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.concerns.map((i) => i.id)).toContain("concern-person-p-managed");
     expect(result.concerns.map((i) => i.id)).not.toContain("concern-person-p-other");
@@ -155,6 +158,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.concerns.map((i) => i.id)).toEqual(["concern-journal-urgent"]);
     expect(result.concerns[0].status).toBeUndefined();
@@ -178,6 +182,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.concerns.map((i) => i.id)).toEqual([]);
   });
@@ -200,6 +205,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.concerns.map((i) => i.id)).toEqual([]);
   });
@@ -219,6 +225,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.comparisons.map((i) => i.id)).toEqual(["comparison-journal-trend"]);
     expect(result.comparisons.some((i) => i.id.startsWith("comparison-interpretation-"))).toBe(false);
@@ -241,6 +248,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: actions,
       push: noop,
+      prefillJournal: noop,
     });
     expect(result.worthDeciding).toHaveLength(5);
     expect(result.worthDecidingOverflow).toBe(1);
@@ -255,20 +263,34 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal: noop,
     });
     expect(goodResult.good.map((i) => i.id)).toContain("good-coverage");
     expect(goodResult.unevaluable.map((i) => i.id)).not.toContain("unevaluable-coverage");
 
+    const prefillJournal = vi.fn();
     const warnResult = buildDailySituation({
       now: NOW,
       journalEntries: [],
-      vitals: { teams: [], oneOnOneCoverage: { status: "warn", covered: 2, total: 7, reason: "", uncoveredMembers: ["Aさん"] } },
+      vitals: {
+        teams: [],
+        oneOnOneCoverage: { status: "warn", covered: 2, total: 7, reason: "", uncoveredMembers: ["Aさん", "Bさん"] },
+      },
       people: [],
       nextActions: [],
       push: noop,
+      prefillJournal,
     });
     expect(warnResult.unevaluable.map((i) => i.id)).toContain("unevaluable-coverage");
     expect(warnResult.good.map((i) => i.id)).not.toContain("good-coverage");
+
+    // ユーザー指摘「誰の1on1が不足しているか分からないまま、押すとチーム画面へ
+    // 飛ばされるだけ」対応。detailに未実施メンバー名を出し、クリックは遷移ではなく
+    // 先頭の未実施メンバーの1on1をQuick Journalへプリフィルする。
+    const coverageItem = warnResult.unevaluable.find((i) => i.id === "unevaluable-coverage");
+    expect(coverageItem?.detail).toContain("Aさん、Bさん");
+    coverageItem?.onSelect?.();
+    expect(prefillJournal).toHaveBeenCalledWith("#1on1 @Aさん ");
   });
 
   it("onSelectを呼ぶとpushへ正しいパスが渡る", () => {
@@ -281,6 +303,7 @@ describe("buildDailySituation", () => {
       people: [],
       nextActions: [],
       push,
+      prefillJournal: noop,
     });
     result.changes[0].onSelect?.();
     expect(push).toHaveBeenCalledWith("/journal?focus=j1");
