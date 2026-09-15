@@ -48,7 +48,9 @@ const startJournalAnalysisMock = vi.fn(async (rawText: string, journalId?: strin
   void journalId;
   return { id: "run-manual-analysis", agentName: "Lead Agent", sourceJournalId: journalId };
 });
-const listRunsMock = vi.fn(() => [] as Array<{ id: string; agentName: string; sourceJournalId?: string; updatedAt: number }>);
+const listRunsMock = vi.fn(
+  () => [] as Array<{ id: string; agentName: string; sourceJournalId?: string; updatedAt: number; archivedAt?: number }>,
+);
 vi.mock("@/lib/agent-runtime", () => ({
   startRun: (...args: unknown[]) => startRunMock(...(args as [string, string, string?])),
   startJournalAutoAnalysis: (...args: unknown[]) => startJournalAutoAnalysisMock(...(args as [string, string?])),
@@ -588,6 +590,30 @@ describe("toJournalEntryView", () => {
     const edited = await store.updateJournalEntry(confirmed!.id, { tags: ["再校正"] });
     expect(store.toJournalEntryView(edited!, await buildSourceConsultIndex()).sourceConsultRunId).toBe(
       "run-consult",
+    );
+  });
+
+  // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
+  // AIを再度実行できない」対応。アーカイブ済みrunは現行の相談とみなさない。
+  it("アーカイブ済みのrunはsourceConsultRunIdとして採用しない（EMが相談をリセットできるようにする）", async () => {
+    const { buildSourceConsultIndex } = await import("@/lib/journal-consult-index");
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("問題発生");
+    const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
+    listRunsMock.mockReturnValue([
+      { id: "run-broken", agentName: "Lead Agent", sourceJournalId: confirmed!.id, updatedAt: 10, archivedAt: 20 },
+    ]);
+    expect(
+      store.toJournalEntryView(confirmed!, await buildSourceConsultIndex()).sourceConsultRunId,
+    ).toBeUndefined();
+
+    // アーカイブされていない別のrun（再分析で新しく生まれたrun）があれば、そちらを採用する。
+    listRunsMock.mockReturnValue([
+      { id: "run-broken", agentName: "Lead Agent", sourceJournalId: confirmed!.id, updatedAt: 10, archivedAt: 20 },
+      { id: "run-fresh", agentName: "Lead Agent", sourceJournalId: confirmed!.id, updatedAt: 30 },
+    ]);
+    expect(store.toJournalEntryView(confirmed!, await buildSourceConsultIndex()).sourceConsultRunId).toBe(
+      "run-fresh",
     );
   });
 });

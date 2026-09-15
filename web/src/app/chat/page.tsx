@@ -205,6 +205,7 @@ function ChatPageInner() {
             fetchWithNameConfirm={fetchWithNameConfirm}
             refreshRuns={refreshRuns}
             refreshIssues={refreshIssues}
+            onReanalyzed={handleConsultStarted}
           />
         ) : (
           <NewConsultForm

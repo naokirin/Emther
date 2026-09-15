@@ -8,7 +8,11 @@ import { listRuns } from "@/lib/agent-runtime";
 export async function buildSourceConsultIndex(): Promise<Map<string, string>> {
   const best = new Map<string, { runId: string; updatedAt: number }>();
   for (const run of listRuns()) {
-    if (run.agentName !== "Lead Agent" || !run.sourceJournalId) continue;
+    // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
+    // AIを再度実行できない」対応。アーカイブ済み（EMが「リセット」した）runは
+    // 「このJournalの現行の相談」とみなさない。これにより、実名リークでerrorのまま
+    // 詰まったrunをアーカイブすれば、Journal側の「分析する」ボタンが再度出せるようになる。
+    if (run.agentName !== "Lead Agent" || !run.sourceJournalId || run.archivedAt) continue;
     for (const journalId of listEventLineageIds(run.sourceJournalId)) {
       const prev = best.get(journalId);
       if (!prev || run.updatedAt > prev.updatedAt) {

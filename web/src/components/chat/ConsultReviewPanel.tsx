@@ -36,6 +36,9 @@ type Props = {
   fetchWithNameConfirm: ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];
   refreshRuns: () => Promise<void>;
   refreshIssues: () => Promise<void>;
+  // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
+  // AIを再度実行できない」対応。リセット後に新しく生まれたrunを選択状態にする。
+  onReanalyzed?: (runId: string) => void;
 };
 
 // 「何でも相談」画面の、選択中run（Lead Agentへの相談）の右パネル。Issue候補の選択・
@@ -52,6 +55,7 @@ export function ConsultReviewPanel({
   fetchWithNameConfirm,
   refreshRuns,
   refreshIssues,
+  onReanalyzed,
 }: Props) {
   const suggestionPeek = useSuggestionPeek();
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
@@ -62,6 +66,8 @@ export function ConsultReviewPanel({
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [themesSubmitting, setThemesSubmitting] = useState(false);
   const [issueNotesSubmitting, setIssueNotesSubmitting] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const candidateSelectedFlags =
     candidatePick?.runId === selectedRun.id && candidatePick.selected.length === issueCandidates.length
@@ -155,6 +161,39 @@ export function ConsultReviewPanel({
       setReviewError((err as Error).message);
     } finally {
       setReviewSubmitting(false);
+    }
+  }
+
+  // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
+  // AIを再度実行できない」対応。実名リークでerrorのまま詰まったrunを、EMがJournal本文を
+  // 直した後に1クリックでやり直せるようにする。今のrunはアーカイブして「現行の相談」から
+  // 外し（ログは残す）、同じJournal本文で新しい相談を起動し直す。
+  async function handleResetAndReanalyze() {
+    if (!selectedRun.sourceJournalId) return;
+    setResetSubmitting(true);
+    setResetError(null);
+    try {
+      const archiveRes = await fetch(`/api/agents/${selectedRun.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+      if (!archiveRes.ok) throw new Error("相談のアーカイブに失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/journal/${selectedRun.sourceJournalId}/analyze`,
+        { method: "POST", body: {} },
+        "分析を開始する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "再分析の起動に失敗しました");
+      const newRunId = (data as { run: { id: string } }).run.id;
+      await refreshRuns();
+      onReanalyzed?.(newRunId);
+    } catch (err) {
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setResetError((err as Error).message);
+      }
+    } finally {
+      setResetSubmitting(false);
     }
   }
 
@@ -319,6 +358,25 @@ export function ConsultReviewPanel({
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
             🗄 アーカイブ済み（相談履歴一覧・AIの判断材料からは除外されています）
           </p>
+        )}
+        {selectedRun.status === "error" && selectedRun.sourceJournalId && !selectedRun.archivedAt && (
+          // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
+          // AIを再度実行できない」対応。実名リーク等でこのrunがエラーのまま詰まっている
+          // 可能性があるため、Journal本文を直した前提で1クリックでやり直せる導線を出す。
+          <div style={{ margin: "8px 0", padding: 8, border: "1px solid var(--border)", borderRadius: 6 }}>
+            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
+              この相談はエラーで停止しています（実名の混入など、Journal側の内容が原因のことがあります）。
+              Journal本文を直した場合は、この相談をアーカイブしてリセットし、直した内容で再分析できます。
+            </p>
+            <button className={styles.btnOutline} disabled={resetSubmitting} onClick={() => void handleResetAndReanalyze()}>
+              {resetSubmitting ? "リセット中…" : "🔁 相談をリセットして再分析する"}
+            </button>
+            {resetError && (
+              <p className={styles.errorText} role="alert" style={{ marginTop: 6 }}>
+                {resetError}
+              </p>
+            )}
+          </div>
         )}
         <div className={styles.yieldActions}>
           {issueCandidates.length > 1 && (
