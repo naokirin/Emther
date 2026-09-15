@@ -20,7 +20,6 @@ export async function requestJournalAnalysis(
   }
   const run = await startJournalAnalysis(entry.rawText, entry.id, {
     ...opts,
-    trigger: "manual",
     onUnconfirmedNames: "throw",
   });
   if (!run) {

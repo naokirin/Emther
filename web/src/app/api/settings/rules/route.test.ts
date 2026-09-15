@@ -37,12 +37,12 @@ describe("PATCH /api/settings/rules", () => {
     const res = await route.PATCH(
       jsonRequest("http://localhost/x", "PATCH", {
         teamWindowDays: 30,
-        autoAnomalyDetectionEnabled: true,
+        autoJournalBatchEnabled: true,
       }),
     );
     const json = await res.json();
     expect(json.rules.teamWindowDays).toBe(30);
-    expect(json.rules.autoAnomalyDetectionEnabled).toBe(true);
+    expect(json.rules.autoJournalBatchEnabled).toBe(true);
     expect(json.rules.maxParallelAgentRuns).toBe(2); // 未指定は既定値のまま
   });
 
@@ -75,20 +75,18 @@ describe("PATCH /api/settings/rules", () => {
     expect(json.rules.staleInterventionDays).toBe(3);
   });
 
-  it("Journal/Issue自動分析のフィルタとフラグを更新できる", async () => {
+  it("Journal集約解釈バッチ／Issue自動分析のフラグと時刻を更新できる", async () => {
     const route = await import("./route");
     const res = await route.PATCH(
       jsonRequest("http://localhost/x", "PATCH", {
-        autoAnomalyDetectionEnabled: true,
-        autoJournalUrgencyFilter: "mid_or_higher",
-        autoJournalSentimentFilter: "negative_only",
+        autoJournalBatchEnabled: true,
+        autoJournalBatchHour: 9,
         autoIssueUpdateAnalysisEnabled: true,
       }),
     );
     const json = await res.json();
-    expect(json.rules.autoAnomalyDetectionEnabled).toBe(true);
-    expect(json.rules.autoJournalUrgencyFilter).toBe("mid_or_higher");
-    expect(json.rules.autoJournalSentimentFilter).toBe("negative_only");
+    expect(json.rules.autoJournalBatchEnabled).toBe(true);
+    expect(json.rules.autoJournalBatchHour).toBe(9);
     expect(json.rules.autoIssueUpdateAnalysisEnabled).toBe(true);
   });
 
@@ -98,19 +96,6 @@ describe("PATCH /api/settings/rules", () => {
       jsonRequest("http://localhost/x", "PATCH", { teamParallelKickoffEnabled: false }),
     );
     expect((await res.json()).rules.teamParallelKickoffEnabled).toBe(false);
-  });
-
-  it("不正なJournalフィルタ値は無視する", async () => {
-    const route = await import("./route");
-    const res = await route.PATCH(
-      jsonRequest("http://localhost/x", "PATCH", {
-        autoJournalUrgencyFilter: "bogus",
-        autoJournalSentimentFilter: "positive_only",
-      }),
-    );
-    const json = await res.json();
-    expect(json.rules.autoJournalUrgencyFilter).toBe("high_only");
-    expect(json.rules.autoJournalSentimentFilter).toBe("all");
   });
 
   it("型が不正な値は無視する（既定値のまま）", async () => {

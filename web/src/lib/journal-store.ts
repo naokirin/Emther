@@ -45,7 +45,7 @@ import {
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
 import { embedText } from "@/lib/embeddings";
-import { getRulesAndConstraints, matchesJournalAutoFilters } from "@/lib/settings-store";
+import { getRulesAndConstraints } from "@/lib/settings-store";
 import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
 import { getIssue, toIssueView } from "@/lib/issue-store";
 
@@ -602,14 +602,6 @@ export async function linkJournalToIssue(
   return updateJournalEntry(current.id, { resolvedIssueId: issueId }, opts);
 }
 
-// journal-storeはagent-runtimeを一切importしない（ドメイン層がAI連携の詳細を知らない
-// ようにするための依存性逆転）。校正の内容次第で自動分析を起こしたい呼び出し側
-// （APIルート）が、onAutoAnalysisNeededコールバックとしてagent-runtimeのstartJournalAutoAnalysis
-// を渡す。渡さなければ何も起きない。
-export type JournalUpdateReactionOptions = {
-  onAutoAnalysisNeeded?: (rawText: string, journalId: string) => void;
-};
-
 // docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、
 // EMがtags/people/urgencyをその場で校正できないと「AI抽出のまま組織の事実になる」ことに
 // なってしまう。イベントソーシングの不変性は保ったまま、新しいfactイベントを
@@ -635,7 +627,7 @@ export async function updateJournalEntry(
     resolvedIssueId?: string | null;
     resolutionNote?: string | null;
   },
-  opts: MaskOptions & JournalUpdateReactionOptions = {},
+  opts: MaskOptions = {},
 ): Promise<JournalEntry | undefined> {
   const original = getEventById(id);
   if (!original || original.entityType !== "journal") return undefined;
@@ -724,20 +716,6 @@ export async function updateJournalEntry(
     sourceDumpId: original.sourceDumpId,
     sourceChunkId: original.sourceChunkId,
   });
-
-  // docs/em_human_story_and_ux.md P1-9対応。自動検知は「EMが確認・校正した後」にだけ
-  // 起動する。original.supersedes===undefinedは「まだ一度も確認されていない、記録直後の
-  // 生の抽出結果」であることの目印（校正済みの版をさらに直すような後続の編集では
-  // 再度起動しない）。緊急度・感情の閾値はSettingsのフィルタで調整する。
-  // 投稿直後は起動しない（誤抽出での偽緊急事態を防ぐ）。フィルタ外・自動OFF時は
-  // @/lib/journal-analysisのrequestJournalAnalysisで明示起動できる。
-  if (original.supersedes === undefined && matchesJournalAutoFilters(urgency, sentiment)) {
-    try {
-      opts.onAutoAnalysisNeeded?.(event.text, event.id);
-    } catch {
-      // 呼び出し元の通知処理の失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
-    }
-  }
 
   return eventToJournalEntry(event);
 }

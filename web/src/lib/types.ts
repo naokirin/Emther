@@ -264,7 +264,7 @@ export type PendingUnmaskedSend = {
   issueTitle?: string;
   agentName?: string;
   task?: string;
-  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow";
+  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow" | "auto-journal-batch";
   linkedIssueId?: string;
   sourceJournalId?: string;
   /** 何でも相談で経営／役員目線レビューを必須consultするとき */
@@ -286,15 +286,13 @@ export type RulesAndConstraints = {
   agentStaleAfterSeconds: number;
   agentKillAfterSeconds: number;
   journalFactTtlDays: number;
-  autoAnomalyDetectionEnabled: boolean;
-  // Journal自動分析の緊急度フィルタ（settings-storeと同義）。
-  autoJournalUrgencyFilter: "all" | "mid_or_higher" | "high_only";
-  // Journal自動分析の感情フィルタ（settings-storeと同義）。
-  autoJournalSentimentFilter: "all" | "negative_only";
   // 提案のタイトル・メモ更新時の自動分析（既定OFF）。設定キー名は互換のため維持。
   autoIssueUpdateAnalysisEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
+  // Journalをまとめて日次で解釈するバッチ（settings-storeと同義）。既定OFF。
+  autoJournalBatchEnabled: boolean;
+  autoJournalBatchHour: number;
   // docs/knowledge_distillation.md。週次の状況蒸留（既定OFF）。
   autoDistillationEnabled: boolean;
   autoDistillationWeekday: number;

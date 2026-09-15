@@ -7,14 +7,6 @@ import type { CliName, ModelTier } from "@/lib/types";
 // ナレッジ（Organization Context）ではなく、アプリの動作を調整する設定値の性質が強いため、
 // org-context-store（Organization Context）とは分離し、独立したSettingsとして持つ。
 
-// Journal自動分析の緊急度フィルタ。「すべて」「mid以上」「highのみ」。
-export type AutoJournalUrgencyFilter = "all" | "mid_or_higher" | "high_only";
-// Journal自動分析の感情フィルタ。「すべて」「negativeのみ」。
-export type AutoJournalSentimentFilter = "all" | "negative_only";
-
-export const AUTO_JOURNAL_URGENCY_FILTERS = ["all", "mid_or_higher", "high_only"] as const;
-export const AUTO_JOURNAL_SENTIMENT_FILTERS = ["all", "negative_only"] as const;
-
 export type RulesAndConstraints = {
   teamWindowDays: number;
   minEntriesForJudgement: number;
@@ -35,15 +27,6 @@ export type RulesAndConstraints = {
   // 重みを失わせるべき（ファクトと解釈の分離）。この日数を過ぎたJournalファクトは
   // Agent Runtimeへの注入対象から外れる（削除はされない、履歴としては残る）。
   journalFactTtlDays: number;
-  // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動」対応。
-  // どちらも既定OFF（EMの明示opt-inが必須。自律実行によるコスト発生を勝手に始めない）。
-  // イベント駆動: Journal初回確定（校正）時、下記の緊急度・感情フィルタに合うエントリならLead Agentへ分析を投げる。
-  // 投稿直後は起動しない。フィルタ外・自動OFF時は POST /api/journal/[id]/analyze で明示起動できる。
-  autoAnomalyDetectionEnabled: boolean;
-  // Journal自動分析の緊急度フィルタ。既定は従来互換の high_only。
-  autoJournalUrgencyFilter: AutoJournalUrgencyFilter;
-  // Journal自動分析の感情フィルタ。既定は all（従来互換＝感情で絞らない）。
-  autoJournalSentimentFilter: AutoJournalSentimentFilter;
   // 提案のタイトル・メモが更新されたとき、紐付きRunの継続分析 or 新規Lead起動。
   // 既定OFF（コスト発生のopt-in）。
   autoIssueUpdateAnalysisEnabled: boolean;
@@ -51,6 +34,13 @@ export type RulesAndConstraints = {
   // tickで一度だけLead Agentへ朝のサマリー作成タスクを投げる。
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
+  // ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、一定期間分をまとめて
+  // 1日1回解釈する」対応。以前あったJournal校正のたびの即時個別分析（イベント駆動、
+  // 緊急度・感情フィルタで対象を絞る方式）は廃止し、直近のJournalをまとめてLead Agentに
+  // 解釈させるバッチ駆動へ一本化した。EMが能動的に「相談」したときの個別分析
+  // （POST /api/journal/[id]/analyze）はこれとは別に従来どおり残る。既定OFF。
+  autoJournalBatchEnabled: boolean;
+  autoJournalBatchHour: number;
   // docs/knowledge_distillation.md。週次の状況蒸留（テーマ解釈候補）。既定OFF。
   autoDistillationEnabled: boolean;
   // 0=日曜 … 6=土曜（Date.getDay()と同じ）。既定1=月曜。
@@ -132,12 +122,11 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
-  autoAnomalyDetectionEnabled: false,
-  autoJournalUrgencyFilter: "high_only",
-  autoJournalSentimentFilter: "all",
   autoIssueUpdateAnalysisEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
+  autoJournalBatchEnabled: false,
+  autoJournalBatchHour: 7,
   autoDistillationEnabled: false,
   autoDistillationWeekday: 1,
   autoDistillationHour: 8,
@@ -204,24 +193,4 @@ export function reassignSelfPersonId(opts: { fromId?: string; toId?: string; del
   if (opts.fromId && opts.toId && current === opts.fromId) {
     setSelfPersonId(opts.toId);
   }
-}
-
-/** Journal自動分析の緊急度・感情フィルタに現在のエントリが合うか。 */
-export function matchesJournalAutoFilters(
-  urgency: "low" | "mid" | "high",
-  sentiment: "positive" | "negative" | "neutral",
-): boolean {
-  const { autoAnomalyDetectionEnabled, autoJournalUrgencyFilter, autoJournalSentimentFilter } = rules;
-  if (!autoAnomalyDetectionEnabled) return false;
-
-  const urgencyOk =
-    autoJournalUrgencyFilter === "all"
-      ? true
-      : autoJournalUrgencyFilter === "mid_or_higher"
-        ? urgency === "mid" || urgency === "high"
-        : urgency === "high";
-  if (!urgencyOk) return false;
-
-  if (autoJournalSentimentFilter === "negative_only" && sentiment !== "negative") return false;
-  return true;
 }

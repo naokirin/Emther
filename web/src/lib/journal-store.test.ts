@@ -38,11 +38,6 @@ const startRunMock = vi.fn(async (agentName: string, rawTask: string, origin?: s
   void origin;
   return {};
 });
-const startJournalAutoAnalysisMock = vi.fn(async (rawText: string, journalId?: string) => {
-  void rawText;
-  void journalId;
-  return {};
-});
 const startJournalAnalysisMock = vi.fn(async (rawText: string, journalId?: string) => {
   void rawText;
   void journalId;
@@ -53,15 +48,9 @@ const listRunsMock = vi.fn(
 );
 vi.mock("@/lib/agent-runtime", () => ({
   startRun: (...args: unknown[]) => startRunMock(...(args as [string, string, string?])),
-  startJournalAutoAnalysis: (...args: unknown[]) => startJournalAutoAnalysisMock(...(args as [string, string?])),
   startJournalAnalysis: (...args: unknown[]) => startJournalAnalysisMock(...(args as [string, string?])),
   listRuns: () => listRunsMock(),
 }));
-
-// journal-storeはagent-runtimeを直接呼ばなくなったため、updateJournalEntryの
-// onAutoAnalysisNeededコールバックとしてこのモックを明示的に渡す（呼び出し元＝APIルートの
-// 役割をテストが代行する）。
-const autoAnalysisOpts = { onAutoAnalysisNeeded: startJournalAutoAnalysisMock };
 
 let dir: string;
 
@@ -71,7 +60,6 @@ beforeEach(() => {
   mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
   mockNerPeople = [];
   startRunMock.mockClear();
-  startJournalAutoAnalysisMock.mockClear();
   startJournalAnalysisMock.mockClear();
   listRunsMock.mockReset();
 });
@@ -477,60 +465,6 @@ describe("updateJournalEntry", () => {
     expect(cleared?.resolvedIssueId).toBeUndefined();
   });
 
-  it("urgency:highへの校正時、autoAnomalyDetectionEnabledがtrueならLead Agentを起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoAnomalyDetectionEnabled: true });
-    const store = await loadModule();
-    const entry = await store.addJournalEntry("問題発生");
-    const updated = await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
-    expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
-    expect(startJournalAutoAnalysisMock).toHaveBeenCalledWith("問題発生", updated!.id);
-  });
-
-  it("autoAnomalyDetectionEnabledが既定(false)ならLead Agentを起動しない", async () => {
-    const store = await loadModule();
-    const entry = await store.addJournalEntry("問題発生");
-    await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
-    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
-  });
-
-  it("2回目以降の校正では自動検知を再起動しない（supersedesが既にある場合）", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoAnomalyDetectionEnabled: true });
-    const store = await loadModule();
-    const entry = await store.addJournalEntry("問題発生");
-    const first = await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
-    startJournalAutoAnalysisMock.mockClear();
-    await store.updateJournalEntry(first!.id, { tags: ["再校正"] }, autoAnalysisOpts);
-    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
-  });
-
-  it("mid_or_higherフィルタならurgency:midでも起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({
-      autoAnomalyDetectionEnabled: true,
-      autoJournalUrgencyFilter: "mid_or_higher",
-    });
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
-    const store = await loadModule();
-    const entry = await store.addJournalEntry("気になる出来事");
-    await store.updateJournalEntry(entry.id, { urgency: "mid" }, autoAnalysisOpts);
-    expect(startJournalAutoAnalysisMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("negative_onlyフィルタならpositiveでは起動しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({
-      autoAnomalyDetectionEnabled: true,
-      autoJournalUrgencyFilter: "all",
-      autoJournalSentimentFilter: "negative_only",
-    });
-    mockExtraction = { tags: [], people: [], urgency: "high", sentiment: "positive", summary: "" };
-    const store = await loadModule();
-    const entry = await store.addJournalEntry("良い出来事");
-    await store.updateJournalEntry(entry.id, { urgency: "high" }, autoAnalysisOpts);
-    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
-  });
 });
 
 describe("requestJournalAnalysis", () => {
@@ -542,20 +476,18 @@ describe("requestJournalAnalysis", () => {
     expect(startJournalAnalysisMock).not.toHaveBeenCalled();
   });
 
-  it("確定済みならフィルタ／自動OFFに関係なく手動分析を起動する", async () => {
+  it("確定済みなら手動分析を起動する", async () => {
     const store = await loadModule();
     const analysis = await import("@/lib/journal-analysis");
     const entry = await store.addJournalEntry("問題発生");
-    const confirmed = await store.updateJournalEntry(entry.id, { urgency: "low" }, autoAnalysisOpts);
-    startJournalAutoAnalysisMock.mockClear();
+    const confirmed = await store.updateJournalEntry(entry.id, { urgency: "low" });
     const result = await analysis.requestJournalAnalysis(confirmed!.id);
     expect(startJournalAnalysisMock).toHaveBeenCalledWith(
       "問題発生",
       confirmed!.id,
-      expect.objectContaining({ trigger: "manual", onUnconfirmedNames: "throw" }),
+      expect.objectContaining({ onUnconfirmedNames: "throw" }),
     );
     expect(result?.run.id).toBe("run-manual-analysis");
-    expect(startJournalAutoAnalysisMock).not.toHaveBeenCalled();
   });
 
   it("存在しないIDはundefinedを返す", async () => {

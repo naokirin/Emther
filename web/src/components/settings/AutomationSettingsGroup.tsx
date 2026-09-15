@@ -11,49 +11,29 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
     <>
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>AIエージェントの自動起動</h3>
 
-      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>Journalの集約解釈（日次バッチ）</h3>
       <label
         className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
-        data-tooltip="投稿直後は起動しません。「この内容で確定」後に条件一致で起動"
+        data-tooltip="1件ごとには反応せず、直近のJournalをまとめて1日1回Lead Agentが解釈します。個別分析はJournal詳細から明示的に相談してください"
       >
         <input
           type="checkbox"
-          checked={draft.autoAnomalyDetectionEnabled}
-          onChange={(e) => onChange({ autoAnomalyDetectionEnabled: e.target.checked })}
+          checked={draft.autoJournalBatchEnabled}
+          onChange={(e) => onChange({ autoJournalBatchEnabled: e.target.checked })}
         />
-        Journalを確定（校正）したとき、条件に合うエントリをLead Agentが自動分析する
+        毎日、指定時刻以降に直近のJournalをまとめてLead Agentに解釈させる
       </label>
-      <div className={styles.field} style={{ maxWidth: 280, opacity: draft.autoAnomalyDetectionEnabled ? 1 : 0.5 }}>
-        <label>自動起動する緊急度
-        <select
-          value={draft.autoJournalUrgencyFilter}
-          disabled={!draft.autoAnomalyDetectionEnabled}
-          onChange={(e) =>
-            onChange({
-              autoJournalUrgencyFilter: e.target.value as RulesAndConstraints["autoJournalUrgencyFilter"],
-            })
-          }
-        >
-          <option value="all">すべて</option>
-          <option value="mid_or_higher">mid以上</option>
-          <option value="high_only">highのみ</option>
-        </select></label>
-      </div>
-      <div className={styles.field} style={{ maxWidth: 280, opacity: draft.autoAnomalyDetectionEnabled ? 1 : 0.5 }}>
-        <label>自動起動する感情（pos/neg）
-        <select
-          value={draft.autoJournalSentimentFilter}
-          disabled={!draft.autoAnomalyDetectionEnabled}
-          onChange={(e) =>
-            onChange({
-              autoJournalSentimentFilter: e.target.value as RulesAndConstraints["autoJournalSentimentFilter"],
-            })
-          }
-        >
-          <option value="all">すべて</option>
-          <option value="negative_only">negativeのみ</option>
-        </select></label>
+      <div className={styles.field} style={{ maxWidth: 160, opacity: draft.autoJournalBatchEnabled ? 1 : 0.5 }}>
+        <label>Journal集約解釈を生成する時刻（サーバーのローカル時刻、0〜23時）
+        <input
+          type="number"
+          min={0}
+          max={23}
+          disabled={!draft.autoJournalBatchEnabled}
+          value={draft.autoJournalBatchHour}
+          onChange={(e) => onChange({ autoJournalBatchHour: Number(e.target.value) })}
+        /></label>
       </div>
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>提案更新時の自動分析</h3>

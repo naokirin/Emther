@@ -3,7 +3,7 @@ import { getDataDir, loadJSON, saveJSON } from "@/lib/persistence";
 import { getIssue } from "@/lib/issue-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { unmaskNames } from "@/lib/people-directory";
-import { getRulesAndConstraints, matchesJournalAutoFilters as settingsMatchesJournalAutoFilters } from "@/lib/settings-store";
+import { getRulesAndConstraints } from "@/lib/settings-store";
 import { decideRun, parkPendingUnmaskedSend, startRun } from "./run-actions";
 import { checkStaleRuns, persistRunMeta, runs, WATCHDOG_INTERVAL_MS } from "./store";
 import type { AgentRun, PendingAgentStart } from "./types";
@@ -87,6 +87,76 @@ export function checkMorningSummary(): void {
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildMorningSummaryContextBlock（context-blocks.ts）へ。 */
 export const MORNING_SUMMARY_TASK =
   "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・未確認・確認保留の提案など、今日EMがまず確認すべきことを簡潔に整理してください。";
+
+// ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、Journalが一定溜まったり
+// 朝のサマリーのタイミングなど1日1回、ある程度の期間における複数のJournalをまとめて観測・
+// 解釈した結果から行うのが良い」対応。以前あったJournal校正のたびの即時個別分析
+// （イベント駆動）は廃止し、朝のサマリーと同様の日次バッチ駆動へ一本化した。
+// EMが能動的に「相談」したときの個別分析（POST /api/journal/[id]/analyze・
+// requestJournalAnalysis）は、これとは別の経路としてそのまま残す。
+function loadLastAutoJournalBatchDate(): string | null {
+  return loadJSON<{ date: string | null }>("auto-journal-batch.json", { date: null }).date;
+}
+
+function saveLastAutoJournalBatchDate(date: string): void {
+  saveJSON("auto-journal-batch.json", { date });
+}
+
+export function checkJournalBatchReview(): void {
+  const { autoJournalBatchEnabled, autoJournalBatchHour } = getRulesAndConstraints();
+  if (!autoJournalBatchEnabled) return;
+  const now = new Date();
+  if (now.getHours() < autoJournalBatchHour) return;
+  const today = todayDateString(now);
+  const guard = getAutoBatchGuardState();
+  if (guard.lastAutoJournalBatchDate === today) return;
+  if (loadLastAutoJournalBatchDate() === today || hasOriginRunOnLocalDate("auto-journal-batch", today)) {
+    guard.lastAutoJournalBatchDate = today;
+    saveLastAutoJournalBatchDate(today);
+    return;
+  }
+  guard.lastAutoJournalBatchDate = today;
+  saveLastAutoJournalBatchDate(today);
+  void startJournalBatchAnalysis().catch(() => {
+    // 自動起動失敗は無視する（次のwatchdog tickで日付が変わらない限り再試行はしない）。
+  });
+}
+
+/** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildJournalBatchContextBlock（batch-context-blocks.ts）へ。 */
+export const JOURNAL_BATCH_TASK =
+  "直近のJournalをまとめて解釈してください。単発では見えない繰り返しや複数エントリにまたがる問題があれば、通常の提案形式でIssue化を検討してください。個別の一時的な感情の吐露など追跡不要なものは無理に提案化しないでください。";
+
+// ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
+// 対応。startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
+// manual時はEMが明示起動したものとしてreviewed=trueにする。
+export async function startJournalBatchAnalysis(
+  opts: MaskOptions & { manual?: boolean } = {},
+): Promise<AgentRun | undefined> {
+  const { manual, ...maskOpts } = opts;
+  const task = JOURNAL_BATCH_TASK;
+  try {
+    const run = await startRun("Lead Agent", task, "auto-journal-batch", undefined, maskOpts);
+    if (manual) {
+      run.reviewed = true;
+      persistRunMeta(run);
+    }
+    return run;
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) {
+      parkPendingUnmaskedSend({
+        id: `unmasked-journal-batch:${Date.now()}`,
+        kind: "start-run",
+        candidates: err.candidates,
+        label: "Journal集約解釈の送信確認",
+        agentName: "Lead Agent",
+        task,
+        origin: "auto-journal-batch",
+      });
+      return undefined;
+    }
+    throw err;
+  }
+}
 
 // docs/knowledge_distillation.md。週次の状況蒸留。朝サマリーと同様に watchdog へ相乗りし、
 // ISO 週キーを永続化して二重起動を防ぐ。
@@ -403,21 +473,10 @@ export function reactToIssueUpdate(
   );
 }
 
-export function matchesJournalAutoFilters(
-  urgency: "low" | "mid" | "high",
-  sentiment: "positive" | "negative" | "neutral",
-): boolean {
-  return settingsMatchesJournalAutoFilters(urgency, sentiment);
-}
-
-/** Journal 自動／手動分析の共通タスク文。本文マーカーは origin-trace と揃える。 */
-export function buildJournalAnalysisTask(rawText: string, trigger: "auto" | "manual" = "auto"): string {
-  const lead =
-    trigger === "manual"
-      ? "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。"
-      : "Journalに、設定した自動分析条件に合うエントリが追加されました（EMが内容を確認・校正済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。";
+/** EM明示の手動分析タスク文。本文マーカーは origin-trace と揃える。 */
+export function buildJournalAnalysisTask(rawText: string): string {
   return [
-    lead,
+    "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle（単一）または issueCandidates（複数・親なしの独立Issue）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず issueCandidates に分けてください（親Issueは作らない）。同じ介入の具体作業への分解はここではしないこと。",
     "単なる一時的な感情の吐露などで追跡不要と判断した場合は、proposalの recommendation を \"dismiss\" にし、その旨を結論に書いてください（無理にIssue化を勧めないこと）。Issue化すべきなら recommendation は \"issue\" です。",
@@ -426,18 +485,16 @@ export function buildJournalAnalysisTask(rawText: string, trigger: "auto" | "man
   ].join("\n");
 }
 
-// Journal校正後の自動分析、またはEM明示の手動分析。
-// 校正時の自動起動は人名未確認をparkしてJournal保存を止めない。手動APIはthrowして確認UIへ渡す。
+// EM明示の手動分析（POST /api/journal/[id]/analyze）。人名未確認はthrowして確認UIへ渡す。
 export async function startJournalAnalysis(
   rawText: string,
   journalId?: string,
   opts: MaskOptions & {
-    trigger?: "auto" | "manual";
     onUnconfirmedNames?: "park" | "throw";
   } = {},
 ): Promise<AgentRun | undefined> {
-  const { trigger = "auto", onUnconfirmedNames = "park", ...maskOpts } = opts;
-  const task = buildJournalAnalysisTask(rawText, trigger);
+  const { onUnconfirmedNames = "park", ...maskOpts } = opts;
+  const task = buildJournalAnalysisTask(rawText);
   try {
     return await startRun("Lead Agent", task, "auto-anomaly", undefined, {
       ...maskOpts,
@@ -449,7 +506,7 @@ export async function startJournalAnalysis(
         id: `unmasked-journal:${Date.now()}`,
         kind: "start-run",
         candidates: err.candidates,
-        label: "Journal自動分析の送信確認",
+        label: "Journal分析の送信確認",
         agentName: "Lead Agent",
         task,
         origin: "auto-anomaly",
@@ -459,11 +516,6 @@ export async function startJournalAnalysis(
     }
     throw err;
   }
-}
-
-/** Journal校正後の自動分析。フィルタ（緊急度・感情）はSettingsで調整する。 */
-export async function startJournalAutoAnalysis(rawText: string, journalId?: string): Promise<AgentRun | undefined> {
-  return startJournalAnalysis(rawText, journalId, { trigger: "auto", onUnconfirmedNames: "park" });
 }
 
 // watchdog とバッチクレームは globalThis に置き、next dev の HMR でモジュールが
@@ -477,6 +529,7 @@ type AutoBatchGuardState = {
   lastAutoMorningSummaryDate: string | null;
   lastAutoDistillationWeek: string | null;
   lastAutoGrowWeek: string | null;
+  lastAutoJournalBatchDate: string | null;
 };
 
 const AUTO_BATCH_GUARD_KEY = Symbol.for("emther.agentRuntime.autoBatchGuard");
@@ -491,6 +544,7 @@ function getAutoBatchGuardState(): AutoBatchGuardState {
       lastAutoMorningSummaryDate: null,
       lastAutoDistillationWeek: null,
       lastAutoGrowWeek: null,
+      lastAutoJournalBatchDate: null,
     };
   }
   return g[AUTO_BATCH_GUARD_KEY];
@@ -502,6 +556,7 @@ export function clearAutoBatchClaimsForTest(): void {
   guard.lastAutoMorningSummaryDate = null;
   guard.lastAutoDistillationWeek = null;
   guard.lastAutoGrowWeek = null;
+  guard.lastAutoJournalBatchDate = null;
 }
 
 function ensureWatchdogStarted(): void {
@@ -513,6 +568,7 @@ function ensureWatchdogStarted(): void {
     checkMorningSummary();
     checkWeeklyDistillation();
     checkWeeklyGrow();
+    checkJournalBatchReview();
   };
   if (guard.dataDir !== dataDir) {
     if (guard.interval) {
@@ -523,6 +579,7 @@ function ensureWatchdogStarted(): void {
     guard.lastAutoMorningSummaryDate = loadLastAutoMorningSummaryDate();
     guard.lastAutoDistillationWeek = loadLastAutoDistillationWeek();
     guard.lastAutoGrowWeek = loadLastAutoGrowWeek();
+    guard.lastAutoJournalBatchDate = loadLastAutoJournalBatchDate();
   }
   if (guard.interval) return;
   guard.interval = setInterval(() => guard.tick(), WATCHDOG_INTERVAL_MS);

@@ -451,6 +451,34 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(prompt).toContain("学びの提案（Grow）の材料");
   });
 
+  it("Journal集約解釈の材料は直近24時間のJournalをまとめて載せ、taskは短い", async () => {
+    const journalStore = await import("@/lib/journal-store");
+    await journalStore.addJournalEntry("1on1が空回りした");
+    const rt = await loadModule();
+    const ctx = rt.buildJournalBatchContextBlock();
+    expect(ctx).toContain("Journal集約解釈の材料");
+    expect(ctx).toContain("1on1が空回りした");
+    expect(rt.JOURNAL_BATCH_TASK.length).toBeLessThan(200);
+  });
+
+  it("Journal集約解釈の材料は実名をPERSON_nにマスクしてから返す", async () => {
+    const pd = await import("@/lib/people-directory");
+    const journalStore = await import("@/lib/journal-store");
+    pd.registerName("漏洩太郎");
+    await journalStore.addJournalEntry("漏洩太郎さんが辞めたいと言っていた");
+    const rt = await loadModule();
+    const ctx = rt.buildJournalBatchContextBlock();
+    expect(ctx).not.toContain("漏洩太郎");
+    expect(ctx).toMatch(/PERSON_\d+/);
+  });
+
+  it("origin=auto-journal-batchのrunはbuildSystemPromptにJournal集約解釈の材料を注入する", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", rt.JOURNAL_BATCH_TASK, "auto-journal-batch");
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, run.id);
+    expect(prompt).toContain("Journal集約解釈の材料");
+  });
+
   it("extractJournalAutoAnalysisTextは対象エントリ本文を取り出す", async () => {
     const rt = await loadModule();
     const task = [
@@ -1181,16 +1209,16 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run.id)?.reviewed).toBe(true);
   });
 
-  it("startJournalAutoAnalysisはsourceJournalIdを保存する", async () => {
+  it("startJournalAnalysisはsourceJournalIdを保存する", async () => {
     const rt = await loadModule();
-    const run = await rt.startJournalAutoAnalysis("現場が疲弊している", "journal-1");
+    const run = await rt.startJournalAnalysis("現場が疲弊している", "journal-1");
     expect(run?.sourceJournalId).toBe("journal-1");
     expect(rt.getRun(run!.id)?.sourceJournalId).toBe("journal-1");
   });
 
-  it("buildJournalAnalysisTaskはmanualでも本文マーカーを残す", async () => {
+  it("buildJournalAnalysisTaskは本文マーカーを残す", async () => {
     const rt = await loadModule();
-    const task = rt.buildJournalAnalysisTask("1on1が空回りした", "manual");
+    const task = rt.buildJournalAnalysisTask("1on1が空回りした");
     expect(task).toContain("EMがこのJournalエントリの分析を依頼しました");
     expect(rt.extractJournalAutoAnalysisText(task)).toBe("1on1が空回りした");
   });
@@ -1893,34 +1921,76 @@ describe("watchdog: checkWeeklyGrow", () => {
   });
 });
 
-describe("matchesJournalAutoFilters", () => {
-  it("既定（OFF）ではどのurgencyでもfalse", async () => {
+describe("startJournalBatchAnalysis", () => {
+  it("manual:trueならreviewed:trueで起動する（現場メモページの手動実行ボタン用）", async () => {
     const rt = await loadModule();
-    expect(rt.matchesJournalAutoFilters("high", "negative")).toBe(false);
+    const run = await rt.startJournalBatchAnalysis({ manual: true });
+    expect(run?.origin).toBe("auto-journal-batch");
+    expect(run?.reviewed).toBe(true);
+  });
+});
+
+describe("watchdog: checkJournalBatchReview", () => {
+  it("autoJournalBatchEnabledが既定(false)なら何もしない", async () => {
+    const rt = await loadModule();
+    rt.checkJournalBatchReview();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+    expect(spawnCalls).toHaveLength(0);
   });
 
-  it("ONかつhigh_onlyならmidはfalse・highはtrue", async () => {
+  it("設定時刻に達していなければ起動しない（hourを24にして『今日中は絶対到達しない』を再現）", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({
-      autoAnomalyDetectionEnabled: true,
-      autoJournalUrgencyFilter: "high_only",
-      autoJournalSentimentFilter: "all",
-    });
+    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHour: 24 });
     const rt = await loadModule();
-    expect(rt.matchesJournalAutoFilters("mid", "negative")).toBe(false);
-    expect(rt.matchesJournalAutoFilters("high", "positive")).toBe(true);
+    rt.checkJournalBatchReview();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
   });
 
-  it("negative_onlyならpositiveはfalse", async () => {
+  it("設定時刻に達していれば当日1回だけLead Agentを自動起動する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({
-      autoAnomalyDetectionEnabled: true,
-      autoJournalUrgencyFilter: "all",
-      autoJournalSentimentFilter: "negative_only",
-    });
+    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHour: 0 });
     const rt = await loadModule();
-    expect(rt.matchesJournalAutoFilters("low", "positive")).toBe(false);
-    expect(rt.matchesJournalAutoFilters("low", "negative")).toBe(true);
+
+    rt.checkJournalBatchReview();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    const run = rt.listRuns()[0];
+    expect(run.agentName).toBe("Lead Agent");
+    expect(run.origin).toBe("auto-journal-batch");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "追跡すべき問題なし", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+
+    // 同日中の再呼び出しでは再度起動しない（重複生成の防止）。
+    rt.checkJournalBatchReview();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(1);
+    expect(spawnCalls).toHaveLength(1);
+  });
+
+  it("recommendation:dismissなら自動却下する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHour: 0 });
+    const rt = await loadModule();
+
+    rt.checkJournalBatchReview();
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "一時的な感情のみで追跡不要", "facts": [], "logic": "l", "rejectedAlternatives": [], "recommendation": "dismiss" }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    const run = rt.listRuns()[0];
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.triageStatus !== "dismissed") throw new Error("not dismissed");
+    });
   });
 });
 

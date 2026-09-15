@@ -39,6 +39,7 @@ const AUTO_ORIGIN_LABEL: Record<string, string> = {
   "auto-summary": "朝のサマリー",
   "auto-issue-update": "提案更新分析",
   "auto-distill": "状況蒸留",
+  "auto-journal-batch": "Journal集約解釈",
 };
 
 export type ConsultListContentRun = {

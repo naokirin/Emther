@@ -95,7 +95,7 @@ export type AgentRun = {
   createdAt: number;
   updatedAt: number;
   consultedBy?: string;
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-journal-batch";
   sourceJournalId?: string;
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
@@ -168,6 +168,7 @@ export function runKindLabel(run: AgentRun): string {
   if (run.origin === "auto-summary") return "朝のサマリー";
   if (run.origin === "auto-issue-update") return "提案更新分析";
   if (run.origin === "auto-distill") return "状況蒸留";
+  if (run.origin === "auto-journal-batch") return "Journal集約解釈";
   if (run.status === "yield") return "Yield";
   return "手動";
 }

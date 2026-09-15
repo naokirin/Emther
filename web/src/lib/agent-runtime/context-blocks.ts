@@ -17,7 +17,12 @@ import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
 import { listAdoptedThemes } from "@/lib/theme-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
-import { buildDistillationContextBlock, buildGrowContextBlock, buildMorningSummaryContextBlock } from "./batch-context-blocks";
+import {
+  buildDistillationContextBlock,
+  buildGrowContextBlock,
+  buildJournalBatchContextBlock,
+  buildMorningSummaryContextBlock,
+} from "./batch-context-blocks";
 import { extractJournalAutoAnalysisText } from "./extraction";
 import { runs } from "./store";
 import type { AgentRun } from "./types";
@@ -523,11 +528,13 @@ export function buildSystemPrompt(
   const distillContext = runOrigin === "auto-distill" ? buildDistillationContextBlock() : "";
   const morningContext = runOrigin === "auto-summary" ? buildMorningSummaryContextBlock() : "";
   const growContext = runOrigin === "auto-grow" ? buildGrowContextBlock() : "";
+  const journalBatchContext = runOrigin === "auto-journal-batch" ? buildJournalBatchContextBlock() : "";
   return [
     base,
     morningContext,
     distillContext,
     growContext,
+    journalBatchContext,
     issueContext,
     relatedContext,
     interventionTypeGuidance,

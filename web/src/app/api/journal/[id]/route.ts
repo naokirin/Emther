@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
-import { startJournalAutoAnalysis } from "@/lib/agent-runtime";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
@@ -118,14 +117,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
         resolvedIssueId,
         resolutionNote,
       },
-      {
-        ...maskOptionsFromBody(body),
-        onAutoAnalysisNeeded: (rawText, journalId) => {
-          void startJournalAutoAnalysis(rawText, journalId).catch(() => {
-            // 自動分析の起動失敗でJournalの校正自体は失敗させない（あくまで補助機能）。
-          });
-        },
-      },
+      maskOptionsFromBody(body),
     );
     if (!entry) {
       return NextResponse.json({ error: "not found" }, { status: 404 });

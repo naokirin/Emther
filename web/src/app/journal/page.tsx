@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { JournalInputSwitcher } from "@/components/JournalInputSwitcher";
@@ -53,9 +53,33 @@ export default function JournalListPage() {
 // すべてサーバー側（/api/journal/search）で行う。focusIdが指すエントリの「何ページ目か」も
 // サーバー側で解決し（findJournalEntryOffset）、クライアントでの全件走査は行わない。
 function JournalListPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const focusId = searchParams.get("focus");
   const focusDumpId = searchParams.get("dump");
+
+  // ユーザー要望「Journal単独だけでなく、集約解釈を手動実行できるボタンを現場メモの
+  // ページに置きたい」対応。日次バッチ（auto-journal-batch）を待たずに、EMが見たい
+  // タイミングで直近のJournalをまとめてLead Agentに解釈させる（/api/themes/distillの
+  // 状況蒸留ボタンと同型）。
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  async function handleRunJournalBatch() {
+    setBatchSubmitting(true);
+    setBatchError(null);
+    try {
+      const res = await fetch("/api/journal/batch", { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (res.status === 202) return;
+      if (!res.ok) throw new Error(data?.error ?? "Journal集約解釈の起動に失敗しました");
+      const runId = data?.run?.id as string | undefined;
+      if (runId) router.push(`/chat?runId=${runId}`);
+    } catch (err) {
+      setBatchError((err as Error).message);
+    } finally {
+      setBatchSubmitting(false);
+    }
+  }
 
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -139,6 +163,20 @@ function JournalListPageInner() {
         }}
         focusDumpId={focusDumpId}
       />
+
+      <div className={styles.panel} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <p className={styles.subtitle} style={{ margin: 0, flex: "1 1 auto" }}>
+          直近24時間のJournalをまとめて解釈します（日次バッチとは別に、今すぐ実行できます）。
+        </p>
+        <button className={styles.btnOutline} disabled={batchSubmitting} onClick={handleRunJournalBatch}>
+          {batchSubmitting ? "解釈中…" : "🧭 Journalを集約解釈する"}
+        </button>
+      </div>
+      {batchError && (
+        <p className={styles.errorText} role="alert">
+          {batchError}
+        </p>
+      )}
 
       <div className={styles.panel}>
         <div className={styles.field}>

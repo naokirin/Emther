@@ -147,13 +147,15 @@ export type AgentRun = {
   // 同様、外部からは基本的に参照しない）。
   nameLeakQuarantined?: boolean;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
-  // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はJournal校正を
-  // きっかけにした自動分析、"auto-summary"は朝のバッチサマリー、"auto-issue-update"は
-  // IssueのWhy/What/How・経過ログ更新をきっかけにした再分析、"auto-distill"は週次／手動の
-  // 状況蒸留（テーマ解釈候補）。
+  // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はEMが明示的に依頼した
+  // Journal個別分析（POST /api/journal/[id]/analyze。かつてはJournal校正時の自動即時分析にも
+  // 使われていたが、その事前フィルタ駆動の即時発火は廃止し"auto-journal-batch"へ一本化した）、
+  // "auto-summary"は朝のバッチサマリー、"auto-issue-update"はIssueのWhy/What/How・経過ログ
+  // 更新をきっかけにした再分析、"auto-distill"は週次／手動の状況蒸留（テーマ解釈候補）、
+  // "auto-journal-batch"は直近のJournalをまとめて日次で解釈するバッチ。
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow" | "auto-journal-batch";
   // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
   sourceJournalId?: string;
   // 何でも相談でEMが「経営／役員目線も聞く」をONにしたときなど、Leadがproposal/yieldする前に
@@ -179,5 +181,6 @@ export function originLabel(origin: AgentRun["origin"]): string {
   if (origin === "auto-issue-update") return "提案更新分析";
   if (origin === "auto-distill") return "状況蒸留";
   if (origin === "auto-grow") return "学びの提案";
+  if (origin === "auto-journal-batch") return "Journal集約解釈";
   return "手動";
 }

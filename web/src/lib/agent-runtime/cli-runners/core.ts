@@ -167,9 +167,12 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
         void enrichGrowSuggestionReferences(created).catch(() => {});
       }
     }
-    // docs/usage_issues U2。Journal自動分析が追跡不要と明示したときだけ自動却下する。
-    // 手動相談やIssue更新分析はEMのトリアージ対象のまま残す。
-    if (run.origin === "auto-anomaly" && run.proposal?.recommendation === "dismiss") {
+    // docs/usage_issues U2。Journal分析（EM明示の個別分析／日次の集約解釈）が追跡不要と
+    // 明示したときだけ自動却下する。手動相談やIssue更新分析はEMのトリアージ対象のまま残す。
+    if (
+      (run.origin === "auto-anomaly" || run.origin === "auto-journal-batch") &&
+      run.proposal?.recommendation === "dismiss"
+    ) {
       setRunTriageStatus(run.id, "dismissed");
       appendLog(run, "system", "AIが追跡不要と判断したため、自動で却下しました。");
     }

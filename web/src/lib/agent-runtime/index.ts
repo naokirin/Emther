@@ -83,11 +83,17 @@ export {
   selectRelatedSpecialists,
 } from "./context-blocks";
 
-export { buildDistillationContextBlock, buildGrowContextBlock, buildMorningSummaryContextBlock } from "./batch-context-blocks";
+export {
+  buildDistillationContextBlock,
+  buildGrowContextBlock,
+  buildJournalBatchContextBlock,
+  buildMorningSummaryContextBlock,
+} from "./batch-context-blocks";
 
 export {
   buildDistillationTask,
   buildJournalAnalysisTask,
+  checkJournalBatchReview,
   checkMorningSummary,
   checkWeeklyDistillation,
   checkWeeklyGrow,
@@ -96,16 +102,16 @@ export {
   GROWTH_TASK,
   ISSUE_UPDATE_DEBOUNCE_MS,
   isoWeekKey,
+  JOURNAL_BATCH_TASK,
   listPendingAgentStarts,
   localDayBoundsMs,
-  matchesJournalAutoFilters,
   MORNING_SUMMARY_TASK,
   reactToIssueUpdate,
   setIssueUpdateDebounceMsForTest,
   startDistillationAnalysis,
   startGrowAnalysis,
   startJournalAnalysis,
-  startJournalAutoAnalysis,
+  startJournalBatchAnalysis,
   todayDateString,
 } from "./scheduled-tasks";
 

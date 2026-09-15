@@ -19,9 +19,8 @@ describe("getRulesAndConstraints", () => {
     expect(rules.teamWindowDays).toBe(14);
     expect(rules.maxParallelAgentRuns).toBe(2);
     expect(rules.perTurnBudgetUsd).toBe(0.5);
-    expect(rules.autoAnomalyDetectionEnabled).toBe(false);
-    expect(rules.autoJournalUrgencyFilter).toBe("high_only");
-    expect(rules.autoJournalSentimentFilter).toBe("all");
+    expect(rules.autoJournalBatchEnabled).toBe(false);
+    expect(rules.autoJournalBatchHour).toBe(7);
     expect(rules.autoIssueUpdateAnalysisEnabled).toBe(false);
     expect(rules.decisionQueueLimit).toBe(3);
     expect(rules.observationQueueLimit).toBe(3);
@@ -52,12 +51,12 @@ describe("updateRulesAndConstraints", () => {
 
   it("更新内容を永続化し、モジュール再読み込み後も反映されている", async () => {
     const mod1 = await import("@/lib/settings-store");
-    mod1.updateRulesAndConstraints({ autoAnomalyDetectionEnabled: true, cliOrder: ["claude", "agy"] });
+    mod1.updateRulesAndConstraints({ autoJournalBatchEnabled: true, cliOrder: ["claude", "agy"] });
 
     vi.resetModules();
     const mod2 = await import("@/lib/settings-store");
     const rules = mod2.getRulesAndConstraints();
-    expect(rules.autoAnomalyDetectionEnabled).toBe(true);
+    expect(rules.autoJournalBatchEnabled).toBe(true);
     expect(rules.cliOrder).toEqual(["claude", "agy"]);
   });
 });

@@ -21,6 +21,7 @@ const ORIGIN_SHORT: Record<AgentRun["origin"], string> = {
   "auto-summary": "朝のサマリー",
   "auto-issue-update": "提案更新分析",
   "auto-distill": "状況蒸留",
+  "auto-journal-batch": "Journal集約解釈",
 };
 
 const TRIAGE_SHORT: Record<"watching" | "dismissed", string> = {
