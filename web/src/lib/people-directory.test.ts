@@ -322,6 +322,22 @@ describe("assertNoRealNamesLeaked", () => {
   });
 });
 
+describe("detectLeakedNames", () => {
+  it("実名が含まれていなければ空配列を返す", async () => {
+    const pd = await loadModule();
+    pd.registerName("Aさん");
+    expect(pd.detectLeakedNames("PERSON_1と話した")).toEqual([]);
+  });
+
+  it("ヒットした登録名（表記揺れ含む）をすべて返す（例外は投げない）", async () => {
+    const pd = await loadModule();
+    pd.registerName("Aさん");
+    pd.registerName("Bさん");
+    const hits = pd.detectLeakedNames("AさんとBさんが話した");
+    expect(hits.sort()).toEqual(["Aさん", "Bさん"]);
+  });
+});
+
 describe("maskForStorage", () => {
   it("既知の名前をIDへ置換して返す", async () => {
     const pd = await loadModule();

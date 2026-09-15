@@ -374,12 +374,23 @@ export function getPersonId(name: string): string | undefined {
 // 登録人数は数百人規模までしか想定していない（単一ローカルEM利用のスケール）ため、
 // 毎ターンの線形スキャンで性能上の問題にはならない。
 export function assertNoRealNamesLeaked(text: string): void {
+  if (detectLeakedNames(text).length > 0) {
+    throw new Error("実名が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。");
+  }
+}
+
+// ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
+// 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要がある」
+// 対応。assertNoRealNamesLeakedと同じ検査だが、例外を投げる代わりにヒットした登録名を
+// 返す——呼び出し側（agent-runtime）はこれを使って原因と見られるナレッジイベントを
+// knowledge-store.ts側で特定・自動アーカイブする。ヒットした名前自体はログに出さない。
+export function detectLeakedNames(text: string): string[] {
+  const hits: string[] = [];
   // maskNames と同じ拡大集合で検査し、敬称違いの漏れも止める
   for (const name of buildMaskMapping().keys()) {
-    if (name && text.includes(name)) {
-      throw new Error("実名が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。");
-    }
+    if (name && text.includes(name)) hits.push(name);
   }
+  return hits;
 }
 
 // 重要な設計変更: 「保存する前にマスクする」ための唯一の入口。個人名（実名）に触れて

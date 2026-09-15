@@ -330,6 +330,61 @@ describe("listActiveFactsForPerson / listInterpretationsForPerson", () => {
     const interpretations = knowledgeStore.listInterpretationsForPerson("PERSON_1");
     expect(interpretations.map((i) => i.text)).toEqual(["profile-note"]);
   });
+
+  it("アーカイブ済みのfactは除外する（実名リーク隔離がこの経路でも効くように）", async () => {
+    const { knowledgeStore } = await loadModules();
+    const archived = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: ["PERSON_1"],
+      text: "leaked-name-version",
+      tags: [],
+      occurredAt: 1,
+    });
+    knowledgeStore.setEventArchived(archived.id);
+    knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["PERSON_1"], text: "clean-version", tags: [], occurredAt: 2 });
+
+    expect(knowledgeStore.listActiveFactsForPerson("PERSON_1").map((f) => f.text)).toEqual(["clean-version"]);
+  });
+
+  it("アーカイブ済みのinterpretationは除外する", async () => {
+    const { knowledgeStore } = await loadModules();
+    const archived = knowledgeStore.recordEvent({ kind: "interpretation", context: "profile", entityType: "person", people: ["PERSON_1"], text: "leaked-name-version", tags: [], occurredAt: 1 });
+    knowledgeStore.setEventArchived(archived.id);
+    knowledgeStore.recordEvent({ kind: "interpretation", context: "profile", entityType: "person", people: ["PERSON_1"], text: "clean-version", tags: [], occurredAt: 2 });
+
+    expect(knowledgeStore.listInterpretationsForPerson("PERSON_1").map((i) => i.text)).toEqual(["clean-version"]);
+  });
+});
+
+describe("quarantineEventsContainingNames", () => {
+  it("指定した名前を本文・要約・タグ・対応メモに含む未アーカイブのイベントをアーカイブし、IDを返す", async () => {
+    const { knowledgeStore } = await loadModules();
+    const byText = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "本文に山田太郎が混入", tags: [], occurredAt: 1 });
+    const bySummary = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "clean", summary: "要約に山田太郎", tags: [], occurredAt: 2 });
+    const clean = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "clean", tags: [], occurredAt: 3 });
+
+    const quarantined = knowledgeStore.quarantineEventsContainingNames(["山田太郎"]);
+
+    expect(quarantined.sort()).toEqual([byText.id, bySummary.id].sort());
+    expect(knowledgeStore.getEventById(byText.id)?.archivedAt).toBeDefined();
+    expect(knowledgeStore.getEventById(bySummary.id)?.archivedAt).toBeDefined();
+    expect(knowledgeStore.getEventById(clean.id)?.archivedAt).toBeUndefined();
+  });
+
+  it("名前が指定されなければ何もしない", async () => {
+    const { knowledgeStore } = await loadModules();
+    expect(knowledgeStore.quarantineEventsContainingNames([])).toEqual([]);
+  });
+
+  it("既にアーカイブ済みのイベントは再度対象にしない", async () => {
+    const { knowledgeStore } = await loadModules();
+    const already = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "山田太郎", tags: [], occurredAt: 1 });
+    knowledgeStore.setEventArchived(already.id);
+
+    expect(knowledgeStore.quarantineEventsContainingNames(["山田太郎"])).toEqual([]);
+  });
 });
 
 describe("toEventView", () => {

@@ -170,6 +170,33 @@ export function clearEventArchived(id: string): KnowledgeEvent | undefined {
   return rowToEvent({ ...row, archived_at: null });
 }
 
+// ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
+// 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要がある」
+// 対応。people-directory.tsのdetectLeakedNamesが検知した登録名について、それを
+// 本文・要約・タグ・対応メモに部分文字列として含む未アーカイブのイベントを特定し、
+// 即座にアーカイブする（searchSimilarEventsは既定でアーカイブ済みを除外するため、
+// 以降の他の分析への連鎖混入がその場で止まる）。実名そのものはここでもログに出さず、
+// 隔離できたイベントIDだけを返す（呼び出し側がrun.logへ記録する）。
+// 単一ローカルユーザー規模の想定（他のTTL/superseded走査と同じ前提）なので、
+// 稀にしか通らないこの経路でも全件走査で十分。
+export function quarantineEventsContainingNames(names: string[]): string[] {
+  if (names.length === 0) return [];
+  const rows = getDb()
+    .prepare(
+      "SELECT id, text, summary, tags_json, resolution_note FROM knowledge_events WHERE archived_at IS NULL",
+    )
+    .all() as { id: string; text: string; summary: string | null; tags_json: string; resolution_note: string | null }[];
+  const quarantinedIds: string[] = [];
+  for (const row of rows) {
+    const haystack = `${row.text}\n${row.summary ?? ""}\n${row.tags_json}\n${row.resolution_note ?? ""}`;
+    if (names.some((name) => haystack.includes(name))) {
+      setEventArchived(row.id);
+      quarantinedIds.push(row.id);
+    }
+  }
+  return quarantinedIds;
+}
+
 export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   const event: KnowledgeEvent = {
     ...input,
@@ -453,20 +480,25 @@ export function isEventExpired(event: KnowledgeEvent, now = Date.now()): boolean
 }
 
 // 特定の人物に関する「今も重みを持つファクト」。TTL切れのものと、supersedesで
-// 置き換えられた旧版は除外する（Journal一覧のlistJournalEntriesと同じ方針。
-// 削除はしない＝listEvents()で全履歴は引き続き参照可能）。
+// 置き換えられた旧版・アーカイブ済みは除外する（Journal一覧のlistJournalEntriesと
+// 同じ方針。削除はしない＝listEvents()で全履歴は引き続き参照可能）。アーカイブ除外は
+// ユーザー指摘対応: 実名リーク検知時の自動隔離（quarantineEventsContainingNames）が
+// このAgent動的ロード経路（名前の直接一致によるbuildJournalContextBlock）を通しても
+// 確実に効くようにするため（similarEvent検索経由の混入だけを塞いでも、こちらの経路が
+// 抜けていると連鎖が止まらない）。
 // personIdはpeople-directory.tsの`PERSON_n` ID（実名ではない）。
 export function listActiveFactsForPerson(personId: string, limit = 5): KnowledgeEvent[] {
   const events = listEvents({ kind: "fact" });
   const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
   return events
-    .filter((e) => e.people.includes(personId) && !isEventExpired(e) && !supersededIds.has(e.id))
+    .filter((e) => e.people.includes(personId) && !isEventExpired(e) && !supersededIds.has(e.id) && !e.archivedAt)
     .slice(0, limit);
 }
 
 // 特定の人物に関する長期的な解釈（プロファイル）。TTLの概念上、基本的に常に有効。
+// アーカイブ済みは除外する（listActiveFactsForPersonと同じ理由）。
 export function listInterpretationsForPerson(personId: string): KnowledgeEvent[] {
-  return listEvents({ kind: "interpretation" }).filter((e) => e.people.includes(personId));
+  return listEvents({ kind: "interpretation" }).filter((e) => e.people.includes(personId) && !e.archivedAt);
 }
 
 // 個人情報の分離（ユーザー指摘対応）: 上記の関数群はマスクされた（PERSON_n ID化された）

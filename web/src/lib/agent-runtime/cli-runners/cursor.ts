@@ -1,11 +1,10 @@
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dataFilePath } from "@/lib/persistence";
-import { assertNoRealNamesLeaked } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
-import { applyAssistantResultText } from "./core";
+import { applyAssistantResultText, checkAndQuarantineNameLeak } from "./core";
 
 // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
 // cursor-agentも複数モデルに対応するマルチモデルCLIで、汎用モデル名（コーディング特化で
@@ -30,12 +29,7 @@ mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 export function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
     // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
-    try {
-      assertNoRealNamesLeaked(prompt);
-      assertNoRealNamesLeaked(systemPrompt);
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", (err as Error).message);
+    if (checkAndQuarantineNameLeak(run, prompt, systemPrompt)) {
       resolve();
       return;
     }

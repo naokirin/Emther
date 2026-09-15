@@ -12,9 +12,14 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
+// 既定は常に類似度0（無関係）。特定のテストだけ類似度を上げたい場合は
+// cosineSimilarityRef.impl を差し替える（spawnRefと同じ間接呼び出しパターン）。
+const cosineSimilarityRef = vi.hoisted(() => ({
+  impl: (() => 0) as (...args: unknown[]) => number,
+}));
 vi.mock("@/lib/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
-  cosineSimilarity: () => 0,
+  cosineSimilarity: (...args: unknown[]) => cosineSimilarityRef.impl(...args),
 }));
 
 // vi.mockのファクトリはファイル先頭へホイストされるため、テストごとに差し替えたい実装は
@@ -104,6 +109,7 @@ beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
   setupSpawnMock();
+  cosineSimilarityRef.impl = () => 0;
 });
 
 afterEach(() => {
@@ -1026,6 +1032,55 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.totalCostUsd).toBeCloseTo(0.02);
     expect(finished.proposal?.conclusion).toBe("対応を継続");
     expect(finished.log.some((l) => l.channel === "agent" && l.text === "検討しています…")).toBe(true);
+  });
+
+  // ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
+  // 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要が
+  // ある」対応。過去に実名マスクが漏れて保存されてしまったJournalファクト（そのもの）が、
+  // 全く無関係な新規Journalの自動分析（auto-anomaly）でrelatedContext（類似検索）
+  // 経由でsystemPromptへ混入し、送信直前チェックで検知される状況を再現する。
+  it("実名リーク検知時、原因ファクトを自動アーカイブして1回だけ自動的に再分析し、成功する", async () => {
+    const pd = await import("@/lib/people-directory");
+    const ks = await import("@/lib/knowledge-store");
+    pd.registerName("漏洩太郎");
+    const leaked = ks.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "漏洩太郎さんが辞めたいと言っていた",
+      tags: [],
+      occurredAt: Date.now(),
+      embedding: [1, 0, 0],
+    });
+    // このテストだけ類似検索がヒットするようにする（既定は無関係=類似度0）。
+    cosineSimilarityRef.impl = () => 0.9;
+
+    const rt = await loadModule();
+    const run = await rt.startRun(
+      "Lead Agent",
+      '対象のJournalエントリ: "1on1が空回りした"',
+      "auto-anomaly",
+    );
+
+    // 1回目の試行は送信前チェックで即座に止まりspawnされない。隔離後の自動再試行
+    // だけがspawnに到達するため、最終的にspawn回数は1回のまま。
+    await waitForSpawnCount(1);
+    expect(spawnCalls).toHaveLength(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "1on1を継続", "facts": [], "logic": "l", "rejectedAlternatives": [] }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status === "active") throw new Error("still active");
+    });
+    const finished = rt.getRun(run.id)!;
+    expect(finished.status).toBe("idle");
+    expect(finished.proposal?.conclusion).toBe("1on1を継続");
+    expect(finished.log.some((l) => l.text.includes("自動的にアーカイブしたため"))).toBe(true);
+    expect(finished.log.some((l) => l.text.includes("漏洩太郎"))).toBe(false);
+    expect(ks.getEventById(leaked.id)?.archivedAt).toBeDefined();
   });
 
   it("auto-anomalyでrecommendation:dismissなら自動却下する", async () => {

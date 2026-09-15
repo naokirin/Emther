@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "@/lib/agent-knowledge-tools";
+import { quarantineEventsContainingNames } from "@/lib/knowledge-store";
+import { detectLeakedNames } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { CLI_LABELS, type CliName } from "@/lib/types";
 import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt, selectRelatedSpecialists } from "../context-blocks";
@@ -213,13 +215,60 @@ function runCliAttempt(cli: CliName, run: AgentRun, prompt: string, systemPrompt
   return withRunSlot(run, () => runCursorCliAttempt(run, prompt, systemPrompt, allowConsult));
 }
 
-export async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsult = true, precomputedPrompt?: string): Promise<void> {
+// 個人情報の分離の「最後の砦」（ユーザー指摘対応、3つのCLIランナー共通）。ここまでの
+// 保存時マスク・クラウド応答の非アンマスク化がすべて正しく機能している前提だが、それに
+// 頼らず、外部プロセスへ渡す直前のテキストそのものを検査する。実名が1件でも残っていたら
+// このrunをerrorにして送信自体を止める（実名をログにも残さない）。
+//
+// ユーザー指摘「実名リークが1件検知されると、類似検索等で注入されて無関係な他の分析にまで
+// 繰り返し混入し連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要がある」対応。
+// 検知した登録名を本文に含む未アーカイブのナレッジイベントをその場で特定・自動アーカイブ
+// する（quarantineEventsContainingNames。以降searchSimilarEvents等の類似検索から除外され、
+// 他のrunへの連鎖混入が即座に止まる）。隔離に成功した場合はnameLeakQuarantinedを立てて
+// runClaudeTurnへ「原因データは取り除いたので1回だけ自動再分析してよい」と伝える——
+// 隔離できなかった場合（今のJournal自身の本文が原因等）は再試行しても同じ結果になるだけ
+// なので、フラグは立てずEMの手動対応（Journal修正→「相談をリセットして再分析」）に委ねる。
+// 戻り値はtrue＝送信を止めた（呼び出し元は即resolveしてよい）。
+export function checkAndQuarantineNameLeak(run: AgentRun, ...texts: string[]): boolean {
+  const leaked = new Set<string>();
+  for (const text of texts) {
+    for (const name of detectLeakedNames(text)) leaked.add(name);
+  }
+  if (leaked.size === 0) return false;
+
+  run.status = "error";
+  const quarantinedIds = quarantineEventsContainingNames(Array.from(leaked));
+  if (quarantinedIds.length > 0) {
+    run.nameLeakQuarantined = true;
+    appendLog(
+      run,
+      "system",
+      `実名が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。原因と見られる過去データ${quarantinedIds.length}件を自動的にアーカイブしたため、このターンを自動的に再分析します（対象イベントID: ${quarantinedIds.join(", ")}）。`,
+    );
+  } else {
+    appendLog(
+      run,
+      "system",
+      "実名が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。原因となる過去データを自動特定できなかったため、対象のJournal本文を確認・修正のうえ「相談をリセットして再分析する」を使ってください。",
+    );
+  }
+  return true;
+}
+
+export async function runClaudeTurn(
+  run: AgentRun,
+  rawPrompt: string,
+  allowConsult = true,
+  precomputedPrompt?: string,
+  isRetryAfterQuarantine = false,
+): Promise<void> {
   // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
   // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
   // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
   run.status = "active";
   run.pendingConsult = undefined;
   run.pendingLookup = undefined;
+  run.nameLeakQuarantined = undefined;
 
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   // 再開時に「続けて」だけの短い入力だと意味検索が枯れるため、元タスク文もクエリに含める。
@@ -257,6 +306,20 @@ export async function runClaudeTurn(run: AgentRun, rawPrompt: string, allowConsu
     }
     await runCliAttempt(cli, run, prompt, systemPrompt, allowConsult);
     if ((run.status as AgentStatus) !== "error") break;
+    // 実名リークで隔離済み＝同じprompt/systemPromptのまま他のCLIを試しても同じ結果に
+    // なるだけなので、フォールバックを打ち切って再分析へ進む。
+    if (run.nameLeakQuarantined) break;
+  }
+
+  // ユーザー指摘対応: 実名リークの原因データを自動隔離できた場合、1回だけ
+  // （isRetryAfterQuarantineガードで無限ループを防ぐ）自動的に取り直す。
+  // 隔離後はjournalContext/relatedContextが再構築され、原因イベントは
+  // searchSimilarEvents等の既定の除外対象（アーカイブ済み）になっているため
+  // 再現しないはず。それでも再現する場合＝原因が今回のJournal本文自体にあるため、
+  // 2回目はnameLeakQuarantinedが立たずerrorのまま残り、EMの手動対応に委ねる。
+  if (run.nameLeakQuarantined && !isRetryAfterQuarantine) {
+    run.nameLeakQuarantined = undefined;
+    return runClaudeTurn(run, rawPrompt, allowConsult, precomputedPrompt, true);
   }
 
   // U19: lookup を consult より先に処理（事実確認 → 必要なら専門相談）。

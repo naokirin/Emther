@@ -1,25 +1,16 @@
 import { spawn } from "node:child_process";
-import { assertNoRealNamesLeaked } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { perTurnBudgetUsdArg } from "../context-blocks";
 import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
-import { handleStreamEvent } from "./core";
+import { checkAndQuarantineNameLeak, handleStreamEvent } from "./core";
 
 // 戻り値はこの試行が失敗した（run.statusが"error"で終わった）かどうか。
 // 相談待ち（pendingConsult）・追加照会待ち（pendingLookup）は失敗ではない。
 export function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。ここまでの保存時マスク・
-    // クラウド応答の非アンマスク化がすべて正しく機能している前提だが、それに頼らず、
-    // 外部プロセスへ渡す直前のテキストそのものを検査する。実名が1件でも残っていたら
-    // このrunをerrorにして送信自体を止める（実名をログにも残さない）。
-    try {
-      assertNoRealNamesLeaked(prompt);
-      assertNoRealNamesLeaked(systemPrompt);
-    } catch (err) {
-      run.status = "error";
-      appendLog(run, "system", (err as Error).message);
+    // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。checkAndQuarantineNameLeak参照。
+    if (checkAndQuarantineNameLeak(run, prompt, systemPrompt)) {
       resolve(true);
       return;
     }
