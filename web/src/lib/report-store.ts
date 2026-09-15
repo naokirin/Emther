@@ -91,7 +91,8 @@ function computeJournalStats(periodStart: number, periodEnd: number): ReportJour
     .map(([tag, count]) => ({ tag, count }));
 
   const notableEntries = entries
-    .filter((e) => e.urgency === "high" || e.sentiment === "negative")
+    // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
+    .filter((e) => (e.urgency === "high" || e.sentiment === "negative") && !e.noActionNeededAt)
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 5)
     .map((e) => ({

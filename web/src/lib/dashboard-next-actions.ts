@@ -234,6 +234,8 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     // ウィンドウ内は「観測不足」レーンに載り続けていた。すでに解決済みなら観測を
     // 増やす必要はないため、ここで除外する。
     if (isJournalEntryResolved(entry)) continue;
+    // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
+    if (entry.noActionNeededAt) continue;
     // docs/memo.md「紐づく提案がすでにあるJournalは確認案内をなくす/弱める」対応。
     // sourceConsultRunIdがあれば、すでにこのJournalからLead Agent runが生まれている
     // （＝提案が生成済み・進行中）。相談を促すカードを重ねて出すと「さらに提案を作る」

@@ -160,6 +160,28 @@ describe("buildDailySituation", () => {
     expect(result.concerns[0].status).toBeUndefined();
   });
 
+  it("確認済み（対応不要）にしたJournalはconcernsに入れない", () => {
+    const entries = [
+      journal({
+        id: "no-action-needed",
+        createdAt: NOW - DAY_MS,
+        urgency: "high",
+        sentiment: "negative",
+        summary: "確認したが対応不要だった",
+        noActionNeededAt: NOW - 1000,
+      }),
+    ];
+    const result = buildDailySituation({
+      now: NOW,
+      journalEntries: entries,
+      vitals: EMPTY_VITALS,
+      people: [],
+      nextActions: [],
+      push: noop,
+    });
+    expect(result.concerns.map((i) => i.id)).toEqual([]);
+  });
+
   it("すでにLead Agent runが紐づく（sourceConsultRunIdあり）Journalはconcernsに入れない", () => {
     const entries = [
       journal({

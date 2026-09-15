@@ -80,6 +80,21 @@ describe("generateReport", () => {
     expect(report.stats.journal.notableEntries).toHaveLength(1);
   });
 
+  // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
+  it("確認済み（対応不要）にしたJournalはnotableEntriesから除外する", async () => {
+    const journalStore = await import("@/lib/journal-store");
+    const store = await loadModule();
+    const now = 1_700_000_000_000;
+
+    mockExtraction = { tags: [], people: [], urgency: "high", sentiment: "negative", summary: "問題発生" };
+    const entry = await journalStore.addJournalEntry("確認したが対応不要だった", now - DAY_MS);
+    await journalStore.setJournalNoActionNeeded(entry.id);
+
+    const report = store.generateReport("week", now);
+    expect(report.stats.journal.total).toBe(1);
+    expect(report.stats.journal.notableEntries).toHaveLength(0);
+  });
+
   it("期間内に作成・アーカイブされたIssueを分けて集計する", async () => {
     const issueStore = await import("@/lib/issue-store");
     const store = await loadModule();

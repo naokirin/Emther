@@ -182,6 +182,20 @@ describe("computeOrgVitals", () => {
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("unknown");
   });
+  // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
+  it("確認済み（対応不要）にしたネガティブJournalはTeam Vitalsの判定材料から除外する", async () => {
+    const { vitals, orgStore, journalStore } = await loadModules();
+    orgStore.addTeam("Team A", ["Aさん"]);
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative", summary: "" };
+    const e1 = await journalStore.addJournalEntry("Aさんが不満");
+    const e2 = await journalStore.addJournalEntry("Aさんがまた不満");
+    await journalStore.setJournalNoActionNeeded(e1.id);
+    await journalStore.setJournalNoActionNeeded(e2.id);
+
+    const result = vitals.computeOrgVitals();
+    expect(result.teams[0].status).toBe("unknown");
+  });
+
   it("メンバー未登録でも明示teamIdsのJournalが閾値以上ならsentimentで判定する", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("コアチーム", []);

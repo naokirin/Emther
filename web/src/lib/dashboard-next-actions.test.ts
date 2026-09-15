@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildNextActions, type BuildNextActionsParams } from "@/lib/dashboard-next-actions";
-import type { Issue, OrgVitals, PersonSummary } from "@/lib/types";
+import type { Issue, JournalEntry, OrgVitals, PersonSummary } from "@/lib/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(2026, 8, 13, 12, 0, 0).getTime();
@@ -36,6 +36,21 @@ function person(overrides: Partial<PersonSummary> & { id: string; name: string }
     isDirectReport: true,
     isSelf: false,
     hasConcerningIssue: false,
+    ...overrides,
+  };
+}
+
+function journal(overrides: Partial<JournalEntry> & { id: string }): JournalEntry {
+  return {
+    rawText: "raw",
+    tags: [],
+    people: [],
+    teamIds: [],
+    urgency: "low",
+    sentiment: "neutral",
+    summary: "",
+    createdAt: NOW,
+    confirmed: true,
     ...overrides,
   };
 }
@@ -113,5 +128,34 @@ describe("buildNextActions の確認期日超過（判断待ちレーン）", ()
     ];
     const actions = buildNextActions(baseParams({ issues }));
     expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
+  });
+});
+
+// ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
+describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => {
+  it("確認済み（対応不要）にしたJournalは「要注目Journal」に出さない", () => {
+    const journalEntries: JournalEntry[] = [
+      journal({
+        id: "j-noaction",
+        urgency: "mid",
+        sentiment: "negative",
+        noActionNeededAt: NOW - 1000,
+      }),
+    ];
+    const actions = buildNextActions(baseParams({ journalEntries }));
+    expect(actions.some((a) => a.id === "journal-j-noaction")).toBe(false);
+  });
+
+  it("確認済み（対応不要）にしたJournalは「Journal未確認」に出さない", () => {
+    const journalEntries: JournalEntry[] = [
+      journal({
+        id: "j-noaction-high",
+        urgency: "high",
+        confirmed: false,
+        noActionNeededAt: NOW - 1000,
+      }),
+    ];
+    const actions = buildNextActions(baseParams({ journalEntries }));
+    expect(actions.some((a) => a.id === "journal-unconfirmed-j-noaction-high")).toBe(false);
   });
 });

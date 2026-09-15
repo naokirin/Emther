@@ -83,7 +83,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   if (team.members.length === 0) {
     // メンバー未登録でも、明示 teamIds で紐付いた Journal があれば評価材料にする（方針A）。
     const linkedOnly = entries.filter(
-      (e) => withinDays(e.createdAt, rules.teamWindowDays) && (e.teamIds ?? []).includes(team.id),
+      (e) => withinDays(e.createdAt, rules.teamWindowDays) && (e.teamIds ?? []).includes(team.id) && !e.noActionNeededAt,
     );
     if (linkedOnly.length < rules.minEntriesForJudgement) {
       return {
@@ -103,8 +103,9 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   }
 
   // 方針A: 明示 teamIds またはメンバー一致のどちらか。
+  // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
   const relevant = entries.filter(
-    (e) => withinDays(e.createdAt, rules.teamWindowDays) && isJournalRelatedToTeam(e, team),
+    (e) => withinDays(e.createdAt, rules.teamWindowDays) && isJournalRelatedToTeam(e, team) && !e.noActionNeededAt,
   );
 
   if (relevant.length < rules.minEntriesForJudgement) {
