@@ -52,7 +52,7 @@ type Props = {
   watchingItems: AgentRun[];
   lastSeenAt: number | null;
   unlinkedParentCount: number;
-  krTotals: { done: number; total: number };
+  krTotals: { total: number };
   autoRunsToday: number;
   onNavigate: (path: string) => void;
   refreshIssues: () => Promise<void>;
@@ -211,7 +211,7 @@ export function TodayActionsPanel({
 
       {krTotals.total > 0 && (
         <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
-          📈 今期のKR進捗: {krTotals.done}/{krTotals.total}件
+          📈 今期のKRに紐づくIssue: {krTotals.total}件
           <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => onNavigate("/org")}>
             詳細
           </button>

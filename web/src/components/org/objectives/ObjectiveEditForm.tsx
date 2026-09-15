@@ -61,7 +61,7 @@ export function ObjectiveEditForm({
         </div>
       </div>
       <p className={styles.subtitle}>
-        KeyResultへ紐付けたIssueのうち、追っていない（アーカイブ）ものを除き、ステータス完了（解決）件数から進捗を自動算出します（手動での進捗入力はありません）。
+        KeyResultへ紐付けたIssue（追っていない・アーカイブ済みのものを除く）の件数を表示します。Issueは達成度を自動追跡する管理項目ではなく、AIが提案した判断材料です。
       </p>
       <div className={styles.field}>
         <label>Objective（目標）

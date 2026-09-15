@@ -149,6 +149,24 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 
 **これでPhase 1〜5すべて完了。**
 
+### Phase 6 — pivot_policy.mdとの残存不整合の解消（完了）
+
+**2026-09-15、Phase 5完了後、ユーザーから「まだpivot_policy.mdと不整合がある」との指摘を受けて着手。** 課題タブの管理列・管理情報の残存、hint/helpの古い語彙、レポートのIssue情報残存を指摘され、「Issueに代わり『提案（Suggestion）』を軸としたEMへの提示と軽量なEM判断のみにする。そこからのアクションの管理はプロダクト対象外とし、EMのメモ程度にする」という方向性が示された。計画モードで3方向（課題タブUI／help・hint語彙／レポート）を並行調査した結果、指摘の3領域に加え、Phase 5で直した`doneCount`と同型の「書き込み経路が消えたのに指標だけ残っている」バグが**OKR進捗バー**（`/org`・ダッシュボード）にも見つかり、ユーザー確認の上まとめて対応した。
+
+実施内容:
+- **課題一覧のフィルタ**: `IssueFilterBar.tsx`からステータス/優先度の`Select`フィルタを撤去。対応する編集UIが既に無く「絞り込んで管理する軸」ではなくなっていたため。行内のステータス/優先度バッジ表示は読み取り専用の軽い文脈情報として維持。フォーカス順の並べ替え（↑/↓ボタン）はEMの軽量判断として維持。`status=done`除外は固定ロジックとして残す（レガシーdoneデータを一覧から隠す既定挙動）。
+- **凍結スコア表示の撤去**: `IssueListTable.tsx`の`優先度/判断`列から、二度と更新されない`IssueTriageAxes`（採点軸の生数値）と「提案: ...」の警告行を削除。
+- **期限（dueAt）機能の撤去**: UIからの設定経路が一度も実装されずに放置されていた未完成機能。`Issue.dueAt`フィールド（`issue-store.ts`/`types.ts`）、`setIssueDueAt`関数、PATCHルートのdueAt処理、`DueBadge`表示、関連テストを削除。
+- **死んだコード削除**: 呼び出し元ゼロの`IssueStatusSelector`/`IssuePrioritySelector`（`IssueStatus.tsx`）とそのテストを削除。
+- **help/hint語彙の修正**: `/help#issues`から削除済み機能（評価を一括更新、スコア差ビュー）の説明を削除し、Action Itemの説明を過去形に修正。`IssueTitleHeader.tsx`のアーカイブボタンtooltipから到達不能な「解決（ステータス完了）」との対比表現を削除。`docs/issue_tracker_contract.md`§7に、削除済みの採点・一括再評価機構を指す記述への訂正注記を追加。
+- **OKR進捗バーの同型バグ修正**: `objective-progress.ts`の`KeyResultProgress`型から`done`（`status===done`集計、書き込み経路が無く常に0）を削除し`total`（紐付き・非アーカイブIssue件数）のみに縮小。消費側（`ObjectiveTree.tsx`、`KeyResultManager.tsx`、`StrategyThreadTree.tsx`、**ダッシュボードの`TodayActionsPanel.tsx`「今期のKR進捗」表示**——3つの研究エージェントの調査では見つからず、実装中のtsc型エラーから発覚）をすべて「Issue N件」という単純な件数表示に変更。`ObjectiveEditForm.tsx`のヒント文言も追従。
+- **Timelineの管理ログ語彙**: 調査の結果、`issue-store.ts`の「ステータスを変更しました」「優先度を変更しました」を生成する書き込み関数（`setIssueStatus`/`setIssuePriority`）自体がどのUIからも呼ばれなくなっており（Phase 5の「将来別経路で使われる可能性」を理由とした残置判断を踏襲）、実際には発火しない死んだイベント種別だと確認した。発火しないコードの文言を書き換えても実害を減らさないため、**追加のコード変更はしないと判断**（ユーザーへの明示的な報告事項）。
+- **Reportsの「Issue進捗」見出し**: 達成率を連想させる「Issue進捗」を「Issue（起票・アーカイブ）」に変更。データ構造（`createdCount`/`archivedCount`/タイトル一覧）は個別のIssueが分かる情報として有用なため維持し、`events.byEntityType`との構造統合はしていない。
+- **触れていない**: `Issue.status`型・`setIssueStatus`/`setIssuePriority`関数・PATCHルートのstatus/priority処理自体（Phase 5の決定を踏襲）、`IssueStrategyMetaPanel`（つながりを見る機能が依存する構造的メタデータ）、`IssueCharterSection`・`IssueActionItemsPanel`・AI提案採用フロー、`UnlinkedRunsPanel`。
+- `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1035件）を確認済み。dev server再起動後に`/issues`・`/org`・`/org/thread`・`/reports`・`/help#issues`・ダッシュボードの実描画（200応答）、`/help`の静的HTMLから削除済み文言が消えていること、`/api/org/objectives`・`/api/issues`のレスポンスから`done`/`dueAt`が消えていることも確認済み。
+
+**これでPhase 1〜6すべて完了。**
+
 ---
 
 ## 明示しておく前提（実装中に覆してよい判断）
@@ -227,3 +245,10 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - `timeline.ts`の「新モデルへ付け替え」は前提無効で変更不要と確認。`report-store.ts`側は再調査の結果、実在する不具合を発見: `doneCount`（Issue解決数の指標）が、Phase 2.4でstatus編集UIが削除されたため書き込み経路が無くなり構造的に必ず0になっていたのに、`/reports`が「解決 N件」を表示し続けていた。
   - `report-store.ts`/`types.ts`/`daily-trends.ts`/`DailyTrendChart.tsx`/`reports/page.tsx`から`doneCount`/`doneTitles`/`issueDone`（死んだ指標）を削除。「観測された状態変化」の指標は既存の`ReportEventStats.byEntityType`（KnowledgeEventベース）で満たされていると確認し新規実装は不要だった。`docs/issue_tracker_contract.md`にも軽微な追記。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1040件）を確認済み。`/reports`・`/timeline`の実描画、実際のレポート新規生成での確認も実施済み。
+- [x] Phase 6 — pivot_policy.mdとの残存不整合の解消（2026-09-15、Phase 1〜6すべて完了）
+  - ユーザー指摘「課題タブの管理列・管理情報残存／help・hint語彙の残存／レポートのIssue情報残存」に対応。「Issueは提案（Suggestion）、アクション管理はプロダクト対象外」という方向性を確認。
+  - `IssueFilterBar.tsx`のステータス/優先度フィルタ、`IssueListTable.tsx`の凍結採点スコア表示・期限（dueAt）表示、`IssueStatusSelector`/`IssuePrioritySelector`（死んだコード）を削除。`setIssueDueAt`・`dueAt`フィールドも撤去。
+  - `/help#issues`・`IssueTitleHeader.tsx`のtooltip・`docs/issue_tracker_contract.md`の古い語彙を修正。
+  - 調査で新たに発見: OKR進捗バー（`objective-progress.ts`の`done`）がPhase 5で直した`doneCount`と同型の「常に0」バグだった。`ObjectiveTree.tsx`/`KeyResultManager.tsx`/`StrategyThreadTree.tsx`に加え、**ダッシュボードの`TodayActionsPanel.tsx`（研究エージェントの調査でも見つからず、実装中のtsc型エラーで発覚）**も含めて「Issue N件」表示に統一。
+  - Timelineの管理ログ語彙は、対応する書き込み関数が既にどこからも呼ばれない死んだコードと確認できたため、追加のコード変更なしと判断（ユーザーへ明示的に報告）。
+  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1035件）を確認済み。関連ページの実描画・APIレスポンスからの残存フィールド消失も確認済み。

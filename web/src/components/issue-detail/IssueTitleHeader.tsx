@@ -171,7 +171,7 @@ export function IssueTitleHeader({
         className={styles.btnOutline}
         onClick={onToggleArchived}
         disabled={archiving}
-        title="解決（ステータス完了）とは別です。追う必要がなくなったときに一覧から外します。"
+        title="追う必要がなくなったときに一覧から外します。"
       >
         {issue.archived ? "アーカイブを解除" : "アーカイブする（追わない）"}
       </button>

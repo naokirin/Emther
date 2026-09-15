@@ -6,10 +6,9 @@ import styles from "@/app/page.module.css";
 import { StatusBadge, type AgentRun } from "@/components/RunDetail";
 import { PaginationControls, type usePagination } from "@/components/Pagination";
 import { ProgressBar } from "@/components/ProgressBar";
-import { IssueStatusBadge, IssuePriorityBadge, IssueTriageAxes } from "@/components/IssueStatus";
+import { IssueStatusBadge, IssuePriorityBadge } from "@/components/IssueStatus";
 import {
   INTERVENTION_TYPES,
-  ISSUE_PRIORITY_META,
   charterFilledCount,
   compareIssuesByPriority,
   isIssueStalled,
@@ -33,23 +32,6 @@ function formatRelativeDays(ts: number, now: number): string {
   if (days <= 0) return "今日";
   if (days === 1) return "1日前";
   return `${days}日前`;
-}
-
-// docs/memo.md「Issue等で期限管理ができない」対応。一覧では期限そのものと、
-// 過ぎている場合の強調だけを見せる（ロードマップ画面は別スコープ）。
-function formatDueDate(dueAt: number): string {
-  const d = new Date(dueAt);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function DueBadge({ issue, now }: { issue: Pick<Issue, "dueAt" | "status">; now: number }) {
-  if (issue.dueAt === undefined) return null;
-  const overdue = issue.status !== "done" && issue.dueAt < now;
-  return (
-    <span className={styles.tableMuted} style={overdue ? { color: "var(--warning, #b45309)" } : undefined}>
-      {overdue ? "⚠ " : "📅 "}期限 {formatDueDate(issue.dueAt)}
-    </span>
-  );
 }
 
 type Props = {
@@ -204,7 +186,6 @@ export function IssueListTable({
                           {stalled && <span className={styles.tableMuted}>⏳ 停滞中</span>}
                           {issue.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                           {issue.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
-                          <DueBadge issue={issue} now={now} />
                         </div>
                         {topicTags.length > 0 && (
                           <div className={styles.tagRow} style={{ marginTop: 4 }}>
@@ -223,18 +204,6 @@ export function IssueListTable({
                   </td>
                   <td>
                     <IssuePriorityBadge priority={priority} />
-                    {issue.triage && <IssueTriageAxes triage={issue.triage} compact />}
-                    {issue.triage?.suggestedPriority &&
-                      issue.triage.suggestedPriority !== priority && (
-                        <div
-                          className={styles.tableMuted}
-                          style={{ marginTop: 4, color: "var(--warning, #b45309)", fontSize: "0.7rem" }}
-                          title="評価上の提案と、いまの優先度が違います（手動変更の可能性）"
-                        >
-                          提案: {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].icon}{" "}
-                          {ISSUE_PRIORITY_META[issue.triage.suggestedPriority].label}
-                        </div>
-                      )}
                     {priority === "focus" && (
                       <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                         <button
@@ -362,7 +331,6 @@ export function IssueListTable({
                             {child.archived && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
                             {child.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                             {child.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
-                            <DueBadge issue={child} now={now} />
                           </div>
                           {childTopicTags.length > 0 && (
                             <div className={styles.tagRow} style={{ marginTop: 4 }}>

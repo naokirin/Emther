@@ -212,10 +212,11 @@ export type ObjectiveImportDraft = {
   keyResults: string[];
 };
 
+// docs/2nd_pivot_version.md Phase 6対応。doneはstatus=doneの集計だったが、対応する書き込み
+// 経路が無くなり常に0になるバグだったため撤去した（objective-progress.tsの型定義と同期）。
 export type KeyResultProgress = {
   keyResultId: string;
   total: number;
-  done: number;
 };
 
 export type ObjectiveWithProgress = Objective & {
@@ -485,8 +486,6 @@ export type Issue = {
   // 紐付け（任意）。Agent Runtimeへの動的ロードで、そのチームのMission/制約だけを
   // 絶対の前提として注入するために使う。
   teamId?: string;
-  // docs/memo.md「Issue等で期限管理ができない」対応。
-  dueAt?: number;
   triage?: IssueTriageScores;
   createdAt: number;
   updatedAt: number;

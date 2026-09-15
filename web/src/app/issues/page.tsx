@@ -11,14 +11,7 @@ import { IssueDetailContent } from "@/components/IssueDetailContent";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
 import { usePagination } from "@/components/Pagination";
 import { useIssues, useObjectives, usePeekParam, useRuns, useSettingsRules, useTeams, useThemes } from "@/lib/hooks";
-import {
-  charterFilledCount,
-  compareIssuesByPriority,
-  isRunStale,
-  type Issue,
-  type IssuePriority,
-  type IssueStatus,
-} from "@/lib/types";
+import { charterFilledCount, compareIssuesByPriority, isRunStale, type Issue } from "@/lib/types";
 
 const ISSUES_PAGE_SIZE = 8;
 
@@ -55,26 +48,20 @@ function IssuesPageInner() {
   const [showArchived, setShowArchived] = useState(false);
   const [tagFilter, setTagFilter] = useState(searchParams.get("tag") ?? "");
   const [incompleteOnly, setIncompleteOnly] = useState(false);
-  // 既定は「完了・アーカイブ以外」（未着手含む）。アーカイブは showArchived、完了は statusFilter で除外。
-  // 並びは compareIssuesByPriority（フォーカス → 通常 → 保留、フォーカス内は focusOrder）。
-  const [statusFilter, setStatusFilter] = useState<"open" | "active" | "all" | IssueStatus>("open");
-  const [priorityFilter, setPriorityFilter] = useState<"all" | IssuePriority>("all");
 
   // アーカイブ済みは既定で隠す（docs/memo.md TODO対応）。EMが明示的にトグルした場合のみ表示する。
   const archivedCount = issues.filter((i) => !i.parentId && i.archived).length;
 
+  // docs/2nd_pivot_version.md Phase 6対応。ステータス/優先度のフィルタUIは、対応する
+  // 編集UIが既に無く「絞り込んで管理する軸」ではなくなっていたため撤去した。
+  // status==="done"の除外だけは、書き込み経路が無い現在も残るレガシーdoneデータを
+  // 一覧から隠す既定挙動として、トグル無しの固定ロジックで維持する。
+  // 並びは compareIssuesByPriority（フォーカス → 通常 → 保留、フォーカス内は focusOrder）。
   function matchesIssueFilters(i: Issue): boolean {
     if (!showArchived && i.archived) return false;
     if (tagFilter && !i.tags.includes(tagFilter)) return false;
     if (incompleteOnly && charterFilledCount(i.charter) === 3) return false;
-    if (statusFilter === "open") {
-      if (i.status === "done") return false;
-    } else if (statusFilter === "active") {
-      if (i.status !== "in_progress" && i.status !== "blocked") return false;
-    } else if (statusFilter !== "all" && i.status !== statusFilter) {
-      return false;
-    }
-    if (priorityFilter !== "all" && (i.priority ?? "normal") !== priorityFilter) return false;
+    if (i.status === "done") return false;
     return true;
   }
 
@@ -102,10 +89,6 @@ function IssuesPageInner() {
           archivedCount={archivedCount}
           incompleteOnly={incompleteOnly}
           setIncompleteOnly={setIncompleteOnly}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          priorityFilter={priorityFilter}
-          setPriorityFilter={setPriorityFilter}
           tagFilter={tagFilter}
           setTagFilter={setTagFilter}
           allTags={allTags}

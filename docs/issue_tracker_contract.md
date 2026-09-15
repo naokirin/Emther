@@ -106,6 +106,8 @@ suggested* = プログレス・朝キューの「仕事」に数えない（採�
 
 内部根拠として `triage`（CoD / Effort / BlastRadius / Confidence → score → suggestedPriority）を持てる。採点本線は外部 AI（失敗時はルールベース）。一括再評価は前回 `scoredAt` 以降に更新のない Issue をスキップし、詳細画面の再採点は強制。UI 主面は帯のまま。EM はマトリクス入力ではなく例外上書きだけ行う（`docs/value_hierarchy_and_flow.md` §4）。
 
+> **2026-09-15追記（docs/2nd_pivot_version.md Phase 6）:** 上記の採点・一括再評価機構（旧`issue-triage.ts`）はPhase 2.2/2.4で全削除された。既存Issueに残る`triage`値は読み取り専用の履歴（以後更新されない）で、`suggestedPriority`欄も含め一覧からは非表示にした（Phase 6でIssueListTableから撤去）。EMによる優先度の例外上書きUIも同時に廃止済み——優先度は読み取り専用のバッジ表示と、フォーカス順の並べ替えのみに縮小している。
+
 ---
 
 ## 8. 階層リンク（EM 介入線）

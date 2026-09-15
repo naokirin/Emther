@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { IssueStatusBadge } from "@/components/IssueStatus";
-import { ProgressBar } from "@/components/ProgressBar";
 import { truncateForTitle, type Issue, type JournalEntry, type ObjectiveWithProgress } from "@/lib/types";
 
 const JOURNAL_PER_ISSUE_LIMIT = 3;
@@ -110,9 +109,9 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                     <div key={kr.id} className={styles.threadKr}>
                       <div className={styles.threadKrHeader}>
                         <span className={styles.threadKrTitle}>📈 {kr.title}</span>
-                        <div style={{ maxWidth: 160, flexShrink: 0 }}>
-                          <ProgressBar done={progress?.done ?? 0} total={progress?.total ?? 0} />
-                        </div>
+                        <span className={styles.tableMuted} style={{ flexShrink: 0 }}>
+                          Issue {progress?.total ?? 0}件
+                        </span>
                       </div>
                       {krIssues.length === 0 ? (
                         <p className={styles.threadEmptyHint}>このKey Resultに紐づくIssueはまだありません。</p>

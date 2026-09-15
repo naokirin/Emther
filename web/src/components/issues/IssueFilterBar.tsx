@@ -2,7 +2,6 @@
 
 import { PageTitleRow } from "@/components/HelpLink";
 import { Select } from "@/components/Select";
-import { ISSUE_PRIORITY_META, ISSUE_STATUS_META, type IssuePriority, type IssueStatus } from "@/lib/types";
 
 type Props = {
   showArchived: boolean;
@@ -10,10 +9,6 @@ type Props = {
   archivedCount: number;
   incompleteOnly: boolean;
   setIncompleteOnly: (value: boolean) => void;
-  statusFilter: "open" | "active" | "all" | IssueStatus;
-  setStatusFilter: (value: "open" | "active" | "all" | IssueStatus) => void;
-  priorityFilter: "all" | IssuePriority;
-  setPriorityFilter: (value: "all" | IssuePriority) => void;
   tagFilter: string;
   setTagFilter: (value: string) => void;
   allTags: string[];
@@ -25,16 +20,15 @@ type Props = {
 // Issue化はAI提案の承認（/chatのConsultReviewPanel）経路のみに一本化する。
 // docs/2nd_pivot_version.md Phase 2.4対応。「アクション」ビュー（Action Item横断完了）
 // も、Action Item CRUD廃止に伴い削除し、ビュー切替タブ自体を無くした。
+// docs/2nd_pivot_version.md Phase 6対応。ステータス/優先度フィルタは、対応する編集UIが
+// 既に無く「絞り込んで管理する軸」ではなくなっていたため撤去した。一覧の行内バッジ表示
+// （読み取り専用の軽い文脈情報）はそのまま維持する。
 export function IssueFilterBar({
   showArchived,
   setShowArchived,
   archivedCount,
   incompleteOnly,
   setIncompleteOnly,
-  statusFilter,
-  setStatusFilter,
-  priorityFilter,
-  setPriorityFilter,
   tagFilter,
   setTagFilter,
   allTags,
@@ -51,38 +45,6 @@ export function IssueFilterBar({
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
           <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
           Why/What/How未整理のみ
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-          ステータス:
-          <Select
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as "open" | "active" | "all" | IssueStatus)}
-            options={[
-              { value: "open", label: "完了・アーカイブ以外" },
-              { value: "active", label: "進行中・Waiting" },
-              { value: "all", label: "すべて" },
-              ...Object.entries(ISSUE_STATUS_META).map(([value, meta]) => ({
-                value,
-                label: `${meta.icon} ${meta.label}`,
-              })),
-            ]}
-            style={{ minWidth: 180 }}
-          />
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-          優先度:
-          <Select
-            value={priorityFilter}
-            onChange={(v) => setPriorityFilter(v as "all" | IssuePriority)}
-            options={[
-              { value: "all", label: "すべて" },
-              ...Object.entries(ISSUE_PRIORITY_META).map(([value, meta]) => ({
-                value,
-                label: `${meta.icon} ${meta.label}`,
-              })),
-            ]}
-            style={{ minWidth: 140 }}
-          />
         </label>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
           タグで絞り込み:

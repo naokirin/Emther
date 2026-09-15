@@ -45,7 +45,7 @@ const objectives: ObjectiveWithProgress[] = [
     keyResults: [{ id: "kr-1", title: "1on1カバレッジ90%" }],
     createdAt: 0,
     updatedAt: 0,
-    progress: [{ keyResultId: "kr-1", total: 1, done: 0 }],
+    progress: [{ keyResultId: "kr-1", total: 1 }],
   },
 ];
 

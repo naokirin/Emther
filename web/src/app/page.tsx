@@ -180,7 +180,7 @@ function DashboardPageInner() {
   // 1行として出す。
   const krTotals = objectives
     .flatMap((o) => o.progress)
-    .reduce((acc, p) => ({ done: acc.done + p.done, total: acc.total + p.total }), { done: 0, total: 0 });
+    .reduce((acc, p) => ({ total: acc.total + p.total }), { total: 0 });
 
   const dayPhase = getDayPhase(new Date(now).getHours());
   const guidance = DAY_PHASE_GUIDANCE[dayPhase];

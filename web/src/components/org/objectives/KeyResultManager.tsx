@@ -136,7 +136,7 @@ export function KeyResultManager({ selectedObjective, refreshObjectives }: Props
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, alignItems: "center" }}>
                   <span className={styles.tableMuted} style={{ fontSize: "0.75rem" }}>
-                    {progress ? `Issue ${progress.done}/${progress.total}件 完了` : "紐付くIssueなし"}
+                    {progress && progress.total > 0 ? `Issue ${progress.total}件` : "紐付くIssueなし"}
                   </span>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button

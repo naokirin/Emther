@@ -24,21 +24,15 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
     body: (
       <>
         <p>
-          Issue は実装タスク箱ではなく、型・関連チーム・今期の KR に紐づく<strong>介入</strong>です。
-          優先度（フォーカス／通常／保留）とフォーカス順で、今週〜今月の見通しと今日の順を揃えます。
-        </p>
-        <p>
-          <strong>評価を一括更新</strong>は、内容が変わった親 Issue だけを再採点し優先度へ反映します（フォーカスは上位5件）。
+          Issue は実装タスク箱ではなく、AIが観測・解釈した結果として現れる<strong>介入の提案</strong>です。
+          型・関連チーム・今期の KR に紐づけて表示されます。ステータス・優先度は読み取り専用の参考情報で、
+          「フォーカス」に設定された Issue の並び順だけ、↑↓ボタンで軽く調整できます。
           <strong>戦略リンク提案</strong>はテーマ / KR 未接続への紐付け案で、採用するまで反映しません。
         </p>
         <p>
-          <strong>スコア差</strong>ビューは順位の確定ではなく取り方の目安です。バブルの大きさは影響半径、色の濃さは確信度。
-          右上ほど放置リスクが高く介入が軽い（コスパがよい）象限です。
-        </p>
-        <p>
-          <strong>Why / What / How</strong>は着手前に揃える3要素。<strong>Action Item</strong>はこの介入の次の一手、
-          <strong>子 Issue</strong>は独自の Why/What/How を持つ別の介入です（親子は1階層まで）。
-          <strong>経過ログ</strong>は考えたこと・アクション・結果の自由記述です。
+          <strong>Why / What / How</strong>は着手前に整理された3要素。<strong>Action Item</strong>はこの介入で
+          過去に次の一手とされていた記録、<strong>子 Issue</strong>は独自の Why/What/How を持つ別の介入です
+          （親子は1階層まで）。<strong>経過ログ</strong>は考えたこと・アクション・結果の自由記述です。
         </p>
         <p>
           <strong>介入の効果</strong>は、関連チームの Journal 傾向を介入前後で機械比較した暫定値です（手動スコア入力はありません）。

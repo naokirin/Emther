@@ -96,7 +96,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
               </div>
 
               <div>
-                <strong>Issue進捗</strong>
+                <strong>Issue（起票・アーカイブ）</strong>
                 <div className={styles.subtitle}>
                   期間中に起票: {issues.createdCount}件 / アーカイブ（追わない）: {issues.archivedCount}件
                 </div>

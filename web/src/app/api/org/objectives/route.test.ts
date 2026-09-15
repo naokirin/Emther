@@ -30,14 +30,13 @@ describe("GET /api/org/objectives", () => {
     const objective = await orgStore.addObjective("売上を伸ばす");
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
     const krId = withKr!.keyResults[0].id;
-    const issue = await issueStore.createIssue("契約A", undefined, undefined, undefined, undefined, krId);
-    // docs/issue_tracker_contract.md: 進捗は status=done（archived ではない）で数える。
-    issueStore.setIssueStatus(issue.id, "done");
+    // docs/2nd_pivot_version.md Phase 6対応。進捗はKRへ紐づく!archivedのIssue件数（total）のみ。
+    await issueStore.createIssue("契約A", undefined, undefined, undefined, undefined, krId);
 
     const route = await import("./route");
     const res = await route.GET();
     const json = await res.json();
-    expect(json.objectives[0].progress[0]).toEqual({ keyResultId: krId, total: 1, done: 1 });
+    expect(json.objectives[0].progress[0]).toEqual({ keyResultId: krId, total: 1 });
   });
 });
 
