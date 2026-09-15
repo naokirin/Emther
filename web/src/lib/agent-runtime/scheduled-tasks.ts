@@ -149,6 +149,70 @@ export async function startDistillationAnalysis(
   }
 }
 
+// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
+// 学びの提示）。週次蒸留と同様に watchdog へ相乗りし、ISO 週キーを永続化して二重起動を防ぐ。
+function loadLastAutoGrowWeek(): string | null {
+  return loadJSON<{ week: string | null }>("auto-grow.json", { week: null }).week;
+}
+
+function saveLastAutoGrowWeek(week: string): void {
+  saveJSON("auto-grow.json", { week });
+}
+
+/** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildGrowContextBlock（batch-context-blocks.ts）へ。 */
+export const GROWTH_TASK =
+  "EM自身の学びの提案を作成してください。組織の観測・解釈とEM自身の振り返り（チェックイン・KPTメモ）を横断し、grow_suggestionsブロックを出力してください。";
+
+export async function startGrowAnalysis(opts: MaskOptions & { manual?: boolean } = {}): Promise<AgentRun | undefined> {
+  const { manual, ...maskOpts } = opts;
+  const task = GROWTH_TASK;
+  try {
+    // 手動も origin は auto-grow（Inboxラベルを揃える）。手動起動はEMが明示起動したので
+    // reviewed=true にする（状況蒸留のstartDistillationAnalysisと同型）。
+    const run = await startRun("Lead Agent", task, "auto-grow", undefined, maskOpts);
+    if (manual) {
+      run.reviewed = true;
+      persistRunMeta(run);
+    }
+    return run;
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) {
+      parkPendingUnmaskedSend({
+        id: `unmasked-grow:${Date.now()}`,
+        kind: "start-run",
+        candidates: err.candidates,
+        label: "学びの提案の送信確認",
+        agentName: "Lead Agent",
+        task,
+        origin: "auto-grow",
+      });
+      return undefined;
+    }
+    throw err;
+  }
+}
+
+export function checkWeeklyGrow(): void {
+  const { autoGrowEnabled, autoGrowWeekday, autoGrowHour } = getRulesAndConstraints();
+  if (!autoGrowEnabled) return;
+  const now = new Date();
+  if (now.getDay() !== autoGrowWeekday) return;
+  if (now.getHours() < autoGrowHour) return;
+  const week = isoWeekKey(now);
+  const guard = getAutoBatchGuardState();
+  if (guard.lastAutoGrowWeek === week) return;
+  if (loadLastAutoGrowWeek() === week || hasOriginRunInIsoWeek("auto-grow", week)) {
+    guard.lastAutoGrowWeek = week;
+    saveLastAutoGrowWeek(week);
+    return;
+  }
+  guard.lastAutoGrowWeek = week;
+  saveLastAutoGrowWeek(week);
+  void startGrowAnalysis().catch(() => {
+    // 学びの提案の起動失敗は無視（次週まで再試行しない）。
+  });
+}
+
 export function checkWeeklyDistillation(): void {
   const { autoDistillationEnabled, autoDistillationWeekday, autoDistillationHour } = getRulesAndConstraints();
   if (!autoDistillationEnabled) return;
@@ -412,6 +476,7 @@ type AutoBatchGuardState = {
   tick: () => void;
   lastAutoMorningSummaryDate: string | null;
   lastAutoDistillationWeek: string | null;
+  lastAutoGrowWeek: string | null;
 };
 
 const AUTO_BATCH_GUARD_KEY = Symbol.for("emther.agentRuntime.autoBatchGuard");
@@ -425,6 +490,7 @@ function getAutoBatchGuardState(): AutoBatchGuardState {
       tick: () => {},
       lastAutoMorningSummaryDate: null,
       lastAutoDistillationWeek: null,
+      lastAutoGrowWeek: null,
     };
   }
   return g[AUTO_BATCH_GUARD_KEY];
@@ -435,6 +501,7 @@ export function clearAutoBatchClaimsForTest(): void {
   const guard = getAutoBatchGuardState();
   guard.lastAutoMorningSummaryDate = null;
   guard.lastAutoDistillationWeek = null;
+  guard.lastAutoGrowWeek = null;
 }
 
 function ensureWatchdogStarted(): void {
@@ -445,6 +512,7 @@ function ensureWatchdogStarted(): void {
     checkStaleRuns();
     checkMorningSummary();
     checkWeeklyDistillation();
+    checkWeeklyGrow();
   };
   if (guard.dataDir !== dataDir) {
     if (guard.interval) {
@@ -454,6 +522,7 @@ function ensureWatchdogStarted(): void {
     guard.dataDir = dataDir;
     guard.lastAutoMorningSummaryDate = loadLastAutoMorningSummaryDate();
     guard.lastAutoDistillationWeek = loadLastAutoDistillationWeek();
+    guard.lastAutoGrowWeek = loadLastAutoGrowWeek();
   }
   if (guard.interval) return;
   guard.interval = setInterval(() => guard.tick(), WATCHDOG_INTERVAL_MS);

@@ -38,6 +38,7 @@ export {
   ensureRequiredConsult,
   extractCharter,
   extractConsult,
+  extractGrowSuggestions,
   extractIssueNotes,
   extractJournalAutoAnalysisText,
   extractProposal,
@@ -82,15 +83,17 @@ export {
   selectRelatedSpecialists,
 } from "./context-blocks";
 
-export { buildDistillationContextBlock, buildMorningSummaryContextBlock } from "./batch-context-blocks";
+export { buildDistillationContextBlock, buildGrowContextBlock, buildMorningSummaryContextBlock } from "./batch-context-blocks";
 
 export {
   buildDistillationTask,
   buildJournalAnalysisTask,
   checkMorningSummary,
   checkWeeklyDistillation,
+  checkWeeklyGrow,
   clearAutoBatchClaimsForTest,
   DISTILLATION_TASK,
+  GROWTH_TASK,
   ISSUE_UPDATE_DEBOUNCE_MS,
   isoWeekKey,
   listPendingAgentStarts,
@@ -100,6 +103,7 @@ export {
   reactToIssueUpdate,
   setIssueUpdateDebounceMsForTest,
   startDistillationAnalysis,
+  startGrowAnalysis,
   startJournalAnalysis,
   startJournalAutoAnalysis,
   todayDateString,

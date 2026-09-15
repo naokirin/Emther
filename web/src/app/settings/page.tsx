@@ -71,7 +71,14 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
-      if (!res.ok) throw new Error("保存に失敗しました");
+      if (!res.ok) {
+        // ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないように
+        // しておいてほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を
+        // 表示）」対応。APIが返す具体的なエラー文言（selfPersonId・
+        // referenceLookupCursorModel等）をそのまま表示する（無ければ既定の汎用文言）。
+        const body = await res.json().catch(() => null);
+        throw new Error(typeof body?.error === "string" && body.error ? body.error : "保存に失敗しました");
+      }
       await refreshRules();
       setSavedAt(Date.now());
     } catch (err) {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "@/lib/agent-knowledge-tools";
+import { createGrowSuggestions, enrichGrowSuggestionReferences } from "@/lib/em-growth-store";
 import { quarantineEventsContainingNames } from "@/lib/knowledge-store";
 import { detectLeakedNames } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
@@ -9,6 +10,7 @@ import {
   consultQuestionFor,
   ensureRequiredConsult,
   extractConsult,
+  extractGrowSuggestions,
   extractIssueNotes,
   extractProposal,
   extractThemes,
@@ -150,6 +152,20 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     }
     if (run.suggestedIssueNotes) {
       appendLog(run, "system", `[他提案へのメモ追記提案] ${run.suggestedIssueNotes.length}件`);
+    }
+    // docs/2nd_pivot_version.md Phase 8。Growの提案は組織の前提を変更しない「EMへの
+    // 参考情報」そのものなので、他のsuggested*と異なり採用/却下の中間段階を挟まず、
+    // 生成された時点でem-growth-storeへ直接確定させる（朝サマリーのproposalと同じ扱い）。
+    if (run.origin === "auto-grow") {
+      const growDrafts = extractGrowSuggestions(resultText);
+      if (growDrafts && growDrafts.length > 0) {
+        const created = createGrowSuggestions(growDrafts, { sourceRunId: run.id });
+        appendLog(run, "system", `[学びの提案] ${growDrafts.length}件`);
+        // ユーザー要望「検索ばかりなので、もう少し直接知れるリンク先を探すようにしてほしい」
+        // 対応。urlが無い参照をWikipediaで後追い補完する（fire-and-forget。run完了を
+        // ブロックしない。失敗しても学びの提案自体は既に保存済みなので無視してよい）。
+        void enrichGrowSuggestionReferences(created).catch(() => {});
+      }
     }
     // docs/usage_issues U2。Journal自動分析が追跡不要と明示したときだけ自動却下する。
     // 手動相談やIssue更新分析はEMのトリアージ対象のまま残す。

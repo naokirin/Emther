@@ -264,7 +264,7 @@ export type PendingUnmaskedSend = {
   issueTitle?: string;
   agentName?: string;
   task?: string;
-  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
+  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow";
   linkedIssueId?: string;
   sourceJournalId?: string;
   /** 何でも相談で経営／役員目線レビューを必須consultするとき */
@@ -299,6 +299,10 @@ export type RulesAndConstraints = {
   autoDistillationEnabled: boolean;
   autoDistillationWeekday: number;
   autoDistillationHour: number;
+  // docs/2nd_pivot_version.md Phase 8。EM自身の学びの提案（Grow）の週次バッチ（既定OFF）。
+  autoGrowEnabled: boolean;
+  autoGrowWeekday: number;
+  autoGrowHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
   // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
   // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
@@ -326,6 +330,18 @@ export type RulesAndConstraints = {
   // 空文字列の）エージェントはagent-runtime.tsの既定モデル定数のまま動く。
   agentAgyModels: Partial<Record<string, string>>;
   agentCursorModels: Partial<Record<string, string>>;
+  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
+  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。エージェント種別ごとの
+  // モデル（agentModelTiers等）とは別に、`reference-lookup.ts`専用の単一モデル設定を持つ。
+  // claudeはagentModelTiersと同じtierエイリアス（空文字列="CLIの既定のまま"）。cursorは
+  // agentCursorModelsと同じ自由入力の具体名だが、Cursor CLIのHooks不具合
+  // （Autoモデルルーティング時にpreToolUseフックが発火しない既知バグ）を踏まえ、
+  // "auto"はAPI側（/api/settings/rules）で拒否する。agyはこの検索を安全上の理由で
+  // サポートしない（agyはヘッドレス実行時に全ツール呼び出しを構造的に自動拒否する仕様の
+  // ため、hooksによる制約が使えずWebSearch自体を実行できない）ため、モデル設定自体を
+  // 持たない（常に非アクティブ）。
+  referenceLookupClaudeModel: ModelTier | "";
+  referenceLookupCursorModel: string;
   // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が発生
   // している」対応。以前はcliPriorityOrder（全エージェント共通の並び順）と
   // agyFallbackAgents/cursorFallbackAgents（エージェント種別ごとのON/OFF）という
@@ -1033,4 +1049,29 @@ export type EmReflectionNote = {
   type: ReflectionNoteType;
   text: string;
   createdAt: number;
+};
+
+// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
+// 学びの提示）。実体（型定義の正）は@/lib/em-growth-store.tsにあるが、そちらは
+// node:cryptoを使うサーバー専用モジュールのためクライアントから直接importできない
+// （RulesAndConstraints等と同じ、サーバー/クライアントでの型複製パターン）。
+export type GrowReference = {
+  topic: string;
+  isPrimarySource: boolean;
+  note?: string;
+  url?: string;
+};
+
+export type GrowSuggestionStatus = "unread" | "acknowledged" | "dismissed";
+
+export type GrowSuggestion = {
+  id: string;
+  weekKey: string;
+  title: string;
+  rationale: string;
+  evidenceSummary?: string;
+  references: GrowReference[];
+  status: GrowSuggestionStatus;
+  sourceRunId?: string;
+  generatedAt: number;
 };

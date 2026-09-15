@@ -196,6 +196,55 @@ describe("PATCH /api/settings/rules", () => {
     });
   });
 
+  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
+  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。
+  describe("referenceLookupClaudeModel / referenceLookupCursorModel", () => {
+    it("claudeはtierエイリアスで設定できる", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { referenceLookupClaudeModel: "haiku" }));
+      expect((await res.json()).rules.referenceLookupClaudeModel).toBe("haiku");
+    });
+
+    it("claudeはMODEL_TIER_OPTIONSに無い値を落とす（既定のまま）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { referenceLookupClaudeModel: "not-a-tier" }));
+      expect((await res.json()).rules.referenceLookupClaudeModel).toBe("");
+    });
+
+    it("空文字列を送ると既定（CLIの既定のまま）へ戻せる", async () => {
+      const route = await import("./route");
+      await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { referenceLookupClaudeModel: "haiku" }));
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { referenceLookupClaudeModel: "" }));
+      expect((await res.json()).rules.referenceLookupClaudeModel).toBe("");
+    });
+
+    it("cursorは具体的なモデル名を自由入力で設定できる", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { referenceLookupCursorModel: "gpt-5.2" }));
+      expect((await res.json()).rules.referenceLookupCursorModel).toBe("gpt-5.2");
+    });
+
+    // ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいて
+    // ほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を表示）」対応。
+    it.each(["auto", "Auto", "AUTO", "  auto  "])("cursorに%sを指定すると400エラーを返す", async (value) => {
+      const route = await import("./route");
+      const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { referenceLookupCursorModel: value }));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain("Auto");
+    });
+
+    it("cursorのAuto拒否時は他のフィールドも一切保存されない（部分的な不整合を避ける）", async () => {
+      const route = await import("./route");
+      const res = await route.PATCH(
+        jsonRequest("http://localhost/x", "PATCH", { referenceLookupCursorModel: "auto", maxParallelAgentRuns: 9 }),
+      );
+      expect(res.status).toBe(400);
+      const getRes = await route.GET();
+      expect((await getRes.json()).rules.maxParallelAgentRuns).toBe(2);
+    });
+  });
+
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   describe("selfPersonId", () => {
     it("登録済み人物を利用者本人として設定・解除できる", async () => {

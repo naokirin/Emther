@@ -57,6 +57,12 @@ export type RulesAndConstraints = {
   autoDistillationWeekday: number;
   // サーバーローカル時刻の時（0〜23）。既定8。
   autoDistillationHour: number;
+  // docs/2nd_pivot_version.md Phase 8。EM自身の学びの提案（Grow）の週次バッチ。既定OFF。
+  autoGrowEnabled: boolean;
+  // 0=日曜 … 6=土曜（Date.getDay()と同じ）。既定1=月曜。
+  autoGrowWeekday: number;
+  // サーバーローカル時刻の時（0〜23）。既定8。
+  autoGrowHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
   // 起動することがある」対応。エージェントは1体につき1つのCLI子プロセス（claude/agy/
   // cursor-agent）を起動するため、無制限に並列起動を許すとメモリを大量消費し環境が
@@ -90,6 +96,11 @@ export type RulesAndConstraints = {
   // 既定モデル定数のまま動く。
   agentAgyModels: Partial<Record<string, string>>;
   agentCursorModels: Partial<Record<string, string>>;
+  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
+  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。詳細は@/lib/types.tsの
+  // 同名の型を参照。
+  referenceLookupClaudeModel: ModelTier | "";
+  referenceLookupCursorModel: string;
   // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
   // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
   // 「claude codeが外せないようになっている」対応。以前のcliPriorityOrder
@@ -130,6 +141,9 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoDistillationEnabled: false,
   autoDistillationWeekday: 1,
   autoDistillationHour: 8,
+  autoGrowEnabled: false,
+  autoGrowWeekday: 1,
+  autoGrowHour: 8,
   maxParallelAgentRuns: 2,
   perTurnBudgetUsd: 0.5,
   teamParallelKickoffEnabled: true,
@@ -139,6 +153,8 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentModelTiers: {},
   agentAgyModels: {},
   agentCursorModels: {},
+  referenceLookupClaudeModel: "",
+  referenceLookupCursorModel: "",
   cliOrder: ["claude"],
   selfPersonId: null,
   localChatModelPreset: "350m",

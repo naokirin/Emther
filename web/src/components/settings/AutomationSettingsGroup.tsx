@@ -126,6 +126,47 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
           onChange={(e) => onChange({ autoDistillationHour: Number(e.target.value) })}
         /></label>
       </div>
+
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>学びの提案（週次バッチ）</h3>
+      <label
+        className={styles.axisTooltip}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
+        data-tooltip="組織の観測・解釈とEM自身の振り返りを横断し、参考になりそうな学びを提示します（評価ではありません）"
+      >
+        <input
+          type="checkbox"
+          checked={draft.autoGrowEnabled}
+          onChange={(e) => onChange({ autoGrowEnabled: e.target.checked })}
+        />
+        毎週、指定曜日・時刻以降に自動でEM自身の学びの提案を生成する
+      </label>
+      <div className={styles.field} style={{ maxWidth: 200, opacity: draft.autoGrowEnabled ? 1 : 0.5 }}>
+        <label>曜日（サーバーのローカル時刻）
+        <select
+          disabled={!draft.autoGrowEnabled}
+          value={draft.autoGrowWeekday}
+          onChange={(e) => onChange({ autoGrowWeekday: Number(e.target.value) })}
+        >
+          <option value={0}>日曜</option>
+          <option value={1}>月曜</option>
+          <option value={2}>火曜</option>
+          <option value={3}>水曜</option>
+          <option value={4}>木曜</option>
+          <option value={5}>金曜</option>
+          <option value={6}>土曜</option>
+        </select></label>
+      </div>
+      <div className={styles.field} style={{ maxWidth: 160, opacity: draft.autoGrowEnabled ? 1 : 0.5 }}>
+        <label>時刻（0〜23時）
+        <input
+          type="number"
+          min={0}
+          max={23}
+          disabled={!draft.autoGrowEnabled}
+          value={draft.autoGrowHour}
+          onChange={(e) => onChange({ autoGrowHour: Number(e.target.value) })}
+        /></label>
+      </div>
     </>
   );
 }

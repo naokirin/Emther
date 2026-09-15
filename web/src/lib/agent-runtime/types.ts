@@ -153,7 +153,7 @@ export type AgentRun = {
   // 状況蒸留（テーマ解釈候補）。
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill";
+  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow";
   // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
   sourceJournalId?: string;
   // 何でも相談でEMが「経営／役員目線も聞く」をONにしたときなど、Leadがproposal/yieldする前に
@@ -178,5 +178,6 @@ export function originLabel(origin: AgentRun["origin"]): string {
   if (origin === "auto-summary") return "朝のサマリー";
   if (origin === "auto-issue-update") return "提案更新分析";
   if (origin === "auto-distill") return "状況蒸留";
+  if (origin === "auto-grow") return "学びの提案";
   return "手動";
 }

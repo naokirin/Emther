@@ -180,6 +180,77 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - 旧 Issue 詳細 UI（`IssueDetailContent` / `issue-detail/*` / `issues/*`）と死んだ API（archive / log / impact）を削除。壁打ち共通フックは `useAgentDecision` へ移設。
 - `issue-store.ts` と薄い `/api/issues`（一覧・詳細 PATCH・link/suggest）は、ダッシュボード等の互換読取用として残置（実体は Suggestion 写像）。
 
+### Phase 8 — Grow（EM自身の学びの提示）を追加する（実装済み）
+
+**2026-09-15、ユーザーとの壁打ちで、pivot_policyの5番目のAI役割として`Grow`を新設する方針に合意した。** 現行のObserve/Interpret/Remember/Suggestはすべて対象が「組織」（チーム・メンバー・プロジェクト）であり、「EM自身の成長」を扱う面が無かった。既存の`/growth`ページ（`em-self-store.ts`のチェックイン・KPTメモ）はEMの自己申告のみで完結しており、AIのObserve/Interpret/Rememberの対象外だった。Growはこの2系統を繋ぎ、「自己申告に見える範囲」だけでなく「組織側の観測・解釈と突き合わせて初めて見える盲点・繰り返しパターン」をEMに示すことを狙う。pivot_policy.mdの役割定義・エレベーターピッチ・目指すUXは本フェーズの合意内容で既に更新済み（詳細は同ファイル参照）。
+
+**合意した設計の骨格:**
+- 役割の位置づけ: 既存Suggest（組織向け）とは別の第5の役割。EM側の対応アクションは既存の`Decide`に含める（新しいEM側動詞は追加しない）。
+- 入力データ: 自己申告（チェックイン・KPTメモ）に加え、組織側の`KnowledgeEvent`（interpretation）・Journal・相談ログ・介入前後比較（`IssueLogSection`）も横断して使う。自己申告のみだと本人が既に関心を持つ点の増幅にとどまり「新たな学び」にならないため。
+- 提示場所: `/growth`ページに新パネルとして追加。
+- 頻度: 週次バッチ生成をデフォルトとし設定で変更可能、加えてEMが明示的にオンデマンド実行できるようにする。
+- 提示の語法: 「これを学ぶべき」という評価・断定ではなく、「こういう学びが参考になりそうです」「〇〇を調べてみるのはどうでしょうか」という判断材料の形にする（既存Suggestの語法を踏襲）。
+- 参考資料の言語ポリシー: 実務書・解説記事等の二次資料は日本語のものを優先する（読むコストを下げるため）。理論の一次資料（提唱者の原著・原典）については、英語であっても優先的に触れてよい。
+- 具体性: 理論名・フレームワーク名・書籍名まで踏み込んで良いが、それがEmther内部データの裏付けがない一般知識である点は明示できる形にする（根拠となったパターン・メモと、一般知識由来の参考情報を区別して提示する）。
+
+**2026-09-15、上記設計に基づき実装完了。実装内容:**
+- 永続化: 専用ストア[`web/src/lib/em-growth-store.ts`](../web/src/lib/em-growth-store.ts) + `em-growth-suggestions.json`を新設（合意どおり`suggestion-store.ts`は流用せず）。型`GrowReference`/`GrowSuggestionDraft`/`GrowSuggestion`/`GrowSuggestionStatus`（`unread`/`acknowledged`/`dismissed`）はこのファイルが正であり、クライアント（`hooks.ts`等、node:crypto非依存が必要な箇所）向けに`types.ts`へ同型を複製している（`RulesAndConstraints`と同じ既存パターン）。生成時点で確定として保存し、他のsuggested*系と違い「採用」手続きは挟まない（朝サマリーのproposalと同じ扱い）。
+- agent-runtime統合:
+  - [`agent-runtime/types.ts`](../web/src/lib/agent-runtime/types.ts)の`AgentRun.origin`に`"auto-grow"`を追加（`originLabel`は「学びの提案」）。
+  - [`agent-runtime/batch-context-blocks.ts`](../web/src/lib/agent-runtime/batch-context-blocks.ts)に`buildGrowContextBlock()`を追加。材料はEM自己申告（直近チェックイン8件・Problem/Tryメモ各10件）と組織側（`KnowledgeEvent`のinterpretation直近15件・相談run内のEM入力ログ直近10件）を横断し、非評価語法・参考資料の言語ポリシー（二次資料は日本語優先、一次資料は英語可、正確なタイトル不明時はトピック名に留める）をプロンプトに明記。
+  - [`agent-runtime/context-blocks.ts`](../web/src/lib/agent-runtime/context-blocks.ts)の`buildSystemPrompt`に`runOrigin === "auto-grow"`分岐を追加。
+  - [`agent-runtime/extraction.ts`](../web/src/lib/agent-runtime/extraction.ts)に`extractGrowSuggestions()`を追加（`grow_suggestions`フェンスドJSONブロックを抽出。`extractThemes`と同型の壊れにくいパース）。
+  - [`agent-runtime/scheduled-tasks.ts`](../web/src/lib/agent-runtime/scheduled-tasks.ts)に`GROWTH_TASK`・`checkWeeklyGrow()`・`startGrowAnalysis(opts)`を追加（`checkWeeklyDistillation`/`startDistillationAnalysis`と同型。ISO週キー＋`auto-grow.json`ガードで週次二重起動を防止。watchdog tickに追加）。
+  - [`agent-runtime/cli-runners/core.ts`](../web/src/lib/agent-runtime/cli-runners/core.ts)の`applyAssistantResultText`で、`origin==="auto-grow"`のとき`extractGrowSuggestions`の結果を`em-growth-store.createGrowSuggestions`へ直接保存。
+- 設定（頻度）: [`settings-store.ts`](../web/src/lib/settings-store.ts)に`autoGrowEnabled`/`autoGrowWeekday`/`autoGrowHour`を追加（既定OFF・月曜・8時。`autoDistillation*`と同型）。`types.ts`の同名型・[`/api/settings/rules`](../web/src/app/api/settings/rules/route.ts)のPATCHバリデーション・[`AutomationSettingsGroup.tsx`](../web/src/components/settings/AutomationSettingsGroup.tsx)（「学びの提案（週次バッチ）」セクション）も追従。
+- API: `/api/growth/suggestions`（GET一覧）・`/api/growth/suggestions/[id]`（PATCH、status変更）・`/api/growth/generate`（POST、`startGrowAnalysis({manual:true})`。`/api/themes/distill`と同型でpendingUnmasked時202）。
+- UI: [`/growth`ページ](../web/src/app/growth/page.tsx)の先頭に[`GrowSuggestionsPanel`](../web/src/components/growth/GrowSuggestionsPanel.tsx)を追加。提案カード（title/rationale/evidenceSummary/references、`isPrimarySource`は「原典」バッジ）・「確認済みにする」「今回は見送る」ボタン・「今すぐ生成する」ボタン・`dismissed`の折りたたみ表示。
+- 書籍名・フレームワーク名のハルシネーション対策は、プロンプト内で「正確なタイトルを保証できない場合はトピック名・著者名・理論名の範囲に留め、正確なタイトルの特定はEM自身の検索に委ねる」旨を明記する方針で運用開始（機械的な検証は行わない。実際の生成結果を見ながら文言を継続調整する想定）。
+
+**2026-09-15、ユーザーから「参考文献やWeb記事、書籍のリンクを乗せてほしい」との追加要望を受けて対応。** `GrowReference`に任意項目`url`を追加し、LLMが実在を確信できる場合のみ付与するようプロンプトを更新。パース側（`extractGrowSuggestions`）は`http(s)://`形式のみ受理し、不正な値は破棄する。UI（`GrowSuggestionsPanel`）はurlが無い参照をトピック名からのGoogle検索リンクへフォールバックし、「🔍 検索」ラベルで区別する。
+
+**2026-09-16、さらに「検索ばかりなので、もう少し直接知れるリンク先を探すようにしてほしい」との追加要望を受けて対応。** 当初はアプリのサーバー側コードから直接Wikipedia（認証不要の公開API）へ問い合わせる方式で実装したが、Wikipedia記事しか見つけられず網羅性が低いという課題があった。
+
+**同日、ユーザーから「エージェントでネイティブツールを制約しているのはあくまで個人・機密情報の漏洩リスク低減のためであり、組織固有データを含まない汎用化済みのトピック文字列だけを渡すサブタスクであれば、WebSearchを許可してもリスクにはならないはず」との指摘を受け、Wikipedia方式からWebSearch方式へ設計変更した（実装済み）。**
+
+- **実機検証で確認した事実**: Claude CLIの`--tools "WebSearch"`は、他のツール（Bash/Read/Write/Edit等）を一切選択肢に含めない構造的な制約であり、既存の`--tools ""`と同じ強さの保証を保ったままこの1機能だけを開放できる。ただし非対話（`-p`）モードは既定でツール承認を自動拒否するため、`--permission-mode bypassPermissions`を明示しないとWebSearch自体が実行されない（実機で`permission_denials: [{ tool_name: "WebSearch", ... }]`を確認済み）。
+- **設計**: [`web/src/lib/reference-lookup.ts`](../web/src/lib/reference-lookup.ts)を全面刷新。`findReferenceUrls(topics)`が、AgentRunや組織のコンテキスト注入と一切繋がっていない孤立したclaude CLI呼び出し（`--tools "WebSearch"` + `--permission-mode bypassPermissions` + 設定の`perTurnBudgetUsd`を流用した予算上限）を1回行い、渡した複数トピック（Grow提案1件分の未確定参照をまとめて渡す。呼び出し回数・コストを抑えるため）についてWebSearchで見つかった実在URLだけを`url_lookup`フェンス付きJSONで受け取る。送信するのは`topic`文字列（学びのテーマ・理論名・著者名などの一般知識）と`isPrimarySource`/`note`のみで、組織のデータ・実名は一切送らない。プロンプトで「検索結果に無いURLを記憶や推測で作り出さない」旨を明記し、見つからなければurlをnullにしてよいとしている。ネットワークエラー・タイムアウト・予算超過・パース失敗はいずれも「見つからなかった」として扱い、例外を伝播させない。
+- [`em-growth-store.ts`](../web/src/lib/em-growth-store.ts)の`enrichGrowSuggestionReferences(suggestions)`は変更なし（`findReferenceUrl`→`findReferenceUrls`への切り替えのみ）。生成済みsuggestionのうち`url`が未設定の参照だけをまとめて`findReferenceUrls`に渡し、見つかった分だけ`references`を更新・永続化する。
+  - [`cli-runners/core.ts`](../web/src/lib/agent-runtime/cli-runners/core.ts)の`applyAssistantResultText`で、`createGrowSuggestions`直後に`enrichGrowSuggestionReferences`をfire-and-forget（`void ... .catch(() => {})`）で呼ぶ。ネットワーク遅延・失敗があってもrunの完了処理をブロックしない。EM画面には既存の15秒ポーリングで、後から直リンクが反映される（初回表示は検索リンク→しばらくして直リンクへ更新、という体感になる）。
+  - プロンプト文言も「urlを省略した場合、アプリ側がトピック名でWeb検索して直リンクを後追い補完しようとします」と更新し、LLM自身に無理なURL生成を促さないようにした（LLMが確信を持てる場合の直接指定は従来どおり尊重する）。
+  - テストはネットワークアクセス・実CLI起動を避けるため、`reference-lookup.test.ts`で`node:child_process`の`spawn`をモック（`agent-runtime.test.ts`と同じFakeChildProcessパターン）、`em-growth-store.test.ts`で`@/lib/reference-lookup`モジュール自体をモックしている。
+  - **実機検証**: `claude -p "..." --tools "WebSearch" --permission-mode bypassPermissions --output-format json --max-budget-usd 0.30`を実際に起動し、WebSearchツールの実行が許可され応答が返ることを確認した（1回あたり実コスト約$0.04〜）。
+
+**2026-09-16、さらに「英語率が高いのと、有料の論文サイトへの案内もあった。日本語優先をより強め、有料論文サイトは避けたい」との追加要望を受けて対応（実装済み）。**
+- プロンプトを強化: 二次資料は「日本語のページに限定して検索する」、一次資料も「まず日本語の解説記事を探し、無ければ英語の原典」という順序を明示。有料の学術ジャーナル・論文データベース（ScienceDirect, SpringerLink, Wiley Online Library, IEEE Xplore, ACM Digital Library, JSTOR等）を避け、無料で読めるページを優先する旨を明記した。
+- **defense-in-depth**: モデルが指示に反した場合の保険として、`reference-lookup.ts`によく知られた有料学術ジャーナル・論文データベースのホスト名の一覧（`PAYWALLED_ACADEMIC_HOST_SUFFIXES`）を持たせ、返ってきたURLがこれらに該当する場合は機械的に破棄する（見つからなかった扱いにし、EM側の画面では検索リンクへフォールバックする）。網羅的な検出ではなく「よくあるものを機械的に弾く」保険である点に注意。
+- **実装中に発覚したバグの修正**: 実機検証で、`topic`フィールドに「入力と同じトピック文字列を返せ」と指示したにもかかわらず、モデルがプロンプト中の説明文（「トピック: 「〇〇」（二次資料…）」のような行全体）を丸ごと返してしまい、`enrichGrowSuggestionReferences`側のトピック文字列マッチングが失敗する不具合を発見した。文字列の完全一致に依存するのは脆いと判断し、プロンプトで明示した1始まりの`index`で機械的に突き合わせる方式に変更した（`extractLookupResults`が`{ index, url }`を返し、`findReferenceUrls`が`valid[index-1].topic`で元のトピック文字列に復元する）。
+- **実機検証**: 修正後、実際に「心理的安全性」（日本語記事）・「シチュエーショナル・リーダーシップ理論」（日本語Wikipedia）の両方で、topicが正しく元の文字列のまま返り、有料ジャーナル・英語ページを避けた結果が得られることを確認した。
+
+**2026-09-16、ユーザーから「設定でClaude Codeが許可されていないときでも、この機能はClaude Codeを使ってしまうのでは」との指摘を受け、修正した（実装済み）。** Settingsの「CLI優先順位」（`cliOrder`）は、ユーザーが`claude`を候補配列から除外することでClaude Code CLIの利用自体を禁止できる設定（ユーザー指摘「claude codeが外せないようになっている」対応で導入済み。詳細は本ファイル上部のcliOrder関連の記述を参照）だが、`reference-lookup.ts`はこの設定を見ずに常に`claude`を直接起動していた。EM側の直リンク補完機能だけがこの制約から漏れているのは一貫性を欠くため、`findReferenceUrls`の先頭で`getRulesAndConstraints().cliOrder.includes("claude")`を確認し、含まれていなければCLIを起動せず空配列を返す（＝この機能自体を丸ごとスキップし、EM画面は既存の検索リンクへフォールバックする）ように修正した。agy（Gemini CLI）・cursor-agentでの代替実装は、agyがヘッドレス実行時に全ツール呼び出しを構造的に自動拒否する仕様（README「Gemini CLI（agy経由）フォールバック」参照）でWebSearch自体が実行できず、cursor-agentも「WebSearchだけを確実に許可する」経路が未検証のため見送っている。テストは`settings-store`の`cliOrder`を操作して、claude除外時にスキップされること・他CLIと併記されていれば起動されることの両方を確認している。
+
+**2026-09-16、ユーザーから「Claudeのみは制約が強すぎるので緩和したい。Cursor CLI + Ask mode + Hooks（WebSearch/WebFetch以外を弾く）で実現できないか」との提案を受け、調査・実機検証の上でcursor-agent対応を追加した（実装済み）。**
+
+- **事前調査**（`cursor-guide`サブエージェント）: Cursor CLIのHooks機能はヘッドレス（`-p`/`--print`）でも公式に発火するが、`preToolUse`の公式マッチャー一覧（`Shell`/`Read`/`Write`/`Grep`/`Delete`/`Task`/`MCP:...`）に`WebSearch`/`WebFetch`は明記されておらず、Cursor側フォーラムでは「Autoモデルルーティング使用時、組み込みWebSearch/WebFetchに対して`preToolUse`が発火しない」既知バグが報告されていた（回避策はnamed modelの明示指定）。deny自体（exit code 2 / `permission: "deny"` / `failClosed`）はハードブロックとして文書化されているが、対象ツールへの発火保証が薄いという結論だった。
+- **実機検証**（ユーザー承認済み、`/tmp`の使い捨てワークスペースで実施）: `.cursor/hooks.json`の`preToolUse`フックに、`tool_name`が`WebSearch`/`WebFetch`以外なら無条件で`deny`（`failClosed: true`）を返すスクリプトを設定し、以下を確認した。
+  - `--mode ask`かつ`--force`無しでは、hookが`allow`を返してもWebSearch自体が「User Rejected」で実行されない（ask/print既定の承認層がhookのallowより先に働く）。
+  - `--mode ask`を外し`--force`（Force allow commands **unless explicitly denied**）を付けると、hookが`allow`するWebSearch/WebFetchは実行され、hookが`deny`するRead/Write/Shellは`--force`があっても実行されない。Read・Write・Shellそれぞれについて個別のアドバーサリアルなプロンプト（`/etc/passwd`読み取り指示、テストマーカーファイルの`Read`指示、`whoami`の`Shell`実行指示）で、モデルの応答に「Read/Shell/WriteツールがpreToolUse hookによりブロックされました」という明示的な報告が出ることを確認した（テストマーカーファイルの内容は実際に一切漏れなかった）。
+  - AutoモデルではpreToolUseが発火しない既知バグの回避策として、named model（既存の`cli-runners/cursor.ts`と同じ`gpt-5.2`）を明示指定する。
+- **実装**: [`reference-lookup.ts`](../web/src/lib/reference-lookup.ts)に、上記の多層防御（専用の空ワークスペース`cursor-websearch-sandbox`＋deny-by-defaultの`preToolUse`フック＋`--force`＋named model。既存のフォールバック実行用ワークスペース`cursor-sandbox`とは別ディレクトリにし、既存機能を壊さないようにした）でcursor-agentを起動する`runCursorWebSearchLookup`を追加。`findReferenceUrls`は、`cliOrder`の並び順のうち最初に現れる対応CLI（`claude`または`cursor`）を使うよう変更した（例: `["cursor","claude"]`ならcursorを、`["agy"]`のようにどちらも含まれなければ機能自体を無効にする）。この設計はClaudeの`--tools`（ツールが構造的に存在しない）ほど強い保証ではなく、hooks機構自体の堅牢性に依存する点を明記した上で採用している。
+- テスト: `reference-lookup.test.ts`に、cliOrderの優先順位でclaude/cursorどちらが選ばれるかの分岐と、cursor-agent起動時の引数（`--force`/`--trust`/`--model gpt-5.2`/専用ワークスペース）・`.cursor/hooks.json`とフックスクリプトの実際の書き出し内容を検証するテストを追加した。
+
+**2026-09-16、続けてユーザーから「エージェント種別ごとのモデルに、この検索で使うモデル設定を追加してほしい（他のタスクに比べてもコストが低く軽量なモデルで良いはず）。CursorはAutoをHooksの不具合のため指定できないように（設定しようとしたら不具合で設定できない旨を表示）。agyは安全のため常に非アクティブ化」との要望を受けて対応（実装済み）。**
+
+- 設定: [`types.ts`](../web/src/lib/types.ts)/[`settings-store.ts`](../web/src/lib/settings-store.ts)に`referenceLookupClaudeModel`（`ModelTier | ""`）・`referenceLookupCursorModel`（自由入力の文字列）を追加。既存の`agentModelTiers`/`agentCursorModels`（エージェント種別ごと）とは独立した、`reference-lookup.ts`専用の単一モデル設定（既定は両方とも未設定＝各CLIの既定モデルのまま）。
+- UI: [`AiToolsSettingsGroup.tsx`](../web/src/components/settings/AiToolsSettingsGroup.tsx)の「エージェント種別ごとのモデル」マトリクスに、他のエージェント行と同じ見た目・列構成で「学びの参考リンク検索（Grow・専用）」という専用行を追加した（「軽量モデル推奨（コスト低減）」という補足を明記）。
+  - claude列: 既存の`agentModelTiers`と同じtierエイリアスのセレクト。
+  - cursor列: 自由入力のテキスト。入力値（大小文字・前後空白を無視）が`"auto"`ならその場でonChangeを止め、「Cursor CLIの既知の不具合（Autoモデルルーティング時にpreToolUseフックが発火しない）のため、Autoは指定できません」という趣旨のインラインエラーを即時表示する（保存を試みるまで待たない）。
+  - agy列: 常に`disabled`の入力欄（placeholder「常に無効」）＋「agyは安全のため（ヘッドレス実行時に全ツール呼び出しを自動拒否する仕様のためWebSearchを実行できない）、この検索では常に非アクティブです」という説明文。設定できる余地自体を見せない。
+- API: [`/api/settings/rules`](../web/src/app/api/settings/rules/route.ts)のPATCHに、`referenceLookupClaudeModel`（`MODEL_TIER_OPTIONS`に無い値は黙って落とす、既存の`agentModelTiers`と同じ検証）と`referenceLookupCursorModel`（値が`"auto"`相当なら400エラーで拒否。他のフィールドも含め一切保存しない）のバリデーションを追加。UI側の即時ブロックに加え、APIを直接叩く経路への保険（defense-in-depth）。
+- [`settings/page.tsx`](../web/src/app/settings/page.tsx)の保存失敗時ハンドリングを、汎用文言だけでなくAPIが返す`error`文言（今回のケースを含む）をそのまま表示するように改善した。
+- [`reference-lookup.ts`](../web/src/lib/reference-lookup.ts): claude起動時は`referenceLookupClaudeModel`が設定されていれば`--model`に渡す（未設定ならCLIの既定モデルのまま、既存の挙動を変えない）。cursor-agent起動時は`referenceLookupCursorModel`（未設定または万一`"auto"`相当が紛れ込んでいた場合は既定の`gpt-5.2`へフォールバック。API側の拒否をすり抜けた場合の保険）を`--model`に渡す。
+- 実描画確認: `/settings`の「AIツール」タブで新しい行の表示、Cursor欄に`auto`と入力した際のインラインエラー表示、有効なモデル名（`gpt-5.2`）を入力して保存し`/api/settings/rules`に実際に反映されることを確認した。
+
 ---
 
 ## 明示しておく前提（実装中に覆してよい判断）
@@ -263,3 +334,9 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 - [x] Phase 7 — Issue廃止 → Suggestion中心化（2026-09-15）
   - Suggestion 型・ストア・移行・API・提案 UI・入口・周辺読替・agent-runtime 文脈更新・help/ナビ更新。
   - 旧 Issue 詳細 UI と archive/log/impact API を削除。issue-store と薄い `/api/issues` は互換レイヤーとして残置。
+- [x] Phase 8 — Grow（EM自身の学びの提示）を追加する（2026-09-15）
+  - pivot_policy.mdに5番目のAI役割`Grow`を追記（役割定義・エレベーターピッチ・目指すUX）。
+  - 骨格: 対象はEM自身の学び／組織側の観測・解釈＋自己申告（チェックイン・KPT）を横断／`/growth`へ新パネル／週次デフォルト＋設定可＋オンデマンド／判断材料としての語法（評価・断定はしない）／参考資料は日本語優先、一次資料は英語も可。
+  - 実装: 専用ストア`em-growth-store.ts`＋`em-growth-suggestions.json`／agent-runtime統合（`buildGrowContextBlock`・`extractGrowSuggestions`・origin`auto-grow`・`checkWeeklyGrow`/`startGrowAnalysis`）／設定`autoGrowEnabled`等／`/api/growth`配下API／`/growth`の`GrowSuggestionsPanel`。
+  - 追加（2026-09-15/16）: `GrowReference.url`（LLMが確信できる場合のみ）／urlが無い場合は検索リンクへフォールバック／`reference-lookup.ts`（隔離されたWebSearch専用CLI呼び出し、`--tools "WebSearch"` + `--permission-mode bypassPermissions`）による直リンクの後追い自動補完（`enrichGrowSuggestionReferences`、fire-and-forget）。日本語優先・有料学術ジャーナル回避（プロンプト強化＋ホスト名denylist）・index方式でのトピック突き合わせも追加。
+  - 追加（2026-09-16）: `cliOrder`でclaudeが除外されている場合に機能自体を無効化する修正、およびユーザー提案「Cursor CLI + Ask mode + Hooks」の実機検証（deny-by-defaultフックがRead/Write/Shellを確実に拒否しWebSearch/WebFetchのみ許可することを確認）を経て、cursor-agent対応（専用サンドボックス＋hooks＋`--force`＋named model）を追加。`cliOrder`の優先順位でclaude/cursorのうち先に現れる方を使う。

@@ -1,5 +1,6 @@
 import { ISSUE_PRIORITIES, type IssuePriority, type YieldKind } from "@/lib/types";
 import type { IssueCharter } from "@/lib/issue-store";
+import type { GrowReference, GrowSuggestionDraft } from "@/lib/em-growth-store";
 import type { SuggestedTheme } from "@/lib/theme-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
@@ -328,6 +329,63 @@ export function ensureRequiredConsult(
       ]),
     ),
   };
+}
+
+// docs/2nd_pivot_version.md Phase 8。Growth（EM自身の学びの提示）の提案候補。
+// extractThemesと同じ壊れにくいパースの考え方（不正な形式・必須フィールド欠落の要素は
+// 捨てるだけで、ブロック自体は「提案なし」として扱う）。
+export function extractGrowSuggestions(resultText: string): GrowSuggestionDraft[] | undefined {
+  const match = resultText.match(/```grow_suggestions\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!Array.isArray(parsed)) return undefined;
+    const items: GrowSuggestionDraft[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") continue;
+      const title = (entry as { title?: unknown }).title;
+      const rationale = (entry as { rationale?: unknown }).rationale;
+      if (typeof title !== "string" || !title.trim()) continue;
+      if (typeof rationale !== "string" || !rationale.trim()) continue;
+      const evidenceSummaryRaw = (entry as { evidenceSummary?: unknown }).evidenceSummary;
+      const evidenceSummary =
+        typeof evidenceSummaryRaw === "string" && evidenceSummaryRaw.trim() ? evidenceSummaryRaw.trim() : undefined;
+      const referencesRaw = (entry as { references?: unknown }).references;
+      const references: GrowReference[] = Array.isArray(referencesRaw)
+        ? (referencesRaw
+            .map((r): GrowReference | undefined => {
+              if (!r || typeof r !== "object") return undefined;
+              const topic = (r as { topic?: unknown }).topic;
+              if (typeof topic !== "string" || !topic.trim()) return undefined;
+              const noteRaw = (r as { note?: unknown }).note;
+              const note = typeof noteRaw === "string" && noteRaw.trim() ? noteRaw.trim() : undefined;
+              // ユーザー要望「参考文献やWeb記事、書籍のリンクを乗せてほしい」対応。
+              // http(s)で始まる文字列のみ受け付ける（不正な形式・javascript:等は破棄し、
+              // UI側の検索リンクフォールバックに委ねる）。存在確認はしない（LLMが
+              // 実在すると確信できる場合のみ出力する前提。詳細はGrowReferenceの型注釈参照）。
+              const urlRaw = (r as { url?: unknown }).url;
+              const url = typeof urlRaw === "string" && /^https?:\/\/\S+$/i.test(urlRaw.trim()) ? urlRaw.trim() : undefined;
+              return {
+                topic: topic.trim(),
+                isPrimarySource: (r as { isPrimarySource?: unknown }).isPrimarySource === true,
+                ...(note ? { note } : {}),
+                ...(url ? { url } : {}),
+              };
+            })
+            .filter((r): r is GrowReference => !!r))
+        : [];
+      items.push({
+        title: title.trim(),
+        rationale: rationale.trim(),
+        ...(evidenceSummary ? { evidenceSummary } : {}),
+        references,
+      });
+    }
+    return items.length > 0 ? items : undefined;
+  } catch {
+    // 不正なgrow_suggestionsブロックは「提案なし」として扱う
+  }
+  return undefined;
 }
 
 /** Journal自動分析の task から対象エントリ本文を取り出す。取れなければ task 全体。 */

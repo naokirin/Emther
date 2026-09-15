@@ -1,3 +1,4 @@
+import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@/lib/types";
 import {
@@ -62,6 +63,30 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
       delete next[agentName];
     }
     onChange({ agentCursorModels: next });
+  }
+
+  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
+  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。エージェント種別ごとの
+  // モデルとは別の、reference-lookup.ts専用の単一モデル設定。
+  const [referenceLookupCursorModelError, setReferenceLookupCursorModelError] = useState<string | null>(null);
+
+  function setReferenceLookupClaudeModel(value: ModelTier | "") {
+    onChange({ referenceLookupClaudeModel: value });
+  }
+
+  // ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいて
+  // ほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を表示）」対応。
+  // "auto"（大小文字・前後空白は無視）は保存前にブロックし、その場でメッセージを出す
+  // （APIも保険として同じ内容で拒否する。/api/settings/rules参照）。
+  function setReferenceLookupCursorModel(value: string) {
+    if (value.trim().toLowerCase() === "auto") {
+      setReferenceLookupCursorModelError(
+        "Cursor CLIの既知の不具合（Autoモデルルーティング時にWebSearch/WebFetchのpreToolUseフックが発火しない）のため、この検索のCursorモデルにAutoは指定できません。named modelを指定してください。",
+      );
+      return;
+    }
+    setReferenceLookupCursorModelError(null);
+    onChange({ referenceLookupCursorModel: value });
   }
 
   return (
@@ -222,6 +247,89 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
                 })}
               </div>
             ))}
+            {/* ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を
+                追加してほしい。他のタスクに比べてもコストが低く軽量なモデルで良いはず」
+                対応。他のエージェントとは独立した単一のモデル設定を、同じマトリクスに
+                専用の行として追加する。 */}
+            <div className={styles.agentModelMatrixRow}>
+              {/* ユーザー指摘「軽量モデル推奨（コスト低減）の部分も行が増えてレイアウト
+                  バランスが悪くなっている」対応。他行と同じ1行の見出しに揃え、補足は
+                  agy列と同じ.axisTooltip（ツールチップ）に寄せた。 */}
+              <div
+                className={`${styles.agentModelMatrixAgent} ${styles.axisTooltip}`}
+                data-tooltip="軽量モデル推奨（コスト低減）"
+                tabIndex={0}
+              >
+                学びの参考リンク検索（Grow・専用）
+              </div>
+              {visibleClis.map((cli) => {
+                if (cli === "claude") {
+                  return (
+                    <div key={cli} className={styles.field}>
+                      <label>
+                        <span className={styles.agentModelMatrixCliLabel}>{CLI_LABELS.claude}</span>
+                        <select
+                          aria-label={`学びの参考リンク検索 / ${CLI_LABELS.claude}`}
+                          value={draft.referenceLookupClaudeModel}
+                          onChange={(e) => setReferenceLookupClaudeModel(e.target.value as ModelTier | "")}
+                        >
+                          <option value="">（CLIの既定のまま）</option>
+                          {MODEL_TIER_OPTIONS.map((tier) => (
+                            <option key={tier} value={tier}>
+                              {tier}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  );
+                }
+                if (cli === "agy") {
+                  // ユーザー要望「agyは安全のため機能しないことを明記して常に非アクティブ化
+                  // してほしい」対応。agyはヘッドレス実行時に全ツール呼び出しを構造的に
+                  // 自動拒否するため、この検索（WebSearch）自体を実行できない
+                  // （findReferenceUrlsもagyを候補にしない）。設定できる余地を見せず、
+                  // 常に無効である旨だけを表示する。
+                  // ユーザー指摘「レイアウトバランスが悪いので説明をツールチップにして
+                  // 入力枠だけ並ぶようにしてほしい」対応。常時表示の説明文（<p>）を削除し、
+                  // 既存の.axisTooltip（他の画面のラベル・ボタンでも使っている共通の
+                  // カスタムツールチップ）をlabelに付け、ホバー・キーボードフォーカス
+                  // （disabledなinputはフォーカスできないためlabel側にtabIndexを置く）
+                  // どちらでも読めるようにした。
+                  return (
+                    <div key={cli} className={styles.field}>
+                      <label
+                        className={styles.axisTooltip}
+                        data-tooltip="agyは安全のため（ヘッドレス実行時に全ツール呼び出しを自動拒否する仕様のためWebSearchを実行できない）、この検索では常に非アクティブです。"
+                        tabIndex={0}
+                      >
+                        <span className={styles.agentModelMatrixCliLabel}>{CLI_LABELS.agy}</span>
+                        <input type="text" aria-label={`学びの参考リンク検索 / ${CLI_LABELS.agy}`} value="" disabled placeholder="常に無効" />
+                      </label>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={cli} className={styles.field}>
+                    <label>
+                      <span className={styles.agentModelMatrixCliLabel}>{CLI_LABELS.cursor}</span>
+                      <input
+                        type="text"
+                        aria-label={`学びの参考リンク検索 / ${CLI_LABELS.cursor}`}
+                        value={draft.referenceLookupCursorModel}
+                        placeholder="例: gpt-5.2（空欄＝既定。Autoは指定不可）"
+                        onChange={(e) => setReferenceLookupCursorModel(e.target.value)}
+                      />
+                    </label>
+                    {referenceLookupCursorModelError && (
+                      <p role="alert" style={{ fontSize: "0.7rem", margin: "2px 0 0", color: "var(--danger, #c0392b)" }}>
+                        {referenceLookupCursorModelError}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       })()}

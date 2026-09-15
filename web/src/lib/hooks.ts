@@ -8,6 +8,7 @@ import { truncateForTitle, type PendingAgentStart, type PendingUnmaskedSend } fr
 import type {
   EmCheckin,
   EmReflectionNote,
+  GrowSuggestion,
   Issue,
   JournalEntry,
   KnowledgeEvent,
@@ -361,6 +362,9 @@ export function useSettingsRules(intervalMs = 8000) {
       autoDistillationEnabled: false,
       autoDistillationWeekday: 1,
       autoDistillationHour: 8,
+      autoGrowEnabled: false,
+      autoGrowWeekday: 1,
+      autoGrowHour: 8,
       maxParallelAgentRuns: 2,
       perTurnBudgetUsd: 0.5,
       teamParallelKickoffEnabled: true,
@@ -370,6 +374,8 @@ export function useSettingsRules(intervalMs = 8000) {
       agentModelTiers: {},
       agentAgyModels: {},
       agentCursorModels: {},
+      referenceLookupClaudeModel: "",
+      referenceLookupCursorModel: "",
       cliOrder: ["claude"],
       selfPersonId: null,
       localChatModelPreset: "350m",
@@ -444,5 +450,20 @@ export function useReflectionNotes(intervalMs = 15000) {
     setNotes: (notes: EmReflectionNote[]) => setData({ notes }),
     notesLoaded: loaded,
     refreshNotes: refresh,
+  };
+}
+
+// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の学びの提示）。
+export function useGrowSuggestions(intervalMs = 15000) {
+  const { data, setData, loaded, refresh } = usePolling<{ suggestions: GrowSuggestion[] }>(
+    "/api/growth/suggestions",
+    { suggestions: [] },
+    intervalMs,
+  );
+  return {
+    growSuggestions: data.suggestions,
+    setGrowSuggestions: (suggestions: GrowSuggestion[]) => setData({ suggestions }),
+    growSuggestionsLoaded: loaded,
+    refreshGrowSuggestions: refresh,
   };
 }

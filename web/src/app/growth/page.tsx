@@ -7,6 +7,7 @@ import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "@/compo
 import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
 import { PageTitleRow } from "@/components/HelpLink";
 import { RecordDateField, todayDateInputValue } from "@/components/RecordDateField";
+import { GrowSuggestionsPanel } from "@/components/growth/GrowSuggestionsPanel";
 import { buildCheckinDailyTrend } from "@/lib/daily-trends";
 import { useReflectionNotes } from "@/lib/hooks";
 import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
@@ -120,6 +121,9 @@ export default function GrowthPage() {
   return (
     <div className={styles.screen}>
       <PageTitleRow title="EMの成長" helpAnchor="reflection" />
+
+      <GrowSuggestionsPanel />
+
       <div className={styles.panel}>
         <h2>現在の改善方針</h2>
         {latestTryNote ? (

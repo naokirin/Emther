@@ -1,5 +1,7 @@
+import { listCheckins, listReflectionNotes } from "@/lib/em-self-store";
 import { listIssues } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
+import { listEvents } from "@/lib/knowledge-store";
 import { maskNames } from "@/lib/people-directory";
 import { listAdoptedThemes } from "@/lib/theme-store";
 import { charterFilledCount } from "@/lib/types";
@@ -156,4 +158,76 @@ export function buildDistillationContextBlock(): string {
     "【既に採用されているテーマ解釈】",
     ...themeLines,
   ].join("\n");
+}
+
+const GROW_CHECKIN_LIMIT = 8;
+const GROW_NOTE_LIMIT = 10;
+const GROW_INTERPRETATION_LIMIT = 15;
+const GROW_DECISION_LOG_LIMIT = 10;
+
+// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
+// 学びの提示）の材料。自己申告（チェックイン・KPTメモ）だけでは本人が既に関心を持つ点の
+// 増幅にとどまるため、組織側の観測・解釈（長期解釈イベント・相談での判断ログ）も横断し、
+// EM自身では気づきにくい繰り返しのパターンや盲点を示せるようにする。
+// origin=auto-growのときシステムプロンプトへ動的注入する。
+export function buildGrowContextBlock(): string {
+  const checkins = listCheckins().slice(0, GROW_CHECKIN_LIMIT);
+  const notes = listReflectionNotes();
+  const problemNotes = notes.filter((n) => n.type === "problem").slice(0, GROW_NOTE_LIMIT);
+  const tryNotes = notes.filter((n) => n.type === "try").slice(0, GROW_NOTE_LIMIT);
+  const interpretations = listEvents({ kind: "interpretation" }).slice(0, GROW_INTERPRETATION_LIMIT);
+
+  const decisionLines: string[] = [];
+  for (const run of [...runs.values()].sort((a, b) => b.updatedAt - a.updatedAt)) {
+    if (decisionLines.length >= GROW_DECISION_LOG_LIMIT) break;
+    const metaInput = [...run.log].reverse().find((l) => l.channel === "meta" && l.text.startsWith("EMからの入力:"));
+    if (metaInput) decisionLines.push(`- [${run.agentName}] ${metaInput.text.slice(0, 160)}`);
+  }
+
+  const checkinLines =
+    checkins.length > 0
+      ? checkins.map((c) => {
+          const dateLabel = new Date(c.createdAt).toLocaleDateString("ja-JP");
+          const noteSuffix = c.note ? ` — ${c.note.slice(0, 80)}` : "";
+          return `- ${dateLabel}: mood=${c.mood} energy=${c.energy} stress=${c.stress}${noteSuffix}`;
+        })
+      : ["- （チェックインの記録なし）"];
+  const problemLines =
+    problemNotes.length > 0 ? problemNotes.map((n) => `- ${n.text.slice(0, 160)}`) : ["- （Problemメモなし）"];
+  const tryLines = tryNotes.length > 0 ? tryNotes.map((n) => `- ${n.text.slice(0, 160)}`) : ["- （Tryメモなし）"];
+  const interpretationLines =
+    interpretations.length > 0
+      ? interpretations.map((e) => `- ${(e.summary || e.text).slice(0, 160)}`)
+      : ["- （組織側の長期解釈なし）"];
+  const decisionLinesOut = decisionLines.length > 0 ? decisionLines : ["- （相談での判断ログなし）"];
+
+  return maskNames(
+    [
+      "学びの提案（Grow）の材料（このタスク専用。組織の観測・解釈とEM自身の振り返りを横断し、EM自身が気づきにくい繰り返しのパターンや盲点を示すこと。個別1件への対応ではなく、繰り返しや横断から見える傾向を優先すること）:",
+      "これは評価ではなく判断材料の提示です。「これを学ぶべき」という断定ではなく、「こういう学びが参考になりそうです」「〇〇を調べてみるのはどうでしょうか」という形で示してください。",
+      "自己申告（チェックイン・KPTメモ）だけで導ける範囲に留めず、組織側の観測・解釈と突き合わせて初めて見える点を優先してください。材料が乏しい場合は無理に3件出さず、1件でも構いません。",
+      "参考として挙げる学びのトピックについて、実務書・解説記事等の二次資料は日本語のものを優先してください。理論の提唱者による原著・原典（一次資料）については、英語であっても構わず優先的に触れてください。書籍の正式なタイトルや出版社名などの正確性を保証できない場合は、トピック名・著者名・理論名の範囲に留め、正確なタイトルの特定はEM自身の検索に委ねてください。",
+      "各参考トピックには、実在すると確信できる場合に限りurl（Wikipedia記事・公式サイト・出版社の書籍ページ等）を付けてください。存在するか確信が持てないURLは絶対に作り出さないでください（不正確なリンクを提示するくらいなら省略した方がよいです）。urlを省略した場合、アプリ側がトピック名でWeb検索して直リンクを後追い補完しようとします。それでも見つからない場合はEM側の画面で検索リンクが表示されます。",
+      "",
+      "grow_suggestionsブロックで1〜3件出力してください（無理に3件埋めなくてよい）。各要素は title（学びの見出し）/ rationale（なぜこの学びが参考になりそうかの説明。観測された繰り返しパターンに触れること）/ evidenceSummary（根拠となったデータの要約、任意）/ references（参考トピックの配列。各要素は topic / isPrimarySource（true=原著・原典、false=二次資料）/ note（任意の補足）/ url（実在を確信できる場合のみのhttp(s)リンク、任意））を持たせてください。",
+      "```grow_suggestions",
+      '[{ "title": "…", "rationale": "…", "evidenceSummary": "…", "references": [{ "topic": "…", "isPrimarySource": false, "note": "…", "url": "https://…" }] }]',
+      "```",
+      "",
+      "【EM自己申告: 直近のチェックイン（mood/energy/stress、1〜5）】",
+      ...checkinLines,
+      "",
+      "【EM自己申告: 直近のProblemメモ】",
+      ...problemLines,
+      "",
+      "【EM自己申告: 直近のTryメモ】",
+      ...tryLines,
+      "",
+      "【組織側: 長期的な解釈の蓄積】",
+      ...interpretationLines,
+      "",
+      "【組織側: 相談でのEMの判断ログ（直近）】",
+      ...decisionLinesOut,
+    ].join("\n"),
+  );
 }

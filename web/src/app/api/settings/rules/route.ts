@@ -104,6 +104,38 @@ function localChatModelPreset(value: unknown): LocalChatModelPresetId | undefine
   return isLocalChatModelPresetId(value) ? value : undefined;
 }
 
+// ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい」
+// 対応。agentModelTiersと同じ検証（MODEL_TIER_OPTIONSに無い値は黙って落とす）。
+// 空文字列は「claude CLIの既定モデルのまま」を意味する有効値として許容する。
+function referenceLookupClaudeModel(value: unknown): ModelTier | "" | undefined {
+  if (value === "") return "";
+  if (typeof value !== "string") return undefined;
+  return (MODEL_TIER_OPTIONS as readonly string[]).includes(value) ? (value as ModelTier) : undefined;
+}
+
+// ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいて
+// ほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を表示）」対応。
+// フロントエンド（AiToolsSettingsGroup.tsx）でも同じ内容を即時に弾いているが、
+// APIを直接叩く経路への保険として、ここでも"auto"（大小文字・前後空白は無視）は
+// エラーとして拒否する（selfPersonIdの400と同じ既存パターン）。それ以外の値は
+// agentCliModelsと同じくバージョン付きの具体名でしか指定できない制約のため
+// 自由入力で検証しない。
+function parseReferenceLookupCursorModel(
+  value: unknown,
+): { ok: true; value: string } | { ok: false; error: string } | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") return { ok: false, error: "referenceLookupCursorModelは文字列である必要があります" };
+  const trimmed = value.trim();
+  if (trimmed.toLowerCase() === "auto") {
+    return {
+      ok: false,
+      error:
+        "Cursor CLIの既知の不具合（Autoモデルルーティング時にpreToolUseフックが発火しない）のため、この検索のCursorモデルにAutoは指定できません。",
+    };
+  }
+  return { ok: true, value: trimmed };
+}
+
 // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
 // null / 空文字 = 解除。存在する PERSON_n のみ受け付ける（不正IDは undefined で無視しないよう
 // 呼び出し側で 400 にする）。
@@ -124,6 +156,10 @@ export async function PATCH(request: Request) {
   const selfPersonParsed = parseSelfPersonId(body?.selfPersonId);
   if (selfPersonParsed && !selfPersonParsed.ok) {
     return NextResponse.json({ error: selfPersonParsed.error }, { status: 400 });
+  }
+  const referenceLookupCursorModelParsed = parseReferenceLookupCursorModel(body?.referenceLookupCursorModel);
+  if (referenceLookupCursorModelParsed && !referenceLookupCursorModelParsed.ok) {
+    return NextResponse.json({ error: referenceLookupCursorModelParsed.error }, { status: 400 });
   }
   const previousPreset = getRulesAndConstraints().localChatModelPreset;
   const patch = {
@@ -152,6 +188,11 @@ export async function PATCH(request: Request) {
       num(body?.autoDistillationHour) !== undefined
         ? Math.min(23, Math.max(0, Math.round(num(body?.autoDistillationHour)!)))
         : undefined,
+    autoGrowEnabled: bool(body?.autoGrowEnabled),
+    autoGrowWeekday:
+      num(body?.autoGrowWeekday) !== undefined ? Math.min(6, Math.max(0, Math.round(num(body?.autoGrowWeekday)!))) : undefined,
+    autoGrowHour:
+      num(body?.autoGrowHour) !== undefined ? Math.min(23, Math.max(0, Math.round(num(body?.autoGrowHour)!))) : undefined,
     maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
     perTurnBudgetUsd: positiveUsd(body?.perTurnBudgetUsd),
     teamParallelKickoffEnabled: bool(body?.teamParallelKickoffEnabled),
@@ -161,6 +202,8 @@ export async function PATCH(request: Request) {
     agentModelTiers: agentModelTiers(body?.agentModelTiers),
     agentAgyModels: agentCliModels(body?.agentAgyModels),
     agentCursorModels: agentCliModels(body?.agentCursorModels),
+    referenceLookupClaudeModel: referenceLookupClaudeModel(body?.referenceLookupClaudeModel),
+    referenceLookupCursorModel: referenceLookupCursorModelParsed?.ok ? referenceLookupCursorModelParsed.value : undefined,
     cliOrder: cliOrder(body?.cliOrder),
     selfPersonId: selfPersonParsed?.ok ? selfPersonParsed.value : undefined,
     localChatModelPreset: localChatModelPreset(body?.localChatModelPreset),

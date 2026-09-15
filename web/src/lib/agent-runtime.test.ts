@@ -310,6 +310,46 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     ]);
   });
 
+  it("extractGrowSuggestionsは必須フィールドがある提案だけをパースする", async () => {
+    const rt = await loadModule();
+    const text = `\`\`\`grow_suggestions
+[
+  { "title": "1on1の傾聴", "rationale": "繰り返し同じ相談が来ている", "evidenceSummary": "直近3件のメモ", "references": [{ "topic": "コーチング", "isPrimarySource": false, "note": "入門書" }, { "topic": "" }] },
+  { "title": "不完全" }
+]
+\`\`\``;
+    expect(rt.extractGrowSuggestions(text)).toEqual([
+      {
+        title: "1on1の傾聴",
+        rationale: "繰り返し同じ相談が来ている",
+        evidenceSummary: "直近3件のメモ",
+        references: [{ topic: "コーチング", isPrimarySource: false, note: "入門書" }],
+      },
+    ]);
+  });
+
+  it("extractGrowSuggestionsはhttp(s)形式のurlだけを採用する", async () => {
+    const rt = await loadModule();
+    const text = `\`\`\`grow_suggestions
+[{ "title": "学びA", "rationale": "根拠A", "references": [
+  { "topic": "コーチング", "isPrimarySource": false, "url": "https://example.com/coaching" },
+  { "topic": "怪しいリンク", "isPrimarySource": false, "url": "javascript:alert(1)" },
+  { "topic": "urlなし", "isPrimarySource": false }
+] }]
+\`\`\``;
+    expect(rt.extractGrowSuggestions(text)?.[0].references).toEqual([
+      { topic: "コーチング", isPrimarySource: false, url: "https://example.com/coaching" },
+      { topic: "怪しいリンク", isPrimarySource: false },
+      { topic: "urlなし", isPrimarySource: false },
+    ]);
+  });
+
+  it("extractGrowSuggestionsはブロックが無ければundefined", async () => {
+    const rt = await loadModule();
+    expect(rt.extractGrowSuggestions("ブロックなし")).toBeUndefined();
+    expect(rt.extractGrowSuggestions("```grow_suggestions\n[]\n```")).toBeUndefined();
+  });
+
   it("buildThemesContextBlockは採用済みテーマだけを載せる", async () => {
     const themeStore = await import("@/lib/theme-store");
     const candidate = await themeStore.createThemeCandidate({
@@ -365,6 +405,50 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     const ctx = rt.buildMorningSummaryContextBlock();
     expect(ctx).not.toContain("漏洩太郎");
     expect(ctx).toMatch(/PERSON_\d+/);
+  });
+
+  it("Growの材料はEM自己申告と組織側の解釈を横断し、grow_suggestionsの出力指示を含む", async () => {
+    const emSelfStore = await import("@/lib/em-self-store");
+    const knowledgeStore = await import("@/lib/knowledge-store");
+    await emSelfStore.addCheckin({ mood: 2, energy: 2, stress: 4, note: "割り込みが多い" });
+    await emSelfStore.addReflectionNote({ type: "problem", text: "計画作業の時間が取れない" });
+    knowledgeStore.recordEvent({
+      kind: "interpretation",
+      context: "observation",
+      entityType: "team",
+      entityId: "team-1",
+      people: [],
+      text: "チームの意思決定が停滞しがち",
+      tags: [],
+      summary: "意思決定の停滞",
+      occurredAt: Date.now(),
+    });
+    const rt = await loadModule();
+    const ctx = rt.buildGrowContextBlock();
+    expect(ctx).toContain("割り込みが多い");
+    expect(ctx).toContain("計画作業の時間が取れない");
+    expect(ctx).toContain("意思決定の停滞");
+    expect(ctx).toContain("```grow_suggestions");
+    expect(ctx).toContain("評価ではなく判断材料");
+    expect(rt.GROWTH_TASK.length).toBeLessThan(200);
+  });
+
+  it("Growの材料は実名をPERSON_nにマスクしてから返す", async () => {
+    const pd = await import("@/lib/people-directory");
+    const emSelfStore = await import("@/lib/em-self-store");
+    pd.registerName("漏洩太郎");
+    await emSelfStore.addCheckin({ mood: 3, energy: 3, stress: 3, note: "漏洩太郎との1on1で気づいたこと" });
+    const rt = await loadModule();
+    const ctx = rt.buildGrowContextBlock();
+    expect(ctx).not.toContain("漏洩太郎");
+    expect(ctx).toMatch(/PERSON_\d+/);
+  });
+
+  it("origin=auto-growのrunはbuildSystemPromptにGrowの材料を注入する", async () => {
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", rt.GROWTH_TASK, "auto-grow");
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, run.id);
+    expect(prompt).toContain("学びの提案（Grow）の材料");
   });
 
   it("extractJournalAutoAnalysisTextは対象エントリ本文を取り出す", async () => {
@@ -1753,6 +1837,59 @@ describe("watchdog: checkMorningSummary", () => {
     });
     await new Promise((r) => setTimeout(r, 10));
     expect(rt.listRuns().filter((r) => r.origin === "auto-summary")).toHaveLength(1);
+  });
+});
+
+describe("watchdog: checkWeeklyGrow", () => {
+  it("autoGrowEnabledが既定(false)なら何もしない", async () => {
+    const rt = await loadModule();
+    rt.checkWeeklyGrow();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("曜日が一致しなければ起動しない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const otherWeekday = (new Date().getDay() + 1) % 7;
+    settingsStore.updateRulesAndConstraints({ autoGrowEnabled: true, autoGrowWeekday: otherWeekday, autoGrowHour: 0 });
+    const rt = await loadModule();
+    rt.checkWeeklyGrow();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("曜日・時刻が一致すればLead Agentを自動起動し、grow_suggestionsをem-growth-storeへ保存する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const growStore = await import("@/lib/em-growth-store");
+    settingsStore.updateRulesAndConstraints({
+      autoGrowEnabled: true,
+      autoGrowWeekday: new Date().getDay(),
+      autoGrowHour: 0,
+    });
+    const rt = await loadModule();
+
+    rt.checkWeeklyGrow();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    const run = rt.listRuns()[0];
+    expect(run.origin).toBe("auto-grow");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```grow_suggestions\n[{ "title": "学びA", "rationale": "根拠A", "references": [] }]\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (growStore.listGrowSuggestions().length < 1) throw new Error("grow suggestion not saved yet");
+    });
+    expect(growStore.listGrowSuggestions()[0].title).toBe("学びA");
+    expect(growStore.listGrowSuggestions()[0].sourceRunId).toBe(run.id);
+
+    // 同週の再呼び出しでは再度起動しない（重複生成の防止）。
+    rt.checkWeeklyGrow();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(1);
+    expect(spawnCalls).toHaveLength(1);
   });
 });
 
