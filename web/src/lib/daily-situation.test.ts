@@ -247,6 +247,30 @@ describe("buildDailySituation", () => {
     expect(result.worthDeciding.every((i) => i.id.startsWith("worth-a"))).toBe(true);
   });
 
+  it("1on1 Coverageはgoodならgoodへ、bad/warnならunevaluableへ振り分ける（旧TeamStatePanel廃止に伴う統合）", () => {
+    const goodResult = buildDailySituation({
+      now: NOW,
+      journalEntries: [],
+      vitals: { teams: [], oneOnOneCoverage: { status: "good", covered: 5, total: 5, reason: "", uncoveredMembers: [] } },
+      people: [],
+      nextActions: [],
+      push: noop,
+    });
+    expect(goodResult.good.map((i) => i.id)).toContain("good-coverage");
+    expect(goodResult.unevaluable.map((i) => i.id)).not.toContain("unevaluable-coverage");
+
+    const warnResult = buildDailySituation({
+      now: NOW,
+      journalEntries: [],
+      vitals: { teams: [], oneOnOneCoverage: { status: "warn", covered: 2, total: 7, reason: "", uncoveredMembers: ["Aさん"] } },
+      people: [],
+      nextActions: [],
+      push: noop,
+    });
+    expect(warnResult.unevaluable.map((i) => i.id)).toContain("unevaluable-coverage");
+    expect(warnResult.good.map((i) => i.id)).not.toContain("good-coverage");
+  });
+
   it("onSelectを呼ぶとpushへ正しいパスが渡る", () => {
     const push = vi.fn();
     const entries = [journal({ id: "j1", createdAt: NOW - 1000, summary: "記録" })];

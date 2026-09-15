@@ -6,6 +6,7 @@
 // EMにIssueの構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions, type AgentRun } from "@/components/RunDetail";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
+import { truncateExcerpt } from "@/lib/origin-trace";
 import {
   isJournalEntryResolved,
   type Issue,
@@ -167,7 +168,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         lane: "decision",
         icon: "❔",
         kindLabel: isDraft ? draftKindLabel(run) : "実行異常",
-        text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${run.task.slice(0, 30)}`,
+        text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${truncateExcerpt(run.task, 30)}`,
         onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
         since: run.updatedAt,
         ctaLabel: "確認する",
@@ -179,7 +180,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         lane: "decision",
         icon: "🟡",
         kindLabel: isDraft ? draftKindLabel(run) : `Yield · ${run.agentName}`,
-        text: `${isDraft ? "ドラフト: " : ""}${(run.yieldRequest?.reason ?? run.task).slice(0, 44)}`,
+        text: `${isDraft ? "ドラフト: " : ""}${truncateExcerpt(run.yieldRequest?.reason ?? run.task, 44)}`,
         onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
         since: run.updatedAt,
         ctaLabel: "判断する",
@@ -191,7 +192,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         lane: "decision",
         icon: "🔴",
         kindLabel: isDraft ? draftKindLabel(run) : "実行異常",
-        text: `${isDraft ? "ドラフト（エラー）: " : `${run.agentName}でエラーが発生しました: `}${run.task.slice(0, 44)}`,
+        text: `${isDraft ? "ドラフト（エラー）: " : `${run.agentName}でエラーが発生しました: `}${truncateExcerpt(run.task, 44)}`,
         onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
         since: run.updatedAt,
         ctaLabel: "確認する",
@@ -204,7 +205,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         lane: "decision",
         icon: "⏳",
         kindLabel: draftKindLabel(run),
-        text: `分析中: ${run.task.slice(0, 44)}`,
+        text: `分析中: ${truncateExcerpt(run.task, 44)}`,
         onSelect: onSelectDraft,
         since: run.updatedAt,
         ctaLabel: "進捗を見る",
@@ -218,8 +219,8 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         icon: "🤖",
         kindLabel: draftKindLabel(run),
         text: run.proposal?.conclusion
-          ? run.proposal.conclusion.slice(0, 60)
-          : `${runKindLabel(run)}: ${run.task.slice(0, 44)}`,
+          ? truncateExcerpt(run.proposal.conclusion, 60)
+          : `${runKindLabel(run)}: ${truncateExcerpt(run.task, 44)}`,
         onSelect: onSelectDraft,
         since: run.updatedAt,
         ctaLabel: "起票／却下する",
@@ -247,7 +248,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         lane: "observation",
         icon: "📝",
         kindLabel: "要注目Journal",
-        text: (entry.summary || entry.rawText).slice(0, 44),
+        text: truncateExcerpt(entry.summary || entry.rawText, 44),
         onSelect: () =>
           push(
             `/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}&journalId=${encodeURIComponent(entry.id)}`,
@@ -268,7 +269,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         lane: "decision",
         icon: "📝",
         kindLabel: "Journal未確認",
-        text: `内容を確認して「この内容で確定」してください（緊急度high・未確認）: ${(entry.summary || entry.rawText).slice(0, 36)}`,
+        text: `内容を確認して「この内容で確定」してください（緊急度high・未確認）: ${truncateExcerpt(entry.summary || entry.rawText, 36)}`,
         onSelect: () => push(`/journal?focus=${entry.id}`),
         since: entry.createdAt,
       });
@@ -349,10 +350,10 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   // よう促すカード）も、Issue未整理と同じ理由（EMにIssueの構造を手入れさせない）で廃止した。
 
   // docs/memo.md「今日タブの今日やるべきに『チームリスク』が表示されるが『チームの状態』と
-  // 内容的には被っている」対応。bad/warnは同じダッシュボード上のTeamStatePanel（チームの状態）
-  // に常に表示されており、同じ情報を指す別カードを「今日やるべき」に重ねて出す必要はない
-  // ため、ここでは出さない。unknown（評価不能）は「観測を増やす」という行動への誘導であり
-  // TeamStatePanel側の表示とは役割が異なるため引き続き載せる。
+  // 内容的には被っている」対応。bad/warnは同じダッシュボード上のDailySituationPanel
+  // （今日の状況）のステータスチップに常に表示されており、同じ情報を指す別カードを
+  // 「今日やるべき」に重ねて出す必要はないため、ここでは出さない。unknown（評価不能）は
+  // 「観測を増やす」という行動への誘導であり、状態表示側とは役割が異なるため引き続き載せる。
   for (const v of vitals.teams) {
     if (v.status === "unknown") {
       // docs/memo.md「D」対応。診断で止まらせず、観測を増やす行動（Quick Journal）へ誘導する。
@@ -396,7 +397,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       lane: "decision",
       icon: "👀",
       kindLabel: "様子見の期限切れ",
-      text: `${days}日前から様子見のままです。再度判断してください: ${run.task.slice(0, 40)}`,
+      text: `${days}日前から様子見のままです。再度判断してください: ${truncateExcerpt(run.task, 40)}`,
       onSelect: () => push(`/chat?runId=${run.id}`),
       // 期限切れ自体は「以前からの様子見」なので新着扱いにはしない。
       since: 0,

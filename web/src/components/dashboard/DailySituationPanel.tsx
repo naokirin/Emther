@@ -100,7 +100,13 @@ export function DailySituationPanel({ situation, loaded, onSeeAllDecisions }: Pr
   );
   // ユーザー指摘「チーム・メンバーが混合で並んでいる」対応。entityKindで段落を分ける。
   const byStatus = (a: SituationItem, b: SituationItem) => STATUS_ORDER[a.status!] - STATUS_ORDER[b.status!];
-  const teamChips = allStatusItems.filter((item) => item.entityKind === "team").sort(byStatus);
+  const isCoverageChip = (item: SituationItem) => item.id === "good-coverage" || item.id === "unevaluable-coverage";
+  // ユーザー指摘「1on1 Coverageチップをチームの並びの先頭にしてほしい」対応。組織全体の
+  // 指標であり特定チームのstatusには依らないため、status順ソートとは別にチーム内で
+  // 常に先頭へ固定する。
+  const teamChipsSorted = allStatusItems.filter((item) => item.entityKind === "team" && !isCoverageChip(item)).sort(byStatus);
+  const coverageChip = allStatusItems.find((item) => item.entityKind === "team" && isCoverageChip(item));
+  const teamChips = coverageChip ? [coverageChip, ...teamChipsSorted] : teamChipsSorted;
   const personChips = allStatusItems.filter((item) => item.entityKind === "person").sort(byStatus);
   const concerningEvents = situation.concerns.filter((item) => item.status === undefined);
   const worthDecidingRest = situation.worthDeciding.length - 1 + situation.worthDecidingOverflow;
@@ -109,6 +115,27 @@ export function DailySituationPanel({ situation, loaded, onSeeAllDecisions }: Pr
     <div className={styles.panel}>
       <h2>今日の状況</h2>
       <p className={styles.subtitle}>AIが観測・解釈した材料です。判断はEM自身が行ってください。</p>
+
+      {/* 表示順見直し対応。「今日やるべき3つ」のすぐ下で目に入るよう、判断する価値が
+          ありそうなことを今日の状況の先頭に置く（独立パネルには切り出さず、既存の
+          今日の状況カード内に収めて色付きパネルの増加を避ける）。 */}
+      <div className={styles.situationDecisionTeaser}>
+        <span className={styles.situationCardTitle}>判断する価値がありそうなこと</span>
+        {situation.worthDeciding.length === 0 ? (
+          <p className={styles.situationEmpty}>今すぐ判断が必要な項目はありません</p>
+        ) : (
+          <>
+            <button type="button" className={styles.situationItemBtn} onClick={situation.worthDeciding[0].onSelect}>
+              {situation.worthDeciding[0].text}
+            </button>
+            {worthDecidingRest > 0 && (
+              <button type="button" className={styles.situationMore} onClick={onSeeAllDecisions}>
+                ほか{worthDecidingRest}件 → 今日やるべきことへ
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       <div className={styles.situationStatusBlock}>
         <span className={styles.situationCardHint}>チーム・メンバーの状態（気になる・良い・評価できない）</span>
@@ -165,24 +192,6 @@ export function DailySituationPanel({ situation, loaded, onSeeAllDecisions }: Pr
           </div>
           <NarrativeList items={concerningEvents} emptyText="気になる出来事の記録はありません" />
         </div>
-      </div>
-
-      <div className={styles.situationDecisionTeaser}>
-        <span className={styles.situationCardTitle}>判断する価値がありそうなこと</span>
-        {situation.worthDeciding.length === 0 ? (
-          <p className={styles.situationEmpty}>今すぐ判断が必要な項目はありません</p>
-        ) : (
-          <>
-            <button type="button" className={styles.situationItemBtn} onClick={situation.worthDeciding[0].onSelect}>
-              {situation.worthDeciding[0].text}
-            </button>
-            {worthDecidingRest > 0 && (
-              <button type="button" className={styles.situationMore} onClick={onSeeAllDecisions}>
-                ほか{worthDecidingRest}件 → 今日やるべきことへ
-              </button>
-            )}
-          </>
-        )}
       </div>
     </div>
   );

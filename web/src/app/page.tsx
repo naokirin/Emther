@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
 import { SetupGapsBanner } from "@/components/dashboard/SetupGapsBanner";
-import { DailyBriefBanner, type Brief } from "@/components/dashboard/DailyBriefBanner";
 import { DailySituationPanel } from "@/components/dashboard/DailySituationPanel";
 import { EveningModeCard } from "@/components/dashboard/EveningModeCard";
 import { ThemesPanel } from "@/components/dashboard/ThemesPanel";
 import { TodayActionsPanel } from "@/components/dashboard/TodayActionsPanel";
-import { TeamStatePanel } from "@/components/dashboard/TeamStatePanel";
 import { JournalDumpPanel } from "@/components/dashboard/JournalDumpPanel";
-import { DAY_PHASE_GUIDANCE, getDayPhase } from "@/lib/dashboard-day-phase";
-import { buildNextActions, rankActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
+import { getDayPhase } from "@/lib/dashboard-day-phase";
+import { buildNextActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
 import { buildDailySituation } from "@/lib/daily-situation";
 import {
   useEmCheckins,
@@ -96,10 +94,14 @@ function DashboardPageInner() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  // journalTextだけはDailyBriefBanner/EveningModeCard/TeamStatePanelの各CTA（prefillJournal）
-  // からJournalDumpPanelの入力欄へ外部プリフィルする必要があるため、ここで持つ
+  // journalTextだけはEveningModeCardなどのCTA（prefillJournal）から
+  // JournalDumpPanelの入力欄へ外部プリフィルする必要があるため、ここで持つ
   // （他のJournal関連state・ハンドラはJournalDumpPanel側に閉じている）。
   const [journalText, setJournalText] = useState("");
+
+  // ユーザー指摘「今日あったことを書き連ねるも、他画面と同じくタブの一つにしてよい」
+  // 対応。「今日」内をダッシュボード／書き連ねの2タブへ分ける。
+  const [activeTab, setActiveTab] = useState<"dashboard" | "journal">("dashboard");
 
   // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
   // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
@@ -109,10 +111,16 @@ function DashboardPageInner() {
   const [confirmingUnmasked, setConfirmingUnmasked] = useState<PendingUnmaskedSend | null>(null);
   const [confirmingUnmaskedBusy, setConfirmingUnmaskedBusy] = useState(false);
 
+  // ユーザー指摘「書き連ねるをタブ化しても、他パネルの『書き連ねる』系CTAは自動で
+  // タブ切り替えしてほしい」対応。書き連ねタブへ切り替えてから、描画後に入力欄へ
+  // スクロール・フォーカスする。
   function focusJournalInput() {
-    const el = document.getElementById("quick-journal-input");
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    (el as HTMLInputElement | null)?.focus();
+    setActiveTab("journal");
+    requestAnimationFrame(() => {
+      const el = document.getElementById("quick-journal-input");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (el as HTMLInputElement | null)?.focus();
+    });
   }
 
   // docs/memo.md「D. 評価不能→観測アクション」対応。評価不能で立ち止まらせず、
@@ -122,8 +130,9 @@ function DashboardPageInner() {
     focusJournalInput();
   }
 
-  // ユーザー指摘「『判断待ちがN件あります』の確認先がわからない」対応。AIブリーフィングの
-  // 一言診断から、実際にその件数の内訳が並ぶ「今日やるべき3つ」まで確実に辿れるようにする。
+  // ユーザー指摘「『判断待ちがN件あります』の確認先がわからない」対応。今日の状況の
+  // 「判断する価値がありそうなこと」から、実際にその件数の内訳が並ぶ「今日やるべき3つ」
+  // まで確実に辿れるようにする。
   function scrollToTodayActions() {
     requestAnimationFrame(() => {
       document.getElementById("today-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -179,7 +188,6 @@ function DashboardPageInner() {
     .reduce((acc, p) => ({ total: acc.total + p.total }), { total: 0 });
 
   const dayPhase = getDayPhase(new Date(now).getHours());
-  const guidance = DAY_PHASE_GUIDANCE[dayPhase];
 
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
   // 走らないよう、MVV/Team/Objectiveが揃うまでセットアップ導線を出す。新規ウィザード画面は
@@ -196,35 +204,6 @@ function DashboardPageInner() {
     (i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i),
   ).length;
 
-  // UI/UX見直し（今日タブ）対応。「AIの価値が見えにくい（生成物の羅列）」への対処として、
-  // 個々のシグナルを並べる前に、AIが状況を1文へ統合した「一言診断」を最上部に出す。
-  // 🟢🟡🔴⚪を画面共通の重要度言語として使う（情報不足＝⚪、危険＝🔴）。
-  const urgentCount = nextActions.filter((a) => a.severity === "urgent").length;
-  const warnCount = nextActions.length - urgentCount;
-  const topAction = rankActions(nextActions)[0];
-  const brief: Brief = !nextActionsLoaded
-    ? { level: "loading", icon: "⚪️", text: "状況を確認しています…" }
-    : urgentCount > 0
-      ? {
-          level: "urgent",
-          icon: "🔴",
-          text: `判断待ちが${urgentCount}件あります。最優先: ${topAction?.text ?? ""}`,
-        }
-      : warnCount > 0
-        ? {
-            level: "warn",
-            icon: "🟡",
-            text: `緊急ではありませんが、気になる点が${warnCount}件あります。手が空いたときに確認してください。`,
-          }
-        : {
-            level: "good",
-            icon: "🟢",
-            text:
-              autoRunsToday > 0
-                ? `判断待ちの組織課題はありません。本日はAIが${autoRunsToday}件を自動処理しました。`
-                : "判断待ちの組織課題はありません。優先テーマの手入れやメモに時間を使えます。",
-          };
-
   return (
     <div className={styles.screen}>
       <SetupGapsBanner
@@ -235,70 +214,91 @@ function DashboardPageInner() {
         onNavigate={(path) => router.push(path)}
       />
 
-      <DailyBriefBanner brief={brief} guidance={guidance} onScrollToActions={scrollToTodayActions} onFocusJournal={focusJournalInput} />
+      {/* ユーザー指摘「今日あったことを書き連ねるも、他画面と同じくタブの一つにしてよい」
+          対応。ダッシュボード／書き連ねの2タブに分け、他パネルの「書き連ねる」系CTAは
+          focusJournalInput側でタブ切り替えまで面倒を見る。 */}
+      <div className={styles.tabs}>
+        <button
+          type="button"
+          className={`${styles.tabBtn} ${activeTab === "dashboard" ? styles.tabBtnActive : ""}`}
+          onClick={() => setActiveTab("dashboard")}
+        >
+          ダッシュボード
+        </button>
+        <button
+          type="button"
+          className={`${styles.tabBtn} ${activeTab === "journal" ? styles.tabBtnActive : ""}`}
+          onClick={() => setActiveTab("journal")}
+        >
+          書き連ね
+        </button>
+      </div>
 
-      <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
+      {activeTab === "dashboard" && (
+        <>
+          {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
+              記録先（/growth）への導線のみを置く。 */}
+          {dayPhase === "evening" && (
+            <EveningModeCard
+              checkinsLoaded={checkinsLoaded}
+              hasCheckinToday={hasCheckinToday}
+              onFocusJournal={focusJournalInput}
+              onNavigateGrowth={() => router.push("/growth")}
+            />
+          )}
 
-      {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
-          記録先（/growth）への導線のみを置く。 */}
-      {dayPhase === "evening" && (
-        <EveningModeCard
-          checkinsLoaded={checkinsLoaded}
-          hasCheckinToday={hasCheckinToday}
-          onFocusJournal={focusJournalInput}
-          onNavigateGrowth={() => router.push("/growth")}
+          {/* ユーザー指摘「今日やるべき3つを上に持ってきたことで、一言診断バナー（判断待ちが
+              N件あります）がほぼ意味をなさない」対応。一言診断バナーは廃止し、「今日やるべき
+              3つ」をファーストビューの先頭として直接出す。 */}
+          <TodayActionsPanel
+            now={now}
+            nextActions={nextActions}
+            nextActionsLoaded={nextActionsLoaded}
+            decisionQueueLimit={rules.decisionQueueLimit}
+            observationQueueLimit={rules.observationQueueLimit}
+            watchingItems={watchingItems}
+            lastSeenAt={lastSeenAt}
+            unlinkedParentCount={unlinkedParentCount}
+            krTotals={krTotals}
+            autoRunsToday={autoRunsToday}
+            onNavigate={(path) => router.push(path)}
+            refreshIssues={refreshIssues}
+          />
+
+          {/* ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。
+              独立パネル（旧TeamStatePanel）は廃止し、チーム/メンバーの状態は今日の状況の
+              ステータスチップに一本化する（1on1 Coverageもdaily-situation.ts側で統合済み）。 */}
+          <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
+
+          {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
+              テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付ける。 */}
+          <ThemesPanel
+            themes={themes}
+            themesLoaded={themesLoaded}
+            objectives={objectives}
+            refreshThemes={refreshThemes}
+            refreshRuns={refreshRuns}
+            onNavigate={(path) => router.push(path)}
+          />
+        </>
+      )}
+
+      {activeTab === "journal" && (
+        <JournalDumpPanel
+          journalText={journalText}
+          onJournalTextChange={setJournalText}
+          journalEntries={journalEntries}
+          setJournalEntries={setJournalEntries}
+          journalLoaded={journalLoaded}
+          journalEditing={journalEditing}
+          fetchWithNameConfirm={fetchWithNameConfirm}
+          runs={runs}
+          refreshRuns={refreshRuns}
+          dayPhase={dayPhase}
+          onNavigate={(path) => router.push(path)}
         />
       )}
 
-      {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
-          テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付ける。 */}
-      <ThemesPanel
-        themes={themes}
-        themesLoaded={themesLoaded}
-        objectives={objectives}
-        refreshThemes={refreshThemes}
-        refreshRuns={refreshRuns}
-        onNavigate={(path) => router.push(path)}
-      />
-
-      {/* 「次の1手」をヒーローに固定。 */}
-      <div className={styles.dashColumns}>
-        <TodayActionsPanel
-          now={now}
-          nextActions={nextActions}
-          nextActionsLoaded={nextActionsLoaded}
-          decisionQueueLimit={rules.decisionQueueLimit}
-          observationQueueLimit={rules.observationQueueLimit}
-          watchingItems={watchingItems}
-          lastSeenAt={lastSeenAt}
-          unlinkedParentCount={unlinkedParentCount}
-          krTotals={krTotals}
-          autoRunsToday={autoRunsToday}
-          onNavigate={(path) => router.push(path)}
-          refreshIssues={refreshIssues}
-        />
-
-        <TeamStatePanel
-          vitals={vitals}
-          vitalsLoaded={vitalsLoaded}
-          onNavigateTeams={() => router.push("/teams")}
-          onPrefillJournal={prefillJournal}
-        />
-      </div>
-
-      <JournalDumpPanel
-        journalText={journalText}
-        onJournalTextChange={setJournalText}
-        journalEntries={journalEntries}
-        setJournalEntries={setJournalEntries}
-        journalLoaded={journalLoaded}
-        journalEditing={journalEditing}
-        fetchWithNameConfirm={fetchWithNameConfirm}
-        runs={runs}
-        refreshRuns={refreshRuns}
-        dayPhase={dayPhase}
-        onNavigate={(path) => router.push(path)}
-      />
       {nameCandidateDialog}
       {journalEditing.nameCandidateDialog}
       {confirmingUnmasked && (

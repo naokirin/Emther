@@ -131,6 +131,22 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
 
   // 3. 良い状態: Team/PersonのVitalsがgood。
   const good: SituationItem[] = [];
+  // ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。
+  // 独立パネル（旧TeamStatePanel）を廃止し、1on1 Coverageもチーム・メンバーの状態
+  // チップへ統合する。bad/warn（観測不足）は「評価できないこと」へ、good（良好）は
+  // こちらへ振り分ける。各カテゴリはCATEGORY_LIMIT件に切り詰められるため、
+  // メンバー数が多いと後段のteam/personループに押し出されて消えないよう先頭に置く。
+  if (vitals.oneOnOneCoverage.status === "good") {
+    good.push({
+      id: "good-coverage",
+      text: "1on1 Coverage",
+      detail: `1on1 Coverageは${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件です`,
+      since: 0,
+      onSelect: () => push("/teams"),
+      status: "good",
+      entityKind: "team",
+    });
+  }
   for (const t of vitals.teams) {
     if (t.status === "good") {
       good.push({
@@ -160,6 +176,18 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
 
   // 4. 評価できないこと: Team/PersonのVitalsがunknown、1on1 Coverage不足。
   const unevaluable: SituationItem[] = [];
+  // good側と同様、メンバー数が多いとteam/personループに押し出されて消えないよう先頭に置く。
+  if (vitals.oneOnOneCoverage.status === "bad" || vitals.oneOnOneCoverage.status === "warn") {
+    unevaluable.push({
+      id: "unevaluable-coverage",
+      text: "1on1 Coverage",
+      detail: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件と少なく、観測が不足しています`,
+      since: 0,
+      onSelect: () => push("/teams"),
+      status: vitals.oneOnOneCoverage.status,
+      entityKind: "team",
+    });
+  }
   for (const t of vitals.teams) {
     if (t.status === "unknown") {
       unevaluable.push({
@@ -185,17 +213,6 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
         entityKind: "person",
       });
     }
-  }
-  if (vitals.oneOnOneCoverage.status === "bad" || vitals.oneOnOneCoverage.status === "warn") {
-    unevaluable.push({
-      id: "unevaluable-coverage",
-      text: "1on1 Coverage",
-      detail: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件と少なく、観測が不足しています`,
-      since: 0,
-      onSelect: () => push("/teams"),
-      status: vitals.oneOnOneCoverage.status,
-      entityKind: "team",
-    });
   }
 
   // 5. 過去との比較: 今週と先週のJournal件数比較（量的比較）。

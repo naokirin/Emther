@@ -12,9 +12,11 @@ type Props = {
 // docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
 // 記録先（/growth）への導線のみを置く。入力フォーム自体はここには置かない
 // （改修依頼「今日記録されていない場合のアラート表示とEMの成長へのリンクのみ」対応）。
+// 表示順見直し対応。一言診断のすぐ下に置くため、赤系バナーの直後で色が競合しないよう
+// アクセント枠は付けず、他の通常パネルと同じ見た目に揃える。
 export function EveningModeCard({ checkinsLoaded, hasCheckinToday, onFocusJournal, onNavigateGrowth }: Props) {
   return (
-    <div className={styles.panel} style={{ borderColor: "var(--accent, var(--border))" }}>
+    <div className={styles.panel}>
       <h2 style={{ margin: 0, fontSize: "1rem" }}>夜の書き連ね</h2>
       <p className={styles.subtitle} style={{ marginTop: 4 }}>
         今日あったことを分割せず 10〜15 分で書いてください。提案化・分割は翌朝の提案に寄せます。
