@@ -5,9 +5,11 @@ import styles from "@/app/page.module.css";
 import type { AgentRun } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
+import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCandidateSuggestion";
 import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
 import type { useJournalEditing } from "@/lib/useJournalEditing";
 import type { DayPhase } from "@/lib/dashboard-day-phase";
+import type { ProfileCandidate } from "@/lib/journal-store";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
 
@@ -78,6 +80,9 @@ export function JournalDumpPanel({
     people: string[];
     candidates: string[];
   } | null>(null);
+  // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
+  // 投稿直後だけの一度きりのヒント（ポーリングでは消える）。
+  const [lastProfileCandidate, setLastProfileCandidate] = useState<ProfileCandidate | null>(null);
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
   // 直近5件だけを見せ、全件の検索・絞り込みは/journalに委ねる。
@@ -199,11 +204,14 @@ export function JournalDumpPanel({
           "保存する",
         );
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "タグ付けに失敗しました");
-        const payload = data as { entry: JournalEntry; nameCandidates?: string[] };
+        const payload = data as { entry: JournalEntry; nameCandidates?: string[]; profileCandidate?: ProfileCandidate };
         setJournalEntries((prev) => [payload.entry, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
         if (payload.nameCandidates && payload.nameCandidates.length > 0) {
           setLastNameCandidates({ entryId: payload.entry.id, people: payload.entry.people, candidates: payload.nameCandidates });
+        }
+        if (payload.profileCandidate) {
+          setLastProfileCandidate(payload.profileCandidate);
         }
       } catch (err) {
         if ((err as Error).message === "人名候補の確認をキャンセルしました") {
@@ -374,6 +382,9 @@ export function JournalDumpPanel({
           people={lastNameCandidates.people}
           candidates={lastNameCandidates.candidates}
         />
+      )}
+      {lastProfileCandidate && (
+        <JournalProfileCandidateSuggestion person={lastProfileCandidate.person} text={lastProfileCandidate.text} />
       )}
 
       <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>

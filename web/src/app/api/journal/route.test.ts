@@ -8,6 +8,7 @@ let mockExtraction: {
   urgency: "low" | "mid" | "high";
   sentiment: "positive" | "negative" | "neutral";
   summary: string;
+  profileCandidate?: { person: string; text: string } | null;
 };
 
 vi.mock("@/lib/local-model", () => ({
@@ -98,6 +99,36 @@ describe("POST /api/journal", () => {
     expect(json.entry.people).toEqual([]);
     const peopleDirectory = await import("@/lib/people-directory");
     expect(peopleDirectory.listPeople()).toHaveLength(0);
+  });
+
+  // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
+  it("既登録の人物についての長期プロファイル候補をprofileCandidateとしてヒントに返す", async () => {
+    mockExtraction = {
+      tags: [],
+      people: ["Aさん"],
+      urgency: "low",
+      sentiment: "positive",
+      summary: "",
+      profileCandidate: { person: "Aさん", text: "Aさんはレビューが速く的確" },
+    };
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/journal", "POST", { text: "Aさんはいつもレビューが速い" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.profileCandidate).toEqual({ person: "Aさん", text: "Aさんはレビューが速く的確" });
+  });
+
+  it("候補が無い・未登録人物のときはprofileCandidateを含まない", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "low", sentiment: "neutral", summary: "", profileCandidate: null };
+    const route = await import("./route");
+    const res = await route.POST(jsonRequest("http://localhost/api/journal", "POST", { text: "特に何もないメモ" }));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.profileCandidate).toBeUndefined();
   });
 
   it("occurredAtDateを指定すると日付レベルで記録される", async () => {

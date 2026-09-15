@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addJournalEntry, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
+import { addJournalEntryWithProfileCandidate, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
@@ -48,10 +48,10 @@ export async function POST(request: Request) {
   };
 
   try {
-    const entry =
+    const { entry, profileCandidate } =
       occurredAt !== undefined
-        ? await addJournalEntry(text, occurredAt, opts)
-        : await addJournalEntry(text, Date.now(), opts);
+        ? await addJournalEntryWithProfileCandidate(text, occurredAt, opts)
+        : await addJournalEntryWithProfileCandidate(text, Date.now(), opts);
     // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」対応。既登録の人物名は
     // すでにaddJournalEntry内でpeopleへ紐付け済み。ここでは「人名らしいが未登録」な語句を
     // 追加で検知し、保存はブロックせず（事前登録が正の方針は変えない）レスポンスに
@@ -62,8 +62,10 @@ export async function POST(request: Request) {
     } catch {
       nameCandidates = [];
     }
+    // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
+    // profileCandidateもnameCandidatesと同じく一度きりのヒント（永続化しない）。
     return NextResponse.json(
-      { entry: toJournalEntryView(entry, new Map()), nameCandidates },
+      { entry: toJournalEntryView(entry, new Map()), nameCandidates, profileCandidate },
       { status: 201 },
     );
   } catch (err) {

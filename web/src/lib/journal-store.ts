@@ -205,16 +205,23 @@ export function toJournalEntryViews(entries: JournalEntry[], consultIndex: Map<s
   return entries.map((entry) => toJournalEntryView(entry, consultIndex));
 }
 
+// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
+// 良いものがあれば、入れるようにする」対応。profileCandidateは既存フィールドと同じ
+// ローカル1回の抽出呼び出しに相乗りさせる（気軽に書けることを優先し、緊急度に関係なく
+// 全投稿で無料・低遅延に判定したいため、クラウドのLead Agent分析へはエスカレートしない）。
 const SYSTEM_PROMPT = [
   "あなたはメモから情報を抽出し、JSONだけを出力するツールです。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力してください。",
-  'フォーマット: {"tags": string[], "people": string[], "teams": string[], "urgency": "low"|"mid"|"high", "sentiment": "positive"|"negative"|"neutral", "summary": string}',
+  'フォーマット: {"tags": string[], "people": string[], "teams": string[], "urgency": "low"|"mid"|"high", "sentiment": "positive"|"negative"|"neutral", "summary": string, "profileCandidate": {"person": string, "text": string} | null}',
   "tagsは日本語の短い単語（例: 技術的負債, 1on1）。peopleは文中の人物名（敬称はそのまま、例: Aさん）。",
   "teamsは文中で言及されたチーム名・組織名（例: コアチーム, Engineering）。人物名はteamsに入れないこと。",
-  "メモに書かれていない情報を推測で埋めないこと。該当が無ければ空配列にすること。",
+  "profileCandidateは、peopleに含まれる人物について「一時的な出来事・感情」ではなく「今後の判断材料になりうる長期的な傾向・強み・特性」が読み取れるときだけ設定してください。personはpeopleと同じ表記の人物名、textは1文の短い候補文にすること。読み取れない・一時的な内容しかない場合は必ずnullにしてください。",
+  "メモに書かれていない情報を推測で埋めないこと。該当が無ければ空配列（profileCandidateはnull）にすること。",
 ].join("\n");
 
 // 人物が「いる」例と「いない」例の両方を見せることで、小型モデルがpeopleを
 // 空配列に倒しがちな傾向を緩和する。teamsも同様に有無の両方を見せる。
+// profileCandidateも同様に、null例と非null例の両方を見せて「一時的な出来事」と
+// 「繰り返し観測される傾向」の違いを学習させる（1件だけ非null例を混ぜる）。
 const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
   {
     user: "経営会議。Q3のエンタープライズ向けリリース日が2週間前倒しになった。",
@@ -225,17 +232,19 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       urgency: "high",
       sentiment: "negative",
       summary: "Q3のリリース日が2週間前倒しになった",
+      profileCandidate: null,
     }),
   },
   {
-    user: "CさんのPRレビューが非常に速く、品質も良い。褒めた。",
+    user: "Cさんは今回もPRレビューが非常に速く、指摘も的確だった。前から見ていてもいつもそう。",
     assistant: JSON.stringify({
       tags: ["PRレビュー", "パフォーマンス"],
       people: ["Cさん"],
       teams: [],
       urgency: "low",
       sentiment: "positive",
-      summary: "Cさんのレビューが速く高品質だったので褒めた",
+      summary: "Cさんのレビューが今回も速く的確だった",
+      profileCandidate: { person: "Cさん", text: "Cさんはコードレビューが速く指摘も的確" },
     }),
   },
   {
@@ -247,6 +256,7 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       urgency: "mid",
       sentiment: "negative",
       summary: "コアチームの雰囲気が重く燃え尽きが見える",
+      profileCandidate: null,
     }),
   },
 ];
@@ -275,6 +285,23 @@ function isSentiment(v: unknown): v is Sentiment {
   return v === "positive" || v === "negative" || v === "neutral";
 }
 
+// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
+// 良いものがあれば、入れるようにする」対応。EMが1クリックで長期プロファイル
+// （POST /api/knowledge/interpretations と同じ実体）へ採用できるよう、ローカル抽出の
+// 生候補をそのまま返す。既登録の人物（getPersonIdで解決できる場合）だけを対象にする
+// （人物名の自動登録はしない既存方針を踏襲。未登録ならヒント自体を出さない）。
+export type ProfileCandidate = { person: string; text: string };
+
+function extractProfileCandidate(structured: { profileCandidate?: unknown }): ProfileCandidate | undefined {
+  const raw = structured.profileCandidate;
+  if (!raw || typeof raw !== "object") return undefined;
+  const person = typeof (raw as { person?: unknown }).person === "string" ? (raw as { person: string }).person.trim() : "";
+  const text = typeof (raw as { text?: unknown }).text === "string" ? (raw as { text: string }).text.trim() : "";
+  if (!person || !text) return undefined;
+  if (!getPersonId(person)) return undefined;
+  return { person, text };
+}
+
 // ローカルモデルでの抽出→保存までの一連処理。addJournalEntry（単発）と
 // addJournalEntriesBulk（まとめ入力、1行ずつ同じ処理を回す）の両方から呼ぶ共通処理として
 // 切り出してある。occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら
@@ -283,7 +310,7 @@ async function createJournalEventFromText(
   rawText: string,
   occurredAt: number,
   opts: AddJournalOpts = {},
-): Promise<KnowledgeEvent> {
+): Promise<{ event: KnowledgeEvent; profileCandidate?: ProfileCandidate }> {
   await ensureNameCandidatesAllowed([rawText], opts);
 
   // docs/usage_issues U1: 構造化抽出は補助。モデルがJSONを返さない・呼び出し自体が
@@ -301,7 +328,8 @@ async function createJournalEventFromText(
         ]),
         { role: "user", content: rawText },
       ],
-      200,
+      // profileCandidateの分だけ出力が伸びうるため、既存の200から少し余裕を持たせる。
+      260,
     );
     const jsonText = extractFirstJsonObject(content);
     if (jsonText) {
@@ -330,6 +358,7 @@ async function createJournalEventFromText(
     .map((p) => registerName(p.trim()));
   const people = [...new Set([...extractedPeople, ...explicitPeople])];
   const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
+  const profileCandidate = extractProfileCandidate(structured);
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
@@ -362,7 +391,7 @@ async function createJournalEventFromText(
   // ttlDaysをSettings（journalFactTtlDays）から適用する。公式方針や長期プロファイルの
   // ように「常に有効」な情報を記録したい場合はrecordEvent()を別途直接使う想定
   // （現時点ではJournalは常にfact扱い、context分類の精緻化は今後の課題）。
-  return recordEvent({
+  const event = recordEvent({
     kind: "fact",
     context: "observation",
     entityType: "journal",
@@ -380,6 +409,7 @@ async function createJournalEventFromText(
     sourceDumpId: opts.sourceDumpId,
     sourceChunkId: opts.sourceChunkId,
   });
+  return { event, profileCandidate };
 }
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。occurredAtは
@@ -390,7 +420,7 @@ export async function addJournalEntry(
   occurredAt: number = Date.now(),
   opts: AddJournalOpts = {},
 ): Promise<JournalEntry> {
-  const event = await createJournalEventFromText(rawText, occurredAt, opts);
+  const { event } = await createJournalEventFromText(rawText, occurredAt, opts);
 
   // docs/em_human_story_and_ux.md P1-9対応（旧実装からの変更）。以前はここ（登録直後、
   // ローカルモデルの生の抽出結果に対して）で自動検知を起動していたが、ローカルモデルの
@@ -399,6 +429,19 @@ export async function addJournalEntry(
   // 「(10) ローカルNER誤検出」とは別の、抽出精度そのものの問題）。そのため自動検知の
   // トリガーはupdateJournalEntry（EMが確認・校正した後）側に移し、ここでは記録のみ行う。
   return eventToJournalEntry(event);
+}
+
+// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
+// 良いものがあれば、入れるようにする」対応。addJournalEntry（多数の既存呼び出し元・テストが
+// JournalEntryをそのまま受け取る前提）の返り値は変えず、投稿直後のヒント表示が必要な
+// 呼び出し元（POST /api/journal）専用にprofileCandidateも一緒に返す別関数として切り出す。
+export async function addJournalEntryWithProfileCandidate(
+  rawText: string,
+  occurredAt: number = Date.now(),
+  opts: AddJournalOpts = {},
+): Promise<{ entry: JournalEntry; profileCandidate?: ProfileCandidate }> {
+  const { event, profileCandidate } = await createJournalEventFromText(rawText, occurredAt, opts);
+  return { entry: eventToJournalEntry(event), profileCandidate };
 }
 
 export type BulkJournalResult = { entries: JournalEntry[]; skippedLines: number };
@@ -441,7 +484,7 @@ export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions =
   // 許容範囲と判断）。
   for (const line of parsed) {
     // 上で一括確認済みなので、各行では再検出をスキップする（allow付きで通す）。
-    const event = await createJournalEventFromText(line.text, line.occurredAt, {
+    const { event } = await createJournalEventFromText(line.text, line.occurredAt, {
       allowUnmaskedCandidates: true,
     });
     entries.push(eventToJournalEntry(event));

@@ -12,6 +12,7 @@ let mockExtraction: {
   urgency: "low" | "mid" | "high";
   sentiment: "positive" | "negative" | "neutral";
   summary: string;
+  profileCandidate?: { person: string; text: string } | null;
 };
 let mockNerPeople: string[];
 
@@ -200,6 +201,65 @@ describe("addJournalEntry", () => {
     expect(entry.teamIds).toEqual([]);
     const updated = await store.updateJournalEntry(entry.id, { teams: ["コアチーム"] });
     expect(updated?.teamIds).toEqual([team.id]);
+  });
+});
+
+// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
+// 良いものがあれば、入れるようにする」対応。
+describe("addJournalEntryWithProfileCandidate", () => {
+  it("既登録の人物についての長期プロファイル候補を返す", async () => {
+    mockExtraction = {
+      tags: [],
+      people: ["Aさん"],
+      urgency: "low",
+      sentiment: "positive",
+      summary: "",
+      profileCandidate: { person: "Aさん", text: "Aさんはレビューが速く的確" },
+    };
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
+    const store = await loadModule();
+    const { entry, profileCandidate } = await store.addJournalEntryWithProfileCandidate("Aさんはいつもレビューが速い");
+    expect(store.toJournalEntryView(entry, new Map()).rawText).toBe("Aさんはいつもレビューが速い");
+    expect(profileCandidate).toEqual({ person: "Aさん", text: "Aさんはレビューが速く的確" });
+  });
+
+  it("未登録の人物についての候補は返さない（未登録人物の自動登録はしない既存方針を踏襲）", async () => {
+    mockExtraction = {
+      tags: [],
+      people: [],
+      urgency: "low",
+      sentiment: "positive",
+      summary: "",
+      profileCandidate: { person: "未登録さん", text: "未登録さんは..." },
+    };
+    const store = await loadModule();
+    const { profileCandidate } = await store.addJournalEntryWithProfileCandidate("未登録さんについてのメモ");
+    expect(profileCandidate).toBeUndefined();
+  });
+
+  it("profileCandidateがnull・不正な形式のときはundefinedを返す", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "low", sentiment: "neutral", summary: "", profileCandidate: null };
+    const store = await loadModule();
+    const { profileCandidate } = await store.addJournalEntryWithProfileCandidate("特に何もないメモ");
+    expect(profileCandidate).toBeUndefined();
+  });
+
+  it("addJournalEntry（既存関数）はprofileCandidateを返さずJournalEntryのままである", async () => {
+    mockExtraction = {
+      tags: [],
+      people: ["Aさん"],
+      urgency: "low",
+      sentiment: "positive",
+      summary: "",
+      profileCandidate: { person: "Aさん", text: "候補" },
+    };
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("Aさんについてのメモ");
+    expect(store.toJournalEntryView(entry, new Map()).rawText).toBe("Aさんについてのメモ");
+    expect((entry as unknown as { profileCandidate?: unknown }).profileCandidate).toBeUndefined();
   });
 });
 

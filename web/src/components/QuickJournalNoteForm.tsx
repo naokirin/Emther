@@ -4,7 +4,9 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
+import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCandidateSuggestion";
 import type { JournalEntry } from "@/lib/types";
+import type { ProfileCandidate } from "@/lib/journal-store";
 
 // docs/memo.md「現場メモのタブでも単発のメモ入力をしたい」対応。/journalには従来
 // 「📥 観測を取り込む」（複数件をAIが解析するダンプ）しか無く、Dashboardの「メモする」に
@@ -21,7 +23,11 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastCreated, setLastCreated] = useState<{ entry: JournalEntry; nameCandidates: string[] } | null>(null);
+  const [lastCreated, setLastCreated] = useState<{
+    entry: JournalEntry;
+    nameCandidates: string[];
+    profileCandidate?: ProfileCandidate;
+  } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +43,13 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
-      const payload = data as { entry: JournalEntry; nameCandidates?: string[] };
-      if (payload.nameCandidates && payload.nameCandidates.length > 0) {
-        setLastCreated({ entry: payload.entry, nameCandidates: payload.nameCandidates });
+      const payload = data as { entry: JournalEntry; nameCandidates?: string[]; profileCandidate?: ProfileCandidate };
+      if ((payload.nameCandidates && payload.nameCandidates.length > 0) || payload.profileCandidate) {
+        setLastCreated({
+          entry: payload.entry,
+          nameCandidates: payload.nameCandidates ?? [],
+          profileCandidate: payload.profileCandidate,
+        });
       }
       setText("");
       setDate("");
@@ -102,11 +112,17 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
             {error}
           </p>
         )}
-        {lastCreated && (
+        {lastCreated && lastCreated.nameCandidates.length > 0 && (
           <JournalNameCandidateSuggestion
             entryId={lastCreated.entry.id}
             people={lastCreated.entry.people}
             candidates={lastCreated.nameCandidates}
+          />
+        )}
+        {lastCreated?.profileCandidate && (
+          <JournalProfileCandidateSuggestion
+            person={lastCreated.profileCandidate.person}
+            text={lastCreated.profileCandidate.text}
           />
         )}
       </form>
