@@ -3,6 +3,8 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
+import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
+import type { JournalEntry } from "@/lib/types";
 
 // docs/memo.md「現場メモのタブでも単発のメモ入力をしたい」対応。/journalには従来
 // 「📥 観測を取り込む」（複数件をAIが解析するダンプ）しか無く、Dashboardの「メモする」に
@@ -19,6 +21,7 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastCreated, setLastCreated] = useState<{ entry: JournalEntry; nameCandidates: string[] } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,6 +29,7 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
     if (!trimmed) return;
     setSubmitting(true);
     setError(null);
+    setLastCreated(null);
     try {
       const { res, data } = await fetchWithNameConfirm(
         "/api/journal",
@@ -33,6 +37,10 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
+      const payload = data as { entry: JournalEntry; nameCandidates?: string[] };
+      if (payload.nameCandidates && payload.nameCandidates.length > 0) {
+        setLastCreated({ entry: payload.entry, nameCandidates: payload.nameCandidates });
+      }
       setText("");
       setDate("");
       setDateOpen(false);
@@ -93,6 +101,13 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
           <p className={styles.errorText} role="alert">
             {error}
           </p>
+        )}
+        {lastCreated && (
+          <JournalNameCandidateSuggestion
+            entryId={lastCreated.entry.id}
+            people={lastCreated.entry.people}
+            candidates={lastCreated.nameCandidates}
+          />
         )}
       </form>
       {nameCandidateDialog}

@@ -85,6 +85,21 @@ describe("POST /api/journal", () => {
     expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
+  it("人名らしいが未登録の語句をnameCandidatesとしてヒントに返す（保存はブロックしない）", async () => {
+    mockExtraction = { tags: ["1on1"], people: [], urgency: "low", sentiment: "neutral", summary: "1on1した" };
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/journal", "POST", { text: "新人さんと1on1した" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.nameCandidates).toEqual(["新人さん"]);
+    // ヒントを返すだけで、people自体は自動登録しない（既存方針を変えない）。
+    expect(json.entry.people).toEqual([]);
+    const peopleDirectory = await import("@/lib/people-directory");
+    expect(peopleDirectory.listPeople()).toHaveLength(0);
+  });
+
   it("occurredAtDateを指定すると日付レベルで記録される", async () => {
     const route = await import("./route");
     const res = await route.POST(

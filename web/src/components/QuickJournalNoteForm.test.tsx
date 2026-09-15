@@ -50,6 +50,36 @@ describe("QuickJournalNoteForm", () => {
     expect(screen.getByRole("button", { name: "保存する" })).toBeDisabled();
   });
 
+  it("nameCandidatesが返るとヒントを表示し、クリックでPATCHして関係者に追加する", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/journal" && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ entry: { id: "new", people: [] }, nameCandidates: ["新人さん"] }),
+        };
+      }
+      if (url === "/api/journal/new" && init?.method === "PATCH") {
+        return { ok: true, json: async () => ({ entry: { id: "new", people: ["新人さん"] } }) };
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    const user = userEvent.setup();
+    render(<QuickJournalNoteForm onCreated={vi.fn()} />);
+    await user.type(screen.getByPlaceholderText(/1on1/), "新人さんと1on1した");
+    await user.click(screen.getByRole("button", { name: "保存する" }));
+
+    const addBtn = await screen.findByRole("button", { name: "＋ 新人さん" });
+    await user.click(addBtn);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/journal/new",
+        expect.objectContaining({ method: "PATCH" }),
+      ),
+    );
+    expect(screen.queryByRole("button", { name: "＋ 新人さん" })).not.toBeInTheDocument();
+  });
+
   it("失敗時はエラーメッセージを表示する", async () => {
     fetchMock.mockImplementation(async () => ({ ok: false, json: async () => ({ error: "保存失敗" }) }));
     const user = userEvent.setup();

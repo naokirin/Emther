@@ -4,6 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import type { AgentRun } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
+import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
 import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
 import type { useJournalEditing } from "@/lib/useJournalEditing";
 import type { DayPhase } from "@/lib/dashboard-day-phase";
@@ -70,6 +71,13 @@ export function JournalDumpPanel({
   // どちらもこのリストに「処理中」の1件を積んでから裏で走らせる（下記submitJournalDraft/
   // submitBulkDraft参照）。
   const [pendingJournalDrafts, setPendingJournalDrafts] = useState<PendingJournalDraft[]>([]);
+  // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」対応。投稿直後だけの
+  // 一度きりのヒント（ポーリングでは消える）。
+  const [lastNameCandidates, setLastNameCandidates] = useState<{
+    entryId: string;
+    people: string[];
+    candidates: string[];
+  } | null>(null);
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
   // 直近5件だけを見せ、全件の検索・絞り込みは/journalに委ねる。
@@ -191,8 +199,12 @@ export function JournalDumpPanel({
           "保存する",
         );
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "タグ付けに失敗しました");
-        setJournalEntries((prev) => [(data as { entry: JournalEntry }).entry, ...prev]);
+        const payload = data as { entry: JournalEntry; nameCandidates?: string[] };
+        setJournalEntries((prev) => [payload.entry, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+        if (payload.nameCandidates && payload.nameCandidates.length > 0) {
+          setLastNameCandidates({ entryId: payload.entry.id, people: payload.entry.people, candidates: payload.nameCandidates });
+        }
       } catch (err) {
         if ((err as Error).message === "人名候補の確認をキャンセルしました") {
           setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
@@ -282,7 +294,7 @@ export function JournalDumpPanel({
             className={`${styles.subtitle} ${styles.axisTooltip}`}
             style={{ fontWeight: 400 }}
             data-tooltip={
-              "入力後、完全ローカルの軽量モデル（設定のプリセット、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。\n分割・Issue昇格は翌朝提案に寄せられます。"
+              "入力後、完全ローカルの軽量モデル（設定のプリセット、外部送信なし）がタグ・人物・緊急度・感情を自動抽出します。\n分割・起票の判断は翌朝の提案に寄せられます。"
             }
             tabIndex={0}
           >
@@ -356,6 +368,13 @@ export function JournalDumpPanel({
           {journalError}
         </p>
       )}
+      {lastNameCandidates && (
+        <JournalNameCandidateSuggestion
+          entryId={lastNameCandidates.entryId}
+          people={lastNameCandidates.people}
+          candidates={lastNameCandidates.candidates}
+        />
+      )}
 
       <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
         <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setBulkOpen(!bulkOpen)}>
@@ -406,7 +425,7 @@ export function JournalDumpPanel({
             checked={excludeResolvedJournal}
             onChange={(e) => setExcludeResolvedJournal(e.target.checked)}
           />
-          ✅ 対応済み/Issue化済みを除外
+          ✅ 対応済み/提案化済みを除外
         </label>
       )}
       {journalEntries.length === 0 && pendingJournalDrafts.length === 0 && (

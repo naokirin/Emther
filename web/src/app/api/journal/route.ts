@@ -3,6 +3,7 @@ import { addJournalEntry, listJournalEntries, toJournalEntryView, toJournalEntry
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { detectUnregisteredNameCandidates } from "@/lib/people-directory";
 
 export async function GET() {
   return NextResponse.json({ entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()) });
@@ -51,7 +52,20 @@ export async function POST(request: Request) {
       occurredAt !== undefined
         ? await addJournalEntry(text, occurredAt, opts)
         : await addJournalEntry(text, Date.now(), opts);
-    return NextResponse.json({ entry: toJournalEntryView(entry, new Map()) }, { status: 201 });
+    // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」対応。既登録の人物名は
+    // すでにaddJournalEntry内でpeopleへ紐付け済み。ここでは「人名らしいが未登録」な語句を
+    // 追加で検知し、保存はブロックせず（事前登録が正の方針は変えない）レスポンスに
+    // 一度きりのヒントとして載せるだけにする（永続化しない・以降のGETには含まれない）。
+    let nameCandidates: string[] = [];
+    try {
+      nameCandidates = await detectUnregisteredNameCandidates(text);
+    } catch {
+      nameCandidates = [];
+    }
+    return NextResponse.json(
+      { entry: toJournalEntryView(entry, new Map()), nameCandidates },
+      { status: 201 },
+    );
   } catch (err) {
     return jsonFromUnknownError(err);
   }

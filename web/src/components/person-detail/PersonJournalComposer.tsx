@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
+import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
+import type { JournalEntry } from "@/lib/types";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応の一部。人物詳細画面から、この人物に
 // 紐づくJournalをその場で追加できる（作成時にpeopleへ本人を明示付与）。
@@ -20,6 +22,7 @@ export function PersonJournalComposer({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [lastCreated, setLastCreated] = useState<{ entry: JournalEntry; nameCandidates: string[] } | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -28,6 +31,7 @@ export function PersonJournalComposer({
     setPending(true);
     setError(null);
     setStatus(null);
+    setLastCreated(null);
     try {
       const { res, data } = await fetchWithNameConfirm(
         "/api/journal",
@@ -42,6 +46,10 @@ export function PersonJournalComposer({
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "記録に失敗しました");
+      const payload = data as { entry: JournalEntry; nameCandidates?: string[] };
+      if (payload.nameCandidates && payload.nameCandidates.length > 0) {
+        setLastCreated({ entry: payload.entry, nameCandidates: payload.nameCandidates });
+      }
       setText("");
       setOccurredAtDate("");
       setDateOpen(false);
@@ -123,6 +131,13 @@ export function PersonJournalComposer({
           <p className={styles.subtitle} style={{ marginTop: 6 }} role="status">
             ✅ {status}
           </p>
+        )}
+        {lastCreated && (
+          <JournalNameCandidateSuggestion
+            entryId={lastCreated.entry.id}
+            people={lastCreated.entry.people}
+            candidates={lastCreated.nameCandidates}
+          />
         )}
       </form>
       {nameCandidateDialog}
