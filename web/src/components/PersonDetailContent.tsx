@@ -218,7 +218,12 @@ export function PersonDetailContent({ id }: { id: string }) {
         <TeamMembershipEditor personName={person.name} teams={teams} onChanged={handleTeamsChanged} />
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }} title="別名が出てきても同じ人物として認識">
+      <h3
+        className={styles.axisTooltip}
+        style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}
+        data-tooltip="別名が出てきても同じ人物として認識"
+        tabIndex={0}
+      >
         別名（表記揺れ）
       </h3>
       <div style={{ marginBottom: 10 }}>

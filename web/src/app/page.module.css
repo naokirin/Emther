@@ -1924,6 +1924,15 @@
   cursor: help;
 }
 
+/* ユーザー指摘「ツールチップを全体的にカスタムのものにしてほしい」対応。
+   .axisTooltipをクリック可能なbutton/リンクへ付ける場面が増えたため、情報のみを
+   示すhelpカーソルではなく、本来のpointerカーソルを保つ（タグ限定セレクタで
+   .axisTooltip単体より詳細度を上げ、定義順に関係なく確実に上書きする）。 */
+a.axisTooltip,
+button.axisTooltip {
+  cursor: pointer;
+}
+
 .axisTooltip::after {
   content: attr(data-tooltip);
   position: absolute;
@@ -1968,6 +1977,15 @@
   top: calc(100% + 6px);
   left: 0;
   transform: none;
+}
+
+/* ユーザー指摘「ツールチップを全体的にカスタムのものにしてほしい」対応。画面最上部
+   （ヘッダー・グローバルnav）の要素は.axisTooltipDownと同じく上向きに開くと画面外に
+   切れるが、.axisTooltipDownの左端揃えは要素の位置によって右側にはみ出すことがある
+   （行内に複数並ぶタブ・右端寄りのボタン等）。中央揃えは保ったまま縦方向だけ反転する。 */
+.axisTooltipDownCenter::after {
+  bottom: auto;
+  top: calc(100% + 6px);
 }
 
 .issueStatusNotStarted {

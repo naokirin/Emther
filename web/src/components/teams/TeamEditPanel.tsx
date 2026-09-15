@@ -171,14 +171,15 @@ export function TeamEditPanel({
         <textarea rows={2} value={editConstraints} onChange={(e) => setEditConstraints(e.target.value)} /></label>
       </div>
       <label
+        className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 10 }}
-        title="OFFにするとメンバーは「その他」になり、1on1 Coverage対象外"
+        data-tooltip="OFFにするとメンバーは「その他」になり、1on1 Coverage対象外"
       >
         <input type="checkbox" checked={editManagedByEm} onChange={(e) => setEditManagedByEm(e.target.checked)} />
         自分が管理するチーム
       </label>
       <div className={styles.field}>
-        <span className={styles.fieldCaption} title="相談・起動時のチーム推定にも使われます">
+        <span className={`${styles.fieldCaption} ${styles.axisTooltip}`} data-tooltip="相談・起動時のチーム推定にも使われます" tabIndex={0}>
           別名（表記揺れ）
         </span>
         <TagInput

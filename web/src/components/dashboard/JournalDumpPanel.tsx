@@ -576,9 +576,10 @@ export function JournalDumpPanel({
               {draftStarting || draftRunBusy ? "AIが下書きを作成中…" : "🤖 AIに下書きを提案してもらう"}
             </button>
             <p
-              className={styles.subtitle}
+              className={`${styles.subtitle} ${styles.axisTooltip}`}
               style={{ marginTop: 4 }}
-              title="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。"
+              data-tooltip="対象欄の人物名をもとにPeople Agentが下書きを作成します。保存するかはEMが判断してください。"
+              tabIndex={0}
             >
               ⓘ あくまで下書きです。「記録」を押すまで保存されません。
             </p>

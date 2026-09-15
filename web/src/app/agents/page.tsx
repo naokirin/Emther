@@ -189,7 +189,12 @@ export default function AgentsPage() {
         ) : (
           <div className={styles.activityStream} style={{ marginTop: 12 }}>
             {activityLines.map((a) => (
-              <button key={a.id} className={styles.activityLine} onClick={a.onSelect} title={`${a.timeLabel} ${a.text}`}>
+              <button
+                key={a.id}
+                className={`${styles.activityLine} ${styles.axisTooltip}`}
+                onClick={a.onSelect}
+                data-tooltip={`${a.timeLabel} ${a.text}`}
+              >
                 <span className={styles.activityLineTime}>{a.timeLabel}</span>
                 <span className={styles.activityLineText}>
                   [{a.agentLabel}] {a.icon} {a.text}

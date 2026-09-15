@@ -448,10 +448,10 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
             </button>
             {unlinkedThemeCount > 0 && (
               <button
-                className={styles.btnOutline}
+                className={`${styles.btnOutline} ${styles.axisTooltip}`}
                 disabled={themeLinkSuggesting || objectives.length === 0}
                 onClick={handleSuggestThemeOkrLinks}
-                title="OKR未リンクの採用テーマへ、Objective / KR の紐付けをAIが提案します（採用まで反映しません）"
+                data-tooltip="OKR未リンクの採用テーマへ、Objective / KR の紐付けをAIが提案します（採用まで反映しません）"
               >
                 {themeLinkSuggesting ? "OKRリンクを提案中…" : `🔗 OKR未リンクを見直す（${unlinkedThemeCount}）`}
               </button>

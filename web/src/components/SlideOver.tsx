@@ -145,7 +145,12 @@ export function SlideOver({
             {/* ユーザー指摘「サイドピークからの詳細画面移動のリンクをアイコン表示にしたい」対応。
                 テキストリンクからアイコンボタンにし、アクセシブルな名前はaria-label/titleで維持する。 */}
             {detailHref && (
-              <Link href={detailHref} className={styles.slideOverExpandLink} aria-label="詳細画面で開く" title="詳細画面で開く">
+              <Link
+                href={detailHref}
+                className={`${styles.slideOverExpandLink} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
+                aria-label="詳細画面で開く"
+                data-tooltip="詳細画面で開く"
+              >
                 ⤢
               </Link>
             )}

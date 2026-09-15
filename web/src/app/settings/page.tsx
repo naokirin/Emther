@@ -111,7 +111,7 @@ export default function SettingsPage() {
         <nav className={styles.sideNav}>
           {/* 設定画面内のカテゴリ切替。グローバルなグループ内ナビは横タブに揃えたが、
               ここは同一URL内のセクション切替のため、従来の.sideNavを残す。 */}
-          <div className={styles.sideNavHint} title="設定項目のカテゴリを選ぶ">
+          <div className={`${styles.sideNavHint} ${styles.axisTooltip}`} data-tooltip="設定項目のカテゴリを選ぶ" tabIndex={0}>
             📍 設定
           </div>
           {SETTINGS_GROUPS.map((g) => (

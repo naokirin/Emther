@@ -128,8 +128,8 @@ export function TopNav() {
         <Link
           key={group.key}
           href={group.items[0].href}
-          className={`${styles.tabBtn} ${activeGroup?.key === group.key ? styles.tabBtnActive : ""}`}
-          title={group.hint}
+          className={`${styles.tabBtn} ${activeGroup?.key === group.key ? styles.tabBtnActive : ""} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
+          data-tooltip={group.hint}
         >
           {group.label}
         </Link>
@@ -155,7 +155,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div>
-      <nav className={styles.subTabs} aria-label={group.label} title={group.hint}>
+      <nav
+        className={`${styles.subTabs} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
+        aria-label={group.label}
+        data-tooltip={group.hint}
+      >
         {group.items.map((item) => {
           const isActive = item.href === activeHref;
           return (

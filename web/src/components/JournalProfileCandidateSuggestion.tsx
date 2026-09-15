@@ -44,10 +44,10 @@ export function JournalProfileCandidateSuggestion({
       💡 長期プロファイル候補: 「{text}」
       <button
         type="button"
-        className={styles.detailToggleButton}
+        className={`${styles.detailToggleButton} ${styles.axisTooltip}`}
         disabled={status === "submitting"}
         onClick={() => void handleAdopt()}
-        title={`${person}の長期プロファイルに追加する`}
+        data-tooltip={`${person}の長期プロファイルに追加する`}
       >
         {status === "submitting" ? "記録中…" : `＋ ${person}のプロファイルに追加`}
       </button>

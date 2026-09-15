@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import styles from "@/app/page.module.css";
 
 /** クライアント表示用（サーバー実装 `@/lib/mask-check` と揃える） */
 export type SensitiveCategory =
@@ -148,7 +149,9 @@ export function renderHighlightedText(text: string, highlights: TextHighlight[])
     nodes.push(
       <mark
         key={`h-${h.start}-${i}`}
-        title={HIGHLIGHT_LABEL[h.kind]}
+        className={styles.axisTooltip}
+        data-tooltip={HIGHLIGHT_LABEL[h.kind]}
+        tabIndex={0}
         style={{
           background: style.background,
           color: style.color,

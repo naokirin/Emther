@@ -11,7 +11,11 @@ export function HelpLink({
   label?: string;
 }) {
   return (
-    <Link href={`/help#${anchor}`} className={styles.helpLink} title="仕組み・用語の説明">
+    <Link
+      href={`/help#${anchor}`}
+      className={`${styles.helpLink} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
+      data-tooltip="仕組み・用語の説明"
+    >
       {label}
     </Link>
   );

@@ -143,7 +143,7 @@ function PeoplePageInner() {
             )}
             {others.length > 0 && (
               <>
-                <h3 style={{ fontSize: "0.875rem", marginBottom: 8 }} title="管理チーム以外で言及された人物">
+                <h3 className={styles.axisTooltip} style={{ fontSize: "0.875rem", marginBottom: 8 }} data-tooltip="管理チーム以外で言及された人物" tabIndex={0}>
                   その他
                 </h3>
                 <PersonCardGrid people={others} onOpen={peek.open} />

@@ -54,10 +54,10 @@ export function JournalNameCandidateSuggestion({
         <button
           key={name}
           type="button"
-          className={styles.detailToggleButton}
+          className={`${styles.detailToggleButton} ${styles.axisTooltip}`}
           disabled={submitting === name}
           onClick={() => void handleAdd(name)}
-          title={`「${name}」を関係者として登録する`}
+          data-tooltip={`「${name}」を関係者として登録する`}
         >
           {submitting === name ? `${name} 登録中…` : `＋ ${name}`}
         </button>

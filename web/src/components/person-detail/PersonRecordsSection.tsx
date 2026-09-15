@@ -28,8 +28,9 @@ function FactSentimentTag({ fact }: { fact: PersonFact }) {
   if (fact.noActionNeededAt) {
     return (
       <span
-        className={`${styles.tag} ${styles.tagPerson}`}
-        title={fact.noActionNeededNote ? `確認済み（対応不要と判断）: ${fact.noActionNeededNote}` : "確認済み（対応不要と判断）"}
+        className={`${styles.tag} ${styles.tagPerson} ${styles.axisTooltip}`}
+        data-tooltip={fact.noActionNeededNote ? `確認済み（対応不要と判断）: ${fact.noActionNeededNote}` : "確認済み（対応不要と判断）"}
+        tabIndex={0}
       >
         ✓ ネガティブ（確認済み）
       </span>
@@ -64,11 +65,11 @@ function FactSentimentAction({ fact, onChanged }: { fact: PersonFact; onChanged:
 
   return (
     <button
-      className={styles.btnOutline}
+      className={`${styles.btnOutline} ${styles.axisTooltip}`}
       style={{ padding: "2px 10px", fontSize: "0.75rem" }}
       disabled={busy}
       onClick={() => toggle(true)}
-      title="確認したが対応は不要だった場合に押してください（出来事の記録自体は変わりません）"
+      data-tooltip="確認したが対応は不要だった場合に押してください（出来事の記録自体は変わりません）"
     >
       確認済み/対応不要とする
     </button>
@@ -110,8 +111,9 @@ function IssueConcernTag({
     return (
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
         <span
-          className={styles.tableMuted}
-          title={issue.concernAcknowledgedNote ? `確認済み（対応不要と判断）: ${issue.concernAcknowledgedNote}` : "確認済み（対応不要と判断）"}
+          className={`${styles.tableMuted} ${styles.axisTooltip}`}
+          data-tooltip={issue.concernAcknowledgedNote ? `確認済み（対応不要と判断）: ${issue.concernAcknowledgedNote}` : "確認済み（対応不要と判断）"}
+          tabIndex={0}
         >
           ✓ 停滞・確認保留（確認済み）
         </span>
@@ -126,10 +128,10 @@ function IssueConcernTag({
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
       <span style={{ color: "var(--warning, #b45309)" }}>⚠️ 停滞・確認保留あり</span>
       <button
-        className={styles.detailToggle}
+        className={`${styles.detailToggle} ${styles.axisTooltip}`}
         disabled={busy}
         onClick={() => toggle(true)}
-        title="確認したが対応は不要だった場合に押してください（提案自体の状態は変わりません）"
+        data-tooltip="確認したが対応は不要だった場合に押してください（提案自体の状態は変わりません）"
       >
         確認済み/対応不要とする
       </button>

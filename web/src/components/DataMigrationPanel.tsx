@@ -117,7 +117,12 @@ export function DataMigrationPanel() {
   return (
     <>
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>端末移行・データ管理</h3>
-      <p className={styles.subtitle} style={{ marginBottom: 12 }} title="形式は emther backup / restore と同じ tar.gz。個人情報を含みます">
+      <p
+        className={`${styles.subtitle} ${styles.axisTooltip}`}
+        style={{ marginBottom: 12 }}
+        data-tooltip="形式は emther backup / restore と同じ tar.gz。個人情報を含みます"
+        tabIndex={0}
+      >
         業務データと実名対応表のバックアップ・復元・削除（CLI 認証・モデルキャッシュは含みません）
       </p>
 

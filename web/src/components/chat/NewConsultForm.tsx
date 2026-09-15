@@ -66,6 +66,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
           /></label>
         </div>
         <label
+          className={styles.axisTooltip}
           style={{
             display: "flex",
             gap: 8,
@@ -74,7 +75,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
             marginBottom: 12,
             cursor: "pointer",
           }}
-          title="Leadが組織MVV・中長期コミットの視点でExec Agentへ必須相談します"
+          data-tooltip="Leadが組織MVV・中長期コミットの視点でExec Agentへ必須相談します"
         >
           <input
             type="checkbox"

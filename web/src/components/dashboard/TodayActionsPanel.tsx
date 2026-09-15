@@ -175,11 +175,11 @@ export function TodayActionsPanel({
         <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
           ⚠ 戦略未接続の親 提案 が {unlinkedParentCount} 件あります
           <button
-            className={styles.detailToggle}
+            className={`${styles.detailToggle} ${styles.axisTooltip}`}
             style={{ marginLeft: 6 }}
             disabled={issueLinkSuggesting}
             onClick={handleSuggestIssueStrategyLinks}
-            title="戦略未接続の親 提案 へ、テーマ / KR の紐付けをAIが提案します"
+            data-tooltip="戦略未接続の親 提案 へ、テーマ / KR の紐付けをAIが提案します"
           >
             {issueLinkSuggesting ? "提案中…" : "AIで見直す"}
           </button>
@@ -292,9 +292,9 @@ export function TodayActionsPanel({
                     {(Object.keys(LANE_META) as Lane[]).map((lane) => (
                       <button
                         key={lane}
-                        className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""}`}
+                        className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""} ${styles.axisTooltip}`}
                         onClick={() => setLaneFilter(lane)}
-                        title={LANE_META[lane].hint}
+                        data-tooltip={LANE_META[lane].hint}
                       >
                         {LANE_META[lane].label}（{restLaneCounts[lane]}）
                       </button>

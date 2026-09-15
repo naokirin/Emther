@@ -245,7 +245,12 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
 
   return (
     <>
-      <p className={styles.subtitle} style={{ marginBottom: 10 }} title="採用分だけ Journal になり、クラウドへはマスク後のみ送信">
+      <p
+        className={`${styles.subtitle} ${styles.axisTooltip}`}
+        style={{ marginBottom: 10 }}
+        data-tooltip="採用分だけ Journal になり、クラウドへはマスク後のみ送信"
+        tabIndex={0}
+      >
         ログを貼り付け → 必要なら列を確認 → 取り込む
       </p>
 

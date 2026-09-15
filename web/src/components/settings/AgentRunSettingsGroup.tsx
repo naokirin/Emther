@@ -11,7 +11,7 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
     <>
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>Agent Runの同時実行数</h3>
       <div className={styles.field} style={{ maxWidth: 160 }}>
-        <label title="超過分はキューイングされます">
+        <label className={styles.axisTooltip} data-tooltip="超過分はキューイングされます">
           同時に実行できるAgent Runの最大数
         <input
           type="number"
@@ -23,7 +23,7 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>1ターンあたりの予算上限（claude）</h3>
       <div className={styles.field} style={{ maxWidth: 160 }}>
-        <label title="Claude CLIの --max-budget-usd。agy / Cursor には非適用">
+        <label className={styles.axisTooltip} data-tooltip="Claude CLIの --max-budget-usd。agy / Cursor には非適用">
           1ターンの上限（USD）
         <input
           type="number"
@@ -36,8 +36,9 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>提案分析時のチーム先行並列</h3>
       <label
+        className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
-        title="関連specialistを先に並列起動しLeadが統合。コスト増のためOFF可"
+        data-tooltip="関連specialistを先に並列起動しLeadが統合。コスト増のためOFF可"
       >
         <input
           type="checkbox"
@@ -67,7 +68,7 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>Journalファクトの有効期間（TTL）</h3>
       <div className={styles.field}>
-        <label title="過ぎるとAgent注入対象外（履歴は残る）">
+        <label className={styles.axisTooltip} data-tooltip="過ぎるとAgent注入対象外（履歴は残る）">
           Journalファクトの有効日数
         <input
           type="number"

@@ -50,7 +50,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <p className={styles.subtitle}>EM Support System</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Link href="/help" className={styles.headerHelpLink} title="仕組み・用語の説明">
+              <Link
+                href="/help"
+                className={`${styles.headerHelpLink} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
+                data-tooltip="仕組み・用語の説明"
+              >
                 ヘルプ
               </Link>
               <PersonQuickAdd />

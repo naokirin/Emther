@@ -11,7 +11,7 @@ export function MorningModeSettingsGroup({ draft, onChange }: Props) {
     <>
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>Morning Modeの上限件数</h3>
       <div className={styles.field} style={{ maxWidth: 160 }}>
-        <label title="超過分は「もっと見る」で追加表示">
+        <label className={styles.axisTooltip} data-tooltip="超過分は「もっと見る」で追加表示">
           判断待ち（decision）レーンの上限件数
         <input
           type="number"

@@ -35,7 +35,7 @@ export function IssueStatusBadge({ status }: { status: IssueStatus }) {
 export function SuggestionReviewStatusBadge({ status }: { status: SuggestionReviewStatus }) {
   const meta = SUGGESTION_REVIEW_STATUS_META[status];
   return (
-    <span className={styles.issueStatusBadge} title={meta.hint}>
+    <span className={`${styles.issueStatusBadge} ${styles.axisTooltip}`} data-tooltip={meta.hint} tabIndex={0}>
       {meta.icon} {meta.label}
     </span>
   );
@@ -44,7 +44,7 @@ export function SuggestionReviewStatusBadge({ status }: { status: SuggestionRevi
 export function IssuePriorityBadge({ priority }: { priority: IssuePriority }) {
   const meta = ISSUE_PRIORITY_META[priority];
   return (
-    <span className={styles.issueStatusBadge} title={meta.hint}>
+    <span className={`${styles.issueStatusBadge} ${styles.axisTooltip}`} data-tooltip={meta.hint} tabIndex={0}>
       {meta.icon} {meta.label}
     </span>
   );

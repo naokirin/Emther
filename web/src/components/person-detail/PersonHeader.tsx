@@ -140,7 +140,12 @@ export function PersonHeader({
             <button className={styles.btnOutline} onClick={handleToggleSelf} disabled={selfSaving}>
               {selfSaving ? "更新中…" : person.isSelf ? "自分の設定を解除" : "自分として設定"}
             </button>
-            <button className={styles.btnOutline} onClick={handleDelete} disabled={deleting} title="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。">
+            <button
+              className={`${styles.btnOutline} ${styles.axisTooltip}`}
+              onClick={handleDelete}
+              disabled={deleting}
+              data-tooltip="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。"
+            >
               {deleting ? "削除中…" : "誤登録として削除"}
             </button>
           </div>

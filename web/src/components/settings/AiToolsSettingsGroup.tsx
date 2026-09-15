@@ -68,7 +68,7 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
     <>
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>ローカルAI（ジャーナル抽出）</h3>
       <div className={styles.field} style={{ maxWidth: 420 }}>
-        <label title="機微情報を外部送信しないローカル推論。埋め込みモデルは対象外">
+        <label className={styles.axisTooltip} data-tooltip="機微情報を外部送信しないローカル推論。埋め込みモデルは対象外">
           チャットモデルのサイズ
           <select
             value={draft.localChatModelPreset ?? "350m"}

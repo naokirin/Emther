@@ -96,10 +96,10 @@ export function PersonQuickAdd() {
     <>
       <button
         type="button"
-        className={styles.btnOutline}
+        className={`${styles.btnOutline} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
         style={{ flexShrink: 0, fontSize: "0.875rem", padding: "6px 10px" }}
         onClick={() => openDialog()}
-        title="メンバーを追加・別名を登録（どの画面からでも）"
+        data-tooltip="メンバーを追加・別名を登録（どの画面からでも）"
       >
         ＋ 人を追加
       </button>

@@ -33,10 +33,13 @@ import type { VitalStatus } from "@/lib/types";
 const STATUS_ICON: Record<VitalStatus, string> = { good: "🟢", warn: "🟡", bad: "🔴", unknown: "⚪️" };
 const STATUS_ORDER: Record<VitalStatus, number> = { bad: 0, warn: 1, unknown: 2, good: 3 };
 
+// ユーザー指摘「ツールチップを全体的にカスタムのものにしてほしい」対応。ネイティブ
+// title（表示が遅い・改行やスタイルを制御できない）ではなく、IssueStatus.tsxの
+// AxisTooltipと同じ.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）に揃える。
 function StatusChip({ item }: { item: SituationItem }) {
   const status = item.status ?? "unknown";
-  const className = `${styles.situationChip} ${styles[`situationChip-${status}`]}`;
-  const title = item.detail ?? item.text;
+  const className = `${styles.situationChip} ${styles[`situationChip-${status}`]} ${styles.axisTooltip}`;
+  const tooltip = item.detail ?? item.text;
   const body = (
     <>
       <span aria-hidden>{STATUS_ICON[status]}</span>
@@ -45,13 +48,13 @@ function StatusChip({ item }: { item: SituationItem }) {
   );
   if (!item.onSelect) {
     return (
-      <span className={className} title={title}>
+      <span className={className} data-tooltip={tooltip} tabIndex={0}>
         {body}
       </span>
     );
   }
   return (
-    <button type="button" className={className} title={title} onClick={item.onSelect}>
+    <button type="button" className={className} data-tooltip={tooltip} onClick={item.onSelect}>
       {body}
     </button>
   );

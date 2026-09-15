@@ -303,10 +303,10 @@ export function JournalEntryCard({
           </button>
           {entry.confirmed && !entry.sourceConsultRunId && onStartAnalysis && (
             <button
-              className={styles.btnOutline}
+              className={`${styles.btnOutline} ${styles.axisTooltip}`}
               disabled={editSubmitting || analysisStarting}
               onClick={() => void handleStartAnalysis()}
-              title="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
+              data-tooltip="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
             >
               {analysisStarting ? "起動中…" : "分析する"}
             </button>
@@ -415,7 +415,7 @@ export function JournalEntryCard({
         <StrategyTrail nodes={buildJournalStrategyTrail(entry, issues, objectives)} currentKind="journal" />
       )}
       <div className={styles.tagRow}>
-        <span className={styles.subtitle} title="出来事の発生日">
+        <span className={`${styles.subtitle} ${styles.axisTooltip}`} data-tooltip="出来事の発生日" tabIndex={0}>
           🗓 {formatEntryDate(entry.createdAt)}
         </span>
         {entry.people.map((p) => (
@@ -430,8 +430,8 @@ export function JournalEntryCard({
         {(entry.teamNames ?? []).map((name, i) => (
           <button
             key={entry.teamIds[i] ?? name}
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-            title="関連チーム"
+            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn} ${styles.axisTooltip}`}
+            data-tooltip="関連チーム"
             onClick={() => router.push("/teams")}
           >
             👥 {name}
@@ -452,12 +452,13 @@ export function JournalEntryCard({
         {entry.sentiment !== "neutral" &&
           (entry.sentiment === "negative" && entry.noActionNeededAt ? (
             <span
-              className={`${styles.tag} ${styles.tagPerson}`}
-              title={
+              className={`${styles.tag} ${styles.tagPerson} ${styles.axisTooltip}`}
+              data-tooltip={
                 entry.noActionNeededNote
                   ? `確認済み（対応不要と判断）: ${entry.noActionNeededNote}`
                   : "確認済み（対応不要と判断）"
               }
+              tabIndex={0}
             >
               ✓ ネガティブ（確認済み）
             </span>
@@ -471,8 +472,8 @@ export function JournalEntryCard({
             「今どこで管理されているか」をurgencyバッジとは別に見せる。 */}
         {entry.sourceConsultRunId && (
           <button
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-            title="このJournalから生まれた相談"
+            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn} ${styles.axisTooltip}`}
+            data-tooltip="このJournalから生まれた相談"
             onClick={() => router.push(`/chat?runId=${entry.sourceConsultRunId}`)}
           >
             💬 相談を開く
@@ -480,8 +481,8 @@ export function JournalEntryCard({
         )}
         {entry.sourceDumpId && (
           <button
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-            title="観測ログ取り込みから採用されたJournal"
+            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn} ${styles.axisTooltip}`}
+            data-tooltip="観測ログ取り込みから採用されたJournal"
             onClick={() => router.push(`/journal?dump=${encodeURIComponent(entry.sourceDumpId!)}`)}
           >
             📥 取り込み元
@@ -489,44 +490,45 @@ export function JournalEntryCard({
         )}
         {entry.resolvedIssueId ? (
           <button
-            className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn}`}
-            title={`提案「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
+            className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn} ${styles.axisTooltip}`}
+            data-tooltip={`提案「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
             onClick={() => suggestionPeek.open(entry.resolvedIssueId!)}
           >
             ✅ 提案で追跡中
           </button>
         ) : (
           entry.resolutionNote && (
-            <span className={`${styles.tag} ${styles.tagPos}`} title={entry.resolutionNote}>
+            <span className={`${styles.tag} ${styles.tagPos} ${styles.axisTooltip}`} data-tooltip={entry.resolutionNote} tabIndex={0}>
               ✅ 対応済み
             </span>
           )
         )}
         {!entry.confirmed && (
           <span
-            className={styles.subtitle}
-            title="AIの自動抽出のままです。正しければ「この内容で確定」、直すなら「編集」してください。投稿直後は分析しません。"
+            className={`${styles.subtitle} ${styles.axisTooltip}`}
+            data-tooltip="AIの自動抽出のままです。正しければ「この内容で確定」、直すなら「編集」してください。投稿直後は分析しません。"
+            tabIndex={0}
           >
             🤖 未確認
           </span>
         )}
         {!entry.confirmed && onConfirmAsIs && (
           <button
-            className={styles.primaryBtn}
+            className={`${styles.primaryBtn} ${styles.axisTooltip}`}
             style={{ width: "auto", padding: "2px 10px", fontSize: "0.75rem" }}
             onClick={onConfirmAsIs}
-            title="修正なしで内容を確定します。設定の条件に合う場合は自動分析が起動します。"
+            data-tooltip="修正なしで内容を確定します。設定の条件に合う場合は自動分析が起動します。"
           >
             この内容で確定
           </button>
         )}
         {entry.confirmed && !entry.sourceConsultRunId && onStartAnalysis && (
           <button
-            className={styles.btnOutline}
+            className={`${styles.btnOutline} ${styles.axisTooltip}`}
             style={{ padding: "2px 10px", fontSize: "0.75rem" }}
             disabled={analysisStarting}
             onClick={() => void handleStartAnalysis()}
-            title="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
+            data-tooltip="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
           >
             {analysisStarting ? "起動中…" : "分析する"}
           </button>
@@ -538,25 +540,25 @@ export function JournalEntryCard({
         {entry.sentiment === "negative" &&
           (entry.noActionNeededAt ? (
             <button
-              className={styles.btnOutline}
+              className={`${styles.btnOutline} ${styles.axisTooltip}`}
               style={{ padding: "2px 10px", fontSize: "0.75rem" }}
               onClick={onClearSentimentAck}
-              title="確認済み（対応不要）を取り消し、通常の強調表示に戻します"
+              data-tooltip="確認済み（対応不要）を取り消し、通常の強調表示に戻します"
             >
               確認を取り消す
             </button>
           ) : (
             <button
-              className={styles.btnOutline}
+              className={`${styles.btnOutline} ${styles.axisTooltip}`}
               style={{ padding: "2px 10px", fontSize: "0.75rem" }}
               onClick={onAcknowledgeSentiment}
-              title="確認したが対応は不要だった場合に押してください。ネガティブの強調を弱めます（出来事の記録自体は変わりません）"
+              data-tooltip="確認したが対応は不要だった場合に押してください。ネガティブの強調を弱めます（出来事の記録自体は変わりません）"
             >
               確認済み/対応不要とする
             </button>
           ))}
         {entry.archivedAt && (
-          <span className={`${styles.tag} ${styles.tagTopic}`} title="一覧・AIの判断材料からは除外されています">
+          <span className={`${styles.tag} ${styles.tagTopic} ${styles.axisTooltip}`} data-tooltip="一覧・AIの判断材料からは除外されています" tabIndex={0}>
             🗄 アーカイブ済み
           </span>
         )}
@@ -565,9 +567,9 @@ export function JournalEntryCard({
         </button>
         {(entry.archivedAt ? onUnarchive : onArchive) && (
           <button
-            className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+            className={`${styles.detailToggle} ${styles.detailToggleButton} ${styles.axisTooltip}`}
             onClick={entry.archivedAt ? onUnarchive : onArchive}
-            title={
+            data-tooltip={
               entry.archivedAt
                 ? "アーカイブを解除します"
                 : "重複記録・誤入力等のとき、一覧・AIの判断材料から除外します（記録自体は削除しません）"

@@ -89,10 +89,10 @@ export function SuggestedIssueNotesBlock({
           採用して追記する
         </button>
         <button
-          className={styles.btnOutline}
+          className={`${styles.btnOutline} ${styles.axisTooltip}`}
           disabled={submitting || !hasSelection}
           onClick={() => onMarkHandled?.(selectedIndices)}
-          title="すでに別口で対応済みなので、これ以上追いかけない"
+          data-tooltip="すでに別口で対応済みなので、これ以上追いかけない"
         >
           対応済みにする
         </button>

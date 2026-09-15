@@ -116,12 +116,13 @@ export function PersonEvaluationLogsSection({
                   {log.polarity === "concern" &&
                     (log.noActionNeededAt ? (
                       <span
-                        className={styles.tableMuted}
-                        title={
+                        className={`${styles.tableMuted} ${styles.axisTooltip}`}
+                        data-tooltip={
                           log.noActionNeededNote
                             ? `確認済み（対応不要と判断）: ${log.noActionNeededNote}`
                             : "確認済み（対応不要と判断）"
                         }
+                        tabIndex={0}
                       >
                         ✓ 乖離・懸念（確認済み）
                       </span>
@@ -152,10 +153,10 @@ export function PersonEvaluationLogsSection({
                     ) : (
                       <button
                         type="button"
-                        className={styles.btnOutline}
+                        className={`${styles.btnOutline} ${styles.axisTooltip}`}
                         disabled={evalBusyId === log.id}
                         onClick={() => handleEvalNoActionNeeded(log.id, true)}
-                        title="確認したが対応は不要だった場合に押してください（記録自体は残ります）"
+                        data-tooltip="確認したが対応は不要だった場合に押してください（記録自体は残ります）"
                       >
                         確認済み/対応不要とする
                       </button>
@@ -202,8 +203,10 @@ export function PersonEvaluationLogsSection({
   return (
     <>
       <h3
+        className={styles.axisTooltip}
         style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}
-        title="Journalから仮置き。A（成果）とB（Value）を分けて読む"
+        data-tooltip="Journalから仮置き。A（成果）とB（Value）を分けて読む"
+        tabIndex={0}
       >
         日常の評価ログ（目標貢献 / Value）
       </h3>

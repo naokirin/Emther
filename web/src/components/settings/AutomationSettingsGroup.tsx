@@ -13,8 +13,9 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>Journalの自動分析</h3>
       <label
+        className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
-        title="投稿直後は起動しません。「この内容で確定」後に条件一致で起動"
+        data-tooltip="投稿直後は起動しません。「この内容で確定」後に条件一致で起動"
       >
         <input
           type="checkbox"
@@ -87,8 +88,9 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>状況の蒸留（週次バッチ）</h3>
       <label
+        className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
-        title="候補テーマを出します。採用するまで前提には入りません"
+        data-tooltip="候補テーマを出します。採用するまで前提には入りません"
       >
         <input
           type="checkbox"
