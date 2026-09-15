@@ -68,7 +68,11 @@ export type BuildDailySituationParams = {
 };
 
 export function buildDailySituation(params: BuildDailySituationParams): DailySituation {
-  const { now, journalEntries, vitals, people, interpretations, nextActions, push } = params;
+  const { now, journalEntries, vitals, people: allPeople, interpretations, nextActions, push } = params;
+  // docs/memo.md「今日の状況に表示するメンバーを自分の管理するチームのメンバーだけに
+  // する」対応。ステータスチップ・比較欄で扱う「メンバー」は、自分が管理するチーム
+  // （Team.managedByEm、兼務含む）に所属する人物（PersonSummary.isDirectReport）に限る。
+  const people = allPeople.filter((p) => p.isDirectReport);
 
   // 1. 昨日から変わったこと: 直近24時間に記録されたJournal。
   const changes: SituationItem[] = journalEntries

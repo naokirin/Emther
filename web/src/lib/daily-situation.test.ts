@@ -121,6 +121,30 @@ describe("buildDailySituation", () => {
     expect(result.concerns.find((i) => i.id === "concern-team-t-bad")?.detail).toContain("Bad Team");
   });
 
+  it("自分の管理するチームのメンバー(isDirectReport)でない人物はメンバーの状態・比較に出さない", () => {
+    const people: PersonSummary[] = [
+      person({ id: "p-managed", name: "Aさん", isDirectReport: true, trend: { positive: 0, negative: 3, neutral: 0 } }),
+      person({ id: "p-other", name: "Bさん", isDirectReport: false, trend: { positive: 0, negative: 3, neutral: 0 } }),
+    ];
+    const interpretations: InterpretationEvent[] = [
+      { id: "i-managed", text: "Aさんについての解釈", people: ["Aさん"], occurredAt: NOW, tags: [] },
+      { id: "i-other", text: "Bさんについての解釈", people: ["Bさん"], occurredAt: NOW, tags: [] },
+    ];
+    const result = buildDailySituation({
+      now: NOW,
+      journalEntries: [],
+      vitals: EMPTY_VITALS,
+      people,
+      interpretations,
+      nextActions: [],
+      push: noop,
+    });
+    expect(result.concerns.map((i) => i.id)).toContain("concern-person-p-managed");
+    expect(result.concerns.map((i) => i.id)).not.toContain("concern-person-p-other");
+    expect(result.comparisons.map((i) => i.id)).toContain("comparison-interpretation-i-managed");
+    expect(result.comparisons.map((i) => i.id)).not.toContain("comparison-interpretation-i-other");
+  });
+
   it("緊急度high・ネガティブで未解決のJournalをconcernsに入れるが、statusは付けずチームチップに混ぜない", () => {
     const entries = [
       journal({ id: "urgent", createdAt: NOW - DAY_MS, urgency: "high", sentiment: "negative", summary: "緊急の話" }),

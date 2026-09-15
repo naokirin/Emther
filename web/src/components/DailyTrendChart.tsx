@@ -12,6 +12,7 @@ import {
   Tooltip,
   type ChartData,
   type ChartOptions,
+  type Plugin,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import styles from "@/app/page.module.css";
@@ -151,6 +152,26 @@ function checkinChartOptions(pointCount: number): ChartOptions<"line"> {
   };
 }
 
+// docs/memo.md「同じ日に複数の項目で同じ数値を選択すると点が重なって見えなくなる」対応。
+// 実データ・目盛りは変えず、描画済みの点（＝そこに繋がる線の端点も）をdatasetIndexに
+// 応じてピクセル単位でわずかに左右へずらすだけの見た目上の対応（ホバー時の数値・
+// interaction(index)の対象特定はscale上のindexで行われるため影響しない）。
+const POINT_JITTER_PX = 3;
+
+const jitterPointsPlugin: Plugin<"line"> = {
+  id: "jitterPoints",
+  afterDatasetsUpdate(chart) {
+    const count = chart.data.datasets.length;
+    chart.data.datasets.forEach((_dataset, datasetIndex) => {
+      const offset = (datasetIndex - (count - 1) / 2) * POINT_JITTER_PX;
+      if (offset === 0) return;
+      for (const point of chart.getDatasetMeta(datasetIndex).data) {
+        point.x += offset;
+      }
+    });
+  },
+};
+
 // EMの成長: チェックイン（気分・エネルギー・ストレス）の日次推移。記録が無い日は
 // null（折れ線を繋げず途切れさせる）にして、「この日は記録が少ない」ことも見えるようにする。
 export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
@@ -169,7 +190,7 @@ export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
   return (
     <div className={styles.trendChart}>
       <div className={styles.trendChartCanvasWrap}>
-        <Line data={data} options={checkinChartOptions(points.length)} />
+        <Line data={data} options={checkinChartOptions(points.length)} plugins={[jitterPointsPlugin]} />
       </div>
       {!hasAnyData && <p className={styles.tableEmpty}>この期間のチェックインはまだありません。</p>}
     </div>
