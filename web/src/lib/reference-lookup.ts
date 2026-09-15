@@ -51,6 +51,17 @@ import { getRulesAndConstraints } from "@/lib/settings-store";
 // cliOrderで最初に許可されているものを使う（詳細はfindReferenceUrls内のコメント参照）。
 // agy（Gemini CLI）はヘッドレス実行中のツール承認要求を構造的に自動拒否する仕様のため
 // WebSearch等のツールをそもそも実行できず、代替実装はしていない。
+//
+// ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
+// 日本語優先をプロンプトで強く指示していても、WebSearchが英語版Wikipedia（例:
+// en.wikipedia.org）のURLを返すことがある。Wikipediaはページ間の多言語対応関係を
+// MediaWikiの公開API（action=query&prop=langlinks、認証不要）で機械的に確認できるため、
+// 返ってきたURLがwikipedia.orgのページである場合に限り、日本語版が実在するかをこのAPIで
+// 確認し、あれば日本語版のURLに差し替える（preferJapaneseWikipedia）。これはWebSearchの
+// ような汎用ツール呼び出しではなく、「そのWikipediaページに対応する日本語版があるか」を
+// 聞くだけの単純なfetchであり、送信内容も既にWebSearch結果として得られたURL由来の
+// ページタイトルのみ（組織固有の情報を含まない）なので、本モジュールの孤立性方針とは
+// 矛盾しない。取得失敗時は元のURL（英語版等）をそのまま使う。
 
 export type ReferenceLookupTopic = {
   topic: string;
@@ -169,6 +180,69 @@ function extractLookupResults(resultText: string): IndexedLookupResult[] {
   } catch {
     return [];
   }
+}
+
+// ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
+// `https://en.wikipedia.org/wiki/Foo_bar` のようなURLから言語コードとページタイトルを
+// 取り出す。`ja.wikipedia.org`（既に日本語版）や、Wikipedia以外のURL、Special:等の
+// 記事ページでないURLはundefinedを返し、呼び出し元は元のURLをそのまま使う。
+const WIKIPEDIA_HOSTNAME_PATTERN = /^([a-z0-9-]+)\.wikipedia\.org$/i;
+const WIKIPEDIA_LANGLINKS_TIMEOUT_MS = 5_000;
+
+function parseWikipediaArticleUrl(url: string): { lang: string; title: string } | undefined {
+  try {
+    const parsed = new URL(url);
+    const hostMatch = parsed.hostname.toLowerCase().match(WIKIPEDIA_HOSTNAME_PATTERN);
+    if (!hostMatch) return undefined;
+    const lang = hostMatch[1];
+    const pathMatch = parsed.pathname.match(/^\/wiki\/([^/]+)$/);
+    if (!pathMatch) return undefined;
+    const title = decodeURIComponent(pathMatch[1].split("#")[0]);
+    if (!title || title.includes(":")) return undefined; // Special:/Category:等の非記事ページは対象外
+    return { lang, title };
+  } catch {
+    return undefined;
+  }
+}
+
+// MediaWiki公開API（認証不要）で、`lang`版の`title`記事に対応する日本語版があるかを調べる。
+// あれば`https://ja.wikipedia.org/wiki/…`のURLを返し、無い・取得失敗時はundefinedを返す
+// （呼び出し元は元のURLを保持すればよいので、例外は伝播させない）。
+async function findJapaneseWikipediaUrl(lang: string, title: string): Promise<string | undefined> {
+  if (lang === "ja") return undefined;
+  const endpoint = `https://${lang}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(
+    title,
+  )}&prop=langlinks&lllang=ja&format=json&formatversion=2`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WIKIPEDIA_LANGLINKS_TIMEOUT_MS);
+  try {
+    const res = await fetch(endpoint, { signal: controller.signal });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as {
+      query?: { pages?: Array<{ langlinks?: Array<{ lang?: string; title?: string }> }> };
+    };
+    const jaTitle = data.query?.pages?.[0]?.langlinks?.find((l) => l.lang === "ja")?.title;
+    if (!jaTitle) return undefined;
+    return `https://ja.wikipedia.org/wiki/${encodeURIComponent(jaTitle)}`;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// findReferenceUrlsが返す結果それぞれについて、urlがWikipediaの非日本語版記事なら日本語版に
+// 差し替える。Wikipedia以外のURL・既に日本語版のURL・urlが無い結果はAPIを呼ばずそのまま返す。
+async function preferJapaneseWikipedia(results: ReferenceLookupResult[]): Promise<ReferenceLookupResult[]> {
+  return Promise.all(
+    results.map(async (r) => {
+      if (!r.url) return r;
+      const article = parseWikipediaArticleUrl(r.url);
+      if (!article) return r;
+      const jaUrl = await findJapaneseWikipediaUrl(article.lang, article.title);
+      return jaUrl ? { ...r, url: jaUrl } : r;
+    }),
+  );
 }
 
 // claude/cursor-agentどちらも`--output-format json`で単一JSON（{ result: "…" }）を返す
@@ -346,13 +420,15 @@ export async function findReferenceUrls(topics: ReferenceLookupTopic[]): Promise
     const indexed = extractLookupResults(parsed.result);
     // indexはプロンプトで明示した1始まりの通し番号（valid配列の並び順と対応）。
     // 範囲外・重複はそのトピック行を「見つからなかった」扱いにする。
-    return indexed
+    const mapped = indexed
       .map((r) => {
         const topic = valid[r.index - 1]?.topic;
         if (!topic) return undefined;
         return { topic, ...(r.url ? { url: r.url } : {}) };
       })
       .filter((r): r is ReferenceLookupResult => !!r);
+    // ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
+    return await preferJapaneseWikipedia(mapped);
   } catch {
     return [];
   }

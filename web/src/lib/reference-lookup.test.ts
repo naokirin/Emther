@@ -43,6 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   teardownIsolatedStoreEnv(dir);
 });
 
@@ -336,6 +337,98 @@ describe("findReferenceUrls", () => {
     const results = await rt.findReferenceUrls([{ topic: "   ", isPrimarySource: false }]);
     expect(results).toEqual([]);
     expect(spawnCalls).toHaveLength(0);
+  });
+
+  // ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
+  describe("Wikipediaの日本語版チェック", () => {
+    it("英語版WikipediaのURLで日本語版が存在する場合、日本語版のURLに差し替える", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          query: { pages: [{ langlinks: [{ lang: "ja", title: "心理的安全性" }] }] },
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const rt = await loadModule();
+      const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
+      await vi.waitFor(() => {
+        if (spawnCalls.length < 1) throw new Error("not spawned yet");
+      });
+      emitResult(
+        spawnCalls[0].child,
+        '```url_lookup\n[{ "index": 1, "url": "https://en.wikipedia.org/wiki/Psychological_safety" }]\n```',
+      );
+      const results = await promise;
+      expect(results).toEqual([{ topic: "心理的安全性", url: "https://ja.wikipedia.org/wiki/%E5%BF%83%E7%90%86%E7%9A%84%E5%AE%89%E5%85%A8%E6%80%A7" }]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toContain("en.wikipedia.org/w/api.php");
+      expect(fetchMock.mock.calls[0][0]).toContain("Psychological_safety");
+    });
+
+    it("英語版WikipediaのURLで日本語版が存在しない場合、元のURLのまま使う", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ query: { pages: [{}] } }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const rt = await loadModule();
+      const promise = rt.findReferenceUrls([{ topic: "何か", isPrimarySource: false }]);
+      await vi.waitFor(() => {
+        if (spawnCalls.length < 1) throw new Error("not spawned yet");
+      });
+      emitResult(spawnCalls[0].child, '```url_lookup\n[{ "index": 1, "url": "https://en.wikipedia.org/wiki/Something" }]\n```');
+      const results = await promise;
+      expect(results).toEqual([{ topic: "何か", url: "https://en.wikipedia.org/wiki/Something" }]);
+    });
+
+    it("既に日本語版WikipediaのURLならAPIを呼ばずそのまま使う", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const rt = await loadModule();
+      const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
+      await vi.waitFor(() => {
+        if (spawnCalls.length < 1) throw new Error("not spawned yet");
+      });
+      emitResult(
+        spawnCalls[0].child,
+        '```url_lookup\n[{ "index": 1, "url": "https://ja.wikipedia.org/wiki/%E5%BF%83%E7%90%86%E7%9A%84%E5%AE%89%E5%85%A8%E6%80%A7" }]\n```',
+      );
+      const results = await promise;
+      expect(results).toEqual([
+        { topic: "心理的安全性", url: "https://ja.wikipedia.org/wiki/%E5%BF%83%E7%90%86%E7%9A%84%E5%AE%89%E5%85%A8%E6%80%A7" },
+      ]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("Wikipedia以外のURLならAPIを呼ばずそのまま使う", async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const rt = await loadModule();
+      const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
+      await vi.waitFor(() => {
+        if (spawnCalls.length < 1) throw new Error("not spawned yet");
+      });
+      emitResult(
+        spawnCalls[0].child,
+        '```url_lookup\n[{ "index": 1, "url": "https://www.kaonavi.jp/dictionary/psychological-safety/" }]\n```',
+      );
+      const results = await promise;
+      expect(results).toEqual([{ topic: "心理的安全性", url: "https://www.kaonavi.jp/dictionary/psychological-safety/" }]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("Wikipedia言語間リンクAPIの呼び出しに失敗しても例外を伝播させず元のURLを使う", async () => {
+      const fetchMock = vi.fn().mockRejectedValue(new Error("network error"));
+      vi.stubGlobal("fetch", fetchMock);
+      const rt = await loadModule();
+      const promise = rt.findReferenceUrls([{ topic: "何か", isPrimarySource: false }]);
+      await vi.waitFor(() => {
+        if (spawnCalls.length < 1) throw new Error("not spawned yet");
+      });
+      emitResult(spawnCalls[0].child, '```url_lookup\n[{ "index": 1, "url": "https://en.wikipedia.org/wiki/Something" }]\n```');
+      const results = await promise;
+      expect(results).toEqual([{ topic: "何か", url: "https://en.wikipedia.org/wiki/Something" }]);
+    });
   });
 
   it("複数トピックを1回のCLI呼び出しにまとめ、indexで正しい順に紐付ける", async () => {
