@@ -74,7 +74,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
       return {
         status: "warn",
         label: STATUS_LABEL.warn,
-        reason: `${reason}停滞中または、ブロッカーありの関連Issueがあるため「やや注意」に引き上げています。`,
+        reason: `${reason}停滞中または確認保留の関連提案があるため「やや注意」に引き上げています。`,
       };
     }
     return { status, label: STATUS_LABEL[status], reason };

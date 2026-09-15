@@ -14,7 +14,7 @@ const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
-  "auto-issue-update": "Issue更新分析",
+  "auto-issue-update": "提案更新分析",
   "auto-distill": "状況蒸留",
 };
 

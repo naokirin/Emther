@@ -73,9 +73,9 @@ export function VitalsSettingsGroup({ draft, onChange }: Props) {
         /></label>
       </div>
 
-      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>停滞Issue検知</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>停滞提案検知</h3>
       <div className={styles.field} style={{ maxWidth: 160 }}>
-        <label title="着手済みでこの日数以上動いていなければ停滞中として表示">
+        <label title="未確認・確認保留の提案がこの日数以上動いていなければ停滞中として表示">
           停滞とみなす日数
         <input
           type="number"

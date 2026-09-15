@@ -304,8 +304,8 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       severity: "warn",
       lane: "observation",
       icon: "🧊",
-      kindLabel: "介入の観測不足",
-      text: `「${issue.title}」が${days}日間動いていません。効果を観測しましたか？`,
+      kindLabel: "提案の停滞",
+      text: `「${issue.title}」が${days}日間動いていません。確認の優先度を見直しますか？`,
       onSelect: () => push(`/suggestions/${issue.id}`),
       // 停滞検知自体が「長期間動きが無いこと」なので、常に新着扱いにはしない。
       since: 0,

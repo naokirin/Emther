@@ -44,7 +44,7 @@ export type RulesAndConstraints = {
   autoJournalUrgencyFilter: AutoJournalUrgencyFilter;
   // Journal自動分析の感情フィルタ。既定は all（従来互換＝感情で絞らない）。
   autoJournalSentimentFilter: AutoJournalSentimentFilter;
-  // IssueのWhy/What/How・経過ログが実質更新されたとき、紐付きRunの継続分析 or 新規Lead起動。
+  // 提案のタイトル・メモが更新されたとき、紐付きRunの継続分析 or 新規Lead起動。
   // 既定OFF（コスト発生のopt-in）。
   autoIssueUpdateAnalysisEnabled: boolean;
   // バッチ駆動: 毎日この時刻（EMのブラウザではなくサーバーのローカル時刻）以降、最初のwatchdog
@@ -67,7 +67,7 @@ export type RulesAndConstraints = {
   // Opus既定の環境では起動直後に予算超過で失敗しやすい。agy/cursor側には相当オプションが
   // 無いため、この値はclaude試行にのみ効く。
   perTurnBudgetUsd: number;
-  // Issue紐付きのLead起動時、関連specialistを先に並列起動し、その結果をLeadが統合する。
+  // 提案紐付きのLead起動時、関連specialistを先に並列起動し、その結果をLeadが統合する。
   // 既定ON（チーム分析の本筋）。OFFにすると従来どおりLead単独起動＋任意consult。
   teamParallelKickoffEnabled: boolean;
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
@@ -75,9 +75,8 @@ export type RulesAndConstraints = {
   // 超過分は非表示にはせず、「もっと見る」で追加表示できる。
   decisionQueueLimit: number;
   observationQueueLimit: number;
-  // docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。介入（Issue）が何日動きが無ければ
-  // 「観測不足」として朝キューに再浮上させるかの閾値。既定14日は過去のP1-10対応での
-  // チューニング値を維持し、EMが好みに応じて短くできるようにする。
+  // docs/2nd_pivot_version.md Phase 7。未確認・確認保留の提案が何日動きが無ければ
+  // 「停滞」としてバイタルやメンバー詳細で強調するかの閾値。既定14日。
   staleInterventionDays: number;
   // ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。AGENT_OPTIONSの
   // 値をキーにした、エージェント種別ごとのモデル系統（claude CLIの--modelが受け付ける

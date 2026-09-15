@@ -1779,7 +1779,7 @@ describe("reactToIssueUpdate", () => {
     await waitForSpawnCount(spawnBefore + 1);
     expect(rt.listRuns()).toHaveLength(1);
     const logText = rt.getRun(run.id)?.log.map((l) => l.text).join("\n") ?? "";
-    expect(logText).toContain("経過ログ");
+    expect(logText).toContain("メモが追加されました");
   });
 
   it("ONならデバウンス中はlistPendingAgentStartsに現れる", async () => {
@@ -1795,7 +1795,7 @@ describe("reactToIssueUpdate", () => {
     expect(pending).toHaveLength(1);
     expect(pending[0].issueId).toBe(issue.id);
     expect(pending[0].kind).toBe("issue-update");
-    expect(pending[0].label).toContain("Why/What/How");
+    expect(pending[0].label).toContain("タイトル／整理");
     expect(pending[0].firesAt).toBeGreaterThan(Date.now());
     expect(rt.listRuns()).toHaveLength(0);
 
@@ -1806,7 +1806,7 @@ describe("reactToIssueUpdate", () => {
     const again = rt.listPendingAgentStarts();
     expect(again).toHaveLength(1);
     expect(again[0].firesAt).toBeGreaterThanOrEqual(firstFiresAt);
-    expect(again[0].label).toContain("経過ログ");
+    expect(again[0].label).toContain("メモ");
   });
 });
 

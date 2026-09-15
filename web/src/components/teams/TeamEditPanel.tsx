@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { TagInput } from "@/components/TagInput";
-import { URGENCY_LABEL, charterFilledCount, type Issue, type JournalEntry, type KnowledgeEvent, type Team } from "@/lib/types";
+import { URGENCY_LABEL, suggestionOverviewFromLogs, type Issue, type JournalEntry, type KnowledgeEvent, type Team } from "@/lib/types";
 
 export function TeamEditPanel({
   selectedTeam,
@@ -210,19 +210,19 @@ export function TeamEditPanel({
         </div>
       </div>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Issue</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連提案</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        メンバー名がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
+        メンバー名がタイトル・メモに含まれる提案を表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
       </p>
       {relatedIssues.length === 0 ? (
-        <p className={styles.subtitle}>関連するIssueは見つかりませんでした。</p>
+        <p className={styles.subtitle}>関連する提案は見つかりませんでした。</p>
       ) : (
         <div className={styles.tableWrap} style={{ marginBottom: 12 }}>
           <table className={styles.table}>
             <thead>
               <tr>
                 <th>タイトル</th>
-                <th>Why/What/How</th>
+                <th>メモ</th>
               </tr>
             </thead>
             <tbody>
@@ -232,13 +232,9 @@ export function TeamEditPanel({
                     <Link href={`/suggestions/${issue.id}`} className={styles.tableRowLink}>
                       {issue.title}
                     </Link>
-                    {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
+                    {issue.archived && <div className={styles.tableMuted}>🗄 確認済み</div>}
                   </td>
-                  <td>
-                    <span className={charterFilledCount(issue.charter) === 3 ? styles.charterBadgeReady : styles.charterBadgeWarn}>
-                      {charterFilledCount(issue.charter)}/3
-                    </span>
-                  </td>
+                  <td className={styles.tableMuted}>{suggestionOverviewFromLogs(issue.logEntries)}</td>
                 </tr>
               ))}
             </tbody>
@@ -246,7 +242,7 @@ export function TeamEditPanel({
         </div>
       )}
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Journal（Issue化されていない特性・所感）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Journal（提案化されていない特性・所感）</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
         このチームに明示紐付けされたJournal、またはメンバーが登場するJournal（直近10件）です。
       </p>

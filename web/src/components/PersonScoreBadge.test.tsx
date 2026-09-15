@@ -52,7 +52,7 @@ describe("PersonScoreBadge", () => {
     render(<PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningIssue />);
     expect(screen.getByText("🟡")).toHaveAttribute(
       "data-tooltip",
-      "やや注意（Journal 3件）\nポジティブなJournalが優勢、または気になる兆候はありません（🙂3 🙁0） ／ 停滞・ブロッカーありの関連Issueがあります",
+      "やや注意（Journal 3件）\nポジティブなJournalが優勢、または気になる兆候はありません（🙂3 🙁0） ／ 停滞・確認保留ありの関連提案があります",
     );
   });
 });

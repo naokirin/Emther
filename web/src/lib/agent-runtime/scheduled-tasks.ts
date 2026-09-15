@@ -86,7 +86,7 @@ export function checkMorningSummary(): void {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildMorningSummaryContextBlock（context-blocks.ts）へ。 */
 export const MORNING_SUMMARY_TASK =
-  "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・Why/What/Howが未整理のIssueなど、今日EMがまず確認すべきことを簡潔に整理してください。";
+  "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・未確認・確認保留の提案など、今日EMがまず確認すべきことを簡潔に整理してください。";
 
 // docs/knowledge_distillation.md。週次の状況蒸留。朝サマリーと同様に watchdog へ相乗りし、
 // ISO 週キーを永続化して二重起動を防ぐ。
@@ -228,29 +228,26 @@ function scheduleDebouncedIssueUpdate(
 function buildIssueUpdateTask(
   trigger: "charter" | "log",
   detail: string,
-  issue: { title: string; charter: { why?: string; what?: string; how?: string } },
+  issue: { title: string; logEntries: { text: string }[] },
 ): string {
-  const charterLines = [
-    issue.charter.why ? `Why（最新）: ${issue.charter.why}` : "",
-    issue.charter.what ? `What（最新）: ${issue.charter.what}` : "",
-    issue.charter.how ? `How（最新）: ${issue.charter.how}` : "",
-  ].filter(Boolean);
+  const recentMemos = issue.logEntries.slice(-5).map((m) => `- ${m.text}`).join("\n");
+  const memoBlock = recentMemos ? `最近のメモ:\n${recentMemos}` : "最近のメモ: （なし）";
   if (trigger === "charter") {
     return [
-      "IssueのWhy/What/Howが更新されました。最新の整理内容を踏まえ、チームとして再分析してください。",
+      "提案のタイトル／整理内容が更新されました。最新の内容を踏まえ、チームとして再分析してください。",
       `タイトル: ${issue.title}`,
-      ...charterLines,
-      `今回更新された項目: ${detail}`,
-      "不足している観点・リスク・次の一手（必要なら子Issueへの分解）があれば提案してください。",
-      "判断や介入の実行が必要ならYieldしてください。Issue本体の直接変更は提案に留め、EMの採用を待ってください。",
+      memoBlock,
+      `今回の更新: ${detail}`,
+      "不足している観点・リスク・次に確認すべき点があれば提案してください。",
+      "判断や介入の実行が必要ならYieldしてください。提案本体の直接変更は提案に留め、EMの確認を待ってください。",
     ].join("\n");
   }
   return [
-    "Issueに経過ログが追加されました。進捗・ピボット要否・次の一手をチームとして判断してください。",
+    "提案にメモが追加されました。進捗・ピボット要否・次に確認すべき点をチームとして判断してください。",
     `タイトル: ${issue.title}`,
-    ...charterLines,
-    `追加された経過: ${detail}`,
-    "必要なら子Issueへの分解を提案し、判断が必要ならYieldしてください。",
+    memoBlock,
+    `追加されたメモ: ${detail}`,
+    "判断が必要ならYieldしてください。",
   ].join("\n");
 }
 
@@ -283,7 +280,7 @@ async function executeIssueUpdateAnalysis(
           id: `unmasked-decide:${linkedRun.id}:${Date.now()}`,
           kind: "decide-run",
           candidates: err.candidates,
-          label: "課題の更新分析の送信確認",
+          label: "提案の更新分析の送信確認",
           issueId,
           issueTitle,
           runId: linkedRun.id,
@@ -303,7 +300,7 @@ async function executeIssueUpdateAnalysis(
         id: `unmasked-start:${issueId}:${Date.now()}`,
         kind: "start-run",
         candidates: err.candidates,
-        label: "課題の更新分析の送信確認",
+        label: "提案の更新分析の送信確認",
         issueId,
         issueTitle,
         agentName: "Lead Agent",
@@ -315,8 +312,8 @@ async function executeIssueUpdateAnalysis(
   }
 }
 
-// Issueの重要更新（Why/What/How・経過ログ）をきっかけにAgentチームを起こす。
-// 既定OFF。呼び出し側（issue-store）は失敗しても本体の保存を失敗させない。
+// 提案の重要更新（タイトル・メモ）をきっかけにAgentチームを起こす。
+// 既定OFF。呼び出し側は失敗しても本体の保存を失敗させない。
 export function reactToIssueUpdate(
   issueId: string,
   trigger: "charter" | "log",
@@ -326,7 +323,7 @@ export function reactToIssueUpdate(
   const issue = getIssue(issueId);
   if (!issue || issue.archived || issue.status === "done") return;
 
-  const label = trigger === "charter" ? "課題の更新分析（Why/What/How）" : "課題の更新分析（経過ログ）";
+  const label = trigger === "charter" ? "提案の更新分析（タイトル／整理）" : "提案の更新分析（メモ）";
   scheduleDebouncedIssueUpdate(
     issueId,
     {
@@ -336,7 +333,7 @@ export function reactToIssueUpdate(
     },
     () => {
       void executeIssueUpdateAnalysis(issueId, trigger, detail).catch(() => {
-        // 自動分析の起動失敗でIssue更新自体は失敗させない。
+        // 自動分析の起動失敗で提案更新自体は失敗させない。
       });
     },
   );

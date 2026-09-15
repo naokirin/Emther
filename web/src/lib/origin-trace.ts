@@ -37,7 +37,7 @@ export function truncateExcerpt(text: string, maxLength = 160): string {
 const AUTO_ORIGIN_LABEL: Record<string, string> = {
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
-  "auto-issue-update": "Issue更新分析",
+  "auto-issue-update": "提案更新分析",
   "auto-distill": "状況蒸留",
 };
 

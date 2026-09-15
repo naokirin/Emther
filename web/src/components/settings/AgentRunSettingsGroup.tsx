@@ -34,7 +34,7 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
         /></label>
       </div>
 
-      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>Issue分析時のチーム先行並列</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>提案分析時のチーム先行並列</h3>
       <label
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
         title="関連specialistを先に並列起動しLeadが統合。コスト増のためOFF可"
@@ -44,7 +44,7 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
           checked={draft.teamParallelKickoffEnabled}
           onChange={(e) => onChange({ teamParallelKickoffEnabled: e.target.checked })}
         />
-        関連specialistを先行並列起動し、Leadが最終判断する（既定ON）
+        提案に紐づくLead起動時、関連specialistを先行並列起動しLeadが最終判断する（既定ON）
       </label>
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>Agent Runの無応答検知</h3>

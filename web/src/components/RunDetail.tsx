@@ -164,7 +164,7 @@ export function runKindLabel(run: AgentRun): string {
   }
   if (run.origin === "auto-anomaly") return "Journal自動分析";
   if (run.origin === "auto-summary") return "朝のサマリー";
-  if (run.origin === "auto-issue-update") return "Issue更新分析";
+  if (run.origin === "auto-issue-update") return "提案更新分析";
   if (run.origin === "auto-distill") return "状況蒸留";
   if (run.status === "yield") return "Yield";
   return "手動";

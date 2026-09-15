@@ -101,7 +101,7 @@ function IssueConcernTag({
           className={styles.tableMuted}
           title={issue.concernAcknowledgedNote ? `確認済み（対応不要と判断）: ${issue.concernAcknowledgedNote}` : "確認済み（対応不要と判断）"}
         >
-          ✓ 停滞・ブロッカー（確認済み）
+          ✓ 停滞・確認保留（確認済み）
         </span>
         <button className={styles.detailToggle} disabled={busy} onClick={() => toggle(false)}>
           確認を取り消す
@@ -112,12 +112,12 @@ function IssueConcernTag({
 
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
-      <span style={{ color: "var(--warning, #b45309)" }}>⚠️ 停滞・ブロッカーあり</span>
+      <span style={{ color: "var(--warning, #b45309)" }}>⚠️ 停滞・確認保留あり</span>
       <button
         className={styles.detailToggle}
         disabled={busy}
         onClick={() => toggle(true)}
-        title="確認したが対応は不要だった場合に押してください（Issue自体の状態は変わりません）"
+        title="確認したが対応は不要だった場合に押してください（提案自体の状態は変わりません）"
       >
         確認した（対応不要）
       </button>
@@ -211,15 +211,15 @@ export function PersonRecordsSection({
         </Link>
       </p>
 
-      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連Issue（EM介入。貢献評価の主経路ではない）</h3>
+      <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>関連提案（EMの確認対象。貢献評価の主経路ではない）</h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        Issue は EM の介入単位です。メンバー貢献の主材料にはしません（上の評価ログを正とします）。
+        提案は AI の判断材料です。メンバー貢献の主材料にはしません（上の評価ログを正とします）。
       </p>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        名前がタイトル・Why/What/Howに含まれるIssueを表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
+        名前がタイトル・メモに含まれる提案を表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
       </p>
       {person.relatedIssues.length === 0 ? (
-        <p className={styles.subtitle}>関連するIssueは見つかりませんでした。</p>
+        <p className={styles.subtitle}>関連する提案は見つかりませんでした。</p>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>

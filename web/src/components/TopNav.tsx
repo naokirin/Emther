@@ -49,7 +49,7 @@ const STORY_GROUPS: StoryGroup[] = [
     // 既定の遷移先（タブ本体クリック時）は従来通りの/people（日々の確認頻度が高い方）。
     key: "members",
     label: "チーム・メンバー",
-    hint: "メンバーごとの気にかけるべき度合い・Journal・関連Issueの確認、チーム（体制）の追加・編集",
+    hint: "メンバーごとの気にかけるべき度合い・Journal・関連提案の確認、チーム（体制）の追加・編集",
     items: [
       { href: "/people", label: "メンバー" },
       { href: "/teams", label: "チーム" },

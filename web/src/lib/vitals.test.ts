@@ -156,7 +156,7 @@ describe("computeOrgVitals", () => {
 
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("warn");
-    expect(result.teams[0].reason).toContain("ブロッカー");
+    expect(result.teams[0].reason).toContain("確認保留");
   });
 
   it("チームに紐づくブロッカーIssueがあっても、既にbad判定なら据え置く", async () => {

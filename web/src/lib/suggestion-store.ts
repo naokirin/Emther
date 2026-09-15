@@ -261,7 +261,7 @@ export async function createSuggestion(
 export async function setSuggestionTitle(
   id: string,
   title: string,
-  opts: MaskOptions = {},
+  opts: MaskOptions & SuggestionUpdateReactionOptions = {},
 ): Promise<Suggestion | undefined> {
   const s = getSuggestion(id);
   if (!s) return undefined;
@@ -276,6 +276,7 @@ export async function setSuggestionTitle(
   s.updatedAt = Date.now();
   persist();
   recordChangeEvent("suggestion", s.id, `タイトルを変更しました:「${previous}」→「${masked}」`);
+  opts.onUpdated?.(s.id, "title", `タイトル: 「${unmaskNames(previous)}」→「${unmaskNames(masked)}」`);
   await scheduleEmbedding(s.id);
   return getSuggestion(s.id) ?? s;
 }

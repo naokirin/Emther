@@ -189,7 +189,7 @@ describe("getPersonProfile", () => {
     expect(hub.getPersonProfile("知らない人")).toBeUndefined();
   });
 
-  it("関連Issueをタイトル・charterの部分一致で抽出する", async () => {
+  it("関連提案をタイトル・メモの部分一致で抽出する", async () => {
     const peopleDirectory = await import("@/lib/people-directory");
     const issueStore = await import("@/lib/issue-store");
     const hub = await loadModule();

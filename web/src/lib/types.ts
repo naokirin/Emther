@@ -236,7 +236,7 @@ export const CLI_LABELS: Record<CliName, string> = {
   cursor: "Cursor CLI",
 };
 
-// デバウンス待ちの自動エージェント起動予定（Issue更新分析など）。
+// デバウンス待ちの自動エージェント起動予定（提案更新分析など）。
 // agent-runtimeが発行し、GET /api/agents経由でUIへ公開する。
 export type PendingAgentStartKind = "issue-update";
 export type PendingAgentStart = {
@@ -268,7 +268,7 @@ export type PendingUnmaskedSend = {
   requiredConsultAgents?: string[];
   runId?: string;
   message?: string;
-  /** Issue更新分析のdecide-run確認時に、チーム先行並列を行うか */
+  /** 提案更新分析のdecide-run確認時に、チーム先行並列を行うか */
   teamParallelKickoff?: boolean;
 };
 
@@ -288,7 +288,7 @@ export type RulesAndConstraints = {
   autoJournalUrgencyFilter: "all" | "mid_or_higher" | "high_only";
   // Journal自動分析の感情フィルタ（settings-storeと同義）。
   autoJournalSentimentFilter: "all" | "negative_only";
-  // Issue Why/What/How・経過ログ更新時の自動分析（既定OFF）。
+  // 提案のタイトル・メモ更新時の自動分析（既定OFF）。設定キー名は互換のため維持。
   autoIssueUpdateAnalysisEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
@@ -303,16 +303,15 @@ export type RulesAndConstraints = {
   // claude CLIの1ターンあたりの予算上限（USD、--max-budget-usd）。既定0.5。
   // Opus既定環境では引き上げが必要なことがある。agy/cursorには効かない。
   perTurnBudgetUsd: number;
-  // Issue紐付きLead起動時に関連specialistを先行並列起動し、Leadが統合する（既定ON）。
+  // 提案紐付きLead起動時に関連specialistを先行並列起動し、Leadが統合する（既定ON）。
   teamParallelKickoffEnabled: boolean;
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
   // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
   // 超過分は非表示にはせず、「もっと見る」で追加表示できる。
   decisionQueueLimit: number;
   observationQueueLimit: number;
-  // docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。介入（Issue）が何日動きが無ければ
-  // 「観測不足」として朝キューに再浮上させるかの閾値。既定14日は過去のP1-10対応でのチューニング
-  // 値を維持し、EMが好みに応じて短くできるようにする。
+  // docs/2nd_pivot_version.md Phase 7。未確認・確認保留の提案が何日動きが無ければ
+  // 「停滞」として強調するかの閾値。既定14日。
   staleInterventionDays: number;
   // AGENT_OPTIONSの値をキーにした、エージェント種別ごとのモデル系統指定。キーが無い
   // （または値が空文字列の）エージェントはclaude CLIの既定モデルのまま動く。
@@ -593,11 +592,16 @@ export function charterFilledCount(charter: IssueCharter): number {
 }
 
 // docs/memo.md「Issue/Journalリンク等について、ツールチップ等で概要が表示されると嬉しい」対応。
-// Issueへのリンクにホバーした際、クリックする前にWhy優先（無ければWhat/How）の概要を
-// 短く見せる。charter未整理のIssueも多いため、その場合は整理を促す文言にする。
+// 互換レイヤー経由のIssueは charter が空のため、メモ要約は suggestionOverviewFromLogs を使う。
 export function issueOverviewText(charter: IssueCharter, maxLength = 140): string {
   const text = charter.why.trim() || charter.what.trim() || charter.how.trim();
-  if (!text) return "Why/What/Howが未整理です";
+  if (!text) return "メモはまだありません";
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+export function suggestionOverviewFromLogs(logEntries: { text: string }[], maxLength = 140): string {
+  const text = logEntries.at(-1)?.text.trim() ?? "";
+  if (!text) return "メモはまだありません";
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
@@ -606,24 +610,18 @@ export function isIssueActive(issue: Pick<Issue, "archived" | "status">): boolea
   return !issue.archived && issue.status !== "done";
 }
 
-// docs/em_ui_ux_issue.md 4節「進捗の視覚化」＋ docs/issue_tracker_contract.md §4。
-// Action Items の完了数に、子 Issue のうち !archived かつ status=done を合算する。
-// アーカイブした子は分母からも外す（追わない＝進捗対象外）。suggested* はここには来ない。
-// 0/0 のときは「項目なし」であって「100%完了」ではないため、呼び出し側で区別すること。
+// docs/2nd_pivot_version.md Phase 7。確認済み以外で、閾値日数より長く更新が無いものを停滞とする。
+export function isIssueStalled(issue: Issue, now: number, staleDays: number): boolean {
+  if (!isIssueActive(issue)) return false;
+  return now - issue.updatedAt > staleDays * 24 * 60 * 60 * 1000;
+}
+
+// 互換用。Action Items / 子Issue進捗。Suggestion 写像では常に 0/0 になりうる。
 export function issueProgress(issue: Issue, childIssues: Issue[] = []): { done: number; total: number } {
   const actionDone = issue.actionItems.filter((a) => a.done).length;
   const activeChildren = childIssues.filter((c) => !c.archived);
   const childDone = activeChildren.filter((c) => c.status === "done").length;
   return { done: actionDone + childDone, total: issue.actionItems.length + activeChildren.length };
-}
-
-// docs/em_ui_ux_issue.md 4節「AIによる進捗アシスト」対応。旧page.tsxのstaleInterventions
-// ロジック（14日間動きが無い介入の検知）を共有ヘルパーへ切り出し、一覧・ボード双方の
-// 表示から再利用できるようにする。着手前（charter未整理かつAction Item無し）は対象外。
-export function isIssueStalled(issue: Issue, now: number, staleDays: number): boolean {
-  if (!isIssueActive(issue) || issue.parentId) return false;
-  if (charterFilledCount(issue.charter) === 0 && issue.actionItems.length === 0) return false;
-  return now - issue.updatedAt > staleDays * 24 * 60 * 60 * 1000;
 }
 
 // docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。§2.3のDecide/Inform/Commitの区別を
@@ -767,7 +765,7 @@ export function personVitalReason(trend: PersonTrend, hasConcerningIssue = false
     reasons.push(`ポジティブなJournalが優勢、または気になる兆候はありません（🙂${trend.positive} 🙁${trend.negative}）`);
   }
   if (hasConcerningIssue) {
-    reasons.push("停滞・ブロッカーありの関連Issueがあります");
+    reasons.push("停滞・確認保留ありの関連提案があります");
   }
   return reasons.join(" ／ ");
 }

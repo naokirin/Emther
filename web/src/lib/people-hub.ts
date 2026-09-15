@@ -10,7 +10,7 @@ import {
 import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-store";
 import { listIssues, toIssueView, type Issue } from "@/lib/issue-store";
 import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@/lib/settings-store";
-import { isIssueStalled, issueOverviewText } from "@/lib/types";
+import { isIssueStalled, suggestionOverviewFromLogs } from "@/lib/types";
 import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "@/lib/person-concern-ack-store";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
@@ -188,7 +188,7 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
       id: i.id,
       title: i.title,
       archived: i.archived,
-      overview: issueOverviewText(i.charter),
+      overview: suggestionOverviewFromLogs(i.logEntries),
       concerning: isConcerningIssue(i, now, staleInterventionDays),
       concernAcknowledgedAt: ack?.createdAt,
       concernAcknowledgedNote: ack?.note,

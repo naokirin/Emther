@@ -168,7 +168,7 @@ export type AgentRun = {
 export function originLabel(origin: AgentRun["origin"]): string {
   if (origin === "auto-anomaly") return "Journal自動分析";
   if (origin === "auto-summary") return "朝のサマリー";
-  if (origin === "auto-issue-update") return "Issue更新分析";
+  if (origin === "auto-issue-update") return "提案更新分析";
   if (origin === "auto-distill") return "状況蒸留";
   return "手動";
 }

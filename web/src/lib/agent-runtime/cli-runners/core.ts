@@ -283,7 +283,7 @@ function buildSpecialistKickoffQuestion(task: string): string {
   ].join("\n");
 }
 
-// Issue紐付きLead起動時のチーム先行並列: 関連specialistを先に並行実行し、
+// 提案紐付きLead起動時のチーム先行並列: 関連specialistを先に並行実行し、
 // その回答をLeadが統合する。統合ターンでは再consultを禁止する（allowConsult=false）。
 export async function runTeamParallelKickoff(
   leadRun: AgentRun,

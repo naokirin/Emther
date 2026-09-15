@@ -183,23 +183,17 @@ describe("isIssueStalled", () => {
   const staleDays = 14;
 
   it("archived済みは対象外", () => {
-    const issue = baseIssue({ archived: true, actionItems: [{ id: "1", text: "a", done: false }], updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
+    const issue = baseIssue({ archived: true, updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
     expect(isIssueStalled(issue, now, staleDays)).toBe(false);
   });
 
-  it("子Issue（parentIdあり）は対象外", () => {
-    const issue = baseIssue({ parentId: "p1", actionItems: [{ id: "1", text: "a", done: false }], updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
+  it("doneは対象外", () => {
+    const issue = baseIssue({ status: "done", updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
     expect(isIssueStalled(issue, now, staleDays)).toBe(false);
   });
 
-  it("着手前（charter未整理かつAction Item無し）は対象外", () => {
-    const issue = baseIssue({ updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
-    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
-  });
-
-  it("着手済みで閾値を超えていればtrue", () => {
+  it("閾値を超えていればtrue", () => {
     const issue = baseIssue({
-      actionItems: [{ id: "1", text: "a", done: false }],
       updatedAt: now - 30 * 24 * 60 * 60 * 1000,
     });
     expect(isIssueStalled(issue, now, staleDays)).toBe(true);
@@ -207,7 +201,6 @@ describe("isIssueStalled", () => {
 
   it("閾値以内ならfalse", () => {
     const issue = baseIssue({
-      actionItems: [{ id: "1", text: "a", done: false }],
       updatedAt: now - 1 * 24 * 60 * 60 * 1000,
     });
     expect(isIssueStalled(issue, now, staleDays)).toBe(false);

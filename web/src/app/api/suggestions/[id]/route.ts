@@ -16,6 +16,7 @@ import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candid
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+import { reactToIssueUpdate } from "@/lib/agent-runtime";
 
 function resolveSuggestionForRead(id: string) {
   return resolveUniqueByPrefix(listSuggestions(), (s) => s.id, id);
@@ -81,7 +82,10 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
     let suggestion = getSuggestion(suggestionId)!;
 
     if (typeof body?.title === "string" && body.title.trim()) {
-      suggestion = (await setSuggestionTitle(suggestionId, body.title, opts)) ?? suggestion;
+      suggestion = (await setSuggestionTitle(suggestionId, body.title, {
+        ...opts,
+        onUpdated: (sid, _trigger, detail) => reactToIssueUpdate(sid, "charter", detail),
+      })) ?? suggestion;
     }
     if ("reviewStatus" in (body ?? {})) {
       suggestion = setReviewStatus(suggestionId, body.reviewStatus as SuggestionReviewStatus) ?? suggestion;

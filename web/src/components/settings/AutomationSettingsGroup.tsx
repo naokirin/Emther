@@ -55,14 +55,14 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
         </select></label>
       </div>
 
-      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>Issue更新時の自動分析</h3>
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>提案更新時の自動分析</h3>
       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}>
         <input
           type="checkbox"
           checked={draft.autoIssueUpdateAnalysisEnabled}
           onChange={(e) => onChange({ autoIssueUpdateAnalysisEnabled: e.target.checked })}
         />
-        Why/What/Howや経過ログを更新したら、Lead Agentが自動で再分析する（同一Issueは約45秒デバウンス）
+        タイトルやメモを更新したら、Lead Agentが自動で再分析する（同一提案は約45秒デバウンス）
       </label>
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>朝のサマリー（バッチ）</h3>
