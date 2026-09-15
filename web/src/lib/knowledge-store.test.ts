@@ -556,4 +556,66 @@ describe("searchSimilarEvents", () => {
     expect(results).toHaveLength(0);
     vi.useRealTimers();
   });
+
+  it("既定でアーカイブ済みイベントを除外する（実名リーク等でアーカイブした旧Journalが再分析に混入しないように）", async () => {
+    const { knowledgeStore } = await loadModules();
+    const archived = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "leaked-name-version",
+      tags: [],
+      occurredAt: 1,
+      embedding: [1, 0],
+    });
+    knowledgeStore.setEventArchived(archived.id);
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "clean-version",
+      tags: [],
+      occurredAt: 2,
+      embedding: [1, 0],
+    });
+
+    const results = knowledgeStore.searchSimilarEvents([1, 0]);
+    expect(results.map((r) => r.text)).toEqual(["clean-version"]);
+
+    const withArchived = knowledgeStore.searchSimilarEvents([1, 0], { excludeArchived: false });
+    expect(withArchived.map((r) => r.text).sort()).toEqual(["clean-version", "leaked-name-version"]);
+  });
+
+  it("既定でsupersedesされた旧版を除外する（修正前の実名入り本文が再分析に混入しないように）", async () => {
+    const { knowledgeStore } = await loadModules();
+    const original = knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "leaked-name-version",
+      tags: [],
+      occurredAt: 1,
+      embedding: [1, 0],
+    });
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "clean-version",
+      tags: [],
+      occurredAt: 2,
+      embedding: [1, 0],
+      supersedes: original.id,
+    });
+
+    const results = knowledgeStore.searchSimilarEvents([1, 0]);
+    expect(results.map((r) => r.text)).toEqual(["clean-version"]);
+
+    const withSuperseded = knowledgeStore.searchSimilarEvents([1, 0], { excludeSuperseded: false });
+    expect(withSuperseded.map((r) => r.text).sort()).toEqual(["clean-version", "leaked-name-version"]);
+  });
 });

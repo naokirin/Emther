@@ -579,12 +579,24 @@ type SearchCandidateRow = {
 };
 
 // 意味的検索のスコアリング用。text/summary 等の重い列は読まず、embedding だけを走査する。
-function listSearchCandidateRows(filter?: { kind?: KnowledgeKind }): SearchCandidateRow[] {
+// アーカイブ済み・旧版（supersedesで置き換え済み）は、実名リーク修正後のJournalリセット→
+// 再分析でも旧版の本文（修正前の実名等）が類似検索経由で混入するのを防ぐため、既定で除外する。
+function listSearchCandidateRows(filter?: {
+  kind?: KnowledgeKind;
+  excludeArchived?: boolean;
+  excludeSuperseded?: boolean;
+}): SearchCandidateRow[] {
   const conditions = ["embedding_json IS NOT NULL"];
   const params: string[] = [];
   if (filter?.kind) {
     conditions.push("kind = ?");
     params.push(filter.kind);
+  }
+  if (filter?.excludeArchived ?? true) {
+    conditions.push("archived_at IS NULL");
+  }
+  if (filter?.excludeSuperseded ?? true) {
+    conditions.push("id NOT IN (SELECT supersedes FROM knowledge_events WHERE supersedes IS NOT NULL)");
   }
   const where = `WHERE ${conditions.join(" AND ")}`;
   return getDb()
@@ -612,15 +624,29 @@ function getEventsByIds(ids: string[]): KnowledgeEvent[] {
 // （数百万件に達するには何年もかかる想定）ではこれで十分高速なため、専用のベクトル
 // インデックス（sqlite-vec等）は導入しない。TTL切れのfactは除外する（意味的に近くても、
 // 現在の判断への重みを失った一時的な情報を混ぜないため）。
+// アーカイブ済み・supersedesで置き換え済みの旧版も既定で除外する（ユーザー指摘対応:
+// 実名リークしたJournalを修正してリセット→再分析しても、旧版が類似検索経由でAgentの
+// プロンプトに混入し実名が再発するバグがあったため）。呼び出し側は明示的にfalseを
+// 渡さない限りこの既定を変えられない。
 // スコアリングは embedding 列だけを読み、上位候補の本文等は結果確定後にまとめて取得する。
 export function searchSimilarEvents(
   queryEmbedding: number[],
-  opts?: { kind?: KnowledgeKind; limit?: number; excludeExpired?: boolean },
+  opts?: {
+    kind?: KnowledgeKind;
+    limit?: number;
+    excludeExpired?: boolean;
+    excludeArchived?: boolean;
+    excludeSuperseded?: boolean;
+  },
 ): Array<KnowledgeEvent & { similarity: number }> {
   const limit = opts?.limit ?? 5;
   const excludeExpired = opts?.excludeExpired ?? true;
   const scored: Array<{ id: string; similarity: number }> = [];
-  for (const row of listSearchCandidateRows({ kind: opts?.kind })) {
+  for (const row of listSearchCandidateRows({
+    kind: opts?.kind,
+    excludeArchived: opts?.excludeArchived,
+    excludeSuperseded: opts?.excludeSuperseded,
+  })) {
     if (excludeExpired && isSearchCandidateExpired(row)) continue;
     const embedding = JSON.parse(row.embedding_json) as number[];
     scored.push({ id: row.id, similarity: cosineSimilarity(queryEmbedding, embedding) });
