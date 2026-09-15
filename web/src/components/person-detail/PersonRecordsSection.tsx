@@ -5,6 +5,7 @@ import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { PersonJournalComposer } from "@/components/person-detail/PersonJournalComposer";
 import { PersonProfileComposer } from "@/components/person-detail/PersonProfileComposer";
+import { SuggestionLink } from "@/components/SuggestionLink";
 import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedIssue } from "@/lib/types";
 
 // ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブの強調を減らせない」対応。
@@ -233,9 +234,9 @@ export function PersonRecordsSection({
               {person.relatedIssues.map((issue) => (
                 <tr key={issue.id}>
                   <td>
-                    <Link href={`/suggestions/${issue.id}`} className={styles.tableRowLink}>
+                    <SuggestionLink id={issue.id} className={styles.tableRowLink}>
                       {issue.title}
-                    </Link>
+                    </SuggestionLink>
                     {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
                     <IssueConcernTag personId={person.id} issue={issue} onChanged={() => void onRecordChanged()} />
                   </td>

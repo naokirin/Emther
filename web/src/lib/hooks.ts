@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runFallbackTitle, type AgentRun } from "@/components/RunDetail";
+import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import type { InterpretationEvent } from "@/lib/daily-situation";
 import { truncateForTitle, type PendingAgentStart, type PendingUnmaskedSend } from "@/lib/types";
 import type {
@@ -117,13 +118,14 @@ export function usePeekParam(key: string) {
 }
 
 // 既に提案化されていればその提案へ、まだならその場で提案として残してから遷移する。
+// docs/memo.md「各画面で提案のリンクを踏んだときのデフォルト挙動をサイドピークにする」対応。
 export function useGoToRunIssue(issues: Issue[]) {
-  const router = useRouter();
+  const peek = useSuggestionPeek();
   return useCallback(
     async (run: AgentRun) => {
       const existing = issues.find((i) => i.agentRunId === run.id);
       if (existing) {
-        router.push(`/suggestions/${existing.id}`);
+        peek.open(existing.id);
         return;
       }
       try {
@@ -133,12 +135,12 @@ export function useGoToRunIssue(issues: Issue[]) {
           body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
         });
         const data = await res.json();
-        if (res.ok) router.push(`/suggestions/${data.suggestion.id}`);
+        if (res.ok) peek.open(data.suggestion.id);
       } catch {
         // 失敗時は提案一覧から手動で紐づけられる
       }
     },
-    [issues, router],
+    [issues, peek],
   );
 }
 

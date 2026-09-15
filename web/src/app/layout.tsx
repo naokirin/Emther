@@ -16,6 +16,7 @@ import "./globals.css";
 import styles from "./page.module.css";
 import { LocalModelDownloadBanner } from "@/components/LocalModelDownloadBanner";
 import { PersonQuickAdd } from "@/components/PersonQuickAdd";
+import { SuggestionPeekRoot } from "@/components/SuggestionPeekRoot";
 import { AppShell, TopNav } from "@/components/TopNav";
 
 // デザイン見直し（frontend-design）対応。従来はnext/font/googleでGeistを読み込みながら
@@ -61,7 +62,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {/* tabIndex={-1}: スキップリンクの遷移先としてプログラム的にフォーカスできる
               ようにする（アンカージャンプだけでは次のTabがbody先頭に戻ってしまうため）。 */}
           <main id="main-content" tabIndex={-1}>
-            <AppShell>{children}</AppShell>
+            <SuggestionPeekRoot>
+              <AppShell>{children}</AppShell>
+            </SuggestionPeekRoot>
           </main>
         </div>
       </body>

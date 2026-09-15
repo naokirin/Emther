@@ -8,26 +8,50 @@ import type { IdMatch, IdMatchKind } from "@/lib/id-resolve";
 import styles from "@/app/page.module.css";
 
 const KIND_LABEL: Record<IdMatchKind, string> = {
-  issue: "Issue",
+  issue: "提案",
   journal: "Journal",
   run: "相談 / Agent Run",
 };
 
 type IdResolveContextValue = {
-  /** サイドピーク内なら Issue をピークで開き直す。未指定時は通常のページ遷移。 */
+  /** サイドピーク内なら提案をピークで開き直す。未指定時は通常のページ遷移。 */
   openIssueInPeek?: (id: string) => void;
+  /** 提案の全画面共通サイドピークの現在の対象id（useSuggestionPeek向け）。 */
+  suggestionPeekId?: string | null;
+  closeSuggestionPeek?: () => void;
 };
 
 const IdResolveContext = createContext<IdResolveContextValue>({});
 
 export function IdResolveProvider({
   openIssueInPeek,
+  suggestionPeekId,
+  closeSuggestionPeek,
   children,
 }: {
   openIssueInPeek?: (id: string) => void;
+  suggestionPeekId?: string | null;
+  closeSuggestionPeek?: () => void;
   children: ReactNode;
 }) {
-  return <IdResolveContext.Provider value={{ openIssueInPeek }}>{children}</IdResolveContext.Provider>;
+  return (
+    <IdResolveContext.Provider value={{ openIssueInPeek, suggestionPeekId, closeSuggestionPeek }}>
+      {children}
+    </IdResolveContext.Provider>
+  );
+}
+
+// docs/memo.md「各画面で提案のリンクを踏んだときのデフォルト挙動をサイドピークにする」対応。
+// SuggestionPeekRoot（app/layout.tsx）がIdResolveProviderをアプリ全体へ被せるため、
+// どの画面のコンポーネントからでもこのhookで同じ提案サイドピークを開ける
+// （そのページが独自のIdResolveProviderを持っていればそちらが優先される——timeline/page.tsx等）。
+export function useSuggestionPeek(): { id: string | null; open: (id: string) => void; close: () => void } {
+  const { openIssueInPeek, suggestionPeekId, closeSuggestionPeek } = useContext(IdResolveContext);
+  return {
+    id: suggestionPeekId ?? null,
+    open: openIssueInPeek ?? (() => {}),
+    close: closeSuggestionPeek ?? (() => {}),
+  };
 }
 
 function useIdResolveNav() {
@@ -81,7 +105,7 @@ export function IdFragmentLink({
         setCandidates(matches);
         return;
       }
-      setError(`「${fragment}」に一致する Issue / Journal / 相談はありませんでした。`);
+      setError(`「${fragment}」に一致する 提案 / Journal / 相談はありませんでした。`);
     } catch {
       setError("IDの解決に失敗しました。");
     } finally {

@@ -6,6 +6,7 @@ import styles from "@/app/page.module.css";
 import { STATUS_META, StatusBadge, runKindLabel, type AgentRun, type AgentStatus } from "@/components/RunDetail";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
+import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import { useGoToRunIssue, useIssues, useRuns, useRunsInbox, useSettingsRules } from "@/lib/hooks";
 import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@/lib/types";
 
@@ -48,6 +49,7 @@ function formatActivityTimestamp(ts: number): string {
 
 export default function AgentsPage() {
   const router = useRouter();
+  const suggestionPeek = useSuggestionPeek();
   const { runs, runsLoaded, refreshRuns } = useRuns();
   const { issues } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
@@ -154,7 +156,7 @@ export default function AgentsPage() {
         onSelect: () => {
           const linkedIssue = issues.find((i) => i.agentRunId === run.id);
           if (linkedIssue) {
-            router.push(`/suggestions/${linkedIssue.id}`);
+            suggestionPeek.open(linkedIssue.id);
           } else if (run.agentName === "Lead Agent") {
             router.push(`/chat?runId=${run.id}`);
           } else {

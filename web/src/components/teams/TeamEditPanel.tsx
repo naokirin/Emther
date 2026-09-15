@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { TagInput } from "@/components/TagInput";
+import { SuggestionLink } from "@/components/SuggestionLink";
 import { URGENCY_LABEL, suggestionOverviewFromLogs, type Issue, type JournalEntry, type KnowledgeEvent, type Team } from "@/lib/types";
 
 export function TeamEditPanel({
@@ -229,9 +230,9 @@ export function TeamEditPanel({
               {relatedIssues.map((issue) => (
                 <tr key={issue.id}>
                   <td>
-                    <Link href={`/suggestions/${issue.id}`} className={styles.tableRowLink}>
+                    <SuggestionLink id={issue.id} className={styles.tableRowLink}>
                       {issue.title}
-                    </Link>
+                    </SuggestionLink>
                     {issue.archived && <div className={styles.tableMuted}>🗄 確認済み</div>}
                   </td>
                   <td className={styles.tableMuted}>{suggestionOverviewFromLogs(issue.logEntries)}</td>

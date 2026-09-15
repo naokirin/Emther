@@ -3,14 +3,12 @@
 import { Suspense, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
-import { SlideOver } from "@/components/SlideOver";
 import { PageTitleRow } from "@/components/HelpLink";
 import { Select } from "@/components/Select";
 import { PaginationControls, usePagination } from "@/components/Pagination";
-import { SuggestionDetailContent } from "@/components/SuggestionDetailContent";
 import { StatusBadge } from "@/components/RunDetail";
-import { IdResolveProvider } from "@/components/IdFragmentLink";
-import { usePeekParam, useRuns, useSettingsRules, useSuggestions } from "@/lib/hooks";
+import { useSuggestionPeek } from "@/components/IdFragmentLink";
+import { useRuns, useSettingsRules, useSuggestions } from "@/lib/hooks";
 import {
   CONFIRM_PRIORITIES,
   CONFIRM_PRIORITY_META,
@@ -106,7 +104,7 @@ function UnlinkedRunsAsSuggestions({
 
 function SuggestionsPageInner() {
   const router = useRouter();
-  const peek = usePeekParam("suggestion");
+  const peek = useSuggestionPeek();
   const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
   const { runs, refreshRuns } = useRuns();
   const { rules } = useSettingsRules();
@@ -151,7 +149,7 @@ function SuggestionsPageInner() {
   }
 
   return (
-    <IdResolveProvider openIssueInPeek={(id) => peek.open(id)}>
+    <>
       <div className={styles.screen}>
         <div className={styles.panel}>
           <PageTitleRow title="提案" helpAnchor="issues" />
@@ -285,17 +283,11 @@ function SuggestionsPageInner() {
           onCreated={(id) => {
             void refreshSuggestions();
             void refreshRuns();
-            router.push(`/suggestions/${id}`);
+            peek.open(id);
           }}
         />
-
-        {peek.id && (
-          <SlideOver title="提案の詳細" detailHref={`/suggestions/${peek.id}`} onClose={peek.close}>
-            <SuggestionDetailContent id={peek.id} />
-          </SlideOver>
-        )}
       </div>
-    </IdResolveProvider>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JournalEntryCard } from "./JournalEntryCard";
+import { IdResolveProvider } from "@/components/IdFragmentLink";
 import type { JournalEntry } from "@/lib/types";
 
 const pushMock = vi.fn();
@@ -10,8 +11,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+const openSuggestionPeekMock = vi.fn();
+
 beforeEach(() => {
   pushMock.mockClear();
+  openSuggestionPeekMock.mockClear();
 });
 
 function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
@@ -112,17 +116,19 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(pushMock).toHaveBeenCalledWith(expect.stringContaining("/chat?prefill="));
   });
 
-  it("resolvedIssueIdがあれば「Issueで追跡中」バッジを表示しクリックでIssueへ遷移する", async () => {
+  it("resolvedIssueIdがあれば「提案で追跡中」バッジを表示しクリックで提案をサイドピークで開く", async () => {
     const user = userEvent.setup();
     render(
-      <JournalEntryCard
-        {...baseProps({ entry: baseEntry({ resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }) })}
-      />,
+      <IdResolveProvider openIssueInPeek={openSuggestionPeekMock}>
+        <JournalEntryCard
+          {...baseProps({ entry: baseEntry({ resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }) })}
+        />
+      </IdResolveProvider>,
     );
-    const badge = screen.getByRole("button", { name: "✅ Issueで追跡中" });
+    const badge = screen.getByRole("button", { name: "✅ 提案で追跡中" });
     expect(badge).toBeInTheDocument();
     await user.click(badge);
-    expect(pushMock).toHaveBeenCalledWith("/suggestions/issue-1");
+    expect(openSuggestionPeekMock).toHaveBeenCalledWith("issue-1");
   });
 
   it("resolvedIssueIdとissues/objectivesがあれば戦略のつながりパンくずを表示する", () => {
@@ -281,7 +287,7 @@ describe("JournalEntryCard（編集モード）", () => {
       />,
     );
     expect(screen.getByText(/このJournalから相談が生まれています/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Issueを開く" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提案を開く" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "相談を開く" }));
     expect(pushMock).toHaveBeenCalledWith("/chat?runId=run-1");
   });
@@ -303,20 +309,24 @@ describe("JournalEntryCard（編集モード）", () => {
     expect(onClearResolution).toHaveBeenCalledTimes(1);
   });
 
-  it("「Issueを起票してこの件を追跡する」でIssue作成後にそのIssueへ遷移する", async () => {
+  it("「提案を起票してこの件を追跡する」で提案作成後にその提案をサイドピークで開く", async () => {
     const onResolveWithNewIssue = vi.fn(async () => "new-issue-id");
     const user = userEvent.setup();
-    render(<JournalEntryCard {...baseProps({ editing: true, onResolveWithNewIssue })} />);
-    await user.click(screen.getByRole("button", { name: "Issueを起票してこの件を追跡する" }));
+    render(
+      <IdResolveProvider openIssueInPeek={openSuggestionPeekMock}>
+        <JournalEntryCard {...baseProps({ editing: true, onResolveWithNewIssue })} />
+      </IdResolveProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "提案を起票してこの件を追跡する" }));
     expect(onResolveWithNewIssue).toHaveBeenCalledTimes(1);
-    expect(pushMock).toHaveBeenCalledWith("/suggestions/new-issue-id");
+    expect(openSuggestionPeekMock).toHaveBeenCalledWith("new-issue-id");
   });
 
-  it("Issue作成に失敗した場合（undefined）は遷移しない", async () => {
+  it("提案作成に失敗した場合（undefined）は遷移しない", async () => {
     const onResolveWithNewIssue = vi.fn(async () => undefined);
     const user = userEvent.setup();
     render(<JournalEntryCard {...baseProps({ editing: true, onResolveWithNewIssue })} />);
-    await user.click(screen.getByRole("button", { name: "Issueを起票してこの件を追跡する" }));
+    await user.click(screen.getByRole("button", { name: "提案を起票してこの件を追跡する" }));
     expect(pushMock).not.toHaveBeenCalled();
   });
 

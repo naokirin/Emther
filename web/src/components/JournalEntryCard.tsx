@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { MarkdownView } from "@/components/MarkdownView";
 import { StrategyTrail } from "@/components/StrategyTrail";
+import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import { buildJournalStrategyTrail } from "@/lib/strategy-trail";
 import {
   isJournalEntryResolved,
@@ -118,6 +119,7 @@ export function JournalEntryCard({
   onDismissPendingError: () => void;
 }) {
   const router = useRouter();
+  const suggestionPeek = useSuggestionPeek();
   const isResolved = isJournalEntryResolved(entry);
   // docs/em_human_story_and_ux.md 改修依頼「本文編集は他の編集項目より頻度が低いので、
   // 編集を押したときだけ編集モードに入るようにする」対応。tags/people/urgency/日付は
@@ -130,7 +132,7 @@ export function JournalEntryCard({
     const issueId = await onResolveWithNewIssue();
     if (issueId) {
       setRawTextRevealed(false);
-      router.push(`/suggestions/${issueId}`);
+      suggestionPeek.open(issueId);
     }
   }
 
@@ -339,13 +341,13 @@ export function JournalEntryCard({
             <div>
               <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
                 {entry.resolvedIssueId
-                  ? `✅ Issue「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です。`
+                  ? `✅ 提案「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です。`
                   : `✅ メモを残して解決済みにしています: ${entry.resolutionNote}`}
               </p>
               <div style={{ display: "flex", gap: 6 }}>
                 {entry.resolvedIssueId && (
-                  <button className={styles.btnOutline} onClick={() => router.push(`/suggestions/${entry.resolvedIssueId}`)}>
-                    Issueを開く
+                  <button className={styles.btnOutline} onClick={() => suggestionPeek.open(entry.resolvedIssueId!)}>
+                    提案を開く
                   </button>
                 )}
                 <button className={styles.btnOutline} disabled={editSubmitting} onClick={onClearResolution}>
@@ -359,7 +361,7 @@ export function JournalEntryCard({
                 Urgencyは記録のまま変えず、別枠でこの件をどう扱っているかを残せます。
               </p>
               <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCreateIssue} style={{ marginBottom: 8 }}>
-                Issueを起票してこの件を追跡する
+                提案を起票してこの件を追跡する
               </button>
               <div style={{ display: "flex", gap: 6 }}>
                 <textarea
@@ -500,10 +502,10 @@ export function JournalEntryCard({
         {entry.resolvedIssueId ? (
           <button
             className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn}`}
-            title={`Issue「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
-            onClick={() => router.push(`/suggestions/${entry.resolvedIssueId}`)}
+            title={`提案「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
+            onClick={() => suggestionPeek.open(entry.resolvedIssueId!)}
           >
-            ✅ Issueで追跡中
+            ✅ 提案で追跡中
           </button>
         ) : (
           entry.resolutionNote && (

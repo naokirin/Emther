@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import styles from "@/app/page.module.css";
+import { SuggestionLink } from "@/components/SuggestionLink";
 import type { StrategyTrailNode } from "@/lib/strategy-trail";
 
 const KIND_ICON: Record<StrategyTrailNode["kind"], string> = {
@@ -53,6 +54,10 @@ export function StrategyTrail({
               <span className={styles.strategyTrailCurrent}>
                 {KIND_ICON[node.kind]} {node.label}
               </span>
+            ) : node.kind === "issue" ? (
+              <SuggestionLink id={node.id} className={styles.strategyTrailLink}>
+                {KIND_ICON[node.kind]} {node.label}
+              </SuggestionLink>
             ) : (
               <Link href={hrefFor(node)} className={styles.strategyTrailLink}>
                 {KIND_ICON[node.kind]} {node.label}

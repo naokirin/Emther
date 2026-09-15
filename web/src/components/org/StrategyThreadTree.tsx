@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { IssueStatusBadge } from "@/components/IssueStatus";
+import { SuggestionLink } from "@/components/SuggestionLink";
 import { truncateForTitle, type Issue, type JournalEntry, type ObjectiveWithProgress } from "@/lib/types";
 
 const JOURNAL_PER_ISSUE_LIMIT = 3;
@@ -92,7 +93,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
             >
               <h3 className={styles.threadObjectiveTitle}>🎯 {o.title}</h3>
               <span className={styles.threadObjectiveMeta}>
-                {o.keyResults.length} KR ・ {totalIssues} Issue {isOpen ? "▾" : "▸"}
+                {o.keyResults.length} KR ・ {totalIssues} 提案 {isOpen ? "▾" : "▸"}
               </span>
             </div>
             {isOpen && (
@@ -110,28 +111,28 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                       <div className={styles.threadKrHeader}>
                         <span className={styles.threadKrTitle}>📈 {kr.title}</span>
                         <span className={styles.tableMuted} style={{ flexShrink: 0 }}>
-                          Issue {progress?.total ?? 0}件
+                          提案 {progress?.total ?? 0}件
                         </span>
                       </div>
                       {krIssues.length === 0 ? (
-                        <p className={styles.threadEmptyHint}>このKey Resultに紐づくIssueはまだありません。</p>
+                        <p className={styles.threadEmptyHint}>このKey Resultに紐づく提案はまだありません。</p>
                       ) : (
                         krIssues.map((issue) => {
                           const journals = journalsForIssue(journalEntries, issue);
                           return (
                             <div key={issue.id} className={styles.threadIssue}>
                               <div className={styles.threadIssueHeader}>
-                                <Link
-                                  href={`/suggestions/${issue.id}`}
+                                <SuggestionLink
+                                  id={issue.id}
                                   className={`${styles.tableRowLink} ${styles.threadIssueTitle}`}
                                   style={{ display: "inline", width: "auto" }}
                                 >
                                   🗂 {issue.title}
-                                </Link>
+                                </SuggestionLink>
                                 <IssueStatusBadge status={issue.status} />
                               </div>
                               {journals.length === 0 ? (
-                                <p className={styles.threadEmptyHint}>このIssueに紐づくJournalはまだありません。</p>
+                                <p className={styles.threadEmptyHint}>この提案に紐づくJournalはまだありません。</p>
                               ) : (
                                 <>
                                   {journals.slice(0, JOURNAL_PER_ISSUE_LIMIT).map((j) => (
