@@ -146,6 +146,29 @@ describe("buildDailySituation", () => {
     expect(result.concerns[0].status).toBeUndefined();
   });
 
+  it("すでにLead Agent runが紐づく（sourceConsultRunIdあり）Journalはconcernsに入れない", () => {
+    const entries = [
+      journal({
+        id: "already-run",
+        createdAt: NOW - DAY_MS,
+        urgency: "high",
+        sentiment: "negative",
+        summary: "すでに相談中",
+        sourceConsultRunId: "run-1",
+      }),
+    ];
+    const result = buildDailySituation({
+      now: NOW,
+      journalEntries: entries,
+      vitals: EMPTY_VITALS,
+      people: [],
+      interpretations: [],
+      nextActions: [],
+      push: noop,
+    });
+    expect(result.concerns.map((i) => i.id)).toEqual([]);
+  });
+
   it("気になる人物に関する解釈だけをcomparisonsに含める", () => {
     const people: PersonSummary[] = [person({ id: "p-bad", name: "Aさん", trend: { positive: 0, negative: 3, neutral: 0 } })];
     const interpretations: InterpretationEvent[] = [

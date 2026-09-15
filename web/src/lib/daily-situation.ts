@@ -117,6 +117,10 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
   for (const e of journalEntries) {
     if (now - e.createdAt > CONCERN_JOURNAL_WINDOW_MS) continue;
     if (isJournalEntryResolved(e)) continue;
+    // docs/memo.md「紐づく提案がすでにあるJournalは確認案内をなくす/弱める」対応。
+    // すでにLead Agent runが生まれている（＝提案が生成済み・進行中）Journalは、
+    // 気になることとして重ねて出さない（提案側の確認導線で追える）。
+    if (e.sourceConsultRunId) continue;
     if (e.urgency === "high" && e.sentiment === "negative") {
       concerns.push({
         id: `concern-journal-${e.id}`,

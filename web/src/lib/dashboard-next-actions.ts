@@ -46,7 +46,7 @@ export type NextAction = {
 /** ダッシュボードの「次の1手」優先度。起票待ちドラフト → 実行異常/Yield → その他判断 → 観測 → 整備。 */
 export function heroRank(a: NextAction): number {
   if (a.id.startsWith("pending-unmasked-")) return 0;
-  if (a.kindLabel === "ドラフトIssue" || a.id.startsWith("auto-") || a.id === "auto-bundle") return 1;
+  if (a.kindLabel === "ドラフト提案" || a.id.startsWith("auto-") || a.id === "auto-bundle") return 1;
   if (a.kindLabel === "ドラフト分析中") return 2;
   if (a.id.startsWith("yield-") || a.id.startsWith("stale-") || a.id.startsWith("error-")) return 3;
   if (a.id.startsWith("journal-unconfirmed-")) return 4;
@@ -234,7 +234,11 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     // ウィンドウ内は「観測不足」レーンに載り続けていた。すでに解決済みなら観測を
     // 増やす必要はないため、ここで除外する。
     if (isJournalEntryResolved(entry)) continue;
-    if (entry.urgency === "mid" && entry.sentiment === "negative") {
+    // docs/memo.md「紐づく提案がすでにあるJournalは確認案内をなくす/弱める」対応。
+    // sourceConsultRunIdがあれば、すでにこのJournalからLead Agent runが生まれている
+    // （＝提案が生成済み・進行中）。相談を促すカードを重ねて出すと「さらに提案を作る」
+    // 案内に見えてしまうため、そのJournalはここでは出さない。
+    if (entry.urgency === "mid" && entry.sentiment === "negative" && !entry.sourceConsultRunId) {
       nextActions.push({
         id: `journal-${entry.id}`,
         severity: "warn",
@@ -411,7 +415,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       severity: "warn",
       lane: "decision",
       icon: "🤖",
-      kindLabel: "ドラフトIssue",
+      kindLabel: "ドラフト提案",
       text: `起票待ちのドラフトが${autoDraftIds.size}件たまっています。相談履歴からまとめて確認してください`,
       onSelect: () => push("/chat"),
       since: 0,
