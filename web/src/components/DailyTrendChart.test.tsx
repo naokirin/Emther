@@ -5,8 +5,8 @@
 // 検証する（積み上げ・欠損値・件数などのロジックはdaily-trends.test.tsで別途担保済み）。
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { ChartData } from "chart.js";
-import { CheckinTrendChart, JournalIssueTrendChart } from "./DailyTrendChart";
+import type { Chart, ChartData } from "chart.js";
+import { CheckinTrendChart, jitterPointsPlugin, JournalIssueTrendChart } from "./DailyTrendChart";
 import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "@/lib/daily-trends";
 import type { EmCheckin, Issue, JournalEntry } from "@/lib/types";
 
@@ -40,6 +40,49 @@ describe("CheckinTrendChart", () => {
   });
 });
 
+// ユーザー指摘「Chart.jsのアニメーションで位置が上書きされ、結局点が重なる」および
+// 「マウスオーバーのたびにどんどん離れていく」対応の回帰テスト。
+// - 1回目: afterDatasetsUpdate（chart.update()時に1回だけ発火）でずらすと、その後の
+//   毎フレームのアニメーションTickでx/yがジッター無しのターゲット値へ再設定され、
+//   静止後には結局元の位置へ戻ってしまっていた → beforeDatasetsDraw（draw()直前・
+//   毎フレーム発火）へ変更。
+// - 2回目: beforeDatasetsDrawでも`point.x += offset`という相対加算のままだと、ホバーに
+//   よるツールチップ再描画（controller.update()を経由せずdraw()だけ呼ばれる）のたびに
+//   既にジッター済みのx値へさらに加算してしまい、離れ続けていた → x軸スケールから
+//   indexごとの本来位置を毎回算出し、そこへoffsetを足した絶対値で上書きするよう変更。
+describe("jitterPointsPlugin", () => {
+  function fakeChart(datasetCount: number, pointCountPerDataset: number): Chart<"line"> {
+    const metas = Array.from({ length: datasetCount }, () => ({
+      data: Array.from({ length: pointCountPerDataset }, () => ({ x: 999 })),
+    }));
+    return {
+      data: { datasets: Array.from({ length: datasetCount }, () => ({})) },
+      scales: { x: { getPixelForValue: (index: number) => 100 + index * 10 } },
+      getDatasetMeta: (i: number) => metas[i],
+    } as unknown as Chart<"line">;
+  }
+
+  it("毎フレーム呼ばれるbeforeDatasetsDrawでずらす（chart.update()時だけのafterDatasetsUpdateではない）", () => {
+    expect(jitterPointsPlugin.beforeDatasetsDraw).toBeTypeOf("function");
+    expect(jitterPointsPlugin.afterDatasetsUpdate).toBeUndefined();
+  });
+
+  it("datasetIndexに応じて中心対称にx位置をずらす（indexごとのscale位置基準）", () => {
+    const chart = fakeChart(3, 2);
+    jitterPointsPlugin.beforeDatasetsDraw!(chart, {} as never, {});
+    expect([0, 1, 2].map((d) => chart.getDatasetMeta(d).data[0]!.x)).toEqual([97, 100, 103]);
+    expect([0, 1, 2].map((d) => chart.getDatasetMeta(d).data[1]!.x)).toEqual([107, 110, 113]);
+  });
+
+  it("ホバー再描画に相当する繰り返し呼び出しでもx位置が積み上がらない", () => {
+    const chart = fakeChart(3, 1);
+    jitterPointsPlugin.beforeDatasetsDraw!(chart, {} as never, {});
+    jitterPointsPlugin.beforeDatasetsDraw!(chart, {} as never, {});
+    jitterPointsPlugin.beforeDatasetsDraw!(chart, {} as never, {});
+    expect([0, 1, 2].map((d) => chart.getDatasetMeta(d).data[0]!.x)).toEqual([97, 100, 103]);
+  });
+});
+
 function journalEntry(ts: number, sentiment: JournalEntry["sentiment"]): JournalEntry {
   return {
     id: `j-${sentiment}-${Math.random()}`,
@@ -63,6 +106,7 @@ function issue(createdAt: number): Issue {
     actionItems: [],
     logEntries: [],
     status: "not_started",
+    reviewStatus: "unreviewed",
     priority: "normal",
     archived: false,
     tags: [],
