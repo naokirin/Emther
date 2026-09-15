@@ -99,6 +99,7 @@ function baseIssue(overrides: Partial<Issue> = {}): Issue {
     actionItems: [],
     logEntries: [],
     status: "not_started",
+    reviewStatus: "unreviewed",
     priority: "normal",
     archived: false,
     tags: [],

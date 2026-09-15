@@ -29,6 +29,14 @@ export { stripPersonHonorific };
 
 type PersistedState = {
   entries: [string, string][]; // [name, id][]
+  // 正式名（idToName、1id=1名）。ユーザー指摘「勝手にメンバーのプライマリの名前が変わる」
+  // 対応。以前はここを持たず、読み込み時に entries の並び順から正式名を推測していたが、
+  // entries は「新しい表記ほど末尾に足される」Map（nameToId）由来のため、renamePerson
+  // （明示改名）の後にaddAliasで別名を1件足しただけでも並び順が変わり、次回読み込み時に
+  // 正式名がEMの意図と無関係に入れ替わってしまっていた。正式名はEMの明示操作
+  // （renamePerson/registerNameでの新規登録）の結果のみを唯一の真実として別フィールドで
+  // 永続化し、読み込み時は常にこちらを優先する。
+  canonical?: [string, string][]; // [id, name][]
   counter: number;
   // EMが「人名として登録せず未マスクのまま進めてよい」と確認した語句。
   // 再確認を避けつつ、people（PERSON_n）にも載せないための許可リスト。
@@ -37,10 +45,27 @@ type PersistedState = {
 
 const PEOPLE_DIRECTORY_FILE = "people-directory.json";
 
+/**
+ * 正式名（idToName）をPersistedStateから復元する。canonicalフィールドを最優先し、
+ * それが無い旧形式のデータ（canonical未導入時に保存されたファイル）に対してのみ、
+ * 従来どおり entries の最初の出現を正式名とみなすフォールバックを行う。
+ */
+function deriveIdToName(state: PersistedState): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [id, name] of state.canonical ?? []) {
+    if (name && id) out.set(id, name);
+  }
+  for (const [name, id] of state.entries ?? []) {
+    if (!name || !id) continue;
+    if (!out.has(id)) out.set(id, name);
+  }
+  return out;
+}
+
 const initial = loadSecureJSON<PersistedState>(PEOPLE_DIRECTORY_FILE, { entries: [], counter: 0 });
 
 const nameToId = new Map<string, string>(initial.entries);
-const idToName = new Map<string, string>(initial.entries.map(([name, id]) => [id, name]));
+const idToName = deriveIdToName(initial);
 let counter = initial.counter;
 const acknowledgedUnmasked = new Set<string>((initial.acknowledgedUnmasked ?? []).map((s) => s.trim()).filter(Boolean));
 
@@ -53,7 +78,9 @@ function hydrateFromPersisted(state: PersistedState): void {
   for (const [name, id] of state.entries ?? []) {
     if (!name || !id) continue;
     nameToId.set(name, id);
-    if (!idToName.has(id)) idToName.set(id, name);
+  }
+  for (const [id, name] of deriveIdToName(state)) {
+    idToName.set(id, name);
   }
   counter = typeof state.counter === "number" && state.counter >= 0 ? state.counter : idToName.size;
   acknowledgedUnmasked.clear();
@@ -79,6 +106,7 @@ function persist(): void {
   }
   saveSecureJSON(PEOPLE_DIRECTORY_FILE, {
     entries: Array.from(nameToId.entries()),
+    canonical: Array.from(idToName.entries()),
     counter,
     acknowledgedUnmasked: Array.from(acknowledgedUnmasked),
   });

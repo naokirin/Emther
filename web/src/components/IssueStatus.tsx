@@ -5,9 +5,11 @@ import styles from "@/app/page.module.css";
 import {
   ISSUE_STATUS_META,
   ISSUE_PRIORITY_META,
+  SUGGESTION_REVIEW_STATUS_META,
   type IssuePriority,
   type IssueStatus,
   type IssueTriageScores,
+  type SuggestionReviewStatus,
 } from "@/lib/types";
 
 const STATUS_CLS: Record<IssueStatus, string> = {
@@ -22,6 +24,18 @@ export function IssueStatusBadge({ status }: { status: IssueStatus }) {
   const meta = ISSUE_STATUS_META[status];
   return (
     <span className={`${styles.issueStatusBadge} ${STATUS_CLS[status]}`}>
+      {meta.icon} {meta.label}
+    </span>
+  );
+}
+
+// docs/memo.md「つながりを見るで提案の横に謎の『進行中』が出る」対応。IssueStatusBadgeは
+// 旧Issueワークフロー互換のstatus（in_progress/blocked/done）向けで、未確認の提案も
+// 一律「進行中」に見えてしまう。EMが実際に確認した状態を見せたい場面ではこちらを使う。
+export function SuggestionReviewStatusBadge({ status }: { status: SuggestionReviewStatus }) {
+  const meta = SUGGESTION_REVIEW_STATUS_META[status];
+  return (
+    <span className={styles.issueStatusBadge} title={meta.hint}>
       {meta.icon} {meta.label}
     </span>
   );

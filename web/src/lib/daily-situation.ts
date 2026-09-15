@@ -3,22 +3,12 @@
 // （昨日から変わったこと／気になる兆候／良い状態／評価できないこと／過去との比較／
 // 判断する価値がありそうなこと）でEMに状況を提示するための純粋関数群。
 // この段階ではIssueの内部データモデルには触れず、既にクライアント側で取得済みの
-// Journal / Vitals / People / KnowledgeEvent(interpretation) / NextActionsだけを
-// 組み替えて使う（新しいAPI・永続化エンティティは追加しない）。
+// Journal / Vitals / People / NextActionsだけを組み替えて使う
+// （新しいAPI・永続化エンティティは追加しない）。
 import { periodWindow } from "@/lib/daily-trends";
 import type { NextAction } from "@/lib/dashboard-next-actions";
 import { PERSON_VITAL_LABEL, personVitalStatus, isJournalEntryResolved } from "@/lib/types";
 import type { JournalEntry, OrgVitals, PersonSummary, VitalStatus } from "@/lib/types";
-
-// 「つながりを見る」等の詳細表示と違い、ここでは要約だけを扱うため、
-// サーバー側KnowledgeEvent（knowledge-store.ts）のうち使うフィールドだけの軽量な型にする。
-export type InterpretationEvent = {
-  id: string;
-  text: string;
-  tags: string[];
-  people: string[];
-  occurredAt: number;
-};
 
 export type SituationItem = {
   id: string;
@@ -62,13 +52,12 @@ export type BuildDailySituationParams = {
   journalEntries: JournalEntry[];
   vitals: OrgVitals;
   people: PersonSummary[];
-  interpretations: InterpretationEvent[];
   nextActions: NextAction[];
   push: (path: string) => void;
 };
 
 export function buildDailySituation(params: BuildDailySituationParams): DailySituation {
-  const { now, journalEntries, vitals, people: allPeople, interpretations, nextActions, push } = params;
+  const { now, journalEntries, vitals, people: allPeople, nextActions, push } = params;
   // docs/memo.md「今日の状況に表示するメンバーを自分の管理するチームのメンバーだけに
   // する」対応。ステータスチップ・比較欄で扱う「メンバー」は、自分が管理するチーム
   // （Team.managedByEm、兼務含む）に所属する人物（PersonSummary.isDirectReport）に限る。
@@ -207,8 +196,11 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
     });
   }
 
-  // 5. 過去との比較: 今週と先週のJournal件数比較（量的比較） + 気になる人物についての
-  // 既存の長期解釈（KnowledgeEvent kind:interpretation、質的比較）。
+  // 5. 過去との比較: 今週と先週のJournal件数比較（量的比較）。
+  // ユーザー指摘「過去との比較に長期プロファイルが混ざってくる」対応。長期プロファイル
+  // （KnowledgeEvent kind:interpretation）はTTLの無い恒常的な人物解釈であり、「今週→先週で
+  // 何が変わったか」という過去比較の趣旨とは性質が異なる（変化ではなく前提事実）ため、
+  // ここでは混ぜない。長期プロファイルは人物詳細画面で確認する。
   const comparisons: SituationItem[] = [];
   const thisWeek = periodWindow("week", 0, now);
   const lastWeek = periodWindow("week", -1, now);
@@ -223,25 +215,6 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
       id: "comparison-journal-trend",
       text: `今週のJournalは 🙂${thisPositive}（先週🙂${lastPositive}） 🙁${thisNegative}（先週🙁${lastNegative}）`,
       since: 0,
-    });
-  }
-  const concernedPeopleNames = new Set(
-    people
-      .filter((p) => {
-        const s = personVitalStatus(p.trend, p.hasConcerningIssue);
-        return s === "bad" || s === "warn";
-      })
-      .flatMap((p) => [p.name, ...p.aliases]),
-  );
-  const relatedInterpretations = interpretations
-    .filter((i) => i.people.some((name) => concernedPeopleNames.has(name)))
-    .sort((a, b) => b.occurredAt - a.occurredAt)
-    .slice(0, CATEGORY_LIMIT - comparisons.length);
-  for (const i of relatedInterpretations) {
-    comparisons.push({
-      id: `comparison-interpretation-${i.id}`,
-      text: truncate(i.text, 70),
-      since: i.occurredAt,
     });
   }
 

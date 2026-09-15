@@ -1,6 +1,8 @@
 // docs/2nd_pivot_version.md Phase 7。issue-store 互換レイヤー用のレガシー型。
 // Suggestion 移行完了後に削除する。
 
+import type { SuggestionReviewStatus } from "@/lib/types";
+
 export type ActionItem = {
   id: string;
   text: string;
@@ -45,6 +47,11 @@ export type Issue = {
   logEntries: IssueLogEntry[];
   parentId?: string;
   status: IssueStatus;
+  // docs/memo.md「つながりを見るで提案の横に謎の『進行中』が出る」対応。statusは旧Issue
+  // ワークフロー互換のため in_progress/blocked/done の3値しか取らず、未確認(unreviewed)の
+  // 提案も一律「進行中」に見えてしまう。EMが実際に確認した状態（確認状態）を出したい画面
+  // 向けに、Suggestion.reviewStatusをそのまま持たせておく。
+  reviewStatus: SuggestionReviewStatus;
   priority: IssuePriority;
   focusOrder?: number;
   archived: boolean;

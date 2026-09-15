@@ -56,6 +56,7 @@ export function suggestionToLegacyIssue(s: Suggestion): Issue {
     actionItems: [],
     logEntries: s.memos.map((m) => ({ id: m.id, text: m.text, createdAt: m.createdAt })),
     status: done ? "done" : s.reviewStatus === "deferred" ? "blocked" : "in_progress",
+    reviewStatus: s.reviewStatus,
     priority: s.confirmPriority,
     focusOrder: s.focusOrder,
     archived,

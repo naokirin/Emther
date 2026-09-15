@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildDailySituation, type InterpretationEvent } from "@/lib/daily-situation";
+import { buildDailySituation } from "@/lib/daily-situation";
 import type { NextAction } from "@/lib/dashboard-next-actions";
 import type { JournalEntry, OrgVitals, PersonSummary } from "@/lib/types";
 
@@ -66,7 +66,6 @@ describe("buildDailySituation", () => {
       journalEntries: entries,
       vitals: EMPTY_VITALS,
       people: [],
-      interpretations: [],
       nextActions: [],
       push: noop,
     });
@@ -92,7 +91,6 @@ describe("buildDailySituation", () => {
       journalEntries: [],
       vitals,
       people,
-      interpretations: [],
       nextActions: [],
       push,
     });
@@ -121,28 +119,21 @@ describe("buildDailySituation", () => {
     expect(result.concerns.find((i) => i.id === "concern-team-t-bad")?.detail).toContain("Bad Team");
   });
 
-  it("自分の管理するチームのメンバー(isDirectReport)でない人物はメンバーの状態・比較に出さない", () => {
+  it("自分の管理するチームのメンバー(isDirectReport)でない人物はメンバーの状態に出さない", () => {
     const people: PersonSummary[] = [
       person({ id: "p-managed", name: "Aさん", isDirectReport: true, trend: { positive: 0, negative: 3, neutral: 0 } }),
       person({ id: "p-other", name: "Bさん", isDirectReport: false, trend: { positive: 0, negative: 3, neutral: 0 } }),
-    ];
-    const interpretations: InterpretationEvent[] = [
-      { id: "i-managed", text: "Aさんについての解釈", people: ["Aさん"], occurredAt: NOW, tags: [] },
-      { id: "i-other", text: "Bさんについての解釈", people: ["Bさん"], occurredAt: NOW, tags: [] },
     ];
     const result = buildDailySituation({
       now: NOW,
       journalEntries: [],
       vitals: EMPTY_VITALS,
       people,
-      interpretations,
       nextActions: [],
       push: noop,
     });
     expect(result.concerns.map((i) => i.id)).toContain("concern-person-p-managed");
     expect(result.concerns.map((i) => i.id)).not.toContain("concern-person-p-other");
-    expect(result.comparisons.map((i) => i.id)).toContain("comparison-interpretation-i-managed");
-    expect(result.comparisons.map((i) => i.id)).not.toContain("comparison-interpretation-i-other");
   });
 
   it("緊急度high・ネガティブで未解決のJournalをconcernsに入れるが、statusは付けずチームチップに混ぜない", () => {
@@ -162,7 +153,6 @@ describe("buildDailySituation", () => {
       journalEntries: entries,
       vitals: EMPTY_VITALS,
       people: [],
-      interpretations: [],
       nextActions: [],
       push: noop,
     });
@@ -186,31 +176,30 @@ describe("buildDailySituation", () => {
       journalEntries: entries,
       vitals: EMPTY_VITALS,
       people: [],
-      interpretations: [],
       nextActions: [],
       push: noop,
     });
     expect(result.concerns.map((i) => i.id)).toEqual([]);
   });
 
-  it("気になる人物に関する解釈だけをcomparisonsに含める", () => {
-    const people: PersonSummary[] = [person({ id: "p-bad", name: "Aさん", trend: { positive: 0, negative: 3, neutral: 0 } })];
-    const interpretations: InterpretationEvent[] = [
-      { id: "i-1", text: "Aさんはリーダー志向がある", tags: [], people: ["Aさん"], occurredAt: NOW - 30 * DAY_MS },
-      { id: "i-2", text: "Cさんは新任", tags: [], people: ["Cさん"], occurredAt: NOW - 30 * DAY_MS },
+  // ユーザー指摘「過去との比較に長期プロファイルが混ざってくる」対応。長期プロファイル
+  // （KnowledgeEvent kind:interpretation）はTTLの無い恒常的な人物解釈であり、「今週→先週で
+  // 何が変わったか」という比較の趣旨とは性質が異なるため、comparisonsには混ぜない。
+  it("comparisonsには今週/先週のJournal傾向比較のみを入れ、長期プロファイルは混ぜない", () => {
+    const entries = [
+      journal({ id: "j1", createdAt: NOW - 2 * DAY_MS, sentiment: "negative" }),
+      journal({ id: "j2", createdAt: NOW - 9 * DAY_MS, sentiment: "positive" }),
     ];
     const result = buildDailySituation({
       now: NOW,
-      journalEntries: [],
+      journalEntries: entries,
       vitals: EMPTY_VITALS,
-      people,
-      interpretations,
+      people: [],
       nextActions: [],
       push: noop,
     });
-    const ids = result.comparisons.map((i) => i.id);
-    expect(ids).toContain("comparison-interpretation-i-1");
-    expect(ids).not.toContain("comparison-interpretation-i-2");
+    expect(result.comparisons.map((i) => i.id)).toEqual(["comparison-journal-trend"]);
+    expect(result.comparisons.some((i) => i.id.startsWith("comparison-interpretation-"))).toBe(false);
   });
 
   it("worthDecidingはdecisionレーンのみを反映し、上限超過分をoverflowで返す", () => {
@@ -228,7 +217,6 @@ describe("buildDailySituation", () => {
       journalEntries: [],
       vitals: EMPTY_VITALS,
       people: [],
-      interpretations: [],
       nextActions: actions,
       push: noop,
     });
@@ -245,7 +233,6 @@ describe("buildDailySituation", () => {
       journalEntries: entries,
       vitals: EMPTY_VITALS,
       people: [],
-      interpretations: [],
       nextActions: [],
       push,
     });

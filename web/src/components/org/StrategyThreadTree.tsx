@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { IssueStatusBadge } from "@/components/IssueStatus";
+import { SuggestionReviewStatusBadge } from "@/components/IssueStatus";
 import { SuggestionLink } from "@/components/SuggestionLink";
 import { truncateForTitle, type Issue, type JournalEntry, type ObjectiveWithProgress } from "@/lib/types";
 
@@ -129,7 +129,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                                 >
                                   🗂 {issue.title}
                                 </SuggestionLink>
-                                <IssueStatusBadge status={issue.status} />
+                                <SuggestionReviewStatusBadge status={issue.reviewStatus} />
                               </div>
                               {journals.length === 0 ? (
                                 <p className={styles.threadEmptyHint}>この提案に紐づくJournalはまだありません。</p>

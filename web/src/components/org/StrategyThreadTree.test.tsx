@@ -13,6 +13,7 @@ function baseIssue(overrides: Partial<Issue> = {}): Issue {
     actionItems: [],
     logEntries: [],
     status: "in_progress",
+    reviewStatus: "unreviewed",
     priority: "normal",
     archived: false,
     tags: [],
@@ -124,5 +125,24 @@ describe("StrategyThreadTree", () => {
     );
 
     expect(screen.getByText(new RegExp(issue.title))).toBeInTheDocument();
+  });
+
+  it("提案の横には旧Issueワークフローの status ではなく確認状態(reviewStatus)を表示する", async () => {
+    const user = userEvent.setup();
+    const issue = baseIssue({ keyResultId: "kr-1", status: "in_progress", reviewStatus: "deferred" });
+
+    render(
+      <StrategyThreadTree
+        objectives={objectives}
+        objectivesLoaded={true}
+        issues={[issue]}
+        journalEntries={[]}
+        focusObjectiveId={null}
+      />,
+    );
+    await user.click(screen.getByText(/エンジニア満足度向上/));
+
+    expect(screen.getByText(/確認保留/)).toBeInTheDocument();
+    expect(screen.queryByText(/進行中/)).not.toBeInTheDocument();
   });
 });

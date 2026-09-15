@@ -279,7 +279,11 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
 
   // docs/em_human_story_and_ux.md P1-10対応。要注目人物（ネガティブ傾向が優勢）を
   // 朝キューにも薄く載せる（Peopleハブは「ある画面」のままだと朝の物語に編入されないため）。
+  // docs/memo.md「観測不足に自チーム外のメンバーが混ざる」対応。daily-situation.tsの
+  // 「今日の状況」と同じく、自分が管理するチーム（PersonSummary.isDirectReport）の
+  // メンバーだけを対象にする。
   const attentionPeople = people
+    .filter((p) => p.isDirectReport)
     .filter((p) => p.trend.negative >= 2 && p.trend.negative > p.trend.positive)
     .sort((a, b) => b.trend.negative - a.trend.negative)
     .slice(0, 3);

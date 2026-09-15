@@ -550,6 +550,11 @@ export type Issue = {
   logEntries: IssueLogEntry[];
   parentId?: string;
   status: IssueStatus;
+  // docs/memo.md「つながりを見るで提案の横に謎の『進行中』が出る」対応。statusは旧Issue
+  // ワークフロー互換のため in_progress/blocked/done の3値しか取らず、未確認(unreviewed)の
+  // 提案も一律「進行中」に見えてしまう。EMが実際に確認した状態を出したい画面向けに、
+  // Suggestion.reviewStatusをそのまま持たせておく。
+  reviewStatus: SuggestionReviewStatus;
   // 介入ポートフォリオの優先帯。focus=今週〜今月の主戦場、parked=朝キュー外。
   // 未設定の旧データは normal 扱い（issue-store の読み込み補完）。
   priority: IssuePriority;

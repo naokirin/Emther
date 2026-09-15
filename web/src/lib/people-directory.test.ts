@@ -270,6 +270,25 @@ describe("renamePerson", () => {
       error: "この名前は既に別の人物として登録されています。「重複を統合」を使ってください。",
     });
   });
+
+  // ユーザー指摘「勝手にメンバーのプライマリの名前が変わる」対応の回帰テスト。
+  // 以前は永続化ファイルの並び順（entriesの最初の出現）から正式名を推測していたため、
+  // 明示改名の後に別名を1件追加しただけで、プロセス再起動時に正式名が改名前へ戻って
+  // しまっていた。
+  it("改名後に別名を追加しても、再読み込み（プロセス再起動相当）で正式名が改名前へ戻らない", async () => {
+    const pd1 = await loadModule();
+    const id = pd1.registerName("田中太郎");
+    expect(pd1.renamePerson(id, "田中一郎")).toEqual({ ok: true });
+    expect(pd1.addAlias(id, "たなかさん")).toEqual({ ok: true });
+
+    vi.resetModules();
+    const pd2 = await loadModule();
+
+    expect(pd2.listPeople()).toEqual(
+      expect.arrayContaining([{ id, name: "田中一郎", aliases: expect.arrayContaining(["田中太郎", "たなかさん"]) }]),
+    );
+    expect(pd2.unmaskNames(id)).toBe("田中一郎");
+  });
 });
 
 // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。

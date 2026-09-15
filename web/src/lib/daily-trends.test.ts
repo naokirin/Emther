@@ -90,6 +90,7 @@ function issue(daysAgo: number): Issue {
     actionItems: [],
     logEntries: [],
     status: "not_started",
+    reviewStatus: "unreviewed",
     priority: "normal",
     archived: false,
     tags: [],
