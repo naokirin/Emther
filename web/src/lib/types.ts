@@ -376,6 +376,84 @@ export type OrgVitals = {
   oneOnOneCoverage: CoverageVital;
 };
 
+// docs/2nd_pivot_version.md Phase 7 / pivot_policy.md。Issue管理を廃し、AIの提案を
+ // EMが確認するための第一級エンティティ。アクション管理は対象外。
+export type SuggestionReviewStatus = "unreviewed" | "deferred" | "done";
+
+export const SUGGESTION_REVIEW_STATUSES: SuggestionReviewStatus[] = ["unreviewed", "deferred", "done"];
+
+export const SUGGESTION_REVIEW_STATUS_META: Record<
+  SuggestionReviewStatus,
+  { icon: string; label: string; hint: string }
+> = {
+  unreviewed: { icon: "🆕", label: "未確認", hint: "まだ内容を確認していない" },
+  deferred: { icon: "👀", label: "確認保留", hint: "いったん保留し、後で見直す" },
+  done: { icon: "✅", label: "確認済み", hint: "もう追わない（Emther上では閉じる）" },
+};
+
+/** 確認の優先度。値は旧 IssuePriority と同一（移行コスト最小）。 */
+export type ConfirmPriority = "focus" | "normal" | "parked";
+
+export const CONFIRM_PRIORITIES: ConfirmPriority[] = ["focus", "normal", "parked"];
+
+export const CONFIRM_PRIORITY_META: Record<ConfirmPriority, { icon: string; label: string; hint: string }> = {
+  focus: { icon: "🔥", label: "今すぐ確認", hint: "今日〜直近で内容を確認する" },
+  normal: { icon: "➖", label: "通常", hint: "通常の確認順" },
+  parked: { icon: "🅿️", label: "後で", hint: "確認を後回しにする" },
+};
+
+export type SuggestionMemo = {
+  id: string;
+  text: string;
+  createdAt: number;
+};
+
+export type Suggestion = {
+  id: string;
+  title: string;
+  reviewStatus: SuggestionReviewStatus;
+  confirmPriority: ConfirmPriority;
+  focusOrder?: number;
+  memos: SuggestionMemo[];
+  agentRunId?: string;
+  sourceRunId?: string;
+  sourceJournalId?: string;
+  teamId?: string;
+  themeId?: string;
+  keyResultId?: string;
+  embedding?: number[];
+  createdAt: number;
+  updatedAt: number;
+  reviewedAt?: number;
+};
+
+export function isSuggestionOpen(s: Pick<Suggestion, "reviewStatus">): boolean {
+  return s.reviewStatus !== "done";
+}
+
+export function isSuggestionStrategyUnlinked(s: Pick<Suggestion, "themeId" | "keyResultId">): boolean {
+  return !s.themeId && !s.keyResultId;
+}
+
+/** 未確認・確認保留のまま長く動いていない提案。 */
+export function isSuggestionStalled(s: Pick<Suggestion, "reviewStatus" | "updatedAt">, now: number, staleDays: number): boolean {
+  if (s.reviewStatus === "done") return false;
+  return now - s.updatedAt > staleDays * 24 * 60 * 60 * 1000;
+}
+
+export function compareSuggestionsByConfirmPriority(a: Suggestion, b: Suggestion): number {
+  const rank: Record<ConfirmPriority, number> = { focus: 0, normal: 1, parked: 2 };
+  const pa = a.confirmPriority ?? "normal";
+  const pb = b.confirmPriority ?? "normal";
+  if (rank[pa] !== rank[pb]) return rank[pa] - rank[pb];
+  if (pa === "focus" && pb === "focus") {
+    const oa = a.focusOrder ?? Number.MAX_SAFE_INTEGER;
+    const ob = b.focusOrder ?? Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+  }
+  return b.updatedAt - a.updatedAt;
+}
+
 export type ActionItem = {
   id: string;
   text: string;

@@ -167,6 +167,19 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
 
 **これでPhase 1〜6すべて完了。**
 
+### Phase 7 — Issue廃止 → Suggestion中心化（完了）
+
+**2026-09-15、ユーザー判断で方針2（pivot_policyの理想へさらに進める）を採用。** Issueを第一級エンティティから廃し、新規 `Suggestion`（未確認／確認保留／確認済み＝もう追わない＋確認優先度＋メモ＋壁打ち）を中心に据えた。
+
+実施内容（要約）:
+- `suggestion-store.ts` + `suggestions.json` を新設。初回起動時に `issues.json` から ID 維持で移行（charter→メモ、archived/done→確認済み）。
+- `/api/suggestions`・詳細・memo API。`/suggestions` UI。TopNav「課題」→「提案」。`/issues*` は redirect。
+- 相談「提案として残す」、Journal 追跡起票、UnlinkedRuns、hooks 遷移を Suggestion API へ。
+- timeline / id-resolve / strategy trail / dashboard / reports / help の語彙・href を追従。
+- agent-runtime: 文脈を title+メモに変更。charter/sub_issues 提案の生成を停止。
+- 旧 Issue 詳細 UI（`IssueDetailContent` / `issue-detail/*` / `issues/*`）と死んだ API（archive / log / impact）を削除。壁打ち共通フックは `useAgentDecision` へ移設。
+- `issue-store.ts` と薄い `/api/issues`（一覧・詳細 PATCH・link/suggest）は、ダッシュボード等の互換読取用として残置（実体は Suggestion 写像）。
+
 ---
 
 ## 明示しておく前提（実装中に覆してよい判断）
@@ -245,10 +258,8 @@ Issueを独立した管理エンティティとして廃止し、既存の`Knowl
   - `timeline.ts`の「新モデルへ付け替え」は前提無効で変更不要と確認。`report-store.ts`側は再調査の結果、実在する不具合を発見: `doneCount`（Issue解決数の指標）が、Phase 2.4でstatus編集UIが削除されたため書き込み経路が無くなり構造的に必ず0になっていたのに、`/reports`が「解決 N件」を表示し続けていた。
   - `report-store.ts`/`types.ts`/`daily-trends.ts`/`DailyTrendChart.tsx`/`reports/page.tsx`から`doneCount`/`doneTitles`/`issueDone`（死んだ指標）を削除。「観測された状態変化」の指標は既存の`ReportEventStats.byEntityType`（KnowledgeEventベース）で満たされていると確認し新規実装は不要だった。`docs/issue_tracker_contract.md`にも軽微な追記。
   - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1040件）を確認済み。`/reports`・`/timeline`の実描画、実際のレポート新規生成での確認も実施済み。
-- [x] Phase 6 — pivot_policy.mdとの残存不整合の解消（2026-09-15、Phase 1〜6すべて完了）
-  - ユーザー指摘「課題タブの管理列・管理情報残存／help・hint語彙の残存／レポートのIssue情報残存」に対応。「Issueは提案（Suggestion）、アクション管理はプロダクト対象外」という方向性を確認。
-  - `IssueFilterBar.tsx`のステータス/優先度フィルタ、`IssueListTable.tsx`の凍結採点スコア表示・期限（dueAt）表示、`IssueStatusSelector`/`IssuePrioritySelector`（死んだコード）を削除。`setIssueDueAt`・`dueAt`フィールドも撤去。
-  - `/help#issues`・`IssueTitleHeader.tsx`のtooltip・`docs/issue_tracker_contract.md`の古い語彙を修正。
-  - 調査で新たに発見: OKR進捗バー（`objective-progress.ts`の`done`）がPhase 5で直した`doneCount`と同型の「常に0」バグだった。`ObjectiveTree.tsx`/`KeyResultManager.tsx`/`StrategyThreadTree.tsx`に加え、**ダッシュボードの`TodayActionsPanel.tsx`（研究エージェントの調査でも見つからず、実装中のtsc型エラーで発覚）**も含めて「Issue N件」表示に統一。
-  - Timelineの管理ログ語彙は、対応する書き込み関数が既にどこからも呼ばれない死んだコードと確認できたため、追加のコード変更なしと判断（ユーザーへ明示的に報告）。
-  - `npm run lint` / `tsc --noEmit` / `npm run build` / Vitest全体（1035件）を確認済み。関連ページの実描画・APIレスポンスからの残存フィールド消失も確認済み。
+- [x] Phase 6 — pivot_policy.mdとの残存不整合の解消（2026-09-15）
+  - 課題タブの管理列・help語彙・レポート見出し・OKR進捗バーの死んだ done 指標などを整理。
+- [x] Phase 7 — Issue廃止 → Suggestion中心化（2026-09-15）
+  - Suggestion 型・ストア・移行・API・提案 UI・入口・周辺読替・agent-runtime 文脈更新・help/ナビ更新。
+  - 旧 Issue 詳細 UI と archive/log/impact API を削除。issue-store と薄い `/api/issues` は互換レイヤーとして残置。

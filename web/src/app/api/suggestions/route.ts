@@ -1,0 +1,88 @@
+import { NextResponse } from "next/server";
+import { createSuggestion, listSuggestions, toSuggestionView } from "@/lib/suggestion-store";
+import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
+import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
+import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { linkJournalToIssue } from "@/lib/journal-store";
+import { CONFIRM_PRIORITIES, type ConfirmPriority } from "@/lib/types";
+
+export async function GET() {
+  return NextResponse.json({ suggestions: listSuggestions().map(toSuggestionView) });
+}
+
+// docs/2nd_pivot_version.md Phase 7。相談／Journal／未紐付け Run から提案を残す入口。
+// agentRunId が無い場合は Lead Agent の分析 Run を自動起動する（旧 Issue 起票と同じ）。
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const title = typeof body?.title === "string" ? body.title.trim() : "";
+  const agentRunId = typeof body?.agentRunId === "string" && body.agentRunId ? body.agentRunId : undefined;
+
+  if (!title) {
+    return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
+  }
+
+  const keyResultId = typeof body?.keyResultId === "string" && body.keyResultId ? body.keyResultId : undefined;
+  const themeId = typeof body?.themeId === "string" && body.themeId ? body.themeId : undefined;
+  const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
+  const confirmPriority =
+    typeof body?.confirmPriority === "string" && CONFIRM_PRIORITIES.includes(body.confirmPriority as ConfirmPriority)
+      ? (body.confirmPriority as ConfirmPriority)
+      : typeof body?.priority === "string" && CONFIRM_PRIORITIES.includes(body.priority as ConfirmPriority)
+        ? (body.priority as ConfirmPriority)
+        : undefined;
+  const opts = maskOptionsFromBody(body);
+  const sourceRunId =
+    typeof body?.sourceRunId === "string" && body.sourceRunId.trim()
+      ? body.sourceRunId.trim()
+      : agentRunId;
+  const sourceRun = agentRunId ? getRun(agentRunId) : sourceRunId ? getRun(sourceRunId) : undefined;
+  const sourceJournalId =
+    typeof body?.sourceJournalId === "string" && body.sourceJournalId.trim()
+      ? body.sourceJournalId.trim()
+      : sourceRun?.sourceJournalId;
+
+  try {
+    const suggestion = await createSuggestion(title, {
+      ...opts,
+      agentRunId,
+      sourceRunId,
+      sourceJournalId,
+      keyResultId,
+      themeId,
+      teamId,
+      confirmPriority,
+    });
+    if (agentRunId) {
+      markRunReviewed(agentRunId);
+      if (sourceJournalId) {
+        await linkJournalToIssue(sourceJournalId, suggestion.id, opts).catch(() => {
+          // Journal 紐付け失敗で提案作成自体は失敗させない。
+        });
+      }
+    } else {
+      const task = buildIssueDraftTask(title, {});
+      try {
+        await startRun("Lead Agent", task, "manual", suggestion.id, { ...opts, sourceJournalId });
+      } catch (err) {
+        if (isUnconfirmedNameCandidatesError(err)) {
+          parkPendingUnmaskedSend({
+            id: `unmasked-start:${suggestion.id}:${Date.now()}`,
+            kind: "start-run",
+            candidates: err.candidates,
+            label: "提案作成直後の分析送信確認",
+            issueId: suggestion.id,
+            issueTitle: title,
+            agentName: "Lead Agent",
+            task,
+            origin: "manual",
+            linkedIssueId: suggestion.id,
+            sourceJournalId,
+          });
+        }
+      }
+    }
+    return NextResponse.json({ suggestion: toSuggestionView(suggestion) }, { status: 201 });
+  } catch (err) {
+    return jsonFromUnknownError(err, 400);
+  }
+}

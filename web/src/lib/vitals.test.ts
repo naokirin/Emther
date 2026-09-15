@@ -246,7 +246,7 @@ describe("computeIssueImpact", () => {
     expect(impact?.after.total).toBe(1);
   });
 
-  it("アーカイブだけでは完了扱いの効果窓に入らない（inProgressのまま）", async () => {
+  it("アーカイブ（確認済み）は完了扱いの効果窓になる", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
@@ -256,9 +256,9 @@ describe("computeIssueImpact", () => {
     await journalStore.addJournalEntry("介入後の様子");
 
     const archivedIssue = issueStore.getIssue(issue.id)!;
-    expect(archivedIssue.status).not.toBe("done");
+    expect(archivedIssue.status).toBe("done");
     const impact = vitals.computeIssueImpact(archivedIssue);
-    expect(impact?.inProgress).toBe(true);
+    expect(impact?.inProgress).toBe(false);
   });
 
   it("status=doneのIssueはinProgress:falseで、doneAt以降windowDays日間を観測窓にする", async () => {

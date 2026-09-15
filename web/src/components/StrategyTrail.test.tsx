@@ -39,6 +39,6 @@ describe("StrategyTrail", () => {
     render(<StrategyTrail nodes={nodes} currentKind="journal" />);
 
     expect(screen.getByText(/このJournal/)).not.toHaveAttribute("href");
-    expect(screen.getByRole("link", { name: /Bチーム1on1不足/ })).toHaveAttribute("href", "/issues/issue-1");
+    expect(screen.getByRole("link", { name: /Bチーム1on1不足/ })).toHaveAttribute("href", "/suggestions/issue-1");
   });
 });

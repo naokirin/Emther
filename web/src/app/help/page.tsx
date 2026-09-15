@@ -9,8 +9,8 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
     body: (
       <>
         <p>
-          <strong>今日</strong>は「今決めること」の起点。<strong>課題</strong>は進行中の介入の一覧と詳細。
-          <strong>現場メモ</strong>は事実の記録・検索。<strong>相談</strong>はまだ Issue にしない壁打ち。
+          <strong>今日</strong>は「今決めること」の起点。<strong>提案</strong>は AI が観測・解釈した結果の確認とメモ・壁打ち。
+          <strong>現場メモ</strong>は事実の記録・検索。<strong>相談</strong>はまだ提案として残さない壁打ち。
           <strong>チーム・メンバー</strong>は体制と人物。<strong>方針・目標</strong>は MVV / OKR / テーマの前提。
           <strong>振り返り</strong>は週次で見る成長・履歴・レポートです。
         </p>
@@ -20,22 +20,16 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
   },
   {
     id: "issues",
-    title: "課題（介入）",
+    title: "提案",
     body: (
       <>
         <p>
-          Issue は実装タスク箱ではなく、AIが観測・解釈した結果として現れる<strong>介入の提案</strong>です。
-          型・関連チーム・今期の KR に紐づけて表示されます。ステータス・優先度は読み取り専用の参考情報で、
-          「フォーカス」に設定された Issue の並び順だけ、↑↓ボタンで軽く調整できます。
-          <strong>戦略リンク提案</strong>はテーマ / KR 未接続への紐付け案で、採用するまで反映しません。
+          提案は Issue 管理ではなく、AIが観測・解釈した結果として現れる<strong>判断材料</strong>です。
+          確認状態（未確認／確認保留／確認済み＝もう追わない）と確認優先度（今すぐ／通常／後で）で切り分け、
+          メモを残し、紐づく Agent と壁打ちして理解を深めます。アクションの完了管理は Emther の対象外です。
         </p>
         <p>
-          <strong>Why / What / How</strong>は着手前に整理された3要素。<strong>Action Item</strong>はこの介入で
-          過去に次の一手とされていた記録、<strong>子 Issue</strong>は独自の Why/What/How を持つ別の介入です
-          （親子は1階層まで）。<strong>経過ログ</strong>は考えたこと・アクション・結果の自由記述です。
-        </p>
-        <p>
-          <strong>介入の効果</strong>は、関連チームの Journal 傾向を介入前後で機械比較した暫定値です（手動スコア入力はありません）。
+          チーム／テーマ／KR への紐付けは任意です。相談チャットからは「提案として残す／様子見／却下」を選べます。
         </p>
       </>
     ),
@@ -50,7 +44,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
           <strong>事前登録</strong>してください（ローカル NER による自動登録はしません）。
         </p>
         <p>
-          カードの円は Journal 傾向・関連 Issue（停滞・ブロッカー）から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。
+          カードの円は Journal 傾向・関連する提案（停滞・確認待ち）から算出した「気にかけるべき度合い」の簡易バイタルです（点数ではありません）。
           🟢安定　🟡やや注意　🔴要注意　⚪️評価不能（件数不足）。
         </p>
         <p>
@@ -70,7 +64,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
           チーム名に「/」を入れると組織階層を表現できます（例: Engineering / Team A）。
         </p>
         <p>
-          Mission・制約は、そのチームに紐付いた Issue の Agent Run にだけ注入されます。
+          Mission・制約は、そのチームに紐付いた提案の Agent Run にだけ注入されます。
           「自分が管理するチーム」を OFF にすると、メンバーは People で「その他」になり 1on1 Coverage からも外れます。
           別名は相談・起動時のチーム推定に使われます。
         </p>
@@ -92,8 +86,8 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
         </p>
         <p>チームの追加・編集は「チーム・メンバー」タブで行います。</p>
         <p>
-          「つながりを見る」サブタブでは、Objective › Key Result › Issue › Journal の縦の接続をツリーで一望できます
-          （Issue の Key Result 紐付け・起点 Journal から都度組み立てる閲覧専用ビューで、ここでは編集できません）。
+          「つながりを見る」サブタブでは、Objective › Key Result › 提案 › Journal の縦の接続をツリーで一望できます
+          （提案の Key Result 紐付け・起点 Journal から都度組み立てる閲覧専用ビューで、ここでは編集できません）。
         </p>
       </>
     ),
@@ -105,7 +99,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
       <>
         <p>
           今日タブには直近のメモだけが出ます。この画面では全件の検索・絞り込みができます。
-          分割を考えず書いてよく、構造化・Issue 化は後からで構いません。
+          分割を考えず書いてよく、構造化や提案としての切り出しは後からで構いません。
         </p>
         <p>
           <strong>観測を取り込む</strong>では長いログを貼り付け、必要なら「列を確認する」で列→意味を指定してから取り込みます。
@@ -116,16 +110,15 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
   },
   {
     id: "chat",
-    title: "相談と Issue 化",
+    title: "相談と提案",
     body: (
       <>
         <p>
-          まだ Issue にしないモヤモヤ・仮説検証は「何でも相談」へ。特定 Issue に紐付けず、収集済み Journal・組織情報を踏まえて Lead に聞けます。
-          追跡・計画が必要になったら「Issueにする」で昇格。実行中の介入の壁打ちは Issue 詳細側で行います。
+          まだ提案として残さないモヤモヤ・仮説検証は「何でも相談」へ。特定の提案に紐付けず、収集済み Journal・組織情報を踏まえて Lead に聞けます。
+          残しておきたいと判断したら「提案として残す」。内容理解のための壁打ちは提案詳細側で行います。
         </p>
         <p>
-          AI の自動分析の出口は<strong>ドラフト Issue（起票待ち）</strong>です。追跡するなら Issue にする、様子を見るなら様子見、不要なら却下。
-          EM が選ぶまで残り続けます。
+          AI の自動分析の出口は<strong>提案候補</strong>です。残す・様子見・却下を EM が選ぶまでドラフトとして残ります。
         </p>
       </>
     ),
@@ -157,8 +150,8 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
           気づきメモ（Keep / Problem / Try）はスキマにひとことずつで、週ごとにまとまります。
         </p>
         <p>
-          タイムラインは Issue・Team・Objective の変更履歴の横断です。
-          レポートは Journal・Issue・組織イベントの週次／月次スナップショットです。
+          タイムラインは提案・Team・Objective の変更履歴の横断です。
+          レポートは Journal・提案・組織イベントの週次／月次スナップショットです。
         </p>
       </>
     ),
@@ -174,12 +167,12 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
         <p>
           <strong>同時実行数</strong>: 超過分はキューイングされます。
           <strong>1ターン予算</strong>: Claude CLI の <code>--max-budget-usd</code> のみ（agy / Cursor には非適用）。
-          <strong>チーム先行並列</strong>: Issue 分析時に specialist を先に起動します（コスト増）。
+          <strong>チーム先行並列</strong>: 提案分析時に specialist を先に起動します（コスト増）。
           <strong>Journal ファクト TTL</strong>: 古い一時ファクトは注入対象外になります（削除はされません）。
         </p>
         <p>
           人名マスクは事前登録名のみ。CLI・モデル側の学習利用 OFF は Emther では強制できないため、利用側で確認してください。
-          自動起動はコストが発生するため既定 OFF です。ON にするとドラフト Issue が「今日」の次の一手に溜まります。
+          自動起動はコストが発生するため既定 OFF です。ON にするとドラフト提案が「今日」の次の一手に溜まります。
         </p>
         <p>データのバックアップ／復元／リセットは「データ」グループ。形式は CLI の <code>emther backup</code> / <code>emther restore</code> と同じ tar.gz です。</p>
       </>

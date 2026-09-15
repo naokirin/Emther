@@ -130,7 +130,7 @@ export function JournalEntryCard({
     const issueId = await onResolveWithNewIssue();
     if (issueId) {
       setRawTextRevealed(false);
-      router.push(`/issues/${issueId}`);
+      router.push(`/suggestions/${issueId}`);
     }
   }
 
@@ -344,7 +344,7 @@ export function JournalEntryCard({
               </p>
               <div style={{ display: "flex", gap: 6 }}>
                 {entry.resolvedIssueId && (
-                  <button className={styles.btnOutline} onClick={() => router.push(`/issues/${entry.resolvedIssueId}`)}>
+                  <button className={styles.btnOutline} onClick={() => router.push(`/suggestions/${entry.resolvedIssueId}`)}>
                     Issueを開く
                   </button>
                 )}
@@ -501,7 +501,7 @@ export function JournalEntryCard({
           <button
             className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn}`}
             title={`Issue「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
-            onClick={() => router.push(`/issues/${entry.resolvedIssueId}`)}
+            onClick={() => router.push(`/suggestions/${entry.resolvedIssueId}`)}
           >
             ✅ Issueで追跡中
           </button>

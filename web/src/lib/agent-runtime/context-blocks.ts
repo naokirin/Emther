@@ -257,24 +257,20 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
   return maskNames(["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n"));
 }
 
-// docs 3.1「動的ロード」: そのrunがIssueに紐づいている場合、Issueのタイトルと
-// charter（Why/What/How）を「絶対の前提」としてエージェントに渡す。docs/first_implession
-// のIssue Workspaceが目指していた「壁打ちがIssueの文脈を踏まえる」ことの実体化。
+// docs 3.1「動的ロード」: そのrunが提案（Suggestion）に紐づいている場合、タイトルとメモを
+// 「絶対の前提」としてエージェントに渡す。docs/2nd_pivot_version.md Phase 7。
 export function buildIssueContextBlock(runId: string): string {
   const issue = resolveIssueForRun(runId);
   if (!issue) return "";
-  const { why, what, how } = issue.charter;
 
-  // docs/usage_issues U3。charterが空でもタイトルは渡す（タイトルだけのIssueで
-  // 「Why/What/Howが分からない」とYieldされるのを防ぐ）。専門AgentはconsultedBy経由で
-  // 親LeadのIssueを解決する。
-  // issue-store.tsはtitle/charterをPERSON_n IDでマスクした状態で保持しているため、
-  // ここでmaskNamesを呼ぶ必要は無い（既に安全）。
-  const lines = ["このタスクが紐づくIssueの前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
-  if (why) lines.push(`Why（生む価値・誰のため・なぜ今か）: ${why}`);
-  if (what) lines.push(`What（何を・どこまで・どのくらい・完了の定義）: ${what}`);
-  if (how) lines.push(`How（どのように実現するか・前提や制約）: ${how}`);
-  if (issue.tags.length > 0) lines.push(`タグ: ${issue.tags.join(", ")}`);
+  const lines = ["このタスクが紐づく提案の前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
+  const recentMemos = issue.logEntries.slice(-5);
+  if (recentMemos.length > 0) {
+    lines.push("最近のメモ:");
+    for (const m of recentMemos) {
+      lines.push(`- ${m.text}`);
+    }
+  }
   return lines.join("\n");
 }
 
@@ -430,56 +426,12 @@ export function buildSystemPrompt(
         ]
       : [];
 
-  // docs/2nd_pivot_version.md Phase 2.4対応。Action Items（EMが次の一手として管理する
-  // チェックリスト）の下書き提案は、Issueを人間管理のタスクリストにしない方針と衝突する
-  // ため廃止した。次の一手の見立てはproposalの結論文の中で述べれば十分とする。
-
-  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルのIssue
-  // （子Issueは1階層制限のため、さらに分解できない）に紐づく場合だけ、抽象的すぎる
-  // 課題を具体的な子Issue案に分解する提案を許可する。action_itemsと同じく、EMが
-  // 「採用」を押すまで実際のサブIssueは作られない（Human-in-the-Loopを維持）。
-  const linkedIssueForSubIssues = runId ? getIssueByRunId(runId) : undefined;
-  const subIssuesRule =
-    linkedIssueForSubIssues && !linkedIssueForSubIssues.parentId
-      ? [
-          "- このタスクが紐づくIssueが抽象的で、複数の具体的な子Issueに分解した方が計画・実行しやすいと判断した場合は、proposalブロックに続けて以下の形式でsub_issuesブロックを追加してください（分解の必要が無ければ省略して構いません。yieldする場合は出力しないこと）。",
-          "- 子Issueは「独自のWhy/What/Howを持つ別の介入」です。単なる次の一手にすぎない具体的な作業は分解せず、proposalの結論文の中で触れるに留めてください。",
-          "- 各子Issueには、今週〜今月の見通しとして priority（focus / normal / parked）を付けてください。focus=今期の主戦場、parked=様子見。",
-          "```sub_issues",
-          '[{ "title": "具体的な子Issue案1", "priority": "focus" }, { "title": "具体的な子Issue案2", "priority": "normal" }]',
-          "```",
-          "",
-        ]
-      : [];
-
-  // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
-  // 対応。sub_issuesと同じ形式で、紐づくIssueのWhy/What/Howのうち
-  // 未整理（空欄）の項目だけを埋める提案を許可する。既に書かれている項目を上書き提案しない
-  // のは、EMが既に整理した内容をAIが勝手に書き換えたと誤解しないようにするため。
-  const linkedIssueForCharter = runId ? getIssueByRunId(runId) : undefined;
-  const missingCharterFields = linkedIssueForCharter
-    ? (["why", "what", "how"] as const).filter((k) => !linkedIssueForCharter.charter[k])
-    : [];
-  const charterRule =
-    linkedIssueForCharter && missingCharterFields.length > 0
-      ? [
-          `- このタスクが紐づくIssueは、Why/What/Howのうち次の項目が未整理です: ${missingCharterFields.join(", ")}。与えられた前提から埋められるものがあれば、proposal/sub_issuesブロックに続けて以下の形式でcharterブロックを追加してください（未整理のうち埋められる項目だけを含め、既に書かれている項目・埋められない項目はキー自体を含めないこと。1つも埋められなければ省略して構いません。yieldする場合は出力しないこと）。`,
-          "```charter",
-          '{ "why": "生む価値・誰のため・なぜ今か", "what": "何を・どこまで・どのくらい・完了の定義", "how": "どのように実現するか・前提や制約" }',
-          "```",
-          "",
-        ]
-      : [];
-
-  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。lookupは
-  // 常に使えるため、runIdやlinkedIssueの有無に関わらず提示する。対象は「このタスクとは別の」
-  // Issueに限定し（同じIssueへの追記はcharter/logの既存経路がある）、
-  // 作成・ステータス変更等は許可せず追記のみに絞ることで、EMの確認前に破壊的な変更が
-  // 起きないようにする（Human-in-the-Loopを維持）。
+  // docs/2nd_pivot_version.md Phase 7。サブIssue分解・Charter埋め提案は廃止。
+  // 他提案へのメモ追記のみ残す。
   const issueNoteRule = [
-    "- 相談やlookupの過程で、このタスクとは別のIssueに関わる重要な事実・懸念・進捗を見つけた場合は、そのIssueへの一言記録を提案できます。proposal（と上記の各ブロック）に続けて以下の形式でissue_noteブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと。issueIdはlookup結果で得た実在のIssue IDのみを使い、推測や新規作成はしないこと）。",
+    "- 相談やlookupの過程で、このタスクとは別の提案に関わる重要な事実・懸念を見つけた場合は、その提案への一言メモを提案できます。proposalブロックに続けて以下の形式でissue_noteブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと。issueIdはlookup結果で得た実在の提案IDのみを使い、推測や新規作成はしないこと）。",
     "```issue_note",
-    '[{ "issueId": "lookupで見つけたIssue ID", "text": "そのIssueに追記する短い一言（1〜2文）" }]',
+    '[{ "issueId": "lookupで見つけた提案ID", "text": "その提案に追記する短い一言（1〜2文）" }]',
     "```",
     "",
   ];
@@ -495,9 +447,9 @@ export function buildSystemPrompt(
 
   const base = [
     `あなたはEM(エンジニアリングマネージャー)支援システムの一部として動作する「${agentName}」です。`,
-    "判断材料は、(1) このターンで渡されたタスク文と、(2) このシステムプロンプト末尾にシステムが注入した組織ナレッジ（Issue・Journal・Team Vitals・戦略・テーマ等のスナップショット）と、(3) 必要に応じてあなたが発行する追加照会（lookup）の結果です。",
+    "判断材料は、(1) このターンで渡されたタスク文と、(2) このシステムプロンプト末尾にシステムが注入した組織ナレッジ（提案・Journal・Team Vitals・戦略・テーマ等のスナップショット）と、(3) 必要に応じてあなたが発行する追加照会（lookup）の結果です。",
     "任意のファイル・データベース・外部システムへの直接アクセスや、書き込み・破壊的操作はできません（CLIネイティブツールは無効化されています）。一方で、注入済みのナレッジブロックはすでに渡されている判断材料です。それを無視して「前提情報が無い」「課題テキストが提示されていない」と述べないでください。",
-    "注入される関連Issue/Journalはベクトル類似の上位最大5件です。『関連に無いのは意図的か』『キーワードで全件確認したい』『完了済みやアーカイブも含めたい』など、注入だけでは確証が取れないときは、提案やyieldの前にlookupで追加照会してください。本当にlookup結果にも無い情報だけが不足している場合に限り yield（inform）してください。",
+    "注入される関連提案/Journalはベクトル類似の上位最大5件です。『関連に無いのは意図的か』『キーワードで全件確認したい』『確認済みも含めたい』など、注入だけでは確証が取れないときは、提案やyieldの前にlookupで追加照会してください。本当にlookup結果にも無い情報だけが不足している場合に限り yield（inform）してください。",
     "",
     ...roleBlock,
     "回答のルール:",
@@ -510,13 +462,13 @@ export function buildSystemPrompt(
     "  ```lookup",
     '  { "reason": "なぜ追加で確認したいか（任意）", "queries": [',
     '    { "type": "issues", "query": "キーワード", "includeDone": true, "includeArchived": false, "limit": 10 },',
-    '    { "type": "issue", "id": "issue-id" },',
+    '    { "type": "issue", "id": "suggestion-id" },',
     '    { "type": "journals", "query": "キーワード", "limit": 10 },',
     '    { "type": "similar", "query": "意味検索したい文", "limit": 10 }',
     "  ] }",
     "  ```",
-    '  type "issues" はタイトル・Why/What/How・タグのキーワード部分一致（既定は未完了・非アーカイブのみ。includeDone/includeArchivedで範囲拡大）。',
-    '  type "issue" はID指定の1件詳細。type "journals" はJournalのキーワード検索。type "similar" は埋め込み類似（未完了に加え done/archived 込みの一覧も返す）。',
+    '  type "issues" はタイトル・メモのキーワード部分一致（既定は未確認・確認保留のみ。includeDone/includeArchivedで確認済みも含める）。',
+    '  type "issue" はID指定の1件詳細。type "journals" はJournalのキーワード検索。type "similar" は埋め込み類似。',
     "  結果は次のターンで渡されます。lookupとproposal/yield/consultを同時に出さないこと。",
     "",
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
@@ -528,17 +480,15 @@ export function buildSystemPrompt(
     '  "facts": ["判断の根拠にした参照ファクト（与えられた情報の中から）"],',
     '  "logic": "その結論に至った判断ロジック",',
     '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
-    '  "recommendation": "issue | dismiss | watch  （任意。追跡要否を判断する課題のときだけ。不要なら dismiss）",',
-    '  "issueTitle": "短い課題名（単一課題のとき。40文字以内・結論文ではなく題名）",',
-    '  "issueCandidates": [ { "title": "独立Issue案1", "rationale": "なぜ別介入か（任意）" }, { "title": "独立Issue案2" } ]',
+    '  "recommendation": "issue | dismiss | watch  （任意。EMが提案として残すべきかのときだけ。不要なら dismiss）",',
+    '  "issueTitle": "短い提案タイトル（単一のとき。40文字以内・結論文ではなく題名）",',
+    '  "issueCandidates": [ { "title": "独立した提案案1", "rationale": "なぜ別提案か（任意）" }, { "title": "独立した提案案2" } ]',
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
-    'Issue化を勧める場合（recommendation: "issue"、または結論でIssue化を勧める場合）は、短い課題名を付けてください（「〜と判断します」等の結論文は入れないこと）。',
-    "- 課題が1つなら issueTitle のみ（issueCandidates は省略可）。別責任・別チーム・別KR・別のWhyになりうる介入が同居するなら、無理に1件や親子にまとめず issueCandidates に最大5件程度まで列挙すること（親Issueは作らない・各候補はトップレベルの独立Issue）。同じ介入の次の一手への分解は issueCandidates ではなく、既にIssueへ紐づいたあとの sub_issues の役割。",
+    '提案として残すことを勧める場合（recommendation: "issue"）は、短いタイトルを付けてください。',
+    "- 論点が1つなら issueTitle のみ。別チーム・別KR・別の観測に分かれるなら issueCandidates に最大5件まで列挙すること。",
     "- issueCandidates を出すときは recommendation は \"issue\" とし、issueTitle は代表の1件を書いても省略してもよい。",
-    ...subIssuesRule,
-    ...charterRule,
     ...issueNoteRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",

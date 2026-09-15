@@ -211,52 +211,43 @@ export function useJournalEditing(
     void sendJournalPatch(entryId, body, retry);
   }
 
-  // 「Issueを起票してこの件を追跡する」: 新規Issueを作成し、そのIssueへ紐付ける。
-  // 既存のPOST /api/issuesを1回叩くだけで、新しい起票経路は増やさない。Issue作成後
-  // すぐそのIssueへ遷移する既存の挙動を保つため（できたばかりの空のIssueに移動する
-  // という一連の操作として）、こちらは他の解決アクションと違いawaitしたまま完了を待つ。
+  // 「提案として残してこの件を追跡する」: 新規 Suggestion を作成し、紐付ける。
   async function resolveWithNewIssue(entry: JournalEntry): Promise<string | undefined> {
     setEditSubmitting(true);
     setEditError(null);
     try {
       const { res: issueRes, data: issueData } = await fetchWithNameConfirm(
-        "/api/issues",
+        "/api/suggestions",
         {
           method: "POST",
           body: {
             title: truncateForTitle(entry.summary || entry.rawText),
-            why: entry.rawText,
-            tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
             sourceJournalId: entry.id,
           },
         },
         "保存する",
       );
       if (!issueRes.ok) {
-        throw new Error((issueData as { error?: string } | null)?.error ?? "Issueの起票に失敗しました");
+        throw new Error((issueData as { error?: string } | null)?.error ?? "提案の作成に失敗しました");
       }
 
-      // 意図的にsendJournalPatchは使わない。Issueは既に作成済みのため、この後の
-      // 紐付け保存が失敗した場合の「再試行」はIssue作成をやり直さず紐付けだけ
-      // やり直す必要があり、sendJournalPatch共通のretry（新規Issueをまた作ってしまう）
-      // とは意味が異なる。ここは既存どおりeditError/editSubmittingで扱い、
-      // フォームを開いたまま結果を待つ。
+      const suggestionId = (issueData as { suggestion: { id: string } }).suggestion.id;
       const { res, data } = await fetchWithNameConfirm(
         `/api/journal/${entry.id}`,
         {
           method: "PATCH",
-          body: { ...currentEditPatch(), resolvedIssueId: (issueData as { issue: { id: string } }).issue.id },
+          body: { ...currentEditPatch(), resolvedIssueId: suggestionId },
         },
         "保存する",
       );
       if (!res.ok) {
         throw new Error(
-          (data as { error?: string } | null)?.error ?? "Issueへの紐付けに失敗しました（Issue自体は作成されています）",
+          (data as { error?: string } | null)?.error ?? "提案への紐付けに失敗しました（提案自体は作成されています）",
         );
       }
       setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? (data as { entry: JournalEntry }).entry : e)));
       setEditingEntryId(null);
-      return (issueData as { issue: { id: string } }).issue.id;
+      return suggestionId;
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setEditError((err as Error).message);

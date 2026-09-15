@@ -618,14 +618,15 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
     expect(rt.buildIssueContextBlock("run-1")).toContain("タイトル: Issue");
   });
 
-  it("charterが埋まっていればWhy/What/Howを含める", async () => {
+  it("charter相当の内容はメモとして前提に含める", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("障害対応", "run-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
     const rt = await loadModule();
     const block = rt.buildIssueContextBlock("run-1");
     expect(block).toContain("タイトル: 障害対応");
-    expect(block).toContain("Why（生む価値・誰のため・なぜ今か）: 顧客影響を止める");
-    expect(block).toContain("How（どのように実現するか・前提や制約）: ログ調査");
+    expect(block).toContain("最近のメモ:");
+    expect(block).toContain("顧客影響を止める");
+    expect(block).toContain("ログ調査");
   });
 
   it("Issueにチームが紐付いていなければteam charterは空文字列", async () => {
@@ -647,13 +648,13 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
     expect(block).toContain("制約: 予算内で行う");
   });
 
-  it("介入の型タグに応じて主担当/副担当のガイダンスを出し分ける", async () => {
+  it("介入の型タグはPhase 7で廃止のためガイダンスは空", async () => {
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("1on1改善", "run-1");
     await issueStore.setIssueTags(issue.id, ["1on1設計"]);
     const rt = await loadModule();
-    expect(rt.buildInterventionTypeGuidance("run-1", "People Agent")).toContain("主担当として");
-    expect(rt.buildInterventionTypeGuidance("run-1", "Process Agent")).toContain("副担当のため");
+    expect(rt.buildInterventionTypeGuidance("run-1", "People Agent")).toBe("");
+    expect(rt.buildInterventionTypeGuidance("run-1", "Process Agent")).toBe("");
     expect(rt.buildInterventionTypeGuidance("run-1", "Tech Agent")).toBe("");
   });
 
@@ -711,16 +712,16 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("推測で埋めず、proposalではなくyieldしてください");
   });
 
-  it("トップレベルIssueに紐づくrunにはsub_issuesブロックの説明が付く", async () => {
+  it("Phase 7: sub_issuesブロック説明は付かない", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("トップレベルIssue", "run-1");
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
-    expect(prompt).toContain("```sub_issues");
-    expect(prompt).toContain("独自のWhy/What/How");
+    expect(prompt).not.toContain("```sub_issues");
+    expect(prompt).toContain("```issue_note");
   });
 
-  it("子Issueに紐づくrunにはsub_issuesブロックの説明が付かない（1階層制限）", async () => {
+  it("子Issue作成も階層廃止のためトップレベル扱いでsub_issues説明は付かない", async () => {
     const issueStore = await import("@/lib/issue-store");
     const parent = await issueStore.createIssue("親Issue");
     await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
@@ -728,30 +729,30 @@ describe("buildSystemPrompt", () => {
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```sub_issues");
   });
 
-  it("Issueに紐づかないrunにはsub_issuesの説明が付かない", async () => {
+  it("Issueに紐づかないrunにもsub_issuesの説明は付かない", async () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-without-issue");
     expect(prompt).not.toContain("```sub_issues");
   });
 
-  it("Why/What/Howが未整理のIssueに紐づくrunにはcharterブロックの説明が付く（子Issueでも同様）", async () => {
+  it("Phase 7: charterブロック説明は付かない（メモ追記のみ）", async () => {
     const issueStore = await import("@/lib/issue-store");
     const parent = await issueStore.createIssue("親Issue");
     await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
-    expect(prompt).toContain("```charter");
-    expect(prompt).toContain("why, what, how");
+    expect(prompt).not.toContain("```charter");
+    expect(prompt).toContain("```issue_note");
   });
 
-  it("Why/What/Howが全て埋まっているIssueに紐づくrunにはcharterブロックの説明が付かない", async () => {
+  it("Why/What/Howメモがあってもcharterブロック説明は付かない", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("Issue", "run-1", { why: "w1", what: "w2", how: "w3" });
     const rt = await loadModule();
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```charter");
   });
 
-  it("Issueに紐づかないrunにはcharterブロックの説明が付かない", async () => {
+  it("Issueに紐づかないrunにもcharterブロックの説明は付かない", async () => {
     const rt = await loadModule();
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-without-issue")).not.toContain("```charter");
   });
@@ -970,14 +971,14 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("missing")).toBeUndefined();
   });
 
-  it("専門Agent runはconsultedByの親Issueコンテキストを使う", async () => {
+  it("専門Agent runはconsultedByの親提案コンテキスト（メモ）を使う", async () => {
     const issueStore = await import("@/lib/issue-store");
     await issueStore.createIssue("障害対応", "lead-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
     const { getDb } = await import("@/lib/db");
     insertRunRow(getDb(), { id: "lead-1" });
     insertRunRow(getDb(), { id: "spec-1", agent_name: "People Agent", consulted_by: "lead-1" });
     const rt = await loadModule();
-    expect(rt.buildIssueContextBlock("spec-1")).toContain("Why（生む価値・誰のため・なぜ今か）: 顧客影響を止める");
+    expect(rt.buildIssueContextBlock("spec-1")).toContain("顧客影響を止める");
   });
 });
 
@@ -1822,14 +1823,19 @@ describe("selectRelatedSpecialists", () => {
     ]);
   });
 
-  it("介入型タグから主担当・副担当を選ぶ", async () => {
+  it("介入型タグはPhase 7で保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, ["1on1設計"]);
-    expect(rt.selectRelatedSpecialists(issue.id)).toEqual(["People Agent", "Process Agent"]);
+    expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
+      "People Agent",
+      "Process Agent",
+      "Tech Agent",
+      "Product Agent",
+    ]);
   });
 
-  it("複数タグは重複除去しつつSPECIALIST順を保つ", async () => {
+  it("複数タグ指定も保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, [
@@ -1839,6 +1845,7 @@ describe("selectRelatedSpecialists", () => {
     expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
       "People Agent",
       "Process Agent",
+      "Tech Agent",
       "Product Agent",
     ]);
   });
@@ -1853,12 +1860,13 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
     });
     const rt = await loadModule();
     const issueStore = await import("@/lib/issue-store");
-    const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, ["1on1設計"]);
+    // Phase 7: タグは保持されないため全 quadrant specialist が先行する
+    const issue = await issueStore.createIssue("課題");
 
     const leadRun = await rt.startRun("Lead Agent", "メンバーの1on1設計を見直したい", "manual", issue.id);
 
     await vi.waitFor(() => {
-      if (rt.listRuns().length < 3) throw new Error("specialist runs not created yet");
+      if (rt.listRuns().length < 5) throw new Error("specialist runs not created yet");
     });
     const peopleRun = rt.listRuns().find((r) => r.agentName === "People Agent")!;
     const processRun = rt.listRuns().find((r) => r.agentName === "Process Agent")!;
@@ -1866,23 +1874,21 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
     expect(processRun.consultedBy).toBe(leadRun.id);
     expect(rt.getRun(leadRun.id)?.log.some((l) => l.text.includes("[チーム先行並列]"))).toBe(true);
 
-    // LeadはまだCLIを起動せず、specialist 2件が先にspawnされる
-    await waitForSpawnCount(2);
-    expect(spawnCalls).toHaveLength(2);
+    // LeadはまだCLIを起動せず、specialist 4件が先にspawnされる（並列上限4）
+    await waitForSpawnCount(4);
+    expect(spawnCalls).toHaveLength(4);
 
-    emitAssistantText(spawnCalls[0].child, "People Agentとしての先行回答");
-    emitClaudeResult(spawnCalls[0].child, { text: "People Agentとしての先行回答" });
-    closeChild(spawnCalls[0].child, 0);
-    emitAssistantText(spawnCalls[1].child, "Process Agentとしての先行回答");
-    emitClaudeResult(spawnCalls[1].child, { text: "Process Agentとしての先行回答" });
-    closeChild(spawnCalls[1].child, 0);
+    for (const call of spawnCalls.slice(0, 4)) {
+      emitAssistantText(call.child, "先行回答");
+      emitClaudeResult(call.child, { text: "先行回答" });
+      closeChild(call.child, 0);
+    }
 
-    await waitForSpawnCount(3);
-    const leadCall = spawnCalls[2];
+    await waitForSpawnCount(5);
+    const leadCall = spawnCalls[4];
     expect(leadCall.command).toBe("claude");
     const leadPrompt = leadCall.args[leadCall.args.indexOf("-p") + 1];
-    expect(leadPrompt).toContain("People Agentとしての先行回答");
-    expect(leadPrompt).toContain("Process Agentとしての先行回答");
+    expect(leadPrompt).toContain("先行回答");
     expect(leadPrompt).toContain("追加の専門エージェントへの相談はできません");
 
     emitClaudeResult(leadCall.child, {
@@ -1895,7 +1901,7 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
     });
     expect(rt.getRun(leadRun.id)?.status).toBe("idle");
     expect(rt.getRun(leadRun.id)?.proposal?.conclusion).toBe("チーム見解を統合した結論");
-    expect(spawnCalls).toHaveLength(3);
+    expect(spawnCalls).toHaveLength(5);
   });
 
   it("teamParallelKickoffEnabledがOFFならIssue紐付きでもLead単独起動", async () => {

@@ -102,7 +102,7 @@ describe("StrategyThreadTree", () => {
     expect(screen.getByText(/1on1カバレッジ90%/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: new RegExp(issue.title) })).toHaveAttribute(
       "href",
-      `/issues/${issue.id}`,
+      `/suggestions/${issue.id}`,
     );
     expect(screen.getByRole("link", { name: /Bさんと1on1/ })).toHaveAttribute(
       "href",

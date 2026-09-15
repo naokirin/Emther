@@ -233,7 +233,7 @@ export function PersonRecordsSection({
               {person.relatedIssues.map((issue) => (
                 <tr key={issue.id}>
                   <td>
-                    <Link href={`/issues/${issue.id}`} className={styles.tableRowLink}>
+                    <Link href={`/suggestions/${issue.id}`} className={styles.tableRowLink}>
                       {issue.title}
                     </Link>
                     {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}

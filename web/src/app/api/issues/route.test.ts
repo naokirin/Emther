@@ -79,7 +79,7 @@ describe("POST /api/issues", () => {
     expect(json.issue.charter).toEqual({ why: "", what: "", how: "" });
   });
 
-  it("charter/tags/parentId/keyResultId/teamIdを渡すと反映される", async () => {
+  it("charter/keyResultId/teamIdを渡すと反映される（charterはメモへ写像）", async () => {
     const route = await import("./route");
     const res = await route.POST(
       jsonRequest("http://localhost/api/issues", "POST", {
@@ -93,17 +93,17 @@ describe("POST /api/issues", () => {
       }),
     );
     const json = await res.json();
-    expect(json.issue.charter).toEqual({ why: "理由", what: "内容", how: "方法" });
-    expect(json.issue.tags).toEqual(["技術的負債"]);
+    expect(json.issue.title).toBe("詳細付きIssue");
+    expect(json.issue.logEntries.some((e: { text: string }) => e.text.includes("Why: 理由"))).toBe(true);
     expect(json.issue.keyResultId).toBe("kr-1");
     expect(json.issue.teamId).toBe("team-1");
   });
 
-  it("親Issueが存在しない場合は400を返す", async () => {
+  it("parentIdは階層廃止のため無視され、トップレベル提案として作成できる", async () => {
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "子Issue", parentId: "missing" }));
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toContain("親Issueが見つかりません");
+    expect(res.status).toBe(201);
+    expect((await res.json()).issue.title).toBe("子Issue");
   });
 
   it("agentRunIdを渡すとそのrunをreviewed済みにする", async () => {

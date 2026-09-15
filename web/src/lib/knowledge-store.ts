@@ -18,7 +18,7 @@ import { unmaskNames } from "@/lib/people-directory";
 
 export type KnowledgeKind = "fact" | "interpretation";
 export type KnowledgeContext = "official" | "observation" | "casual" | "complaint" | "profile";
-export type KnowledgeEntityType = "journal" | "person" | "team" | "issue" | "org";
+export type KnowledgeEntityType = "journal" | "person" | "team" | "issue" | "suggestion" | "org";
 
 export type KnowledgeEvent = {
   id: string;
@@ -454,7 +454,11 @@ export function toEventView(event: KnowledgeEvent): KnowledgeEvent {
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴を1つのentityId単位で取得する。
 export function listEventsForEntity(entityType: KnowledgeEntityType, entityId: string): KnowledgeEvent[] {
-  return listEvents({ entityType }).filter((e) => e.entityId === entityId);
+  // docs/2nd_pivot_version.md Phase 7: Suggestion の変更履歴は entityType=suggestion。
+  // 旧クライアントが issue で問い合わせても同じ ID の履歴を返す。
+  const types: KnowledgeEntityType[] =
+    entityType === "issue" || entityType === "suggestion" ? ["issue", "suggestion"] : [entityType];
+  return listEvents({}).filter((e) => e.entityId === entityId && types.includes(e.entityType));
 }
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。特定のentityに絞らず、
@@ -471,7 +475,7 @@ export function listRecentChangeEvents(limit = 100): KnowledgeEvent[] {
 // 「起きた出来事そのもの」なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"
 // で固定する。変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
 export function recordChangeEvent(
-  entityType: "issue" | "team" | "org" | "person",
+  entityType: "issue" | "suggestion" | "team" | "org" | "person",
   entityId: string,
   text: string,
   tags: string[] = [],

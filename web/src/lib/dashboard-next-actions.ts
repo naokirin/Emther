@@ -148,7 +148,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       if (run.origin === "auto-issue-update") {
         const linked = issues.find((i) => i.agentRunId === run.id);
         if (linked) {
-          push(`/issues/${linked.id}`);
+          push(`/suggestions/${linked.id}`);
           return;
         }
       }
@@ -306,7 +306,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       icon: "🧊",
       kindLabel: "介入の観測不足",
       text: `「${issue.title}」が${days}日間動いていません。効果を観測しましたか？`,
-      onSelect: () => push(`/issues/${issue.id}`),
+      onSelect: () => push(`/suggestions/${issue.id}`),
       // 停滞検知自体が「長期間動きが無いこと」なので、常に新着扱いにはしない。
       since: 0,
     });
@@ -381,7 +381,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       kindLabel: "起動予定",
       text: formatPendingAgentStartText(pending, now),
       onSelect: () => {
-        if (pending.issueId) push(`/issues/${pending.issueId}`);
+        if (pending.issueId) push(`/suggestions/${pending.issueId}`);
       },
       since: pending.firesAt,
     });

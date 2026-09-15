@@ -122,7 +122,7 @@ export function StrategyThreadTree({ objectives, objectivesLoaded, issues, journ
                             <div key={issue.id} className={styles.threadIssue}>
                               <div className={styles.threadIssueHeader}>
                                 <Link
-                                  href={`/issues/${issue.id}`}
+                                  href={`/suggestions/${issue.id}`}
                                   className={`${styles.tableRowLink} ${styles.threadIssueTitle}`}
                                   style={{ display: "inline", width: "auto" }}
                                 >

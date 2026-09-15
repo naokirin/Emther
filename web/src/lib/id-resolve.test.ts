@@ -29,7 +29,7 @@ describe("resolveIdPrefix", () => {
     const prefix = issue.id.slice(0, 8);
     const matches = resolveIdPrefix(prefix);
     expect(matches).toHaveLength(1);
-    expect(matches[0]).toMatchObject({ kind: "issue", id: issue.id, href: `/issues/${issue.id}` });
+    expect(matches[0]).toMatchObject({ kind: "issue", id: issue.id, href: `/suggestions/${issue.id}` });
   });
 
   it("複数ヒット時は候補をすべて返す", async () => {

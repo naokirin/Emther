@@ -42,6 +42,6 @@ describe("GET /api/knowledge/events", () => {
     const res = await route.GET(new Request(`http://localhost/x?entityType=issue&entityId=${issue.id}`));
     const json = await res.json();
     expect(json.events).toHaveLength(1);
-    expect(json.events[0].text).toContain("Issueを起票");
+    expect(json.events[0].text).toContain("提案を作成");
   });
 });

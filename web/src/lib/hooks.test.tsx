@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useIssueImpact, useIssues, usePeekParam } from "./hooks";
+import { useEntityHistory, useIssues, usePeekParam } from "./hooks";
 
 const pushMock = vi.fn();
 let mockPathname = "/issues";
@@ -60,10 +60,10 @@ describe("usePolling（useIssuesを代表として検証）", () => {
 });
 
 describe("usePolling: enabled=false", () => {
-  it("fetchを一切行わない（useIssueImpactのenabledフラグ）", async () => {
+  it("fetchを一切行わない（useEntityHistoryのentityId=null）", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    renderHook(() => useIssueImpact("issue-1", false, 10));
+    renderHook(() => useEntityHistory("issue", null, 10));
     await new Promise((r) => setTimeout(r, 30));
     expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();

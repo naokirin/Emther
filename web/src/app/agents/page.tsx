@@ -154,7 +154,7 @@ export default function AgentsPage() {
         onSelect: () => {
           const linkedIssue = issues.find((i) => i.agentRunId === run.id);
           if (linkedIssue) {
-            router.push(`/issues/${linkedIssue.id}`);
+            router.push(`/suggestions/${linkedIssue.id}`);
           } else if (run.agentName === "Lead Agent") {
             router.push(`/chat?runId=${run.id}`);
           } else {
@@ -295,7 +295,7 @@ export default function AgentsPage() {
                     <td>
                       {!linked && run.agentName === "Lead Agent" && (
                         <button className={styles.btnOutline} onClick={() => goToRunIssue(run)}>
-                          📌 Issueにする
+                          📌 提案として残す
                         </button>
                       )}
                     </td>

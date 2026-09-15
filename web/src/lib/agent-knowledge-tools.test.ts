@@ -109,7 +109,7 @@ describe("agent-knowledge-tools", () => {
     const text = await executeLookup({ queries: [{ type: "issue", id: issue.id }] });
     expect(text).toContain(issue.id);
     expect(text).toContain("詳細確認用");
-    expect(text).toContain("What: 何をやるか");
+    expect(text).toContain("何をやるか");
 
     const missing = await executeLookup({ queries: [{ type: "issue", id: "no-such-id" }] });
     expect(missing).toContain("見つかりませんでした");

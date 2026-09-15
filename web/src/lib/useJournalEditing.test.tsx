@@ -206,10 +206,10 @@ describe("useJournalEditing", () => {
     expect(body.resolutionNote).toBe("対応済み");
   });
 
-  it("resolveWithNewIssueはIssue作成→紐付けの2段階を行い、成功時はIssue IDを返してフォームを閉じる", async () => {
+  it("resolveWithNewIssueは提案作成→紐付けの2段階を行い、成功時はSuggestion IDを返してフォームを閉じる", async () => {
     const entry = baseEntry();
     fetchMock.mockImplementation(async (url: string) => {
-      if (url === "/api/issues") return { ok: true, json: async () => ({ issue: { id: "new-issue-1" } }) };
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestion: { id: "new-issue-1" } }) };
       return { ok: true, json: async () => ({ entry: { ...entry, resolvedIssueId: "new-issue-1" } }) };
     });
     const { result } = renderHook(() => useHarness([entry]));
@@ -229,9 +229,9 @@ describe("useJournalEditing", () => {
     expect(issueBody.sourceJournalId).toBe(entry.id);
   });
 
-  it("resolveWithNewIssueはIssue作成自体が失敗すればeditErrorを出し紐付けは試みない", async () => {
+  it("resolveWithNewIssueは提案作成自体が失敗すればeditErrorを出し紐付けは試みない", async () => {
     const entry = baseEntry();
-    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "Issue作成失敗" }) });
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "提案の作成に失敗しました" }) });
     const { result } = renderHook(() => useHarness([entry]));
     act(() => result.current.startEditing(entry));
 
@@ -240,7 +240,7 @@ describe("useJournalEditing", () => {
       issueId = await result.current.resolveWithNewIssue(entry);
     });
     expect(issueId).toBeUndefined();
-    expect(result.current.editError).toBe("Issue作成失敗");
+    expect(result.current.editError).toBe("提案の作成に失敗しました");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

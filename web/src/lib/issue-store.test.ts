@@ -6,28 +6,14 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-const detectNameCandidatesAsyncMock = vi.hoisted(() =>
-  vi.fn(async (_text: string): Promise<string[]> => {
-    void _text;
-    return [];
-  }),
-);
-
 vi.mock("@/lib/name-candidate-detect", () => ({
-  detectNameCandidatesAsync: (text: string) => detectNameCandidatesAsyncMock(text),
+  detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
 }));
 
-const embedRef = vi.hoisted(() => ({
-  impl: async (_text: string): Promise<number[]> => {
-    void _text;
-    return [1, 0, 0];
-  },
-}));
-
 vi.mock("@/lib/embeddings", () => ({
-  embedText: (text: string) => embedRef.impl(text),
+  embedText: async () => [1, 0, 0],
   cosineSimilarity: () => 0,
 }));
 
@@ -36,7 +22,6 @@ let dir: string;
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
-  embedRef.impl = async () => [1, 0, 0];
 });
 
 afterEach(() => {
@@ -47,388 +32,41 @@ async function loadModule() {
   return import("@/lib/issue-store");
 }
 
-describe("createIssue", () => {
-  it("createIssueのopts.priorityでフォーカス優先度を付けられる", async () => {
+// docs/2nd_pivot_version.md Phase 7。issue-store は suggestion-store の互換レイヤー。
+describe("issue-store compatibility", () => {
+  it("createIssueはSuggestionとして作成し、一覧で取得できる", async () => {
     const store = await loadModule();
-    const issue = await store.createIssue("重要介入", undefined, undefined, undefined, undefined, undefined, undefined, {
-      priority: "focus",
-    });
-    expect(issue.priority).toBe("focus");
-    expect(issue.focusOrder).toBe(0);
+    const issue = await store.createIssue("障害対応の提案");
+    expect(issue.title).toBe("障害対応の提案");
+    expect(store.listIssues().some((i) => i.id === issue.id)).toBe(true);
   });
 
-  it("タイトル・空のcharter/actionItems/logEntriesで作成する", async () => {
+  it("setIssueArchived(true)は確認済み（もう追わない）に相当する", async () => {
     const store = await loadModule();
-    const issue = await store.createIssue("障害対応プロセスの整理");
-    expect(issue.title).toBe("障害対応プロセスの整理");
-    expect(issue.charter).toEqual({ why: "", what: "", how: "" });
-    expect(issue.actionItems).toEqual([]);
-    expect(issue.logEntries).toEqual([]);
-    expect(issue.archived).toBe(false);
-    expect(issue.parentId).toBeUndefined();
-  });
-
-  it("charterを指定して作成できる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    expect(issue.charter).toEqual({ why: "理由", what: "内容", how: "方法" });
-  });
-
-  it("親子は1階層のみ許可し、既に子であるIssueの下に作ろうとするとエラー", async () => {
-    const store = await loadModule();
-    const parent = await store.createIssue("親Issue");
-    const child = await store.createIssue("子Issue", undefined, undefined, parent.id);
-    expect(child.parentId).toBe(parent.id);
-
-    await expect(store.createIssue("孫Issue", undefined, undefined, child.id)).rejects.toThrow(
-      "これ以上下に分解できません",
-    );
-  });
-
-  it("存在しない親IDを指定するとエラー", async () => {
-    const store = await loadModule();
-    await expect(store.createIssue("Issue", undefined, undefined, "missing-id")).rejects.toThrow(
-      "親Issueが見つかりません",
-    );
-  });
-
-  it("tagsは重複除去・trimされる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue", undefined, undefined, undefined, ["技術的負債", " 技術的負債 ", "1on1"]);
-    expect(issue.tags).toEqual(["技術的負債", "1on1"]);
-  });
-});
-
-describe("charter / title / action items / log entries", () => {
-  it("updateIssueCharterは指定フィールドだけ更新する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A", undefined, { why: "旧why" });
-    const updated = await store.updateIssueCharter(issue.id, { what: "新しいwhat" });
-    expect(updated?.charter).toEqual({ why: "旧why", what: "新しいwhat", how: "" });
-  });
-
-  it("updateIssueCharterは未変更フィールドで候補検出を走らせない", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    detectNameCandidatesAsyncMock.mockClear();
-
-    const updated = await store.updateIssueCharter(issue.id, { why: "理由", what: "内容", how: "方法" });
-    expect(updated?.charter).toEqual({ why: "理由", what: "内容", how: "方法" });
-    expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
-  });
-
-  it("updateIssueCharterは既定で候補検出を走らせない（事前登録が正）", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    detectNameCandidatesAsyncMock.mockClear();
-
-    const updated = await store.updateIssueCharter(issue.id, {
-      why: "理由",
-      what: "新しい内容",
-      how: "方法",
-    });
-    expect(updated?.charter.what).toBe("新しい内容");
-    expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
-  });
-
-  it("updateIssueCharterは明示オプトイン時、変更フィールドだけをまとめて1回候補検出する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A", undefined, { why: "理由", what: "内容", how: "方法" });
-    detectNameCandidatesAsyncMock.mockClear();
-
-    const updated = await store.updateIssueCharter(
-      issue.id,
-      {
-        why: "理由",
-        what: "新しい内容",
-        how: "方法",
-      },
-      { allowUnmaskedCandidates: true },
-    );
-    expect(updated?.charter.what).toBe("新しい内容");
-    expect(detectNameCandidatesAsyncMock).toHaveBeenCalledTimes(1);
-    expect(detectNameCandidatesAsyncMock).toHaveBeenCalledWith("新しい内容");
-  });
-
-  it("setIssueTitleは空文字を拒否する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    await expect(store.setIssueTitle(issue.id, "   ")).rejects.toThrow("titleは必須です");
-  });
-
-  it("setIssueTitleはタイトルを更新する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const updated = await store.setIssueTitle(issue.id, "Issue A改題");
-    expect(updated?.title).toBe("Issue A改題");
-  });
-
-  it("setIssueTitleは未変更なら候補検出を走らせない", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    detectNameCandidatesAsyncMock.mockClear();
-    const updated = await store.setIssueTitle(issue.id, "Issue A");
-    expect(updated?.title).toBe("Issue A");
-    expect(detectNameCandidatesAsyncMock).not.toHaveBeenCalled();
-  });
-
-  it("setIssuePriorityでfocusになり、moveFocusIssueで順序が入れ替わる", async () => {
-    const store = await loadModule();
-    const a = await store.createIssue("A");
-    const b = await store.createIssue("B");
-    store.setIssuePriority(a.id, "focus");
-    store.setIssuePriority(b.id, "focus");
-    expect(store.getIssue(a.id)?.focusOrder).toBe(0);
-    expect(store.getIssue(b.id)?.focusOrder).toBe(1);
-    store.moveFocusIssue(b.id, "up");
-    expect(store.getIssue(a.id)?.focusOrder).toBe(1);
-    expect(store.getIssue(b.id)?.focusOrder).toBe(0);
-    store.setIssuePriority(b.id, "parked");
-    expect(store.getIssue(b.id)?.focusOrder).toBeUndefined();
-    expect(store.getIssue(a.id)?.focusOrder).toBe(0);
-  });
-
-  it("addLogEntryは自由記述ログを積み上げる", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const updated = await store.addLogEntry(issue.id, "1on1で状況確認した");
-    expect(updated?.logEntries).toHaveLength(1);
-    expect(updated?.logEntries[0].text).toBe("1on1で状況確認した");
-  });
-});
-
-describe("archive / keyResult / team / tags", () => {
-  it("setIssueArchivedはstatusを変えずarchivedAtだけを設定・解除する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    expect(issue.status).toBe("not_started");
+    const issue = await store.createIssue("様子見");
     const archived = store.setIssueArchived(issue.id, true);
     expect(archived?.archived).toBe(true);
-    expect(archived?.archivedAt).toBeDefined();
-    expect(archived?.status).toBe("not_started");
-    expect(archived?.doneAt).toBeUndefined();
-
-    const unarchived = store.setIssueArchived(issue.id, false);
-    expect(unarchived?.archived).toBe(false);
-    expect(unarchived?.archivedAt).toBeUndefined();
-    expect(unarchived?.status).toBe("not_started");
+    expect(archived?.status).toBe("done");
   });
 
-  it("setIssueStatus(done)はdoneAtを立て、離脱で消す", async () => {
+  it("addLogEntryはメモとして残る", async () => {
     const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const done = store.setIssueStatus(issue.id, "done");
-    expect(done?.status).toBe("done");
-    expect(done?.doneAt).toBeDefined();
-    const reopened = store.setIssueStatus(issue.id, "in_progress");
-    expect(reopened?.status).toBe("in_progress");
-    expect(reopened?.doneAt).toBeUndefined();
+    const issue = await store.createIssue("メモ付き");
+    const updated = await store.addLogEntry(issue.id, "確認した");
+    expect(updated?.logEntries.some((l) => l.text === "確認した")).toBe(true);
   });
 
-  it("setIssueKeyResult/setIssueTeamはnullで解除できる", async () => {
+  it("setIssuePriorityは確認優先度になる", async () => {
     const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const withKr = store.setIssueKeyResult(issue.id, "kr-1");
-    expect(withKr?.keyResultId).toBe("kr-1");
-    const cleared = store.setIssueKeyResult(issue.id, null);
-    expect(cleared?.keyResultId).toBeUndefined();
-
-    const withTeam = store.setIssueTeam(issue.id, "team-1");
-    expect(withTeam?.teamId).toBe("team-1");
-    const clearedTeam = store.setIssueTeam(issue.id, null);
-    expect(clearedTeam?.teamId).toBeUndefined();
+    const issue = await store.createIssue("優先");
+    const updated = store.setIssuePriority(issue.id, "focus");
+    expect(updated?.priority).toBe("focus");
+    expect(updated?.focusOrder).toBe(0);
   });
 
-  it("setIssueTagsは重複除去・trimして更新する", async () => {
+  it("toIssueViewはタイトルを復元する", async () => {
     const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const updated = await store.setIssueTags(issue.id, ["a", " a ", "b"]);
-    expect(updated?.tags).toEqual(["a", "b"]);
-  });
-
-  it("setIssueTagsはembeddingを再計算する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A", undefined, { why: "理由" });
-    const before = store.getIssue(issue.id)?.embedding;
-    embedRef.impl = async () => [0, 1, 0];
-    await store.setIssueTags(issue.id, ["育成", "1on1"]);
-    const after = store.getIssue(issue.id)?.embedding;
-    expect(after).toEqual([0, 1, 0]);
-    expect(after).not.toEqual(before);
-  });
-});
-
-describe("listIssues / listChildIssues / getIssueByRunId", () => {
-  it("listIssuesは更新日時の新しい順で返す", async () => {
-    const store = await loadModule();
-    const older = await store.createIssue("Older");
-    await new Promise((r) => setTimeout(r, 2));
-    const newer = await store.createIssue("Newer");
-    const list = store.listIssues();
-    expect(list[0].id).toBe(newer.id);
-    expect(list[1].id).toBe(older.id);
-  });
-
-  it("listChildIssuesは指定した親のIssueのみ返す", async () => {
-    const store = await loadModule();
-    const parent = await store.createIssue("親");
-    const child = await store.createIssue("子", undefined, undefined, parent.id);
-    await store.createIssue("無関係のIssue");
-    expect(store.listChildIssues(parent.id).map((i) => i.id)).toEqual([child.id]);
-  });
-
-  it("getIssueByRunIdはagentRunIdで検索する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("AI起点のIssue", "run-123");
-    expect(store.getIssueByRunId("run-123")?.id).toBe(issue.id);
-    expect(store.getIssueByRunId("run-unknown")).toBeUndefined();
-  });
-
-  it("linkIssueRunは後からagentRunIdを紐づける", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("素のIssue");
-    expect(issue.agentRunId).toBeUndefined();
-    const linked = store.linkIssueRun(issue.id, "run-456");
-    expect(linked?.agentRunId).toBe("run-456");
-    expect(store.getIssueByRunId("run-456")?.id).toBe(issue.id);
-  });
-
-  it("linkIssueRunは存在しないIssueならundefined", async () => {
-    const store = await loadModule();
-    expect(store.linkIssueRun("missing", "run-456")).toBeUndefined();
-  });
-
-  it("createIssueはsourceJournalIdとsourceRunIdを保存する", async () => {
-    const store = await loadModule();
-    const withBoth = await store.createIssue("A", "run-1", undefined, undefined, undefined, undefined, undefined, {
-      sourceJournalId: "j-1",
-      sourceRunId: "run-1",
-    });
-    expect(withBoth.sourceJournalId).toBe("j-1");
-    expect(withBoth.sourceRunId).toBe("run-1");
-
-    const fromRun = await store.createIssue("B", "run-2");
-    expect(fromRun.sourceRunId).toBe("run-2");
-    expect(fromRun.sourceJournalId).toBeUndefined();
-  });
-});
-
-describe("status", () => {
-  it("createIssueの既定statusはnot_started", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    expect(issue.status).toBe("not_started");
-  });
-
-  it("addLogEntryでnot_startedからin_progressへ自動昇格する", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const updated = await store.addLogEntry(issue.id, "状況確認した");
-    expect(updated?.status).toBe("in_progress");
-  });
-
-  it("setIssueStatusでblockedにした後は経過ログ追加で上書きされない", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    store.setIssueStatus(issue.id, "blocked");
-    const updated = await store.addLogEntry(issue.id, "待ち");
-    expect(updated?.status).toBe("blocked");
-  });
-
-  it("setIssueArchivedはstatusを変えない（doneとは独立）", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    store.setIssueStatus(issue.id, "in_progress");
-    const archived = store.setIssueArchived(issue.id, true);
-    expect(archived?.status).toBe("in_progress");
-    expect(archived?.doneAt).toBeUndefined();
-    const unarchived = store.setIssueArchived(issue.id, false);
-    expect(unarchived?.status).toBe("in_progress");
-  });
-
-  it("setIssueStatusは同じ値なら変更履歴を増やさず現状を返す", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("Issue A");
-    const result = store.setIssueStatus(issue.id, "not_started");
-    expect(result?.status).toBe("not_started");
-  });
-
-  it("存在しないIssueIdはundefined", async () => {
-    const store = await loadModule();
-    expect(store.setIssueStatus("missing", "blocked")).toBeUndefined();
-  });
-});
-
-describe("toIssueView", () => {
-  it("PERSON_n IDでマスクされたフィールドを実名復元する", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
-    const store = await loadModule();
-    peopleDirectory.registerName("Aさん");
-    const issue = await store.createIssue("Aさんの育成", undefined, { why: "Aさんのため" });
-    expect(issue.title).not.toBe("Aさんの育成");
-    const view = store.toIssueView(issue);
-    expect(view.title).toBe("Aさんの育成");
-    expect(view.charter.why).toBe("Aさんのため");
-  });
-});
-
-describe("自動分析のpending登録タイミング", () => {
-  it("updateIssueCharterの完了時点でpendingAgentStartsに載っている（レスポンス前に予約完了）", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
-    const rt = await import("@/lib/agent-runtime");
-    rt.setIssueUpdateDebounceMsForTest(45_000);
-
-    const store = await loadModule();
-    const issue = await store.createIssue("課題");
-    // issue-storeはagent-runtimeをimportしないため、本番のAPIルートと同じく
-    // onUpdatedコールバックとしてreactToIssueUpdateを呼び出し側が渡す。
-    await store.updateIssueCharter(issue.id, { why: "なぜ今か" }, { onUpdated: rt.reactToIssueUpdate });
-
-    // fire-and-forgetだとここで空になり得る。await済みなら即存在する。
-    const pending = rt.listPendingAgentStarts();
-    expect(pending).toHaveLength(1);
-    expect(pending[0].issueId).toBe(issue.id);
-  });
-
-  it("addLogEntryの完了時点でもpendingAgentStartsに載っている", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
-    const rt = await import("@/lib/agent-runtime");
-    rt.setIssueUpdateDebounceMsForTest(45_000);
-
-    const store = await loadModule();
-    const issue = await store.createIssue("課題");
-    await store.addLogEntry(issue.id, "対応を始めた", { onUpdated: rt.reactToIssueUpdate });
-
-    const pending = rt.listPendingAgentStarts();
-    expect(pending).toHaveLength(1);
-    expect(pending[0].issueId).toBe(issue.id);
-    expect(pending[0].label).toContain("経過ログ");
-  });
-});
-
-describe("issueEmbedSource / refreshIssueEmbedding", () => {
-  it("issueEmbedSourceはtitleとcharterを結合する", async () => {
-    const store = await loadModule();
-    const text = store.issueEmbedSource({
-      title: "1on1改善",
-      charter: { why: "育成", what: "設計", how: "週次" },
-      tags: ["people"],
-    });
-    expect(text).toContain("1on1改善");
-    expect(text).toContain("Why: 育成");
-    expect(text).toContain("タグ: people");
-  });
-
-  it("refreshIssueEmbeddingはembeddingを保存しupdatedAtを変えない", async () => {
-    const store = await loadModule();
-    const issue = await store.createIssue("課題", undefined, { why: "理由" });
-    const before = issue.updatedAt;
-    // createIssue内でも refresh 済みだが、明示的に再実行して updatedAt 不変を確認する。
-    const updated = await store.refreshIssueEmbedding(issue.id);
-    expect(updated?.embedding).toEqual([1, 0, 0]);
-    expect(updated?.updatedAt).toBe(before);
-    expect(store.toIssueView(updated!).embedding).toBeUndefined();
+    const issue = await store.createIssue("タイトル");
+    expect(store.toIssueView(issue).title).toBe("タイトル");
   });
 });

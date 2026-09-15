@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { IssueDetailContent } from "@/components/IssueDetailContent";
+import { SuggestionDetailContent } from "@/components/SuggestionDetailContent";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
 import { PageTitleRow } from "@/components/HelpLink";
 import { SlideOver } from "@/components/SlideOver";
@@ -95,8 +95,8 @@ function TimelinePageInner() {
       </div>
 
       {peekedEntry && peek.id && (
-        <SlideOver title={peekedEntry.entityLabel ?? "Issue"} detailHref={`/issues/${peek.id}`} onClose={peek.close}>
-          <IssueDetailContent id={peek.id} />
+        <SlideOver title={peekedEntry.entityLabel ?? "提案"} detailHref={`/suggestions/${peek.id}`} onClose={peek.close}>
+          <SuggestionDetailContent id={peek.id} />
         </SlideOver>
       )}
     </div>

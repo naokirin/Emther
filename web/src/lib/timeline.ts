@@ -28,7 +28,8 @@ export type TimelineEntry = {
 };
 
 export const ENTITY_TYPE_LABEL: Record<KnowledgeEntityType, string> = {
-  issue: "Issue",
+  issue: "提案",
+  suggestion: "提案",
   team: "Team",
   org: "Org",
   journal: "Journal",
@@ -39,9 +40,9 @@ export const ENTITY_TYPE_LABEL: Record<KnowledgeEntityType, string> = {
 // 「元々マスク対象外（team.name）」かが異なるため、それぞれの既存のtoXxxView境界に
 // 揃えてここで復元する。
 function resolveEntity(entityType: KnowledgeEntityType, entityId: string): { label?: string; href?: string } {
-  if (entityType === "issue") {
+  if (entityType === "issue" || entityType === "suggestion") {
     const issue = getIssue(entityId);
-    return issue ? { label: toIssueView(issue).title, href: `/issues/${issue.id}` } : {};
+    return issue ? { label: toIssueView(issue).title, href: `/suggestions/${issue.id}` } : {};
   }
   if (entityType === "team") {
     // チーム名は個人名ではないため元々マスク対象外（org-context-store.tsの設計）。

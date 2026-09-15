@@ -6,11 +6,9 @@ import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt,
 import {
   consultQuestionFor,
   ensureRequiredConsult,
-  extractCharter,
   extractConsult,
   extractIssueNotes,
   extractProposal,
-  extractSubIssues,
   extractThemes,
   extractYield,
 } from "../extraction";
@@ -134,8 +132,9 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
     run.suggestedActionItems = undefined;
-    run.suggestedSubIssues = run.proposal ? extractSubIssues(resultText) : undefined;
-    run.suggestedCharter = run.proposal ? extractCharter(resultText) : undefined;
+    run.suggestedSubIssues = undefined;
+    run.suggestedCharter = undefined;
+    // docs/2nd_pivot_version.md Phase 7: charter/sub_issues 提案は生成しない。
     run.suggestedPriority = undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
     run.suggestedIssueNotes = run.proposal ? extractIssueNotes(resultText) : undefined;
@@ -144,17 +143,11 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       "system",
       run.proposal ? "タスクが完了しました（人間の入力は不要です）。" : "タスクが完了しました（proposal形式には従いませんでした）。",
     );
-    if (run.suggestedSubIssues) {
-      appendLog(run, "system", `[サブIssue分解案] ${run.suggestedSubIssues.length}件`);
-    }
-    if (run.suggestedCharter) {
-      appendLog(run, "system", `[Why/What/How提案] ${Object.keys(run.suggestedCharter).length}件`);
-    }
     if (run.suggestedThemes) {
       appendLog(run, "system", `[テーマ解釈提案] ${run.suggestedThemes.length}件`);
     }
     if (run.suggestedIssueNotes) {
-      appendLog(run, "system", `[他Issueへの追記提案] ${run.suggestedIssueNotes.length}件`);
+      appendLog(run, "system", `[他提案へのメモ追記提案] ${run.suggestedIssueNotes.length}件`);
     }
     // docs/usage_issues U2。Journal自動分析が追跡不要と明示したときだけ自動却下する。
     // 手動相談やIssue更新分析はEMのトリアージ対象のまま残す。

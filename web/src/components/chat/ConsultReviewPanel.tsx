@@ -103,16 +103,16 @@ export function ConsultReviewPanel({
                 sourceRunId: selectedRun.id,
                 ...(selectedRun.sourceJournalId ? { sourceJournalId: selectedRun.sourceJournalId } : {}),
               };
-        const { res, data } = await fetchWithNameConfirm("/api/issues", { method: "POST", body }, "保存する");
-        if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "Issue化に失敗しました");
-        createdIds.push((data as { issue: { id: string } }).issue.id);
+        const { res, data } = await fetchWithNameConfirm("/api/suggestions", { method: "POST", body }, "保存する");
+        if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "提案の保存に失敗しました");
+        createdIds.push((data as { suggestion: { id: string } }).suggestion.id);
       }
       await refreshIssues();
       setCandidatePick(null);
       if (createdIds.length === 1) {
-        router.push(`/issues/${createdIds[0]}`);
+        router.push(`/suggestions/${createdIds[0]}`);
       } else {
-        router.push("/issues");
+        router.push("/suggestions");
       }
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
@@ -307,8 +307,8 @@ export function ConsultReviewPanel({
             onClick={handlePromoteToIssue}
           >
             {issueCandidates.length > 1
-              ? `📌 選択した${selectedCandidateTitles.length}件をIssueにする`
-              : "📌 Issueにする"}
+              ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
+              : "📌 提案として残す"}
           </button>
           <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
             👀 様子見

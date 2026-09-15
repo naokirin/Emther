@@ -35,7 +35,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/issues/[id]
     return NextResponse.json(
       {
         error: "ambiguous",
-        candidates: resolved.items.map((i) => ({ id: i.id, title: i.title, href: `/issues/${i.id}` })),
+        candidates: resolved.items.map((i) => ({ id: i.id, title: i.title, href: `/suggestions/${i.id}` })),
       },
       { status: 409 },
     );

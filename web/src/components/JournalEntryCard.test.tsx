@@ -122,7 +122,7 @@ describe("JournalEntryCard（表示モード）", () => {
     const badge = screen.getByRole("button", { name: "✅ Issueで追跡中" });
     expect(badge).toBeInTheDocument();
     await user.click(badge);
-    expect(pushMock).toHaveBeenCalledWith("/issues/issue-1");
+    expect(pushMock).toHaveBeenCalledWith("/suggestions/issue-1");
   });
 
   it("resolvedIssueIdとissues/objectivesがあれば戦略のつながりパンくずを表示する", () => {
@@ -309,7 +309,7 @@ describe("JournalEntryCard（編集モード）", () => {
     render(<JournalEntryCard {...baseProps({ editing: true, onResolveWithNewIssue })} />);
     await user.click(screen.getByRole("button", { name: "Issueを起票してこの件を追跡する" }));
     expect(onResolveWithNewIssue).toHaveBeenCalledTimes(1);
-    expect(pushMock).toHaveBeenCalledWith("/issues/new-issue-id");
+    expect(pushMock).toHaveBeenCalledWith("/suggestions/new-issue-id");
   });
 
   it("Issue作成に失敗した場合（undefined）は遷移しない", async () => {

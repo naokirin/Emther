@@ -54,8 +54,8 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
             {formatDateTime(report.periodStart)} 〜 {formatDateTime(report.periodEnd)}
           </strong>
           <div className={styles.tableMuted} style={{ marginTop: 4 }}>
-            Journal {journal.total}件（高緊急度 {journal.byUrgency.high}件 / ネガティブ {journal.bySentiment.negative}件） ・ Issue起票{" "}
-            {issues.createdCount}件 / アーカイブ {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
+            Journal {journal.total}件（高緊急度 {journal.byUrgency.high}件 / ネガティブ {journal.bySentiment.negative}件） ・ 提案の作成{" "}
+            {issues.createdCount}件 / 確認済み {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
           </div>
         </td>
         <td>
@@ -96,13 +96,13 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
               </div>
 
               <div>
-                <strong>Issue（起票・アーカイブ）</strong>
+                <strong>提案（作成・確認済み）</strong>
                 <div className={styles.subtitle}>
-                  期間中に起票: {issues.createdCount}件 / アーカイブ（追わない）: {issues.archivedCount}件
+                  期間中に作成: {issues.createdCount}件 / 確認済み（もう追わない）: {issues.archivedCount}件
                 </div>
-                {issues.createdTitles.length > 0 && <div style={{ marginTop: 4 }}>起票: {issues.createdTitles.map((i) => i.title).join(" / ")}</div>}
+                {issues.createdTitles.length > 0 && <div style={{ marginTop: 4 }}>作成: {issues.createdTitles.map((i) => i.title).join(" / ")}</div>}
                 {issues.archivedTitles.length > 0 && (
-                  <div style={{ marginTop: 4 }}>アーカイブ: {issues.archivedTitles.map((i) => i.title).join(" / ")}</div>
+                  <div style={{ marginTop: 4 }}>確認済み: {issues.archivedTitles.map((i) => i.title).join(" / ")}</div>
                 )}
               </div>
 

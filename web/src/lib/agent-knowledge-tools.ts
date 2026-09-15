@@ -113,9 +113,7 @@ function issueMatchesKeyword(issue: Issue, needles: string[]): boolean {
   const hay = [
     issue.id,
     issue.title,
-    issue.charter.why,
-    issue.charter.what,
-    issue.charter.how,
+    ...issue.logEntries.map((e) => e.text),
     issue.tags.join(" "),
   ]
     .join("\n")
@@ -124,11 +122,12 @@ function issueMatchesKeyword(issue: Issue, needles: string[]): boolean {
 }
 
 function formatIssueBrief(issue: Issue, extra?: string): string {
-  const why = issue.charter.why ? ` / Why: ${issue.charter.why.slice(0, 80)}` : "";
+  const recent = issue.logEntries.at(-1)?.text;
+  const memo = recent ? ` / メモ: ${recent.slice(0, 80)}` : "";
   const tags = issue.tags.length > 0 ? ` / タグ: ${issue.tags.join(", ")}` : "";
   const arch = issue.archived ? " / archived" : "";
   const suffix = extra ? ` ${extra}` : "";
-  return `- [${issue.id}] ${issue.title}${why}${tags}（${issue.status}${arch}）${suffix}`;
+  return `- [${issue.id}] ${issue.title}${memo}${tags}（${issue.status}${arch}）${suffix}`;
 }
 
 function searchIssuesByKeyword(opts: {
@@ -142,8 +141,10 @@ function searchIssuesByKeyword(opts: {
   const displayNeedle = needles[0];
 
   const matched = listIssues().filter((i) => {
-    if (!opts.includeArchived && i.archived) return false;
-    if (!opts.includeDone && i.status === "done") return false;
+    // Phase 7: archived ⇔ 確認済み(done)。includeDone / includeArchived のどちらかで拾う。
+    if (i.archived || i.status === "done") {
+      if (!opts.includeDone && !opts.includeArchived) return false;
+    }
     return issueMatchesKeyword(i, needles);
   });
   const sliced = matched.slice(0, opts.limit);
@@ -182,16 +183,10 @@ function getIssueByIdLine(id: string): string[] {
 }
 
 function formatIssueDetailLines(issue: Issue): string[] {
+  const recentMemos = issue.logEntries.slice(-3);
   const parts = [
     formatIssueBrief(issue),
-    issue.charter.what ? `  What: ${issue.charter.what.slice(0, 200)}` : "",
-    issue.charter.how ? `  How: ${issue.charter.how.slice(0, 200)}` : "",
-    issue.actionItems.length > 0
-      ? `  Action Items: ${issue.actionItems
-          .slice(0, 5)
-          .map((a) => `${a.done ? "[x]" : "[ ]"} ${a.text.slice(0, 60)}`)
-          .join("; ")}`
-      : "",
+    ...recentMemos.map((m) => `  メモ: ${m.text.slice(0, 200)}`),
   ].filter(Boolean);
   return parts;
 }

@@ -274,7 +274,7 @@ export function ExecutionState({
         <div className={styles.proposalBlock}>
           <ProposalBlock proposal={run.proposal} />
 
-          {run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
+          {onAdoptSubIssues && run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
             <SuggestedSubIssuesBlock
               items={run.suggestedSubIssues}
               onAdopt={onAdoptSubIssues}
@@ -283,7 +283,7 @@ export function ExecutionState({
             />
           )}
 
-          {run.suggestedCharter && Object.keys(run.suggestedCharter).length > 0 && (
+          {onAdoptCharter && run.suggestedCharter && Object.keys(run.suggestedCharter).length > 0 && (
             <SuggestedCharterBlock
               charter={run.suggestedCharter}
               onAdopt={onAdoptCharter}
@@ -302,7 +302,7 @@ export function ExecutionState({
             />
           )}
 
-          {run.suggestedIssueNotes && run.suggestedIssueNotes.length > 0 && (
+          {onAdoptIssueNotes && run.suggestedIssueNotes && run.suggestedIssueNotes.length > 0 && (
             <SuggestedIssueNotesBlock
               notes={run.suggestedIssueNotes}
               onAdopt={onAdoptIssueNotes}

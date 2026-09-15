@@ -22,8 +22,8 @@ function issueMatch(issue: Issue): IdMatch {
   return {
     kind: "issue",
     id: issue.id,
-    label: issue.title.trim() || "（無題のIssue）",
-    href: `/issues/${issue.id}`,
+    label: issue.title.trim() || "（無題の提案）",
+    href: `/suggestions/${issue.id}`,
   };
 }
 

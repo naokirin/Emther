@@ -16,32 +16,31 @@ describe("TopNav", () => {
   });
 
   it("現在のパスに応じたグループのタブだけactiveクラスを持つ", () => {
-    mockPathname = "/issues";
+    mockPathname = "/suggestions";
     render(<TopNav />);
-    const issuesTab = screen.getByRole("link", { name: "課題" });
+    const suggestionsTab = screen.getByRole("link", { name: "提案" });
     const dashboardTab = screen.getByRole("link", { name: "今日" });
-    expect(issuesTab.className).toContain("tabBtnActive");
+    expect(suggestionsTab.className).toContain("tabBtnActive");
     expect(dashboardTab.className).not.toContain("tabBtnActive");
   });
 
-  it("トップページ以外のパスは前方一致で判定する（/issues/xxxもissuesグループがactive）", () => {
-    mockPathname = "/issues/some-id";
+  it("トップページ以外のパスは前方一致で判定する（/suggestions/xxxも提案グループがactive）", () => {
+    mockPathname = "/suggestions/some-id";
     render(<TopNav />);
-    expect(screen.getByRole("link", { name: "課題" }).className).toContain("tabBtnActive");
+    expect(screen.getByRole("link", { name: "提案" }).className).toContain("tabBtnActive");
   });
 
   it("ルートパス(\"/\")は完全一致のみ（他パスの前方一致に巻き込まれない）", () => {
-    mockPathname = "/issues";
+    mockPathname = "/suggestions";
     render(<TopNav />);
     expect(screen.getByRole("link", { name: "今日" }).className).not.toContain("tabBtnActive");
   });
 
-  // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応の回帰テスト。
-  it("/peopleは「課題」ではなく独立した「チーム・メンバー」タブがactiveになる", () => {
+  it("/peopleは「提案」ではなく独立した「チーム・メンバー」タブがactiveになる", () => {
     mockPathname = "/people";
     render(<TopNav />);
     expect(screen.getByRole("link", { name: "チーム・メンバー" }).className).toContain("tabBtnActive");
-    expect(screen.getByRole("link", { name: "課題" }).className).not.toContain("tabBtnActive");
+    expect(screen.getByRole("link", { name: "提案" }).className).not.toContain("tabBtnActive");
   });
 
   it("振り返りタブの既定先はEMの成長", () => {

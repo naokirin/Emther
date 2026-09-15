@@ -112,7 +112,10 @@ function toPersonFact(e: KnowledgeEvent): PersonFact {
 function findRelatedIssues(personName: string): Issue[] {
   return listIssues()
     .map(toIssueView)
-    .filter((i) => `${i.title} ${i.charter.why} ${i.charter.what} ${i.charter.how}`.includes(personName));
+    .filter((i) => {
+      const memoText = i.logEntries.map((e) => e.text).join(" ");
+      return `${i.title} ${memoText}`.includes(personName);
+    });
 }
 
 // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。未アーカイブの

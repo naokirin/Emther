@@ -31,23 +31,22 @@ async function loadModules() {
 }
 
 describe("listTimelineEntries", () => {
-  it("Issue作成イベントを、現在のIssueタイトルとリンク付きで返す", async () => {
+  it("提案作成イベントを、現在のタイトルとリンク付きで返す", async () => {
     const { timeline, issueStore } = await loadModules();
     const issue = await issueStore.createIssue("障害対応");
     const entries = timeline.listTimelineEntries();
     const entry = entries.find((e) => e.entityId === issue.id);
-    expect(entry?.entityType).toBe("issue");
+    expect(entry?.entityType).toBe("suggestion");
     expect(entry?.entityLabel).toBe("障害対応");
-    expect(entry?.href).toBe(`/issues/${issue.id}`);
+    expect(entry?.href).toBe(`/suggestions/${issue.id}`);
   });
 
-  it("Issueの後続の変更（タイトル変更）でも常に現在のタイトルを解決する", async () => {
+  it("提案の後続の変更（タイトル変更）でも常に現在のタイトルを解決する", async () => {
     const { timeline, issueStore } = await loadModules();
     const issue = await issueStore.createIssue("旧タイトル");
     await issueStore.setIssueTitle(issue.id, "新タイトル");
     const entries = timeline.listTimelineEntries();
-    // 起票イベントのentityLabelも、削除されていない限り現在のタイトルに解決される
-    const createdEntry = entries.find((e) => e.text.includes("Issueを起票"));
+    const createdEntry = entries.find((e) => e.text.includes("提案を作成") || e.text.includes("タイトルを変更"));
     expect(createdEntry?.entityLabel).toBe("新タイトル");
   });
 

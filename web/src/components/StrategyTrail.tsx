@@ -18,7 +18,7 @@ function hrefFor(node: StrategyTrailNode): string {
     case "keyResult":
       return `/org/thread?objective=${encodeURIComponent(node.objectiveId)}`;
     case "issue":
-      return `/issues/${node.id}`;
+      return `/suggestions/${node.id}`;
     case "journal":
       return `/journal?focus=${encodeURIComponent(node.id)}`;
   }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { AgentRun } from "@/components/RunDetail";
-import type { FetchWithNameConfirm } from "./types";
+import type { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
+
+type FetchWithNameConfirm = ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];
 
 type Params = {
   linkedRun: AgentRun | null;
@@ -9,8 +11,8 @@ type Params = {
 };
 
 // ExecutionState の壁打ち（Yield選択・自由記述の送信）と CopilotChat の両方から使う
-// 共有ロジック。JSXを持たないため独立したフックとして切り出す。
-export function useIssueDecision({ linkedRun, fetchWithNameConfirm, refreshRuns }: Params) {
+// 共有ロジック。docs/2nd_pivot_version.md Phase 7 で issue-detail から切り出し。
+export function useAgentDecision({ linkedRun, fetchWithNameConfirm, refreshRuns }: Params) {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [deciding, setDeciding] = useState(false);

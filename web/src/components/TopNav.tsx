@@ -35,9 +35,9 @@ const STORY_GROUPS: StoryGroup[] = [
   { key: "dashboard", label: "今日", hint: "組織の状態を掴み、今日向き合う判断を選ぶ", items: [{ href: "/", label: "今日" }] },
   {
     key: "intervention",
-    label: "課題",
-    hint: "組織課題を計画・実行し、介入として人・仕組みの変化を見る",
-    items: [{ href: "/issues", label: "課題一覧" }],
+    label: "提案",
+    hint: "AIの提案を確認し、メモと壁打ちで理解を深める",
+    items: [{ href: "/suggestions", label: "提案一覧" }],
   },
   {
     // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応。課題（Issue）とは
@@ -58,7 +58,7 @@ const STORY_GROUPS: StoryGroup[] = [
   {
     key: "consult",
     label: "相談",
-    hint: "モヤモヤを壁打ちし、Issue化／様子見／却下を決める。投入前の個人・機密情報チェックも含む",
+    hint: "モヤモヤを壁打ちし、提案として残す／様子見／却下を決める。投入前の個人・機密情報チェックも含む",
     items: [
       { href: "/chat", label: "何でも相談" },
       { href: "/mask-check", label: "個人・機密情報チェック" },

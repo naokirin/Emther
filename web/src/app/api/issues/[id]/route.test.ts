@@ -83,7 +83,7 @@ describe("PATCH /api/issues/[id]", () => {
     expect(res.status).toBe(400);
   });
 
-  it("charter/title/tags/keyResultId/teamIdをまとめて更新できる", async () => {
+  it("charter/title/keyResultId/teamIdをまとめて更新できる（charterはメモへ写像）", async () => {
     const issueStore = await import("@/lib/issue-store");
     const issue = await issueStore.createIssue("元のタイトル");
     const route = await import("./route");
@@ -100,8 +100,7 @@ describe("PATCH /api/issues/[id]", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.issue.title).toBe("新しいタイトル");
-    expect(json.issue.charter.why).toBe("理由");
-    expect(json.issue.tags).toEqual(["技術的負債"]);
+    expect(json.issue.logEntries.some((e: { text: string }) => e.text.includes("理由"))).toBe(true);
     expect(json.issue.keyResultId).toBe("kr-1");
     expect(json.issue.teamId).toBe("team-1");
   });

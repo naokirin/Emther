@@ -9,7 +9,6 @@ import type {
   EmCheckin,
   EmReflectionNote,
   Issue,
-  IssueImpact,
   JournalEntry,
   KnowledgeEvent,
   ObjectiveWithProgress,
@@ -23,6 +22,7 @@ import type {
   Report,
   ReportPeriodType,
   RulesAndConstraints,
+  Suggestion,
   Team,
   TimelineEntry,
 } from "@/lib/types";
@@ -116,31 +116,26 @@ export function usePeekParam(key: string) {
   return { id, open, close };
 }
 
-// 既にIssue化されていればそのIssueへ、まだならその場でIssue化してから遷移する
-// （Issue Workspaceは「Issueの詳細」を表示する画面として一本化しているため）。
-// 明示的な「Issueにする」操作からのみ呼ぶこと（P0-2: 即Issue化を既定にしない）。
-// ダッシュボード（判断カード表）と/agents（Inbox一覧）の両方から使う共通ロジック。
-// 呼び出し側が既に持っているissuesを引数で受け取る（内部でuseIssues()を呼ぶと
-// ポーリングが二重になるため）。
+// 既に提案化されていればその提案へ、まだならその場で提案として残してから遷移する。
 export function useGoToRunIssue(issues: Issue[]) {
   const router = useRouter();
   return useCallback(
     async (run: AgentRun) => {
       const existing = issues.find((i) => i.agentRunId === run.id);
       if (existing) {
-        router.push(`/issues/${existing.id}`);
+        router.push(`/suggestions/${existing.id}`);
         return;
       }
       try {
-        const res = await fetch("/api/issues", {
+        const res = await fetch("/api/suggestions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
         });
         const data = await res.json();
-        if (res.ok) router.push(`/issues/${data.issue.id}`);
+        if (res.ok) router.push(`/suggestions/${data.suggestion.id}`);
       } catch {
-        // 失敗時はIssue一覧から手動で紐づけられる
+        // 失敗時は提案一覧から手動で紐づけられる
       }
     },
     [issues, router],
@@ -186,6 +181,35 @@ export function useIssues(intervalMs = 3000) {
     intervalMs,
   );
   return { issues: data.issues, setIssues: (issues: Issue[]) => setData({ issues }), issuesLoaded: loaded, refreshIssues: refresh };
+}
+
+// docs/2nd_pivot_version.md Phase 7。Suggestion が第一級。
+export function useSuggestions(intervalMs = 3000) {
+  const { data, setData, loaded, refresh } = usePolling<{ suggestions: Suggestion[] }>(
+    "/api/suggestions",
+    { suggestions: [] },
+    intervalMs,
+  );
+  return {
+    suggestions: data.suggestions,
+    setSuggestions: (suggestions: Suggestion[]) => setData({ suggestions }),
+    suggestionsLoaded: loaded,
+    refreshSuggestions: refresh,
+  };
+}
+
+export function useSuggestion(id: string, intervalMs = 2000) {
+  const { data, setData, loaded, refresh } = usePolling<{
+    suggestion: Suggestion | null;
+    sourceJournals?: JournalEntry[];
+  }>(`/api/suggestions/${id}`, { suggestion: null, sourceJournals: [] }, intervalMs);
+  return {
+    suggestion: data.suggestion,
+    sourceJournals: data.sourceJournals ?? [],
+    setSuggestion: (suggestion: Suggestion | null) => setData((prev) => ({ ...prev, suggestion })),
+    suggestionLoaded: loaded,
+    refreshSuggestion: refresh,
+  };
 }
 
 export function useJournal(intervalMs = 5000) {
@@ -394,28 +418,6 @@ export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
     !!personId,
   );
   return { evaluationLogs: data.logs, evaluationLogsLoaded: loaded, refreshEvaluationLogs: refresh };
-}
-
-// docs/memo.md「L. 介入の閉ループ」対応。アーカイブ済み・チーム紐付き済みのIssue
-// でのみ意味を持つため、呼び出し側がenabledで制御する（無駄なポーリングを避ける）。
-export function useIssueImpact(id: string, enabled: boolean, intervalMs = 10000) {
-  const { data, loaded, refresh } = usePolling<{ impact: IssueImpact | null }>(`/api/issues/${id}/impact`, { impact: null }, intervalMs, enabled);
-  return { impact: data.impact, impactLoaded: loaded, refreshImpact: refresh };
-}
-
-export function useIssue(id: string, intervalMs = 2000) {
-  const { data, setData, loaded, refresh } = usePolling<{ issue: Issue | null; sourceJournals?: JournalEntry[] }>(
-    `/api/issues/${id}`,
-    { issue: null, sourceJournals: [] },
-    intervalMs,
-  );
-  return {
-    issue: data.issue,
-    sourceJournals: data.sourceJournals ?? [],
-    setIssue: (issue: Issue | null) => setData((prev) => ({ ...prev, issue })),
-    issueLoaded: loaded,
-    refreshIssue: refresh,
-  };
 }
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する。
