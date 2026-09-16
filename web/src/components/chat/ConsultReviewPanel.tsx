@@ -9,6 +9,7 @@ import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import type { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { truncateForTitle } from "@/lib/types";
 import { journalExcerptFromTask } from "@/lib/origin-trace";
+import type { Issue } from "@/lib/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
@@ -37,6 +38,8 @@ type Props = {
   fetchWithNameConfirm: ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];
   refreshRuns: () => Promise<void>;
   refreshIssues: () => Promise<void>;
+  // docs/suggestion_organize_via_consult.md。整理差分のbefore値表示用。
+  issues: Issue[];
   // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
   // AIを再度実行できない」対応。リセット後に新しく生まれたrunを選択状態にする。
   onReanalyzed?: (runId: string) => void;
@@ -56,6 +59,7 @@ export function ConsultReviewPanel({
   fetchWithNameConfirm,
   refreshRuns,
   refreshIssues,
+  issues,
   onReanalyzed,
 }: Props) {
   const suggestionPeek = useSuggestionPeek();
@@ -67,6 +71,8 @@ export function ConsultReviewPanel({
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [themesSubmitting, setThemesSubmitting] = useState(false);
   const [issueNotesSubmitting, setIssueNotesSubmitting] = useState(false);
+  const [suggestionUpdatesSubmitting, setSuggestionUpdatesSubmitting] = useState(false);
+  const currentSuggestions = new Map(issues.map((i) => [i.id, i]));
   const [resetSubmitting, setResetSubmitting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
@@ -320,6 +326,44 @@ export function ConsultReviewPanel({
     }
   }
 
+  // docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。
+  async function handleAdoptSuggestionUpdates(indices: number[]) {
+    setSuggestionUpdatesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-updates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "整理差分の反映に失敗しました");
+      await Promise.all([refreshIssues(), refreshRuns()]);
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setSuggestionUpdatesSubmitting(false);
+    }
+  }
+
+  async function handleDismissSuggestionUpdates(indices: number[]) {
+    setSuggestionUpdatesSubmitting(true);
+    setDecideError(null);
+    try {
+      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-updates`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices }),
+      });
+      if (!res.ok) throw new Error("整理差分の却下に失敗しました");
+      await refreshRuns();
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setSuggestionUpdatesSubmitting(false);
+    }
+  }
+
   return (
     <>
       <h2>Lead Agentへの相談</h2>
@@ -448,6 +492,10 @@ export function ConsultReviewPanel({
         onDismissIssueNotes={handleDismissIssueNotes}
         onMarkHandledIssueNotes={handleMarkHandledIssueNotes}
         issueNotesSubmitting={issueNotesSubmitting}
+        onAdoptSuggestionUpdates={handleAdoptSuggestionUpdates}
+        onDismissSuggestionUpdates={handleDismissSuggestionUpdates}
+        suggestionUpdatesSubmitting={suggestionUpdatesSubmitting}
+        currentSuggestions={currentSuggestions}
       />
       <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />
       <CopilotChat run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="chat-page-input" />

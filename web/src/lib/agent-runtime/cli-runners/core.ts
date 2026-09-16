@@ -13,6 +13,7 @@ import {
   extractGrowSuggestions,
   extractIssueNotes,
   extractProposal,
+  extractSuggestionUpdates,
   extractThemes,
   extractYield,
 } from "../extraction";
@@ -83,6 +84,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       run.suggestedPriority = undefined;
       run.suggestedThemes = undefined;
       run.suggestedIssueNotes = undefined;
+      run.suggestedSuggestionUpdates = undefined;
       appendLog(run, "system", `[追加照会] 上限（${LOOKUP_MAX_ROUNDS}回）到達のため拒否し、EMへ確認を求めました`);
       return;
     }
@@ -130,6 +132,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.suggestedPriority = undefined;
     run.suggestedThemes = undefined;
     run.suggestedIssueNotes = undefined;
+    run.suggestedSuggestionUpdates = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
@@ -142,6 +145,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.suggestedPriority = undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
     run.suggestedIssueNotes = run.proposal ? extractIssueNotes(resultText) : undefined;
+    run.suggestedSuggestionUpdates = run.proposal ? extractSuggestionUpdates(resultText) : undefined;
     appendLog(
       run,
       "system",
@@ -152,6 +156,9 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     }
     if (run.suggestedIssueNotes) {
       appendLog(run, "system", `[他提案へのメモ追記提案] ${run.suggestedIssueNotes.length}件`);
+    }
+    if (run.suggestedSuggestionUpdates) {
+      appendLog(run, "system", `[提案の整理差分] ${run.suggestedSuggestionUpdates.length}件`);
     }
     // docs/2nd_pivot_version.md Phase 8。Growの提案は組織の前提を変更しない「EMへの
     // 参考情報」そのものなので、他のsuggested*と異なり採用/却下の中間段階を挟まず、

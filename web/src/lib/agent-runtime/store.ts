@@ -4,6 +4,16 @@ import { findByIdPrefix } from "@/lib/id-prefix";
 import { addLogEntry, getIssue, listIssues } from "@/lib/issue-store";
 import { maskForStorage, unmaskNames } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
+import {
+  addMemo as addSuggestionMemo,
+  archiveSuggestion,
+  getSuggestion,
+  listSuggestions,
+  setConfirmPriority,
+  setReviewStatus,
+  setSuggestionReviewDueAt,
+  unarchiveSuggestion,
+} from "@/lib/suggestion-store";
 import { adoptTheme, createThemeCandidate } from "@/lib/theme-store";
 import { normalizeSuggestedSubIssues, parseSuggestedPriority } from "./extraction";
 import type { AgentRun, AgentStatus, LogLine } from "./types";
@@ -33,6 +43,7 @@ type AgentRunRow = {
   suggested_priority_json: string | null;
   suggested_themes_json: string | null;
   suggested_issue_notes_json: string | null;
+  suggested_suggestion_updates_json: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -62,8 +73,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -77,6 +88,7 @@ function persistRunMeta(run: AgentRun): void {
          suggested_priority_json = excluded.suggested_priority_json,
          suggested_themes_json = excluded.suggested_themes_json,
          suggested_issue_notes_json = excluded.suggested_issue_notes_json,
+         suggested_suggestion_updates_json = excluded.suggested_suggestion_updates_json,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -100,6 +112,7 @@ function persistRunMeta(run: AgentRun): void {
       run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
       run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
       run.suggestedIssueNotes ? JSON.stringify(run.suggestedIssueNotes) : null,
+      run.suggestedSuggestionUpdates ? JSON.stringify(run.suggestedSuggestionUpdates) : null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -156,6 +169,9 @@ function loadRunsFromDb(): Map<string, AgentRun> {
         : undefined,
       suggestedThemes: row.suggested_themes_json ? JSON.parse(row.suggested_themes_json) : undefined,
       suggestedIssueNotes: row.suggested_issue_notes_json ? JSON.parse(row.suggested_issue_notes_json) : undefined,
+      suggestedSuggestionUpdates: row.suggested_suggestion_updates_json
+        ? JSON.parse(row.suggested_suggestion_updates_json)
+        : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -314,6 +330,11 @@ export function toRunView(run: AgentRun): AgentRun {
     suggestedIssueNotes: run.suggestedIssueNotes?.map((n) => ({
       issueId: n.issueId,
       text: unmaskNames(n.text),
+    })),
+    suggestedSuggestionUpdates: run.suggestedSuggestionUpdates?.map((u) => ({
+      ...u,
+      note: u.note !== undefined ? unmaskNames(u.note) : undefined,
+      reason: unmaskNames(u.reason),
     })),
   };
 }
@@ -486,6 +507,66 @@ export async function adoptSuggestedIssueNotesFromRun(
   if (run.suggestedIssueNotes?.length === 0) run.suggestedIssueNotes = undefined;
   persistRunMeta(run);
   return { run, written, skipped };
+}
+
+// docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。EMが「まとめて
+// 反映」を押したタイミングでのみ、suggestedSuggestionUpdates を実際のSuggestionへ書き込む。
+// suggestionIdの解決規則はadoptSuggestedIssueNotesFromRunと同じ（フルID一致優先、無ければ
+// プレフィックス一致1件のみ許容）。反映してよい変更種類は制限しない（reviewStatus/
+// confirmPriority/reviewDueAt/archived/noteのいずれも、指定されたものだけ順に適用する）。
+// noteの追記はaddMemoにonUpdatedを渡さない——auto-issue-update（reactToIssueUpdate）を
+// 裏で起動させないため（「裏での自動書き換えはしない」という本方針の核）。indices未指定時は
+// 従来どおり全件を対象にする。
+export async function adoptSuggestionUpdatesFromRun(
+  id: string,
+  indices?: number[],
+): Promise<{ run: AgentRun; applied: { suggestionId: string; reason: string }[]; skipped: string[] } | undefined> {
+  const run = runs.get(id);
+  if (!run?.suggestedSuggestionUpdates?.length) return undefined;
+  const selected = indices ? new Set(indices) : undefined;
+  const targets = run.suggestedSuggestionUpdates.filter((_, i) => !selected || selected.has(i));
+  if (targets.length === 0) return undefined;
+  const applied: { suggestionId: string; reason: string }[] = [];
+  const skipped: string[] = [];
+  for (const update of targets) {
+    const exact = getSuggestion(update.suggestionId);
+    const target = exact ?? findByIdPrefix(listSuggestions(), (s) => s.id, update.suggestionId).at(0);
+    const matchCount = exact ? 1 : findByIdPrefix(listSuggestions(), (s) => s.id, update.suggestionId).length;
+    if (!target || matchCount !== 1) {
+      skipped.push(update.suggestionId);
+      continue;
+    }
+    if (update.reviewStatus !== undefined) setReviewStatus(target.id, update.reviewStatus);
+    if (update.confirmPriority !== undefined) setConfirmPriority(target.id, update.confirmPriority);
+    if (update.reviewDueAt !== undefined) setSuggestionReviewDueAt(target.id, update.reviewDueAt);
+    if (update.archived === true) archiveSuggestion(target.id);
+    if (update.archived === false) unarchiveSuggestion(target.id);
+    if (update.note) {
+      await addSuggestionMemo(target.id, update.note);
+    }
+    applied.push({ suggestionId: target.id, reason: update.reason });
+  }
+  run.suggestedSuggestionUpdates = selected
+    ? run.suggestedSuggestionUpdates.filter((_, i) => !selected.has(i))
+    : undefined;
+  if (run.suggestedSuggestionUpdates?.length === 0) run.suggestedSuggestionUpdates = undefined;
+  persistRunMeta(run);
+  return { run, applied, skipped };
+}
+
+/** 整理差分の却下（提案自体が不適切）。indices未指定時は全件を対象にする。 */
+export function clearSuggestedSuggestionUpdates(
+  id: string,
+  opts?: { indices?: number[] },
+): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  const updates = run.suggestedSuggestionUpdates ?? [];
+  const selected = opts?.indices ? new Set(opts.indices) : undefined;
+  run.suggestedSuggestionUpdates = selected ? updates.filter((_, i) => !selected.has(i)) : undefined;
+  if (run.suggestedSuggestionUpdates?.length === 0) run.suggestedSuggestionUpdates = undefined;
+  persistRunMeta(run);
+  return run;
 }
 
 // docs/knowledge_distillation.md。suggestedThemes を OrgTheme(candidate→adopted) として確定する。

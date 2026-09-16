@@ -1,4 +1,11 @@
-import { ISSUE_PRIORITIES, type IssuePriority, type YieldKind } from "@/lib/types";
+import {
+  CONFIRM_PRIORITIES,
+  ISSUE_PRIORITIES,
+  SUGGESTION_REVIEW_STATUSES,
+  type IssuePriority,
+  type YieldKind,
+} from "@/lib/types";
+import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import type { IssueCharter } from "@/lib/issue-store";
 import type { GrowReference, GrowSuggestionDraft } from "@/lib/em-growth-store";
 import type { SuggestedTheme } from "@/lib/theme-store";
@@ -11,6 +18,7 @@ import type {
   RejectedAlternative,
   SuggestedIssueNote,
   SuggestedSubIssue,
+  SuggestionUpdate,
   YieldOption,
   YieldRequest,
 } from "./types";
@@ -147,6 +155,80 @@ export function extractIssueNotes(resultText: string): SuggestedIssueNote[] | un
     return items.length > 0 ? items : undefined;
   } catch {
     // 不正なissue_noteブロックは「提案なし」として扱う
+  }
+  return undefined;
+}
+
+// docs/suggestion_organize_via_consult.md。EMが相談で明示的に「提案を整理して」等と
+// 依頼したときだけ、AIが提案する既存提案（実在ID）の状態変更下書き。extractIssueNotesと
+// 同じ壊れにくいパースの考え方（要素単位で不正な値は捨て、有効な変更が1つも残らない
+// 要素は捨てる。ブロック自体が不正なら「提案なし」として扱う）。reasonは必須（差分表示・
+// 監査用の根拠を必ず持たせる方針のため）。
+export function extractSuggestionUpdates(resultText: string): SuggestionUpdate[] | undefined {
+  const match = resultText.match(/```suggestion_updates\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!Array.isArray(parsed)) return undefined;
+    const items: SuggestionUpdate[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") continue;
+      const suggestionIdRaw = (entry as { suggestionId?: unknown }).suggestionId;
+      const reasonRaw = (entry as { reason?: unknown }).reason;
+      if (typeof suggestionIdRaw !== "string" || !suggestionIdRaw.trim()) continue;
+      if (typeof reasonRaw !== "string" || !reasonRaw.trim()) continue;
+
+      const reviewStatusRaw = (entry as { reviewStatus?: unknown }).reviewStatus;
+      const reviewStatus =
+        typeof reviewStatusRaw === "string" && (SUGGESTION_REVIEW_STATUSES as string[]).includes(reviewStatusRaw)
+          ? (reviewStatusRaw as SuggestionUpdate["reviewStatus"])
+          : undefined;
+
+      const confirmPriorityRaw = (entry as { confirmPriority?: unknown }).confirmPriority;
+      const confirmPriority =
+        typeof confirmPriorityRaw === "string" && (CONFIRM_PRIORITIES as string[]).includes(confirmPriorityRaw)
+          ? (confirmPriorityRaw as SuggestionUpdate["confirmPriority"])
+          : undefined;
+
+      const reviewDueAtRaw = (entry as { reviewDueAt?: unknown }).reviewDueAt;
+      let reviewDueAt: number | null | undefined;
+      if (reviewDueAtRaw === null) {
+        reviewDueAt = null;
+      } else if (typeof reviewDueAtRaw === "string" && reviewDueAtRaw.trim()) {
+        const ts = dateStringToNoonTimestamp(reviewDueAtRaw.trim());
+        if (ts !== undefined) reviewDueAt = ts;
+      }
+
+      const archivedRaw = (entry as { archived?: unknown }).archived;
+      const archived = typeof archivedRaw === "boolean" ? archivedRaw : undefined;
+
+      const noteRaw = (entry as { note?: unknown }).note;
+      const note = typeof noteRaw === "string" && noteRaw.trim() ? noteRaw.trim() : undefined;
+
+      // reason以外に何も変更が無い要素は「整理差分」として意味を持たないため捨てる。
+      if (
+        reviewStatus === undefined &&
+        confirmPriority === undefined &&
+        reviewDueAt === undefined &&
+        archived === undefined &&
+        note === undefined
+      ) {
+        continue;
+      }
+
+      items.push({
+        suggestionId: suggestionIdRaw.trim(),
+        reason: reasonRaw.trim(),
+        ...(reviewStatus !== undefined ? { reviewStatus } : {}),
+        ...(confirmPriority !== undefined ? { confirmPriority } : {}),
+        ...(reviewDueAt !== undefined ? { reviewDueAt } : {}),
+        ...(archived !== undefined ? { archived } : {}),
+        ...(note !== undefined ? { note } : {}),
+      });
+    }
+    return items.length > 0 ? items : undefined;
+  } catch {
+    // 不正なsuggestion_updatesブロックは「提案なし」として扱う
   }
   return undefined;
 }

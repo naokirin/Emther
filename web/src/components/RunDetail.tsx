@@ -7,7 +7,9 @@ import { MarkdownView } from "@/components/MarkdownView";
 import {
   issueTitleFromConclusion,
   YIELD_KIND_META,
+  type ConfirmPriority,
   type IssuePriority,
+  type SuggestionReviewStatus,
   type YieldKind,
 } from "@/lib/types";
 import { listIssueCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
@@ -17,6 +19,8 @@ import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
 import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
 import { SuggestedIssueNotesBlock } from "./run-detail/SuggestedIssueNotesBlock";
+import { SuggestedSuggestionUpdatesBlock } from "./run-detail/SuggestedSuggestionUpdatesBlock";
+import type { Issue } from "@/lib/types";
 
 export { listIssueCandidatesFromProposal, resolveYieldKind };
 
@@ -76,6 +80,18 @@ export type SuggestedIssueNote = {
   text: string;
 };
 
+// docs/suggestion_organize_via_consult.md。EMが相談で明示的に依頼したときだけ、AIが
+// 提案する既存提案（実在ID）の状態変更下書き。
+export type SuggestionUpdate = {
+  suggestionId: string;
+  reviewStatus?: SuggestionReviewStatus;
+  confirmPriority?: ConfirmPriority;
+  reviewDueAt?: number | null;
+  archived?: boolean;
+  note?: string;
+  reason: string;
+};
+
 export type AgentRun = {
   id: string;
   agentName: string;
@@ -91,6 +107,7 @@ export type AgentRun = {
   suggestedPriority?: IssuePriority;
   suggestedThemes?: SuggestedTheme[];
   suggestedIssueNotes?: SuggestedIssueNote[];
+  suggestedSuggestionUpdates?: SuggestionUpdate[];
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -237,6 +254,10 @@ export function ExecutionState({
   onDismissIssueNotes,
   onMarkHandledIssueNotes,
   issueNotesSubmitting,
+  onAdoptSuggestionUpdates,
+  onDismissSuggestionUpdates,
+  suggestionUpdatesSubmitting,
+  currentSuggestions,
 }: {
   run: AgentRun;
   selectedOptionId: string | null;
@@ -259,6 +280,13 @@ export function ExecutionState({
   onDismissIssueNotes?: (indices: number[]) => void;
   onMarkHandledIssueNotes?: (indices: number[]) => void;
   issueNotesSubmitting?: boolean;
+  onAdoptSuggestionUpdates?: (indices: number[]) => void;
+  onDismissSuggestionUpdates?: (indices: number[]) => void;
+  suggestionUpdatesSubmitting?: boolean;
+  // docs/suggestion_organize_via_consult.md。差分のbefore値表示用。呼び出し側
+  // （ConsultReviewPanel）が保持済みのIssue（Suggestion互換ビュー）一覧から作る
+  // （未指定時はbefore値を「不明」として表示するだけで、反映自体には影響しない）。
+  currentSuggestions?: Map<string, Issue>;
 }) {
   return (
     <>
@@ -316,6 +344,16 @@ export function ExecutionState({
               onDismiss={onDismissIssueNotes}
               onMarkHandled={onMarkHandledIssueNotes}
               submitting={issueNotesSubmitting}
+            />
+          )}
+
+          {onAdoptSuggestionUpdates && run.suggestedSuggestionUpdates && run.suggestedSuggestionUpdates.length > 0 && (
+            <SuggestedSuggestionUpdatesBlock
+              updates={run.suggestedSuggestionUpdates}
+              currentSuggestions={currentSuggestions ?? new Map()}
+              onAdopt={onAdoptSuggestionUpdates}
+              onDismiss={onDismissSuggestionUpdates}
+              submitting={suggestionUpdatesSubmitting}
             />
           )}
         </div>

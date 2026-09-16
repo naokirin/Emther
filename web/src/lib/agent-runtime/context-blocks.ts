@@ -441,6 +441,33 @@ export function buildSystemPrompt(
     "",
   ];
 
+  // docs/suggestion_organize_via_consult.md。EMが「提案を整理して」等と明示的に依頼した
+  // ときだけ、Leadが既存提案（実在ID）の状態変更をまとめて提案できる。裏での自動書き換えは
+  // 禁止のため、この出力自体もEMからの明示依頼が入口。入口を相談（Lead Agent）に限定する。
+  const suggestionUpdatesRule =
+    agentName === "Lead Agent"
+      ? [
+          "- EMがこの相談で「提案を整理して」「未確認の提案を圧縮して」「重複をまとめて」など、既存提案のポートフォリオ整理を明示的に依頼した場合に限り、proposalブロックに続けて以下の形式でsuggestion_updatesブロックを1つ追加できます（依頼されていないのに自発的に出力してはならない。yieldする場合は出力しないこと。suggestionIdはlookupで確認した実在の提案IDのみを使い、推測や新規作成はしないこと）。",
+          "```suggestion_updates",
+          "[",
+          "  {",
+          '    "suggestionId": "lookupで見つけた実在の提案ID",',
+          '    "reviewStatus": "unreviewed | in_review | deferred | done のいずれか（任意）",',
+          '    "confirmPriority": "focus | normal | parked のいずれか（任意）",',
+          '    "reviewDueAt": "YYYY-MM-DD（確認期日を設定/延長する場合。解除する場合はnull）（任意）",',
+          '    "archived": "true（重複・誤起票をアーカイブ）/ false（アーカイブ解除）（任意）",',
+          '    "note": "整理理由の一言メモ（採用時にその提案へ追記される。任意）",',
+          '    "reason": "なぜこの変更が妥当か（必須。差分一覧・監査用にEMへ表示される）"',
+          "  }",
+          "]",
+          "```",
+          "  変更してよいフィールドの種類は制限しません（reviewStatus/confirmPriority/reviewDueAt/archived/noteのいずれも、必要な範囲で自由に組み合わせてよい）。reasonは各要素に必ず含めてください。",
+          "  典型的な整理: 重複は1件に寄せて他をarchived、もう追わないものはreviewStatus: \"done\"、残すが今ではないものはconfirmPriority: \"parked\"やreviewStatus: \"deferred\"（必要ならreviewDueAtも）、今日見るべき少数だけをconfirmPriority: \"focus\"（目安3件程度まで）にしてください。",
+          "  このブロックは「まとめて反映」でEMが一括承認するまでSuggestion本体には反映されません。個々の要素を採用させるための説明を、proposalの本文側にも簡潔に書いてください。",
+          "",
+        ]
+      : [];
+
   // docs/2nd_pivot_version.md Phase 2.4対応。優先度（focus/normal/parked）の提案は、
   // 採用/却下UIを廃止したため出力させても宙に浮くだけになった。プロンプトからも外す。
 
@@ -495,6 +522,7 @@ export function buildSystemPrompt(
     "- 論点が1つなら issueTitle のみ。別チーム・別KR・別の観測に分かれるなら issueCandidates に最大5件まで列挙すること。",
     "- issueCandidates を出すときは recommendation は \"issue\" とし、issueTitle は代表の1件を書いても省略してもよい。",
     ...issueNoteRule,
+    ...suggestionUpdatesRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
     "  1. 複数の妥当な選択肢があり、組織の泥臭い文脈に基づく判断が必要なとき（kind: \"decide\"）",

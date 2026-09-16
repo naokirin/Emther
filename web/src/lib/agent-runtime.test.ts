@@ -297,6 +297,45 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractIssueNotes("ブロックなし")).toBeUndefined();
   });
 
+  it("extractSuggestionUpdatesはsuggestionId/reasonが揃い、何らかの変更を含む要素だけをパースする", async () => {
+    const rt = await loadModule();
+    const text =
+      '```suggestion_updates\n[' +
+      '{ "suggestionId": "abc123", "reviewStatus": "done", "reason": "対応済みのため" }, ' +
+      '{ "suggestionId": "", "reviewStatus": "done", "reason": "IDなし" }, ' +
+      '{ "suggestionId": "def456", "reason": "変更フィールドが無い" }, ' +
+      '{ "suggestionId": "ghi789", "reviewStatus": "done" }' +
+      ']\n```';
+    expect(rt.extractSuggestionUpdates(text)).toEqual([
+      { suggestionId: "abc123", reviewStatus: "done", reason: "対応済みのため" },
+    ]);
+  });
+
+  it("extractSuggestionUpdatesは不正なreviewStatus/confirmPriorityの値を無視する", async () => {
+    const rt = await loadModule();
+    const text =
+      '```suggestion_updates\n[{ "suggestionId": "abc", "reviewStatus": "not-a-status", "confirmPriority": "focus", "reason": "テスト" }]\n```';
+    expect(rt.extractSuggestionUpdates(text)).toEqual([{ suggestionId: "abc", confirmPriority: "focus", reason: "テスト" }]);
+  });
+
+  it("extractSuggestionUpdatesはreviewDueAtの日付文字列をタイムスタンプに変換し、nullは解除として扱う", async () => {
+    const rt = await loadModule();
+    const text =
+      '```suggestion_updates\n[' +
+      '{ "suggestionId": "abc", "reviewDueAt": "2026-03-05", "reason": "期日設定" }, ' +
+      '{ "suggestionId": "def", "reviewDueAt": null, "reason": "解除" }' +
+      ']\n```';
+    const result = rt.extractSuggestionUpdates(text);
+    expect(result?.[0]).toEqual({ suggestionId: "abc", reviewDueAt: expect.any(Number), reason: "期日設定" });
+    expect(result?.[1]).toEqual({ suggestionId: "def", reviewDueAt: null, reason: "解除" });
+  });
+
+  it("extractSuggestionUpdatesは全項目が空/ブロックなしの場合undefined", async () => {
+    const rt = await loadModule();
+    expect(rt.extractSuggestionUpdates('```suggestion_updates\n[]\n```')).toBeUndefined();
+    expect(rt.extractSuggestionUpdates("ブロックなし")).toBeUndefined();
+  });
+
   it("extractThemesは必須フィールドがあるテーマだけをパースする", async () => {
     const rt = await loadModule();
     const text = `\`\`\`themes
@@ -893,6 +932,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
       suggested_charter_json: null,
       suggested_priority_json: null,
       suggested_issue_notes_json: null,
+      suggested_suggestion_updates_json: null,
       total_cost_usd: 0,
       created_at: 1000,
       updated_at: 1000,
@@ -905,8 +945,8 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     };
     db.prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_issue_notes_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_priority_json, @suggested_issue_notes_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_issue_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_priority_json, @suggested_issue_notes_json, @suggested_suggestion_updates_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
     ).run(base);
   }
 
@@ -1095,6 +1135,112 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     insertRunRow(getDb(), { id: "run-1" });
     const rt = await loadModule();
     expect(await rt.adoptSuggestedIssueNotesFromRun("run-1")).toBeUndefined();
+  });
+
+  // docs/suggestion_organize_via_consult.md。
+  it("clearSuggestedSuggestionUpdatesは提案を消す", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_suggestion_updates_json: JSON.stringify([
+        { suggestionId: "s-1", reviewStatus: "done", reason: "対応済み" },
+      ]),
+    });
+    const rt = await loadModule();
+    expect(rt.getRun("run-1")?.suggestedSuggestionUpdates).toEqual([
+      { suggestionId: "s-1", reviewStatus: "done", reason: "対応済み" },
+    ]);
+    rt.clearSuggestedSuggestionUpdates("run-1");
+    expect(rt.getRun("run-1")?.suggestedSuggestionUpdates).toBeUndefined();
+  });
+
+  it("adoptSuggestionUpdatesFromRunは指定フィールドをSuggestionへ反映し、提案を消す", async () => {
+    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案");
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_suggestion_updates_json: JSON.stringify([
+        {
+          suggestionId: suggestion.id,
+          reviewStatus: "done",
+          confirmPriority: "parked",
+          note: "整理済み",
+          reason: "重複のため",
+        },
+      ]),
+    });
+    const rt = await loadModule();
+    const result = await rt.adoptSuggestionUpdatesFromRun("run-1");
+    expect(result?.applied).toEqual([{ suggestionId: suggestion.id, reason: "重複のため" }]);
+    expect(result?.skipped).toEqual([]);
+    expect(rt.getRun("run-1")?.suggestedSuggestionUpdates).toBeUndefined();
+    const updated = suggestionStore.getSuggestion(suggestion.id);
+    expect(updated?.reviewStatus).toBe("done");
+    expect(updated?.confirmPriority).toBe("parked");
+    expect(updated?.memos.map((m) => m.text)).toEqual(["整理済み"]);
+  });
+
+  it("adoptSuggestionUpdatesFromRunはarchived/reviewDueAtも反映する", async () => {
+    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案2");
+    const dueAt = Date.now() + 86_400_000;
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_suggestion_updates_json: JSON.stringify([
+        { suggestionId: suggestion.id, archived: true, reviewDueAt: dueAt, reason: "重複のためアーカイブ" },
+      ]),
+    });
+    const rt = await loadModule();
+    await rt.adoptSuggestionUpdatesFromRun("run-1");
+    const updated = suggestionStore.getSuggestion(suggestion.id);
+    expect(updated?.archivedAt).toBeTypeOf("number");
+    expect(updated?.reviewDueAt).toBe(dueAt);
+  });
+
+  it("adoptSuggestionUpdatesFromRunは存在しないsuggestionIdをスキップする", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_suggestion_updates_json: JSON.stringify([
+        { suggestionId: "no-such-suggestion-id", reviewStatus: "done", reason: "x" },
+      ]),
+    });
+    const rt = await loadModule();
+    const result = await rt.adoptSuggestionUpdatesFromRun("run-1");
+    expect(result?.applied).toEqual([]);
+    expect(result?.skipped).toEqual(["no-such-suggestion-id"]);
+  });
+
+  it("adoptSuggestionUpdatesFromRunは提案が無ければundefinedを返す", async () => {
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), { id: "run-1" });
+    const rt = await loadModule();
+    expect(await rt.adoptSuggestionUpdatesFromRun("run-1")).toBeUndefined();
+  });
+
+  // docs/suggestion_organize_via_consult.md「3.2 やらないこと」対応。noteの追記は
+  // addMemoにonUpdatedを渡さないため、autoIssueUpdateAnalysisEnabledがONでも
+  // auto-issue-update分析を裏で起動してはならない。
+  it("adoptSuggestionUpdatesFromRunのnote追記はauto-issue-update分析を起動しない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案3");
+    const { getDb } = await import("@/lib/db");
+    insertRunRow(getDb(), {
+      id: "run-1",
+      suggested_suggestion_updates_json: JSON.stringify([
+        { suggestionId: suggestion.id, note: "整理メモ", reason: "テスト" },
+      ]),
+    });
+    const rt = await loadModule();
+    rt.setIssueUpdateDebounceMsForTest(0);
+    await rt.adoptSuggestionUpdatesFromRun("run-1");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(rt.listPendingAgentStarts()).toHaveLength(0);
+    expect(rt.listRuns().filter((r) => r.origin === "auto-issue-update")).toHaveLength(0);
   });
 
   it("存在しないIDへの操作はundefinedを返す", async () => {

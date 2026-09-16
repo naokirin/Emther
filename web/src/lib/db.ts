@@ -185,6 +185,11 @@ function migrate(database: DatabaseSync): void {
   // テストで作った等の相談を、相談履歴一覧・AIの判断材料（context-blocks等）から除外する。
   addColumnIfMissing(database, "agent_runs", "archived_at", "INTEGER");
 
+  // docs/suggestion_organize_via_consult.md。EMが相談で明示的に依頼したときだけ、AIが
+  // 提案する既存提案（実在ID）の状態変更下書き。採用（「まとめて反映」）までは対象の
+  // Suggestion本体へは反映しない（既存のsuggested_*_jsonと同じHuman-in-the-Loop設計）。
+  addColumnIfMissing(database, "agent_runs", "suggested_suggestion_updates_json", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

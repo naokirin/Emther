@@ -1,7 +1,15 @@
 import type { IssueCharter } from "@/lib/issue-store";
 import type { SuggestedTheme } from "@/lib/theme-store";
 import type { LookupRequest } from "@/lib/agent-knowledge-tools";
-import type { IssuePriority, PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend, YieldKind } from "@/lib/types";
+import type {
+  ConfirmPriority,
+  IssuePriority,
+  PendingAgentStart,
+  PendingAgentStartKind,
+  PendingUnmaskedSend,
+  SuggestionReviewStatus,
+  YieldKind,
+} from "@/lib/types";
 
 export type { PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend };
 
@@ -87,6 +95,24 @@ export type SuggestedIssueNote = {
   text: string;
 };
 
+// docs/suggestion_organize_via_consult.md。EMが相談で「提案を整理して」等と明示的に
+// 依頼したときだけ、AIが既存提案（実在ID）の状態変更をまとめて提案する。EMが「まとめて
+// 反映」するまで、Suggestion本体には一切書き込まない（issue_noteと同じHuman-in-the-Loop）。
+// 「基本すべて可」（種類の制限を設けない）方針のため、フィールドはすべて任意。ただし
+// reasonのみ必須（差分表示・監査のため、なぜその変更かを必ず添えさせる）。
+export type SuggestionUpdate = {
+  suggestionId: string;
+  reviewStatus?: SuggestionReviewStatus;
+  confirmPriority?: ConfirmPriority;
+  // "YYYY-MM-DD"をdateStringToNoonTimestampで変換したタイムスタンプ。nullは期日解除。
+  reviewDueAt?: number | null;
+  // true=アーカイブ、false=アーカイブ解除。
+  archived?: boolean;
+  // 整理理由の一言メモ（採用時にSuggestion.memosへ追記する）。
+  note?: string;
+  reason: string;
+};
+
 export type LogLine = {
   ts: number;
   channel: "meta" | "agent" | "system";
@@ -124,6 +150,10 @@ export type AgentRun = {
   suggestedPriority?: IssuePriority;
   // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
   suggestedIssueNotes?: SuggestedIssueNote[];
+  // docs/suggestion_organize_via_consult.md。EMが相談で明示的に依頼したときだけ、AIが
+  // 提案する既存提案（実在ID）の状態変更下書き（reviewStatus/confirmPriority/
+  // reviewDueAt/archived/メモ）。EMが「まとめて反映」するまでSuggestion本体には反映しない。
+  suggestedSuggestionUpdates?: SuggestionUpdate[];
   // docs/knowledge_distillation.md。状況蒸留で提案するテーマ解釈の下書き。
   // EMが「採用」するまで OrgTheme(adopted) にはならない。
   suggestedThemes?: SuggestedTheme[];
