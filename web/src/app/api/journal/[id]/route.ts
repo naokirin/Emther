@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
-import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
+import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
 import { listIssues } from "@/lib/issue-store";
@@ -43,7 +43,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
   // 訂正を扱えるように」対応。occurredAtDateは"YYYY-MM-DD"（日付レベルのみ）。
   let occurredAt: number | undefined;
   if (typeof body?.occurredAtDate === "string" && body.occurredAtDate) {
-    occurredAt = dateStringToNoonTimestamp(body.occurredAtDate);
+    occurredAt = resolveJournalOccurredAtFromDateInput(body.occurredAtDate, Date.now());
     if (occurredAt === undefined) {
       return NextResponse.json({ error: "occurredAtDateの形式が不正です（YYYY-MM-DD）" }, { status: 400 });
     }

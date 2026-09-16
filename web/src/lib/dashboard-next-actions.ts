@@ -242,6 +242,10 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     // （＝提案が生成済み・進行中）。相談を促すカードを重ねて出すと「さらに提案を作る」
     // 案内に見えてしまうため、そのJournalはここでは出さない。
     if (entry.urgency === "mid" && entry.sentiment === "negative" && !entry.sourceConsultRunId) {
+      // docs/memo.md「要注目Journalのリンク先に飛ぶと、相談画面に飛ばされて困惑する」対応。
+      // このJournalにはまだ相談が存在しない（sourceConsultRunIdなし）ため、いきなり相談の
+      // 入力状態へ連れて行かず、Journal自体（focus指定）へ遷移させる。相談を始めるかどうかは
+      // Journal詳細を見てからEMが判断する。
       nextActions.push({
         id: `journal-${entry.id}`,
         severity: "warn",
@@ -249,10 +253,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         icon: "📝",
         kindLabel: "要注目Journal",
         text: truncateExcerpt(entry.summary || entry.rawText, 44),
-        onSelect: () =>
-          push(
-            `/chat?prefill=${encodeURIComponent(`${entry.rawText}について、対応方針を相談したい`)}&journalId=${encodeURIComponent(entry.id)}`,
-          ),
+        onSelect: () => push(`/journal?focus=${entry.id}`),
         since: entry.createdAt,
       });
     } else if (entry.urgency === "high" && !entry.confirmed) {

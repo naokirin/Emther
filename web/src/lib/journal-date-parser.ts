@@ -33,7 +33,11 @@ export function parseDateMarkerLine(line: string, now: number): number | undefin
   const s = line.trim();
   if (!s) return undefined;
 
-  if (s === "今日") return atNoon(startOfDay(now));
+  // 「今日」は日またぎの曖昧さが無いため、他の相対日付と違って正午へ丸めず実時刻を使う
+  // （docs/memo.md「書き込んだばかりのJournalが一覧で下に埋もれる」対応。同日の他エントリと
+  // 正午で日付だけ一致させてしまうと、正午以降に書いたエントリが実際より前に記録された
+  // 扱いになり、一覧で本来の書き込み順より下に表示されてしまっていた）。
+  if (s === "今日") return now;
   if (s === "昨日") return atNoon(startOfDay(now - DAY_MS));
   if (s === "一昨日" || s === "おととい") return atNoon(startOfDay(now - 2 * DAY_MS));
 
@@ -93,6 +97,16 @@ export function dateStringToNoonTimestamp(dateStr: string): number | undefined {
   return d.getMonth() === Number(mo) - 1 ? d.getTime() : undefined;
 }
 
+// 単発投稿・校正フォームの「発生日」入力（YYYY-MM-DD）をJournalのoccurredAtへ変換する。
+// 過去日は従来通り正午に丸めるが、指定日が「今日」なら日またぎの曖昧さが無いため実時刻を
+// 使う（parseDateMarkerLineの「今日」と同じ理由。docs/memo.md「書き込んだばかりの
+// Journalが一覧で下に埋もれる」対応）。
+export function resolveJournalOccurredAtFromDateInput(dateStr: string, now: number): number | undefined {
+  const noon = dateStringToNoonTimestamp(dateStr);
+  if (noon === undefined) return undefined;
+  return startOfDay(noon).getTime() === startOfDay(now).getTime() ? now : noon;
+}
+
 export type BulkParsedLine = { text: string; occurredAt: number };
 
 // テキスト全体を「1行＝1つの出来事」として分解し、各行に発生日（正午タイムスタンプ）を
@@ -104,7 +118,8 @@ export function parseBulkJournalText(rawText: string, now: number, maxLines = 40
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  let currentDate = atNoon(startOfDay(now));
+  // マーカーが無い（＝今日扱い）場合も上記と同じ理由で実時刻を使う。
+  let currentDate = now;
   const result: BulkParsedLine[] = [];
   for (const line of lines) {
     const marker = parseDateMarkerLine(line, now);

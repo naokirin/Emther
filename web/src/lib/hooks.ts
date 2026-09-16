@@ -256,6 +256,9 @@ export type JournalSearchFilter = {
   periodDays: string;
   excludeResolved: boolean;
   includeArchived: boolean;
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。
+  quarantinedOnly: boolean;
 };
 
 export function useJournalSearch(
@@ -274,6 +277,7 @@ export function useJournalSearch(
   if (filter.periodDays !== "all") params.set("periodDays", filter.periodDays);
   if (filter.excludeResolved) params.set("excludeResolved", "1");
   if (filter.includeArchived) params.set("includeArchived", "1");
+  if (filter.quarantinedOnly) params.set("quarantinedOnly", "1");
   if (focusId) params.set("focusId", focusId);
   params.set("page", String(page));
   params.set("pageSize", String(pageSize));

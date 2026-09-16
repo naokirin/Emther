@@ -373,6 +373,28 @@ describe("quarantineEventsContainingNames", () => {
     expect(knowledgeStore.getEventById(clean.id)?.archivedAt).toBeUndefined();
   });
 
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。手動アーカイブと区別するため、自動隔離だけ
+  // archivedReasonが"name_leak"になり、archivedReasonExactで絞り込める。
+  it("自動隔離だけarchivedReasonが'name_leak'になり、手動アーカイブと区別できる", async () => {
+    const { knowledgeStore } = await loadModules();
+    const leaked = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "山田太郎が混入", tags: [], occurredAt: 1 });
+    const manuallyArchived = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "重複して記録した", tags: [], occurredAt: 2 });
+    knowledgeStore.setEventArchived(manuallyArchived.id);
+
+    knowledgeStore.quarantineEventsContainingNames(["山田太郎"]);
+
+    expect(knowledgeStore.getEventById(leaked.id)?.archivedReason).toBe("name_leak");
+    expect(knowledgeStore.getEventById(manuallyArchived.id)?.archivedReason).toBeUndefined();
+
+    const { total, events } = knowledgeStore.listEventsPage(
+      { entityType: "journal", excludeArchived: false, archivedReasonExact: "name_leak" },
+      { limit: 10, offset: 0 },
+    );
+    expect(total).toBe(1);
+    expect(events[0].id).toBe(leaked.id);
+  });
+
   it("名前が指定されなければ何もしない", async () => {
     const { knowledgeStore } = await loadModules();
     expect(knowledgeStore.quarantineEventsContainingNames([])).toEqual([]);
@@ -482,6 +504,17 @@ describe("setEventArchived / clearEventArchived", () => {
     const { knowledgeStore } = await loadModules();
     expect(knowledgeStore.setEventArchived("nope")).toBeUndefined();
     expect(knowledgeStore.clearEventArchived("nope")).toBeUndefined();
+  });
+
+  it("clearEventArchivedはarchivedReasonも一緒に消す", async () => {
+    const { knowledgeStore } = await loadModules();
+    const event = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "山田太郎", tags: [], occurredAt: 1 });
+    knowledgeStore.setEventArchived(event.id, "name_leak");
+    expect(knowledgeStore.getEventById(event.id)?.archivedReason).toBe("name_leak");
+
+    const cleared = knowledgeStore.clearEventArchived(event.id);
+    expect(cleared?.archivedReason).toBeUndefined();
+    expect(knowledgeStore.getEventById(event.id)?.archivedReason).toBeUndefined();
   });
 });
 

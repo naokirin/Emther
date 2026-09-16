@@ -114,15 +114,15 @@ export function GrowSuggestionsPanel() {
                 <span style={{ fontSize: "0.6875rem", color: "var(--accent, #2563eb)", whiteSpace: "nowrap" }}>未確認</span>
               )}
             </div>
-            <p style={{ margin: "6px 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>{s.rationale}</p>
+            <p style={{ margin: "6px 0 0", fontSize: "0.9375rem", color: "var(--text-muted)" }}>{s.rationale}</p>
             {s.evidenceSummary && (
-              <p style={{ margin: "6px 0 0", fontSize: "0.75rem" }}>
+              <p style={{ margin: "6px 0 0", fontSize: "0.8125rem" }}>
                 <strong>根拠: </strong>
                 {s.evidenceSummary}
               </p>
             )}
             {s.references.length > 0 && (
-              <ul style={{ margin: "6px 0 0 16px", fontSize: "0.75rem" }}>
+              <ul style={{ margin: "6px 0 0 16px", fontSize: "0.8125rem" }}>
                 {s.references.map((r, i) => {
                   const hasDirectUrl = isSafeHttpUrl(r.url);
                   const href = hasDirectUrl ? r.url : searchUrlFor(r.topic, r.note);

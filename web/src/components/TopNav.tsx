@@ -67,9 +67,9 @@ const STORY_GROUPS: StoryGroup[] = [
   },
   {
     key: "sensing",
-    label: "現場メモ",
+    label: "ジャーナル",
     hint: "現場の出来事を事実として残す・校正する",
-    items: [{ href: "/journal", label: "現場メモ" }],
+    items: [{ href: "/journal", label: "ジャーナル" }],
   },
   {
     key: "reflection",

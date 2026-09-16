@@ -65,6 +65,10 @@ export type KnowledgeEvent = {
   // 同様のin-place更新（内容の訂正ではないためsupersedesチェーンは使わない）。立っている
   // イベントは一覧・AIの判断材料から除外する（イベント自体は削除しない）。
   archivedAt?: number;
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。手動アーカイブ（archivedAtのみ）と区別するため、
+  // 自動隔離（quarantineEventsContainingNames）のときだけ"name_leak"を設定する。
+  archivedReason?: "name_leak";
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt" | "teamIds"> & {
@@ -99,6 +103,7 @@ type Row = {
   no_action_needed_at: number | null;
   no_action_needed_note: string | null;
   archived_at: number | null;
+  archived_reason: string | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -128,6 +133,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     noActionNeededAt: row.no_action_needed_at ?? undefined,
     noActionNeededNote: row.no_action_needed_note ?? undefined,
     archivedAt: row.archived_at ?? undefined,
+    archivedReason: row.archived_reason === "name_leak" ? "name_leak" : undefined,
   };
 }
 
@@ -155,19 +161,21 @@ export function clearEventNoActionNeeded(id: string): KnowledgeEvent | undefined
 
 // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。noActionNeededと同様の
 // in-place更新。重複記録・誤入力等のJournalを一覧・AIの判断材料から除外する用途。
-export function setEventArchived(id: string): KnowledgeEvent | undefined {
+export function setEventArchived(id: string, reason?: "name_leak"): KnowledgeEvent | undefined {
   const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
   if (!row) return undefined;
   const now = Date.now();
-  getDb().prepare("UPDATE knowledge_events SET archived_at = ? WHERE id = ?").run(now, id);
-  return rowToEvent({ ...row, archived_at: now });
+  getDb()
+    .prepare("UPDATE knowledge_events SET archived_at = ?, archived_reason = ? WHERE id = ?")
+    .run(now, reason ?? null, id);
+  return rowToEvent({ ...row, archived_at: now, archived_reason: reason ?? null });
 }
 
 export function clearEventArchived(id: string): KnowledgeEvent | undefined {
   const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
   if (!row) return undefined;
-  getDb().prepare("UPDATE knowledge_events SET archived_at = NULL WHERE id = ?").run(id);
-  return rowToEvent({ ...row, archived_at: null });
+  getDb().prepare("UPDATE knowledge_events SET archived_at = NULL, archived_reason = NULL WHERE id = ?").run(id);
+  return rowToEvent({ ...row, archived_at: null, archived_reason: null });
 }
 
 // ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
@@ -190,7 +198,7 @@ export function quarantineEventsContainingNames(names: string[]): string[] {
   for (const row of rows) {
     const haystack = `${row.text}\n${row.summary ?? ""}\n${row.tags_json}\n${row.resolution_note ?? ""}`;
     if (names.some((name) => haystack.includes(name))) {
-      setEventArchived(row.id);
+      setEventArchived(row.id, "name_leak");
       quarantinedIds.push(row.id);
     }
   }
@@ -333,6 +341,10 @@ export type EventPageFilter = {
   excludeResolved?: boolean;
   excludeSuperseded?: boolean;
   excludeArchived?: boolean;
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。excludeArchivedとは独立（隔離済みだけに絞り込みたい
+  // ときはexcludeArchivedをfalseにした上でこれを指定する）。
+  archivedReasonExact?: string;
 };
 
 function buildEventPageWhere(filter: EventPageFilter): { where: string; params: (string | number)[] } {
@@ -401,6 +413,10 @@ function buildEventPageWhere(filter: EventPageFilter): { where: string; params: 
   }
   if (filter.excludeArchived) {
     conditions.push("archived_at IS NULL");
+  }
+  if (filter.archivedReasonExact) {
+    conditions.push("archived_reason = ?");
+    params.push(filter.archivedReasonExact);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return { where, params };

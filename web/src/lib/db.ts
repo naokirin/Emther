@@ -257,6 +257,12 @@ function migrate(database: DatabaseSync): void {
   // 重複記録・誤入力等のJournalを一覧・AIの判断材料から除外する。
   addColumnIfMissing(database, "knowledge_events", "archived_at", "INTEGER");
 
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。archived_atだけでは「実名リークで自動隔離」と
+  // 「EMが手動でアーカイブ」を区別できないため、理由を別カラムで持たせる
+  // （自動隔離時のみ"name_leak"を設定。手動アーカイブはNULLのまま）。
+  addColumnIfMissing(database, "knowledge_events", "archived_reason", "TEXT");
+
   // メンバー詳細の「関連Issue（停滞・ブロッカーあり）」アラートは、Issueそのものではなく
   // 「この人物にとって」対応不要と判断した、という人物×Issue単位の判断のため、
   // 既存のknowledge_events/person_evaluation_logsとは別に person_id×issue_id のペアで持つ。

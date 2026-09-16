@@ -3,6 +3,7 @@ import {
   dateStringToNoonTimestamp,
   parseBulkJournalText,
   parseDateMarkerLine,
+  resolveJournalOccurredAtFromDateInput,
   timestampToDateInputValue,
 } from "@/lib/journal-date-parser";
 
@@ -70,6 +71,13 @@ describe("parseDateMarkerLine", () => {
   it("前後の空白はtrimして判定する", () => {
     expect(parseDateMarkerLine("  今日  ", NOW)).toBe(noonOf(2026, 3, 5));
   });
+
+  // docs/memo.md「書き込んだばかりのJournalが一覧で下に埋もれる」対応。「今日」は
+  // 他の相対日付と違い日またぎの曖昧さが無いため、正午に丸めず実時刻をそのまま使う。
+  it("「今日」は正午丸めではなく実時刻(now)をそのまま返す", () => {
+    const nowAfternoon = new Date(2026, 2, 5, 15, 30, 0, 0).getTime();
+    expect(parseDateMarkerLine("今日", nowAfternoon)).toBe(nowAfternoon);
+  });
 });
 
 describe("timestampToDateInputValue", () => {
@@ -94,6 +102,23 @@ describe("dateStringToNoonTimestamp", () => {
 
   it("桁あふれの日付はundefinedを返す", () => {
     expect(dateStringToNoonTimestamp("2026-02-30")).toBeUndefined();
+  });
+});
+
+// docs/memo.md「書き込んだばかりのJournalが一覧で下に埋もれる」対応。
+describe("resolveJournalOccurredAtFromDateInput", () => {
+  it("今日の日付を指定した場合は正午に丸めず実時刻(now)を使う", () => {
+    const nowAfternoon = new Date(2026, 2, 5, 15, 30, 0, 0).getTime();
+    expect(resolveJournalOccurredAtFromDateInput("2026-03-05", nowAfternoon)).toBe(nowAfternoon);
+  });
+
+  it("過去の日付は従来通り正午に丸める", () => {
+    const nowAfternoon = new Date(2026, 2, 5, 15, 30, 0, 0).getTime();
+    expect(resolveJournalOccurredAtFromDateInput("2026-03-04", nowAfternoon)).toBe(noonOf(2026, 3, 4));
+  });
+
+  it("不正な形式はundefinedを返す", () => {
+    expect(resolveJournalOccurredAtFromDateInput("not-a-date", NOW)).toBeUndefined();
   });
 });
 
@@ -126,6 +151,12 @@ describe("parseBulkJournalText", () => {
     const text = ["Aさんと話した", "", "  ", "Bさんと話した"].join("\n");
     const result = parseBulkJournalText(text, NOW);
     expect(result).toHaveLength(2);
+  });
+
+  it("マーカーが無い場合（今日扱い）も正午丸めではなく実時刻(now)を使う", () => {
+    const nowAfternoon = new Date(2026, 2, 5, 15, 30, 0, 0).getTime();
+    const result = parseBulkJournalText("1on1でAさんと話した", nowAfternoon);
+    expect(result).toEqual([{ text: "1on1でAさんと話した", occurredAt: nowAfternoon }]);
   });
 
   it("maxLinesを超える行は切り捨てる", () => {

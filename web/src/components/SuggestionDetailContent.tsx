@@ -62,8 +62,18 @@ export function SuggestionDetailContent({ id }: { id: string }) {
     : undefined;
   const pendingStart = pendingAgentStarts.find((p) => p.issueId === id) ?? null;
 
+  // docs/memo.md「判断・提案（Agent）／壁打ちにも元の相談の内容を反映し、やり取りを継続
+  // できるようにしたい」対応。提案に専用のAgent Run（linkedRun）がまだ無い場合が多く
+  // （相談から提案化しても agentRunId は付与されない設計——docs/memo.md「提案化後も
+  // 相談履歴に残す」対応参照）、その間は「元の相談を開く」への片道リンクしか出せず、
+  // 会話の続きがここで見えなかった。linkedRunが無ければ、代わりにsourceConsult
+  // （元の相談のAgent Run。/chatのConsultReviewPanelと同じ実体）をそのまま表示・継続の
+  // 対象にする。
+  const activeRun = linkedRun ?? sourceConsult ?? null;
+  const showingSourceConsult = !linkedRun && !!sourceConsult;
+
   const { selectedOptionId, setSelectedOptionId, message, setMessage, deciding, decideError, sendDecision, handleConfirmOption, handleFocusChat } =
-    useAgentDecision({ linkedRun, fetchWithNameConfirm, refreshRuns });
+    useAgentDecision({ linkedRun: activeRun, fetchWithNameConfirm, refreshRuns });
 
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -321,40 +331,35 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       <div className={styles.issueColumns}>
         <div className={styles.panel}>
           <h2>判断・提案（Agent）</h2>
-          {linkedRun ? (
+          {showingSourceConsult && (
+            <p className={styles.subtitle} style={{ marginTop: 0 }}>
+              この提案専用の Agent Run はまだありません。元の相談の内容を表示しています。
+              {" "}
+              <Link href={`/chat?runId=${encodeURIComponent(activeRun!.id)}`}>相談履歴で開く</Link>
+            </p>
+          )}
+          {activeRun ? (
             <ExecutionState
-              run={linkedRun}
+              run={activeRun}
               selectedOptionId={selectedOptionId}
               onSelectOption={setSelectedOptionId}
               onConfirmOption={handleConfirmOption}
               onFocusChat={handleFocusChat}
               deciding={deciding}
-              stale={staleRunIds.has(linkedRun.id)}
+              stale={staleRunIds.has(activeRun.id)}
               onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
             />
           ) : (
             <p className={styles.subtitle}>
-              この提案に紐づく Agent Run はありません。
-              {sourceConsult ? (
-                <>
-                  {" "}
-                  <Link href={`/chat?runId=${encodeURIComponent(sourceConsult.id)}`}>元の相談を開く</Link>
-                  から続きの壁打ちができます。
-                </>
-              ) : (
-                <>
-                  {" "}
-                  <Link href="/chat">何でも相談</Link>から続けることもできます。
-                </>
-              )}
+              この提案に紐づく Agent Run はありません。 <Link href="/chat">何でも相談</Link>から続けることもできます。
             </p>
           )}
         </div>
         <div className={styles.panel}>
           <h2>壁打ち</h2>
-          {linkedRun ? (
+          {activeRun ? (
             <CopilotChat
-              run={linkedRun}
+              run={activeRun}
               message={message}
               setMessage={setMessage}
               deciding={deciding}
@@ -362,11 +367,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               inputId="suggestion-chat-input"
             />
           ) : (
-            <p className={styles.subtitle}>
-              {sourceConsult
-                ? "相談から提案化した場合、会話は相談履歴側に残っています。「元の相談を開く」から続けられます。"
-                : "Agent Runが無いため会話はありません。"}
-            </p>
+            <p className={styles.subtitle}>Agent Runが無いため会話はありません。</p>
           )}
         </div>
       </div>

@@ -4,7 +4,6 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { PageTitleRow } from "@/components/HelpLink";
-import { Select } from "@/components/Select";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { StatusBadge } from "@/components/RunDetail";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
@@ -13,14 +12,27 @@ import {
   CONFIRM_PRIORITIES,
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUS_META,
+  SUGGESTION_REVIEW_STATUSES,
   compareSuggestionsByConfirmPriority,
   isRunStale,
-  isSuggestionOpen,
   isSuggestionReviewOverdue,
   type ConfirmPriority,
   type Suggestion,
   type SuggestionReviewStatus,
 } from "@/lib/types";
+
+// docs/memo.md「デフォルトの確認状態」対応。旧statusFilter="open"相当（未確認・確認中・
+// 確認保留）を複数選択の初期値として引き継ぐ（doneだけを除外した状態から始める）。
+const DEFAULT_STATUS_FILTER: SuggestionReviewStatus[] = ["unreviewed", "in_review", "deferred"];
+
+/** docs/memo.md「提案一覧のフィルタを複数選択式にしたい」対応。チェックボックス群での
+ * トグル。選択が空＝フィルタなし（すべて表示）として扱う（他のcheckbox群フィルタと同じ規約）。 */
+function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
 
 const PAGE_SIZE = 8;
 
@@ -118,19 +130,18 @@ function SuggestionsPageInner() {
 
   const [showDone, setShowDone] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"open" | SuggestionReviewStatus | "all">("open");
-  const [priorityFilter, setPriorityFilter] = useState<"all" | ConfirmPriority>("all");
+  const [statusFilter, setStatusFilter] = useState<Set<SuggestionReviewStatus>>(new Set(DEFAULT_STATUS_FILTER));
+  const [priorityFilter, setPriorityFilter] = useState<Set<ConfirmPriority>>(new Set());
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
 
   const filtered = suggestions
     .filter((s) => {
       if (!showArchived && s.archivedAt) return false;
       if (!showDone && s.reviewStatus === "done") return false;
-      if (statusFilter === "open") return isSuggestionOpen(s);
-      if (statusFilter === "all") return true;
-      return s.reviewStatus === statusFilter;
+      if (statusFilter.size > 0 && !statusFilter.has(s.reviewStatus)) return false;
+      return true;
     })
-    .filter((s) => priorityFilter === "all" || s.confirmPriority === priorityFilter)
+    .filter((s) => priorityFilter.size === 0 || priorityFilter.has(s.confirmPriority))
     .slice()
     .sort(compareSuggestionsByConfirmPriority);
 
@@ -166,37 +177,37 @@ function SuggestionsPageInner() {
               <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
               🗄 アーカイブ済みも表示する（{archivedCount}件）
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
+          </div>
+          {/* docs/memo.md「提案一覧のフィルタを複数選択式にしたい」対応。単一選択のSelectを
+              チェックボックス群に置き換え、複数の確認状態・確認優先度を同時に選べるようにする
+              （未選択＝フィルタなし、すべて表示）。 */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "0 0 8px" }}>
+            <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: "0.875rem", color: "var(--text-muted)" }}>
               確認状態:
-              <Select
-                value={statusFilter}
-                onChange={(v) => setStatusFilter(v as typeof statusFilter)}
-                options={[
-                  { value: "open", label: "未確認・確認中・確認保留" },
-                  { value: "all", label: "すべて" },
-                  { value: "unreviewed", label: "未確認のみ" },
-                  { value: "in_review", label: "確認中のみ" },
-                  { value: "deferred", label: "確認保留のみ" },
-                  { value: "done", label: "確認済みのみ" },
-                ]}
-                style={{ minWidth: 160 }}
-              />
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              {SUGGESTION_REVIEW_STATUSES.map((status) => (
+                <label key={status} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={statusFilter.has(status)}
+                    onChange={() => setStatusFilter((prev) => toggleInSet(prev, status))}
+                  />
+                  {SUGGESTION_REVIEW_STATUS_META[status].icon} {SUGGESTION_REVIEW_STATUS_META[status].label}
+                </label>
+              ))}
+            </span>
+            <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: "0.875rem", color: "var(--text-muted)" }}>
               確認優先度:
-              <Select
-                value={priorityFilter}
-                onChange={(v) => setPriorityFilter(v as typeof priorityFilter)}
-                options={[
-                  { value: "all", label: "すべて" },
-                  ...CONFIRM_PRIORITIES.map((p) => ({
-                    value: p,
-                    label: `${CONFIRM_PRIORITY_META[p].icon} ${CONFIRM_PRIORITY_META[p].label}`,
-                  })),
-                ]}
-                style={{ minWidth: 140 }}
-              />
-            </label>
+              {CONFIRM_PRIORITIES.map((p) => (
+                <label key={p} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={priorityFilter.has(p)}
+                    onChange={() => setPriorityFilter((prev) => toggleInSet(prev, p))}
+                  />
+                  {CONFIRM_PRIORITY_META[p].icon} {CONFIRM_PRIORITY_META[p].label}
+                </label>
+              ))}
+            </span>
           </div>
 
           <div className={styles.tableWrap}>

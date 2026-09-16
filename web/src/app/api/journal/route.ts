@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { addJournalEntryWithProfileCandidate, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
-import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
+import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { detectUnregisteredNameCandidates } from "@/lib/people-directory";
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   // Date.now()（＝今日）を使う。
   let occurredAt: number | undefined;
   if (typeof body?.occurredAtDate === "string" && body.occurredAtDate) {
-    occurredAt = dateStringToNoonTimestamp(body.occurredAtDate);
+    occurredAt = resolveJournalOccurredAtFromDateInput(body.occurredAtDate, Date.now());
     if (occurredAt === undefined) {
       return NextResponse.json({ error: "occurredAtDateの形式が不正です（YYYY-MM-DD）" }, { status: 400 });
     }

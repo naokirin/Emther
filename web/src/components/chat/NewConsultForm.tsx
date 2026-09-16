@@ -12,13 +12,46 @@ type Props = {
   onStarted: (runId: string) => void;
 };
 
+// docs/memo.md「タブ移動すると相談の入力中テキストが消えてしまう」対応。この画面は履歴選択や
+// 他タブへの遷移でアンマウントされ得るため、下書きをこの端末のlocalStorageにも退避する
+// （SlideOverの幅記憶等と同じ軽量パターン）。他の閲覧者・他端末とは共有されない。
+const DRAFT_STORAGE_KEY = "em-chat-new-consult-draft";
+
+function readStoredDraft(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(DRAFT_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeStoredDraft(value: string) {
+  if (typeof window === "undefined") return;
+  try {
+    if (value) {
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, value);
+    } else {
+      window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+  } catch {
+    // localStorageが使えない環境でも、下書きの保持を諦めるだけで入力自体は妨げない
+  }
+}
+
 // docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
 // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
 export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfirm, onStarted }: Props) {
-  const [task, setTask] = useState(initialTask);
+  // 明示的なprefill（Journal等からの導線）が無いときだけ、退避していた下書きを初期値に使う。
+  const [task, setTask] = useState(() => initialTask || readStoredDraft());
   const [requireExecConsult, setRequireExecConsult] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+
+  function updateTask(value: string) {
+    setTask(value);
+    writeStoredDraft(value);
+  }
 
   async function handleStartNew(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +73,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
         "送信する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
-      setTask("");
+      updateTask("");
       setRequireExecConsult(false);
       onStarted((data as { run: { id: string } }).run.id);
     } catch (err) {
@@ -60,7 +93,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
           <label>相談したいこと
           <textarea
             value={task}
-            onChange={(e) => setTask(e.target.value)}
+            onChange={(e) => updateTask(e.target.value)}
             rows={3}
             placeholder="例: 最近チーム全体の元気度が心配。何を確認すればいい？"
           /></label>

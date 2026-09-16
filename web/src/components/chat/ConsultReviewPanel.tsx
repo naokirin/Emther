@@ -369,7 +369,7 @@ export function ConsultReviewPanel({
       <h2>Lead Agentへの相談</h2>
       <OriginTrace
         journals={
-          sourceJournal
+          sourceJournal && sourceJournal.id === selectedRun.sourceJournalId
             ? [sourceJournal]
             : selectedRun.sourceJournalId
               ? [

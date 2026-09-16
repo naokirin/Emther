@@ -93,6 +93,11 @@ function JournalListPageInner() {
   // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定ではアーカイブ済み
   // （重複記録・誤入力等）を一覧から除外し、必要なときだけ表示できるようにする。
   const [includeArchived, setIncludeArchived] = useState(false);
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。アーカイブ済みの中でも実名リークによる自動隔離だけに
+  // 絞り込む（quarantinedOnly=trueのときはincludeArchivedの値によらずサーバー側で
+  // アーカイブ済み扱いにする——lib/journal-store.tsのtoEventFilter参照）。
+  const [quarantinedOnly, setQuarantinedOnly] = useState(false);
   const [page, setPage] = useState(1);
 
   // フィルタが変わったら1ページ目に戻す（サーバー側の総件数が変わり、保持していた
@@ -117,6 +122,7 @@ function JournalListPageInner() {
       periodDays,
       excludeResolved,
       includeArchived,
+      quarantinedOnly,
     },
     page,
     PAGE_SIZE,
@@ -150,7 +156,7 @@ function JournalListPageInner() {
 
   return (
     <div className={styles.screen}>
-      <PageTitleRow title="現場メモ" helpAnchor="journal" />
+      <PageTitleRow title="ジャーナル" helpAnchor="journal" />
 
       {/* docs/memo.md「Journalが書き込み順にならず、書き込み直後に見失ってしまう」対応。
           新しいJournalは常に一覧の先頭（ページ1）に来るが、他のページを見ている最中に
@@ -244,6 +250,18 @@ function JournalListPageInner() {
               onChange={(e) => updateFilter(setIncludeArchived)(e.target.checked)}
             />
             🗄 アーカイブ済みも表示する
+          </label>
+          <label
+            className={styles.axisTooltip}
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}
+            data-tooltip="実名を含んでいたため自動で隔離（アーカイブ）されたJournalだけに絞り込みます"
+          >
+            <input
+              type="checkbox"
+              checked={quarantinedOnly}
+              onChange={(e) => updateFilter(setQuarantinedOnly)(e.target.checked)}
+            />
+            🔒 実名隔離のみ表示する
           </label>
         </div>
       </div>

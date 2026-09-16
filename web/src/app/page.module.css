@@ -1401,6 +1401,11 @@
   cursor: pointer;
 }
 
+.btnOutline:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ---------- Issue Workspace: 2カラム(Execution State / Copilot Workspace) ---------- */
 .issueColumns {
   display: grid;

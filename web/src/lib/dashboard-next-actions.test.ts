@@ -146,6 +146,20 @@ describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => 
     expect(actions.some((a) => a.id === "journal-j-noaction")).toBe(false);
   });
 
+  // docs/memo.md「要注目Journalのリンク先に飛ぶと、相談画面に飛ばされて困惑する」対応。
+  // このJournalにはまだ相談が無いため、相談画面ではなくJournal自体へ遷移させる。
+  it("「要注目Journal」はJournal自体（focus指定）へ遷移する", () => {
+    const journalEntries: JournalEntry[] = [
+      journal({ id: "j-warn", urgency: "mid", sentiment: "negative" }),
+    ];
+    let navigatedTo: string | null = null;
+    const actions = buildNextActions(baseParams({ journalEntries, push: (path) => (navigatedTo = path) }));
+    const card = actions.find((a) => a.id === "journal-j-warn");
+    expect(card).toBeDefined();
+    card?.onSelect();
+    expect(navigatedTo).toBe("/journal?focus=j-warn");
+  });
+
   it("確認済み（対応不要）にしたJournalは「Journal未確認」に出さない", () => {
     const journalEntries: JournalEntry[] = [
       journal({

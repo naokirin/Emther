@@ -10,7 +10,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
       <>
         <p>
           <strong>今日</strong>は「今決めること」の起点。<strong>提案</strong>は AI が観測・解釈した結果の確認とメモ・壁打ち。
-          <strong>現場メモ</strong>は事実の記録・検索。<strong>相談</strong>はまだ提案として残さない壁打ち。
+          <strong>ジャーナル</strong>は事実の記録・検索。<strong>相談</strong>はまだ提案として残さない壁打ち。
           <strong>チーム・メンバー</strong>は体制と人物。<strong>方針・目標</strong>は MVV / OKR / テーマの前提。
           <strong>振り返り</strong>は週次で見る成長・履歴・レポートです。
         </p>
@@ -94,7 +94,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
   },
   {
     id: "journal",
-    title: "現場メモ・観測取り込み",
+    title: "ジャーナル・観測取り込み",
     body: (
       <>
         <p>

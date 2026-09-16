@@ -97,6 +97,10 @@ export type JournalEntry = {
   // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
   // Journalを一覧・AIの判断材料から除外するためのフラグ（イベント自体は削除しない）。
   archivedAt?: number;
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。archivedAtだけでは手動アーカイブと区別できないため、
+  // 実名リーク検知による自動隔離のときだけ"name_leak"になる。
+  archivedReason?: "name_leak";
 };
 
 /**
@@ -133,6 +137,7 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     noActionNeededAt: e.noActionNeededAt,
     noActionNeededNote: e.noActionNeededNote,
     archivedAt: e.archivedAt,
+    archivedReason: e.archivedReason,
   };
 }
 
@@ -215,6 +220,7 @@ const SYSTEM_PROMPT = [
   "tagsは日本語の短い単語（例: 技術的負債, 1on1）。peopleは文中の人物名（敬称はそのまま、例: Aさん）。",
   "teamsは文中で言及されたチーム名・組織名（例: コアチーム, Engineering）。人物名はteamsに入れないこと。",
   "profileCandidateは、peopleに含まれる人物について「一時的な出来事・感情」ではなく「今後の判断材料になりうる長期的な傾向・強み・特性」が読み取れるときだけ設定してください。personはpeopleと同じ表記の人物名、textは1文の短い候補文にすること。読み取れない・一時的な内容しかない場合は必ずnullにしてください。",
+  "sentimentは、明確にネガティブな出来事・感情（問題、トラブル、不満、燃え尽き、失敗など）が書かれているときだけnegativeにしてください。単なる事実の記録や、ポジティブともネガティブとも言い切れない内容はneutralにすること。ポジティブと言い切れる内容のときだけpositiveにしてください。迷ったらnegativeではなくneutralを選ぶこと。",
   "メモに書かれていない情報を推測で埋めないこと。該当が無ければ空配列（profileCandidateはnull）にすること。",
 ].join("\n");
 
@@ -256,6 +262,18 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       urgency: "mid",
       sentiment: "negative",
       summary: "コアチームの雰囲気が重く燃え尽きが見える",
+      profileCandidate: null,
+    }),
+  },
+  {
+    user: "Dさんと1on1。今期の目標について認識合わせをした。特に大きなトピックはなし。",
+    assistant: JSON.stringify({
+      tags: ["1on1", "目標設定"],
+      people: ["Dさん"],
+      teams: [],
+      urgency: "low",
+      sentiment: "neutral",
+      summary: "Dさんと1on1で今期の目標について認識合わせをした",
       profileCandidate: null,
     }),
   },
@@ -518,6 +536,10 @@ export type JournalListFilter = {
   sinceMs?: number;
   excludeResolved?: boolean;
   includeArchived?: boolean;
+  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
+  // 確認できるようにしたい」対応。trueのときはincludeArchivedの値によらず、実名リークで
+  // 自動隔離されたJournalだけに絞り込む。
+  quarantinedOnly?: boolean;
 };
 
 // 未登録の人物名（people-directoryにgetPersonIdで見つからない名前）が渡された場合、
@@ -538,7 +560,8 @@ function toEventFilter(filter: JournalListFilter): EventPageFilter {
     occurredAtFrom: filter.sinceMs,
     excludeResolved: filter.excludeResolved,
     excludeSuperseded: true,
-    excludeArchived: !filter.includeArchived,
+    excludeArchived: filter.quarantinedOnly ? false : !filter.includeArchived,
+    archivedReasonExact: filter.quarantinedOnly ? "name_leak" : undefined,
   };
 }
 

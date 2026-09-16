@@ -29,7 +29,7 @@ import {
 } from "@/lib/hooks";
 import { useJournalEditing } from "@/lib/useJournalEditing";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { isIssueStrategyUnlinked, isRunStale, type PendingUnmaskedSend } from "@/lib/types";
+import { isIssueStrategyUnlinked, isRunStale, type IssueStrategyLinkSuggestion, type PendingUnmaskedSend } from "@/lib/types";
 
 export default function DashboardPage() {
   return (
@@ -71,6 +71,68 @@ function DashboardPageInner() {
   const { runs, pendingAgentStarts, pendingUnmaskedSends, runsLoaded, refreshRuns } = useRuns();
   const { issues, issuesLoaded, refreshIssues } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
+
+  // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
+  // 対応。TodayActionsPanelはダッシュボード／書き連ねタブの切り替えでアンマウントされるため、
+  // 生成中フラグ・結果をこのコンポーネント（タブ切り替えで不変）側に持たせる。
+  const [issueLinkSuggesting, setIssueLinkSuggesting] = useState(false);
+  const [issueLinkError, setIssueLinkError] = useState<string | null>(null);
+  const [issueLinkPreview, setIssueLinkPreview] = useState<{
+    suggestions: IssueStrategyLinkSuggestion[];
+    source: "cloud" | "heuristic";
+    fallbackReason?: string;
+  } | null>(null);
+  const [issueLinkApplyingId, setIssueLinkApplyingId] = useState<string | null>(null);
+
+  async function handleSuggestIssueStrategyLinks() {
+    setIssueLinkSuggesting(true);
+    setIssueLinkError(null);
+    try {
+      const res = await fetch("/api/issues/link/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
+      setIssueLinkPreview({
+        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
+        source: data?.source === "cloud" ? "cloud" : "heuristic",
+        fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
+      });
+    } catch (err) {
+      setIssueLinkError((err as Error).message);
+    } finally {
+      setIssueLinkSuggesting(false);
+    }
+  }
+
+  async function handleAdoptIssueStrategyLink(s: IssueStrategyLinkSuggestion) {
+    setIssueLinkApplyingId(s.issueId);
+    setIssueLinkError(null);
+    try {
+      const res = await fetch(`/api/issues/${s.issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId: s.themeId,
+          keyResultId: s.keyResultId,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "リンクの採用に失敗しました");
+      }
+      await refreshIssues();
+      setIssueLinkPreview((prev) =>
+        prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== s.issueId) } : null,
+      );
+    } catch (err) {
+      setIssueLinkError((err as Error).message);
+    } finally {
+      setIssueLinkApplyingId(null);
+    }
+  }
   const { vitals, vitalsLoaded } = useVitals();
   const { journalEntries, setJournalEntries, journalLoaded } = useJournal();
   // 改修依頼「今日の振り返りに、今日記録されていない場合のアラートを出す」対応。
@@ -263,7 +325,18 @@ function DashboardPageInner() {
             krTotals={krTotals}
             autoRunsToday={autoRunsToday}
             onNavigate={(path) => router.push(path)}
-            refreshIssues={refreshIssues}
+            issueLinkSuggesting={issueLinkSuggesting}
+            issueLinkError={issueLinkError}
+            issueLinkPreview={issueLinkPreview}
+            issueLinkApplyingId={issueLinkApplyingId}
+            onSuggestIssueStrategyLinks={handleSuggestIssueStrategyLinks}
+            onAdoptIssueStrategyLink={handleAdoptIssueStrategyLink}
+            onDismissIssueLinkPreview={() => setIssueLinkPreview(null)}
+            onDismissIssueLinkOne={(issueId) =>
+              setIssueLinkPreview((prev) =>
+                prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) } : null,
+              )
+            }
           />
 
           {/* ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。

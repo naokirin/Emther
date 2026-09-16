@@ -55,7 +55,21 @@ type Props = {
   krTotals: { total: number };
   autoRunsToday: number;
   onNavigate: (path: string) => void;
-  refreshIssues: () => Promise<void>;
+  // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
+  // 対応。生成中／結果はこのパネル自身のstateではなく、タブ切り替えでは不変な親
+  // （DashboardPageInner）側のstateとして持ち、propsで受け取るだけにする。
+  issueLinkSuggesting: boolean;
+  issueLinkError: string | null;
+  issueLinkPreview: {
+    suggestions: IssueStrategyLinkSuggestion[];
+    source: "cloud" | "heuristic";
+    fallbackReason?: string;
+  } | null;
+  issueLinkApplyingId: string | null;
+  onSuggestIssueStrategyLinks: () => void;
+  onAdoptIssueStrategyLink: (s: IssueStrategyLinkSuggestion) => void;
+  onDismissIssueLinkPreview: () => void;
+  onDismissIssueLinkOne: (issueId: string) => void;
 };
 
 export function TodayActionsPanel({
@@ -70,7 +84,14 @@ export function TodayActionsPanel({
   krTotals,
   autoRunsToday,
   onNavigate,
-  refreshIssues,
+  issueLinkSuggesting,
+  issueLinkError,
+  issueLinkPreview,
+  issueLinkApplyingId,
+  onSuggestIssueStrategyLinks,
+  onAdoptIssueStrategyLink,
+  onDismissIssueLinkPreview,
+  onDismissIssueLinkOne,
 }: Props) {
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
   // レーンごとの「もっと見る」で追加表示した件数。初期上限（設定 or MAINTENANCE_LANE_LIMIT）
@@ -84,64 +105,6 @@ export function TodayActionsPanel({
   // EMが明示的に開いたときだけ表示する（重要度が埋もれない密度に抑える）。
   const [restActionsOpen, setRestActionsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
-  const [issueLinkSuggesting, setIssueLinkSuggesting] = useState(false);
-  const [issueLinkError, setIssueLinkError] = useState<string | null>(null);
-  const [issueLinkPreview, setIssueLinkPreview] = useState<{
-    suggestions: IssueStrategyLinkSuggestion[];
-    source: "cloud" | "heuristic";
-    fallbackReason?: string;
-  } | null>(null);
-  const [issueLinkApplyingId, setIssueLinkApplyingId] = useState<string | null>(null);
-
-  async function handleSuggestIssueStrategyLinks() {
-    setIssueLinkSuggesting(true);
-    setIssueLinkError(null);
-    try {
-      const res = await fetch("/api/issues/link/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
-      setIssueLinkPreview({
-        suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
-        source: data?.source === "cloud" ? "cloud" : "heuristic",
-        fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
-      });
-    } catch (err) {
-      setIssueLinkError((err as Error).message);
-    } finally {
-      setIssueLinkSuggesting(false);
-    }
-  }
-
-  async function handleAdoptIssueStrategyLink(s: IssueStrategyLinkSuggestion) {
-    setIssueLinkApplyingId(s.issueId);
-    setIssueLinkError(null);
-    try {
-      const res = await fetch(`/api/issues/${s.issueId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          themeId: s.themeId,
-          keyResultId: s.keyResultId,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "リンクの採用に失敗しました");
-      }
-      await refreshIssues();
-      setIssueLinkPreview((prev) =>
-        prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== s.issueId) } : null,
-      );
-    } catch (err) {
-      setIssueLinkError((err as Error).message);
-    } finally {
-      setIssueLinkApplyingId(null);
-    }
-  }
 
   // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
   // 初期上限を分ける。超過分は非表示にせず、「もっと見る」で +LANE_EXPAND_STEP 件ずつ
@@ -178,7 +141,7 @@ export function TodayActionsPanel({
             className={`${styles.detailToggle} ${styles.axisTooltip}`}
             style={{ marginLeft: 6 }}
             disabled={issueLinkSuggesting}
-            onClick={handleSuggestIssueStrategyLinks}
+            onClick={onSuggestIssueStrategyLinks}
             data-tooltip="戦略未接続の親 提案 へ、テーマ / KR の紐付けをAIが提案します"
           >
             {issueLinkSuggesting ? "提案中…" : "AIで見直す"}
@@ -199,13 +162,9 @@ export function TodayActionsPanel({
           source={issueLinkPreview.source}
           fallbackReason={issueLinkPreview.fallbackReason}
           applyingId={issueLinkApplyingId}
-          onAdopt={handleAdoptIssueStrategyLink}
-          onDismiss={() => setIssueLinkPreview(null)}
-          onDismissOne={(issueId) =>
-            setIssueLinkPreview((prev) =>
-              prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) } : null,
-            )
-          }
+          onAdopt={onAdoptIssueStrategyLink}
+          onDismiss={onDismissIssueLinkPreview}
+          onDismissOne={onDismissIssueLinkOne}
         />
       )}
 

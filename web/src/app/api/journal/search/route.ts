@@ -40,6 +40,7 @@ export async function GET(request: Request) {
       sentimentParam && (SENTIMENTS as readonly string[]).includes(sentimentParam) ? (sentimentParam as Sentiment) : undefined,
     excludeResolved: params.get("excludeResolved") === "1",
     includeArchived: params.get("includeArchived") === "1",
+    quarantinedOnly: params.get("quarantinedOnly") === "1",
   };
   const periodDays = params.get("periodDays");
   if (periodDays && periodDays !== "all") {
