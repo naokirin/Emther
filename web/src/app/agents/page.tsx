@@ -8,6 +8,7 @@ import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import { useGoToRunIssue, useIssues, useRuns, useRunsInbox, useSettingsRules } from "@/lib/hooks";
+import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@/lib/types";
 
 // docs/em_ui_ux_issue.md「ダッシュボードの簡素化」対応。旧「今日」タブに同居していた
@@ -54,6 +55,7 @@ export default function AgentsPage() {
   const { issues } = useIssues();
   const goToRunIssue = useGoToRunIssue(issues);
   const { rules } = useSettingsRules();
+  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
 
   // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
   // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Inboxで警告表示する。
@@ -98,13 +100,13 @@ export default function AgentsPage() {
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch("/api/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentName, task }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "起動に失敗しました");
+      const { res, data } = await fetchWithNameConfirm(
+        "/api/agents",
+        { method: "POST", body: { agentName, task } },
+        "起動する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "起動に失敗しました");
+      const run = (data as { run: AgentRun }).run;
       setTask("");
       await refreshRuns();
       // docs/em_human_story_and_ux.md P0-2対応。Lead Agentは「何でも相談」の相手なので、
@@ -112,12 +114,14 @@ export default function AgentsPage() {
       // （Issue化・様子見・却下はそちら側で明示的に選べる）。専門エージェントは
       // 「決まった介入」を前提に既存どおり即Issue化する。
       if (agentName === "Lead Agent") {
-        router.push(`/chat?runId=${data.run.id}`);
+        router.push(`/chat?runId=${run.id}`);
       } else {
-        await goToRunIssue(data.run);
+        await goToRunIssue(run);
       }
     } catch (err) {
-      setError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setError((err as Error).message);
+      }
     } finally {
       setStarting(false);
     }
@@ -169,6 +173,7 @@ export default function AgentsPage() {
     .slice(0, ACTIVITY_STREAM_LIMIT);
 
   return (
+    <>
     <div className={styles.screen}>
       <div className={styles.panel}>
         <h2>エージェントの状態・直近の動き</h2>
@@ -322,5 +327,7 @@ export default function AgentsPage() {
         />
       </div>
     </div>
+    {nameCandidateDialog}
+    </>
   );
 }

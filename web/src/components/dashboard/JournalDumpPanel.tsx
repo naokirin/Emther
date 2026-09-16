@@ -141,21 +141,25 @@ export function JournalDumpPanel({
     setDraftStarting(true);
     setDraftError(null);
     try {
-      const res = await fetch("/api/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentName: "People Agent",
-          task: `${profilePerson}について、これまで観測されたJournalのファクト・既存の解釈をもとに、志向性・認知傾向・パーソナリティの傾向を2〜3文程度で整理してください。断定は避け、あくまで観測された事実からの推測であることを明記してください。`,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "下書きの生成に失敗しました");
-      setDraftRunId(data.run.id);
+      const { res, data } = await fetchWithNameConfirm(
+        "/api/agents",
+        {
+          method: "POST",
+          body: {
+            agentName: "People Agent",
+            task: `${profilePerson}について、これまで観測されたJournalのファクト・既存の解釈をもとに、志向性・認知傾向・パーソナリティの傾向を2〜3文程度で整理してください。断定は避け、あくまで観測された事実からの推測であることを明記してください。`,
+          },
+        },
+        "生成する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "下書きの生成に失敗しました");
+      setDraftRunId((data as { run: { id: string } }).run.id);
       setConsumedDraftRunId(null);
       await refreshRuns();
     } catch (err) {
-      setDraftError((err as Error).message);
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setDraftError((err as Error).message);
+      }
     } finally {
       setDraftStarting(false);
     }

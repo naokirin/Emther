@@ -326,7 +326,16 @@ const PERSON_INTERPRETATION_LIMIT_NON_PEOPLE = 3;
 // またはPERSON_n ID（Lead Agentからのconsult.questionのように既にマスクされたテキストの
 // 場合）のどちらかを含み得るため、両方でマッチングする。listActiveFactsForPerson等は
 // 既にPERSON_n IDで検索する契約になっているため、person.id（実名ではない）を渡す。
-export async function buildJournalContextBlock(rawText: string, agentName: string): Promise<string> {
+// docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
+// 『複数回報告されている』と誤って判定されてしまう」対応。excludeEventIdは、いま分析中の
+// Journal自身のイベントID（run.sourceJournalId）。渡された場合、ファクト一覧・意味的類似
+// 検索の両方から自分自身を除外する（自分自身を「過去の類似事例」として見せてしまうと、
+// 単発の新規報告なのにAIが「既出・繰り返し報告されている」と誤解する）。
+export async function buildJournalContextBlock(
+  rawText: string,
+  agentName: string,
+  excludeEventId?: string,
+): Promise<string> {
   const mentioned = listPeople().filter((p) => rawText.includes(p.name) || rawText.includes(p.id));
   const isPeopleAgent = agentName === "People Agent";
   const factLimit = isPeopleAgent ? PERSON_FACT_LIMIT_PEOPLE : PERSON_FACT_LIMIT_DEFAULT;
@@ -336,7 +345,7 @@ export async function buildJournalContextBlock(rawText: string, agentName: strin
   let omittedInterpretationCount = 0;
   const seenIds = new Set<string>();
   for (const person of mentioned) {
-    for (const e of listActiveFactsForPerson(person.id, factLimit)) {
+    for (const e of listActiveFactsForPerson(person.id, factLimit, excludeEventId)) {
       seenIds.add(e.id);
       factLines.push(`- [${person.id}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
     }
@@ -352,8 +361,12 @@ export async function buildJournalContextBlock(rawText: string, agentName: strin
   const semanticLines: string[] = [];
   try {
     const queryEmbedding = await embedText(rawText);
-    const similarFacts = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: 3 });
-    const similarInterpretations = searchSimilarEvents(queryEmbedding, { kind: "interpretation", limit: 3 });
+    const similarFacts = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: 3, excludeId: excludeEventId });
+    const similarInterpretations = searchSimilarEvents(queryEmbedding, {
+      kind: "interpretation",
+      limit: 3,
+      excludeId: excludeEventId,
+    });
     const describe = (e: KnowledgeEvent & { similarity: number }) =>
       `- ${e.text}${e.people.length > 0 ? `（${e.people.join(", ")}）` : ""}（類似度: ${e.similarity.toFixed(2)}）`;
     for (const e of [...similarFacts, ...similarInterpretations]) {

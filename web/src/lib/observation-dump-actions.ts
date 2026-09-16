@@ -6,7 +6,7 @@ import {
   updateObservationDump,
   type ObservationDump,
 } from "@/lib/observation-dump-store";
-import { unmaskNames } from "@/lib/people-directory";
+import { ensureNameCandidatesAllowed, unmaskNames } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 
 function dateHintToOccurredAt(hint: string | undefined, fallback: number): number {
@@ -85,13 +85,21 @@ export async function acceptDumpChunks(
   const entries: JournalEntry[] = [];
   const chunkDrafts = [...dump.chunkDrafts];
 
+  // docs/memo.md「メンバーに登録がない名前をJournalで入力して分析にかけましたが、とくに
+  // 引っかからずにAIに渡されてしまいました」対応。以前はここで無条件に
+  // allowUnmaskedCandidates: trueを渡しており、呼び出し元のopts（未確認なら確認が必要）が
+  // 効かなかった。addJournalEntriesBulkと同じ「途中保存を残さないよう先に全チャンクの
+  // 候補をまとめて確認する」方式にそろえる。
+  const chunkTexts = targets.map((chunk) => unmaskNames(chunk.textMasked).trim()).filter(Boolean);
+  await ensureNameCandidatesAllowed(chunkTexts, opts);
+
   for (const chunk of targets) {
     const text = unmaskNames(chunk.textMasked).trim();
     if (!text) continue;
     const occurredAt = dateHintToOccurredAt(chunk.suggestedOccurredAt, fallbackOccurred);
     const people = chunk.people.map(unmaskNames).filter(Boolean);
+    // 上で一括確認済みなので、各チャンクでは再検出をスキップする（allow付きで通す）。
     const entry = await addJournalEntry(text, occurredAt, {
-      ...opts,
       allowUnmaskedCandidates: true,
       people: people.length > 0 ? people : undefined,
       sourceDumpId: dump.id,

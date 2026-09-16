@@ -356,6 +356,20 @@ describe("listActiveFactsForPerson / listInterpretationsForPerson", () => {
 
     expect(knowledgeStore.listInterpretationsForPerson("PERSON_1").map((i) => i.text)).toEqual(["clean-version"]);
   });
+
+  // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
+  // 『複数回報告されている』と誤って判定されてしまう」対応。
+  it("excludeIdを渡すと、そのイベント自身をファクト一覧から除外する", async () => {
+    const { knowledgeStore } = await loadModules();
+    const self = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["PERSON_1"], text: "いま分析中の本人", tags: [], occurredAt: 1 });
+    const other = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["PERSON_1"], text: "別のファクト", tags: [], occurredAt: 2 });
+
+    const withoutExclude = knowledgeStore.listActiveFactsForPerson("PERSON_1");
+    expect(withoutExclude.map((f) => f.id).sort()).toEqual([self.id, other.id].sort());
+
+    const withExclude = knowledgeStore.listActiveFactsForPerson("PERSON_1", 5, self.id);
+    expect(withExclude.map((f) => f.id)).toEqual([other.id]);
+  });
 });
 
 describe("quarantineEventsContainingNames", () => {
@@ -623,6 +637,20 @@ describe("searchSimilarEvents", () => {
     expect(results.map((r) => r.text)).toEqual(["close", "far"]);
     expect(results[0].similarity).toBeCloseTo(1);
     expect(results[1].similarity).toBeCloseTo(0);
+  });
+
+  // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
+  // 『複数回報告されている』と誤って判定されてしまう」対応。
+  it("excludeIdを渡すと、そのイベント自身を類似検索結果から除外する", async () => {
+    const { knowledgeStore } = await loadModules();
+    const self = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "分析中の本人", tags: [], occurredAt: 1, embedding: [1, 0] });
+    const other = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "別の似た内容", tags: [], occurredAt: 2, embedding: [1, 0] });
+
+    const withoutExclude = knowledgeStore.searchSimilarEvents([1, 0]);
+    expect(withoutExclude.map((r) => r.id).sort()).toEqual([self.id, other.id].sort());
+
+    const withExclude = knowledgeStore.searchSimilarEvents([1, 0], { excludeId: self.id });
+    expect(withExclude.map((r) => r.id)).toEqual([other.id]);
   });
 
   it("excludeExpired(既定true)でTTL切れのfactを除外する", async () => {

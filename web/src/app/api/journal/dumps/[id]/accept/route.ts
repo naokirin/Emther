@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { acceptDumpChunks } from "@/lib/observation-dump-actions";
 import { getObservationDump, toObservationDumpView } from "@/lib/observation-dump-store";
 import { toJournalEntryViews } from "@/lib/journal-store";
@@ -18,7 +18,7 @@ export async function POST(request: Request, ctx: Ctx) {
     : [];
 
   try {
-    const { dump, entries } = await acceptDumpChunks(id, chunkIds, maskOptionsFromBody(body));
+    const { dump, entries } = await acceptDumpChunks(id, chunkIds, maskOptionsFromBodyStrict(body));
     return NextResponse.json(
       { dump: toObservationDumpView(dump), entries: toJournalEntryViews(entries, new Map()) },
       { status: 201 },

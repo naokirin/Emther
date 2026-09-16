@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listPendingAgentStarts, listPendingUnmaskedSends, listRuns, startRun, toRunView } from "@/lib/agent-runtime";
-import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { EXEC_AGENT_NAME } from "@/lib/types";
 
 export async function GET() {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   try {
     const run = await startRun(agentName, task, "manual", undefined, {
-      ...maskOptionsFromBody(body),
+      ...maskOptionsFromBodyStrict(body),
       sourceJournalId,
       ...(requireExecConsult && agentName === "Lead Agent"
         ? { requiredConsultAgents: [EXEC_AGENT_NAME] }

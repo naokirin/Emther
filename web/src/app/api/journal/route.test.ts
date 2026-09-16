@@ -86,16 +86,38 @@ describe("POST /api/journal", () => {
     expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
-  it("人名らしいが未登録の語句をnameCandidatesとしてヒントに返す（保存はブロックしない）", async () => {
+  // docs/memo.md「メンバーに登録がない名前をJournalで入力して分析にかけましたが、とくに
+  // 引っかからずにAIに渡されてしまいました」対応。データ入力（保存）時点で検出し、
+  // 未確認なら保存自体をブロックして確認を求めるように変更した。
+  it("人名らしいが未登録の語句があると、確認フラグ無しでは保存をブロックし409で候補を返す", async () => {
     mockExtraction = { tags: ["1on1"], people: [], urgency: "low", sentiment: "neutral", summary: "1on1した" };
     const route = await import("./route");
     const res = await route.POST(
       jsonRequest("http://localhost/api/journal", "POST", { text: "新人さんと1on1した" }),
     );
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.code).toBe("NAME_CANDIDATE_CONFIRMATION_REQUIRED");
+    expect(json.candidates).toEqual(["新人さん"]);
+    const peopleDirectory = await import("@/lib/people-directory");
+    expect(peopleDirectory.listPeople()).toHaveLength(0);
+  });
+
+  it("allowUnmaskedNameCandidatesで確認済みとして進めると保存できる", async () => {
+    mockExtraction = { tags: ["1on1"], people: [], urgency: "low", sentiment: "neutral", summary: "1on1した" };
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/journal", "POST", {
+        text: "新人さんと1on1した",
+        allowUnmaskedNameCandidates: true,
+      }),
+    );
     expect(res.status).toBe(201);
     const json = await res.json();
-    expect(json.nameCandidates).toEqual(["新人さん"]);
-    // ヒントを返すだけで、people自体は自動登録しない（既存方針を変えない）。
+    // 未マスクのまま進めることを確認済み（acknowledge）にしたため、保存直後の
+    // ヒント（nameCandidates）はもう出ない（同じ語句を何度も確認させない）。
+    expect(json.nameCandidates).toEqual([]);
+    // 未マスクのまま進めることを許可しただけで、people自体は自動登録しない（既存方針は変えない）。
     expect(json.entry.people).toEqual([]);
     const peopleDirectory = await import("@/lib/people-directory");
     expect(peopleDirectory.listPeople()).toHaveLength(0);

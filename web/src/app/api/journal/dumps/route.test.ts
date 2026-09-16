@@ -62,8 +62,12 @@ describe("POST /api/journal/dumps", () => {
     const chunkIds = created.dump.chunkDrafts.map((c: { id: string }) => c.id);
 
     const acceptRoute = await import("./[id]/accept/route");
+    // docs/memo.md「メンバーに登録がない名前をJournalで入力して分析にかけましたが、とくに
+    // 引っかからずにAIに渡されてしまいました」対応で採用時にも確認ゲートがかかるようになった
+    // ため、この統合テスト自体は採用の仕組み（分割→採用でJournalになる）の検証が主眼であり、
+    // 未登録人名の確認フローは下の専用テストで見るので、ここでは確認済みとして進める。
     const acceptRes = await acceptRoute.POST(
-      jsonRequest("http://localhost/x", "POST", { chunkIds }),
+      jsonRequest("http://localhost/x", "POST", { chunkIds, allowUnmaskedNameCandidates: true }),
       routeCtx({ id: dumpId }),
     );
     expect(acceptRes.status).toBe(201);
@@ -71,6 +75,30 @@ describe("POST /api/journal/dumps", () => {
     expect(accepted.entries).toHaveLength(chunkIds.length);
     expect(accepted.entries[0].sourceDumpId).toBe(dumpId);
     expect(accepted.dump.status).toBe("done");
+  });
+
+  it("採用しようとしたチャンクに未登録の人名らしい語句があれば、確認フラグ無しでは409でブロックする", async () => {
+    const route = await import("./route");
+    const createRes = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        sourceType: "meeting_log",
+        title: "週次",
+        text: ["決定: 田中さんが来週から担当する。"].join("\n"),
+      }),
+    );
+    const created = await createRes.json();
+    const dumpId = created.dump.id as string;
+    const chunkIds = created.dump.chunkDrafts.map((c: { id: string }) => c.id);
+
+    const acceptRoute = await import("./[id]/accept/route");
+    const acceptRes = await acceptRoute.POST(
+      jsonRequest("http://localhost/x", "POST", { chunkIds }),
+      routeCtx({ id: dumpId }),
+    );
+    expect(acceptRes.status).toBe(409);
+    const json = await acceptRes.json();
+    expect(json.code).toBe("NAME_CANDIDATE_CONFIRMATION_REQUIRED");
+    expect(json.candidates).toContain("田中さん");
   });
 
   it("Slack JSONLはマッピング無しだと400", async () => {

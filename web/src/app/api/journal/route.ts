@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { addJournalEntryWithProfileCandidate, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
-import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { detectUnregisteredNameCandidates } from "@/lib/people-directory";
 
 export async function GET() {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     : undefined;
 
   const opts = {
-    ...maskOptionsFromBody(body),
+    ...maskOptionsFromBodyStrict(body),
     ...(people && people.length > 0 ? { people } : {}),
     ...(teams && teams.length > 0 ? { teams } : {}),
     ...(teamIds && teamIds.length > 0 ? { teamIds } : {}),

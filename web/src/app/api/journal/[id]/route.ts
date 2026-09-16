@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
-import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
+import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
 import { listIssues } from "@/lib/issue-store";
 
@@ -117,7 +117,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/journal/[i
         resolvedIssueId,
         resolutionNote,
       },
-      maskOptionsFromBody(body),
+      maskOptionsFromBodyStrict(body),
     );
     if (!entry) {
       return NextResponse.json({ error: "not found" }, { status: 404 });

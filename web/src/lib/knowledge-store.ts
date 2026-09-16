@@ -503,11 +503,22 @@ export function isEventExpired(event: KnowledgeEvent, now = Date.now()): boolean
 // 確実に効くようにするため（similarEvent検索経由の混入だけを塞いでも、こちらの経路が
 // 抜けていると連鎖が止まらない）。
 // personIdはpeople-directory.tsの`PERSON_n` ID（実名ではない）。
-export function listActiveFactsForPerson(personId: string, limit = 5): KnowledgeEvent[] {
+// docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
+// 『複数回報告されている』と誤って判定されてしまう」対応。excludeIdは、いま分析中の
+// Journal自身のイベントIDを渡すことで、自分自身を「過去のファクト」として参照情報に
+// 混入させない（分析対象は既に保存・登録済みのため、素朴に検索すると自分自身がヒットする）。
+export function listActiveFactsForPerson(personId: string, limit = 5, excludeId?: string): KnowledgeEvent[] {
   const events = listEvents({ kind: "fact" });
   const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
   return events
-    .filter((e) => e.people.includes(personId) && !isEventExpired(e) && !supersededIds.has(e.id) && !e.archivedAt)
+    .filter(
+      (e) =>
+        e.people.includes(personId) &&
+        !isEventExpired(e) &&
+        !supersededIds.has(e.id) &&
+        !e.archivedAt &&
+        e.id !== excludeId,
+    )
     .slice(0, limit);
 }
 
@@ -685,6 +696,11 @@ export function searchSimilarEvents(
     excludeExpired?: boolean;
     excludeArchived?: boolean;
     excludeSuperseded?: boolean;
+    // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
+    // 『複数回報告されている』と誤って判定されてしまう」対応。分析対象イベント自身は
+    // 既に保存・埋め込み計算済みのため、素朴に検索すると類似度1.0近くで自分自身が
+    // ヒットしてしまう。呼び出し元がいま分析中のイベントIDを渡して除外する。
+    excludeId?: string;
   },
 ): Array<KnowledgeEvent & { similarity: number }> {
   const limit = opts?.limit ?? 5;
@@ -695,6 +711,7 @@ export function searchSimilarEvents(
     excludeArchived: opts?.excludeArchived,
     excludeSuperseded: opts?.excludeSuperseded,
   })) {
+    if (row.id === opts?.excludeId) continue;
     if (excludeExpired && isSearchCandidateExpired(row)) continue;
     const embedding = JSON.parse(row.embedding_json) as number[];
     scored.push({ id: row.id, similarity: cosineSimilarity(queryEmbedding, embedding) });

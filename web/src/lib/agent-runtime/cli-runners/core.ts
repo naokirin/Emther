@@ -299,7 +299,7 @@ export async function runClaudeTurn(
   // 実名でのマッチングが必要なので、maskNamesで置換される前のrawPromptに対して行う。
   // 再開時に「続けて」だけの短い入力だと意味検索が枯れるため、元タスク文もクエリに含める。
   const contextQuery = rawPrompt.trim() === run.task.trim() ? rawPrompt : `${rawPrompt}\n${run.task}`;
-  const journalContext = await buildJournalContextBlock(contextQuery, run.agentName);
+  const journalContext = await buildJournalContextBlock(contextQuery, run.agentName, run.sourceJournalId);
   const relatedContext = await buildRelatedContextForRun(run, contextQuery);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, contextQuery, relatedContext);
