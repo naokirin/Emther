@@ -18,9 +18,9 @@ export async function POST(request: Request, ctx: Ctx) {
     : [];
 
   try {
-    const { dump, entries } = await acceptDumpChunks(id, chunkIds, maskOptionsFromBodyStrict(body));
+    const { dump, entries, nameCandidateSuggestions } = await acceptDumpChunks(id, chunkIds, maskOptionsFromBodyStrict(body));
     return NextResponse.json(
-      { dump: toObservationDumpView(dump), entries: toJournalEntryViews(entries, new Map()) },
+      { dump: toObservationDumpView(dump), entries: toJournalEntryViews(entries, new Map()), nameCandidateSuggestions },
       { status: 201 },
     );
   } catch (err) {

@@ -15,6 +15,7 @@ import {
   setSuggestionTheme,
   setSuggestionTitle,
   toSuggestionView,
+  type SuggestionDetailInput,
 } from "@/lib/suggestion-store";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 import type { ConfirmPriority, Suggestion } from "@/lib/types";
@@ -134,12 +135,14 @@ export async function createIssue(
     sourceJournalId?: string;
     sourceRunId?: string;
     themeId?: string;
+    detail?: SuggestionDetailInput;
   } = {},
 ): Promise<Issue> {
   void parentId;
   void tags;
+  const { detail, ...restOpts } = opts;
   const s = await createSuggestion(title, {
-    ...opts,
+    ...restOpts,
     agentRunId,
     sourceRunId: opts.sourceRunId,
     sourceJournalId: opts.sourceJournalId,
@@ -147,6 +150,7 @@ export async function createIssue(
     themeId: opts.themeId,
     teamId,
     confirmPriority: opts.priority as ConfirmPriority | undefined,
+    detail,
   });
   const why = _charter?.why?.trim() ?? "";
   const what = _charter?.what?.trim() ?? "";

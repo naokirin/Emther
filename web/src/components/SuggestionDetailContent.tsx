@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { CopilotChat, ExecutionState, type AgentRun } from "@/components/RunDetail";
+import { IdLinkedText } from "@/components/IdLinkedText";
 import { OriginTrace } from "@/components/OriginTrace";
 import { PendingAgentStartNotice } from "@/components/PendingAgentStartNotice";
 import { Select } from "@/components/Select";
@@ -79,6 +80,15 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [titleDraft, setTitleDraft] = useState("");
   const [memoText, setMemoText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [detailRefreshing, setDetailRefreshing] = useState(false);
+  const [detailRefreshError, setDetailRefreshError] = useState<string | null>(null);
+  const [detailEditing, setDetailEditing] = useState(false);
+  const [detailDraftConclusion, setDetailDraftConclusion] = useState("");
+  const [detailDraftFactsText, setDetailDraftFactsText] = useState("");
+  const [detailDraftLogic, setDetailDraftLogic] = useState("");
+  const [detailDraftAdvice, setDetailDraftAdvice] = useState("");
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
 
   async function patchSuggestion(body: Record<string, unknown>) {
     if (!suggestion) return;
@@ -90,6 +100,72 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
+  // 判断・提案（Agent）の内容が起票時から変わった場合に、現在の内容で詳細を更新し直す。
+  async function handleRefreshDetail() {
+    if (!suggestion || !activeRun) return;
+    setDetailRefreshing(true);
+    setDetailRefreshError(null);
+    try {
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/suggestions/${suggestion.id}`,
+        { method: "PATCH", body: { refreshDetailFromRunId: activeRun.id } },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "詳細の更新に失敗しました");
+      await refreshSuggestion();
+    } catch (err) {
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setDetailRefreshError((err as Error).message);
+      }
+    } finally {
+      setDetailRefreshing(false);
+    }
+  }
+
+  // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
+  function handleStartDetailEdit() {
+    if (!suggestion) return;
+    setDetailDraftConclusion(suggestion.detail?.conclusion ?? "");
+    setDetailDraftFactsText((suggestion.detail?.facts ?? []).join("\n"));
+    setDetailDraftLogic(suggestion.detail?.logic ?? "");
+    setDetailDraftAdvice(suggestion.detail?.advice ?? "");
+    setDetailSaveError(null);
+    setDetailEditing(true);
+  }
+
+  async function handleSaveDetail() {
+    if (!suggestion) return;
+    setDetailSaving(true);
+    setDetailSaveError(null);
+    try {
+      const { res, data } = await fetchWithNameConfirm(
+        `/api/suggestions/${suggestion.id}`,
+        {
+          method: "PATCH",
+          body: {
+            detail: {
+              conclusion: detailDraftConclusion,
+              facts: detailDraftFactsText.split("\n").map((f) => f.trim()).filter(Boolean),
+              logic: detailDraftLogic,
+              advice: detailDraftAdvice,
+            },
+          },
+        },
+        "保存する",
+      );
+      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "詳細の保存に失敗しました");
+      await refreshSuggestion();
+      setDetailEditing(false);
+    } catch (err) {
+      if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
+        setDetailSaveError((err as Error).message);
+      }
+    } finally {
+      setDetailSaving(false);
     }
   }
 
@@ -291,6 +367,150 @@ export function SuggestionDetailContent({ id }: { id: string }) {
             ]}
           />
         </label>
+      </div>
+
+      <div className={styles.panel}>
+        <div className={styles.detailHeader} style={{ alignItems: "center" }}>
+          <h2 style={{ margin: 0 }}>提案の詳細</h2>
+          {!detailEditing && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {activeRun?.proposal && (
+                <button
+                  type="button"
+                  className={styles.btnOutline}
+                  style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                  disabled={detailRefreshing}
+                  onClick={() => void handleRefreshDetail()}
+                >
+                  {detailRefreshing ? "更新中…" : "🔄 今の判断・提案の内容で更新する"}
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                onClick={handleStartDetailEdit}
+              >
+                ✏️ 編集
+              </button>
+            </div>
+          )}
+        </div>
+        <p className={styles.subtitle} style={{ marginTop: 4 }}>
+          AIが起票時点で示した結論・根拠・進め方のアドバイスを、メモとは別に固定で残します。下の「判断・提案（Agent）」は続く壁打ちで内容が変わることがありますが、ここは更新するまで変わりません。EMが直接書き足す・書き直すこともできます。
+        </p>
+        {detailRefreshError && (
+          <p className={styles.errorText} role="alert">
+            {detailRefreshError}
+          </p>
+        )}
+        {detailEditing ? (
+          <div>
+            <label className={styles.field}>
+              <span className={styles.fieldCaption}>結論</span>
+              <textarea
+                rows={2}
+                value={detailDraftConclusion}
+                onChange={(e) => setDetailDraftConclusion(e.target.value)}
+                disabled={detailSaving}
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.fieldCaption}>参照ファクト（1行に1件）</span>
+              <textarea
+                rows={3}
+                value={detailDraftFactsText}
+                onChange={(e) => setDetailDraftFactsText(e.target.value)}
+                disabled={detailSaving}
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.fieldCaption}>判断ロジック</span>
+              <textarea
+                rows={3}
+                value={detailDraftLogic}
+                onChange={(e) => setDetailDraftLogic(e.target.value)}
+                disabled={detailSaving}
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.fieldCaption}>進め方のアドバイス（任意）</span>
+              <textarea
+                rows={3}
+                value={detailDraftAdvice}
+                onChange={(e) => setDetailDraftAdvice(e.target.value)}
+                disabled={detailSaving}
+              />
+            </label>
+            {detailSaveError && (
+              <p className={styles.errorText} role="alert">
+                {detailSaveError}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button
+                className={styles.primaryBtn}
+                style={{ width: "auto" }}
+                disabled={detailSaving || !detailDraftConclusion.trim() || !detailDraftLogic.trim()}
+                onClick={() => void handleSaveDetail()}
+              >
+                {detailSaving ? "保存中…" : "保存"}
+              </button>
+              <button
+                className={styles.btnOutline}
+                disabled={detailSaving}
+                onClick={() => {
+                  setDetailEditing(false);
+                  setDetailSaveError(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        ) : suggestion.detail ? (
+          <>
+            <strong style={{ fontSize: "0.875rem" }}>✅ 結論</strong>
+            <p style={{ fontSize: "0.875rem", marginTop: 4 }}>
+              <IdLinkedText text={suggestion.detail.conclusion} />
+            </p>
+            {suggestion.detail.facts.length > 0 && (
+              <>
+                <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
+                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                  {suggestion.detail.facts.map((f, i) => (
+                    <li key={i}>
+                      <IdLinkedText text={f} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
+            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
+              <IdLinkedText text={suggestion.detail.logic} />
+            </p>
+            {suggestion.detail.advice && (
+              <>
+                <strong style={{ fontSize: "0.75rem" }}>💡 進め方のアドバイス</strong>
+                <p style={{ fontSize: "0.75rem", margin: "4px 0 8px" }}>
+                  <IdLinkedText text={suggestion.detail.advice} />
+                </p>
+              </>
+            )}
+            <p className={styles.subtitle} style={{ marginTop: 0 }}>
+              最終更新: {new Date(suggestion.detail.updatedAt).toLocaleString("ja-JP")}
+            </p>
+          </>
+        ) : (
+          <p className={styles.subtitle}>
+            まだ詳細はありません（相談化されずに直接タイトルだけで作られた提案など）。
+            {activeRun?.proposal
+              ? "右上のボタンから、今の判断・提案の内容を詳細として残すか、"
+              : "右上の「編集」から、"}
+            編集から書き起こすこともできます。
+          </p>
+        )}
       </div>
 
       <div className={styles.panel}>

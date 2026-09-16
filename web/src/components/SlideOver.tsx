@@ -64,7 +64,20 @@ export function SlideOver({
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
-  const [width, setWidth] = useState(readStoredWidth);
+  // ユーザー指摘「サイドピークを開くとhydration mismatchのコンソールエラーが出る」対応。
+  // 以前はuseState(readStoredWidth)の遅延初期化子がSSR時にも呼ばれ、サーバー側は
+  // window未定義でDEFAULT_WIDTHを返す一方、クライアント側の初回描画（hydration）では
+  // 同じ初期化子がlocalStorageの保存値を読んでしまい、EMが一度でも幅を変更していると
+  // サーバー/クライアントでstyle.widthが食い違っていた。SSRとhydration直後は必ず
+  // DEFAULT_WIDTHで揃え、保存値の反映はマウント後のuseEffect（クライアント専用）に移す。
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+
+  useEffect(() => {
+    // SSR/hydration時のstyle不一致を避けるため意図的にDEFAULT_WIDTHで初回描画を揃え、
+    // マウント後だけlocalStorageの保存値へ切り替える。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWidth(readStoredWidth());
+  }, []);
 
   // ハンドルは左端（パネルは右端固定）にあるため、左へドラッグ＝マウスXが小さくなるほど
   // 幅は広がる。ドラッグ中はグローバルにmousemove/upを監視し、離した時点の幅だけ記憶する。

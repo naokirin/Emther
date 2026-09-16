@@ -302,6 +302,7 @@ export function toRunView(run: AgentRun): AgentRun {
                 })),
               }
             : {}),
+          ...(run.proposal.advice ? { advice: unmaskNames(run.proposal.advice) } : {}),
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),

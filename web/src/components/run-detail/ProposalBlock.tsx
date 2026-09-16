@@ -52,6 +52,15 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
         </>
       )}
 
+      {proposal.advice && (
+        <>
+          <strong style={{ fontSize: "0.75rem" }}>💡 進め方のアドバイス</strong>
+          <p style={{ fontSize: "0.75rem", margin: "4px 0 8px" }}>
+            <IdLinkedText text={proposal.advice} />
+          </p>
+        </>
+      )}
+
       {candidates.length > 1 && (
         <>
           <strong style={{ fontSize: "0.75rem" }}>提案化候補（親なし・独立）</strong>

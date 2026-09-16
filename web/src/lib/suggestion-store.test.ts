@@ -140,6 +140,86 @@ describe("createSuggestion / review / memo", () => {
   });
 });
 
+// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
+describe("createSuggestion detail / setSuggestionDetail", () => {
+  it("detailを渡して作成すると保持され、toSuggestionViewでunmaskされる", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("詳細つき提案", {
+      detail: { conclusion: "結論文", facts: ["根拠1"], logic: "ロジック", advice: "助言" },
+    });
+    expect(s.detail?.conclusion).toBe("結論文");
+    expect(s.detail?.facts).toEqual(["根拠1"]);
+    expect(s.detail?.advice).toBe("助言");
+    expect(s.detail?.updatedAt).toBeTypeOf("number");
+    const view = store.toSuggestionView(store.getSuggestion(s.id)!);
+    expect(view.detail?.conclusion).toBe("結論文");
+  });
+
+  it("conclusion/logicが空のdetailは無視される", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("詳細なし提案", {
+      detail: { conclusion: "", facts: [], logic: "" },
+    });
+    expect(s.detail).toBeUndefined();
+  });
+
+  it("setSuggestionDetailで詳細を後から更新できる", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("後から詳細を足す提案");
+    expect(s.detail).toBeUndefined();
+    const updated = store.setSuggestionDetail(s.id, { conclusion: "更新結論", facts: [], logic: "更新ロジック" });
+    expect(updated?.detail?.conclusion).toBe("更新結論");
+    expect(store.getSuggestion(s.id)?.detail?.logic).toBe("更新ロジック");
+  });
+
+  it("存在しないIDにはundefinedを返す", async () => {
+    const store = await import("@/lib/suggestion-store");
+    expect(store.setSuggestionDetail("nope", { conclusion: "c", facts: [], logic: "l" })).toBeUndefined();
+  });
+});
+
+// ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
+describe("updateSuggestionDetail", () => {
+  it("詳細が無い状態からEMが新規に書き起こせる", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("EMが詳細を書く提案");
+    const updated = await store.updateSuggestionDetail(s.id, {
+      conclusion: "EMの結論",
+      facts: ["事実1", "事実2"],
+      logic: "EMのロジック",
+      advice: "EMの助言",
+    });
+    expect(updated?.detail?.conclusion).toBe("EMの結論");
+    expect(updated?.detail?.facts).toEqual(["事実1", "事実2"]);
+    expect(updated?.detail?.advice).toBe("EMの助言");
+  });
+
+  it("一部フィールドだけの部分更新では、他のフィールドの現在値を保つ", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("部分更新の提案", {
+      detail: { conclusion: "元の結論", facts: ["元の事実"], logic: "元のロジック" },
+    });
+    const updated = await store.updateSuggestionDetail(s.id, { logic: "書き直したロジック" });
+    expect(updated?.detail?.conclusion).toBe("元の結論");
+    expect(updated?.detail?.facts).toEqual(["元の事実"]);
+    expect(updated?.detail?.logic).toBe("書き直したロジック");
+  });
+
+  it("conclusion/logicを空にする更新は拒否される", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const s = await store.createSuggestion("空にできない提案", {
+      detail: { conclusion: "結論", facts: [], logic: "ロジック" },
+    });
+    await expect(store.updateSuggestionDetail(s.id, { conclusion: "  " })).rejects.toThrow("必須です");
+  });
+
+  it("存在しないIDにはundefinedを返す", async () => {
+    const store = await import("@/lib/suggestion-store");
+    const updated = await store.updateSuggestionDetail("nope", { conclusion: "c", facts: [], logic: "l" });
+    expect(updated).toBeUndefined();
+  });
+});
+
 // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
 describe("setSuggestionReviewDueAt", () => {
   it("確認期日を設定・解除できる。reviewStatusとは独立に変更できる", async () => {

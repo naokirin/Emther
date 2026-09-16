@@ -13,10 +13,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { entries, skippedLines } = await addJournalEntriesBulk(text, {
+    const { entries, skippedLines, nameCandidateSuggestions } = await addJournalEntriesBulk(text, {
       ...maskOptionsFromBodyStrict(body),
     });
-    return NextResponse.json({ entries: toJournalEntryViews(entries, new Map()), skippedLines }, { status: 201 });
+    return NextResponse.json(
+      { entries: toJournalEntryViews(entries, new Map()), skippedLines, nameCandidateSuggestions },
+      { status: 201 },
+    );
   } catch (err) {
     return jsonFromUnknownError(err);
   }

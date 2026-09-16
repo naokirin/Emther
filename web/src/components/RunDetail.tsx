@@ -56,6 +56,8 @@ export type Proposal = {
   issueTitle?: string;
   // 親なしの独立Issue候補（複数）。ある場合は issueTitle より優先して起票UIに出す。
   issueCandidates?: { title: string; rationale?: string }[];
+  // この提案を計画・進行・検証するうえで漏らさないほうがよい実務的なポイント（任意）。
+  advice?: string;
 };
 
 export type SuggestedSubIssue = {

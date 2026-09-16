@@ -43,6 +43,19 @@ export async function POST(request: Request) {
       ? body.sourceJournalId.trim()
       : sourceRun?.sourceJournalId;
 
+  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。sourceRunの内部表現
+  // （マスク済み）にproposalがあれば、起票直後にそのままdetailとして持たせる。判断・提案
+  // （Agent）パネルは紐づくAgent Runが差し替わると内容も変わりうるため、起票時点の結論・
+  // 根拠・ロジック・アドバイスを提案自体に固定するのがねらい。
+  const detail = sourceRun?.proposal
+    ? {
+        conclusion: sourceRun.proposal.conclusion,
+        facts: sourceRun.proposal.facts,
+        logic: sourceRun.proposal.logic,
+        ...(sourceRun.proposal.advice ? { advice: sourceRun.proposal.advice } : {}),
+      }
+    : undefined;
+
   try {
     const suggestion = await createSuggestion(title, {
       ...opts,
@@ -53,6 +66,7 @@ export async function POST(request: Request) {
       themeId,
       teamId,
       confirmPriority,
+      detail,
     });
     if (agentRunId) {
       markRunReviewed(agentRunId);

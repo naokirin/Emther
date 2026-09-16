@@ -54,6 +54,17 @@ export async function POST(request: Request) {
       ? body.sourceJournalId.trim()
       : sourceRun?.sourceJournalId;
 
+  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。/api/suggestionsと同じ
+  // ロジック（sourceRunの内部表現のproposalをそのまま起票時のdetailにする）。
+  const detail = sourceRun?.proposal
+    ? {
+        conclusion: sourceRun.proposal.conclusion,
+        facts: sourceRun.proposal.facts,
+        logic: sourceRun.proposal.logic,
+        ...(sourceRun.proposal.advice ? { advice: sourceRun.proposal.advice } : {}),
+      }
+    : undefined;
+
   try {
     const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, {
       ...opts,
@@ -61,6 +72,7 @@ export async function POST(request: Request) {
       sourceJournalId,
       sourceRunId,
       themeId,
+      detail,
     });
     if (agentRunId) {
       markRunReviewed(agentRunId);

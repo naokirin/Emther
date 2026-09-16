@@ -427,6 +427,19 @@ export type SuggestionMemo = {
   createdAt: number;
 };
 
+// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。メモ（EMが自由に書き足す
+// 経過記録）とは別に、AIが提案時点で示した結論・根拠・ロジックと、この提案を実際に計画・
+// 進行・検証するうえでの実務的なアドバイスを、判断・提案（Agent）パネル（紐づくAgent Runが
+// 差し替わると内容も変わりうる）とは独立に、提案自体に1件だけ残す。EMが編集するものではなく
+// AIが書いたものをそのまま残す記録のため、メモのような追記リストにはしない（上書きのみ）。
+export type SuggestionDetail = {
+  conclusion: string;
+  facts: string[];
+  logic: string;
+  advice?: string;
+  updatedAt: number;
+};
+
 export type Suggestion = {
   id: string;
   title: string;
@@ -434,6 +447,7 @@ export type Suggestion = {
   confirmPriority: ConfirmPriority;
   focusOrder?: number;
   memos: SuggestionMemo[];
+  detail?: SuggestionDetail;
   agentRunId?: string;
   sourceRunId?: string;
   sourceJournalId?: string;

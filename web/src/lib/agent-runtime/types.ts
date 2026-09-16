@@ -63,6 +63,10 @@ export type Proposal = {
   issueTitle?: string;
   // 別責任・別KR・別チームになりうる介入が同居するとき、親なしの複数候補。
   issueCandidates?: IssueCandidate[];
+  // docs/memo.md「提案自体の詳細を残す単一の場所」対応。結論そのものではなく、この提案を
+  // 実際に計画・進行・検証するうえで漏らさないほうがよい実務的なポイント（任意）。
+  // Suggestion作成時にdetailへコピーされ、判断・提案（Agent）パネルの外でも残る。
+  advice?: string;
 };
 
 // docs/memo.md「M. AIエージェント“チーム”の本格協働」対応。以前は専門エージェント

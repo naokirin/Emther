@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SlideOver } from "./SlideOver";
+
+afterEach(() => {
+  window.localStorage.clear();
+});
 
 describe("SlideOver", () => {
   it("role=dialog・aria-modal・タイトルとの紐付けを持つ", () => {
@@ -131,5 +135,19 @@ describe("SlideOver", () => {
     await user.keyboard("{ArrowLeft}");
     expect(box.style.width).not.toBe(initialWidth);
     expect(parseInt(box.style.width, 10)).toBeGreaterThan(parseInt(initialWidth, 10));
+  });
+
+  // ユーザー指摘「サイドピークを開くとhydration mismatchのコンソールエラーが出る」対応。
+  // 保存済みの幅がDEFAULT_WIDTHと異なっていても、初回描画（SSRと揃えるべき瞬間）は
+  // 必ずDEFAULT_WIDTHになり、マウント後に保存値へ切り替わることを確認する。
+  it("保存済みの幅がDEFAULT_WIDTHと異なっていても、初回描画はDEFAULT_WIDTHになり、直後に保存値へ切り替わる", async () => {
+    window.localStorage.setItem("em-slideover-width", "909");
+    render(
+      <SlideOver title="タイトル" onClose={vi.fn()}>
+        <p>本文</p>
+      </SlideOver>,
+    );
+    const box = screen.getByRole("dialog");
+    await waitFor(() => expect(box.style.width).toBe("909px"));
   });
 });

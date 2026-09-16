@@ -8,11 +8,12 @@ import type { MaskOptions } from "@/lib/name-candidate-confirmation";
 import type {
   ConfirmPriority,
   Suggestion,
+  SuggestionDetail,
   SuggestionMemo,
   SuggestionReviewStatus,
 } from "@/lib/types";
 
-export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo } from "@/lib/types";
+export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionDetail } from "@/lib/types";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES } from "@/lib/types";
 
 // docs/2nd_pivot_version.md Phase 7。Issue を廃し Suggestion を第一級エンティティにする。
@@ -137,6 +138,15 @@ export function toSuggestionView(s: Suggestion): Suggestion {
     ...s,
     title: unmaskNames(s.title),
     memos: s.memos.map((m) => ({ ...m, text: unmaskNames(m.text) })),
+    detail: s.detail
+      ? {
+          ...s.detail,
+          conclusion: unmaskNames(s.detail.conclusion),
+          facts: s.detail.facts.map(unmaskNames),
+          logic: unmaskNames(s.detail.logic),
+          ...(s.detail.advice ? { advice: unmaskNames(s.detail.advice) } : {}),
+        }
+      : s.detail,
     embedding: undefined,
   };
 }
@@ -203,6 +213,15 @@ export type SuggestionUpdateReactionOptions = {
   onUpdated?: (suggestionId: string, trigger: "memo" | "title", detail: string) => void;
 };
 
+/** createSuggestionのdetail引数。呼び出し側（APIルート）がsourceRunの内部表現（マスク済み）
+ * から作る想定——ここではマスク処理をしない（既にマスク済みのテキストとして扱う）。 */
+export type SuggestionDetailInput = {
+  conclusion: string;
+  facts: string[];
+  logic: string;
+  advice?: string;
+};
+
 export async function createSuggestion(
   title: string,
   opts: MaskOptions & {
@@ -214,6 +233,7 @@ export async function createSuggestion(
     teamId?: string;
     confirmPriority?: ConfirmPriority;
     id?: string;
+    detail?: SuggestionDetailInput;
   } = {},
 ): Promise<Suggestion> {
   const {
@@ -225,6 +245,7 @@ export async function createSuggestion(
     teamId,
     confirmPriority: requestedPriority,
     id: forcedId,
+    detail: detailInput,
     ...maskOpts
   } = opts;
   const titleTrimmed = title.trim();
@@ -232,12 +253,25 @@ export async function createSuggestion(
   await ensureNameCandidatesAllowed([titleTrimmed], maskOpts);
   const maskedTitle = await maskForStorage(titleTrimmed);
   const now = Date.now();
+  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。detailInputは
+  // sourceRunのproposal（既にマスク済みの内部表現）由来のため、ここでは再マスクしない。
+  const detail: SuggestionDetail | undefined =
+    detailInput && detailInput.conclusion.trim() && detailInput.logic.trim()
+      ? {
+          conclusion: detailInput.conclusion,
+          facts: detailInput.facts,
+          logic: detailInput.logic,
+          ...(detailInput.advice ? { advice: detailInput.advice } : {}),
+          updatedAt: now,
+        }
+      : undefined;
   const suggestion: Suggestion = {
     id: forcedId ?? randomUUID(),
     title: maskedTitle,
     reviewStatus: "unreviewed",
     confirmPriority: "normal",
     memos: [],
+    detail,
     agentRunId,
     sourceRunId: sourceRunId ?? agentRunId,
     sourceJournalId,
@@ -445,6 +479,67 @@ export function setSuggestionTheme(id: string, themeId: string | null): Suggesti
   s.updatedAt = Date.now();
   persist();
   recordChangeEvent("suggestion", s.id, next ? "テーマに紐付けました" : "テーマの紐付けを解除しました");
+  return s;
+}
+
+// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
+// 判断・提案（Agent）の内容が更新された後、EMが明示して現在の内容を詳細へ反映し直す用途。
+// detailInputは呼び出し側（APIルート）がAgentRunの内部表現（マスク済み）から作る想定。
+export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInput): Suggestion | undefined {
+  const s = getSuggestion(id);
+  if (!s) return undefined;
+  if (!detailInput.conclusion.trim() || !detailInput.logic.trim()) return s;
+  s.detail = {
+    conclusion: detailInput.conclusion,
+    facts: detailInput.facts,
+    logic: detailInput.logic,
+    ...(detailInput.advice ? { advice: detailInput.advice } : {}),
+    updatedAt: Date.now(),
+  };
+  s.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("suggestion", s.id, "提案の詳細を更新しました");
+  return s;
+}
+
+// ユーザー要望「提案の詳細をユーザーでも編集したい」対応。setSuggestionDetailと違い、
+// こちらはEMが自由記述で書く／直す入口のため、他の自由記述フィールド（title/memo）と
+// 同じくensureNameCandidatesAllowed＋maskForStorageを通す（AI由来のsetSuggestionDetailは
+// 既にマスク済みのAgentRun内部表現をそのまま使うため通さない）。未指定のフィールドは
+// 現在の値を保持する（部分更新）。詳細が無い状態からEMが新規に書き起こすこともできる。
+export async function updateSuggestionDetail(
+  id: string,
+  patch: { conclusion?: string; facts?: string[]; logic?: string; advice?: string },
+  opts: MaskOptions = {},
+): Promise<Suggestion | undefined> {
+  const s = getSuggestion(id);
+  if (!s) return undefined;
+  const current = s.detail;
+  const conclusion = (patch.conclusion !== undefined ? patch.conclusion : (current?.conclusion ?? "")).trim();
+  const logic = (patch.logic !== undefined ? patch.logic : (current?.logic ?? "")).trim();
+  if (!conclusion || !logic) throw new Error("結論と判断ロジックは必須です");
+  const facts = (patch.facts !== undefined ? patch.facts : (current?.facts ?? [])).map((f) => f.trim()).filter(Boolean);
+  const advice = (patch.advice !== undefined ? patch.advice : (current?.advice ?? "")).trim();
+
+  await ensureNameCandidatesAllowed([conclusion, logic, ...facts, ...(advice ? [advice] : [])], opts);
+
+  const [maskedConclusion, maskedLogic, maskedFacts, maskedAdvice] = await Promise.all([
+    maskForStorage(conclusion),
+    maskForStorage(logic),
+    Promise.all(facts.map((f) => maskForStorage(f))),
+    advice ? maskForStorage(advice) : Promise.resolve(undefined),
+  ]);
+
+  s.detail = {
+    conclusion: maskedConclusion,
+    facts: maskedFacts,
+    logic: maskedLogic,
+    ...(maskedAdvice ? { advice: maskedAdvice } : {}),
+    updatedAt: Date.now(),
+  };
+  s.updatedAt = Date.now();
+  persist();
+  recordChangeEvent("suggestion", s.id, "提案の詳細を編集しました");
   return s;
 }
 

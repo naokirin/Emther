@@ -32,6 +32,15 @@ vi.mock("@/lib/embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
+// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
+// createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
+// 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
+vi.mock("@/lib/name-candidate-detect", () => ({
+  detectNameCandidatesAsync: async () => [] as string[],
+  detectNameCandidates: () => [] as string[],
+  registerNameCandidateFilters: () => {},
+}));
+
 const startRunMock = vi.fn(async (agentName: string, rawTask: string, origin?: string) => {
   void agentName;
   void rawTask;
@@ -226,6 +235,24 @@ describe("addJournalEntryWithProfileCandidate", () => {
     const store = await loadModule();
     const { profileCandidate } = await store.addJournalEntryWithProfileCandidate("未登録さんについてのメモ");
     expect(profileCandidate).toBeUndefined();
+  });
+
+  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
+  // ローカルモデル抽出（structured.people）が拾った未登録名は、以前はgetPersonIdで
+  // 解決できずpeopleから静かに落ちるだけで登録ヒントにも出なかった。nameCandidatesへ
+  // 合流していることを確認する。
+  it("抽出結果（structured.people）の未登録名はpeopleには入らないが、nameCandidatesのヒントには出る", async () => {
+    mockExtraction = {
+      tags: [],
+      people: ["未登録太郎"],
+      urgency: "low",
+      sentiment: "neutral",
+      summary: "",
+    };
+    const store = await loadModule();
+    const { entry, nameCandidates } = await store.addJournalEntryWithProfileCandidate("未登録太郎さんと話した");
+    expect(entry.people).toEqual([]);
+    expect(nameCandidates).toContain("未登録太郎");
   });
 
   it("profileCandidateがnull・不正な形式のときはundefinedを返す", async () => {

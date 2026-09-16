@@ -1,4 +1,4 @@
-import { addJournalEntry, type JournalEntry } from "@/lib/journal-store";
+import { addJournalEntryWithProfileCandidate, type JournalEntry, type JournalNameCandidateHint } from "@/lib/journal-store";
 import { parseObservationDumpText } from "@/lib/observation-dump-parse";
 import {
   getObservationDump,
@@ -67,7 +67,7 @@ export async function acceptDumpChunks(
   dumpId: string,
   chunkIds: string[],
   opts: MaskOptions = {},
-): Promise<{ dump: ObservationDump; entries: JournalEntry[] }> {
+): Promise<{ dump: ObservationDump; entries: JournalEntry[]; nameCandidateSuggestions: JournalNameCandidateHint[] }> {
   const dump = getObservationDump(dumpId);
   if (!dump) throw new Error("Dumpが見つかりません");
   if (dump.status === "discarded") throw new Error("破棄済みのDumpからは採用できません");
@@ -93,19 +93,26 @@ export async function acceptDumpChunks(
   const chunkTexts = targets.map((chunk) => unmaskNames(chunk.textMasked).trim()).filter(Boolean);
   await ensureNameCandidatesAllowed(chunkTexts, opts);
 
+  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
+  // 上の一括確認は生テキストの形態素検出だけを見ているため、チャンクごとのローカルモデル
+  // 抽出が見つけた未登録名（検出漏れ）を、単発投稿と同じヒントとしてチャンク単位で拾い上げる。
+  const nameCandidateSuggestions: JournalNameCandidateHint[] = [];
   for (const chunk of targets) {
     const text = unmaskNames(chunk.textMasked).trim();
     if (!text) continue;
     const occurredAt = dateHintToOccurredAt(chunk.suggestedOccurredAt, fallbackOccurred);
     const people = chunk.people.map(unmaskNames).filter(Boolean);
     // 上で一括確認済みなので、各チャンクでは再検出をスキップする（allow付きで通す）。
-    const entry = await addJournalEntry(text, occurredAt, {
+    const { entry, nameCandidates } = await addJournalEntryWithProfileCandidate(text, occurredAt, {
       allowUnmaskedCandidates: true,
       people: people.length > 0 ? people : undefined,
       sourceDumpId: dump.id,
       sourceChunkId: chunk.id,
     });
     entries.push(entry);
+    if (nameCandidates.length > 0) {
+      nameCandidateSuggestions.push({ entryId: entry.id, people: entry.people, candidates: nameCandidates });
+    }
     const idx = chunkDrafts.findIndex((c) => c.id === chunk.id);
     if (idx >= 0) {
       chunkDrafts[idx] = {
@@ -124,5 +131,5 @@ export async function acceptDumpChunks(
   const status = refreshDumpStatusAfterAccept(next);
   const updated = updateObservationDump(dumpId, { chunkDrafts, status });
   if (!updated) throw new Error("Dumpの更新に失敗しました");
-  return { dump: updated, entries };
+  return { dump: updated, entries, nameCandidateSuggestions };
 }

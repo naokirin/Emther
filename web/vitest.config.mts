@@ -23,6 +23,10 @@ export default defineConfig({
     // レースしてalias解決に失敗することを実機で確認した（"Cannot find package '@/...'"）。
     // 同時起動数をコア数程度に抑えて安定させる。
     maxWorkers: 4,
+    // 既定の5000msだと、実際の辞書・形態素解析（name-candidate-detect、初回ロードが重い）を
+    // 使うテストが、フルスイート実行時のCPU競合下で稀にタイムアウトすることを確認した。
+    // 個々のテストをモックで誤魔化すより、実装の正しさを保ったまま余裕を持たせる。
+    testTimeout: 10000,
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],

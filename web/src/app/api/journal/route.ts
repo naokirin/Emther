@@ -3,7 +3,6 @@ import { addJournalEntryWithProfileCandidate, listJournalEntries, toJournalEntry
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
-import { detectUnregisteredNameCandidates } from "@/lib/people-directory";
 
 export async function GET() {
   return NextResponse.json({ entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()) });
@@ -48,20 +47,15 @@ export async function POST(request: Request) {
   };
 
   try {
-    const { entry, profileCandidate } =
+    // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」「テキストから検出された
+    // メンバー名を確実に『人物』にすべて登録する」対応。既登録の人物名はaddJournalEntry内で
+    // peopleへ紐付け済み。nameCandidatesは「人名らしいが未登録」な語句（生テキストの検出＋
+    // ローカルモデル抽出の未登録名）で、保存はブロックせず（事前登録が正の方針は変えない）
+    // レスポンスに一度きりのヒントとして載せるだけにする（永続化しない・以降のGETには含まれない）。
+    const { entry, profileCandidate, nameCandidates } =
       occurredAt !== undefined
         ? await addJournalEntryWithProfileCandidate(text, occurredAt, opts)
         : await addJournalEntryWithProfileCandidate(text, Date.now(), opts);
-    // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」対応。既登録の人物名は
-    // すでにaddJournalEntry内でpeopleへ紐付け済み。ここでは「人名らしいが未登録」な語句を
-    // 追加で検知し、保存はブロックせず（事前登録が正の方針は変えない）レスポンスに
-    // 一度きりのヒントとして載せるだけにする（永続化しない・以降のGETには含まれない）。
-    let nameCandidates: string[] = [];
-    try {
-      nameCandidates = await detectUnregisteredNameCandidates(text);
-    } catch {
-      nameCandidates = [];
-    }
     // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
     // profileCandidateもnameCandidatesと同じく一度きりのヒント（永続化しない）。
     return NextResponse.json(

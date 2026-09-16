@@ -3,6 +3,9 @@ import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import {
   getPersonId,
   ensureNameCandidatesAllowed,
+  detectUnregisteredNameCandidates,
+  isAcknowledgedUnmasked,
+  isPlausiblePersonName,
   maskForStorage,
   maskNames,
   maskNamesSearchForms,
@@ -328,7 +331,7 @@ async function createJournalEventFromText(
   rawText: string,
   occurredAt: number,
   opts: AddJournalOpts = {},
-): Promise<{ event: KnowledgeEvent; profileCandidate?: ProfileCandidate }> {
+): Promise<{ event: KnowledgeEvent; profileCandidate?: ProfileCandidate; nameCandidates: string[] }> {
   await ensureNameCandidatesAllowed([rawText], opts);
 
   // docs/usage_issues U1: 構造化抽出は補助。モデルがJSONを返さない・呼び出し自体が
@@ -377,6 +380,17 @@ async function createJournalEventFromText(
   const people = [...new Set([...extractedPeople, ...explicitPeople])];
   const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
   const profileCandidate = extractProfileCandidate(structured);
+
+  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
+  // 保存前の候補確認ゲート（ensureNameCandidatesAllowed）は生テキストへの形態素ベース検出
+  // だけを見ており、ローカルモデルの抽出（structured.people）が拾った未登録名が
+  // そちらの検出漏れだと、getPersonIdで解決できずextractedPeopleから静かに落ちるだけで、
+  // 登録を促すヒントもどこにも出ないまま取りこぼされていた。抽出結果側の未登録名も
+  // 同じ「一度きりの登録ヒント」候補に合流させる（自動登録はしない既存方針は変えない）。
+  const unresolvedExtractedNames = peopleNames
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0 && getPersonId(p) === undefined && !isAcknowledgedUnmasked(p) && isPlausiblePersonName(p));
+  const nameCandidates = [...new Set([...unresolvedExtractedNames, ...(await detectUnregisteredNameCandidates(rawText))])];
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
@@ -427,7 +441,7 @@ async function createJournalEventFromText(
     sourceDumpId: opts.sourceDumpId,
     sourceChunkId: opts.sourceChunkId,
   });
-  return { event, profileCandidate };
+  return { event, profileCandidate, nameCandidates };
 }
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。occurredAtは
@@ -457,12 +471,19 @@ export async function addJournalEntryWithProfileCandidate(
   rawText: string,
   occurredAt: number = Date.now(),
   opts: AddJournalOpts = {},
-): Promise<{ entry: JournalEntry; profileCandidate?: ProfileCandidate }> {
-  const { event, profileCandidate } = await createJournalEventFromText(rawText, occurredAt, opts);
-  return { entry: eventToJournalEntry(event), profileCandidate };
+): Promise<{ entry: JournalEntry; profileCandidate?: ProfileCandidate; nameCandidates: string[] }> {
+  const { event, profileCandidate, nameCandidates } = await createJournalEventFromText(rawText, occurredAt, opts);
+  return { entry: eventToJournalEntry(event), profileCandidate, nameCandidates };
 }
 
-export type BulkJournalResult = { entries: JournalEntry[]; skippedLines: number };
+/** 1件のJournalに対する「未登録の人名らしい語句」の登録ヒント。JournalNameCandidateSuggestion用。 */
+export type JournalNameCandidateHint = { entryId: string; people: string[]; candidates: string[] };
+
+export type BulkJournalResult = {
+  entries: JournalEntry[];
+  skippedLines: number;
+  nameCandidateSuggestions: JournalNameCandidateHint[];
+};
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。忙しくて後から
 // まとめて書く場合に、1件ずつSubmitさせる負担を無くす。EMは自由記述のまま複数行を貼り、
@@ -496,18 +517,26 @@ export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions =
   );
 
   const entries: JournalEntry[] = [];
+  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
+  // 上の一括確認は生テキストの形態素検出だけを見ているため、行ごとのローカルモデル抽出が
+  // 見つけた未登録名（検出漏れ）を、単発投稿と同じヒントとして行単位で拾い上げる。
+  const nameCandidateSuggestions: JournalNameCandidateHint[] = [];
   // ローカルモデル（WASM上の単一インスタンス）を前提にしており、並行実行の安全性が
   // 保証できないため、あえて逐次実行にしている（件数が多いほど時間はかかるが、
   // 「一括入力で疲弊しない」の主眼は連続クリックを無くすことにあり、待ち時間そのものは
   // 許容範囲と判断）。
   for (const line of parsed) {
     // 上で一括確認済みなので、各行では再検出をスキップする（allow付きで通す）。
-    const { event } = await createJournalEventFromText(line.text, line.occurredAt, {
+    const { event, nameCandidates } = await createJournalEventFromText(line.text, line.occurredAt, {
       allowUnmaskedCandidates: true,
     });
-    entries.push(eventToJournalEntry(event));
+    const entry = eventToJournalEntry(event);
+    entries.push(entry);
+    if (nameCandidates.length > 0) {
+      nameCandidateSuggestions.push({ entryId: entry.id, people: entry.people, candidates: nameCandidates });
+    }
   }
-  return { entries, skippedLines };
+  return { entries, skippedLines, nameCandidateSuggestions };
 }
 
 export function listJournalEntries(opts: { includeArchived?: boolean } = {}): JournalEntry[] {

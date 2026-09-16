@@ -5,6 +5,7 @@ import {
   moveFocusSuggestion,
   setConfirmPriority,
   setReviewStatus,
+  setSuggestionDetail,
   setSuggestionKeyResult,
   setSuggestionReviewDueAt,
   setSuggestionTeam,
@@ -12,6 +13,7 @@ import {
   setSuggestionTitle,
   toSuggestionView,
   unarchiveSuggestion,
+  updateSuggestionDetail,
   getSuggestion,
 } from "@/lib/suggestion-store";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@/lib/types";
@@ -19,7 +21,7 @@ import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candid
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
-import { reactToIssueUpdate } from "@/lib/agent-runtime";
+import { getRun, reactToIssueUpdate } from "@/lib/agent-runtime";
 
 function resolveSuggestionForRead(id: string) {
   return resolveUniqueByPrefix(listSuggestions(), (s) => s.id, id);
@@ -81,6 +83,25 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
   if ("reviewDueAt" in (body ?? {}) && body.reviewDueAt !== null && typeof body.reviewDueAt !== "number") {
     return NextResponse.json({ error: "reviewDueAtは数値（タイムスタンプ）またはnullです" }, { status: 400 });
   }
+  // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
+  if ("detail" in (body ?? {})) {
+    const d = body.detail;
+    if (!d || typeof d !== "object") {
+      return NextResponse.json({ error: "detailはオブジェクトです" }, { status: 400 });
+    }
+    if ("conclusion" in d && typeof d.conclusion !== "string") {
+      return NextResponse.json({ error: "detail.conclusionは文字列です" }, { status: 400 });
+    }
+    if ("logic" in d && typeof d.logic !== "string") {
+      return NextResponse.json({ error: "detail.logicは文字列です" }, { status: 400 });
+    }
+    if ("facts" in d && (!Array.isArray(d.facts) || !d.facts.every((f: unknown) => typeof f === "string"))) {
+      return NextResponse.json({ error: "detail.factsは文字列の配列です" }, { status: 400 });
+    }
+    if ("advice" in d && typeof d.advice !== "string") {
+      return NextResponse.json({ error: "detail.adviceは文字列です" }, { status: 400 });
+    }
+  }
 
   const suggestionId = resolveSuggestionId(id);
   if (!suggestionId) {
@@ -123,9 +144,44 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
     if ("reviewDueAt" in (body ?? {})) {
       suggestion = setSuggestionReviewDueAt(suggestionId, typeof body.reviewDueAt === "number" ? body.reviewDueAt : null) ?? suggestion;
     }
+    // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。AI由来のsetSuggestionDetailと
+    // 違い、EMの自由記述なのでensureNameCandidatesAllowed／maskForStorageを通す
+    // （updateSuggestionDetail内部で実施）。未指定のフィールドは現在値を保持する部分更新。
+    if ("detail" in (body ?? {})) {
+      const d = body.detail as { conclusion?: string; facts?: string[]; logic?: string; advice?: string };
+      suggestion =
+        (await updateSuggestionDetail(
+          suggestionId,
+          {
+            ...(d.conclusion !== undefined ? { conclusion: d.conclusion } : {}),
+            ...(d.facts !== undefined ? { facts: d.facts } : {}),
+            ...(d.logic !== undefined ? { logic: d.logic } : {}),
+            ...(d.advice !== undefined ? { advice: d.advice } : {}),
+          },
+          opts,
+        )) ?? suggestion;
+    }
+    // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
+    // 判断・提案（Agent）の内容が起票時から変わった場合に、EMが明示して詳細を更新し直す。
+    if (typeof body?.refreshDetailFromRunId === "string" && body.refreshDetailFromRunId.trim()) {
+      const run = getRun(body.refreshDetailFromRunId.trim());
+      if (!run || !run.proposal) {
+        return NextResponse.json({ error: "指定されたAgent Runに判断・提案がありません" }, { status: 400 });
+      }
+      suggestion =
+        setSuggestionDetail(suggestionId, {
+          conclusion: run.proposal.conclusion,
+          facts: run.proposal.facts,
+          logic: run.proposal.logic,
+          ...(run.proposal.advice ? { advice: run.proposal.advice } : {}),
+        }) ?? suggestion;
+    }
 
     return NextResponse.json({ suggestion: toSuggestionView(suggestion) });
   } catch (err) {
-    return jsonFromUnknownError(err);
+    // updateSuggestionDetailの「結論と判断ロジックは必須です」等、入力起因のエラーは
+    // 4xxとして返す（jsonFromUnknownErrorはUnconfirmedNameCandidatesErrorなら409、
+    // それ以外はここで渡すfallbackStatusを使う）。
+    return jsonFromUnknownError(err, 400);
   }
 }

@@ -19,6 +19,7 @@ import type { ProfileCandidate } from "@/lib/journal-store";
 export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [text, setText] = useState("");
+  const [isImpression, setIsImpression] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -37,9 +38,10 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
     setError(null);
     setLastCreated(null);
     try {
+      const finalText = isImpression ? `[感想を含む] ${trimmed}` : trimmed;
       const { res, data } = await fetchWithNameConfirm(
         "/api/journal",
-        { method: "POST", body: { text: trimmed, occurredAtDate: date || undefined } },
+        { method: "POST", body: { text: finalText, occurredAtDate: date || undefined } },
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
@@ -52,6 +54,7 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
         });
       }
       setText("");
+      setIsImpression(false);
       setDate("");
       setDateOpen(false);
       onCreated();
@@ -75,6 +78,12 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
             placeholder="例: 今日のAさんとの1on1で、リファクタリングが進まないことへの不満を聞いた…"
           />
         </div>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}
+        >
+          <input type="checkbox" checked={isImpression} onChange={(e) => setIsImpression(e.target.checked)} />
+          感想を含む（事実と分けて記録したい単なる印象・感想のときにチェック）
+        </label>
         {dateOpen ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>

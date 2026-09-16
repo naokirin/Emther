@@ -65,6 +65,7 @@ export function JournalDumpPanel({
   // 入力の手間にしない）。
   const [journalDate, setJournalDate] = useState("");
   const [journalDateOpen, setJournalDateOpen] = useState(false);
+  const [journalIsImpression, setJournalIsImpression] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [bulkError, setBulkError] = useState<string | null>(null);
@@ -73,13 +74,12 @@ export function JournalDumpPanel({
   // どちらもこのリストに「処理中」の1件を積んでから裏で走らせる（下記submitJournalDraft/
   // submitBulkDraft参照）。
   const [pendingJournalDrafts, setPendingJournalDrafts] = useState<PendingJournalDraft[]>([]);
-  // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」対応。投稿直後だけの
-  // 一度きりのヒント（ポーリングでは消える）。
-  const [lastNameCandidates, setLastNameCandidates] = useState<{
-    entryId: string;
-    people: string[];
-    candidates: string[];
-  } | null>(null);
+  // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」「テキストから検出された
+  // メンバー名を確実に『人物』にすべて登録する」対応。投稿直後だけの一度きりのヒント
+  // （ポーリングでは消える）。単発投稿は1件、まとめ投稿は複数エントリ分になりうるため配列で持つ。
+  const [lastNameCandidates, setLastNameCandidates] = useState<
+    { entryId: string; people: string[]; candidates: string[] }[]
+  >([]);
   // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
   // 投稿直後だけの一度きりのヒント（ポーリングでは消える）。
   const [lastProfileCandidate, setLastProfileCandidate] = useState<ProfileCandidate | null>(null);
@@ -212,7 +212,9 @@ export function JournalDumpPanel({
         setJournalEntries((prev) => [payload.entry, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
         if (payload.nameCandidates && payload.nameCandidates.length > 0) {
-          setLastNameCandidates({ entryId: payload.entry.id, people: payload.entry.people, candidates: payload.nameCandidates });
+          setLastNameCandidates([
+            { entryId: payload.entry.id, people: payload.entry.people, candidates: payload.nameCandidates },
+          ]);
         }
         if (payload.profileCandidate) {
           setLastProfileCandidate(payload.profileCandidate);
@@ -235,10 +237,12 @@ export function JournalDumpPanel({
 
   function handleJournalSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const text = journalText.trim();
-    if (!text) return;
+    const trimmed = journalText.trim();
+    if (!trimmed) return;
+    const text = journalIsImpression ? `[感想を含む] ${trimmed}` : trimmed;
     submitJournalDraft(text, journalDate || undefined);
     onJournalTextChange("");
+    setJournalIsImpression(false);
     setJournalDate("");
     setJournalDateOpen(false);
     setJournalError(null);
@@ -260,14 +264,20 @@ export function JournalDumpPanel({
       try {
         const { res, data } = await fetchWithNameConfirm("/api/journal/bulk", { method: "POST", body: { text } }, "保存する");
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "まとめ記録に失敗しました");
-        const newEntries = (data as { entries: JournalEntry[]; skippedLines: number }).entries;
+        const payload = data as {
+          entries: JournalEntry[];
+          skippedLines: number;
+          nameCandidateSuggestions?: { entryId: string; people: string[]; candidates: string[] }[];
+        };
+        const newEntries = payload.entries;
         setJournalEntries((prev) => [...newEntries, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+        if (payload.nameCandidateSuggestions && payload.nameCandidateSuggestions.length > 0) {
+          setLastNameCandidates(payload.nameCandidateSuggestions);
+        }
         setBulkResultMessage(
           `${newEntries.length}件を記録しました（いずれも未確認）。内容と発生日を確認してください。${
-            (data as { skippedLines: number }).skippedLines > 0
-              ? ` ※${(data as { skippedLines: number }).skippedLines}行は上限を超えたため処理していません。`
-              : ""
+            payload.skippedLines > 0 ? ` ※${payload.skippedLines}行は上限を超えたため処理していません。` : ""
           }`,
         );
       } catch (err) {
@@ -345,6 +355,16 @@ export function JournalDumpPanel({
             {dayPhase === "evening" ? "保存" : "Submit"}
           </button>
         </div>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}
+        >
+          <input
+            type="checkbox"
+            checked={journalIsImpression}
+            onChange={(e) => setJournalIsImpression(e.target.checked)}
+          />
+          感想を含む（事実と分けて記録したい単なる印象・感想のときにチェック）
+        </label>
         {/* 改修依頼「通常投入でも日付レベルの訂正を検討」対応。既定は今日のまま・
             非表示。今日の話でないと分かっているときだけ開いて日付を選べる。 */}
         {journalDateOpen ? (
@@ -380,13 +400,14 @@ export function JournalDumpPanel({
           {journalError}
         </p>
       )}
-      {lastNameCandidates && (
+      {lastNameCandidates.map((hint) => (
         <JournalNameCandidateSuggestion
-          entryId={lastNameCandidates.entryId}
-          people={lastNameCandidates.people}
-          candidates={lastNameCandidates.candidates}
+          key={hint.entryId}
+          entryId={hint.entryId}
+          people={hint.people}
+          candidates={hint.candidates}
         />
-      )}
+      ))}
       {lastProfileCandidate && (
         <JournalProfileCandidateSuggestion person={lastProfileCandidate.person} text={lastProfileCandidate.text} />
       )}

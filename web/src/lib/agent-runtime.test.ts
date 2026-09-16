@@ -22,6 +22,15 @@ vi.mock("@/lib/embeddings", () => ({
   cosineSimilarity: (...args: unknown[]) => cosineSimilarityRef.impl(...args),
 }));
 
+// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
+// createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
+// 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
+vi.mock("@/lib/name-candidate-detect", () => ({
+  detectNameCandidatesAsync: async () => [] as string[],
+  detectNameCandidates: () => [] as string[],
+  registerNameCandidateFilters: () => {},
+}));
+
 // vi.mockのファクトリはファイル先頭へホイストされるため、テストごとに差し替えたい実装は
 // vi.hoisted()で作った可変の参照（spawnRef.impl）越しに間接呼び出しする。実装の中身
 // （FakeChildProcess等）は通常のimportが揃った後の、このファイルの下の方で定義してよい。
@@ -198,6 +207,19 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     const text =
       '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "recommendation": "issue", "issueTitle": "短い課題名" }\n```';
     expect(rt.extractProposal(text)?.issueTitle).toBe("短い課題名");
+  });
+
+  it("extractProposalはadviceを拾う", async () => {
+    const rt = await loadModule();
+    const text =
+      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "advice": "計画のコツ" }\n```';
+    expect(rt.extractProposal(text)?.advice).toBe("計画のコツ");
+  });
+
+  it("extractProposalは空文字のadviceを無視する", async () => {
+    const rt = await loadModule();
+    const text = '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "advice": "  " }\n```';
+    expect(rt.extractProposal(text)?.advice).toBeUndefined();
   });
 
   it("extractProposalはissueCandidatesを拾う", async () => {

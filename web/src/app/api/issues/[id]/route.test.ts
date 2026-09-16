@@ -11,6 +11,15 @@ vi.mock("@/lib/embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
+// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
+// createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
+// 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
+vi.mock("@/lib/name-candidate-detect", () => ({
+  detectNameCandidatesAsync: async () => [] as string[],
+  detectNameCandidates: () => [] as string[],
+  registerNameCandidateFilters: () => {},
+}));
+
 let dir: string;
 
 beforeEach(() => {

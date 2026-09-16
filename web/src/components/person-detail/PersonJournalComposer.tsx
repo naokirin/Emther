@@ -17,6 +17,7 @@ export function PersonJournalComposer({
 }) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [text, setText] = useState("");
+  const [isImpression, setIsImpression] = useState(false);
   const [occurredAtDate, setOccurredAtDate] = useState("");
   const [dateOpen, setDateOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -33,12 +34,13 @@ export function PersonJournalComposer({
     setStatus(null);
     setLastCreated(null);
     try {
+      const finalText = isImpression ? `[感想を含む] ${trimmed}` : trimmed;
       const { res, data } = await fetchWithNameConfirm(
         "/api/journal",
         {
           method: "POST",
           body: {
-            text: trimmed,
+            text: finalText,
             occurredAtDate: occurredAtDate || undefined,
             people: [personName],
           },
@@ -51,6 +53,7 @@ export function PersonJournalComposer({
         setLastCreated({ entry: payload.entry, nameCandidates: payload.nameCandidates });
       }
       setText("");
+      setIsImpression(false);
       setOccurredAtDate("");
       setDateOpen(false);
       setStatus("記録しました（未確認）。タグ・緊急度はJournal一覧で校正できます。");
@@ -87,6 +90,12 @@ export function PersonJournalComposer({
             {pending ? "記録中…" : "Submit"}
           </button>
         </div>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}
+        >
+          <input type="checkbox" checked={isImpression} onChange={(e) => setIsImpression(e.target.checked)} disabled={pending} />
+          感想を含む（事実と分けて記録したい単なる印象・感想のときにチェック）
+        </label>
         {dateOpen ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}>

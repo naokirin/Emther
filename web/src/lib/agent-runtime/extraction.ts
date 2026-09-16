@@ -97,6 +97,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
       const issueTitle =
         typeof parsed.issueTitle === "string" && parsed.issueTitle.trim() ? parsed.issueTitle.trim() : undefined;
       const issueCandidates = normalizeIssueCandidates(parsed.issueCandidates);
+      const advice = typeof parsed.advice === "string" && parsed.advice.trim() ? parsed.advice.trim() : undefined;
       return {
         conclusion: parsed.conclusion,
         facts: Array.isArray(parsed.facts) ? parsed.facts.filter((f: unknown) => typeof f === "string") : [],
@@ -110,6 +111,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         ...(recommendation ? { recommendation } : {}),
         ...(issueTitle ? { issueTitle } : {}),
         ...(issueCandidates ? { issueCandidates } : {}),
+        ...(advice ? { advice } : {}),
       };
     }
   } catch {

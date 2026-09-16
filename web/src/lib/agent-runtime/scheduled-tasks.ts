@@ -477,9 +477,11 @@ export function reactToIssueUpdate(
 export function buildJournalAnalysisTask(rawText: string): string {
   return [
     "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
+    "ただし、このIssue化判定はあくまで一覧に残すかどうかの分類に過ぎません。判定結果がissueでもwatchでもdismissでも、それだけで終わらせず、EMがこの状況にどう向き合うとよいかという実務的な気づき・助言を回答本文に必ず書いてください（判定を言い渡すだけの素っ気ない回答にしないこと）。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle（単一）または issueCandidates（複数・親なしの独立Issue）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず issueCandidates に分けてください（親Issueは作らない）。同じ介入の具体作業への分解はここではしないこと。",
-    "単なる一時的な感情の吐露などで追跡不要と判断した場合は、proposalの recommendation を \"dismiss\" にし、その旨を結論に書いてください（無理にIssue化を勧めないこと）。Issue化すべきなら recommendation は \"issue\" です。",
+    "Issueとして追跡するほどではないが、様子を見続けたい・完全に流してよいわけではないと判断した場合は、recommendation を \"watch\" にしてください。",
+    "単なる一時的な感情の吐露などで追跡も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理にIssue化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。Issue化すべきなら recommendation は \"issue\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
   ].join("\n");

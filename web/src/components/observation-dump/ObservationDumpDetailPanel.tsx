@@ -4,6 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import type { ObservationDumpView } from "@/lib/observation-dump-types";
 import type { FetchWithNameConfirm } from "./observation-dump-display";
+import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
 
 type Props = {
   selected: ObservationDumpView;
@@ -23,6 +24,11 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
   const [savingEdit, setSavingEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seenChunkSyncKey, setSeenChunkSyncKey] = useState<string | null>(null);
+  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
+  // 採用直後だけの一度きりのヒント（他の入力経路と同じJournalNameCandidateSuggestionを流用）。
+  const [nameCandidateHints, setNameCandidateHints] = useState<
+    { entryId: string; people: string[]; candidates: string[] }[]
+  >([]);
 
   // Dump選択や更新に合わせて、未採用チャンクを既定選択にする（ユーザーが後からトグル可能）
   const chunkSyncKey = `${selected.id}:${selected.updatedAt}`;
@@ -120,6 +126,7 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
     if (selectedChunkIds.size === 0 || accepting) return;
     setAccepting(true);
     setError(null);
+    setNameCandidateHints([]);
     try {
       const { res, data } = await fetchWithNameConfirm(
         `/api/journal/dumps/${selectedId}/accept`,
@@ -132,6 +139,9 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
       if (!res.ok) {
         throw new Error((data as { error?: string })?.error || "採用に失敗しました");
       }
+      const hints = (data as { nameCandidateSuggestions?: { entryId: string; people: string[]; candidates: string[] }[] })
+        .nameCandidateSuggestions;
+      if (hints && hints.length > 0) setNameCandidateHints(hints);
       await reload();
       onAccepted?.();
     } catch (err) {
@@ -312,6 +322,14 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
               ? "Journal化中…"
               : `選択した ${selectedChunkIds.size} 件を Journal にする`}
           </button>
+          {nameCandidateHints.map((hint) => (
+            <JournalNameCandidateSuggestion
+              key={hint.entryId}
+              entryId={hint.entryId}
+              people={hint.people}
+              candidates={hint.candidates}
+            />
+          ))}
         </div>
       )}
     </div>

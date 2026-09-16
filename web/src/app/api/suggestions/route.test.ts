@@ -33,6 +33,17 @@ async function insertRun(id: string, reviewed = 0) {
     .run(id, "Lead Agent", "方針を相談したい", "idle", 0, 1, 1, "manual", reviewed);
 }
 
+async function insertRunWithProposal(id: string, proposal: Record<string, unknown>) {
+  const { getDb } = await import("@/lib/db");
+  getDb()
+    .prepare(
+      `INSERT INTO agent_runs
+        (id, agent_name, task, status, proposal_json, total_cost_usd, created_at, updated_at, origin, reviewed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(id, "Lead Agent", "方針を相談したい", "idle", JSON.stringify(proposal), 0, 1, 1, "manual", 0);
+}
+
 describe("POST /api/suggestions", () => {
   it("sourceRunIdのみのときは相談を吸収せず、新規分析Runも起動しない", async () => {
     await insertRun("run-consult", 0);
@@ -91,5 +102,44 @@ describe("POST /api/suggestions", () => {
     expect(res.status).toBe(201);
     expect(startSpy).toHaveBeenCalledTimes(1);
     startSpy.mockRestore();
+  });
+
+  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
+  it("sourceRunにproposalがあれば起票時にdetailとして残す", async () => {
+    await insertRunWithProposal("run-with-proposal", {
+      conclusion: "結論だよ",
+      facts: ["ファクトA"],
+      logic: "ロジックだよ",
+      rejectedAlternatives: [],
+      advice: "計画のアドバイス",
+    });
+    const route = await import("./route");
+    const res = await route.POST(
+      new Request("http://localhost/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "詳細つき提案", sourceRunId: "run-with-proposal" }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.suggestion.detail?.conclusion).toBe("結論だよ");
+    expect(json.suggestion.detail?.facts).toEqual(["ファクトA"]);
+    expect(json.suggestion.detail?.advice).toBe("計画のアドバイス");
+  });
+
+  it("sourceRunにproposalが無ければdetailは付かない", async () => {
+    await insertRun("run-no-proposal", 0);
+    const route = await import("./route");
+    const res = await route.POST(
+      new Request("http://localhost/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "詳細なし提案", sourceRunId: "run-no-proposal" }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.suggestion.detail).toBeUndefined();
   });
 });
