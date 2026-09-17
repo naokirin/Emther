@@ -3,14 +3,8 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 
-// docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」対応。既登録の人物名は
-// 保存時に自動でJournalEntry.peopleへ紐付くが、未登録の人物名は「事前登録が正」の方針上
-// 保存をブロックしてまで確認しない（誤登録対策）。代わりに、投稿直後だけ「人名らしいが
-// 未登録」の語句をヒントとして出し、1クリックで関係者として登録・紐付けできるようにする。
-// 保存はしない一度きりのヒントなので、ポーリングで一覧が更新されると消える
-// （呼び出し側のローカルstateで保持する）。
-// UIはHierarchyLinkSuggestPanelと同系の枠付き提案ブロックに揃え、detailToggleButton単体
-// （負のmargin-left付き）のチップ並びで余白が崩れるのを避ける。
+// 保存前ダイアログ（NameCandidateConfirmDialog）へ統合したため、現行のJournal入力経路からは
+// 呼ばない。コンポーネントは後方互換のため残置。
 export function JournalNameCandidateSuggestion({
   entryId,
   people,

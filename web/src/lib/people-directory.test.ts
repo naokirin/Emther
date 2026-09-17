@@ -451,6 +451,17 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
     expect(pd.maskNames("田中くんと話した")).toBe("{{PERSON_1}}と話した");
   });
 
+  it("additionalCandidates は形態素検出と合流して同じゲートで扱われる", async () => {
+    const pd = await loadModule();
+    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    // 形態素モックが空でも、LLM抽出由来の追加候補だけでブロックできる。
+    await expect(
+      pd.ensureNameCandidatesAllowed(["特に名前のないメモ"], { allowUnmaskedCandidates: false }, ["山田花子"]),
+    ).rejects.toBeInstanceOf(UnconfirmedNameCandidatesError);
+    await pd.ensureNameCandidatesAllowed(["特に名前のないメモ"], { allowUnmaskedCandidates: true }, ["山田花子"]);
+    expect(pd.isAcknowledgedUnmasked("山田花子")).toBe(true);
+  });
+
   it("登録済みと敬称だけ違う候補は未登録扱いしない", async () => {
     const pd = await loadModule();
     pd.registerName("田中さん");

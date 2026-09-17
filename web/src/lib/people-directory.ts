@@ -571,8 +571,16 @@ registerNameCandidateFilters({
  * - registerNameCandidates: true → 候補を検出し人名登録する
  * - allowUnmaskedCandidates: false → 候補を検出し、未許可なら UnconfirmedNameCandidatesError
  * - allowUnmaskedCandidates: true → 候補を検出し acknowledge して進める
+ *
+ * additionalCandidates: 形態素／ルール検出に加え、ローカルLLM抽出など別経路の未登録名を
+ * 同じ確認ゲートへ合流させる（Journal保存前ダイアログを1回に統合するため）。
+ * 既登録・ack済み・妥当でない語句はここで落とす。
  */
-export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOptions = {}): Promise<void> {
+export async function ensureNameCandidatesAllowed(
+  texts: string[],
+  opts: MaskOptions = {},
+  additionalCandidates: string[] = [],
+): Promise<void> {
   const needsDetect =
     opts.registerNameCandidates === true ||
     opts.allowUnmaskedCandidates === false ||
@@ -582,8 +590,22 @@ export async function ensureNameCandidatesAllowed(texts: string[], opts: MaskOpt
   // 空を除き、同一文面の重複検出を避ける。複数フィールド（Why/What/How等）は
   // 検出へ1回だけ渡す（フィールドごとの直列呼び出しを避ける）。
   const nonEmpty = [...new Set(texts.map((t) => t.trim()).filter(Boolean))];
-  if (nonEmpty.length === 0) return;
-  const candidates = await detectUnregisteredNameCandidates(nonEmpty.join("\n"));
+  const extras = [
+    ...new Set(
+      additionalCandidates
+        .map((c) => c.trim())
+        .filter(
+          (c) =>
+            c.length > 0 &&
+            getPersonId(c) === undefined &&
+            !isAcknowledgedUnmasked(c) &&
+            isPlausiblePersonName(c),
+        ),
+    ),
+  ];
+  if (nonEmpty.length === 0 && extras.length === 0) return;
+  const morph = nonEmpty.length > 0 ? await detectUnregisteredNameCandidates(nonEmpty.join("\n")) : [];
+  const candidates = [...new Set([...morph, ...extras])];
   if (candidates.length === 0) return;
   // 登録してマスクする方が未マスク許可より安全なため、両方指定時は登録を優先する
   if (opts.registerNameCandidates) {

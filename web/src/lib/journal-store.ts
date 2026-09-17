@@ -3,7 +3,6 @@ import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
 import {
   getPersonId,
   ensureNameCandidatesAllowed,
-  detectUnregisteredNameCandidates,
   findMentionedPersonIds,
   isAcknowledgedUnmasked,
   isPlausiblePersonName,
@@ -33,6 +32,14 @@ export type AddJournalOpts = MaskOptions & {
   // docs/observation_dump_journal.md
   sourceDumpId?: string;
   sourceChunkId?: string;
+  /**
+   * 呼び出し元で ensureNameCandidatesAllowed（形態素＋LLM抽出の統合）済みのとき、
+   * createJournalEventFromText 内の再ゲートをスキップする（まとめ入力・Dump採用）。
+   */
+  nameCandidateGateDone?: boolean;
+  /** まとめ入力等で事前に走らせたローカル抽出結果を再利用する。 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prefetchedStructured?: any;
 };
 import {
   recordEvent,
@@ -340,22 +347,25 @@ function extractedNameAppearsInText(name: string, text: string): boolean {
   return text.includes(bare);
 }
 
-// ローカルモデルでの抽出→保存までの一連処理。addJournalEntry（単発）と
-// addJournalEntriesBulk（まとめ入力、1行ずつ同じ処理を回す）の両方から呼ぶ共通処理として
-// 切り出してある。occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら
-// 「まとめ投入した時刻」ではなく行ごとに解決した「出来事があった日」を渡す——後述）。
-async function createJournalEventFromText(
-  rawText: string,
-  occurredAt: number,
-  opts: AddJournalOpts = {},
-): Promise<{ event: KnowledgeEvent; profileCandidate?: ProfileCandidate; nameCandidates: string[] }> {
-  await ensureNameCandidatesAllowed([rawText], opts);
+function unresolvedExtractedPeopleNames(peopleNames: string[], rawText: string): string[] {
+  return peopleNames
+    .map((p) => p.trim())
+    .filter(
+      (p) =>
+        p.length > 0 &&
+        getPersonId(p) === undefined &&
+        !isAcknowledgedUnmasked(p) &&
+        isPlausiblePersonName(p) &&
+        extractedNameAppearsInText(p, rawText),
+    );
+}
 
+/** ローカルモデルでの構造化抽出。失敗しても空オブジェクトを返し、保存自体は止めない。 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function extractJournalStructured(rawText: string): Promise<any> {
   // docs/usage_issues U1: 構造化抽出は補助。モデルがJSONを返さない・呼び出し自体が
   // 失敗しても、本文の保存（Journalの主目的）は止めない。失敗時は未確認のまま既定値で残し、
   // EMが後から校正できる。
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let structured: any = {};
   try {
     const content = await runLocalChat(
       [
@@ -372,23 +382,49 @@ async function createJournalEventFromText(
     const jsonText = extractFirstJsonObject(content);
     if (jsonText) {
       try {
-        structured = JSON.parse(jsonText);
+        return JSON.parse(jsonText);
       } catch {
-        structured = {};
+        return {};
       }
     }
   } catch {
-    structured = {};
+    // fall through
   }
+  return {};
+}
 
-  // 関係者（people）は3経路の和集合。未登録名の自動 registerName はしない。
-  // 1) 本文の名簿照合（主経路。LLM抽出漏れでも登録済み名は必ず紐付く）
-  // 2) ローカル抽出の people のうち既登録だけ（補助。本文に無い few-shot 漏洩は
-  //    getPersonId できても本文スキャンには出ないが、抽出側に載れば従来どおり入る）
-  // 3) opts.people（人物詳細からの明示指定。校正時と同様に registerName してよい）
+// ローカルモデルでの抽出→（形態素＋抽出の統合）人名確認→保存までの一連処理。
+// addJournalEntry（単発）と addJournalEntriesBulk（まとめ入力）の両方から呼ぶ。
+// occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら行ごとに解決した日）。
+//
+// ユーザー要望「保存前に1回のダイアログで完結／形態素とLLMの両方で統合判定」対応。
+// 以前は形態素ゲートが抽出より前に走り、抽出だけの未登録名は保存後ヒントに回していた。
+// いまは抽出を先に行い、両経路の候補を ensureNameCandidatesAllowed に合流させてから保存する。
+// 保存後の nameCandidates ヒントは出さない（常に空配列。API互換のためフィールドは残す）。
+async function createJournalEventFromText(
+  rawText: string,
+  occurredAt: number,
+  opts: AddJournalOpts = {},
+): Promise<{ event: KnowledgeEvent; profileCandidate?: ProfileCandidate; nameCandidates: string[] }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const structured: any =
+    opts.prefetchedStructured !== undefined ? opts.prefetchedStructured : await extractJournalStructured(rawText);
+
   const peopleNames: string[] = Array.isArray(structured.people)
     ? structured.people.filter((p: unknown): p is string => typeof p === "string")
     : [];
+  const unresolvedExtractedNames = unresolvedExtractedPeopleNames(peopleNames, rawText);
+
+  if (!opts.nameCandidateGateDone) {
+    await ensureNameCandidatesAllowed([rawText], opts, unresolvedExtractedNames);
+  }
+
+  // 関係者（people）は3経路の和集合。未登録名の自動 registerName はしない
+  // （確認ダイアログで registerNameCandidates を選んだ場合は上の ensure で既に登録済み）。
+  // 1) 本文の名簿照合（主経路。LLM抽出漏れでも登録済み名は必ず紐付く）
+  // 2) ローカル抽出の people のうち既登録だけ（補助）
+  // 3) opts.people（人物詳細からの明示指定。校正時と同様に registerName してよい）
+  // ensure のあとで計算する（register 選択時に getPersonId が解決できるようにするため）。
   const mentionedPeople = findMentionedPersonIds(rawText);
   const extractedPeople = peopleNames
     .map((p) => getPersonId(p))
@@ -399,28 +435,6 @@ async function createJournalEventFromText(
   const people = [...new Set([...mentionedPeople, ...extractedPeople, ...explicitPeople])];
   const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
   const profileCandidate = extractProfileCandidate(structured);
-
-  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
-  // 保存前の候補確認ゲート（ensureNameCandidatesAllowed）は生テキストへの形態素ベース検出
-  // だけを見ており、ローカルモデルの抽出（structured.people）が拾った未登録名が
-  // そちらの検出漏れだと、getPersonIdで解決できずextractedPeopleから静かに落ちるだけで、
-  // 登録を促すヒントもどこにも出ないまま取りこぼされていた。抽出結果側の未登録名も
-  // 同じ「一度きりの登録ヒント」候補に合流させる（自動登録はしない既存方針は変えない）。
-  //
-  // ただし小型ローカルモデルは few-shot の人物名（例: Dさん）を本文と無関係に
-  // people へコピーしがちなので、本文に出現根拠が無い抽出名はヒントに載せない
-  // （形態素検知側は本文ベースのためこのフィルタは不要）。
-  const unresolvedExtractedNames = peopleNames
-    .map((p) => p.trim())
-    .filter(
-      (p) =>
-        p.length > 0 &&
-        getPersonId(p) === undefined &&
-        !isAcknowledgedUnmasked(p) &&
-        isPlausiblePersonName(p) &&
-        extractedNameAppearsInText(p, rawText),
-    );
-  const nameCandidates = [...new Set([...unresolvedExtractedNames, ...(await detectUnregisteredNameCandidates(rawText))])];
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
@@ -471,7 +485,8 @@ async function createJournalEventFromText(
     sourceDumpId: opts.sourceDumpId,
     sourceChunkId: opts.sourceChunkId,
   });
-  return { event, profileCandidate, nameCandidates };
+  // 保存前ダイアログで完結するため、保存後ヒント用の nameCandidates は常に空。
+  return { event, profileCandidate, nameCandidates: [] };
 }
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。occurredAtは
@@ -497,6 +512,7 @@ export async function addJournalEntry(
 // 良いものがあれば、入れるようにする」対応。addJournalEntry（多数の既存呼び出し元・テストが
 // JournalEntryをそのまま受け取る前提）の返り値は変えず、投稿直後のヒント表示が必要な
 // 呼び出し元（POST /api/journal）専用にprofileCandidateも一緒に返す別関数として切り出す。
+// nameCandidates は保存前ダイアログ統合後は常に空（API互換のためフィールドは残す）。
 export async function addJournalEntryWithProfileCandidate(
   rawText: string,
   occurredAt: number = Date.now(),
@@ -506,7 +522,26 @@ export async function addJournalEntryWithProfileCandidate(
   return { entry: eventToJournalEntry(event), profileCandidate, nameCandidates };
 }
 
-/** 1件のJournalに対する「未登録の人名らしい語句」の登録ヒント。JournalNameCandidateSuggestion用。 */
+/**
+ * まとめ入力・Observation Dump採用向け。ローカル抽出を先に走らせ、未登録の抽出人名と
+ * structured を返す（保存はしない）。呼び出し側で ensureNameCandidatesAllowed に合流させる。
+ */
+export async function prefetchJournalExtraction(rawText: string): Promise<{
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  structured: any;
+  unresolvedExtractedNames: string[];
+}> {
+  const structured = await extractJournalStructured(rawText);
+  const peopleNames: string[] = Array.isArray(structured.people)
+    ? structured.people.filter((p: unknown): p is string => typeof p === "string")
+    : [];
+  return {
+    structured,
+    unresolvedExtractedNames: unresolvedExtractedPeopleNames(peopleNames, rawText),
+  };
+}
+
+/** 1件のJournalに対する未登録人名ヒント（後方互換用。保存前ダイアログ統合後は常に空）。 */
 export type JournalNameCandidateHint = { entryId: string; people: string[]; candidates: string[] };
 
 export type BulkJournalResult = {
@@ -540,33 +575,39 @@ export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions =
   const parsed = parseBulkJournalText(rawText, now, MAX_LINES);
   const skippedLines = Math.max(0, totalContentLines - parsed.length);
 
-  // まとめ入力は1件目で確認が要ると途中保存が残るのを避けるため、先に全行の候補を集約する。
+  // まとめ入力は1件目で確認が要ると途中保存が残るのを避けるため、先に全行を抽出し、
+  // 形態素＋LLM抽出の未登録名を1回のダイアログで確認する。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prepared: { text: string; occurredAt: number; structured: any; unresolved: string[] }[] = [];
+  for (const line of parsed) {
+    const { structured, unresolvedExtractedNames } = await prefetchJournalExtraction(line.text);
+    prepared.push({
+      text: line.text,
+      occurredAt: line.occurredAt,
+      structured,
+      unresolved: unresolvedExtractedNames,
+    });
+  }
   await ensureNameCandidatesAllowed(
-    parsed.map((line) => line.text),
+    prepared.map((p) => p.text),
     opts,
+    prepared.flatMap((p) => p.unresolved),
   );
 
   const entries: JournalEntry[] = [];
-  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
-  // 上の一括確認は生テキストの形態素検出だけを見ているため、行ごとのローカルモデル抽出が
-  // 見つけた未登録名（検出漏れ）を、単発投稿と同じヒントとして行単位で拾い上げる。
-  const nameCandidateSuggestions: JournalNameCandidateHint[] = [];
   // ローカルモデル（WASM上の単一インスタンス）を前提にしており、並行実行の安全性が
   // 保証できないため、あえて逐次実行にしている（件数が多いほど時間はかかるが、
   // 「一括入力で疲弊しない」の主眼は連続クリックを無くすことにあり、待ち時間そのものは
-  // 許容範囲と判断）。
-  for (const line of parsed) {
-    // 上で一括確認済みなので、各行では再検出をスキップする（allow付きで通す）。
-    const { event, nameCandidates } = await createJournalEventFromText(line.text, line.occurredAt, {
-      allowUnmaskedCandidates: true,
+  // 許容範囲と判断）。抽出は上で済ませているので、ここでは再抽出せず保存だけする。
+  for (const item of prepared) {
+    const { event } = await createJournalEventFromText(item.text, item.occurredAt, {
+      nameCandidateGateDone: true,
+      prefetchedStructured: item.structured,
     });
-    const entry = eventToJournalEntry(event);
-    entries.push(entry);
-    if (nameCandidates.length > 0) {
-      nameCandidateSuggestions.push({ entryId: entry.id, people: entry.people, candidates: nameCandidates });
-    }
+    entries.push(eventToJournalEntry(event));
   }
-  return { entries, skippedLines, nameCandidateSuggestions };
+  // 保存前ダイアログで完結するため、保存後ヒントは返さない（API互換のため空配列）。
+  return { entries, skippedLines, nameCandidateSuggestions: [] };
 }
 
 export function listJournalEntries(opts: { includeArchived?: boolean } = {}): JournalEntry[] {

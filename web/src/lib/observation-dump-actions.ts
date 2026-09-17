@@ -1,4 +1,9 @@
-import { addJournalEntryWithProfileCandidate, type JournalEntry, type JournalNameCandidateHint } from "@/lib/journal-store";
+import {
+  addJournalEntryWithProfileCandidate,
+  prefetchJournalExtraction,
+  type JournalEntry,
+  type JournalNameCandidateHint,
+} from "@/lib/journal-store";
 import { parseObservationDumpText } from "@/lib/observation-dump-parse";
 import {
   getObservationDump,
@@ -85,35 +90,48 @@ export async function acceptDumpChunks(
   const entries: JournalEntry[] = [];
   const chunkDrafts = [...dump.chunkDrafts];
 
-  // docs/memo.md「メンバーに登録がない名前をJournalで入力して分析にかけましたが、とくに
-  // 引っかからずにAIに渡されてしまいました」対応。以前はここで無条件に
-  // allowUnmaskedCandidates: trueを渡しており、呼び出し元のopts（未確認なら確認が必要）が
-  // 効かなかった。addJournalEntriesBulkと同じ「途中保存を残さないよう先に全チャンクの
-  // 候補をまとめて確認する」方式にそろえる。
-  const chunkTexts = targets.map((chunk) => unmaskNames(chunk.textMasked).trim()).filter(Boolean);
-  await ensureNameCandidatesAllowed(chunkTexts, opts);
-
-  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
-  // 上の一括確認は生テキストの形態素検出だけを見ているため、チャンクごとのローカルモデル
-  // 抽出が見つけた未登録名（検出漏れ）を、単発投稿と同じヒントとしてチャンク単位で拾い上げる。
-  const nameCandidateSuggestions: JournalNameCandidateHint[] = [];
+  // 途中保存を残さないよう、先に全チャンクを抽出し、形態素＋LLM抽出の未登録名を
+  // 1回のダイアログで確認する（単発Journal・まとめ入力と同じ統合判定）。
+  const prepared: {
+    chunk: (typeof targets)[number];
+    text: string;
+    occurredAt: number;
+    people?: string[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    structured: any;
+  }[] = [];
+  const allUnresolved: string[] = [];
   for (const chunk of targets) {
     const text = unmaskNames(chunk.textMasked).trim();
     if (!text) continue;
     const occurredAt = dateHintToOccurredAt(chunk.suggestedOccurredAt, fallbackOccurred);
     const people = chunk.people.map(unmaskNames).filter(Boolean);
-    // 上で一括確認済みなので、各チャンクでは再検出をスキップする（allow付きで通す）。
-    const { entry, nameCandidates } = await addJournalEntryWithProfileCandidate(text, occurredAt, {
-      allowUnmaskedCandidates: true,
+    const { structured, unresolvedExtractedNames } = await prefetchJournalExtraction(text);
+    allUnresolved.push(...unresolvedExtractedNames);
+    prepared.push({
+      chunk,
+      text,
+      occurredAt,
       people: people.length > 0 ? people : undefined,
+      structured,
+    });
+  }
+  await ensureNameCandidatesAllowed(
+    prepared.map((p) => p.text),
+    opts,
+    allUnresolved,
+  );
+
+  for (const item of prepared) {
+    const { entry } = await addJournalEntryWithProfileCandidate(item.text, item.occurredAt, {
+      nameCandidateGateDone: true,
+      prefetchedStructured: item.structured,
+      people: item.people,
       sourceDumpId: dump.id,
-      sourceChunkId: chunk.id,
+      sourceChunkId: item.chunk.id,
     });
     entries.push(entry);
-    if (nameCandidates.length > 0) {
-      nameCandidateSuggestions.push({ entryId: entry.id, people: entry.people, candidates: nameCandidates });
-    }
-    const idx = chunkDrafts.findIndex((c) => c.id === chunk.id);
+    const idx = chunkDrafts.findIndex((c) => c.id === item.chunk.id);
     if (idx >= 0) {
       chunkDrafts[idx] = {
         ...chunkDrafts[idx],
@@ -131,5 +149,6 @@ export async function acceptDumpChunks(
   const status = refreshDumpStatusAfterAccept(next);
   const updated = updateObservationDump(dumpId, { chunkDrafts, status });
   if (!updated) throw new Error("Dumpの更新に失敗しました");
-  return { dump: updated, entries, nameCandidateSuggestions };
+  // 保存前ダイアログで完結するため、保存後ヒントは空（API互換のためフィールドは残す）。
+  return { dump: updated, entries, nameCandidateSuggestions: [] };
 }

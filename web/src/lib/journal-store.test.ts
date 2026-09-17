@@ -256,11 +256,10 @@ describe("addJournalEntryWithProfileCandidate", () => {
     expect(profileCandidate).toBeUndefined();
   });
 
-  // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応。
-  // ローカルモデル抽出（structured.people）が拾った未登録名は、以前はgetPersonIdで
-  // 解決できずpeopleから静かに落ちるだけで登録ヒントにも出なかった。nameCandidatesへ
-  // 合流していることを確認する（敬称なし抽出名⇔敬称あり本文も根拠ありとみなす）。
-  it("抽出結果（structured.people）の未登録名はpeopleには入らないが、nameCandidatesのヒントには出る", async () => {
+  // ユーザー要望「保存前に1回のダイアログで完結／形態素とLLMの両方で統合判定」対応。
+  // ローカル抽出の未登録名は保存後ヒントではなく、allowUnmaskedCandidates:false の
+  // 確認ゲートへ合流する（形態素モックが空でも抽出名だけでブロックされる）。
+  it("抽出結果の未登録名は確認フラグ無しでは UnconfirmedNameCandidatesError になる", async () => {
     mockExtraction = {
       tags: [],
       people: ["未登録太郎"],
@@ -269,14 +268,53 @@ describe("addJournalEntryWithProfileCandidate", () => {
       summary: "",
     };
     const store = await loadModule();
-    const { entry, nameCandidates } = await store.addJournalEntryWithProfileCandidate("未登録太郎さんと話した");
+    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    await expect(
+      store.addJournalEntryWithProfileCandidate("未登録太郎さんと話した", Date.now(), {
+        allowUnmaskedCandidates: false,
+      }),
+    ).rejects.toBeInstanceOf(UnconfirmedNameCandidatesError);
+  });
+
+  it("抽出結果の未登録名は allow 後に保存でき、nameCandidates ヒントは空", async () => {
+    mockExtraction = {
+      tags: [],
+      people: ["未登録太郎"],
+      urgency: "low",
+      sentiment: "neutral",
+      summary: "",
+    };
+    const store = await loadModule();
+    const { entry, nameCandidates } = await store.addJournalEntryWithProfileCandidate(
+      "未登録太郎さんと話した",
+      Date.now(),
+      { allowUnmaskedCandidates: true },
+    );
     expect(entry.people).toEqual([]);
-    expect(nameCandidates).toContain("未登録太郎");
+    expect(nameCandidates).toEqual([]);
+  });
+
+  it("抽出結果の未登録名は register 後に people へ紐付く", async () => {
+    mockExtraction = {
+      tags: [],
+      people: ["未登録太郎"],
+      urgency: "low",
+      sentiment: "neutral",
+      summary: "",
+    };
+    const store = await loadModule();
+    const { entry, nameCandidates } = await store.addJournalEntryWithProfileCandidate(
+      "未登録太郎さんと話した",
+      Date.now(),
+      { registerNameCandidates: true },
+    );
+    expect(entry.people.length).toBeGreaterThan(0);
+    expect(nameCandidates).toEqual([]);
   });
 
   // few-shot 末尾の「Dさん」等が本文と無関係に structured.people へコピーされても、
-  // 本文根拠が無い抽出名はヒントに載せない（実機で「どんなテキストでも＋Dさん」が出た回帰）。
-  it("本文に出現しない抽出名（few-shot漏洩想定）はnameCandidatesに出さない", async () => {
+  // 本文根拠が無い抽出名は確認ゲートに載せない（実機で「どんなテキストでも＋Dさん」が出た回帰）。
+  it("本文に出現しない抽出名（few-shot漏洩想定）は確認ゲートにも出さない", async () => {
     mockExtraction = {
       tags: ["1on1", "目標設定"],
       people: ["Dさん"],
@@ -287,9 +325,10 @@ describe("addJournalEntryWithProfileCandidate", () => {
     const store = await loadModule();
     const { entry, nameCandidates } = await store.addJournalEntryWithProfileCandidate(
       "リリース日が前倒しになった。特に個別の話はなし。",
+      Date.now(),
+      { allowUnmaskedCandidates: false },
     );
     expect(entry.people).toEqual([]);
-    expect(nameCandidates).not.toContain("Dさん");
     expect(nameCandidates).toEqual([]);
   });
 

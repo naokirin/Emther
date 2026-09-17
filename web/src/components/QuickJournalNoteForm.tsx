@@ -3,9 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
 import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCandidateSuggestion";
-import type { JournalEntry } from "@/lib/types";
 import type { ProfileCandidate } from "@/lib/journal-store";
 
 // docs/memo.md「現場メモのタブでも単発のメモ入力をしたい」対応。/journalには従来
@@ -16,6 +14,7 @@ import type { ProfileCandidate } from "@/lib/journal-store";
 //
 // ユーザー指摘「折りたたみをやめて最初から表示したい」対応。自身での開閉は持たず、
 // 呼び出し元（JournalInputSwitcher）のタブ切り替えで表示/非表示を制御する。
+// 未登録人名は保存前ダイアログ（fetchWithNameConfirm）で完結する。
 export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [text, setText] = useState("");
@@ -24,11 +23,7 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastCreated, setLastCreated] = useState<{
-    entry: JournalEntry;
-    nameCandidates: string[];
-    profileCandidate?: ProfileCandidate;
-  } | null>(null);
+  const [lastProfileCandidate, setLastProfileCandidate] = useState<ProfileCandidate | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +31,7 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
     if (!trimmed) return;
     setSubmitting(true);
     setError(null);
-    setLastCreated(null);
+    setLastProfileCandidate(null);
     try {
       const finalText = isImpression ? `[感想を含む] ${trimmed}` : trimmed;
       const { res, data } = await fetchWithNameConfirm(
@@ -45,13 +40,9 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
-      const payload = data as { entry: JournalEntry; nameCandidates?: string[]; profileCandidate?: ProfileCandidate };
-      if ((payload.nameCandidates && payload.nameCandidates.length > 0) || payload.profileCandidate) {
-        setLastCreated({
-          entry: payload.entry,
-          nameCandidates: payload.nameCandidates ?? [],
-          profileCandidate: payload.profileCandidate,
-        });
+      const payload = data as { profileCandidate?: ProfileCandidate };
+      if (payload.profileCandidate) {
+        setLastProfileCandidate(payload.profileCandidate);
       }
       setText("");
       setIsImpression(false);
@@ -121,17 +112,10 @@ export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
             {error}
           </p>
         )}
-        {lastCreated && lastCreated.nameCandidates.length > 0 && (
-          <JournalNameCandidateSuggestion
-            entryId={lastCreated.entry.id}
-            people={lastCreated.entry.people}
-            candidates={lastCreated.nameCandidates}
-          />
-        )}
-        {lastCreated?.profileCandidate && (
+        {lastProfileCandidate && (
           <JournalProfileCandidateSuggestion
-            person={lastCreated.profileCandidate.person}
-            text={lastCreated.profileCandidate.text}
+            person={lastProfileCandidate.person}
+            text={lastProfileCandidate.text}
           />
         )}
       </form>

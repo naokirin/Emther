@@ -115,12 +115,31 @@ describe("POST /api/journal", () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     // 未マスクのまま進めることを確認済み（acknowledge）にしたため、保存直後の
-    // ヒント（nameCandidates）はもう出ない（同じ語句を何度も確認させない）。
+    // ヒント（nameCandidates）は空（保存前ダイアログで完結）。
     expect(json.nameCandidates).toEqual([]);
     // 未マスクのまま進めることを許可しただけで、people自体は自動登録しない（既存方針は変えない）。
     expect(json.entry.people).toEqual([]);
     const peopleDirectory = await import("@/lib/people-directory");
     expect(peopleDirectory.listPeople()).toHaveLength(0);
+  });
+
+  it("形態素では拾えないがローカル抽出だけが拾った未登録名でも409で確認を求める", async () => {
+    // name-candidate-detect が空でも、抽出 people がゲートに合流する。
+    mockExtraction = {
+      tags: [],
+      people: ["未登録太郎"],
+      urgency: "low",
+      sentiment: "neutral",
+      summary: "",
+    };
+    const route = await import("./route");
+    const res = await route.POST(
+      jsonRequest("http://localhost/api/journal", "POST", { text: "未登録太郎さんと話した" }),
+    );
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.code).toBe("NAME_CANDIDATE_CONFIRMATION_REQUIRED");
+    expect(json.candidates).toContain("未登録太郎");
   });
 
   // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。

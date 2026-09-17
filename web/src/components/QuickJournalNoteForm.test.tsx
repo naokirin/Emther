@@ -50,33 +50,37 @@ describe("QuickJournalNoteForm", () => {
     expect(screen.getByRole("button", { name: "保存する" })).toBeDisabled();
   });
 
-  it("nameCandidatesが返るとヒントを表示し、クリックでPATCHして関係者に追加する", async () => {
+  it("409の人名確認ダイアログで『このまま保存する』を選ぶと再POSTして保存する", async () => {
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url === "/api/journal" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
+        if (body.allowUnmaskedNameCandidates === true || body.registerNameCandidates === true) {
+          return { ok: true, status: 201, json: async () => ({ entry: { id: "new", people: [] }, nameCandidates: [] }) };
+        }
         return {
-          ok: true,
-          json: async () => ({ entry: { id: "new", people: [] }, nameCandidates: ["新人さん"] }),
+          ok: false,
+          status: 409,
+          json: async () => ({
+            code: "NAME_CANDIDATE_CONFIRMATION_REQUIRED",
+            candidates: ["新人さん"],
+            message: "確認が必要です",
+          }),
         };
-      }
-      if (url === "/api/journal/new" && init?.method === "PATCH") {
-        return { ok: true, json: async () => ({ entry: { id: "new", people: ["新人さん"] } }) };
       }
       throw new Error(`unexpected fetch: ${url}`);
     });
     const user = userEvent.setup();
-    render(<QuickJournalNoteForm onCreated={vi.fn()} />);
+    const onCreated = vi.fn();
+    render(<QuickJournalNoteForm onCreated={onCreated} />);
     await user.type(screen.getByPlaceholderText(/1on1/), "新人さんと1on1した");
     await user.click(screen.getByRole("button", { name: "保存する" }));
 
-    const addBtn = await screen.findByRole("button", { name: "＋ 新人さん" });
-    await user.click(addBtn);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("新人さん")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "このまま保存する" }));
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/journal/new",
-        expect.objectContaining({ method: "PATCH" }),
-      ),
-    );
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "＋ 新人さん" })).not.toBeInTheDocument();
   });
 

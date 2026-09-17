@@ -48,15 +48,15 @@ export async function POST(request: Request) {
 
   try {
     // 既登録の人物名は本文の名簿照合で addJournalEntry 内の people へ紐付ける。
-    // nameCandidatesは「人名らしいが未登録」な語句（生テキストの検出＋ローカルモデル
-    // 抽出の未登録名）で、保存はブロックせず（事前登録が正の方針は変えない）
-    // レスポンスに一度きりのヒントとして載せるだけにする（永続化しない・以降のGETには含まれない）。
+    // 未登録の人名候補（形態素／ルール＋ローカル抽出の和集合）は保存前に
+    // maskOptionsFromBodyStrict 経由で1回の確認ダイアログに出す。保存後の
+    // nameCandidates ヒントは出さない（常に空・API互換のためフィールドは残す）。
     const { entry, profileCandidate, nameCandidates } =
       occurredAt !== undefined
         ? await addJournalEntryWithProfileCandidate(text, occurredAt, opts)
         : await addJournalEntryWithProfileCandidate(text, Date.now(), opts);
     // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
-    // profileCandidateもnameCandidatesと同じく一度きりのヒント（永続化しない）。
+    // profileCandidateは投稿直後だけの一度きりのヒント（永続化しない）。
     return NextResponse.json(
       { entry: toJournalEntryView(entry, new Map()), nameCandidates, profileCandidate },
       { status: 201 },

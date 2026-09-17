@@ -4,7 +4,6 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import type { AgentRun } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
-import { JournalNameCandidateSuggestion } from "@/components/JournalNameCandidateSuggestion";
 import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCandidateSuggestion";
 import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
 import type { useJournalEditing } from "@/lib/useJournalEditing";
@@ -74,14 +73,9 @@ export function JournalDumpPanel({
   // どちらもこのリストに「処理中」の1件を積んでから裏で走らせる（下記submitJournalDraft/
   // submitBulkDraft参照）。
   const [pendingJournalDrafts, setPendingJournalDrafts] = useState<PendingJournalDraft[]>([]);
-  // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」「テキストから検出された
-  // メンバー名を確実に『人物』にすべて登録する」対応。投稿直後だけの一度きりのヒント
-  // （ポーリングでは消える）。単発投稿は1件、まとめ投稿は複数エントリ分になりうるため配列で持つ。
-  const [lastNameCandidates, setLastNameCandidates] = useState<
-    { entryId: string; people: string[]; candidates: string[] }[]
-  >([]);
   // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
   // 投稿直後だけの一度きりのヒント（ポーリングでは消える）。
+  // 未登録人名は保存前ダイアログ（fetchWithNameConfirm）で完結するため、ここでは扱わない。
   const [lastProfileCandidate, setLastProfileCandidate] = useState<ProfileCandidate | null>(null);
   // docs/memo.md TODO「ダッシュボードトップでは直近５件程度にとどめつつ、Quick Journalを
   // リスト確認・検索できる画面を追加する」対応。トップでは全件ページネーションはせず、
@@ -208,14 +202,9 @@ export function JournalDumpPanel({
           "保存する",
         );
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "タグ付けに失敗しました");
-        const payload = data as { entry: JournalEntry; nameCandidates?: string[]; profileCandidate?: ProfileCandidate };
+        const payload = data as { entry: JournalEntry; profileCandidate?: ProfileCandidate };
         setJournalEntries((prev) => [payload.entry, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
-        if (payload.nameCandidates && payload.nameCandidates.length > 0) {
-          setLastNameCandidates([
-            { entryId: payload.entry.id, people: payload.entry.people, candidates: payload.nameCandidates },
-          ]);
-        }
         if (payload.profileCandidate) {
           setLastProfileCandidate(payload.profileCandidate);
         }
@@ -267,14 +256,10 @@ export function JournalDumpPanel({
         const payload = data as {
           entries: JournalEntry[];
           skippedLines: number;
-          nameCandidateSuggestions?: { entryId: string; people: string[]; candidates: string[] }[];
         };
         const newEntries = payload.entries;
         setJournalEntries((prev) => [...newEntries, ...prev]);
         setPendingJournalDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
-        if (payload.nameCandidateSuggestions && payload.nameCandidateSuggestions.length > 0) {
-          setLastNameCandidates(payload.nameCandidateSuggestions);
-        }
         setBulkResultMessage(
           `${newEntries.length}件を記録しました（いずれも未確認）。内容と発生日を確認してください。${
             payload.skippedLines > 0 ? ` ※${payload.skippedLines}行は上限を超えたため処理していません。` : ""
@@ -400,14 +385,6 @@ export function JournalDumpPanel({
           {journalError}
         </p>
       )}
-      {lastNameCandidates.map((hint) => (
-        <JournalNameCandidateSuggestion
-          key={hint.entryId}
-          entryId={hint.entryId}
-          people={hint.people}
-          candidates={hint.candidates}
-        />
-      ))}
       {lastProfileCandidate && (
         <JournalProfileCandidateSuggestion person={lastProfileCandidate.person} text={lastProfileCandidate.text} />
       )}
