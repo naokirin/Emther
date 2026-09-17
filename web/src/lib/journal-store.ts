@@ -13,6 +13,7 @@ import {
   unmaskNames,
 } from "@/lib/people-directory";
 import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import { stripPersonHonorific } from "@/lib/person-honorific";
 import {
   filterValidTeamIds,
   findMentionedTeamIds,
@@ -323,6 +324,21 @@ function extractProfileCandidate(structured: { profileCandidate?: unknown }): Pr
   return { person, text };
 }
 
+/**
+ * ローカル抽出の people 名が本文に根拠を持つか。
+ * 敬称あり／なしの揺れ（「未登録太郎」⇔「未登録太郎さん」）は同一とみなす。
+ * few-shot 漏洩（本文に無い「Dさん」等）をヒントから落とすためのゲート。
+ */
+function extractedNameAppearsInText(name: string, text: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed || !text) return false;
+  if (text.includes(trimmed)) return true;
+  const bare = stripPersonHonorific(trimmed);
+  // 1文字 bare は誤マッチが多いので本文部分一致には使わない
+  if (!bare || bare.length < 2) return false;
+  return text.includes(bare);
+}
+
 // ローカルモデルでの抽出→保存までの一連処理。addJournalEntry（単発）と
 // addJournalEntriesBulk（まとめ入力、1行ずつ同じ処理を回す）の両方から呼ぶ共通処理として
 // 切り出してある。occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら
@@ -387,9 +403,20 @@ async function createJournalEventFromText(
   // そちらの検出漏れだと、getPersonIdで解決できずextractedPeopleから静かに落ちるだけで、
   // 登録を促すヒントもどこにも出ないまま取りこぼされていた。抽出結果側の未登録名も
   // 同じ「一度きりの登録ヒント」候補に合流させる（自動登録はしない既存方針は変えない）。
+  //
+  // ただし小型ローカルモデルは few-shot の人物名（例: Dさん）を本文と無関係に
+  // people へコピーしがちなので、本文に出現根拠が無い抽出名はヒントに載せない
+  // （形態素検知側は本文ベースのためこのフィルタは不要）。
   const unresolvedExtractedNames = peopleNames
     .map((p) => p.trim())
-    .filter((p) => p.length > 0 && getPersonId(p) === undefined && !isAcknowledgedUnmasked(p) && isPlausiblePersonName(p));
+    .filter(
+      (p) =>
+        p.length > 0 &&
+        getPersonId(p) === undefined &&
+        !isAcknowledgedUnmasked(p) &&
+        isPlausiblePersonName(p) &&
+        extractedNameAppearsInText(p, rawText),
+    );
   const nameCandidates = [...new Set([...unresolvedExtractedNames, ...(await detectUnregisteredNameCandidates(rawText))])];
 
   // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
