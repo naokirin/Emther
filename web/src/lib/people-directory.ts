@@ -255,6 +255,21 @@ export function previewNameMask(text: string): {
   return { maskedText, replacements: [...counts.values()] };
 }
 
+/**
+ * 本文に出現する登録済み人物IDを返す。照合は maskNames / previewNameMask と同じ名簿
+ * （正式名・別名・敬称揺れ）。新規登録はしない。未登録名は対象外。
+ * Journal の関係者自動紐付け（チームの findMentionedTeamIds に相当）用。
+ */
+export function findMentionedPersonIds(text: string): string[] {
+  if (!text.trim()) return [];
+  const ids: string[] = [];
+  for (const { to } of previewNameMask(text).replacements) {
+    const token = to.startsWith("{{") && to.endsWith("}}") ? to.slice(2, -2) : to;
+    if (idToName.has(token) && !ids.includes(token)) ids.push(token);
+  }
+  return ids;
+}
+
 // IDを実名に戻す。区切り付き {{PERSON_n}} を先に処理し、続けてレガシーな裸 ID
 // （people 配列・移行前データ）を戻す。
 // ユーザー指摘「PERSON_10がPERSON_1(登録済み)の時点で置き換えられ『◯◯さん0』になる」対応。

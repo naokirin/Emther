@@ -47,10 +47,9 @@ export async function POST(request: Request) {
   };
 
   try {
-    // docs/memo.md「Journal入力時に自動で関係者名も設定してほしい」「テキストから検出された
-    // メンバー名を確実に『人物』にすべて登録する」対応。既登録の人物名はaddJournalEntry内で
-    // peopleへ紐付け済み。nameCandidatesは「人名らしいが未登録」な語句（生テキストの検出＋
-    // ローカルモデル抽出の未登録名）で、保存はブロックせず（事前登録が正の方針は変えない）
+    // 既登録の人物名は本文の名簿照合で addJournalEntry 内の people へ紐付ける。
+    // nameCandidatesは「人名らしいが未登録」な語句（生テキストの検出＋ローカルモデル
+    // 抽出の未登録名）で、保存はブロックせず（事前登録が正の方針は変えない）
     // レスポンスに一度きりのヒントとして載せるだけにする（永続化しない・以降のGETには含まれない）。
     const { entry, profileCandidate, nameCandidates } =
       occurredAt !== undefined

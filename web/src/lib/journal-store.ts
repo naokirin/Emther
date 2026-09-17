@@ -4,6 +4,7 @@ import {
   getPersonId,
   ensureNameCandidatesAllowed,
   detectUnregisteredNameCandidates,
+  findMentionedPersonIds,
   isAcknowledgedUnmasked,
   isPlausiblePersonName,
   maskForStorage,
@@ -57,9 +58,9 @@ import { getIssue, toIssueView } from "@/lib/issue-store";
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
 // ONNX Runtime）で完結させる。docs 3.2「サニタイズ（秘匿化）」および業務要求3「情報の壁と
 // セキュリティ」に対応するための必須要件であり、コストや速度のための最適化ではない。
-// 抽出したpeopleのうち、既にpeople-directoryへ登録済みの人物だけを紐付ける。
-// ローカルLLMの新規検出結果では自動登録しない（誤登録対策）。未登録の人名らしい語句は
-// 保存前にEMへ「未マスクのまま進めてよいか」を確認する。
+// 関係者紐付け: 本文中の登録済み人物は名簿照合（findMentionedPersonIds）で必ず people へ
+// 入れる。ローカルLLM抽出の people は補助（既登録だけ解決）。未登録名は自動登録しない
+// （誤登録対策）。未登録の人名らしい語句は一度きりの登録ヒントに回す。
 //
 // 永続化: docs/memo.md「H: 永続化データモデルの設計」対応で、Journalの投稿は
 // `knowledge-store.ts`のKnowledgeEvent（kind: "fact", entityType: "journal"）として
@@ -380,20 +381,22 @@ async function createJournalEventFromText(
     structured = {};
   }
 
-  // 既登録の人物だけを紐付ける。ローカル抽出の新規名は自動登録しない
-  // （EMが校正時にpeople欄へ明示したときだけregisterNameする）。
-  // ただし opts.people（人物詳細からの「この人に紐づけて書く」等）はEMの明示指定なので
-  // 校正時と同様に registerName し、抽出漏れでも必ず紐付くようにする。
+  // 関係者（people）は3経路の和集合。未登録名の自動 registerName はしない。
+  // 1) 本文の名簿照合（主経路。LLM抽出漏れでも登録済み名は必ず紐付く）
+  // 2) ローカル抽出の people のうち既登録だけ（補助。本文に無い few-shot 漏洩は
+  //    getPersonId できても本文スキャンには出ないが、抽出側に載れば従来どおり入る）
+  // 3) opts.people（人物詳細からの明示指定。校正時と同様に registerName してよい）
   const peopleNames: string[] = Array.isArray(structured.people)
     ? structured.people.filter((p: unknown): p is string => typeof p === "string")
     : [];
+  const mentionedPeople = findMentionedPersonIds(rawText);
   const extractedPeople = peopleNames
     .map((p) => getPersonId(p))
     .filter((id): id is string => id !== undefined);
   const explicitPeople = (opts.people ?? [])
     .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
     .map((p) => registerName(p.trim()));
-  const people = [...new Set([...extractedPeople, ...explicitPeople])];
+  const people = [...new Set([...mentionedPeople, ...extractedPeople, ...explicitPeople])];
   const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
   const profileCandidate = extractProfileCandidate(structured);
 

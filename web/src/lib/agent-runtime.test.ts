@@ -491,6 +491,10 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(ctx).toContain("意思決定の停滞");
     expect(ctx).toContain("```grow_suggestions");
     expect(ctx).toContain("評価ではなく判断材料");
+    // EMとして視点を拡げるため、経営・隣接分野も候補に含める指示（2026-09-17）。
+    expect(ctx).toContain("EMとして視点を拡げる");
+    expect(ctx).toContain("経営");
+    expect(ctx).toContain("エンジニアリング実務以外");
     expect(rt.GROWTH_TASK.length).toBeLessThan(200);
   });
 

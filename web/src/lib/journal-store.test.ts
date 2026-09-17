@@ -143,6 +143,25 @@ describe("addJournalEntry", () => {
     expect(entry.confirmed).toBe(false);
   });
 
+  it("本文に登録済み人物名があれば、ローカル抽出がpeopleを空でも名簿照合で紐付く", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const peopleDirectory = await import("@/lib/people-directory");
+    const aId = peopleDirectory.registerName("Aさん");
+    const bId = peopleDirectory.registerName("Bさん");
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("AさんとBくんで振り返りをした");
+    expect(entry.people.sort()).toEqual([aId, bId].sort());
+  });
+
+  it("本文の未登録名はpeopleに自動登録しない", async () => {
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+    const peopleDirectory = await import("@/lib/people-directory");
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("未登録太郎さんと話した");
+    expect(entry.people).toEqual([]);
+    expect(peopleDirectory.getPersonId("未登録太郎さん")).toBeUndefined();
+  });
+
   it("opts.peopleで明示した人物は抽出漏れでも紐付く", async () => {
     mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
     const peopleDirectory = await import("@/lib/people-directory");

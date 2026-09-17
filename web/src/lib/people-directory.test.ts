@@ -61,6 +61,22 @@ describe("registerName / maskNames / unmaskNames", () => {
     ]);
   });
 
+  it("findMentionedPersonIdsは本文中の登録済み名を敬称揺れ込みで返す（未登録は含めない）", async () => {
+    const pd = await loadModule();
+    const tanaka = pd.registerName("田中さん");
+    const sato = pd.registerName("佐藤さん");
+    expect(pd.findMentionedPersonIds("田中くんと佐藤さんで話した。未登録太郎は名簿に無い")).toEqual([tanaka, sato]);
+    expect(pd.findMentionedPersonIds("")).toEqual([]);
+    expect(pd.findMentionedPersonIds("誰の名前も出てこないメモ")).toEqual([]);
+  });
+
+  it("findMentionedPersonIdsは長い登録名を短い登録名のprefixより優先する", async () => {
+    const pd = await loadModule();
+    pd.registerName("山田");
+    const idFull = pd.registerName("山田太郎");
+    expect(pd.findMentionedPersonIds("山田太郎に会った")).toEqual([idFull]);
+  });
+
   it("maskNamesは登録時と異なる敬称でも同じIDへ置換する", async () => {
     const pd = await loadModule();
     const id = pd.registerName("田中さん");
