@@ -458,7 +458,14 @@ export function ConsultReviewPanel({
       />
       {selectedRun.status === "idle" && selectedRun.proposal && (
         <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
-          <strong>📋 この相談への結論</strong>
+          <strong>
+            📋 この相談への結論
+            {(selectedRun.reviewed || selectedRun.triageStatus) && (
+              <span style={{ marginLeft: 8, color: "var(--yellow-fg)" }}>
+                [{selectedRun.reviewed ? "提案化済み" : selectedRun.triageStatus === "watching" ? "様子見" : "却下"}]
+              </span>
+            )}
+          </strong>
           {issueCandidates.length > 1 && (
             <div style={{ width: "100%", margin: "8px 0" }}>
               <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
