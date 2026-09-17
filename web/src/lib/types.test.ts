@@ -7,6 +7,7 @@ import {
   isJournalEntryResolved,
   isSuggestionReviewOverdue,
   journalResolutionLabel,
+  suggestionMatchesKeyword,
   isRunStale,
   issueBacklogActionItems,
   issueNextAction,
@@ -44,6 +45,48 @@ describe("isSuggestionReviewOverdue", () => {
     expect(isSuggestionReviewOverdue({ reviewStatus: "deferred", reviewDueAt: now - DAY_MS, archivedAt: now - DAY_MS }, now)).toBe(
       false,
     );
+  });
+});
+
+// ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。
+describe("suggestionMatchesKeyword", () => {
+  it("空文字のクエリは常にマッチする", () => {
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [] }, "")).toBe(true);
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [] }, "   ")).toBe(true);
+  });
+
+  it("タイトルに部分一致すればマッチする", () => {
+    expect(suggestionMatchesKeyword({ title: "リファクタリングの提案", memos: [] }, "リファクタ")).toBe(true);
+    expect(suggestionMatchesKeyword({ title: "リファクタリングの提案", memos: [] }, "存在しない語")).toBe(false);
+  });
+
+  it("大小文字を区別せずマッチする", () => {
+    expect(suggestionMatchesKeyword({ title: "APIのRefactor", memos: [] }, "refactor")).toBe(true);
+  });
+
+  it("メモにマッチする", () => {
+    const s = { title: "タイトル", memos: [{ id: "1", text: "様子見にした", createdAt: 0 }] };
+    expect(suggestionMatchesKeyword(s, "様子見")).toBe(true);
+  });
+
+  it("詳細（結論・根拠・ロジック・アドバイス）にマッチする", () => {
+    const detail = {
+      conclusion: "結論のテキスト",
+      facts: ["根拠1", "根拠2"],
+      logic: "ロジックのテキスト",
+      advice: "アドバイスのテキスト",
+      updatedAt: 0,
+    };
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [], detail }, "結論のテキスト")).toBe(true);
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [], detail }, "根拠2")).toBe(true);
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [], detail }, "ロジックのテキスト")).toBe(true);
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [], detail }, "アドバイスのテキスト")).toBe(true);
+  });
+
+  it("detailが無い、advice未設定でもエラーにならない", () => {
+    const detail = { conclusion: "結論", facts: [], logic: "ロジック", updatedAt: 0 };
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [] }, "結論")).toBe(false);
+    expect(suggestionMatchesKeyword({ title: "タイトル", memos: [], detail }, "結論")).toBe(true);
   });
 });
 

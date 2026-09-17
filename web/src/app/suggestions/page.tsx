@@ -16,6 +16,7 @@ import {
   compareSuggestionsByConfirmPriority,
   isRunStale,
   isSuggestionReviewOverdue,
+  suggestionMatchesKeyword,
   type ConfirmPriority,
   type Suggestion,
   type SuggestionReviewStatus,
@@ -128,6 +129,7 @@ function SuggestionsPageInner() {
     [runs, rules.agentStaleAfterSeconds],
   );
 
+  const [query, setQuery] = useState("");
   const [showDone, setShowDone] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Set<SuggestionReviewStatus>>(new Set(DEFAULT_STATUS_FILTER));
@@ -135,6 +137,7 @@ function SuggestionsPageInner() {
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
 
   const filtered = suggestions
+    .filter((s) => suggestionMatchesKeyword(s, query))
     .filter((s) => {
       if (!showArchived && s.archivedAt) return false;
       if (!showDone && s.reviewStatus === "done") return false;
@@ -168,6 +171,17 @@ function SuggestionsPageInner() {
       <div className={styles.screen}>
         <div className={styles.panel}>
           <PageTitleRow title="提案" helpAnchor="issues" />
+          {/* ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。
+              タイトル・メモ・詳細を対象にクライアント側で部分一致検索する。 */}
+          <div className={styles.field} style={{ margin: "8px 0" }}>
+            <label>キーワード検索（タイトル・メモ・詳細）
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="例: リファクタリング"
+            /></label>
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
               <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />

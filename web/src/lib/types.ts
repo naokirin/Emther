@@ -490,6 +490,22 @@ export function isSuggestionStalled(s: Pick<Suggestion, "reviewStatus" | "update
   return now - s.updatedAt > staleDays * 24 * 60 * 60 * 1000;
 }
 
+// ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。タイトル・メモ・
+// 詳細（結論/根拠/ロジック/アドバイス）を対象に、大小文字を区別せず部分一致で検索する。
+export function suggestionMatchesKeyword(
+  s: Pick<Suggestion, "title" | "memos" | "detail">,
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystacks: string[] = [s.title, ...s.memos.map((m) => m.text)];
+  if (s.detail) {
+    haystacks.push(s.detail.conclusion, s.detail.logic, ...s.detail.facts);
+    if (s.detail.advice) haystacks.push(s.detail.advice);
+  }
+  return haystacks.some((h) => h.toLowerCase().includes(q));
+}
+
 export function compareSuggestionsByConfirmPriority(a: Suggestion, b: Suggestion): number {
   const rank: Record<ConfirmPriority, number> = { focus: 0, normal: 1, parked: 2 };
   const pa = a.confirmPriority ?? "normal";
