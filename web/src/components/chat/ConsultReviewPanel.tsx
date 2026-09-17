@@ -366,7 +366,17 @@ export function ConsultReviewPanel({
 
   return (
     <>
-      <h2>Lead Agentへの相談</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>Lead Agentへの相談</h2>
+        <button
+          className={styles.btnOutline}
+          style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+          disabled={reviewSubmitting}
+          onClick={handleToggleArchived}
+        >
+          {selectedRun.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+        </button>
+      </div>
       <OriginTrace
         journals={
           sourceJournal && sourceJournal.id === selectedRun.sourceJournalId
@@ -388,19 +398,19 @@ export function ConsultReviewPanel({
                 : []
         }
       />
-      <div className={styles.yieldBlock} style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 12 }}>
         {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
-          <>
+          <div style={{ marginTop: 8 }}>
             <strong>📋 ドラフト提案（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
-          </>
+          </div>
         )}
         {selectedRun.triageStatus && (
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, marginBottom: 0 }}>
             {TRIAGE_LABEL[selectedRun.triageStatus]}
           </p>
         )}
         {selectedRun.archivedAt && (
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, marginBottom: 0 }}>
             🗄 アーカイブ済み（相談履歴一覧・AIの判断材料からは除外されています）
           </p>
         )}
@@ -423,12 +433,7 @@ export function ConsultReviewPanel({
             )}
           </div>
         )}
-        <div className={styles.yieldActions}>
-          <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={handleToggleArchived}>
-            {selectedRun.archivedAt ? "アーカイブを解除" : "アーカイブする"}
-          </button>
-        </div>
-        {reviewError && <p className={styles.errorText} role="alert">{reviewError}</p>}
+        {reviewError && <p className={styles.errorText} role="alert" style={{ marginTop: 8, marginBottom: 0 }}>{reviewError}</p>}
       </div>
       <ExecutionState
         run={selectedRun}

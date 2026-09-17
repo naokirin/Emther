@@ -59,9 +59,11 @@ export function YieldBlock({
       ))}
 
       <div className={styles.yieldActions}>
-        <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={!selectedOptionId || deciding} onClick={onConfirmOption}>
-          選択してStateを更新
-        </button>
+        {yieldRequest.options.length > 0 && (
+          <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={!selectedOptionId || deciding} onClick={onConfirmOption}>
+            選択してStateを更新
+          </button>
+        )}
         <button className={styles.btnOutline} onClick={onFocusChat}>
           別の案をチャットで壁打ち
         </button>
