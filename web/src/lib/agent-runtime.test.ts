@@ -2074,6 +2074,70 @@ describe("watchdog: checkWeeklyDistillation", () => {
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns().filter((r) => r.origin === "auto-distill")).toHaveLength(1);
   });
+
+  it("旧形式 { week } のみでも他曜日の実行は潰さず、未実行の選択曜日なら起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const { saveJSON } = await import("@/lib/persistence");
+    const { getDb } = await import("@/lib/db");
+
+    // isoWeekKey と同じ算法（agent-runtime 読込前に週キーを決めるため）
+    const isoWeek = (now: Date): string => {
+      const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+      return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+    };
+
+    const now = new Date();
+    const today = now.getDay();
+    const week = isoWeek(now);
+    let earlier: Date | null = null;
+    for (let i = 1; i <= 6; i++) {
+      const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      if (candidate.getDay() === today) continue;
+      if (isoWeek(candidate) !== week) continue;
+      earlier = candidate;
+      break;
+    }
+    // 週初（月曜など）で同一 ISO 週内に「別曜日」が取れない場合はスキップ相当。
+    if (!earlier) {
+      settingsStore.updateRulesAndConstraints({ autoDistillationEnabled: false });
+      return;
+    }
+
+    saveJSON("auto-distillation.json", { week });
+    const earlierMs = new Date(
+      earlier.getFullYear(),
+      earlier.getMonth(),
+      earlier.getDate(),
+      8,
+      0,
+      0,
+      0,
+    ).getTime();
+    getDb()
+      .prepare(
+        `INSERT INTO agent_runs (id, agent_name, task, status, origin, created_at, updated_at, reviewed, total_cost_usd)
+         VALUES (?, 'Lead Agent', 'seed', 'idle', 'auto-distill', ?, ?, 0, 0)`,
+      )
+      .run("seed-distill-earlier-day", earlierMs, earlierMs);
+
+    settingsStore.updateRulesAndConstraints({
+      autoDistillationEnabled: true,
+      autoDistillationWeekdays: [earlier.getDay(), today],
+      autoDistillationHour: 0,
+    });
+    const rt = await loadModule();
+    rt.clearAutoBatchClaimsForTest();
+    rt.checkWeeklyDistillation();
+    await vi.waitFor(() => {
+      const distillRuns = rt.listRuns().filter((r) => r.origin === "auto-distill");
+      if (distillRuns.length < 2) throw new Error("later weekday not started yet");
+    });
+    expect(rt.listRuns().filter((r) => r.origin === "auto-distill")).toHaveLength(2);
+  });
 });
 
 describe("watchdog: checkWeeklyGrow", () => {
@@ -2209,6 +2273,42 @@ describe("watchdog: checkJournalBatchReview", () => {
     rt.checkJournalBatchReview();
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns()).toHaveLength(1);
+  });
+
+  it("旧形式 { date } のみでも後続スロットは塞がず、朝の実行時刻より後のスロットは起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const { saveJSON } = await import("@/lib/persistence");
+    const { getDb } = await import("@/lib/db");
+    const now = new Date();
+    const nowHour = now.getHours();
+    // 現在が0時だと「朝より後のスロット」を作れないためスキップ相当。
+    if (nowHour < 1) {
+      settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: false });
+      return;
+    }
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const morningMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 15, 0, 0).getTime();
+    // 旧形式クレーム＋当日0時台の既存 run を DB に仕込み、複数時刻の後続が開くことを検証する。
+    saveJSON("auto-journal-batch.json", { date: today });
+    getDb()
+      .prepare(
+        `INSERT INTO agent_runs (id, agent_name, task, status, origin, created_at, updated_at, reviewed, total_cost_usd)
+         VALUES (?, 'Lead Agent', 'seed', 'idle', 'auto-journal-batch', ?, ?, 0, 0)`,
+      )
+      .run("seed-journal-batch-morning", morningMs, morningMs);
+
+    settingsStore.updateRulesAndConstraints({
+      autoJournalBatchEnabled: true,
+      autoJournalBatchHours: [0, nowHour],
+    });
+    const rt = await loadModule();
+    rt.clearAutoBatchClaimsForTest();
+    rt.checkJournalBatchReview();
+    await vi.waitFor(() => {
+      const batchRuns = rt.listRuns().filter((r) => r.origin === "auto-journal-batch");
+      if (batchRuns.length < 2) throw new Error("later slot not started yet");
+    });
+    expect(rt.listRuns().filter((r) => r.origin === "auto-journal-batch")).toHaveLength(2);
   });
 
   it("recommendation:dismissなら自動却下する", async () => {

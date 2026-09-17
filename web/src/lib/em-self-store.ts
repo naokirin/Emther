@@ -32,6 +32,11 @@ export type EmReflectionNote = {
   type: ReflectionNoteType;
   text: string;
   createdAt: number;
+  // ユーザー要望「現在の改善方針が残り続けてコントロールできない」対応。
+  // Tryメモは最新1件が「現在の改善方針」として常時表示されるが、取り組みが終わっても
+  // 新しいTryを書かない限り消えなかった。archivedAtを付けると方針パネルからは外れ、
+  // 週次KPTの履歴には残る（削除ではない）。
+  archivedAt?: number;
 };
 
 const checkins: EmCheckin[] = loadJSON<EmCheckin[]>("em-checkins.json", []);
@@ -103,6 +108,24 @@ export async function addReflectionNote(input: {
     createdAt: input.createdAt ?? Date.now(),
   };
   reflectionNotes.push(note);
+  persistReflectionNotes();
+  return note;
+}
+
+// 「現在の改善方針」パネルからの完了操作用。archived=trueでarchivedAtを立て、
+// falseで戻す（誤操作の取り消し）。週次KPTの一覧自体からは除外しない。
+export function setReflectionNoteArchived(
+  id: string,
+  archived: boolean,
+  opts?: { now?: number },
+): EmReflectionNote | undefined {
+  const note = reflectionNotes.find((n) => n.id === id);
+  if (!note) return undefined;
+  if (archived) {
+    note.archivedAt = opts?.now ?? Date.now();
+  } else {
+    delete note.archivedAt;
+  }
   persistReflectionNotes();
   return note;
 }

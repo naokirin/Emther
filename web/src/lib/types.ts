@@ -1078,6 +1078,9 @@ export type EmReflectionNote = {
   type: ReflectionNoteType;
   text: string;
   createdAt: number;
+  // ユーザー要望「現在の改善方針が残り続けてコントロールできない」対応。
+  // 付与されると /growth の「現在の改善方針」パネルから外れ、週次KPTには残る。
+  archivedAt?: number;
 };
 
 // docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の

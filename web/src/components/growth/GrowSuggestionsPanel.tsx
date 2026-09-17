@@ -40,6 +40,9 @@ export function GrowSuggestionsPanel() {
   const [generateStatus, setGenerateStatus] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
+  // ユーザー要望「折りたたみにしてデフォルトは閉じ、ヘッダーと件数のみ見せたい」対応。
+  // 一覧は情報量が多く画面を占有するため、必要なときだけ開く。
+  const [expanded, setExpanded] = useState(false);
   // 同じ run の完了処理を二重に走らせない（runs ポーリングで status が何度も届くため）。
   const handledRunIdRef = useRef<string | null>(null);
 
@@ -50,6 +53,8 @@ export function GrowSuggestionsPanel() {
   const generating = starting || waitingForRunList || !!runBusy;
 
   const dismissedCount = growSuggestions.filter((s) => s.status === "dismissed").length;
+  // 折りたたみ時の件数は「見送ったものを除く」件数（既定の一覧と同じ母集団）。
+  const activeCount = growSuggestions.filter((s) => s.status !== "dismissed").length;
   const visible = growSuggestions
     .filter((s) => showDismissed || s.status !== "dismissed")
     .sort((a, b) => b.generatedAt - a.generatedAt);
@@ -133,116 +138,139 @@ export function GrowSuggestionsPanel() {
 
   return (
     <div className={styles.panel}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ margin: 0 }}>🌱 AIからの学びの提案</h2>
-          <p className={styles.subtitle} style={{ marginTop: 4 }}>
-            組織の観測・解釈とEM自身の振り返りを横断して、参考になりそうな学びの材料を示します（「これを学ぶべき」という評価・断定ではありません）。
-          </p>
-        </div>
-        <button className={styles.btnOutline} disabled={generating} onClick={handleGenerate}>
-          {generating ? "生成中…" : "🌱 今すぐ生成する"}
-        </button>
-      </div>
-      {generateStatus && (
-        <p className={styles.subtitle} style={{ marginTop: 8 }} role="status" aria-live="polite">
-          {generateStatus}
-        </p>
-      )}
-      {generateError && (
-        <p className={styles.errorText} role="alert">
-          {generateError}
-        </p>
-      )}
-      {visible.length === 0 ? (
-        <p className={styles.subtitle} style={{ marginTop: 10 }}>
-          {!growSuggestionsLoaded
-            ? "読み込み中…"
-            : "まだ学びの提案はありません。週次バッチ（設定で変更可）か「今すぐ生成する」で作成できます。"}
-        </p>
-      ) : (
-        visible.map((s) => (
-          <div
-            key={s.id}
-            style={{
-              marginTop: 12,
-              paddingTop: 12,
-              borderTop: "1px solid var(--border)",
-              opacity: s.status === "dismissed" ? 0.6 : 1,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-              <strong style={{ fontSize: "0.9375rem" }}>{s.title}</strong>
-              {s.status === "unread" && (
-                <span style={{ fontSize: "0.6875rem", color: "var(--accent, #2563eb)", whiteSpace: "nowrap" }}>未確認</span>
-              )}
-            </div>
-            <p style={{ margin: "6px 0 0", fontSize: "0.9375rem", color: "var(--text-muted)" }}>{s.rationale}</p>
-            {s.evidenceSummary && (
-              <p style={{ margin: "6px 0 0", fontSize: "0.8125rem" }}>
-                <strong>根拠: </strong>
-                {s.evidenceSummary}
-              </p>
-            )}
-            {s.references.length > 0 && (
-              <ul style={{ margin: "6px 0 0 16px", fontSize: "0.8125rem" }}>
-                {s.references.map((r, i) => {
-                  const hasDirectUrl = isSafeHttpUrl(r.url);
-                  const href = hasDirectUrl ? r.url : searchUrlFor(r.topic, r.note);
-                  return (
-                    <li key={i}>
-                      <a href={href} target="_blank" rel="noreferrer noopener">
-                        {r.topic}
-                      </a>
-                      {!hasDirectUrl && (
-                        <span style={{ marginLeft: 6, fontSize: "0.6875rem", color: "var(--text-muted)" }}>
-                          （🔍 検索）
-                        </span>
-                      )}
-                      {r.isPrimarySource && (
-                        <span style={{ marginLeft: 6, fontSize: "0.6875rem", color: "var(--text-muted)" }}>【原典】</span>
-                      )}
-                      {r.note && <span style={{ color: "var(--text-muted)" }}> — {r.note}</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <p className={styles.subtitle} style={{ marginTop: 6, fontSize: "0.75rem" }}>
-              {formatDate(s.generatedAt)}
+      {/* NN/G・WebAIMのdisclosure慣習: 左シェブロン＋見出し全体がトグル＋「開く/閉じる」文言。
+          ▸だけの控えめ表示では折りたたみと気づきにくい、という指摘への対応。 */}
+      <button
+        type="button"
+        className={styles.disclosureToggle}
+        aria-expanded={expanded}
+        aria-controls="grow-suggestions-panel"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <span className={styles.disclosureChevron} aria-hidden="true">
+          <svg className={styles.disclosureChevronIcon} viewBox="0 0 12 12" focusable="false">
+            <path d="M4.2 1.5 8.7 6l-4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <span className={styles.disclosureLabel}>
+          <h2>🌱 AIからの学びの提案</h2>
+        </span>
+        <span className={styles.disclosureAside}>
+          <span className={styles.disclosureCount}>{growSuggestionsLoaded ? `${activeCount}件` : "…"}</span>
+          <span className={styles.disclosureAction}>{expanded ? "閉じる" : "開く"}</span>
+        </span>
+      </button>
+      {expanded && (
+        <div id="grow-suggestions-panel">
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+            <p className={styles.subtitle} style={{ margin: 0, minWidth: 0, flex: "1 1 12rem" }}>
+              組織の観測・解釈とEM自身の振り返りを横断して、参考になりそうな学びの材料を示します（「これを学ぶべき」という評価・断定ではありません）。
             </p>
-            <div className={styles.yieldActions} style={{ marginTop: 6 }}>
-              {s.status !== "acknowledged" && (
-                <button
-                  className={styles.btnOutline}
-                  disabled={statusUpdatingId === s.id}
-                  onClick={() => handleSetStatus(s, "acknowledged")}
-                >
-                  確認済みにする
-                </button>
-              )}
-              {s.status !== "dismissed" && (
-                <button
-                  className={styles.btnOutline}
-                  disabled={statusUpdatingId === s.id}
-                  onClick={() => handleSetStatus(s, "dismissed")}
-                >
-                  今回は見送る
-                </button>
-              )}
-            </div>
+            <button className={styles.btnOutline} disabled={generating} onClick={handleGenerate}>
+              {generating ? "生成中…" : "🌱 今すぐ生成する"}
+            </button>
           </div>
-        ))
-      )}
-      {dismissedCount > 0 && (
-        <button
-          type="button"
-          className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-          style={{ marginTop: 12 }}
-          onClick={() => setShowDismissed(!showDismissed)}
-        >
-          {showDismissed ? "見送った提案を隠す" : `見送った提案を見る（${dismissedCount}）`}
-        </button>
+          {generateStatus && (
+            <p className={styles.subtitle} style={{ marginTop: 8 }} role="status" aria-live="polite">
+              {generateStatus}
+            </p>
+          )}
+          {generateError && (
+            <p className={styles.errorText} role="alert">
+              {generateError}
+            </p>
+          )}
+          {visible.length === 0 ? (
+            <p className={styles.subtitle} style={{ marginTop: 10 }}>
+              {!growSuggestionsLoaded
+                ? "読み込み中…"
+                : "まだ学びの提案はありません。週次バッチ（設定で変更可）か「今すぐ生成する」で作成できます。"}
+            </p>
+          ) : (
+            visible.map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTop: "1px solid var(--border)",
+                  opacity: s.status === "dismissed" ? 0.6 : 1,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <strong style={{ fontSize: "0.9375rem" }}>{s.title}</strong>
+                  {s.status === "unread" && (
+                    <span style={{ fontSize: "0.6875rem", color: "var(--accent, #2563eb)", whiteSpace: "nowrap" }}>未確認</span>
+                  )}
+                </div>
+                <p style={{ margin: "6px 0 0", fontSize: "0.9375rem", color: "var(--text-muted)" }}>{s.rationale}</p>
+                {s.evidenceSummary && (
+                  <p style={{ margin: "6px 0 0", fontSize: "0.8125rem" }}>
+                    <strong>根拠: </strong>
+                    {s.evidenceSummary}
+                  </p>
+                )}
+                {s.references.length > 0 && (
+                  <ul style={{ margin: "6px 0 0 16px", fontSize: "0.8125rem" }}>
+                    {s.references.map((r, i) => {
+                      const hasDirectUrl = isSafeHttpUrl(r.url);
+                      const href = hasDirectUrl ? r.url : searchUrlFor(r.topic, r.note);
+                      return (
+                        <li key={i}>
+                          <a href={href} target="_blank" rel="noreferrer noopener">
+                            {r.topic}
+                          </a>
+                          {!hasDirectUrl && (
+                            <span style={{ marginLeft: 6, fontSize: "0.6875rem", color: "var(--text-muted)" }}>
+                              （🔍 検索）
+                            </span>
+                          )}
+                          {r.isPrimarySource && (
+                            <span style={{ marginLeft: 6, fontSize: "0.6875rem", color: "var(--text-muted)" }}>【原典】</span>
+                          )}
+                          {r.note && <span style={{ color: "var(--text-muted)" }}> — {r.note}</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <p className={styles.subtitle} style={{ marginTop: 6, fontSize: "0.75rem" }}>
+                  {formatDate(s.generatedAt)}
+                </p>
+                <div className={styles.yieldActions} style={{ marginTop: 6 }}>
+                  {s.status !== "acknowledged" && (
+                    <button
+                      className={styles.btnOutline}
+                      disabled={statusUpdatingId === s.id}
+                      onClick={() => handleSetStatus(s, "acknowledged")}
+                    >
+                      確認済みにする
+                    </button>
+                  )}
+                  {s.status !== "dismissed" && (
+                    <button
+                      className={styles.btnOutline}
+                      disabled={statusUpdatingId === s.id}
+                      onClick={() => handleSetStatus(s, "dismissed")}
+                    >
+                      今回は見送る
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          {dismissedCount > 0 && (
+            <button
+              type="button"
+              className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+              style={{ marginTop: 12 }}
+              onClick={() => setShowDismissed(!showDismissed)}
+            >
+              {showDismissed ? "見送った提案を隠す" : `見送った提案を見る（${dismissedCount}）`}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

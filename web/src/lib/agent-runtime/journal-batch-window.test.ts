@@ -59,4 +59,14 @@ describe("journal-batch-window", () => {
     expect(mod.isJournalInBatchWindow(now - 8 * 24 * 60 * 60 * 1000, later)).toBe(false);
     expect(mod.isJournalInBatchWindow(now - 2 * 24 * 60 * 60 * 1000, later)).toBe(true);
   });
+
+  it("旧形式 { date } のみは全日クレームにせず legacyDateOnly で返す", async () => {
+    const { saveJSON } = await import("@/lib/persistence");
+    saveJSON("auto-journal-batch.json", { date: "2026-09-17" });
+    const mod = await import("@/lib/agent-runtime/journal-batch-window");
+    const state = mod.loadJournalBatchPersisted();
+    expect(state.date).toBe("2026-09-17");
+    expect(state.claimedHours).toEqual([]);
+    expect(state.legacyDateOnly).toBe(true);
+  });
 });

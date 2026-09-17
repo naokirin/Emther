@@ -10,8 +10,6 @@ export const JOURNAL_BATCH_MAX_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const JOURNAL_BATCH_FALLBACK_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const JOURNAL_BATCH_LIMIT = 60;
 
-const ALL_HOURS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
-
 export type JournalBatchPersisted = {
   /** claimedHours が属するローカル暦日 YYYY-MM-DD */
   date: string | null;
@@ -22,6 +20,11 @@ export type JournalBatchPersisted = {
   /** 進行中（または直近）の集約解釈の固定窓。プロセス再起動後の decideRun 再注入用 */
   activeSinceExclusive: number | null;
   activeUntil: number | null;
+  /**
+   * 旧形式 `{ date }` のみから読んだとき true。
+   * 単一スロット時代の「今日は1回実行済み」を、全日クレームにせず呼び出し側で復元するため。
+   */
+  legacyDateOnly?: boolean;
 };
 
 type RawJournalBatchFile = {
@@ -55,18 +58,18 @@ function asFiniteNumberOrNull(value: unknown): number | null {
 export function loadJournalBatchPersisted(): JournalBatchPersisted {
   const raw = loadJSON<RawJournalBatchFile>("auto-journal-batch.json", {});
   const date = typeof raw.date === "string" ? raw.date : null;
-  // 旧形式は { date } のみ。date が入っていれば「その日はもう実行済み」だったので全日スロット消化扱いにする。
-  const claimedHours = Array.isArray(raw.claimedHours)
-    ? normalizeClaimedHours(raw.claimedHours)
-    : date
-      ? [...ALL_HOURS]
-      : [];
+  // 旧形式は { date } のみ = 単一スロット時代の「今日は1回実行済み」。
+  // 以前は全日クレームしていたが、複数時刻移行後に後続スロット（例: 12・17時）が
+  // 永久に起動しなくなるため、claimedHours は空のまま返し legacyDateOnly で合図する。
+  const legacyDateOnly = Boolean(date) && !Array.isArray(raw.claimedHours);
+  const claimedHours = Array.isArray(raw.claimedHours) ? normalizeClaimedHours(raw.claimedHours) : [];
   return {
     date,
     claimedHours,
     lastCoveredAt: asFiniteNumberOrNull(raw.lastCoveredAt),
     activeSinceExclusive: asFiniteNumberOrNull(raw.activeSinceExclusive),
     activeUntil: asFiniteNumberOrNull(raw.activeUntil),
+    legacyDateOnly,
   };
 }
 

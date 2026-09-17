@@ -54,6 +54,26 @@ function hasOriginRunOnLocalDate(origin: AgentRun["origin"], date: string): bool
   return !!row;
 }
 
+/** 指定ローカル日における origin run の最古 createdAt の「時」（0〜23）。無ければ null。 */
+function earliestOriginRunLocalHour(origin: AgentRun["origin"], date: string): number | null {
+  const { start, end } = localDayBoundsMs(date);
+  let earliest: number | null = null;
+  for (const run of runs.values()) {
+    if (run.origin !== origin || run.createdAt < start || run.createdAt >= end) continue;
+    if (earliest == null || run.createdAt < earliest) earliest = run.createdAt;
+  }
+  const row = getDb()
+    .prepare(
+      "SELECT MIN(created_at) AS t FROM agent_runs WHERE origin = ? AND created_at >= ? AND created_at < ?",
+    )
+    .get(origin, start, end) as { t: number | null } | undefined;
+  if (typeof row?.t === "number" && Number.isFinite(row.t)) {
+    if (earliest == null || row.t < earliest) earliest = row.t;
+  }
+  if (earliest == null) return null;
+  return new Date(earliest).getHours();
+}
+
 function hasOriginRunInIsoWeek(origin: AgentRun["origin"], week: string): boolean {
   for (const run of runs.values()) {
     if (run.origin === origin && isoWeekKey(new Date(run.createdAt)) === week) return true;
@@ -113,12 +133,31 @@ export function checkJournalBatchReview(): void {
   const today = todayDateString(now);
   const guard = getAutoBatchGuardState();
   const persisted = loadJournalBatchPersisted();
-  const claimed = [
+  let claimed = [
     ...new Set([
       ...(guard.lastAutoJournalBatchDate === today ? guard.lastAutoJournalBatchClaimedHours : []),
       ...(persisted.date === today ? persisted.claimedHours : []),
     ]),
   ];
+
+  // 旧形式 { date } のみ、または過去バグで全日クレームされた状態から復元する。
+  // 当日の既存 auto-journal-batch の最古時刻以前の設定スロットだけを消化済みにし、
+  // 後続スロット（例: 7時実行後の 12・17時）は開けたままにする。
+  const legacyFullClaim = claimed.length >= 24;
+  if ((persisted.legacyDateOnly && persisted.date === today) || legacyFullClaim) {
+    const runHour = earliestOriginRunLocalHour("auto-journal-batch", today);
+    claimed = runHour != null ? hours.filter((h) => h <= runHour) : [];
+    guard.lastAutoJournalBatchDate = today;
+    guard.lastAutoJournalBatchClaimedHours = claimed;
+    saveJournalBatchPersisted({
+      date: today,
+      claimedHours: claimed,
+      lastCoveredAt: persisted.lastCoveredAt,
+      activeSinceExclusive: persisted.activeSinceExclusive,
+      activeUntil: persisted.activeUntil,
+    });
+  }
+
   const unclaimedDue = dueHours.filter((h) => !claimed.includes(h));
   if (unclaimedDue.length === 0) {
     // メモリとディスクを揃える（HMR 後など）。
@@ -187,34 +226,60 @@ export async function startJournalBatchAnalysis(
 type DistillationPersisted = {
   week: string | null;
   claimedWeekdays: number[];
+  /**
+   * 旧形式 `{ week }` のみから読んだとき true。
+   * 単一曜日時代の「今週は1回実行済み」を、全曜日クレームにせず呼び出し側で復元するため。
+   */
+  legacyWeekOnly?: boolean;
 };
 
-const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+function normalizeClaimedWeekdays(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value
+        .filter((d): d is number => typeof d === "number" && Number.isFinite(d))
+        .map((d) => Math.min(6, Math.max(0, Math.round(d)))),
+    ),
+  ].sort((a, b) => a - b);
+}
 
 function loadDistillationPersisted(): DistillationPersisted {
   const raw = loadJSON<{ week?: string | null; claimedWeekdays?: unknown }>("auto-distillation.json", {});
   const week = typeof raw.week === "string" ? raw.week : null;
-  // 旧形式は { week } のみ。その週は「もう実行済み」だったので全曜日クレーム扱いにする。
-  let claimedWeekdays: number[] = [];
-  if (Array.isArray(raw.claimedWeekdays)) {
-    claimedWeekdays = [
-      ...new Set(
-        raw.claimedWeekdays
-          .filter((d): d is number => typeof d === "number" && Number.isFinite(d))
-          .map((d) => Math.min(6, Math.max(0, Math.round(d)))),
-      ),
-    ].sort((a, b) => a - b);
-  } else if (week) {
-    claimedWeekdays = [...ALL_WEEKDAYS];
-  }
-  return { week, claimedWeekdays };
+  // 旧形式は { week } のみ = 単一曜日時代の「今週は1回実行済み」。
+  // 以前は全曜日クレームしていたが、複数曜日移行後に後続スロット（例: 月曜実行後の水曜）が
+  // 永久に起動しなくなるため、claimedWeekdays は空のまま返し legacyWeekOnly で合図する。
+  const legacyWeekOnly = Boolean(week) && !Array.isArray(raw.claimedWeekdays);
+  const claimedWeekdays = Array.isArray(raw.claimedWeekdays) ? normalizeClaimedWeekdays(raw.claimedWeekdays) : [];
+  return { week, claimedWeekdays, legacyWeekOnly };
 }
 
 function saveDistillationPersisted(state: DistillationPersisted): void {
   saveJSON("auto-distillation.json", {
     week: state.week,
-    claimedWeekdays: state.claimedWeekdays,
+    claimedWeekdays: normalizeClaimedWeekdays(state.claimedWeekdays),
   });
+}
+
+/** 指定 ISO 週における origin run が作られたローカル曜日（0=日〜6=土）の集合。 */
+function originRunWeekdaysInIsoWeek(origin: AgentRun["origin"], week: string): number[] {
+  const days = new Set<number>();
+  for (const run of runs.values()) {
+    if (run.origin !== origin) continue;
+    if (isoWeekKey(new Date(run.createdAt)) !== week) continue;
+    days.add(new Date(run.createdAt).getDay());
+  }
+  // 週境界の厳密スキャンは重いので、直近14日の DB 行だけ見て補完する（hasOriginRunInIsoWeek と同方針）。
+  const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const rows = getDb()
+    .prepare("SELECT created_at FROM agent_runs WHERE origin = ? AND created_at >= ?")
+    .all(origin, since) as Array<{ created_at: number }>;
+  for (const r of rows) {
+    const created = new Date(r.created_at);
+    if (isoWeekKey(created) === week) days.add(created.getDay());
+  }
+  return [...days].sort((a, b) => a - b);
 }
 
 /** ローカル日付の ISO 週キー（例: 2026-W37）。週次バッチの二重起動ガードに使う。 */
@@ -345,12 +410,22 @@ export function checkWeeklyDistillation(): void {
   const today = todayDateString(now);
   const guard = getAutoBatchGuardState();
   const persisted = loadDistillationPersisted();
-  const claimed = [
+  let claimed = [
     ...new Set([
       ...(guard.lastAutoDistillationWeek === week ? guard.lastAutoDistillationClaimedWeekdays : []),
       ...(persisted.week === week ? persisted.claimedWeekdays : []),
     ]),
   ];
+
+  // 旧形式 { week } のみ、または過去バグで全曜日クレームされた状態から復元する。
+  // 当該週の既存 auto-distill が作られた曜日だけを消化済みにし、後続曜日は開けたままにする。
+  const legacyFullClaim = claimed.length >= 7;
+  if ((persisted.legacyWeekOnly && persisted.week === week) || legacyFullClaim) {
+    claimed = originRunWeekdaysInIsoWeek("auto-distill", week);
+    guard.lastAutoDistillationWeek = week;
+    guard.lastAutoDistillationClaimedWeekdays = claimed;
+    saveDistillationPersisted({ week, claimedWeekdays: claimed });
+  }
 
   if (claimed.includes(day) || hasOriginRunOnLocalDate("auto-distill", today)) {
     const synced = [...new Set([...claimed, day])].sort((a, b) => a - b);

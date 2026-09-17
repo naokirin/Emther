@@ -84,6 +84,25 @@ describe("addReflectionNote", () => {
   });
 });
 
+describe("setReflectionNoteArchived", () => {
+  it("archived=trueでarchivedAtを付け、falseで外す", async () => {
+    const store = await loadModule();
+    const note = await store.addReflectionNote({ type: "try", text: "割り込みを減らす" });
+    const archived = store.setReflectionNoteArchived(note.id, true, { now: 1_700_000_000_000 });
+    expect(archived?.archivedAt).toBe(1_700_000_000_000);
+    expect(store.listReflectionNotes()[0].archivedAt).toBe(1_700_000_000_000);
+
+    const restored = store.setReflectionNoteArchived(note.id, false);
+    expect(restored?.archivedAt).toBeUndefined();
+    expect(store.listReflectionNotes()[0].archivedAt).toBeUndefined();
+  });
+
+  it("存在しないidはundefined", async () => {
+    const store = await loadModule();
+    expect(store.setReflectionNoteArchived("no-such-id", true)).toBeUndefined();
+  });
+});
+
 describe("toCheckinView / toReflectionNoteView", () => {
   it("PERSON_n IDを実名に復元する", async () => {
     const peopleDirectory = await import("@/lib/people-directory");
