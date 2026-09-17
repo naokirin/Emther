@@ -51,12 +51,16 @@ export type Proposal = {
   facts: string[];
   logic: string;
   rejectedAlternatives: RejectedAlternative[];
+  // docs/3rd_pivot_version/pivot.md。別解釈・別仮説・不足情報・別問題設定（旧runは空配列）。
+  expansions: string[];
+  // docs/3rd_pivot_version/pivot.md。前提・問題設定への問い（旧runは空配列）。
+  challenges: string[];
   recommendation?: "issue" | "dismiss" | "watch";
   // Issue化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
   issueTitle?: string;
   // 親なしの独立Issue候補（複数）。ある場合は issueTitle より優先して起票UIに出す。
   issueCandidates?: { title: string; rationale?: string }[];
-  // この提案を計画・進行・検証するうえで漏らさないほうがよい実務的なポイント（任意）。
+  // 進め方の助言。次に観測・確認すべき点も含めてよい（解決策でなくてよい）。
   advice?: string;
 };
 

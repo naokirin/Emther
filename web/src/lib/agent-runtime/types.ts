@@ -55,8 +55,14 @@ export type Proposal = {
   facts: string[];
   logic: string;
   rejectedAlternatives: RejectedAlternative[];
+  // docs/3rd_pivot_version/pivot.md。EMの認識から離れた別解釈・別仮説・不足情報・別問題設定。
+  // 解決策の代替案（rejectedAlternatives）とは別。旧runは空配列。
+  expansions: string[];
+  // docs/3rd_pivot_version/pivot.md。前提・事実と解釈の混同・問題設定への問い。批判ではなく精度向上のため。
+  challenges: string[];
   // docs/usage_issues U2。Journal自動分析など「追跡要否」を聞かれたときだけ使う。
   // 未指定の従来出力は手動トリアージのまま。
+  // 「次に観測・確認すべき」が主眼で介入の起票まで不要なら watch を使う（解決策必須ではない）。
   recommendation?: ProposalRecommendation;
   // Issue化時に使う短い課題名。conclusion（判断の一文）とは別に持たせ、タイトルの途中切れを抑える。
   // 単一課題のとき。複数なら issueCandidates を優先（issueTitleは代表名として任意）。
@@ -65,6 +71,7 @@ export type Proposal = {
   issueCandidates?: IssueCandidate[];
   // docs/memo.md「提案自体の詳細を残す単一の場所」対応。結論そのものではなく、この提案を
   // 実際に計画・進行・検証するうえで漏らさないほうがよい実務的なポイント（任意）。
+  // 3rd pivot: 次に観測・確認・考えるべき点もここに書いてよい（解決策でなくてよい）。
   // Suggestion作成時にdetailへコピーされ、判断・提案（Agent）パネルの外でも残る。
   advice?: string;
 };

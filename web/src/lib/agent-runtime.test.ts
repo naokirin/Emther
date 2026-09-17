@@ -193,6 +193,32 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
       facts: ["fact1"],
       logic: "ロジック",
       rejectedAlternatives: [{ option: "案B", reason: "コスト大" }],
+      expansions: [],
+      challenges: [],
+    });
+  });
+
+  it("extractProposalはexpansions/challengesを拾う", async () => {
+    const rt = await loadModule();
+    const text = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        expansions: ["チーム全体で発言が減っている可能性", "  ", 123],
+        challenges: ["発言量自体が問題なのか"],
+      }),
+      "```",
+    ].join("\n");
+    expect(rt.extractProposal(text)).toEqual({
+      conclusion: "c",
+      facts: [],
+      logic: "l",
+      rejectedAlternatives: [],
+      expansions: ["チーム全体で発言が減っている可能性"],
+      challenges: ["発言量自体が問題なのか"],
     });
   });
 
@@ -231,6 +257,8 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
         logic: "l",
         facts: [],
         rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
         recommendation: "issue",
         issueCandidates: [
           { title: "燃え尽きへの介入", rationale: "個人軸" },
@@ -257,6 +285,8 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
         logic: "l",
         facts: [],
         rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
         issueTitle: "代表",
         issueCandidates: [{ title: "A" }, { title: "B" }],
       }),
@@ -267,6 +297,8 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
         logic: "l",
         facts: [],
         rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
         issueTitle: "単一",
       }),
     ).toEqual([{ title: "単一" }]);

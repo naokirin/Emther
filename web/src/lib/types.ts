@@ -437,6 +437,9 @@ export type SuggestionDetail = {
   conclusion: string;
   facts: string[];
   logic: string;
+  // docs/3rd_pivot_version/pivot.md。起票時点の Expand / Challenge（無い旧detailは未定義）。
+  expansions?: string[];
+  challenges?: string[];
   advice?: string;
   updatedAt: number;
 };
@@ -502,6 +505,8 @@ export function suggestionMatchesKeyword(
   const haystacks: string[] = [s.title, ...s.memos.map((m) => m.text)];
   if (s.detail) {
     haystacks.push(s.detail.conclusion, s.detail.logic, ...s.detail.facts);
+    if (s.detail.expansions?.length) haystacks.push(...s.detail.expansions);
+    if (s.detail.challenges?.length) haystacks.push(...s.detail.challenges);
     if (s.detail.advice) haystacks.push(s.detail.advice);
   }
   return haystacks.some((h) => h.toLowerCase().includes(q));

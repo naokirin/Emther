@@ -89,7 +89,14 @@ describe("ConsultHistoryItem", () => {
           ].join("\n"),
           origin: "auto-anomaly",
           reviewed: false,
-          proposal: { conclusion: "Issue化を検討する", facts: [], logic: "", rejectedAlternatives: [] },
+          proposal: {
+            conclusion: "Issue化を検討する",
+            facts: [],
+            logic: "",
+            rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
+          },
         })}
         selected={false}
         onSelect={onSelect}

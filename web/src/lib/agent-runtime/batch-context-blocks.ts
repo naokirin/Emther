@@ -126,7 +126,10 @@ export function buildJournalBatchContextBlock(): string {
   return maskNames(
     [
       "Journal集約解釈の材料（このタスク専用。1件ごとに個別反応するのではなく、直近のJournalをまとめて読み、単発では見えない繰り返しや複数エントリにまたがるパターンから見える問題を優先すること）:",
+      // docs/3rd_pivot_version/pivot.md
+      "Suggestの前に Expand（別解釈・別仮説・不足情報・別問題設定）と Challenge（前提・本当に解くべき問題か）を経ること。入力の言い換えや一般論の羅列で終わらせないこと。",
       "個別の一時的な感情の吐露など、単体でもまとめても追跡不要なものは無理に提案化しないこと。既に把握済みで動きのある提案・Issueと重複する内容は、新規提案化ではなく監視継続（recommendation: watch）にとどめること（既存の提案・Issueは他の注入材料で確認できます）。",
+      "問題設定が未確定で追加の観測・確認が先の場合も recommendation: watch とし、次に確認すべき点を advice に書くこと（解決策を無理に出さなくてよい）。",
       "独立した複数の問題が見つかった場合は、無理に1件へまとめず proposal の issueCandidates に分けてください。",
       "",
       "【前回解釈以降のJournal（最大7日・最大60件）】",

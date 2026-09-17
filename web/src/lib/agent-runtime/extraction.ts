@@ -81,8 +81,16 @@ export function extractYield(resultText: string): YieldRequest | undefined {
   return undefined;
 }
 
+function normalizeStringList(parsed: unknown): string[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter((f: unknown): f is string => typeof f === "string" && f.trim().length > 0)
+    .map((f) => f.trim());
+}
+
 // docs 3.5「構造化された提案」: 結論・参照ファクト・判断ロジック・棄却した代替案を
-// 必ず含めさせる。抽出できない（規約に従わなかった）場合はundefinedを返し、
+// 必ず含めさせる。docs/3rd_pivot_version/pivot.md で expansions / challenges を追加
+// （欠落時は空配列＝旧run互換）。抽出できない（規約に従わなかった）場合はundefinedを返し、
 // UI側は素のテキストログのみを表示する（無理に構造化して見せない）。
 export function extractProposal(resultText: string): Proposal | undefined {
   const match = resultText.match(/```proposal\s*\n?([\s\S]*?)```/);
@@ -100,7 +108,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
       const advice = typeof parsed.advice === "string" && parsed.advice.trim() ? parsed.advice.trim() : undefined;
       return {
         conclusion: parsed.conclusion,
-        facts: Array.isArray(parsed.facts) ? parsed.facts.filter((f: unknown) => typeof f === "string") : [],
+        facts: normalizeStringList(parsed.facts),
         logic: parsed.logic,
         rejectedAlternatives: Array.isArray(parsed.rejectedAlternatives)
           ? parsed.rejectedAlternatives.filter(
@@ -108,6 +116,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
                 typeof r === "object" && r !== null && typeof (r as RejectedAlternative).option === "string",
             )
           : [],
+        expansions: normalizeStringList(parsed.expansions),
+        challenges: normalizeStringList(parsed.challenges),
         ...(recommendation ? { recommendation } : {}),
         ...(issueTitle ? { issueTitle } : {}),
         ...(issueCandidates ? { issueCandidates } : {}),

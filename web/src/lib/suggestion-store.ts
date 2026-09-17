@@ -144,6 +144,12 @@ export function toSuggestionView(s: Suggestion): Suggestion {
           conclusion: unmaskNames(s.detail.conclusion),
           facts: s.detail.facts.map(unmaskNames),
           logic: unmaskNames(s.detail.logic),
+          ...(s.detail.expansions?.length
+            ? { expansions: s.detail.expansions.map(unmaskNames) }
+            : {}),
+          ...(s.detail.challenges?.length
+            ? { challenges: s.detail.challenges.map(unmaskNames) }
+            : {}),
           ...(s.detail.advice ? { advice: unmaskNames(s.detail.advice) } : {}),
         }
       : s.detail,
@@ -219,6 +225,8 @@ export type SuggestionDetailInput = {
   conclusion: string;
   facts: string[];
   logic: string;
+  expansions?: string[];
+  challenges?: string[];
   advice?: string;
 };
 
@@ -261,6 +269,8 @@ export async function createSuggestion(
           conclusion: detailInput.conclusion,
           facts: detailInput.facts,
           logic: detailInput.logic,
+          ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
+          ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
           ...(detailInput.advice ? { advice: detailInput.advice } : {}),
           updatedAt: now,
         }
@@ -493,6 +503,8 @@ export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInp
     conclusion: detailInput.conclusion,
     facts: detailInput.facts,
     logic: detailInput.logic,
+    ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
+    ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
     ...(detailInput.advice ? { advice: detailInput.advice } : {}),
     updatedAt: Date.now(),
   };
@@ -530,10 +542,13 @@ export async function updateSuggestionDetail(
     advice ? maskForStorage(advice) : Promise.resolve(undefined),
   ]);
 
+  // EM編集UIは結論・ファクト・ロジック・adviceのみ。expansions/challengesはAI由来のため保持する。
   s.detail = {
     conclusion: maskedConclusion,
     facts: maskedFacts,
     logic: maskedLogic,
+    ...(current?.expansions?.length ? { expansions: current.expansions } : {}),
+    ...(current?.challenges?.length ? { challenges: current.challenges } : {}),
     ...(maskedAdvice ? { advice: maskedAdvice } : {}),
     updatedAt: Date.now(),
   };

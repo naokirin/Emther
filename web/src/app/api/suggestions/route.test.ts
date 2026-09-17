@@ -111,6 +111,8 @@ describe("POST /api/suggestions", () => {
       facts: ["ファクトA"],
       logic: "ロジックだよ",
       rejectedAlternatives: [],
+      expansions: ["別の問題設定もあり得る"],
+      challenges: ["本当に発言量が問題か"],
       advice: "計画のアドバイス",
     });
     const route = await import("./route");
@@ -125,6 +127,8 @@ describe("POST /api/suggestions", () => {
     const json = await res.json();
     expect(json.suggestion.detail?.conclusion).toBe("結論だよ");
     expect(json.suggestion.detail?.facts).toEqual(["ファクトA"]);
+    expect(json.suggestion.detail?.expansions).toEqual(["別の問題設定もあり得る"]);
+    expect(json.suggestion.detail?.challenges).toEqual(["本当に発言量が問題か"]);
     expect(json.suggestion.detail?.advice).toBe("計画のアドバイス");
   });
 

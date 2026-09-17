@@ -158,7 +158,18 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       cursorSessionId: row.cursor_session_id ?? undefined,
       log: logsByRun.get(row.id) ?? [],
       yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
-      proposal: row.proposal_json ? JSON.parse(row.proposal_json) : undefined,
+      // 旧永続runは expansions/challenges 欠落がありうるため、読み込み時に空配列で補う。
+      proposal: row.proposal_json
+        ? (() => {
+            const p = JSON.parse(row.proposal_json) as AgentRun["proposal"];
+            if (!p) return undefined;
+            return {
+              ...p,
+              expansions: p.expansions ?? [],
+              challenges: p.challenges ?? [],
+            };
+          })()
+        : undefined,
       suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
       suggestedSubIssues: row.suggested_sub_issues_json
         ? normalizeSuggestedSubIssues(JSON.parse(row.suggested_sub_issues_json))
@@ -292,6 +303,9 @@ export function toRunView(run: AgentRun): AgentRun {
             option: unmaskNames(r.option),
             reason: unmaskNames(r.reason),
           })),
+          // 旧永続runは expansions/challenges 欠落がありうるため空配列で補う。
+          expansions: (run.proposal.expansions ?? []).map(unmaskNames),
+          challenges: (run.proposal.challenges ?? []).map(unmaskNames),
           ...(run.proposal.recommendation ? { recommendation: run.proposal.recommendation } : {}),
           ...(run.proposal.issueTitle ? { issueTitle: unmaskNames(run.proposal.issueTitle) } : {}),
           ...(run.proposal.issueCandidates

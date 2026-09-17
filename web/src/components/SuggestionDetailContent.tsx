@@ -490,6 +490,30 @@ export function SuggestionDetailContent({ id }: { id: string }) {
             <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
               <IdLinkedText text={suggestion.detail.logic} />
             </p>
+            {suggestion.detail.expansions && suggestion.detail.expansions.length > 0 && (
+              <>
+                <strong style={{ fontSize: "0.75rem" }}>🔭 視点の広がり（Expand）</strong>
+                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                  {suggestion.detail.expansions.map((e, i) => (
+                    <li key={i}>
+                      <IdLinkedText text={e} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {suggestion.detail.challenges && suggestion.detail.challenges.length > 0 && (
+              <>
+                <strong style={{ fontSize: "0.75rem" }}>❓ 前提への問い（Challenge）</strong>
+                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                  {suggestion.detail.challenges.map((c, i) => (
+                    <li key={i}>
+                      <IdLinkedText text={c} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
             {suggestion.detail.advice && (
               <>
                 <strong style={{ fontSize: "0.75rem" }}>💡 進め方のアドバイス</strong>

@@ -61,6 +61,12 @@ export async function POST(request: Request) {
         conclusion: sourceRun.proposal.conclusion,
         facts: sourceRun.proposal.facts,
         logic: sourceRun.proposal.logic,
+        ...(sourceRun.proposal.expansions?.length
+          ? { expansions: sourceRun.proposal.expansions }
+          : {}),
+        ...(sourceRun.proposal.challenges?.length
+          ? { challenges: sourceRun.proposal.challenges }
+          : {}),
         ...(sourceRun.proposal.advice ? { advice: sourceRun.proposal.advice } : {}),
       }
     : undefined;

@@ -9,6 +9,8 @@ import styles from "@/app/page.module.css";
 // 未登録」の語句をヒントとして出し、1クリックで関係者として登録・紐付けできるようにする。
 // 保存はしない一度きりのヒントなので、ポーリングで一覧が更新されると消える
 // （呼び出し側のローカルstateで保持する）。
+// UIはHierarchyLinkSuggestPanelと同系の枠付き提案ブロックに揃え、detailToggleButton単体
+// （負のmargin-left付き）のチップ並びで余白が崩れるのを避ける。
 export function JournalNameCandidateSuggestion({
   entryId,
   people,
@@ -48,24 +50,48 @@ export function JournalNameCandidateSuggestion({
   }
 
   return (
-    <p className={styles.subtitle} style={{ margin: "6px 0 0", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-      人名らしい語句が見つかりました:
-      {visible.map((name) => (
+    <div
+      style={{
+        marginTop: 12,
+        padding: 10,
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        fontSize: "0.875rem",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        <strong>人名らしい語句が見つかりました</strong>
         <button
-          key={name}
           type="button"
-          className={`${styles.detailToggleButton} ${styles.axisTooltip}`}
-          disabled={submitting === name}
-          onClick={() => void handleAdd(name)}
-          data-tooltip={`「${name}」を関係者として登録する`}
+          className={styles.detailToggle}
+          onClick={() => setDismissed(new Set(candidates))}
         >
-          {submitting === name ? `${name} 登録中…` : `＋ ${name}`}
+          無視する
         </button>
-      ))}
-      <button type="button" className={styles.detailToggleButton} onClick={() => setDismissed(new Set(candidates))}>
-        無視する
-      </button>
-      {error && <span className={styles.errorText}>{error}</span>}
-    </p>
+      </div>
+      <p className={styles.subtitle} style={{ margin: "4px 0 8px" }}>
+        クリックで関係者として登録・紐付けします（名簿に無い名前の追加ヒント）
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        {visible.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className={`${styles.btnOutline} ${styles.axisTooltip}`}
+            style={{ fontSize: "0.75rem" }}
+            disabled={submitting === name}
+            onClick={() => void handleAdd(name)}
+            data-tooltip={`「${name}」を関係者として登録する`}
+          >
+            {submitting === name ? `${name} 登録中…` : `＋ ${name}`}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p className={styles.errorText} role="alert" style={{ margin: "8px 0 0" }}>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

@@ -173,6 +173,8 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/suggestion
           conclusion: run.proposal.conclusion,
           facts: run.proposal.facts,
           logic: run.proposal.logic,
+          ...(run.proposal.expansions?.length ? { expansions: run.proposal.expansions } : {}),
+          ...(run.proposal.challenges?.length ? { challenges: run.proposal.challenges } : {}),
           ...(run.proposal.advice ? { advice: run.proposal.advice } : {}),
         }) ?? suggestion;
     }

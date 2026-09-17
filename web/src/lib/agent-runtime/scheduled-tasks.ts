@@ -187,7 +187,7 @@ export function checkJournalBatchReview(): void {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildJournalBatchContextBlock（batch-context-blocks.ts）へ。 */
 export const JOURNAL_BATCH_TASK =
-  "直近のJournalをまとめて解釈してください。単発では見えない繰り返しや複数エントリにまたがる問題があれば、通常の提案形式でIssue化を検討してください。個別の一時的な感情の吐露など追跡不要なものは無理に提案化しないでください。";
+  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式でIssue化を検討し、未確定なら watch＋advice にしてください。追跡不要なものは無理に提案化しないでください。";
 
 // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
 // 対応。startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
@@ -618,9 +618,11 @@ export function buildJournalAnalysisTask(rawText: string): string {
   return [
     "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
     "ただし、このIssue化判定はあくまで一覧に残すかどうかの分類に過ぎません。判定結果がissueでもwatchでもdismissでも、それだけで終わらせず、EMがこの状況にどう向き合うとよいかという実務的な気づき・助言を回答本文に必ず書いてください（判定を言い渡すだけの素っ気ない回答にしないこと）。",
-    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle（単一）または issueCandidates（複数・親なしの独立Issue）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
+    // docs/3rd_pivot_version/pivot.md。EMの問題設定をなぞるだけの提案を避ける。
+    "Suggestの前に Expand（別の解釈・仮説・不足情報・別問題設定）と Challenge（前提・事実と解釈の混同・本当に解くべき問題か）を必ず経てください。入力の要約や言い換えだけで終わらせないこと。",
+    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・expansions・challenges・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle（単一）または issueCandidates（複数・親なしの独立Issue）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず issueCandidates に分けてください（親Issueは作らない）。同じ介入の具体作業への分解はここではしないこと。",
-    "Issueとして追跡するほどではないが、様子を見続けたい・完全に流してよいわけではないと判断した場合は、recommendation を \"watch\" にしてください。",
+    "Issueとして追跡するほどではないが、様子を見続けたい・追加で確認したい・問題設定をまだ確定できないと判断した場合は、recommendation を \"watch\" にしてください。次に観測・確認すべき点は advice に書いてください（解決策を無理に出さなくてよい）。",
     "単なる一時的な感情の吐露などで追跡も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理にIssue化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。Issue化すべきなら recommendation は \"issue\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,

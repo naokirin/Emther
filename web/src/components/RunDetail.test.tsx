@@ -35,6 +35,8 @@ describe("runFallbackTitle", () => {
             facts: [],
             logic: "",
             rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
             issueTitle: "五木さんの目標設定の悩み",
           },
         }),
@@ -52,6 +54,8 @@ describe("runFallbackTitle", () => {
             facts: [],
             logic: "",
             rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
             issueCandidates: [{ title: "候補A" }, { title: "候補B" }],
           },
         }),
@@ -69,6 +73,8 @@ describe("runFallbackTitle", () => {
             facts: [],
             logic: "",
             rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
           },
         }),
       ),
@@ -216,7 +222,14 @@ describe("ExecutionState", () => {
   it("idle+proposalの場合は結論・ロジック・棄却案を表示する", () => {
     const run = baseRun({
       status: "idle",
-      proposal: { conclusion: "結論テキスト", facts: ["fact1"], logic: "ロジック説明", rejectedAlternatives: [{ option: "案X", reason: "理由Y" }] },
+      proposal: {
+        conclusion: "結論テキスト",
+        facts: ["fact1"],
+        logic: "ロジック説明",
+        rejectedAlternatives: [{ option: "案X", reason: "理由Y" }],
+        expansions: ["チーム全体の傾向かもしれない"],
+        challenges: ["発言量自体が問題なのか"],
+      },
     });
     render(
       <ExecutionState run={run} selectedOptionId={null} onSelectOption={noop} onConfirmOption={noop} onFocusChat={noop} deciding={false} />,
@@ -224,6 +237,8 @@ describe("ExecutionState", () => {
     expect(screen.getByText("結論テキスト")).toBeInTheDocument();
     expect(screen.getByText("ロジック説明")).toBeInTheDocument();
     expect(screen.getByText("案X")).toBeInTheDocument();
+    expect(screen.getByText("チーム全体の傾向かもしれない")).toBeInTheDocument();
+    expect(screen.getByText("発言量自体が問題なのか")).toBeInTheDocument();
   });
 
   it("提案されたWhy/What/Howを採用/却下できる", async () => {
@@ -232,7 +247,7 @@ describe("ExecutionState", () => {
     const user = userEvent.setup();
     const run = baseRun({
       status: "idle",
-      proposal: { conclusion: "c", facts: [], logic: "l", rejectedAlternatives: [] },
+      proposal: { conclusion: "c", facts: [], logic: "l", rejectedAlternatives: [], expansions: [], challenges: [] },
       suggestedCharter: { why: "生む価値の提案" },
     });
     render(

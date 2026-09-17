@@ -166,6 +166,8 @@ describe("PATCH /api/suggestions/[id] refreshDetailFromRunId", () => {
       facts: [],
       logic: "新しいロジック",
       rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
     });
     const route = await import("./route");
     const res = await route.PATCH(
