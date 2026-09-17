@@ -2,6 +2,7 @@ import { listRuns } from "@/lib/agent-runtime";
 import { findByIdPrefix, isHexIdPrefix, normalizeIdKey } from "@/lib/id-prefix";
 import { listIssues, type Issue } from "@/lib/issue-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
+import { unmaskNames } from "@/lib/people-directory";
 
 export type IdMatchKind = "issue" | "journal" | "run";
 
@@ -18,17 +19,25 @@ function truncateLabel(text: string, max = 80): string {
   return `${t.slice(0, max)}…`;
 }
 
+// ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
+// listIssues/listJournalEntries/listRunsはいずれも保存時のマスク済み生データ（人名が
+// {{PERSON_n}}トークンのまま）を返す関数で、通常の一覧・詳細画面はtoIssueView/
+// toJournalEntryView/toRunViewを経由してunmaskNamesを適用してから表示している。
+// resolveIdPrefixはこれらのView関数を通さず生データを直接使っていたため、ここで
+// 作るlabel（IdFragmentLinkのクリック候補・カスタムツールチップの表示に使われる）に
+// 未解決のマスクトークンがそのまま出てしまっていた。
 function issueMatch(issue: Issue): IdMatch {
+  const title = unmaskNames(issue.title).trim();
   return {
     kind: "issue",
     id: issue.id,
-    label: issue.title.trim() || "（無題の提案）",
+    label: title || "（無題の提案）",
     href: `/suggestions/${issue.id}`,
   };
 }
 
 function journalMatch(entry: JournalEntry): IdMatch {
-  const label = entry.summary?.trim() || entry.rawText;
+  const label = unmaskNames(entry.summary?.trim() || entry.rawText);
   return {
     kind: "journal",
     id: entry.id,
@@ -38,10 +47,12 @@ function journalMatch(entry: JournalEntry): IdMatch {
 }
 
 function runMatch(run: { id: string; agentName: string; task: string }): IdMatch {
+  const agentName = unmaskNames(run.agentName);
+  const task = unmaskNames(run.task).trim();
   return {
     kind: "run",
     id: run.id,
-    label: truncateLabel(`${run.agentName}: ${run.task.trim() || "（内容未記録）"}`),
+    label: truncateLabel(`${agentName}: ${task || "（内容未記録）"}`),
     href: `/chat?runId=${encodeURIComponent(run.id)}`,
   };
 }

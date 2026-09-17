@@ -70,4 +70,29 @@ describe("resolveIdPrefix", () => {
     expect(matches.some((m) => m.kind === "journal" && m.id === entry.id)).toBe(true);
     expect(matches.find((m) => m.id === entry.id)?.href).toContain(`/journal?focus=${encodeURIComponent(entry.id)}`);
   });
+
+  // ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
+  it("Issue のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Aさん");
+    const issueStore = await import("@/lib/issue-store");
+    const { resolveIdPrefix } = await import("./id-resolve");
+    const issue = await issueStore.createIssue("Aさんの1on1で出た懸念");
+    const matches = resolveIdPrefix(issue.id.slice(0, 8));
+    const match = matches.find((m) => m.id === issue.id);
+    expect(match?.label).toBe("Aさんの1on1で出た懸念");
+    expect(match?.label).not.toContain("PERSON_");
+  });
+
+  it("Journal の本文に含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
+    const peopleDirectory = await import("@/lib/people-directory");
+    peopleDirectory.registerName("Bさん");
+    const journalStore = await import("@/lib/journal-store");
+    const { resolveIdPrefix } = await import("./id-resolve");
+    const entry = await journalStore.addJournalEntry("Bさんと話した現場メモ");
+    const matches = resolveIdPrefix(entry.id.slice(0, 8));
+    const match = matches.find((m) => m.id === entry.id && m.kind === "journal");
+    expect(match?.label).toContain("Bさん");
+    expect(match?.label).not.toContain("PERSON_");
+  });
 });

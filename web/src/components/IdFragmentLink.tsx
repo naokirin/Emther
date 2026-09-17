@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type MouseEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { goHrefForIdFragment } from "@/lib/id-prefix";
@@ -70,6 +70,12 @@ function useIdResolveNav() {
   );
 }
 
+async function fetchIdMatches(fragment: string): Promise<IdMatch[]> {
+  const res = await fetch(`/api/id-resolve?q=${encodeURIComponent(fragment)}`);
+  const data = (await res.json()) as { matches?: IdMatch[] };
+  return data.matches ?? [];
+}
+
 /** `/go/<fragment>` 相当。クリック時は API で解決し、サイドピーク内なら Issue をピークで開く。 */
 export function IdFragmentLink({
   fragment,
@@ -85,6 +91,31 @@ export function IdFragmentLink({
   const [candidates, setCandidates] = useState<IdMatch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ユーザー指摘「提案やJournalのリンクに関して、カスタムUIのツールチップでタイトルだけ
+  // 表示したい」対応。文中の#ID参照はこれまでID断片の文字列しか見えず、クリックして
+  // 解決するまでリンク先の中身（提案・Journalのタイトル）が分からなかった。ネイティブ
+  // titleではなく、既存の.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）
+  // に揃え、ホバー/フォーカス時にだけ/api/id-resolveへ問い合わせてタイトルを表示する
+  // （クリック時と違い候補選択はしないため、複数候補があれば改行区切りで並べる）。
+  // tooltipがnullの間は.axisTooltipクラス自体を付けない：CSSの::afterはmin-widthを
+  // 持つため、data-tooltip未設定のままクラスだけ先に付けると、取得前に空の吹き出しの
+  // 箱がhover時に一瞬見えてしまう。
+  const [tooltip, setTooltip] = useState<string | null>(null);
+  const tooltipFetchedRef = useRef(false);
+
+  async function ensureTooltip() {
+    if (tooltipFetchedRef.current) return;
+    tooltipFetchedRef.current = true;
+    setTooltip("読み込み中…");
+    try {
+      const matches = await fetchIdMatches(fragment);
+      setTooltip(matches.length > 0 ? matches.map((m) => m.label).join("\n") : "該当する項目が見つかりませんでした");
+    } catch {
+      tooltipFetchedRef.current = false;
+      setTooltip(null);
+    }
+  }
+
   async function handleClick(e: MouseEvent<HTMLAnchorElement>) {
     // 新しいタブ／ウィンドウや修飾キーはそのまま /go へ（サーバー解決）
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -94,9 +125,7 @@ export function IdFragmentLink({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/id-resolve?q=${encodeURIComponent(fragment)}`);
-      const data = (await res.json()) as { matches?: IdMatch[] };
-      const matches = data.matches ?? [];
+      const matches = await fetchIdMatches(fragment);
       if (matches.length === 1) {
         navigate(matches[0]);
         return;
@@ -115,7 +144,14 @@ export function IdFragmentLink({
 
   return (
     <>
-      <a href={goHrefForIdFragment(fragment)} className={className} onClick={handleClick}>
+      <a
+        href={goHrefForIdFragment(fragment)}
+        className={`${className ?? ""} ${tooltip !== null ? styles.axisTooltip : ""}`.trim()}
+        data-tooltip={tooltip ?? undefined}
+        onClick={handleClick}
+        onMouseEnter={ensureTooltip}
+        onFocus={ensureTooltip}
+      >
         {children}
       </a>
       {candidates && (
