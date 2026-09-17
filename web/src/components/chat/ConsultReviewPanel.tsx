@@ -424,8 +424,38 @@ export function ConsultReviewPanel({
           </div>
         )}
         <div className={styles.yieldActions}>
+          <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={handleToggleArchived}>
+            {selectedRun.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+          </button>
+        </div>
+        {reviewError && <p className={styles.errorText} role="alert">{reviewError}</p>}
+      </div>
+      <ExecutionState
+        run={selectedRun}
+        selectedOptionId={selectedOptionId}
+        onSelectOption={setSelectedOptionId}
+        onConfirmOption={handleConfirmOption}
+        onFocusChat={handleFocusChat}
+        deciding={deciding}
+        stale={stale}
+        onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
+        onAdoptThemes={handleAdoptThemes}
+        onDismissThemes={handleDismissThemes}
+        themesSubmitting={themesSubmitting}
+        onAdoptIssueNotes={handleAdoptIssueNotes}
+        onDismissIssueNotes={handleDismissIssueNotes}
+        onMarkHandledIssueNotes={handleMarkHandledIssueNotes}
+        issueNotesSubmitting={issueNotesSubmitting}
+        onAdoptSuggestionUpdates={handleAdoptSuggestionUpdates}
+        onDismissSuggestionUpdates={handleDismissSuggestionUpdates}
+        suggestionUpdatesSubmitting={suggestionUpdatesSubmitting}
+        currentSuggestions={currentSuggestions}
+      />
+      {selectedRun.status === "idle" && selectedRun.proposal && (
+        <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
+          <strong>📋 この相談への結論</strong>
           {issueCandidates.length > 1 && (
-            <div style={{ width: "100%", marginBottom: 8 }}>
+            <div style={{ width: "100%", margin: "8px 0" }}>
               <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
                 AIが親なしの独立提案候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
               </p>
@@ -454,49 +484,26 @@ export function ConsultReviewPanel({
               </ul>
             </div>
           )}
-          <button
-            className={styles.primaryBtn}
-            style={{ width: "auto" }}
-            disabled={reviewSubmitting || (issueCandidates.length > 1 && selectedCandidateTitles.length === 0)}
-            onClick={handlePromoteToIssue}
-          >
-            {issueCandidates.length > 1
-              ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
-              : "📌 提案として残す"}
-          </button>
-          <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
-            👀 様子見
-          </button>
-          <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
-            却下する（対応不要）
-          </button>
-          <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={handleToggleArchived}>
-            {selectedRun.archivedAt ? "アーカイブを解除" : "アーカイブする"}
-          </button>
+          <div className={styles.yieldActions} style={{ marginTop: issueCandidates.length > 1 ? 0 : 8 }}>
+            <button
+              className={styles.primaryBtn}
+              style={{ width: "auto" }}
+              disabled={reviewSubmitting || (issueCandidates.length > 1 && selectedCandidateTitles.length === 0)}
+              onClick={handlePromoteToIssue}
+            >
+              {issueCandidates.length > 1
+                ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
+                : "📌 提案として残す"}
+            </button>
+            <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
+              👀 様子見する
+            </button>
+            <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
+              却下する（対応不要）
+            </button>
+          </div>
         </div>
-        {reviewError && <p className={styles.errorText} role="alert">{reviewError}</p>}
-      </div>
-      <ExecutionState
-        run={selectedRun}
-        selectedOptionId={selectedOptionId}
-        onSelectOption={setSelectedOptionId}
-        onConfirmOption={handleConfirmOption}
-        onFocusChat={handleFocusChat}
-        deciding={deciding}
-        stale={stale}
-        onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
-        onAdoptThemes={handleAdoptThemes}
-        onDismissThemes={handleDismissThemes}
-        themesSubmitting={themesSubmitting}
-        onAdoptIssueNotes={handleAdoptIssueNotes}
-        onDismissIssueNotes={handleDismissIssueNotes}
-        onMarkHandledIssueNotes={handleMarkHandledIssueNotes}
-        issueNotesSubmitting={issueNotesSubmitting}
-        onAdoptSuggestionUpdates={handleAdoptSuggestionUpdates}
-        onDismissSuggestionUpdates={handleDismissSuggestionUpdates}
-        suggestionUpdatesSubmitting={suggestionUpdatesSubmitting}
-        currentSuggestions={currentSuggestions}
-      />
+      )}
       <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />
       <CopilotChat run={selectedRun} message={message} setMessage={setMessage} deciding={deciding} onDecide={sendDecision} inputId="chat-page-input" />
       {decideError && <p className={styles.errorText} role="alert">{decideError}</p>}
