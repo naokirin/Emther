@@ -516,12 +516,13 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(prompt).toContain("学びの提案（Grow）の材料");
   });
 
-  it("Journal集約解釈の材料は直近24時間のJournalをまとめて載せ、taskは短い", async () => {
+  it("Journal集約解釈の材料は前回以降のJournalをまとめて載せ、taskは短い", async () => {
     const journalStore = await import("@/lib/journal-store");
     await journalStore.addJournalEntry("1on1が空回りした");
     const rt = await loadModule();
     const ctx = rt.buildJournalBatchContextBlock();
     expect(ctx).toContain("Journal集約解釈の材料");
+    expect(ctx).toContain("前回解釈以降のJournal");
     expect(ctx).toContain("1on1が空回りした");
     expect(rt.JOURNAL_BATCH_TASK.length).toBeLessThan(200);
   });
@@ -2040,6 +2041,41 @@ describe("watchdog: checkMorningSummary", () => {
   });
 });
 
+describe("watchdog: checkWeeklyDistillation", () => {
+  it("選択曜日でなければ起動しない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const otherWeekday = (new Date().getDay() + 1) % 7;
+    settingsStore.updateRulesAndConstraints({
+      autoDistillationEnabled: true,
+      autoDistillationWeekdays: [otherWeekday],
+      autoDistillationHour: 0,
+    });
+    const rt = await loadModule();
+    rt.checkWeeklyDistillation();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("選択曜日・時刻なら起動し、同じ曜日では再起動しない", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const today = new Date().getDay();
+    settingsStore.updateRulesAndConstraints({
+      autoDistillationEnabled: true,
+      autoDistillationWeekdays: [today, (today + 2) % 7],
+      autoDistillationHour: 0,
+    });
+    const rt = await loadModule();
+    rt.checkWeeklyDistillation();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    expect(rt.listRuns()[0].origin).toBe("auto-distill");
+    rt.checkWeeklyDistillation();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns().filter((r) => r.origin === "auto-distill")).toHaveLength(1);
+  });
+});
+
 describe("watchdog: checkWeeklyGrow", () => {
   it("autoGrowEnabledが既定(false)なら何もしない", async () => {
     const rt = await loadModule();
@@ -2111,18 +2147,27 @@ describe("watchdog: checkJournalBatchReview", () => {
     expect(spawnCalls).toHaveLength(0);
   });
 
-  it("設定時刻に達していなければ起動しない（hourを24にして『今日中は絶対到達しない』を再現）", async () => {
+  it("設定時刻に達していなければ起動しない", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHour: 24 });
+    const futureHour = Math.min(23, new Date().getHours() + 1);
+    // 現在が23時のときは「未来の時刻」が作れないので、空の due になるよう翌日扱いはせずスキップ相当の [23] のみ・かつ現在も23なら別手段。
+    if (new Date().getHours() >= 23) {
+      settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: false });
+      return;
+    }
+    settingsStore.updateRulesAndConstraints({
+      autoJournalBatchEnabled: true,
+      autoJournalBatchHours: [futureHour],
+    });
     const rt = await loadModule();
     rt.checkJournalBatchReview();
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns()).toHaveLength(0);
   });
 
-  it("設定時刻に達していれば当日1回だけLead Agentを自動起動する", async () => {
+  it("設定時刻に達していれば当日の過ぎたスロットをまとめて1回だけLead Agentを自動起動する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHour: 0 });
+    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHours: [0] });
     const rt = await loadModule();
 
     rt.checkJournalBatchReview();
@@ -2148,9 +2193,27 @@ describe("watchdog: checkJournalBatchReview", () => {
     expect(spawnCalls).toHaveLength(1);
   });
 
+  it("複数時刻が設定されていても、遅れ復帰時は過ぎたスロットをまとめて1回だけ起動する", async () => {
+    const settingsStore = await import("@/lib/settings-store");
+    const nowHour = new Date().getHours();
+    settingsStore.updateRulesAndConstraints({
+      autoJournalBatchEnabled: true,
+      autoJournalBatchHours: [0, Math.min(nowHour, 12), nowHour].filter((h, i, a) => a.indexOf(h) === i),
+    });
+    const rt = await loadModule();
+    rt.checkJournalBatchReview();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    expect(rt.listRuns()).toHaveLength(1);
+    rt.checkJournalBatchReview();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(1);
+  });
+
   it("recommendation:dismissなら自動却下する", async () => {
     const settingsStore = await import("@/lib/settings-store");
-    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHour: 0 });
+    settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHours: [0] });
     const rt = await loadModule();
 
     rt.checkJournalBatchReview();

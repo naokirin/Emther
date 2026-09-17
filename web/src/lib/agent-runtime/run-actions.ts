@@ -5,6 +5,7 @@ import { ensureNameCandidatesAllowed } from "@/lib/people-directory";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { SPECIALIST_AGENTS } from "./agent-catalog";
 import { runClaudeTurn, runTeamParallelKickoff } from "./cli-runners";
+import { beginJournalBatchWindow } from "./journal-batch-window";
 import { appendLog, runs, sanitizeForCloud } from "./store";
 import { originLabel, type AgentRun, type PendingUnmaskedSend } from "./types";
 
@@ -75,6 +76,8 @@ export async function startRun(
 ): Promise<AgentRun> {
   const { sourceJournalId, requiredConsultAgents, ...maskOpts } = opts;
   await ensureNameCandidatesAllowed([rawTask], maskOpts);
+  // Journal集約解釈: 人名確認を通過したあと、CLI非同期起動より前に材料窓を固定する。
+  if (origin === "auto-journal-batch") beginJournalBatchWindow();
 
   const normalizedRequired = requiredConsultAgents
     ?.filter((a) => SPECIALIST_AGENTS.includes(a))

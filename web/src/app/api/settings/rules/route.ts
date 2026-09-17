@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getRulesAndConstraints, updateRulesAndConstraints } from "@/lib/settings-store";
+import {
+  getRulesAndConstraints,
+  normalizeHourList,
+  normalizeWeekdayList,
+  updateRulesAndConstraints,
+} from "@/lib/settings-store";
 import { listPeople } from "@/lib/people-directory";
 import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@/lib/local-chat-presets";
 import { ensureLocalModels } from "@/lib/model-loader";
@@ -132,6 +137,20 @@ function parseSelfPersonId(value: unknown): { ok: true; value: string | null } |
   return { ok: true, value: trimmed };
 }
 
+function hourList(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (value.length === 0) return undefined;
+  if (!value.every((h) => typeof h === "number" && Number.isFinite(h))) return undefined;
+  return normalizeHourList(value);
+}
+
+function weekdayList(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (value.length === 0) return undefined;
+  if (!value.every((d) => typeof d === "number" && Number.isFinite(d))) return undefined;
+  return normalizeWeekdayList(value);
+}
+
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
   const selfPersonParsed = parseSelfPersonId(body?.selfPersonId);
@@ -143,6 +162,17 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: referenceLookupCursorModelParsed.error }, { status: 400 });
   }
   const previousPreset = getRulesAndConstraints().localChatModelPreset;
+  // 旧キー autoJournalBatchHour / autoDistillationWeekday も受け付け、配列へ寄せる。
+  const legacyJournalHour = num(body?.autoJournalBatchHour);
+  const journalHours =
+    hourList(body?.autoJournalBatchHours) ??
+    (legacyJournalHour !== undefined ? normalizeHourList([legacyJournalHour]) : undefined);
+  const legacyDistillWeekday = num(body?.autoDistillationWeekday);
+  const distillWeekdays =
+    weekdayList(body?.autoDistillationWeekdays) ??
+    (legacyDistillWeekday !== undefined
+      ? normalizeWeekdayList([Math.min(6, Math.max(0, Math.round(legacyDistillWeekday)))])
+      : undefined);
   const patch = {
     teamWindowDays: num(body?.teamWindowDays),
     minEntriesForJudgement: num(body?.minEntriesForJudgement),
@@ -158,12 +188,9 @@ export async function PATCH(request: Request) {
     autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
     autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
     autoJournalBatchEnabled: bool(body?.autoJournalBatchEnabled),
-    autoJournalBatchHour: num(body?.autoJournalBatchHour),
+    autoJournalBatchHours: journalHours,
     autoDistillationEnabled: bool(body?.autoDistillationEnabled),
-    autoDistillationWeekday:
-      num(body?.autoDistillationWeekday) !== undefined
-        ? Math.min(6, Math.max(0, Math.round(num(body?.autoDistillationWeekday)!)))
-        : undefined,
+    autoDistillationWeekdays: distillWeekdays,
     autoDistillationHour:
       num(body?.autoDistillationHour) !== undefined
         ? Math.min(23, Math.max(0, Math.round(num(body?.autoDistillationHour)!)))

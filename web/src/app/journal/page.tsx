@@ -172,7 +172,7 @@ function JournalListPageInner() {
 
       <div className={styles.panel} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <p className={styles.subtitle} style={{ margin: 0, flex: "1 1 auto" }}>
-          直近24時間のJournalをまとめて解釈します（日次バッチとは別に、今すぐ実行できます）。
+          前回解釈以降のJournalをまとめて解釈します（最大7日。日次バッチとは別に、今すぐ実行できます）。
         </p>
         <button className={styles.btnOutline} disabled={batchSubmitting} onClick={handleRunJournalBatch}>
           {batchSubmitting ? "解釈中…" : "🧭 Journalを集約解釈する"}

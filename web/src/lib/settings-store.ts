@@ -35,16 +35,17 @@ export type RulesAndConstraints = {
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
   // ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、一定期間分をまとめて
-  // 1日1回解釈する」対応。以前あったJournal校正のたびの即時個別分析（イベント駆動、
+  // 解釈する」対応。以前あったJournal校正のたびの即時個別分析（イベント駆動、
   // 緊急度・感情フィルタで対象を絞る方式）は廃止し、直近のJournalをまとめてLead Agentに
   // 解釈させるバッチ駆動へ一本化した。EMが能動的に「相談」したときの個別分析
   // （POST /api/journal/[id]/analyze）はこれとは別に従来どおり残る。既定OFF。
+  // 起動時刻は複数指定可（サーバーローカル 0〜23）。材料は前回カバー以降（最大7日）。
   autoJournalBatchEnabled: boolean;
-  autoJournalBatchHour: number;
-  // docs/knowledge_distillation.md。週次の状況蒸留（テーマ解釈候補）。既定OFF。
+  autoJournalBatchHours: number[];
+  // docs/knowledge_distillation.md。状況蒸留（テーマ解釈候補）。既定OFF。
+  // 曜日は複数選択可（0=日曜 … 6=土曜）。同じ週に複数回起動できる。
   autoDistillationEnabled: boolean;
-  // 0=日曜 … 6=土曜（Date.getDay()と同じ）。既定1=月曜。
-  autoDistillationWeekday: number;
+  autoDistillationWeekdays: number[];
   // サーバーローカル時刻の時（0〜23）。既定8。
   autoDistillationHour: number;
   // docs/2nd_pivot_version.md Phase 8。EM自身の学びの提案（Grow）の週次バッチ。既定OFF。
@@ -126,9 +127,9 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
   autoJournalBatchEnabled: false,
-  autoJournalBatchHour: 7,
+  autoJournalBatchHours: [7],
   autoDistillationEnabled: false,
-  autoDistillationWeekday: 1,
+  autoDistillationWeekdays: [1],
   autoDistillationHour: 8,
   autoGrowEnabled: false,
   autoGrowWeekday: 1,
@@ -149,10 +150,74 @@ const DEFAULT_RULES: RulesAndConstraints = {
   localChatModelPreset: "350m",
 };
 
-let rules: RulesAndConstraints = {
-  ...DEFAULT_RULES,
-  ...loadJSON<Partial<RulesAndConstraints>>("settings-rules.json", {}),
+/** 0〜23 の時刻配列を重複除去・昇順・最低1件に正規化する。 */
+export function normalizeHourList(value: unknown, fallback: number[] = [7]): number[] {
+  const from = (arr: unknown): number[] => {
+    if (!Array.isArray(arr)) return [];
+    return [
+      ...new Set(
+        arr
+          .filter((h): h is number => typeof h === "number" && Number.isFinite(h))
+          .map((h) => Math.min(23, Math.max(0, Math.round(h)))),
+      ),
+    ].sort((a, b) => a - b);
+  };
+  const hours = from(value);
+  if (hours.length > 0) return hours;
+  const fb = from(fallback);
+  return fb.length > 0 ? fb : [7];
+}
+
+/** 0〜6 の曜日配列を重複除去・昇順・最低1件に正規化する。 */
+export function normalizeWeekdayList(value: unknown, fallback: number[] = [1]): number[] {
+  const from = (arr: unknown): number[] => {
+    if (!Array.isArray(arr)) return [];
+    return [
+      ...new Set(
+        arr
+          .filter((d): d is number => typeof d === "number" && Number.isFinite(d))
+          .map((d) => Math.min(6, Math.max(0, Math.round(d)))),
+      ),
+    ].sort((a, b) => a - b);
+  };
+  const days = from(value);
+  if (days.length > 0) return days;
+  const fb = from(fallback);
+  return fb.length > 0 ? fb : [1];
+}
+
+// 旧キー autoJournalBatchHour / autoDistillationWeekday からの移行を含む。
+type LegacyRulesFile = Partial<RulesAndConstraints> & {
+  autoJournalBatchHour?: number;
+  autoDistillationWeekday?: number;
 };
+
+function hydrateRules(raw: LegacyRulesFile): RulesAndConstraints {
+  // 旧キーは配列へ寄せたあと残さない（settings-rules.json へ書き戻さないため）。
+  const { autoJournalBatchHour: legacyHour, autoDistillationWeekday: legacyWeekday, ...rest } = raw;
+  const merged: RulesAndConstraints = { ...DEFAULT_RULES, ...(rest as Partial<RulesAndConstraints>) };
+  if (Array.isArray(raw.autoJournalBatchHours) && raw.autoJournalBatchHours.length > 0) {
+    merged.autoJournalBatchHours = normalizeHourList(raw.autoJournalBatchHours);
+  } else if (typeof legacyHour === "number" && Number.isFinite(legacyHour)) {
+    merged.autoJournalBatchHours = normalizeHourList([legacyHour]);
+  } else {
+    merged.autoJournalBatchHours = [...DEFAULT_RULES.autoJournalBatchHours];
+  }
+  if (Array.isArray(raw.autoDistillationWeekdays) && raw.autoDistillationWeekdays.length > 0) {
+    merged.autoDistillationWeekdays = normalizeWeekdayList(raw.autoDistillationWeekdays);
+  } else if (typeof legacyWeekday === "number" && Number.isFinite(legacyWeekday)) {
+    merged.autoDistillationWeekdays = normalizeWeekdayList([legacyWeekday]);
+  } else {
+    merged.autoDistillationWeekdays = [...DEFAULT_RULES.autoDistillationWeekdays];
+  }
+  merged.autoDistillationHour = Math.min(
+    23,
+    Math.max(0, Math.round(merged.autoDistillationHour ?? DEFAULT_RULES.autoDistillationHour)),
+  );
+  return merged;
+}
+
+let rules: RulesAndConstraints = hydrateRules(loadJSON<LegacyRulesFile>("settings-rules.json", {}));
 
 function persistRules(): void {
   saveJSON("settings-rules.json", rules);
@@ -163,7 +228,20 @@ export function getRulesAndConstraints(): RulesAndConstraints {
 }
 
 export function updateRulesAndConstraints(patch: Partial<RulesAndConstraints>): RulesAndConstraints {
-  rules = { ...rules, ...patch };
+  const next: RulesAndConstraints = { ...rules, ...patch };
+  if (patch.autoJournalBatchHours !== undefined) {
+    next.autoJournalBatchHours = normalizeHourList(patch.autoJournalBatchHours, rules.autoJournalBatchHours);
+  }
+  if (patch.autoDistillationWeekdays !== undefined) {
+    next.autoDistillationWeekdays = normalizeWeekdayList(
+      patch.autoDistillationWeekdays,
+      rules.autoDistillationWeekdays,
+    );
+  }
+  if (patch.autoDistillationHour !== undefined) {
+    next.autoDistillationHour = Math.min(23, Math.max(0, Math.round(patch.autoDistillationHour)));
+  }
+  rules = next;
   persistRules();
   return rules;
 }

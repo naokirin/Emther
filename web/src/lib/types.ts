@@ -290,12 +290,13 @@ export type RulesAndConstraints = {
   autoIssueUpdateAnalysisEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
-  // Journalをまとめて日次で解釈するバッチ（settings-storeと同義）。既定OFF。
+  // Journalをまとめて解釈するバッチ（settings-storeと同義）。既定OFF。
+  // 起動時刻は複数指定可。材料は前回カバー以降（最大7日）。
   autoJournalBatchEnabled: boolean;
-  autoJournalBatchHour: number;
-  // docs/knowledge_distillation.md。週次の状況蒸留（既定OFF）。
+  autoJournalBatchHours: number[];
+  // docs/knowledge_distillation.md。状況蒸留（既定OFF）。曜日は複数選択可。
   autoDistillationEnabled: boolean;
-  autoDistillationWeekday: number;
+  autoDistillationWeekdays: number[];
   autoDistillationHour: number;
   // docs/2nd_pivot_version.md Phase 8。EM自身の学びの提案（Grow）の週次バッチ（既定OFF）。
   autoGrowEnabled: boolean;

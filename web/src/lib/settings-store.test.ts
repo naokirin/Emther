@@ -20,7 +20,8 @@ describe("getRulesAndConstraints", () => {
     expect(rules.maxParallelAgentRuns).toBe(2);
     expect(rules.perTurnBudgetUsd).toBe(0.5);
     expect(rules.autoJournalBatchEnabled).toBe(false);
-    expect(rules.autoJournalBatchHour).toBe(7);
+    expect(rules.autoJournalBatchHours).toEqual([7]);
+    expect(rules.autoDistillationWeekdays).toEqual([1]);
     expect(rules.autoIssueUpdateAnalysisEnabled).toBe(false);
     expect(rules.decisionQueueLimit).toBe(3);
     expect(rules.observationQueueLimit).toBe(3);

@@ -3,7 +3,11 @@ import { getDataDir, loadJSON, saveJSON } from "@/lib/persistence";
 import { getIssue } from "@/lib/issue-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { unmaskNames } from "@/lib/people-directory";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList } from "@/lib/settings-store";
+import {
+  loadJournalBatchPersisted,
+  saveJournalBatchPersisted,
+} from "./journal-batch-window";
 import { decideRun, parkPendingUnmaskedSend, startRun } from "./run-actions";
 import { checkStaleRuns, persistRunMeta, runs, WATCHDOG_INTERVAL_MS } from "./store";
 import type { AgentRun, PendingAgentStart } from "./types";
@@ -89,36 +93,56 @@ export const MORNING_SUMMARY_TASK =
   "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・未確認・確認保留の提案など、今日EMがまず確認すべきことを簡潔に整理してください。";
 
 // ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、Journalが一定溜まったり
-// 朝のサマリーのタイミングなど1日1回、ある程度の期間における複数のJournalをまとめて観測・
+// 朝のサマリーのタイミングなど、ある程度の期間における複数のJournalをまとめて観測・
 // 解釈した結果から行うのが良い」対応。以前あったJournal校正のたびの即時個別分析
-// （イベント駆動）は廃止し、朝のサマリーと同様の日次バッチ駆動へ一本化した。
+// （イベント駆動）は廃止し、朝のサマリーと同様のバッチ駆動へ一本化した。
 // EMが能動的に「相談」したときの個別分析（POST /api/journal/[id]/analyze・
 // requestJournalAnalysis）は、これとは別の経路としてそのまま残す。
-function loadLastAutoJournalBatchDate(): string | null {
-  return loadJSON<{ date: string | null }>("auto-journal-batch.json", { date: null }).date;
-}
-
-function saveLastAutoJournalBatchDate(date: string): void {
-  saveJSON("auto-journal-batch.json", { date });
-}
+// 起動スロットは1日複数時刻可。材料の漏れ防止は lastCoveredAt ウォーターマーク
+// （journal-batch-window.ts）。
 
 export function checkJournalBatchReview(): void {
-  const { autoJournalBatchEnabled, autoJournalBatchHour } = getRulesAndConstraints();
+  const { autoJournalBatchEnabled, autoJournalBatchHours } = getRulesAndConstraints();
   if (!autoJournalBatchEnabled) return;
+  const hours = normalizeHourList(autoJournalBatchHours);
   const now = new Date();
-  if (now.getHours() < autoJournalBatchHour) return;
+  const currentHour = now.getHours();
+  const dueHours = hours.filter((h) => h <= currentHour);
+  if (dueHours.length === 0) return;
+
   const today = todayDateString(now);
   const guard = getAutoBatchGuardState();
-  if (guard.lastAutoJournalBatchDate === today) return;
-  if (loadLastAutoJournalBatchDate() === today || hasOriginRunOnLocalDate("auto-journal-batch", today)) {
-    guard.lastAutoJournalBatchDate = today;
-    saveLastAutoJournalBatchDate(today);
+  const persisted = loadJournalBatchPersisted();
+  const claimed = [
+    ...new Set([
+      ...(guard.lastAutoJournalBatchDate === today ? guard.lastAutoJournalBatchClaimedHours : []),
+      ...(persisted.date === today ? persisted.claimedHours : []),
+    ]),
+  ];
+  const unclaimedDue = dueHours.filter((h) => !claimed.includes(h));
+  if (unclaimedDue.length === 0) {
+    // メモリとディスクを揃える（HMR 後など）。
+    if (persisted.date === today && claimed.length > 0) {
+      guard.lastAutoJournalBatchDate = today;
+      guard.lastAutoJournalBatchClaimedHours = claimed;
+    }
     return;
   }
+
+  // 本日の「既に過ぎた設定時刻」をまとめてクレームし、遅れ復帰で連続多重起動しない。
+  const newClaimed = [...new Set([...claimed, ...dueHours])].sort((a, b) => a - b);
   guard.lastAutoJournalBatchDate = today;
-  saveLastAutoJournalBatchDate(today);
+  guard.lastAutoJournalBatchClaimedHours = newClaimed;
+  saveJournalBatchPersisted({
+    date: today,
+    claimedHours: newClaimed,
+    lastCoveredAt: persisted.lastCoveredAt,
+    activeSinceExclusive: persisted.activeSinceExclusive,
+    activeUntil: persisted.activeUntil,
+  });
+
   void startJournalBatchAnalysis().catch(() => {
-    // 自動起動失敗は無視する（次のwatchdog tickで日付が変わらない限り再試行はしない）。
+    // 自動起動失敗は無視する（クレーム済みのため同スロットでは再試行しない）。
   });
 }
 
@@ -158,14 +182,39 @@ export async function startJournalBatchAnalysis(
   }
 }
 
-// docs/knowledge_distillation.md。週次の状況蒸留。朝サマリーと同様に watchdog へ相乗りし、
-// ISO 週キーを永続化して二重起動を防ぐ。
-function loadLastAutoDistillationWeek(): string | null {
-  return loadJSON<{ week: string | null }>("auto-distillation.json", { week: null }).week;
+// docs/knowledge_distillation.md。状況蒸留。watchdog へ相乗りし、ISO 週＋曜日スロットで
+// 二重起動を防ぐ（複数曜日を選べる）。
+type DistillationPersisted = {
+  week: string | null;
+  claimedWeekdays: number[];
+};
+
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+function loadDistillationPersisted(): DistillationPersisted {
+  const raw = loadJSON<{ week?: string | null; claimedWeekdays?: unknown }>("auto-distillation.json", {});
+  const week = typeof raw.week === "string" ? raw.week : null;
+  // 旧形式は { week } のみ。その週は「もう実行済み」だったので全曜日クレーム扱いにする。
+  let claimedWeekdays: number[] = [];
+  if (Array.isArray(raw.claimedWeekdays)) {
+    claimedWeekdays = [
+      ...new Set(
+        raw.claimedWeekdays
+          .filter((d): d is number => typeof d === "number" && Number.isFinite(d))
+          .map((d) => Math.min(6, Math.max(0, Math.round(d)))),
+      ),
+    ].sort((a, b) => a - b);
+  } else if (week) {
+    claimedWeekdays = [...ALL_WEEKDAYS];
+  }
+  return { week, claimedWeekdays };
 }
 
-function saveLastAutoDistillationWeek(week: string): void {
-  saveJSON("auto-distillation.json", { week });
+function saveDistillationPersisted(state: DistillationPersisted): void {
+  saveJSON("auto-distillation.json", {
+    week: state.week,
+    claimedWeekdays: state.claimedWeekdays,
+  });
 }
 
 /** ローカル日付の ISO 週キー（例: 2026-W37）。週次バッチの二重起動ガードに使う。 */
@@ -284,23 +333,39 @@ export function checkWeeklyGrow(): void {
 }
 
 export function checkWeeklyDistillation(): void {
-  const { autoDistillationEnabled, autoDistillationWeekday, autoDistillationHour } = getRulesAndConstraints();
+  const { autoDistillationEnabled, autoDistillationWeekdays, autoDistillationHour } = getRulesAndConstraints();
   if (!autoDistillationEnabled) return;
+  const weekdays = normalizeWeekdayList(autoDistillationWeekdays);
   const now = new Date();
-  if (now.getDay() !== autoDistillationWeekday) return;
+  const day = now.getDay();
+  if (!weekdays.includes(day)) return;
   if (now.getHours() < autoDistillationHour) return;
+
   const week = isoWeekKey(now);
+  const today = todayDateString(now);
   const guard = getAutoBatchGuardState();
-  if (guard.lastAutoDistillationWeek === week) return;
-  if (loadLastAutoDistillationWeek() === week || hasOriginRunInIsoWeek("auto-distill", week)) {
+  const persisted = loadDistillationPersisted();
+  const claimed = [
+    ...new Set([
+      ...(guard.lastAutoDistillationWeek === week ? guard.lastAutoDistillationClaimedWeekdays : []),
+      ...(persisted.week === week ? persisted.claimedWeekdays : []),
+    ]),
+  ];
+
+  if (claimed.includes(day) || hasOriginRunOnLocalDate("auto-distill", today)) {
+    const synced = [...new Set([...claimed, day])].sort((a, b) => a - b);
     guard.lastAutoDistillationWeek = week;
-    saveLastAutoDistillationWeek(week);
+    guard.lastAutoDistillationClaimedWeekdays = synced;
+    saveDistillationPersisted({ week, claimedWeekdays: synced });
     return;
   }
+
+  const newClaimed = [...new Set([...claimed, day])].sort((a, b) => a - b);
   guard.lastAutoDistillationWeek = week;
-  saveLastAutoDistillationWeek(week);
+  guard.lastAutoDistillationClaimedWeekdays = newClaimed;
+  saveDistillationPersisted({ week, claimedWeekdays: newClaimed });
   void startDistillationAnalysis().catch(() => {
-    // 週次蒸留の起動失敗は無視（次週まで再試行しない）。
+    // 起動失敗は無視（同曜日スロットでは再試行しない）。
   });
 }
 
@@ -530,8 +595,10 @@ type AutoBatchGuardState = {
   tick: () => void;
   lastAutoMorningSummaryDate: string | null;
   lastAutoDistillationWeek: string | null;
+  lastAutoDistillationClaimedWeekdays: number[];
   lastAutoGrowWeek: string | null;
   lastAutoJournalBatchDate: string | null;
+  lastAutoJournalBatchClaimedHours: number[];
 };
 
 const AUTO_BATCH_GUARD_KEY = Symbol.for("emther.agentRuntime.autoBatchGuard");
@@ -545,8 +612,10 @@ function getAutoBatchGuardState(): AutoBatchGuardState {
       tick: () => {},
       lastAutoMorningSummaryDate: null,
       lastAutoDistillationWeek: null,
+      lastAutoDistillationClaimedWeekdays: [],
       lastAutoGrowWeek: null,
       lastAutoJournalBatchDate: null,
+      lastAutoJournalBatchClaimedHours: [],
     };
   }
   return g[AUTO_BATCH_GUARD_KEY];
@@ -557,8 +626,10 @@ export function clearAutoBatchClaimsForTest(): void {
   const guard = getAutoBatchGuardState();
   guard.lastAutoMorningSummaryDate = null;
   guard.lastAutoDistillationWeek = null;
+  guard.lastAutoDistillationClaimedWeekdays = [];
   guard.lastAutoGrowWeek = null;
   guard.lastAutoJournalBatchDate = null;
+  guard.lastAutoJournalBatchClaimedHours = [];
 }
 
 function ensureWatchdogStarted(): void {
@@ -579,9 +650,13 @@ function ensureWatchdogStarted(): void {
     }
     guard.dataDir = dataDir;
     guard.lastAutoMorningSummaryDate = loadLastAutoMorningSummaryDate();
-    guard.lastAutoDistillationWeek = loadLastAutoDistillationWeek();
+    const distill = loadDistillationPersisted();
+    guard.lastAutoDistillationWeek = distill.week;
+    guard.lastAutoDistillationClaimedWeekdays = distill.claimedWeekdays;
     guard.lastAutoGrowWeek = loadLastAutoGrowWeek();
-    guard.lastAutoJournalBatchDate = loadLastAutoJournalBatchDate();
+    const journal = loadJournalBatchPersisted();
+    guard.lastAutoJournalBatchDate = journal.date;
+    guard.lastAutoJournalBatchClaimedHours = journal.claimedHours;
   }
   if (guard.interval) return;
   guard.interval = setInterval(() => guard.tick(), WATCHDOG_INTERVAL_MS);

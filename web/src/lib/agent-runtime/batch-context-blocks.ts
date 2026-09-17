@@ -6,6 +6,7 @@ import { maskNames } from "@/lib/people-directory";
 import { listAdoptedThemes } from "@/lib/theme-store";
 import { charterFilledCount } from "@/lib/types";
 import { computeOrgVitals } from "@/lib/vitals";
+import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";
 import { runs } from "./store";
 import type { AgentRun } from "./types";
 
@@ -104,18 +105,14 @@ export function buildMorningSummaryContextBlock(): string {
   );
 }
 
-const JOURNAL_BATCH_WINDOW_MS = 24 * 60 * 60 * 1000;
-const JOURNAL_BATCH_LIMIT = 60;
-
 // ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、一定期間分をまとめて
-// 1日1回解釈する」対応。個別1件ずつの反応（旧auto-anomalyの即時トリガー）ではなく、
-// 直近のJournalをまとめて読み、単発では見えない繰り返しや複数エントリにまたがる
-// パターンを優先して拾わせる。origin=auto-journal-batchのときシステムプロンプトへ
-// 動的注入する（材料はrun.taskに載せない。理由はbuildDistillationContextBlockと同じ）。
+// 解釈する」対応。個別1件ずつの反応（旧auto-anomalyの即時トリガー）ではなく、
+// 前回カバー以降（最大7日）のJournalをまとめて読み、単発では見えない繰り返しや複数
+// エントリにまたがるパターンを優先して拾わせる。origin=auto-journal-batchのとき
+// システムプロンプトへ動的注入する（材料はrun.taskに載せない。理由はbuildDistillationContextBlockと同じ）。
 export function buildJournalBatchContextBlock(): string {
-  const since = Date.now() - JOURNAL_BATCH_WINDOW_MS;
   const journals = listJournalEntries()
-    .filter((e) => e.createdAt >= since)
+    .filter((e) => isJournalInBatchWindow(e.createdAt))
     .slice(0, JOURNAL_BATCH_LIMIT);
 
   const journalLines =
@@ -124,7 +121,7 @@ export function buildJournalBatchContextBlock(): string {
           const meta = `urgency=${e.urgency} sentiment=${e.sentiment}${e.tags.length ? ` tags=${e.tags.join(",")}` : ""}`;
           return `- [${e.id}] (${meta}) ${e.rawText.slice(0, 200)}`;
         })
-      : ["- （直近24時間のJournalなし）"];
+      : ["- （前回解釈以降のJournalなし）"];
 
   return maskNames(
     [
@@ -132,7 +129,7 @@ export function buildJournalBatchContextBlock(): string {
       "個別の一時的な感情の吐露など、単体でもまとめても追跡不要なものは無理に提案化しないこと。既に把握済みで動きのある提案・Issueと重複する内容は、新規提案化ではなく監視継続（recommendation: watch）にとどめること（既存の提案・Issueは他の注入材料で確認できます）。",
       "独立した複数の問題が見つかった場合は、無理に1件へまとめず proposal の issueCandidates に分けてください。",
       "",
-      "【直近24時間のJournal（最大60件）】",
+      "【前回解釈以降のJournal（最大7日・最大60件）】",
       ...journalLines,
     ].join("\n"),
   );

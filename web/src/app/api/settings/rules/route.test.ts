@@ -80,14 +80,29 @@ describe("PATCH /api/settings/rules", () => {
     const res = await route.PATCH(
       jsonRequest("http://localhost/x", "PATCH", {
         autoJournalBatchEnabled: true,
-        autoJournalBatchHour: 9,
+        autoJournalBatchHours: [9, 18],
         autoIssueUpdateAnalysisEnabled: true,
+        autoDistillationWeekdays: [1, 4],
       }),
     );
     const json = await res.json();
     expect(json.rules.autoJournalBatchEnabled).toBe(true);
-    expect(json.rules.autoJournalBatchHour).toBe(9);
+    expect(json.rules.autoJournalBatchHours).toEqual([9, 18]);
+    expect(json.rules.autoDistillationWeekdays).toEqual([1, 4]);
     expect(json.rules.autoIssueUpdateAnalysisEnabled).toBe(true);
+  });
+
+  it("旧キー autoJournalBatchHour / autoDistillationWeekday も配列へ移行して受け付ける", async () => {
+    const route = await import("./route");
+    const res = await route.PATCH(
+      jsonRequest("http://localhost/x", "PATCH", {
+        autoJournalBatchHour: 9,
+        autoDistillationWeekday: 3,
+      }),
+    );
+    const json = await res.json();
+    expect(json.rules.autoJournalBatchHours).toEqual([9]);
+    expect(json.rules.autoDistillationWeekdays).toEqual([3]);
   });
 
   it("teamParallelKickoffEnabledを更新できる", async () => {
