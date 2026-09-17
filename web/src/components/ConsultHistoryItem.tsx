@@ -75,10 +75,10 @@ export function ConsultHistoryItem({
 }) {
   const title = truncateExcerpt(consultListTitle(run), TITLE_MAX);
   const secondary = consultListSecondary(run);
-  const meta = [
+  const metaParts = [
     ...consultListMetaParts(run, { stale }),
     ...(promoted ? ["提案化済み"] : []),
-  ].join(" · ");
+  ];
 
   return (
     <button
@@ -88,7 +88,18 @@ export function ConsultHistoryItem({
     >
       <div className={styles.runItemTitle}>{title}</div>
       {secondary && <div className={styles.runItemSecondary}>{truncateExcerpt(secondary, SECONDARY_MAX)}</div>}
-      <div className={styles.runItemMeta}>{meta}</div>
+      <div className={styles.runItemMeta}>
+        {metaParts.map((part, i) => (
+          <span key={i}>
+            {i > 0 ? " · " : ""}
+            {part === "未確認" ? (
+              <span style={{ color: "var(--yellow-fg)", fontWeight: 600 }}>{part}</span>
+            ) : (
+              part
+            )}
+          </span>
+        ))}
+      </div>
     </button>
   );
 }
