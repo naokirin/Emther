@@ -462,7 +462,7 @@ export function ConsultReviewPanel({
             📋 この相談への結論
             {(selectedRun.reviewed || selectedRun.triageStatus) && (
               <span style={{ marginLeft: 8, color: "var(--yellow-fg)" }}>
-                [{selectedRun.reviewed ? "提案化済み" : selectedRun.triageStatus === "watching" ? "様子見" : "却下"}]
+                [{selectedRun.triageStatus ? (selectedRun.triageStatus === "watching" ? "様子見" : "却下") : "提案化済み"}]
               </span>
             )}
           </strong>
