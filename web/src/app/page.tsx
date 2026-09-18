@@ -324,6 +324,8 @@ function DashboardPageInner() {
             unlinkedParentCount={unlinkedParentCount}
             krTotals={krTotals}
             autoRunsToday={autoRunsToday}
+            runs={runs}
+            runsLoaded={runsLoaded}
             onNavigate={(path) => router.push(path)}
             issueLinkSuggesting={issueLinkSuggesting}
             issueLinkError={issueLinkError}

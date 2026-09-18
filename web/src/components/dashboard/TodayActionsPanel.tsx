@@ -8,6 +8,7 @@ import { IssueStrategyLinkSuggestPanel } from "@/components/HierarchyLinkSuggest
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@/lib/origin-trace";
 import type { IssueStrategyLinkSuggestion } from "@/lib/types";
 import { LANE_META, rankActions, type Lane, type NextAction } from "@/lib/dashboard-next-actions";
+import { AgentStatusSection } from "./AgentStatusSection";
 
 // 整備レーンの初期表示件数。判断待ち・観測不足は設定（decisionQueueLimit /
 // observationQueueLimit）で変えられるが、整備は設定項目が無いため定数で揃える。
@@ -54,6 +55,8 @@ type Props = {
   unlinkedParentCount: number;
   krTotals: { total: number };
   autoRunsToday: number;
+  runs?: AgentRun[];
+  runsLoaded?: boolean;
   onNavigate: (path: string) => void;
   // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
   // 対応。生成中／結果はこのパネル自身のstateではなく、タブ切り替えでは不変な親
@@ -83,6 +86,8 @@ export function TodayActionsPanel({
   unlinkedParentCount,
   krTotals,
   autoRunsToday,
+  runs = [],
+  runsLoaded = true,
   onNavigate,
   issueLinkSuggesting,
   issueLinkError,
@@ -176,14 +181,14 @@ export function TodayActionsPanel({
           </button>
         </p>
       )}
-      {autoRunsToday > 0 && (
-        <p className={styles.subtitle} style={{ margin: "0 0 8px" }}>
-          🤖 本日のAI自動起動: {autoRunsToday}件（出口は起票待ちドラフト）
-          <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => onNavigate("/settings")}>
-            頻度を調整
-          </button>
-        </p>
-      )}
+      {/* 4th Pivot: 相談タブのエージェント以下に埋もれていたエージェント状態・直近の動きを可視化 */}
+      <AgentStatusSection
+        runs={runs}
+        runsLoaded={runsLoaded}
+        autoRunsToday={autoRunsToday}
+        onNavigate={onNavigate}
+        now={now}
+      />
 
       <>
           {!nextActionsLoaded ? (
@@ -211,7 +216,9 @@ export function TodayActionsPanel({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
                       <span className={styles.badge}>{a.kindLabel}</span>
-                      {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
+                      {((lastSeenAt !== null && a.since > lastSeenAt) || (lastSeenAt === null && now - a.since < 24 * 60 * 60 * 1000)) && (
+                        <span className={styles.newBadge}>新着</span>
+                      )}
                       <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{LANE_META[a.lane].label}</span>
                     </div>
                     <div className={styles.runItemTask} style={{ whiteSpace: "normal", fontSize: "0.9375rem" }}>
@@ -271,7 +278,9 @@ export function TodayActionsPanel({
                             onClick={a.onSelect}
                           >
                             <span className={styles.badge}>{a.kindLabel}</span>
-                            {lastSeenAt !== null && a.since > lastSeenAt && <span className={styles.newBadge}>新着</span>}
+                            {((lastSeenAt !== null && a.since > lastSeenAt) || (lastSeenAt === null && now - a.since < 24 * 60 * 60 * 1000)) && (
+                              <span className={styles.newBadge}>新着</span>
+                            )}
                             <div className={styles.runItemTask}>{a.text}</div>
                           </button>
                         ))}
