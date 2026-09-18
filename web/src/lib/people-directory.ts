@@ -24,6 +24,11 @@ import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "@/lib/persistenc
 import { UnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
 import { PERSON_HONORIFICS, stripPersonHonorific } from "@/lib/person-honorific";
 import { detectNameCandidatesAsync, registerNameCandidateFilters } from "@/lib/name-candidate-detect";
+import {
+  getHiraganaStopwords,
+  getKatakanaStopwords,
+  getSpeakerKanjiStopwords,
+} from "@/lib/mask-check-lexicon";
 
 export { stripPersonHonorific };
 
@@ -62,12 +67,30 @@ function deriveIdToName(state: PersistedState): Map<string, string> {
   return out;
 }
 
+/**
+ * 明らかに人物名ではない不正な登録エントリ（ひらがなストップワード、動詞活用語尾など）を検出する。
+ * 「れている様」「疲れている様子」などが誤って名簿に登録されてしまった場合の自己修復用。
+ */
+export function isInvalidPersonNameEntry(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  const bare = stripPersonHonorific(trimmed);
+  if (!bare) return true;
+  if (getHiraganaStopwords().has(bare)) return true;
+  if (getKatakanaStopwords().has(bare)) return true;
+  if (getSpeakerKanjiStopwords().has(bare)) return true;
+  if (/^[ぁ-ん]+$/.test(bare) && /(?:ている|れている|られる|させる|ていく|てくる|ような|ように|ない|ます|です|たい|よう)$/.test(bare)) {
+    return true;
+  }
+  return false;
+}
+
 const initial = loadSecureJSON<PersistedState>(PEOPLE_DIRECTORY_FILE, { entries: [], counter: 0 });
 
-const nameToId = new Map<string, string>(initial.entries);
-const idToName = deriveIdToName(initial);
-let counter = initial.counter;
-const acknowledgedUnmasked = new Set<string>((initial.acknowledgedUnmasked ?? []).map((s) => s.trim()).filter(Boolean));
+const nameToId = new Map<string, string>();
+const idToName = new Map<string, string>();
+let counter = 0;
+const acknowledgedUnmasked = new Set<string>();
 
 /** deletePerson で最後の1人を消すなど、意図的に空へ落とすときだけ true。 */
 let allowEmptyPersist = false;
@@ -75,11 +98,20 @@ let allowEmptyPersist = false;
 function hydrateFromPersisted(state: PersistedState): void {
   nameToId.clear();
   idToName.clear();
+  let cleansed = false;
   for (const [name, id] of state.entries ?? []) {
     if (!name || !id) continue;
+    if (isInvalidPersonNameEntry(name)) {
+      cleansed = true;
+      continue;
+    }
     nameToId.set(name, id);
   }
   for (const [id, name] of deriveIdToName(state)) {
+    if (isInvalidPersonNameEntry(name)) {
+      cleansed = true;
+      continue;
+    }
     idToName.set(id, name);
   }
   counter = typeof state.counter === "number" && state.counter >= 0 ? state.counter : idToName.size;
@@ -88,7 +120,12 @@ function hydrateFromPersisted(state: PersistedState): void {
     const trimmed = raw.trim();
     if (trimmed) acknowledgedUnmasked.add(trimmed);
   }
+  if (cleansed) {
+    persist();
+  }
 }
+
+hydrateFromPersisted(initial);
 
 function persist(): void {
   // ロード失敗→空 fallback のまま ack 等で persist すると名簿が消える。
@@ -135,6 +172,25 @@ function findIdByAnyForm(name: string): string | undefined {
   return undefined;
 }
 
+/**
+ * 敬称を取り除いた形（bare）が、単独で人物名としてマスクやリーク検知の対象にして安全かを判定する。
+ * 日本語の一般語・動詞活用語尾・助動詞（「れている」「できる」「こちら」など）が敬称なしで
+ * 辞書に載ってしまうと、システムプロンプトや通常文章に含まれる普遍的表現が「実名リーク」として誤判定され、
+ * 全ての分析が停止する事故を防ぐための防壁。
+ */
+export function isSafeBareNameForMask(bare: string): boolean {
+  const trimmed = bare.trim();
+  if (trimmed.length < MIN_BARE_NAME_LENGTH_FOR_MASK || trimmed.length > MAX_NAME_LENGTH) return false;
+  if (!isPlausiblePersonName(trimmed)) return false;
+  if (getHiraganaStopwords().has(trimmed)) return false;
+  if (getKatakanaStopwords().has(trimmed)) return false;
+  if (getSpeakerKanjiStopwords().has(trimmed)) return false;
+  if (/^[ぁ-ん]+$/.test(trimmed) && /(?:ている|れている|られる|させる|ていく|てくる|ような|ように|ない|ます|です|たい|よう)$/.test(trimmed)) {
+    return false;
+  }
+  return true;
+}
+
 /** 登録済み表記に加え、敬称付き／なしの揺れも同一IDへマップする（永続化はしない）。 */
 function buildMaskMapping(): Map<string, string> {
   const mapping = new Map(nameToId);
@@ -145,8 +201,8 @@ function buildMaskMapping(): Map<string, string> {
     if (!bareToId.has(bare)) bareToId.set(bare, id);
   }
   for (const [bare, id] of bareToId.entries()) {
-    // bare 単体は2文字以上のみ（1文字は誤マスクが多い）。敬称付きは常に載せる。
-    if (bare.length >= MIN_BARE_NAME_LENGTH_FOR_MASK && !mapping.has(bare)) {
+    // bare 単体は安全判定（ストップワード・動詞語尾でないこと等）を通った場合のみ載せる。
+    if (isSafeBareNameForMask(bare) && !mapping.has(bare)) {
       mapping.set(bare, id);
     }
     for (const h of PERSON_HONORIFICS) {
@@ -159,6 +215,11 @@ function buildMaskMapping(): Map<string, string> {
 
 export function registerName(name: string): string {
   const trimmed = name.trim();
+  if (isInvalidPersonNameEntry(trimmed)) {
+    const existing = findIdByAnyForm(trimmed);
+    if (existing) return existing;
+    throw new Error(`無効な人名候補のため登録できません: ${trimmed}`);
+  }
   const existing = findIdByAnyForm(trimmed);
   if (existing) {
     // 敬称違いの新表記は別名として残し、以後その表記でもマスクできるようにする
@@ -512,6 +573,15 @@ export function isPlausiblePersonName(candidate: string): boolean {
   if (RESERVED_TERMS.has(trimmed.toLowerCase())) return false;
   if (isAsciiOnly(trimmed)) return false; // 記号・英数字のみの候補（NPS, 1on1等）を除外
   if (collidesWithExistingTeamName(trimmed)) return false;
+  const bare = stripPersonHonorific(trimmed);
+  if (bare) {
+    if (getHiraganaStopwords().has(bare)) return false;
+    if (getKatakanaStopwords().has(bare)) return false;
+    if (getSpeakerKanjiStopwords().has(bare)) return false;
+    if (/^[ぁ-ん]+$/.test(bare) && /(?:ている|れている|られる|させる|ていく|てくる|ような|ように|ない|ます|です|たい|よう)$/.test(bare)) {
+      return false;
+    }
+  }
   return true;
 }
 

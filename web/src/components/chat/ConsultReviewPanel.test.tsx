@@ -25,13 +25,16 @@ function baseIssue(overrides: Partial<Issue> = {}): Issue {
   return {
     id: "issue-1",
     title: "既存の提案タイトル",
-    status: "open",
-    priority: "mid",
+    status: "in_progress",
+    priority: "normal",
     createdAt: 1000,
     updatedAt: 2000,
-    memos: [],
-    reviewStatus: "unconfirmed",
-    confirmPriority: "normal",
+    reviewStatus: "unreviewed",
+    archived: false,
+    tags: [],
+    charter: { why: "", what: "", how: "" },
+    actionItems: [],
+    logEntries: [],
     ...overrides,
   };
 }
@@ -158,3 +161,98 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
     expect(button).toBeDisabled();
   });
 });
+
+describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
+  it("sourceJournalIdがない手動相談でもstatusがerrorならリセットボタンを表示する", () => {
+    const errorRun = baseRun({
+      status: "error",
+      sourceJournalId: undefined,
+      origin: "manual",
+    });
+
+    render(
+      <ConsultReviewPanel
+        selectedRun={errorRun}
+        sourceJournal={null}
+        issueCandidates={[]}
+        candidatePick={null}
+        setCandidatePick={vi.fn()}
+        stale={false}
+        fetchWithNameConfirm={vi.fn()}
+        refreshRuns={vi.fn().mockResolvedValue(undefined)}
+        refreshIssues={vi.fn().mockResolvedValue(undefined)}
+        issues={[]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "🔁 相談をリセットして再分析する" })).toBeInTheDocument();
+    expect(screen.getByText(/この相談はエラーで停止しています/)).toBeInTheDocument();
+  });
+
+  it("手動相談でリセットを押すとアーカイブ後に/api/agentsで再分析が起動される", async () => {
+    const errorRun = baseRun({
+      id: "error-run-123",
+      status: "error",
+      task: "検証タスクです",
+      agentName: "Lead Agent",
+      sourceJournalId: undefined,
+      origin: "manual",
+    });
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/review")) {
+        return Promise.resolve({ ok: true, json: async () => ({ ok: true }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const mockFetchWithNameConfirm = vi.fn().mockResolvedValue({
+      res: { ok: true },
+      data: { run: { id: "new-run-456" } },
+    });
+    const onReanalyzed = vi.fn();
+    const refreshRuns = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ConsultReviewPanel
+        selectedRun={errorRun}
+        sourceJournal={null}
+        issueCandidates={[]}
+        candidatePick={null}
+        setCandidatePick={vi.fn()}
+        stale={false}
+        fetchWithNameConfirm={mockFetchWithNameConfirm}
+        refreshRuns={refreshRuns}
+        refreshIssues={vi.fn().mockResolvedValue(undefined)}
+        issues={[]}
+        onReanalyzed={onReanalyzed}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "🔁 相談をリセットして再分析する" });
+    button.click();
+
+    await vi.waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/agents/error-run-123/review",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ archived: true }),
+        }),
+      );
+      expect(mockFetchWithNameConfirm).toHaveBeenCalledWith(
+        "/api/agents",
+        expect.objectContaining({
+          method: "POST",
+          body: { agentName: "Lead Agent", task: "検証タスクです" },
+        }),
+        "送信する",
+      );
+      expect(onReanalyzed).toHaveBeenCalledWith("new-run-456");
+    });
+
+    vi.unstubAllGlobals();
+  });
+});
+

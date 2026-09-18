@@ -467,4 +467,33 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
     pd.registerName("田中さん");
     expect(await pd.detectUnregisteredNameCandidates("田中くんと話した")).toEqual([]);
   });
+
+  it("「皆疲れている様子。」などの動詞語尾＋様態表現は人名候補として検出されない", async () => {
+    const pd = await loadModule();
+    expect(await pd.detectUnregisteredNameCandidates("皆疲れている様子。")).toEqual([]);
+    expect(await pd.detectUnregisteredNameCandidates("対応が進められている様を確認した。")).toEqual([]);
+  });
+
+  it("isInvalidPersonNameEntry はひらがなストップワードや動詞語尾を無効と判定する", async () => {
+    const pd = await loadModule();
+    expect(pd.isInvalidPersonNameEntry("れている様")).toBe(true);
+    expect(pd.isInvalidPersonNameEntry("ているさん")).toBe(true);
+    expect(pd.isInvalidPersonNameEntry("できる様")).toBe(true);
+    expect(pd.isInvalidPersonNameEntry("田中さん")).toBe(false);
+    expect(pd.isInvalidPersonNameEntry("佐藤")).toBe(false);
+  });
+
+  it("isSafeBareNameForMask は動詞語尾やストップワードをbareマスク辞書から除外する", async () => {
+    const pd = await loadModule();
+    expect(pd.isSafeBareNameForMask("れている")).toBe(false);
+    expect(pd.isSafeBareNameForMask("ている")).toBe(false);
+    expect(pd.isSafeBareNameForMask("こちら")).toBe(false);
+    expect(pd.isSafeBareNameForMask("田中")).toBe(true);
+    expect(pd.isSafeBareNameForMask("佐藤")).toBe(true);
+  });
+
+  it("registerName は無効な人名（動詞語尾・ストップワード）の登録を拒否する", async () => {
+    const pd = await loadModule();
+    expect(() => pd.registerName("れている様")).toThrow("無効な人名候補");
+  });
 });

@@ -182,11 +182,6 @@ export type AgentRun = {
   // consultと同様の一時フィールド。lookupRoundsは同一run内の追加照会回数（上限あり）。
   pendingLookup?: LookupRequest;
   lookupRounds?: number;
-  // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。実名リーク検知時、原因と見られる
-  // 過去のナレッジイベントを自動アーカイブ（隔離）できた場合に、runClaudeTurnへ
-  // 「1回だけ自動再分析してよい」と伝える一時フィールド（pendingConsult/pendingLookupと
-  // 同様、外部からは基本的に参照しない）。
-  nameLeakQuarantined?: boolean;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
   // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はEMが明示的に依頼した
   // Journal個別分析（POST /api/journal/[id]/analyze。かつてはJournal校正時の自動即時分析にも

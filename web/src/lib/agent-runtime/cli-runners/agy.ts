@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
-import { applyAssistantResultText, checkAndQuarantineNameLeak } from "./core";
+import { applyAssistantResultText } from "./core";
 
 // agy（複数モデル対応CLI）経由でのGeminiフォールバックに使うモデル。agyのモデル一覧は
 // バージョン付きの名前（例: gemini-3.6-flash-medium）でしか指定できず、汎用エイリアスは
@@ -21,11 +21,6 @@ const AGY_GEMINI_MODEL = "gemini-3.6-flash-medium";
 // システムプロンプトをプロンプト本文の先頭に連結して渡す。
 export function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
-    if (checkAndQuarantineNameLeak(run, prompt, systemPrompt)) {
-      resolve();
-      return;
-    }
 
     // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
     // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば

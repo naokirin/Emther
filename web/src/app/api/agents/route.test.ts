@@ -88,4 +88,31 @@ describe("POST /api/agents", () => {
     const json = await res.json();
     expect(json.run.requiredConsultAgents).toEqual(["Exec Agent"]);
   });
+
+  it("未確認の人名候補が含まれている場合は409を返し、確認後は201で起動できる", async () => {
+    const route = await import("./route");
+    // 未確認の「佐藤さん」が含まれるタスク
+    const res1 = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        agentName: "Lead Agent",
+        task: "佐藤さんと1on1の進め方について相談したい",
+      }),
+    );
+    expect(res1.status).toBe(409);
+    const json1 = await res1.json();
+    expect(json1.code).toBe("NAME_CANDIDATE_CONFIRMATION_REQUIRED");
+    expect(json1.candidates).toContain("佐藤さん");
+
+    // 確認（allowUnmaskedNameCandidates: true）を指定して送信
+    const res2 = await route.POST(
+      jsonRequest("http://localhost/x", "POST", {
+        agentName: "Lead Agent",
+        task: "佐藤さんと1on1の進め方について相談したい",
+        allowUnmaskedNameCandidates: true,
+      }),
+    );
+    expect(res2.status).toBe(201);
+    const json2 = await res2.json();
+    expect(json2.run.status).toBe("active");
+  });
 });

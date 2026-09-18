@@ -24,9 +24,11 @@ vi.mock("@/lib/embeddings", () => ({
 
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
-// 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
+const nameCandidateDetectRef = vi.hoisted(() => ({
+  detectNameCandidatesAsync: (async () => [] as string[]) as (text: string) => Promise<string[]>,
+}));
 vi.mock("@/lib/name-candidate-detect", () => ({
-  detectNameCandidatesAsync: async () => [] as string[],
+  detectNameCandidatesAsync: (text: string) => nameCandidateDetectRef.detectNameCandidatesAsync(text),
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
 }));
@@ -119,6 +121,7 @@ beforeEach(() => {
   vi.resetModules();
   setupSpawnMock();
   cosineSimilarityRef.impl = () => 0;
+  nameCandidateDetectRef.detectNameCandidatesAsync = async () => [];
 });
 
 afterEach(() => {
@@ -1352,15 +1355,14 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   // ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
-  // 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要が
-  // ある」対応。過去に実名マスクが漏れて保存されてしまったJournalファクト（そのもの）が、
-  // 全く無関係な新規Journalの自動分析（auto-anomaly）でrelatedContext（類似検索）
-  // 経由でsystemPromptへ混入し、送信直前チェックで検知される状況を再現する。
-  it("実名リーク検知時、原因ファクトを自動アーカイブして1回だけ自動的に再分析し、成功する", async () => {
+  // ユーザー要望「リーク検知を登録時に移したので、相談における検知すべき対象は今回入力されたテキストのみ」
+  // 「すでに保存済み情報を自動でアーカイブしてしまうことは避ける」対応。過去のナレッジイベントが
+  // 類似検索等でsystemPromptに含まれても、過去データを勝手に自動アーカイブしない。
+  it("過去のナレッジイベントを自動アーカイブせず、入力テキストのみを確認対象とする", async () => {
     const pd = await import("@/lib/people-directory");
     const ks = await import("@/lib/knowledge-store");
     pd.registerName("漏洩太郎");
-    const leaked = ks.recordEvent({
+    const pastEvent = ks.recordEvent({
       kind: "fact",
       context: "observation",
       entityType: "journal",
@@ -1370,7 +1372,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
       occurredAt: Date.now(),
       embedding: [1, 0, 0],
     });
-    // このテストだけ類似検索がヒットするようにする（既定は無関係=類似度0）。
+    // 類似検索がヒットするように設定
     cosineSimilarityRef.impl = () => 0.9;
 
     const rt = await loadModule();
@@ -1380,8 +1382,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
       "auto-anomaly",
     );
 
-    // 1回目の試行は送信前チェックで即座に止まりspawnされない。隔離後の自動再試行
-    // だけがspawnに到達するため、最終的にspawn回数は1回のまま。
+    // 過去データが関連コンテキストに含まれても勝手に自動アーカイブされず実行される
     await waitForSpawnCount(1);
     expect(spawnCalls).toHaveLength(1);
     emitClaudeResult(spawnCalls[0].child, {
@@ -1395,9 +1396,28 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     const finished = rt.getRun(run.id)!;
     expect(finished.status).toBe("idle");
     expect(finished.proposal?.conclusion).toBe("1on1を継続");
-    expect(finished.log.some((l) => l.text.includes("自動的にアーカイブしたため"))).toBe(true);
-    expect(finished.log.some((l) => l.text.includes("漏洩太郎"))).toBe(false);
-    expect(ks.getEventById(leaked.id)?.archivedAt).toBeDefined();
+    // 過去のナレッジイベントは勝手にアーカイブされずに残る
+    expect(ks.getEventById(pastEvent.id)?.archivedAt).toBeUndefined();
+  });
+
+  it("相談の入力テキストに未登録の人名候補がある場合はUnconfirmedNameCandidatesErrorをスローし、ユーザー確認で実行できる", async () => {
+    nameCandidateDetectRef.detectNameCandidatesAsync = async () => ["佐藤"];
+    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    const rt = await loadModule();
+
+    // 未確認の人名候補が含まれ、確認前の状態（allowUnmaskedCandidates: false）の場合、startRunは拒絶する
+    await expect(
+      rt.startRun("Lead Agent", "佐藤さんと1on1を実施した", "manual", undefined, {
+        allowUnmaskedCandidates: false,
+      }),
+    ).rejects.toThrow(UnconfirmedNameCandidatesError);
+
+    // ユーザーが「未登録のまま進める」と確認した場合は実行できる
+    const run = await rt.startRun("Lead Agent", "佐藤さんと1on1を実施した", "manual", undefined, {
+      allowUnmaskedCandidates: true,
+    });
+    expect(run).toBeDefined();
+    expect(run.status).toBe("active");
   });
 
   it("auto-anomalyでrecommendation:dismissなら自動却下する", async () => {

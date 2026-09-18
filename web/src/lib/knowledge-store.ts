@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db";
 import { cosineSimilarity } from "@/lib/embeddings";
-import { unmaskNames } from "@/lib/people-directory";
+import { isInvalidPersonNameEntry, unmaskNames } from "@/lib/people-directory";
 
 // docs/memo.md「H: 永続化データモデルの設計」の中核。ユーザー方針:
 // 「組織・人・システムは時系列で一貫せず、方針転換・一時的感情・環境変化を多く受ける前提で
@@ -188,7 +188,8 @@ export function clearEventArchived(id: string): KnowledgeEvent | undefined {
 // 単一ローカルユーザー規模の想定（他のTTL/superseded走査と同じ前提）なので、
 // 稀にしか通らないこの経路でも全件走査で十分。
 export function quarantineEventsContainingNames(names: string[]): string[] {
-  if (names.length === 0) return [];
+  const safeNames = names.filter((n) => n.trim().length >= 2 && !isInvalidPersonNameEntry(n));
+  if (safeNames.length === 0) return [];
   const rows = getDb()
     .prepare(
       "SELECT id, text, summary, tags_json, resolution_note FROM knowledge_events WHERE archived_at IS NULL",
@@ -197,7 +198,7 @@ export function quarantineEventsContainingNames(names: string[]): string[] {
   const quarantinedIds: string[] = [];
   for (const row of rows) {
     const haystack = `${row.text}\n${row.summary ?? ""}\n${row.tags_json}\n${row.resolution_note ?? ""}`;
-    if (names.some((name) => haystack.includes(name))) {
+    if (safeNames.some((name) => haystack.includes(name))) {
       setEventArchived(row.id, "name_leak");
       quarantinedIds.push(row.id);
     }

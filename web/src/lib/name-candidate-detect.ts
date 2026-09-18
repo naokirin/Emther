@@ -54,6 +54,11 @@ const HONORIFIC_SURFACE_STOPWORDS = new Set([
   "異様",
   "殿様",
   "皆様",
+  "様子",
+  "様態",
+  "様相",
+  "王様",
+  "仏様",
 ]);
 
 /** 議事録の話者ラベル（行頭〜：/:）。 */
@@ -116,7 +121,16 @@ function tryAddName(found: string[], seen: Set<string>, raw: string): void {
     if (HONORIFIC_SURFACE_STOPWORDS.has(name)) return;
     const bare = stripPersonHonorific(name);
     if (!bare || NAME_INTERNAL_NOISE_RE.test(bare)) return;
+    if (getHiraganaStopwords().has(bare)) return;
+    if (getKatakanaStopwords().has(bare)) return;
+    if (getSpeakerKanjiStopwords().has(bare)) return;
     if (!filters.isPlausiblePersonName(name)) return;
+    if (!filters.isPlausiblePersonName(bare)) return;
+    if (/^[ぁ-ん]+様$/.test(name)) {
+      if (/(?:ている|れている|られる|させる|ていく|てくる|ような|ように|ない|ます|です|たい|よう)$/.test(bare)) {
+        return;
+      }
+    }
   } else if (!isAcceptableBareNameCandidate(name)) {
     return;
   }
@@ -177,7 +191,12 @@ export function detectNameCandidates(text: string): string[] {
   const honorificRe = new RegExp(HONORIFIC_NAME_RE.source, "g");
   let m: RegExpExecArray | null;
   while ((m = honorificRe.exec(text)) !== null) {
-    tryAddName(found, seen, m[0]);
+    const raw = m[0];
+    const after = text.charAt(m.index + raw.length);
+    if (raw.endsWith("様") && /[子態相的]/.test(after)) {
+      continue;
+    }
+    tryAddName(found, seen, raw);
     if (found.length >= NAME_CANDIDATE_MAX) break;
   }
 

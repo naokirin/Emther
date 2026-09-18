@@ -4,7 +4,7 @@ import { dataFilePath } from "@/lib/persistence";
 import { getRulesAndConstraints } from "@/lib/settings-store";
 import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
-import { applyAssistantResultText, checkAndQuarantineNameLeak } from "./core";
+import { applyAssistantResultText } from "./core";
 
 // docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
 // cursor-agentも複数モデルに対応するマルチモデルCLIで、汎用モデル名（コーディング特化で
@@ -28,11 +28,6 @@ mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 // 先頭に連結して渡す。
 export function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応、runClaudeCliAttemptと同じ考え方）。
-    if (checkAndQuarantineNameLeak(run, prompt, systemPrompt)) {
-      resolve();
-      return;
-    }
 
     // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
     // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば

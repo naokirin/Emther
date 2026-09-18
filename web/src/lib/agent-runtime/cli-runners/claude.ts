@@ -3,17 +3,12 @@ import { getRulesAndConstraints } from "@/lib/settings-store";
 import { perTurnBudgetUsdArg } from "../context-blocks";
 import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
-import { checkAndQuarantineNameLeak, handleStreamEvent } from "./core";
+import { handleStreamEvent } from "./core";
 
 // 戻り値はこの試行が失敗した（run.statusが"error"で終わった）かどうか。
 // 相談待ち（pendingConsult）・追加照会待ち（pendingLookup）は失敗ではない。
 export function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    // 個人情報の分離の「最後の砦」（ユーザー指摘対応）。checkAndQuarantineNameLeak参照。
-    if (checkAndQuarantineNameLeak(run, prompt, systemPrompt)) {
-      resolve(true);
-      return;
-    }
 
     const args = [
       "-p",
