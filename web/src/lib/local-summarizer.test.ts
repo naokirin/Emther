@@ -42,7 +42,7 @@ describe("local-summarizer", () => {
     expect(q0).toContain("お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？");
   });
 
-  it("1on1対話: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、その相手以外のチーム全体へと優しく視野を広げる", async () => {
+  it("1on1対話: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、相手の業務負荷や兆候を1歩深掘りする", async () => {
     const q1 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "今日はどんな一日でしたか？" },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
@@ -52,33 +52,32 @@ describe("local-summarizer", () => {
     // なぜスキップしたか詰問しない
     expect(q1).not.toContain("なぜこのスキップになったのか");
     expect(q1).not.toContain("学びたいこと");
-    // 相手の名前を受け取り、その相手以外のメンバーやチーム全体へ視野を広げる
-    expect(q1).toContain("その田中さん以外のメンバーやチーム全体の様子はどうでしたか？");
+    // 業務負荷や兆候など背景を深掘りする
+    expect(q1).toContain("最近の業務負荷や様子などで何か気になっているサインや、スキップに至った背景として思い当たることはありますか？");
   });
 
-  it("1on1対話: チーム動向の共有（Turn 2）を受け、その状況を問いかけに組み込みながらEM自身の判断・アクションへ視点を移す", async () => {
+  it("1on1対話: 背景・要因の共有（Turn 2）を受け、その洞察を肯定しつつEM自身の次の一手・フォローへ視点を進める", async () => {
     const q2 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "..." },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
       { role: "assistant", content: "..." },
-      { role: "user", content: "QAの残業が少し増えているのが気になりました。" },
+      { role: "user", content: "新しい案件が重なっていて少し抱え込み気味だったようです。" },
     ]);
-    expect(q2).toContain("QAの状況や残業をしっかりキャッチされていますね");
-    expect(q2).toContain("そうしたQAの状況や残業に向き合い、チームを支えられる中で");
-    expect(q2).toContain("『判断・決定したこと』");
+    expect(q2).toContain("田中さんに関して「新しい案件が重なっていて少し抱え込み気味」という背景やサインに気づかれたのですね");
+    expect(q2).toContain("田中さんへどんなフォローや声かけをしてみようと思いますか？");
   });
 
-  it("1on1対話: EM自身の判断（Turn 3）を受け、違和感やモヤモヤ・明日への引き継ぎを促す", async () => {
+  it("1on1対話: EMのアクション（Turn 3）を受け、深まった思考を労いながら違和感や明日への引き継ぎを促す", async () => {
     const q3 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "..." },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
       { role: "assistant", content: "..." },
-      { role: "user", content: "QAの残業が少し増えているのが気になりました。" },
+      { role: "user", content: "新しい案件が重なっていて少し抱え込み気味だったようです。" },
       { role: "assistant", content: "..." },
-      { role: "user", content: "ロードマップの優先度を見直してスコープを削る合意を取りました。" },
+      { role: "user", content: "明日朝イチで田中さんに声かけして案件の棚卸しを一緒にやろうと思います。" },
     ]);
-    expect(q3).toContain("重要な意思決定を前に進められたのですね");
-    expect(q3).toContain("頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ");
+    expect(q3).toContain("次の一手や判断を明確に描けていらっしゃいますね");
+    expect(q3).toContain("頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？");
   });
 
   it("対話のまとめ: 各ターンの発言を事実・EMの判断・気づきに構造化できる", async () => {
