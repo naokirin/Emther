@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { RecordDateField } from "@/components/RecordDateField";
@@ -33,6 +33,25 @@ export function DailyReflectionForm({ onCreated }: Props) {
   const [structuring, setStructuring] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 新しいメッセージや問いかけの準備状態に合わせて最下部へ自動スクロール
+  useEffect(() => {
+    if (phase === "chat") {
+      if (typeof messagesEndRef.current?.scrollIntoView === "function") {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [messages, asking, phase]);
+
+  // チャット画面表示時・AI回答完了時に入力欄へフォーカス
+  useEffect(() => {
+    if (phase === "chat" && !asking) {
+      inputRef.current?.focus();
+    }
+  }, [phase, asking]);
 
   useEffect(() => {
     async function loadTodayJournals() {
@@ -297,11 +316,13 @@ export function DailyReflectionForm({ onCreated }: Props) {
                 <span className={styles.spinner} aria-hidden /> AIが質問を準備しています…
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* 入力欄 */}
           <div className={styles.field} style={{ margin: 0 }}>
             <textarea
+              ref={inputRef}
               value={currentInput}
               onChange={(e) => setCurrentInput(e.target.value)}
               placeholder="回答を入力（短文や箇条書きで大丈夫です。Enterで改行）..."

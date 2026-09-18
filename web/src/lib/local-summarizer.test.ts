@@ -42,7 +42,7 @@ describe("local-summarizer", () => {
     expect(q0).toContain("お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？");
   });
 
-  it("1on1対話: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、チーム全体へと優しく視野を広げる", async () => {
+  it("1on1対話: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、その相手以外のチーム全体へと優しく視野を広げる", async () => {
     const q1 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "今日はどんな一日でしたか？" },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
@@ -52,19 +52,19 @@ describe("local-summarizer", () => {
     // なぜスキップしたか詰問しない
     expect(q1).not.toContain("なぜこのスキップになったのか");
     expect(q1).not.toContain("学びたいこと");
-    // 他のメンバーやチーム全体へ視野を広げる
-    expect(q1).toContain("他のメンバーやチーム全体の様子はどうでしたか？");
+    // 相手の名前を受け取り、その相手以外のメンバーやチーム全体へ視野を広げる
+    expect(q1).toContain("その田中さん以外のメンバーやチーム全体の様子はどうでしたか？");
   });
 
-  it("1on1対話: チーム動向の共有（Turn 2）を受け、EM自身の判断・アクションへ視点を移す", async () => {
+  it("1on1対話: チーム動向の共有（Turn 2）を受け、その状況を問いかけに組み込みながらEM自身の判断・アクションへ視点を移す", async () => {
     const q2 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "..." },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
       { role: "assistant", content: "..." },
       { role: "user", content: "QAの残業が少し増えているのが気になりました。" },
     ]);
-    expect(q2).toContain("現場の負荷やメンバーの状況をよく見守られていますね");
-    expect(q2).toContain("EMご自身について振り返ってみましょう");
+    expect(q2).toContain("QAの状況や残業をしっかりキャッチされていますね");
+    expect(q2).toContain("そうしたQAの状況や残業に向き合い、チームを支えられる中で");
     expect(q2).toContain("『判断・決定したこと』");
   });
 
