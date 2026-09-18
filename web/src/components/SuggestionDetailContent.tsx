@@ -89,6 +89,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [detailDraftAdvice, setDetailDraftAdvice] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
+  const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
 
   async function patchSuggestion(body: Record<string, unknown>) {
     if (!suggestion) return;
@@ -470,58 +471,117 @@ export function SuggestionDetailContent({ id }: { id: string }) {
           </div>
         ) : suggestion.detail ? (
           <>
-            <strong style={{ fontSize: "0.875rem" }}>✅ 結論</strong>
-            <p style={{ fontSize: "0.875rem", marginTop: 4 }}>
-              <IdLinkedText text={suggestion.detail.conclusion} />
-            </p>
-            {suggestion.detail.facts.length > 0 && (
-              <>
-                <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
-                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                  {suggestion.detail.facts.map((f, i) => (
-                    <li key={i}>
-                      <IdLinkedText text={f} />
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
-            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
-              <IdLinkedText text={suggestion.detail.logic} />
-            </p>
-            {suggestion.detail.expansions && suggestion.detail.expansions.length > 0 && (
-              <>
-                <strong style={{ fontSize: "0.75rem" }}>🔭 視点の広がり（Expand）</strong>
-                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                  {suggestion.detail.expansions.map((e, i) => (
-                    <li key={i}>
-                      <IdLinkedText text={e} />
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {suggestion.detail.challenges && suggestion.detail.challenges.length > 0 && (
-              <>
-                <strong style={{ fontSize: "0.75rem" }}>❓ 前提への問い（Challenge）</strong>
-                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                  {suggestion.detail.challenges.map((c, i) => (
-                    <li key={i}>
-                      <IdLinkedText text={c} />
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {suggestion.detail.advice && (
-              <>
-                <strong style={{ fontSize: "0.75rem" }}>💡 進め方のアドバイス</strong>
-                <p style={{ fontSize: "0.75rem", margin: "4px 0 8px" }}>
+            <div
+              style={{
+                padding: "12px 14px",
+                backgroundColor: "var(--surface)",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                borderLeft: "4px solid var(--accent)",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <strong style={{ fontSize: "0.95rem", color: "var(--fg)" }}>✅ 結論</strong>
+              </div>
+              <p style={{ fontSize: "1rem", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
+                <IdLinkedText text={suggestion.detail.conclusion} />
+              </p>
+
+              {suggestion.detail.advice && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    paddingTop: 10,
+                    borderTop: "1px dashed var(--border)",
+                    fontSize: "0.85rem",
+                    color: "var(--fg)",
+                  }}
+                >
+                  <strong style={{ color: "var(--accent)" }}>💡 進め方のアドバイス: </strong>
                   <IdLinkedText text={suggestion.detail.advice} />
-                </p>
-              </>
+                </div>
+              )}
+            </div>
+
+            {(suggestion.detail.facts.length > 0 ||
+              Boolean(suggestion.detail.logic) ||
+              (suggestion.detail.expansions && suggestion.detail.expansions.length > 0) ||
+              (suggestion.detail.challenges && suggestion.detail.challenges.length > 0)) && (
+              <details
+                style={{
+                  margin: "8px 0 12px",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  padding: "8px 12px",
+                  background: "var(--bg-subtle, transparent)",
+                }}
+              >
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    color: "var(--text-muted)",
+                    fontWeight: 500,
+                    userSelect: "none",
+                  }}
+                >
+                  🔍 判断根拠・思考プロセスを確認する
+                  {suggestion.detail.facts.length > 0 ? `（参照ファクト ${suggestion.detail.facts.length}件）` : ""}
+                </summary>
+
+                <div style={{ marginTop: 10 }}>
+                  {suggestion.detail.facts.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
+                      <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                        {suggestion.detail.facts.map((f, i) => (
+                          <li key={i}>
+                            <IdLinkedText text={f} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {suggestion.detail.logic && (
+                    <div style={{ marginBottom: 10 }}>
+                      <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
+                      <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
+                        <IdLinkedText text={suggestion.detail.logic} />
+                      </p>
+                    </div>
+                  )}
+
+                  {suggestion.detail.expansions && suggestion.detail.expansions.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <strong style={{ fontSize: "0.75rem" }}>🔭 視点の広がり（Expand）</strong>
+                      <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                        {suggestion.detail.expansions.map((e, i) => (
+                          <li key={i}>
+                            <IdLinkedText text={e} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {suggestion.detail.challenges && suggestion.detail.challenges.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <strong style={{ fontSize: "0.75rem" }}>❓ 前提への問い（Challenge）</strong>
+                      <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                        {suggestion.detail.challenges.map((c, i) => (
+                          <li key={i}>
+                            <IdLinkedText text={c} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </details>
             )}
+
             <p className={styles.subtitle} style={{ marginTop: 0 }}>
               最終更新: {new Date(suggestion.detail.updatedAt).toLocaleString("ja-JP")}
             </p>
@@ -572,48 +632,88 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       )}
       {pendingStart && <PendingAgentStartNotice pending={pendingStart} />}
 
-      <div className={styles.issueColumns}>
-        <div className={styles.panel}>
-          <h2>判断・提案（Agent）</h2>
-          {showingSourceConsult && (
-            <p className={styles.subtitle} style={{ marginTop: 0 }}>
-              この提案専用の Agent Run はまだありません。元の相談の内容を表示しています。
-              {" "}
-              <Link href={`/chat?runId=${encodeURIComponent(activeRun!.id)}`}>相談履歴で開く</Link>
-            </p>
-          )}
-          {activeRun ? (
-            <ExecutionState
-              run={activeRun}
-              selectedOptionId={selectedOptionId}
-              onSelectOption={setSelectedOptionId}
-              onConfirmOption={handleConfirmOption}
-              onFocusChat={handleFocusChat}
-              deciding={deciding}
-              stale={staleRunIds.has(activeRun.id)}
-              onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
-            />
-          ) : (
-            <p className={styles.subtitle}>
-              この提案に紐づく Agent Run はありません。 <Link href="/chat">何でも相談</Link>から続けることもできます。
-            </p>
-          )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, marginTop: 20 }}>
+        <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 500 }}>
+          {columnsMode === "split"
+            ? "並べて表示（判断と壁打ちを同時に確認）"
+            : columnsMode === "agent"
+              ? "判断・提案のみ全幅表示"
+              : "壁打ちのみ全幅表示"}
+        </span>
+        <div className={styles.tabs} style={{ margin: 0, gap: 4 }}>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${columnsMode === "split" ? styles.tabBtnActive : ""}`}
+            style={{ fontSize: "0.75rem", padding: "3px 10px" }}
+            onClick={() => setColumnsMode("split")}
+          >
+            ⚖️ 並べて表示
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${columnsMode === "agent" ? styles.tabBtnActive : ""}`}
+            style={{ fontSize: "0.75rem", padding: "3px 10px" }}
+            onClick={() => setColumnsMode("agent")}
+          >
+            📋 判断・提案
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${columnsMode === "chat" ? styles.tabBtnActive : ""}`}
+            style={{ fontSize: "0.75rem", padding: "3px 10px" }}
+            onClick={() => setColumnsMode("chat")}
+          >
+            💬 壁打ち
+          </button>
         </div>
-        <div className={styles.panel}>
-          <h2>壁打ち</h2>
-          {activeRun ? (
-            <CopilotChat
-              run={activeRun}
-              message={message}
-              setMessage={setMessage}
-              deciding={deciding}
-              onDecide={sendDecision}
-              inputId="suggestion-chat-input"
-            />
-          ) : (
-            <p className={styles.subtitle}>Agent Runが無いため会話はありません。</p>
-          )}
-        </div>
+      </div>
+
+      <div className={columnsMode === "split" ? styles.issueColumns : undefined}>
+        {(columnsMode === "split" || columnsMode === "agent") && (
+          <div className={styles.panel}>
+            <h2>判断・提案（Agent）</h2>
+            {showingSourceConsult && (
+              <p className={styles.subtitle} style={{ marginTop: 0 }}>
+                この提案専用の Agent Run はまだありません。元の相談の内容を表示しています。
+                {" "}
+                <Link href={`/chat?runId=${encodeURIComponent(activeRun!.id)}`}>相談履歴で開く</Link>
+              </p>
+            )}
+            {activeRun ? (
+              <ExecutionState
+                run={activeRun}
+                selectedOptionId={selectedOptionId}
+                onSelectOption={setSelectedOptionId}
+                onConfirmOption={handleConfirmOption}
+                onFocusChat={handleFocusChat}
+                deciding={deciding}
+                stale={staleRunIds.has(activeRun.id)}
+                onRetry={() => sendDecision("直前の処理がエラーで中断しました。同じ内容を踏まえて再度実行してください。")}
+              />
+            ) : (
+              <p className={styles.subtitle}>
+                この提案に紐づく Agent Run はありません。 <Link href="/chat">何でも相談</Link>から続けることもできます。
+              </p>
+            )}
+          </div>
+        )}
+        {(columnsMode === "split" || columnsMode === "chat") && (
+          <div className={styles.panel}>
+            <h2>壁打ち</h2>
+            {activeRun ? (
+              <CopilotChat
+                run={activeRun}
+                message={message}
+                setMessage={setMessage}
+                deciding={deciding}
+                onDecide={sendDecision}
+                inputId="suggestion-chat-input"
+              />
+            ) : (
+              <p className={styles.subtitle}>Agent Runが無いため会話はありません。</p>
+            )}
+          </div>
+        )}
       </div>
 
       {nameCandidateDialog}

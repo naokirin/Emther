@@ -156,9 +156,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div>
       <nav
-        className={`${styles.subTabs} ${styles.axisTooltip} ${styles.axisTooltipDownCenter}`}
+        className={styles.subTabs}
         aria-label={group.label}
-        data-tooltip={group.hint}
       >
         {group.items.map((item) => {
           const isActive = item.href === activeHref;
