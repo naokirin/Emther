@@ -146,7 +146,7 @@ EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を
   ];
 
   try {
-    const raw = await runLocalChat(messages, 150);
+    const raw = await runLocalChat(messages, 1000);
     if (!raw || !raw.trim()) return null;
 
     let cleaned = raw
@@ -191,7 +191,7 @@ async function structureDailyReflectionViaLocalAI(text: string): Promise<string 
   ];
 
   try {
-    const raw = await runLocalChat(messages, 250);
+    const raw = await runLocalChat(messages, 1000);
     if (!raw || !raw.trim()) return null;
 
     const cleaned = raw.trim();
