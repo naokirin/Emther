@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DailyReflectionForm } from "./DailyReflectionForm";
 
@@ -10,19 +10,31 @@ describe("DailyReflectionForm", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url: string) => {
+      vi.fn(async (url: string, opts?: RequestInit) => {
         if (url === "/api/journal/local-summarize") {
+          const body = opts?.body ? JSON.parse(opts.body as string) : {};
+          if (body.mode === "question") {
+            return {
+              ok: true,
+              json: async () => ({
+                question:
+                  body.history?.length > 0
+                    ? "なるほど、そのようなことがあったのですね。チームメンバーの様子や変化はどうでしたか？"
+                    : "お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？",
+              }),
+            };
+          }
           return {
             ok: true,
             json: async () => ({
-              summary: "**【事実・出来事】**\n- Aさんと1on1\n\n**【EMの判断・対応】**\n- 追加面談設定",
+              summary: "**【今日やったこと・進めたこと】**\n- Aさんと面談\n\n**【気づき】**\n- 順調",
             }),
           };
         }
         if (url === "/api/journal") {
           return {
             ok: true,
-            json: async () => ({ entry: { id: "j-1" } }),
+            json: async () => ({ entry: { id: "j-1" }, entries: [] }),
           };
         }
         return { ok: true, json: async () => ({}) };
@@ -35,28 +47,44 @@ describe("DailyReflectionForm", () => {
     onCreated.mockClear();
   });
 
-  it("振り返りの問いかけとテキストエリアが表示される", () => {
+  it("初期待機画面では「振り返りを始める」ボタンが表示される", () => {
     render(<DailyReflectionForm onCreated={onCreated} />);
     expect(screen.getByText(/1日の終わりの振り返り/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/今日はAさんと評価面談/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /AIと整理・シグナル抽出する/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
   });
 
-  it("テキストを入力すると整理ボタンが活性化し、AI整理結果が編集可能になる", async () => {
+  it("「振り返りを始める」を押すとAIの問いかけが始まり、対話を進めてまとめることができる", async () => {
     const user = userEvent.setup();
     render(<DailyReflectionForm onCreated={onCreated} />);
 
-    const textarea = screen.getByPlaceholderText(/今日はAさんと評価面談/);
-    await user.type(textarea, "今日はAさんと面談した。");
+    // 開始
+    await user.click(screen.getByRole("button", { name: "✨ 振り返りを始める" }));
 
-    const structureBtn = screen.getByRole("button", { name: /AIと整理・シグナル抽出する/ });
-    expect(structureBtn).toBeEnabled();
+    // AIの最初の問いかけが表示される
+    expect(await screen.findByText(/お疲れ様でした！今日も一日お疲れ様でした/)).toBeInTheDocument();
 
-    await user.click(structureBtn);
-    expect(await screen.findByText(/AI整理結果/)).toBeInTheDocument();
+    // ユーザーが返答を入力して送信
+    const input = screen.getByPlaceholderText(/回答を入力/);
+    await user.type(input, "今日はAさんと評価面談をしました。");
+    await user.click(screen.getByRole("button", { name: /送信/ }));
 
-    const saveBtn = screen.getByRole("button", { name: /この内容でジャーナルに確定保存/ });
+    // AIの次の問いかけが表示される
+    expect(await screen.findByText(/チームメンバーの様子や変化はどうでしたか？/)).toBeInTheDocument();
+
+    // 「振り返りをまとめる」を押す
+    const summarizeBtn = screen.getByRole("button", { name: /この内容で振り返りをまとめる/ });
+    await user.click(summarizeBtn);
+
+    // 構造化された振り返りメモが表示される
+    expect(await screen.findByText(/対話内容を構造化しました/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Aさんと面談/)).toBeInTheDocument();
+
+    // 保存する
+    const saveBtn = screen.getByRole("button", { name: /この内容でジャーナルに保存/ });
     await user.click(saveBtn);
-    expect(onCreated).toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalled();
+    });
   });
 });

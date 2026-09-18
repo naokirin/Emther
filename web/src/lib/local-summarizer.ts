@@ -71,6 +71,79 @@ EMが書いた自由記述の振り返りから、以下の3点に構造化し�
   return fallbackReflectionStructure(trimmed);
 }
 
+export interface ReflectionTurn {
+  role: "assistant" | "user";
+  content: string;
+}
+
+/**
+ * 1日の振り返り対話で、EMの回答や本日のJournalメモをもとに次の問いかけを生成する。
+ * 無理に1点を深掘りするのではなく、EMが1日の多様な側面（全体感、メンバーや1on1の兆候、
+ * EM自身の意思決定やタスク進捗、ふとした違和感や気づき）を幅広く思い返せるようにする。
+ */
+export async function generateNextReflectionQuestionLocally(
+  dialogHistory: ReflectionTurn[],
+  todayJournalTexts: string[] = [],
+): Promise<string> {
+  const todayJournalBlock =
+    todayJournalTexts.length > 0
+      ? `\n【本日すでに記録されたJournalメモ】\n${todayJournalTexts.slice(0, 3).map((t) => `- ${t.slice(0, 80)}`).join("\n")}\n`
+      : "";
+
+  const systemPrompt = `あなたはエンジニアリングマネージャー（EM）の1日の終わりの内省・振り返りを導くAIパートナーです。
+目的: EMが無理なく今日1日を広く振り返り、やったこと・決めたこと・気づき・メンバーの兆候を思い起こせるようにすること。
+${todayJournalBlock}
+【重要指示】
+- 無理に特定の1つの話題だけを深掘り・追及しないでください。
+- EMの直前の発言に温かく簡潔に相槌・共感を打った上で、まだ触れられていない業務の異なる側面（チームメンバーや1on1の様子、EM自身の意思決定やタスク、ふとした違和感や心残りなど）へと広く目を向けられるような問いかけを1つ投げかけてください。
+- 1〜2文の短く気軽に応答できる質問にしてください。`;
+
+  try {
+    const chatMessages = [
+      { role: "system", content: systemPrompt },
+      ...dialogHistory.map((t) => ({ role: t.role, content: t.content })),
+    ];
+    const reply = await runLocalChat(chatMessages, 250);
+    if (reply && reply.trim().length > 0) {
+      return reply.trim();
+    }
+  } catch {
+    // fallback
+  }
+
+  return fallbackNextReflectionQuestion(dialogHistory, todayJournalTexts);
+}
+
+function fallbackNextReflectionQuestion(
+  dialogHistory: ReflectionTurn[],
+  todayJournalTexts: string[] = [],
+): string {
+  const userTurns = dialogHistory.filter((t) => t.role === "user");
+  const count = userTurns.length;
+
+  if (count === 0) {
+    const extra =
+      todayJournalTexts.length > 0
+        ? `\n（今日のメモ: 「${todayJournalTexts[0].slice(0, 30)}…」なども含め振り返っていただけます）`
+        : "";
+    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や、全体の雰囲気など、ざっくりとした一言でも構いません）${extra}`;
+  }
+
+  if (count === 1) {
+    const extra =
+      todayJournalTexts.length > 1
+        ? `また、今日メモにあった「${todayJournalTexts[1].slice(0, 25)}…」の件も含めて、`
+        : "";
+    return `なるほど、そのようなことがあったのですね。お疲れ様でした。${extra}チームメンバーの様子や1on1での会話、体調・モチベーションなどで気になった兆候や変化はありましたか？`;
+  }
+
+  if (count === 2) {
+    return `ありがとうございます。メンバーや組織とのやり取りも大切ですね。ちなみに、EMご自身として今日決断したことや、新しく前に進められた課題・タスクなどはありましたか？`;
+  }
+
+  return `一日を通して様々なことが前に進みましたね。今日を振り返って、心残りや、ふと引っかかった違和感、明日以降に意識したいモヤモヤ・気づきなどはありますか？特になければ、このまま本日の振り返りとしてまとめますね。`;
+}
+
 function fallbackSummarize(text: string): string {
   const lines = text
     .split("\n")

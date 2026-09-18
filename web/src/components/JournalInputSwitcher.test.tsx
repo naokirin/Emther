@@ -16,16 +16,22 @@ describe("JournalInputSwitcher", () => {
     vi.unstubAllGlobals();
   });
 
-  it("既定では「1日の振り返り」タブが選ばれ、リフレクション入力欄が表示される", () => {
+  it("既定では「1日の振り返り」タブが選ばれ、対話型リフレクションの開始ボタンが表示される", () => {
     render(<JournalInputSwitcher onSaved={vi.fn()} />);
     expect(screen.getByRole("button", { name: "🌙 1日の振り返り" }).className).toContain("tabBtnActive");
-    expect(screen.getByPlaceholderText(/今日はAさんと評価面談/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
   });
 
   it("focusDumpIdがあればまとめて取り込むタブが既定で開く", () => {
     render(<JournalInputSwitcher onSaved={vi.fn()} focusDumpId="dump-1" />);
     expect(screen.getByRole("button", { name: "📥 まとめて取り込む" }).className).toContain("tabBtnActive");
-    expect(screen.queryByPlaceholderText(/今日はAさんと評価面談/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "✨ 振り返りを始める" })).not.toBeInTheDocument();
+  });
+
+  it("prefillがあれば随時メモタブが既定で開き、テキストが反映される", () => {
+    render(<JournalInputSwitcher onSaved={vi.fn()} prefill="タスクAのメモ" />);
+    expect(screen.getByRole("button", { name: "📝 随時メモ" }).className).toContain("tabBtnActive");
+    expect(screen.getByDisplayValue("タスクAのメモ")).toBeInTheDocument();
   });
 
   it("タブをクリックすると各入力モードに切り替わる", async () => {
@@ -49,6 +55,6 @@ describe("JournalInputSwitcher", () => {
     // 1日の振り返りに戻す
     await user.click(screen.getByRole("button", { name: "🌙 1日の振り返り" }));
     expect(screen.getByRole("button", { name: "🌙 1日の振り返り" }).className).toContain("tabBtnActive");
-    expect(screen.getByPlaceholderText(/今日はAさんと評価面談/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
   });
 });
