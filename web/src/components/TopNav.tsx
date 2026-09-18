@@ -34,26 +34,16 @@ type StoryGroup = {
 const STORY_GROUPS: StoryGroup[] = [
   { key: "dashboard", label: "今日", hint: "組織の状態を掴み、今日向き合う判断を選ぶ", items: [{ href: "/", label: "今日" }] },
   {
+    key: "sensing",
+    label: "ジャーナル",
+    hint: "現場の出来事を事実として残す・校正する",
+    items: [{ href: "/journal", label: "ジャーナル" }],
+  },
+  {
     key: "intervention",
     label: "提案",
     hint: "AIの提案を確認し、メモと壁打ちで理解を深める",
     items: [{ href: "/suggestions", label: "提案一覧" }],
-  },
-  {
-    // ユーザー指摘「課題タブの下に『人』があるのがわかりにくい」対応。課題（Issue）とは
-    // 別の関心事として独立したグローバルタブに分離する。URLは/peopleのまま変更しない。
-    //
-    // ユーザー要望「メンバータブを『チーム・メンバー』とし、左メニューでチーム・メンバーを
-    // 切り替えられるようにしたい」対応。複数画面グループにすると、AppShellが自動的に
-    // サブナビを出す。後から左メニューは全グループ共通で横タブに揃えた。
-    // 既定の遷移先（タブ本体クリック時）は従来通りの/people（日々の確認頻度が高い方）。
-    key: "members",
-    label: "チーム・メンバー",
-    hint: "メンバーごとの気にかけるべき度合い・Journal・関連提案の確認、チーム（体制）の追加・編集",
-    items: [
-      { href: "/people", label: "メンバー" },
-      { href: "/teams", label: "チーム" },
-    ],
   },
   {
     key: "consult",
@@ -64,12 +54,6 @@ const STORY_GROUPS: StoryGroup[] = [
       { href: "/mask-check", label: "個人・機密情報チェック" },
       { href: "/agents", label: "エージェント" },
     ],
-  },
-  {
-    key: "sensing",
-    label: "ジャーナル",
-    hint: "現場の出来事を事実として残す・校正する",
-    items: [{ href: "/journal", label: "ジャーナル" }],
   },
   {
     key: "reflection",
@@ -83,14 +67,18 @@ const STORY_GROUPS: StoryGroup[] = [
     ],
   },
   {
+    key: "members",
+    label: "チーム・メンバー",
+    hint: "メンバーごとの気にかけるべき度合い・Journal・関連提案の確認、チーム（体制）の追加・編集",
+    items: [
+      { href: "/people", label: "メンバー" },
+      { href: "/teams", label: "チーム" },
+    ],
+  },
+  {
     key: "constitution",
     label: "方針・目標",
-    // ユーザー要望「方針・目標タブは方針・目標の設定によりフォーカスした形にしたい」対応。
-    // チーム（体制）はメンバータブへ移設したため、ここはMVV・OKRの前提設定に絞る。
     hint: "組織の憲法＝MVV・目標（OKR）という前提を置く",
-    // docs/memo.md「戦略→Issue→Journalの縦の接続が見えづらい」対応。/orgは登録・編集面の
-    // ままにし、Objective→KR→Issue→Journalを辿る閲覧専用ビューは「振り返り」グループと同じ
-    // パターンで別ルートのサブタブへ分離する（/org自体は肥大化させない）。
     items: [
       { href: "/org", label: "方針・目標" },
       { href: "/org/thread", label: "つながりを見る" },

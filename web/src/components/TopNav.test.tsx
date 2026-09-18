@@ -9,10 +9,20 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("TopNav", () => {
-  it("グループ単位（8個）のタブを表示する", () => {
+  it("グループ単位（8個）のタブを指定された順番で表示する", () => {
     mockPathname = "/";
     render(<TopNav />);
-    expect(screen.getAllByRole("link")).toHaveLength(8);
+    const links = screen.getAllByRole("link");
+    expect(links.map((l) => l.textContent?.trim())).toEqual([
+      "今日",
+      "ジャーナル",
+      "提案",
+      "相談",
+      "振り返り",
+      "チーム・メンバー",
+      "方針・目標",
+      "設定",
+    ]);
   });
 
   it("現在のパスに応じたグループのタブだけactiveクラスを持つ", () => {
