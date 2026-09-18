@@ -254,6 +254,11 @@ function SuggestionsPageInner() {
                         <button className={styles.tableRowLink} onClick={() => peek.open(s.id)}>
                           {s.title}
                         </button>
+                        {now - s.updatedAt < 24 * 60 * 60 * 1000 && (
+                          <span className={styles.newBadge} style={{ marginLeft: 6 }}>
+                            NEW
+                          </span>
+                        )}
                         <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {linkedRun && (
                             <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />

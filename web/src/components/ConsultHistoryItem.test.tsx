@@ -116,4 +116,18 @@ describe("ConsultHistoryItem", () => {
     render(<ConsultHistoryItem run={baseRun()} selected={false} promoted onSelect={() => {}} />);
     expect(screen.getByText(/提案化済み/)).toBeInTheDocument();
   });
+
+  it("直近24時間以内に更新された相談にはNEWバッジを表示する", () => {
+    const testNow = Date.parse("2026-09-10T15:00:00");
+    const recentRun = baseRun({ updatedAt: Date.parse("2026-09-10T14:00:00") });
+    const oldRun = baseRun({ updatedAt: Date.parse("2026-09-08T10:00:00") });
+
+    const { rerender } = render(
+      <ConsultHistoryItem run={recentRun} selected={false} now={testNow} onSelect={() => {}} />,
+    );
+    expect(screen.getByText("NEW")).toBeInTheDocument();
+
+    rerender(<ConsultHistoryItem run={oldRun} selected={false} now={testNow} onSelect={() => {}} />);
+    expect(screen.queryByText("NEW")).not.toBeInTheDocument();
+  });
 });

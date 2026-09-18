@@ -65,18 +65,21 @@ export function ConsultHistoryItem({
   selected,
   stale,
   promoted,
+  now,
   onSelect,
 }: {
   run: AgentRun;
   selected: boolean;
   stale?: boolean;
   promoted?: boolean;
+  now?: number;
   onSelect: () => void;
 }) {
   const title = truncateExcerpt(consultListTitle(run), TITLE_MAX);
   const secondary = consultListSecondary(run);
+  const isRecent = (now ?? Date.now()) - run.updatedAt < 24 * 60 * 60 * 1000;
   const metaParts = [
-    ...consultListMetaParts(run, { stale }),
+    ...consultListMetaParts(run, { stale, now }),
     ...(promoted ? ["提案化済み"] : []),
   ];
 
@@ -86,7 +89,10 @@ export function ConsultHistoryItem({
       className={`${styles.runItem} ${selected ? styles.selected : ""}`}
       onClick={onSelect}
     >
-      <div className={styles.runItemTitle}>{title}</div>
+      <div className={styles.runItemTitle}>
+        {title}
+        {isRecent && <span className={styles.newBadge}>NEW</span>}
+      </div>
       {secondary && <div className={styles.runItemSecondary}>{truncateExcerpt(secondary, SECONDARY_MAX)}</div>}
       <div className={styles.runItemMeta}>
         {metaParts.map((part, i) => (
