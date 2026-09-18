@@ -5,25 +5,22 @@ import {
   generateNextReflectionQuestionLocally,
 } from "./local-summarizer";
 
-const mockRunCloudChat = vi.fn();
-vi.mock("@/lib/cloud-chat", () => ({
-  runCloudChat: (...args: unknown[]) => mockRunCloudChat(...args),
-}));
-
+const mockRunLocalChat = vi.fn();
 vi.mock("@/lib/local-model", () => ({
-  runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
-    const userContent = messages.find((m) => m.role === "user")?.content ?? "";
-    if (userContent.includes("振り返り")) {
-      return "**【事実・出来事】**\n- Aさんと1on1を実施した\n\n**【EMの判断・対応】**\n- 来週追加面談をセットした\n\n**【気づき・シグナル】**\n- 業務負荷が高まっている兆候あり";
-    }
-    return "**【決定事項・合意】**\n- 新機能リリースの延期を決定\n\n**【状況変化・シグナル】**\n- QAリソース不足の兆候\n\n**【ネクストアクション】**\n- ステークホルダーへ連絡";
-  }),
+  runLocalChat: (...args: unknown[]) => mockRunLocalChat(...args),
 }));
 
 describe("local-summarizer", () => {
   beforeEach(() => {
-    mockRunCloudChat.mockReset();
-    mockRunCloudChat.mockRejectedValue(new Error("cloud chat unavailable in test default"));
+    mockRunLocalChat.mockReset();
+    // デフォルトは要約用モック、対話・構造化はテストごとに指定
+    mockRunLocalChat.mockImplementation(async (messages: { role: string; content: string }[]) => {
+      const userContent = messages.find((m) => m.role === "user")?.content ?? "";
+      if (userContent.includes("要約")) {
+        return "**【決定事項・合意】**\n- 新機能リリースの延期を決定\n\n**【状況変化・シグナル】**\n- QAリソース不足の兆候\n\n**【ネクストアクション】**\n- ステークホルダーへ連絡";
+      }
+      return "";
+    });
   });
 
   it("空文字の場合は空文字を返す", async () => {
@@ -39,7 +36,10 @@ describe("local-summarizer", () => {
     expect(res).toContain("【ネクストアクション】");
   });
 
-  it("EMの振り返りメモを構造化できる", async () => {
+  it("EMの振り返りメモを構造化できる（ローカルLLM）", async () => {
+    mockRunLocalChat.mockResolvedValueOnce(
+      "**【事実・出来事】**\n- Aさんと1on1を実施\n\n**【EMの判断・対応】**\n- 来週追加面談をセット\n\n**【気づき・シグナル】**\n- 業務負荷の兆候あり",
+    );
     const rawText = "今日Aさんと1on1。少し疲れている様子だった。来週もう一度フォローの時間を取ることにした。";
     const res = await structureDailyReflectionLocally(rawText);
     expect(res).toContain("【事実・出来事】");
@@ -52,7 +52,21 @@ describe("local-summarizer", () => {
     expect(q0).toContain("お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？");
   });
 
-  it("1on1対話: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、相手の業務負荷や兆候を1歩深掘りする", async () => {
+  it("ローカルLLM連携: EMの発言を受けた文脈に即した問いかけを生成して返す", async () => {
+    mockRunLocalChat.mockResolvedValueOnce(
+      "普段遅刻のない田中さんがスキップされたとなると、何か急なトラブルがないか心配になりますね。\n最近の田中さんの業務負荷で、気になる変化や兆候は思い当たりますか？",
+    );
+    const res = await generateNextReflectionQuestionLocally([
+      { role: "assistant", content: "今日はどんな一日でしたか？" },
+      { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。普段は遅刻もしないメンバーなので少し心配です。" },
+    ]);
+    expect(res).toContain("普段遅刻のない田中さんがスキップされたとなると");
+    expect(res).toContain("最近の田中さんの業務負荷で、気になる変化や兆候は思い当たりますか？");
+    expect(mockRunLocalChat).toHaveBeenCalled();
+  });
+
+  it("1on1対話フォールバック: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、相手の業務負荷や兆候を深掘りする", async () => {
+    mockRunLocalChat.mockRejectedValueOnce(new Error("local model error"));
     const q1 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "今日はどんな一日でしたか？" },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
@@ -66,7 +80,8 @@ describe("local-summarizer", () => {
     expect(q1).toContain("最近の業務負荷や様子などで何か気になっているサインや、スキップに至った背景として思い当たることはありますか？");
   });
 
-  it("1on1対話: 背景・要因の共有（Turn 2）を受け、その洞察を肯定しつつEM自身の次の一手・フォローへ視点を進める", async () => {
+  it("1on1対話フォールバック: 背景・要因の共有（Turn 2）を受け、その洞察を肯定しつつEM自身の次の一手・フォローへ視点を進める", async () => {
+    mockRunLocalChat.mockRejectedValueOnce(new Error("local model error"));
     const q2 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "..." },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
@@ -77,7 +92,8 @@ describe("local-summarizer", () => {
     expect(q2).toContain("田中さんへどんなフォローや声かけをしてみようと思いますか？");
   });
 
-  it("1on1対話: EMのアクション（Turn 3）を受け、深まった思考を労いながら違和感や明日への引き継ぎを促す", async () => {
+  it("1on1対話フォールバック: EMのアクション（Turn 3）を受け、深まった思考を労いながら違和感や明日への引き継ぎを促す", async () => {
+    mockRunLocalChat.mockRejectedValueOnce(new Error("local model error"));
     const q3 = await generateNextReflectionQuestionLocally([
       { role: "assistant", content: "..." },
       { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
@@ -90,7 +106,8 @@ describe("local-summarizer", () => {
     expect(q3).toContain("頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？");
   });
 
-  it("対話のまとめ: 各ターンの発言を事実・EMの判断・気づきに構造化できる", async () => {
+  it("対話のまとめフォールバック: 各ターンの発言を事実・EMの判断・気づきに構造化できる", async () => {
+    mockRunLocalChat.mockRejectedValueOnce(new Error("local model error"));
     const text = [
       "本日は田中さんの1on1がスキップされたことに気づきました。",
       "QAの残業が少し増えているのが気になりました。",
@@ -101,29 +118,6 @@ describe("local-summarizer", () => {
     expect(res).toContain("**【事実・出来事】**\n- 本日は田中さんの1on1がスキップされたことに気づきました。");
     expect(res).toContain("**【EMの判断・対応】**\n- ロードマップの優先度を見直してスコープを削る合意を取りました。");
     expect(res).toContain("**【気づき・シグナル】**\n- QAの残業が少し増えているのが気になりました。");
-  });
-
-  it("クラウドAI連携: EMの発言と人名をマスクして外部送信し、AIの問いかけ内の人名を復元して返す", async () => {
-    mockRunCloudChat.mockResolvedValueOnce(
-      "{{PERSON_1}}さんの1on1がスキップされたのですね。普段遅刻もしないメンバーだからこそ心配になりますね。最近の{{PERSON_1}}さんの様子で気になる変化はありましたか？",
-    );
-    const res = await generateNextReflectionQuestionLocally([
-      { role: "assistant", content: "今日はどんな一日でしたか？" },
-      { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
-    ]);
-    expect(res).toContain("田中さんの1on1がスキップされたのですね");
-    expect(res).toContain("普段遅刻もしないメンバーだからこそ心配になりますね");
-    expect(mockRunCloudChat).toHaveBeenCalled();
-  });
-
-  it("クラウドAI連携: 対話ログを高精度に構造化して返す", async () => {
-    mockRunCloudChat.mockResolvedValueOnce(
-      "**【事実・出来事】**\n- {{PERSON_1}}さんの1on1がスキップされた\n\n**【EMの判断・対応】**\n- 明日朝イチで棚卸しを一緒にやる\n\n**【気づき・シグナル】**\n- 新規案件が重なり抱え込み気味だった",
-    );
-    const res = await structureDailyReflectionLocally("対話ログテキスト");
-    expect(res).toContain("田中さんの1on1がスキップされた");
-    expect(res).toContain("明日朝イチで棚卸しを一緒にやる");
-    expect(res).toContain("新規案件が重なり抱え込み気味だった");
   });
 });
 
