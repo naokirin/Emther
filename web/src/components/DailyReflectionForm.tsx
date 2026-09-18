@@ -34,24 +34,22 @@ export function DailyReflectionForm({ onCreated }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
 
-  // 新しいメッセージや問いかけの準備状態に合わせて最下部へ自動スクロール
+  // メッセージ表示部分（内部スクロール領域）でメッセージが増えてスクロールが必要になったとき、
+  // メッセージ表示領域の内部だけを最下部へ自動スクロールする（画面全体のスクロールや入力欄へのスクロールは一切行わない）。
   useEffect(() => {
-    if (phase === "chat") {
-      if (typeof messagesEndRef.current?.scrollIntoView === "function") {
-        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (phase === "chat" && chatListRef.current) {
+      const el = chatListRef.current;
+      if (el.scrollHeight > el.clientHeight) {
+        if (typeof el.scrollTo === "function") {
+          el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+        } else {
+          el.scrollTop = el.scrollHeight;
+        }
       }
     }
   }, [messages, asking, phase]);
-
-  // チャット画面表示時・AI回答完了時に入力欄へフォーカス
-  useEffect(() => {
-    if (phase === "chat" && !asking) {
-      inputRef.current?.focus();
-    }
-  }, [phase, asking]);
 
   useEffect(() => {
     async function loadTodayJournals() {
@@ -262,6 +260,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {/* チャット履歴 */}
           <div
+            ref={chatListRef}
             style={{
               display: "flex",
               flexDirection: "column",
@@ -316,13 +315,11 @@ export function DailyReflectionForm({ onCreated }: Props) {
                 <span className={styles.spinner} aria-hidden /> AIが質問を準備しています…
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* 入力欄 */}
           <div className={styles.field} style={{ margin: 0 }}>
             <textarea
-              ref={inputRef}
               value={currentInput}
               onChange={(e) => setCurrentInput(e.target.value)}
               placeholder="回答を入力（短文や箇条書きで大丈夫です。Enterで改行）..."
