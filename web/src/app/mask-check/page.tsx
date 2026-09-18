@@ -118,9 +118,10 @@ export default function PrivacyCheckPage() {
   const hasResult = maskedText !== null;
 
   return (
-    <div className={styles.panel}>
+    <div className={styles.screen}>
       <PageTitleRow title="個人・機密情報チェック" helpAnchor="privacy-check" />
-      <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: 0 }}>
+      <div className={styles.panel}>
+        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginTop: 0 }}>
         投入や外部送信の前に、登録済み人名のマスク結果と、個人情報・機密情報っぽい箇所をローカルだけで確認できます。
         この画面からは保存・送信・データ投入は行いません。
       </p>
@@ -173,6 +174,7 @@ export default function PrivacyCheckPage() {
           />
         </div>
       )}
+      </div>
     </div>
   );
 }

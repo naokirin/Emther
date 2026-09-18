@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import styles from "@/app/page.module.css";
 
@@ -13,6 +14,11 @@ const FOCUSABLE_SELECTOR =
 // 役割と名前を伝え、開いた瞬間にダイアログ内へフォーカスを移し、閉じたら元々
 // フォーカスのあった要素（開くボタン等）へ戻す。Tab/Shift+Tabはダイアログ内だけを
 // 巡回させる（背後のページへフォーカスが漏れる「フォーカストラップの欠如」を防ぐ）。
+//
+// createPortalでdocument.body直下に描画する:
+// MarkdownView等の文章内リンクからモーダルが開かれた場合でも、<p>要素の中に
+// <div>や<h2>が入り込むHTML文法違反（In HTML, <h2> cannot be a descendant of <p>）
+// やハイドレーションエラーを確実に防ぐ。
 export function Modal({
   title,
   onClose,
@@ -24,17 +30,23 @@ export function Modal({
   children: ReactNode;
   size?: "default" | "wide";
 }) {
+  const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     boxRef.current?.focus();
     return () => {
       previouslyFocused.current?.focus?.();
     };
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -59,7 +71,9 @@ export function Modal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  return (
+  if (!mounted || typeof document === "undefined") return null;
+
+  return createPortal(
     <div className={styles.modalOverlay} onClick={onClose}>
       <div
         ref={boxRef}
@@ -80,6 +94,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

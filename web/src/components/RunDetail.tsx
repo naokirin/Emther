@@ -296,9 +296,16 @@ export function ExecutionState({
 }) {
   return (
     <>
-      <p className={styles.contextText}>
-        <strong>Context:</strong> <IdLinkedText text={run.task} />
-      </p>
+      {run.task ? (
+        <details className={styles.contextDetails}>
+          <summary className={styles.contextSummary}>
+            Context（指示・前提）を確認する
+          </summary>
+          <p className={styles.contextText}>
+            <strong>Context:</strong> <IdLinkedText text={run.task} />
+          </p>
+        </details>
+      ) : null}
 
       {run.status === "yield" && run.yieldRequest && (
         <YieldBlock

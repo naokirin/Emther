@@ -56,10 +56,11 @@ function TeamsPageInner() {
   }
 
   return (
-    <div className={`${styles.layout} ${styles.screen}`}>
-      <div className={styles.panel}>
-        <PageTitleRow title="チーム" helpAnchor="teams" />
-        <TeamCreatePanel refreshTeams={refreshTeams} onCreated={selectTeam} />
+    <div className={styles.screen}>
+      <PageTitleRow title="チーム" helpAnchor="teams" />
+      <div className={styles.layout}>
+        <div className={styles.panel}>
+          <TeamCreatePanel refreshTeams={refreshTeams} onCreated={selectTeam} />
 
         <div className={styles.tree} style={{ marginTop: 14 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0" }}>
@@ -82,6 +83,7 @@ function TeamsPageInner() {
           refreshTeams={refreshTeams}
           onRemoved={() => setSelectedTeamId(null)}
         />
+      </div>
       </div>
     </div>
   );

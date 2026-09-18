@@ -201,7 +201,7 @@ export default function ReportsPage() {
 
   return (
     <div className={styles.screen}>
-      <div className={styles.panel}>
+      <div>
         <PageTitleRow title="レポート" helpAnchor="reflection">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("week")}>
@@ -218,7 +218,7 @@ export default function ReportsPage() {
             </button>
           </div>
         </PageTitleRow>
-        {generateError && <p className={styles.errorText} role="alert">{generateError}</p>}
+        {generateError && <p className={styles.errorText} role="alert" style={{ marginTop: 4 }}>{generateError}</p>}
       </div>
 
       <div className={styles.panel}>

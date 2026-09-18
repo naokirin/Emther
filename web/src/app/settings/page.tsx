@@ -90,7 +90,7 @@ export default function SettingsPage() {
 
   return (
     <div className={styles.screen}>
-      <div className={styles.panel}>
+      <div>
         <PageTitleRow title="設定" helpAnchor="settings">
           {activeGroup !== "data" ? (
             <button
@@ -105,11 +105,11 @@ export default function SettingsPage() {
         </PageTitleRow>
         {activeGroup !== "data" ? (
           <>
-            {isDirty && <p className={styles.errorText} role="status">⚠️ 未保存の変更があります</p>}
+            {isDirty && <p className={styles.errorText} role="status" style={{ marginTop: 4 }}>⚠️ 未保存の変更があります</p>}
             {!isDirty && savedAt !== null && (
-              <p className={styles.successText} role="status">✓ {new Date(savedAt).toLocaleTimeString("ja-JP")}に保存しました</p>
+              <p className={styles.successText} role="status" style={{ marginTop: 4 }}>✓ {new Date(savedAt).toLocaleTimeString("ja-JP")}に保存しました</p>
             )}
-            {saveError && <p className={styles.errorText} role="alert">{saveError}</p>}
+            {saveError && <p className={styles.errorText} role="alert" style={{ marginTop: 4 }}>{saveError}</p>}
           </>
         ) : null}
       </div>

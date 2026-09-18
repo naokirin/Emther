@@ -90,8 +90,8 @@ function PeoplePageInner() {
 
   return (
     <div className={styles.screen}>
+      <PageTitleRow title="メンバー" helpAnchor="people" />
       <div className={styles.panel}>
-        <PageTitleRow title="メンバー" helpAnchor="people" />
         <form onSubmit={handleAddPerson} style={{ marginBottom: 16 }}>
           <div className={styles.field}>
             <label>

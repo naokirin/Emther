@@ -169,8 +169,8 @@ function SuggestionsPageInner() {
   return (
     <>
       <div className={styles.screen}>
+        <PageTitleRow title="提案" helpAnchor="issues" />
         <div className={styles.panel}>
-          <PageTitleRow title="提案" helpAnchor="issues" />
           {/* ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。
               タイトル・メモ・詳細を対象にクライアント側で部分一致検索する。 */}
           <div className={styles.field} style={{ margin: "8px 0" }}>

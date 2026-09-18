@@ -48,8 +48,8 @@ function TimelinePageInner() {
   return (
     <IdResolveProvider openIssueInPeek={peek.open}>
     <div className={styles.screen}>
+      <PageTitleRow title="タイムライン" helpAnchor="reflection" />
       <div className={styles.panel}>
-        <PageTitleRow title="タイムライン" helpAnchor="reflection" />
         {groups.length === 0 ? (
           <p className={styles.subtitle}>
             {!timelineLoaded

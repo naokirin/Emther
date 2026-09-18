@@ -174,6 +174,26 @@ describe("StatusBadge", () => {
 describe("ExecutionState", () => {
   const noop = () => {};
 
+  it("Context部分はデフォルトで折りたたまれており、展開すると表示される", () => {
+    const run = baseRun({ task: "詳細な指示プロンプトテキスト" });
+    render(
+      <ExecutionState
+        run={run}
+        selectedOptionId={null}
+        onSelectOption={noop}
+        onConfirmOption={noop}
+        onFocusChat={noop}
+        deciding={false}
+      />,
+    );
+    const summary = screen.getByText(/Context（指示・前提）を確認する/);
+    expect(summary).toBeInTheDocument();
+    const details = summary.closest("details");
+    expect(details).not.toBeNull();
+    expect(details?.open).toBe(false);
+    expect(screen.getByText("詳細な指示プロンプトテキスト")).toBeInTheDocument();
+  });
+
   it("yield中は選択肢を表示し、選択してから確定ボタンが有効になる", async () => {
     const onSelectOption = vi.fn();
     const onConfirmOption = vi.fn();

@@ -1,7 +1,6 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { PageTitleRow } from "@/components/HelpLink";
 
 export type Selection =
   | { kind: "strategy" }
@@ -42,9 +41,7 @@ export function OrgLeftTree({
 }: Props) {
   return (
     <div className={styles.panel}>
-      <PageTitleRow title="方針・目標" helpAnchor="org" />
-
-      <div className={styles.tree} style={{ marginTop: 14 }}>
+      <div className={styles.tree}>
         <div className={styles.treeFolder}>📁 Strategy（MVV）</div>
         <div
           className={`${styles.treeFile} ${selection?.kind === "strategy" ? styles.treeFileSelected : ""}`}

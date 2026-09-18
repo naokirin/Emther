@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "@/app/page.module.css";
+import { PageTitleRow } from "@/components/HelpLink";
 import { ObjectivesPanel } from "@/components/org/ObjectivesPanel";
 import { OrgLeftTree, type Selection } from "@/components/org/OrgLeftTree";
 import { OrgThemesPanel } from "@/components/org/OrgThemesPanel";
@@ -101,8 +102,10 @@ function OrgContextPageInner() {
   }
 
   return (
-    <div className={`${styles.layout} ${styles.screen}`}>
-      <OrgLeftTree
+    <div className={styles.screen}>
+      <PageTitleRow title="方針・目標" helpAnchor="org" />
+      <div className={styles.layout}>
+        <OrgLeftTree
         selection={selection}
         backgroundsLoaded={backgroundsLoaded}
         activeBackgroundsCount={backgrounds.filter((b) => b.status === "active").length}
@@ -172,6 +175,7 @@ function OrgContextPageInner() {
         {selection?.kind === "glossary" && (
           <GlossaryPanel key={navToken} />
         )}
+      </div>
       </div>
     </div>
   );

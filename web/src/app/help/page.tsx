@@ -184,8 +184,8 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
 export default function HelpPage() {
   return (
     <div className={styles.screen}>
+      <h2 style={{ margin: 0 }}>ヘルプ</h2>
       <div className={styles.panel}>
-        <h2 style={{ marginTop: 0 }}>ヘルプ</h2>
         <p className={styles.subtitle} style={{ marginBottom: 16 }}>
           画面に常設しない仕組み・用語の説明です。各画面の「ヘルプ」リンクから該当節へ飛べます。
         </p>

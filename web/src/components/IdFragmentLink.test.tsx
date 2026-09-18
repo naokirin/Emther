@@ -74,4 +74,26 @@ describe("IdFragmentLink", () => {
     await user.hover(link);
     expect(await screen.findByText((_, el) => el?.getAttribute("data-tooltip") === "候補1\n候補2")).toBeTruthy();
   });
+
+  it("<p> タグ内で未一致モーダルを開いたとき、Modalがdocument.bodyにポータル描画される", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        json: async () => ({ matches: [] }),
+      })),
+    );
+    const user = userEvent.setup();
+    render(
+      <p data-testid="paragraph">
+        プレフィックス参照: <IdFragmentLink fragment="notfound">notfound</IdFragmentLink>
+      </p>,
+    );
+    await user.click(screen.getByRole("link", { name: "notfound" }));
+    const dialog = await screen.findByRole("dialog", { name: "一致する項目がありません" });
+    expect(dialog).toBeInTheDocument();
+
+    const paragraph = screen.getByTestId("paragraph");
+    expect(paragraph.contains(dialog)).toBe(false);
+    expect(document.body.contains(dialog)).toBe(true);
+  });
 });

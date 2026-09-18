@@ -16,16 +16,16 @@ describe("JournalInputSwitcher", () => {
     vi.unstubAllGlobals();
   });
 
-  it("既定では「1日の振り返り」タブが選ばれ、対話型リフレクションの開始ボタンが表示される", () => {
+  it("既定では「随時メモ」タブが選ばれ、随時メモの入力欄が表示される", () => {
     render(<JournalInputSwitcher onSaved={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "🌙 1日の振り返り" }).className).toContain("tabBtnActive");
-    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "📝 随時メモ" }).className).toContain("tabBtnActive");
+    expect(screen.getByPlaceholderText(/1on1/)).toBeInTheDocument();
   });
 
   it("focusDumpIdがあればまとめて取り込むタブが既定で開く", () => {
     render(<JournalInputSwitcher onSaved={vi.fn()} focusDumpId="dump-1" />);
     expect(screen.getByRole("button", { name: "📥 まとめて取り込む" }).className).toContain("tabBtnActive");
-    expect(screen.queryByRole("button", { name: "✨ 振り返りを始める" })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/1on1/)).not.toBeInTheDocument();
   });
 
   it("prefillがあれば随時メモタブが既定で開き、テキストが反映される", () => {
@@ -38,10 +38,10 @@ describe("JournalInputSwitcher", () => {
     const user = userEvent.setup();
     render(<JournalInputSwitcher onSaved={vi.fn()} />);
 
-    // 随時メモ
-    await user.click(screen.getByRole("button", { name: "📝 随時メモ" }));
-    expect(screen.getByRole("button", { name: "📝 随時メモ" }).className).toContain("tabBtnActive");
-    expect(screen.getByPlaceholderText(/1on1/)).toBeInTheDocument();
+    // 1日の振り返り
+    await user.click(screen.getByRole("button", { name: "🌙 1日の振り返り" }));
+    expect(screen.getByRole("button", { name: "🌙 1日の振り返り" }).className).toContain("tabBtnActive");
+    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
 
     // 議事録ローカル要約
     await user.click(screen.getByRole("button", { name: "🔒 議事録ローカル要約" }));
@@ -52,9 +52,9 @@ describe("JournalInputSwitcher", () => {
     await user.click(screen.getByRole("button", { name: "📥 まとめて取り込む" }));
     expect(screen.getByRole("button", { name: "📥 まとめて取り込む" }).className).toContain("tabBtnActive");
 
-    // 1日の振り返りに戻す
-    await user.click(screen.getByRole("button", { name: "🌙 1日の振り返り" }));
-    expect(screen.getByRole("button", { name: "🌙 1日の振り返り" }).className).toContain("tabBtnActive");
-    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
+    // 随時メモに戻す
+    await user.click(screen.getByRole("button", { name: "📝 随時メモ" }));
+    expect(screen.getByRole("button", { name: "📝 随時メモ" }).className).toContain("tabBtnActive");
+    expect(screen.getByPlaceholderText(/1on1/)).toBeInTheDocument();
   });
 });
