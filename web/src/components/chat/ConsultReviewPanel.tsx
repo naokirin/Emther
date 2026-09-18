@@ -76,15 +76,39 @@ export function ConsultReviewPanel({
   const [resetSubmitting, setResetSubmitting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
+  // この相談（selectedRun）から生まれた提案一覧
+  const createdIssuesFromRun = issues.filter(
+    (i) => i.sourceRunId === selectedRun.id || i.agentRunId === selectedRun.id,
+  );
+  const existingTitles = new Set(
+    createdIssuesFromRun.flatMap((i) => [i.title.trim(), truncateForTitle(i.title).trim()]),
+  );
+
+  // 各候補が既に提案化されているか判定
+  const candidatePromotedFlags = issueCandidates.map((c) =>
+    existingTitles.has(c.title.trim()) || existingTitles.has(truncateForTitle(c.title).trim()),
+  );
+
   const candidateSelectedFlags =
     candidatePick?.runId === selectedRun.id && candidatePick.selected.length === issueCandidates.length
-      ? candidatePick.selected
-      : issueCandidates.map(() => true);
+      ? candidatePick.selected.map((sel, i) => (candidatePromotedFlags[i] ? false : sel))
+      : issueCandidates.map((_, i) => !candidatePromotedFlags[i]);
+
   const selectedCandidateTitles = issueCandidates
-    .filter((_, i) => candidateSelectedFlags[i])
+    .filter((_, i) => !candidatePromotedFlags[i] && candidateSelectedFlags[i])
     .map((c) => c.title);
 
+  const fallbackTitle = runFallbackTitle(selectedRun);
+  const isSinglePromoted =
+    issueCandidates.length === 1
+      ? (candidatePromotedFlags[0] ?? false)
+      : existingTitles.has(fallbackTitle.trim()) ||
+        existingTitles.has(truncateForTitle(fallbackTitle).trim()) ||
+        createdIssuesFromRun.length > 0 ||
+        Boolean(selectedRun.reviewed);
+
   function toggleCandidate(index: number) {
+    if (candidatePromotedFlags[index]) return;
     const next = [...candidateSelectedFlags];
     next[index] = !next[index];
     setCandidatePick({ runId: selectedRun.id, selected: next });
@@ -460,7 +484,7 @@ export function ConsultReviewPanel({
         <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
           <strong>
             📋 この相談への結論
-            {(selectedRun.reviewed || selectedRun.triageStatus) && (
+            {(selectedRun.reviewed || selectedRun.triageStatus || createdIssuesFromRun.length > 0) && (
               <span style={{ marginLeft: 8, color: "var(--yellow-fg)" }}>
                 [{selectedRun.triageStatus ? (selectedRun.triageStatus === "watching" ? "様子見" : "却下") : "提案化済み"}]
               </span>
@@ -472,27 +496,53 @@ export function ConsultReviewPanel({
                 AIが親なしの独立提案候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
               </p>
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {issueCandidates.map((c, i) => (
-                  <li key={`${c.title}-${i}`} style={{ marginBottom: 4 }}>
-                    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.875rem", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={candidateSelectedFlags[i] ?? false}
-                        onChange={() => toggleCandidate(i)}
-                        disabled={reviewSubmitting}
-                        style={{ marginTop: 3 }}
-                      />
-                      <span>
-                        <IdLinkedText text={c.title} />
-                        {c.rationale ? (
-                          <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.75rem" }}>
-                            <IdLinkedText text={c.rationale} />
-                          </span>
-                        ) : null}
-                      </span>
-                    </label>
-                  </li>
-                ))}
+                {issueCandidates.map((c, i) => {
+                  const isPromoted = candidatePromotedFlags[i];
+                  return (
+                    <li key={`${c.title}-${i}`} style={{ marginBottom: 4 }}>
+                      <label
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "flex-start",
+                          fontSize: "0.875rem",
+                          cursor: isPromoted ? "default" : "pointer",
+                          opacity: isPromoted ? 0.6 : 1,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={candidateSelectedFlags[i] ?? false}
+                          onChange={() => toggleCandidate(i)}
+                          disabled={reviewSubmitting || isPromoted}
+                          style={{ marginTop: 3 }}
+                        />
+                        <span>
+                          <IdLinkedText text={c.title} />
+                          {isPromoted && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                fontSize: "0.7rem",
+                                color: "var(--yellow-fg)",
+                                border: "1px solid var(--border)",
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                              }}
+                            >
+                              提案済み
+                            </span>
+                          )}
+                          {c.rationale ? (
+                            <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.75rem" }}>
+                              <IdLinkedText text={c.rationale} />
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -500,12 +550,21 @@ export function ConsultReviewPanel({
             <button
               className={styles.primaryBtn}
               style={{ width: "auto" }}
-              disabled={reviewSubmitting || (issueCandidates.length > 1 && selectedCandidateTitles.length === 0)}
+              disabled={
+                reviewSubmitting ||
+                (issueCandidates.length > 1 ? selectedCandidateTitles.length === 0 : isSinglePromoted)
+              }
               onClick={handlePromoteToIssue}
             >
               {issueCandidates.length > 1
-                ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
-                : "📌 提案として残す"}
+                ? selectedCandidateTitles.length > 0
+                  ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
+                  : candidatePromotedFlags.every(Boolean)
+                    ? "すべての候補を提案済み"
+                    : "起票する候補を選択"
+                : isSinglePromoted
+                  ? "📌 提案済み"
+                  : "📌 提案として残す"}
             </button>
             <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
               👀 様子見する
