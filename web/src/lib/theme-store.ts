@@ -126,6 +126,16 @@ async function maskThemeFields(input: {
 export async function createThemeCandidate(
   input: SuggestedTheme & { sourceRunId?: string; teamId?: string },
 ): Promise<OrgTheme> {
+  return createTheme({ ...input, status: "candidate" });
+}
+
+export async function createTheme(
+  input: SuggestedTheme & {
+    status?: ThemeStatus;
+    sourceRunId?: string;
+    teamId?: string;
+  },
+): Promise<OrgTheme> {
   const masked = await maskThemeFields({
     title: input.title,
     summary: input.summary,
@@ -135,6 +145,7 @@ export async function createThemeCandidate(
     suggestedDirection: input.suggestedDirection,
   });
   const now = Date.now();
+  const status = input.status ?? "adopted";
   const theme: OrgTheme = {
     id: randomUUID(),
     ...masked,
@@ -143,11 +154,12 @@ export async function createThemeCandidate(
     evidenceIssueIds: input.evidenceIssueIds ?? [],
     objectiveIds: normalizeIdList(input.objectiveIds),
     keyResultIds: normalizeIdList(input.keyResultIds),
-    status: "candidate",
+    status,
     sourceRunId: input.sourceRunId,
     teamId: input.teamId,
     createdAt: now,
     updatedAt: now,
+    adoptedAt: status === "adopted" ? now : undefined,
   };
   themes.push(theme);
   persist();
