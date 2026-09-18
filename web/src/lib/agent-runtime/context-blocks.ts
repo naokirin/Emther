@@ -15,6 +15,7 @@ import { buildRelatedBundleBlock } from "@/lib/related-context";
 import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@/lib/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
 import { listAdoptedThemes } from "@/lib/theme-store";
+import { buildGlossaryContextBlock } from "@/lib/glossary-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import {
@@ -576,6 +577,7 @@ export function buildSystemPrompt(
   const backgroundContext = buildOrgBackgroundBlock(runId, rawText);
   const objectivesContext = buildObjectivesBlock(agentName);
   const themesContext = buildThemesContextBlock();
+  const glossaryContext = buildGlossaryContextBlock();
   // 状況蒸留・朝サマリー: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
   // 再開（decideRun）でも origin 判定だけで再注入する。
   const runOrigin = runId ? runs.get(runId)?.origin : undefined;
@@ -599,6 +601,7 @@ export function buildSystemPrompt(
     backgroundContext,
     objectivesContext,
     themesContext,
+    glossaryContext,
   ]
     .filter(Boolean)
     .join("\n\n");

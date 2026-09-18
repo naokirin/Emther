@@ -8,6 +8,7 @@ export type Selection =
   | { kind: "backgrounds" }
   | { kind: "objectives" }
   | { kind: "themes" }
+  | { kind: "glossary" }
   | null;
 
 type Props = {
@@ -22,6 +23,7 @@ type Props = {
   onSelectBackgrounds: () => void;
   onSelectObjectives: () => void;
   onSelectThemes: () => void;
+  onSelectGlossary: () => void;
 };
 
 export function OrgLeftTree({
@@ -36,6 +38,7 @@ export function OrgLeftTree({
   onSelectBackgrounds,
   onSelectObjectives,
   onSelectThemes,
+  onSelectGlossary,
 }: Props) {
   return (
     <div className={styles.panel}>
@@ -75,6 +78,14 @@ export function OrgLeftTree({
         >
           📄 Themes
           {themesLoaded && adoptedThemesCount > 0 ? `（採用 ${adoptedThemesCount}件）` : ""}
+        </div>
+
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 社内用語（辞書）</div>
+        <div
+          className={`${styles.treeFile} ${selection?.kind === "glossary" ? styles.treeFileSelected : ""}`}
+          onClick={onSelectGlossary}
+        >
+          📄 Glossary（社内用語）
         </div>
       </div>
     </div>

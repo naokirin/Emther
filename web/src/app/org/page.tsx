@@ -6,6 +6,7 @@ import styles from "@/app/page.module.css";
 import { ObjectivesPanel } from "@/components/org/ObjectivesPanel";
 import { OrgLeftTree, type Selection } from "@/components/org/OrgLeftTree";
 import { OrgThemesPanel } from "@/components/org/OrgThemesPanel";
+import { GlossaryPanel } from "@/components/org/GlossaryPanel";
 import { StandingBackgroundPanel } from "@/components/org/StandingBackgroundPanel";
 import { StrategyPanel } from "@/components/org/StrategyPanel";
 import { useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "@/lib/hooks";
@@ -77,6 +78,11 @@ function OrgContextPageInner() {
     setSelection({ kind: "themes" });
   }
 
+  function selectGlossaryView() {
+    setSelection({ kind: "glossary" });
+    setNavToken((n) => n + 1);
+  }
+
   function openTheme(theme: OrgTheme) {
     setEditingThemeId(theme.id);
     setSelection({ kind: "themes" });
@@ -108,11 +114,12 @@ function OrgContextPageInner() {
         onSelectBackgrounds={selectBackgroundsView}
         onSelectObjectives={selectObjectivesView}
         onSelectThemes={selectThemesView}
+        onSelectGlossary={selectGlossaryView}
       />
 
       <div className={styles.panel}>
         {!selection && (
-          <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectives・Themesを選択してください。</p>
+          <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectives・Themes・Glossaryを選択してください。</p>
         )}
 
         {selection?.kind === "strategy" && (
@@ -160,6 +167,10 @@ function OrgContextPageInner() {
             onSelectTheme={(theme) => setEditingThemeId(theme.id)}
             onBack={() => setEditingThemeId(null)}
           />
+        )}
+
+        {selection?.kind === "glossary" && (
+          <GlossaryPanel key={navToken} />
         )}
       </div>
     </div>
