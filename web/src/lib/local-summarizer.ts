@@ -134,7 +134,7 @@ async function generateReflectionQuestionViaLocalAI(
 
   const systemPrompt = `あなたはエンジニアリングマネージャー（EM）のための親身な1on1振り返りパートナーです。
 EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を掘り下げる「問いかけ」を投げかけてください。
-必ず「共感（1〜2文）＋問いかけ（1文）」のフォーマットで出力し、質問（？またはでしょうか）で文章を終えてください。推測で無関係な人名を補わないでください。`;
+前置きや見出し・解説（「共感：」「問いかけ：」などのラベル）は書かず、EMへの返答文のみ（共感と問いかけ）を直接出力してください。推測で無関係な人名を補わないでください。`;
 
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: systemPrompt },
@@ -152,6 +152,8 @@ EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を
     let cleaned = raw
       .trim()
       .replace(/^(?:AI|あなた|アシスタント|振り返りパートナー)[:：]\s*/i, "")
+      .replace(/^(?:共感|受け止め)[:：]\s*/i, "")
+      .replace(/\n(?:問いかけ|質問)[:：]\s*/i, "\n")
       .split(/\n(?:ユーザー|EM|User)[:：]/i)[0]
       .trim();
 
