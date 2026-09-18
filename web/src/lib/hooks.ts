@@ -381,7 +381,7 @@ export function useSettingsRules(intervalMs = 8000) {
       referenceLookupCursorModel: "",
       cliOrder: ["claude"],
       selfPersonId: null,
-      localChatModelPreset: "350m",
+      localChatModelPreset: "1.2b-jp",
     },
   };
   const { data, loaded, refresh } = usePolling<{ rules: RulesAndConstraints }>("/api/settings/rules", fallback, intervalMs);

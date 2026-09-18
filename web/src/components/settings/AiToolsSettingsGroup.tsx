@@ -96,7 +96,7 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
         <label className={styles.axisTooltip} data-tooltip="機微情報を外部送信しないローカル推論。埋め込みモデルは対象外">
           チャットモデルのサイズ
           <select
-            value={draft.localChatModelPreset ?? "350m"}
+            value={draft.localChatModelPreset ?? "1.2b-jp"}
             onChange={(e) =>
               onChange({
                 localChatModelPreset: e.target.value as LocalChatModelPresetId,
@@ -112,7 +112,7 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
         </label>
       </div>
       <p style={{ fontSize: "0.75rem", marginTop: 0, marginBottom: 16, maxWidth: 420, color: "var(--text-muted)" }}>
-        {LOCAL_CHAT_MODEL_PRESETS[draft.localChatModelPreset ?? "350m"].hint}
+        {LOCAL_CHAT_MODEL_PRESETS[draft.localChatModelPreset ?? "1.2b-jp"]?.hint ?? ""}
         {" "}
         保存後、未取得ならダウンロードが始まります。大きいモデルはメモリ不足でプロセスが落ちることがあります。
       </p>

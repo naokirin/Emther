@@ -23,7 +23,7 @@ export const LOCAL_CHAT_MODEL_PRESETS: Record<LocalChatModelPresetId, LocalChatM
     task: "text-generation",
     id: "onnx-community/LFM2.5-350M-ONNX",
     dtype: "q4",
-    label: "350M（LFM2.5・既定・省メモリ）",
+    label: "350M（LFM2.5・省メモリ）",
     hint: "日本語を含む多言語向け。メモリ約8GB前後の環境向け。",
   },
   "0.5b": {
@@ -44,7 +44,7 @@ export const LOCAL_CHAT_MODEL_PRESETS: Record<LocalChatModelPresetId, LocalChatM
     task: "text-generation",
     id: "LiquidAI/LFM2.5-1.2B-JP-202606-ONNX",
     dtype: "q4",
-    label: "1.2B JP（LFM2.5・日本語特化）",
+    label: "1.2B JP（LFM2.5・日本語特化・既定）",
     hint: "日本語向けにチューニングされた1.2B。メモリに余裕がある環境向け。",
   },
   "1.5b": {
@@ -57,7 +57,7 @@ export const LOCAL_CHAT_MODEL_PRESETS: Record<LocalChatModelPresetId, LocalChatM
 };
 
 /** 既定プリセット。 */
-export const DEFAULT_LOCAL_CHAT_MODEL = LOCAL_CHAT_MODEL_PRESETS["350m"];
+export const DEFAULT_LOCAL_CHAT_MODEL = LOCAL_CHAT_MODEL_PRESETS["1.2b-jp"];
 
 export function isLocalChatModelPresetId(value: unknown): value is LocalChatModelPresetId {
   return typeof value === "string" && (LOCAL_CHAT_MODEL_PRESET_IDS as readonly string[]).includes(value);

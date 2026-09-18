@@ -266,24 +266,24 @@ describe("PATCH /api/settings/rules", () => {
 
   // ユーザー要望「メモリに余裕がある場合にローカルAIをより大きいパラメータ数へ」対応。
   describe("localChatModelPreset", () => {
-    it("既定は350m", async () => {
+    it("既定は1.2b-jp", async () => {
       const route = await import("./route");
       const res = await route.GET();
-      expect((await res.json()).rules.localChatModelPreset).toBe("350m");
+      expect((await res.json()).rules.localChatModelPreset).toBe("1.2b-jp");
     });
 
-    it("0.5b / 1.2b / 1.2b-jp / 1.5b に更新できる", async () => {
+    it("350m / 0.5b / 1.2b / 1.5b に更新できる", async () => {
       const route = await import("./route");
+      const to350 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "350m" }));
+      expect((await to350.json()).rules.localChatModelPreset).toBe("350m");
+      expect(ensureLocalModels).toHaveBeenCalled();
+      ensureLocalModels.mockClear();
       const to05 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "0.5b" }));
       expect((await to05.json()).rules.localChatModelPreset).toBe("0.5b");
       expect(ensureLocalModels).toHaveBeenCalled();
       ensureLocalModels.mockClear();
       const to12 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.2b" }));
       expect((await to12.json()).rules.localChatModelPreset).toBe("1.2b");
-      expect(ensureLocalModels).toHaveBeenCalled();
-      ensureLocalModels.mockClear();
-      const to12jp = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.2b-jp" }));
-      expect((await to12jp.json()).rules.localChatModelPreset).toBe("1.2b-jp");
       expect(ensureLocalModels).toHaveBeenCalled();
       ensureLocalModels.mockClear();
       const to15 = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "1.5b" }));
@@ -294,7 +294,7 @@ describe("PATCH /api/settings/rules", () => {
     it("不正な値は無視する（既定値のまま）", async () => {
       const route = await import("./route");
       const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { localChatModelPreset: "7b" }));
-      expect((await res.json()).rules.localChatModelPreset).toBe("350m");
+      expect((await res.json()).rules.localChatModelPreset).toBe("1.2b-jp");
     });
   });
 });

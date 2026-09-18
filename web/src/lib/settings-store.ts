@@ -147,7 +147,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   referenceLookupCursorModel: "",
   cliOrder: ["claude"],
   selfPersonId: null,
-  localChatModelPreset: "350m",
+  localChatModelPreset: "1.2b-jp",
 };
 
 /** 0〜23 の時刻配列を重複除去・昇順・最低1件に正規化する。 */

@@ -47,6 +47,9 @@ describe("getLocalChatModel", () => {
     const settings = await import("@/lib/settings-store");
     const { getLocalChatModel, LOCAL_CHAT_MODEL_PRESETS } = await import("@/lib/local-model");
 
+    expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["1.2b-jp"].id);
+
+    settings.updateRulesAndConstraints({ localChatModelPreset: "350m" });
     expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["350m"].id);
 
     settings.updateRulesAndConstraints({ localChatModelPreset: "0.5b" });
