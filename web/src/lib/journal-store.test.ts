@@ -66,7 +66,7 @@ let dir: string;
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
-  mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+  mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
   mockNerPeople = [];
   startRunMock.mockClear();
   startJournalAnalysisMock.mockClear();
@@ -83,7 +83,7 @@ async function loadModule() {
 
 describe("addJournalEntry", () => {
   it("ローカルモデルの抽出結果でtags/people/urgency/sentimentを埋める（登録済み人物のみpeopleへ）", async () => {
-    mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive" };
+    mockExtraction = { summary: "", tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive" };
     const peopleDirectory = await import("@/lib/people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
@@ -114,7 +114,7 @@ describe("addJournalEntry", () => {
   });
 
   it("抽出結果が不正な値の場合は安全な既定値にフォールバックする", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "invalid" as never, sentiment: "invalid" as never,  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "invalid" as never, sentiment: "invalid" as never,  };
     const store = await loadModule();
     const entry = await store.addJournalEntry("テキスト");
     expect(entry.urgency).toBe("mid");
@@ -144,7 +144,7 @@ describe("addJournalEntry", () => {
   });
 
   it("本文に登録済み人物名があれば、ローカル抽出がpeopleを空でも名簿照合で紐付く", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     const peopleDirectory = await import("@/lib/people-directory");
     const aId = peopleDirectory.registerName("Aさん");
     const bId = peopleDirectory.registerName("Bさん");
@@ -154,7 +154,7 @@ describe("addJournalEntry", () => {
   });
 
   it("本文の未登録名はpeopleに自動登録しない", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     const peopleDirectory = await import("@/lib/people-directory");
     const store = await loadModule();
     const entry = await store.addJournalEntry("未登録太郎さんと話した");
@@ -163,7 +163,7 @@ describe("addJournalEntry", () => {
   });
 
   it("opts.peopleで明示した人物は抽出漏れでも紐付く", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     const peopleDirectory = await import("@/lib/people-directory");
     const personId = peopleDirectory.registerName("花子さん");
     const store = await loadModule();
@@ -173,7 +173,7 @@ describe("addJournalEntry", () => {
   });
 
   it("本文中の登録済みチーム名を自動でteamIdsに紐付ける", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "negative",  };
     const org = await import("@/lib/org-context-store");
     const team = org.addTeam("コアチーム", []);
     const store = await loadModule();
@@ -183,7 +183,7 @@ describe("addJournalEntry", () => {
   });
 
   it("ローカル抽出のteams配列からも登録済みチームを紐付ける", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: [],
       teams: ["基盤"],
@@ -201,7 +201,7 @@ describe("addJournalEntry", () => {
   });
 
   it("複数チームを同時に紐付けられる", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     const org = await import("@/lib/org-context-store");
     const a = org.addTeam("コアチーム", []);
     const b = org.addTeam("プロダクトチーム", []);
@@ -211,7 +211,7 @@ describe("addJournalEntry", () => {
   });
 
   it("updateJournalEntryでteamsを校正できる", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     const org = await import("@/lib/org-context-store");
     const team = org.addTeam("コアチーム", []);
     const store = await loadModule();
@@ -226,7 +226,7 @@ describe("addJournalEntry", () => {
 // 良いものがあれば、入れるようにする」対応。
 describe("addJournalEntryWithProfileCandidate", () => {
   it("既登録の人物についての長期プロファイル候補を返す", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: ["Aさん"],
       urgency: "low",
@@ -243,7 +243,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
   });
 
   it("未登録の人物についての候補は返さない（未登録人物の自動登録はしない既存方針を踏襲）", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: [],
       urgency: "low",
@@ -260,7 +260,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
   // ローカル抽出の未登録名は保存後ヒントではなく、allowUnmaskedCandidates:false の
   // 確認ゲートへ合流する（形態素モックが空でも抽出名だけでブロックされる）。
   it("抽出結果の未登録名は確認フラグ無しでは UnconfirmedNameCandidatesError になる", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: ["未登録太郎"],
       urgency: "low",
@@ -277,7 +277,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
   });
 
   it("抽出結果の未登録名は allow 後に保存でき、nameCandidates ヒントは空", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: ["未登録太郎"],
       urgency: "low",
@@ -295,7 +295,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
   });
 
   it("抽出結果の未登録名は register 後に people へ紐付く", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: ["未登録太郎"],
       urgency: "low",
@@ -315,7 +315,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
   // few-shot 末尾の「Dさん」等が本文と無関係に structured.people へコピーされても、
   // 本文根拠が無い抽出名は確認ゲートに載せない（実機で「どんなテキストでも＋Dさん」が出た回帰）。
   it("本文に出現しない抽出名（few-shot漏洩想定）は確認ゲートにも出さない", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: ["1on1", "目標設定"],
       people: ["Dさん"],
       urgency: "low",
@@ -333,14 +333,14 @@ describe("addJournalEntryWithProfileCandidate", () => {
   });
 
   it("profileCandidateがnull・不正な形式のときはundefinedを返す", async () => {
-    mockExtraction = { tags: [], people: [], urgency: "low", sentiment: "neutral",  profileCandidate: null };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "low", sentiment: "neutral",  profileCandidate: null };
     const store = await loadModule();
     const { profileCandidate } = await store.addJournalEntryWithProfileCandidate("特に何もないメモ");
     expect(profileCandidate).toBeUndefined();
   });
 
   it("addJournalEntry（既存関数）はprofileCandidateを返さずJournalEntryのままである", async () => {
-    mockExtraction = {
+    mockExtraction = { summary: "",
       tags: [],
       people: ["Aさん"],
       urgency: "low",
@@ -422,10 +422,10 @@ describe("listJournalEntriesPage", () => {
   });
 
   it("queryは実名のまま渡してもマスク後の保存内容と一致する", async () => {
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
     const store = await loadModule();
     const created = await store.addJournalEntry("Aさんと1on1した");
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     await store.addJournalEntry("無関係な話", 2);
 
     const { entries, total } = store.listJournalEntriesPage({ query: "Aさん" }, { limit: 10, offset: 0 });
@@ -437,10 +437,10 @@ describe("listJournalEntriesPage", () => {
     const peopleDirectory = await import("@/lib/people-directory");
     peopleDirectory.registerName("Aさん");
     peopleDirectory.registerName("Bさん");
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
     const store = await loadModule();
     await store.addJournalEntry("Aさんと1on1した");
-    mockExtraction = { tags: [], people: ["Bさん"], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: [], people: ["Bさん"], urgency: "mid", sentiment: "neutral",  };
     await store.addJournalEntry("Bさんと話した", 2);
 
     const { total } = store.listJournalEntriesPage({ person: "Aさん" }, { limit: 10, offset: 0 });
@@ -471,10 +471,10 @@ describe("findJournalEntryOffset", () => {
 
 describe("listJournalFacets", () => {
   it("実名・実タグへ復元したタグ・人物の一覧を返す（置き換えられた旧版は除外）", async () => {
-    mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: ["1on1"], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
     const store = await loadModule();
     const entry = await store.addJournalEntry("Aさんと1on1した");
-    mockExtraction = { tags: ["振り返り"], people: ["Bさん"], urgency: "mid", sentiment: "neutral",  };
+    mockExtraction = { summary: "", tags: ["振り返り"], people: ["Bさん"], urgency: "mid", sentiment: "neutral",  };
     await store.updateJournalEntry(entry.id, { tags: ["振り返り"], people: ["Bさん"] });
 
     const facets = store.listJournalFacets();
@@ -487,7 +487,7 @@ describe("listJournalFacets", () => {
 describe("setJournalNoActionNeeded / clearJournalNoActionNeeded", () => {
   it("sentimentは変えずno-action-needed系だけを設定し、現行版（headの版）に反映される", async () => {
     const store = await loadModule();
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative",  };
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "negative",  };
     const entry = await store.addJournalEntry("つらい状況");
     // 一度校正して新しいid（supersedesチェーンのhead）にした状態で確認する。
     const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
