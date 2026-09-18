@@ -15,9 +15,15 @@ import type { ProfileCandidate } from "@/lib/journal-store";
 // ユーザー指摘「折りたたみをやめて最初から表示したい」対応。自身での開閉は持たず、
 // 呼び出し元（JournalInputSwitcher）のタブ切り替えで表示/非表示を制御する。
 // 未登録人名は保存前ダイアログ（fetchWithNameConfirm）で完結する。
-export function QuickJournalNoteForm({ onCreated }: { onCreated: () => void }) {
+export function QuickJournalNoteForm({
+  onCreated,
+  initialText,
+}: {
+  onCreated: () => void;
+  initialText?: string;
+}) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? "");
   const [isImpression, setIsImpression] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [date, setDate] = useState("");

@@ -57,6 +57,7 @@ function JournalListPageInner() {
   const searchParams = useSearchParams();
   const focusId = searchParams.get("focus");
   const focusDumpId = searchParams.get("dump");
+  const prefill = searchParams.get("prefill");
 
   // ユーザー要望「Journal単独だけでなく、集約解釈を手動実行できるボタンを現場メモの
   // ページに置きたい」対応。日次バッチ（auto-journal-batch）を待たずに、EMが見たい
@@ -168,6 +169,7 @@ function JournalListPageInner() {
           else setPage(1);
         }}
         focusDumpId={focusDumpId}
+        prefill={prefill}
       />
 
       <div className={styles.panel} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

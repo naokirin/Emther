@@ -9,7 +9,6 @@ import { DailySituationPanel } from "@/components/dashboard/DailySituationPanel"
 import { EveningModeCard } from "@/components/dashboard/EveningModeCard";
 import { ThemesPanel } from "@/components/dashboard/ThemesPanel";
 import { TodayActionsPanel } from "@/components/dashboard/TodayActionsPanel";
-import { JournalDumpPanel } from "@/components/dashboard/JournalDumpPanel";
 import { getDayPhase } from "@/lib/dashboard-day-phase";
 import { buildNextActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
 import { buildDailySituation } from "@/lib/daily-situation";
@@ -27,7 +26,6 @@ import {
   useThemes,
   useVitals,
 } from "@/lib/hooks";
-import { useJournalEditing } from "@/lib/useJournalEditing";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isIssueStrategyUnlinked, isRunStale, type IssueStrategyLinkSuggestion, type PendingUnmaskedSend } from "@/lib/types";
 
@@ -156,40 +154,18 @@ function DashboardPageInner() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  // journalTextだけはEveningModeCardなどのCTA（prefillJournal）から
-  // JournalDumpPanelの入力欄へ外部プリフィルする必要があるため、ここで持つ
-  // （他のJournal関連state・ハンドラはJournalDumpPanel側に閉じている）。
-  const [journalText, setJournalText] = useState("");
-
-  // ユーザー指摘「今日あったことを書き連ねるも、他画面と同じくタブの一つにしてよい」
-  // 対応。「今日」内をダッシュボード／書き連ねの2タブへ分ける。
-  const [activeTab, setActiveTab] = useState<"dashboard" | "journal">("dashboard");
-
-  // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
-  // EMがその場で校正するための編集モード。同時に編集できるのは1件のみ。
-  // ロジック自体はJournal一覧画面（/journal）と共有するため@/lib/hooksに切り出してある。
-  const journalEditing = useJournalEditing(journalEntries, setJournalEntries);
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [confirmingUnmasked, setConfirmingUnmasked] = useState<PendingUnmaskedSend | null>(null);
   const [confirmingUnmaskedBusy, setConfirmingUnmaskedBusy] = useState(false);
 
-  // ユーザー指摘「書き連ねるをタブ化しても、他パネルの『書き連ねる』系CTAは自動で
-  // タブ切り替えしてほしい」対応。書き連ねタブへ切り替えてから、描画後に入力欄へ
-  // スクロール・フォーカスする。
+  // 今日タブから書き連ねを削除し、ジャーナル画面（/journal）へ遷移する
   function focusJournalInput() {
-    setActiveTab("journal");
-    requestAnimationFrame(() => {
-      const el = document.getElementById("quick-journal-input");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      (el as HTMLInputElement | null)?.focus();
-    });
+    router.push("/journal");
   }
 
-  // docs/memo.md「D. 評価不能→観測アクション」対応。評価不能で立ち止まらせず、
-  // 「誰の1on1を記録すればよいか」までQuick Journalへのプリフィルで橋渡しする。
+  // クイック入力のプリフィル時は /journal?prefill=... へ遷移
   function prefillJournal(text: string) {
-    setJournalText(text);
-    focusJournalInput();
+    router.push(`/journal?prefill=${encodeURIComponent(text)}`);
   }
 
   // ユーザー指摘「『判断待ちがN件あります』の確認先がわからない」対応。今日の状況の
@@ -277,106 +253,65 @@ function DashboardPageInner() {
         onNavigate={(path) => router.push(path)}
       />
 
-      {/* ユーザー指摘「今日あったことを書き連ねるも、他画面と同じくタブの一つにしてよい」
-          対応。ダッシュボード／書き連ねの2タブに分け、他パネルの「書き連ねる」系CTAは
-          focusJournalInput側でタブ切り替えまで面倒を見る。 */}
-      <div className={styles.tabs}>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${activeTab === "dashboard" ? styles.tabBtnActive : ""}`}
-          onClick={() => setActiveTab("dashboard")}
-        >
-          ダッシュボード
-        </button>
-        <button
-          type="button"
-          className={`${styles.tabBtn} ${activeTab === "journal" ? styles.tabBtnActive : ""}`}
-          onClick={() => setActiveTab("journal")}
-        >
-          書き連ね
-        </button>
-      </div>
-
-      {activeTab === "dashboard" && (
-        <>
-          {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
-              記録先（/growth）への導線のみを置く。 */}
-          {dayPhase === "evening" && (
-            <EveningModeCard
-              checkinsLoaded={checkinsLoaded}
-              hasCheckinToday={hasCheckinToday}
-              onFocusJournal={focusJournalInput}
-              onNavigateGrowth={() => router.push("/growth")}
-            />
-          )}
-
-          {/* ユーザー指摘「今日やるべき3つを上に持ってきたことで、一言診断バナー（判断待ちが
-              N件あります）がほぼ意味をなさない」対応。一言診断バナーは廃止し、「今日やるべき
-              3つ」をファーストビューの先頭として直接出す。 */}
-          <TodayActionsPanel
-            now={now}
-            nextActions={nextActions}
-            nextActionsLoaded={nextActionsLoaded}
-            decisionQueueLimit={rules.decisionQueueLimit}
-            observationQueueLimit={rules.observationQueueLimit}
-            watchingItems={watchingItems}
-            lastSeenAt={lastSeenAt}
-            unlinkedParentCount={unlinkedParentCount}
-            krTotals={krTotals}
-            autoRunsToday={autoRunsToday}
-            runs={runs}
-            runsLoaded={runsLoaded}
-            onNavigate={(path) => router.push(path)}
-            issueLinkSuggesting={issueLinkSuggesting}
-            issueLinkError={issueLinkError}
-            issueLinkPreview={issueLinkPreview}
-            issueLinkApplyingId={issueLinkApplyingId}
-            onSuggestIssueStrategyLinks={handleSuggestIssueStrategyLinks}
-            onAdoptIssueStrategyLink={handleAdoptIssueStrategyLink}
-            onDismissIssueLinkPreview={() => setIssueLinkPreview(null)}
-            onDismissIssueLinkOne={(issueId) =>
-              setIssueLinkPreview((prev) =>
-                prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) } : null,
-              )
-            }
-          />
-
-          {/* ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。
-              独立パネル（旧TeamStatePanel）は廃止し、チーム/メンバーの状態は今日の状況の
-              ステータスチップに一本化する（1on1 Coverageもdaily-situation.ts側で統合済み）。 */}
-          <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
-
-          {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
-              テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付ける。 */}
-          <ThemesPanel
-            themes={themes}
-            themesLoaded={themesLoaded}
-            objectives={objectives}
-            refreshThemes={refreshThemes}
-            refreshRuns={refreshRuns}
-            onNavigate={(path) => router.push(path)}
-          />
-        </>
-      )}
-
-      {activeTab === "journal" && (
-        <JournalDumpPanel
-          journalText={journalText}
-          onJournalTextChange={setJournalText}
-          journalEntries={journalEntries}
-          setJournalEntries={setJournalEntries}
-          journalLoaded={journalLoaded}
-          journalEditing={journalEditing}
-          fetchWithNameConfirm={fetchWithNameConfirm}
-          runs={runs}
-          refreshRuns={refreshRuns}
-          dayPhase={dayPhase}
-          onNavigate={(path) => router.push(path)}
+      {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
+          記録先（/growth）への導線のみを置く。 */}
+      {dayPhase === "evening" && (
+        <EveningModeCard
+          checkinsLoaded={checkinsLoaded}
+          hasCheckinToday={hasCheckinToday}
+          onFocusJournal={focusJournalInput}
+          onNavigateGrowth={() => router.push("/growth")}
         />
       )}
 
+      {/* ユーザー指摘「今日やるべき3つを上に持ってきたことで、一言診断バナー（判断待ちが
+          N件あります）がほぼ意味をなさない」対応。一言診断バナーは廃止し、「今日やるべき
+          3つ」をファーストビューの先頭として直接出す。 */}
+      <TodayActionsPanel
+        now={now}
+        nextActions={nextActions}
+        nextActionsLoaded={nextActionsLoaded}
+        decisionQueueLimit={rules.decisionQueueLimit}
+        observationQueueLimit={rules.observationQueueLimit}
+        watchingItems={watchingItems}
+        lastSeenAt={lastSeenAt}
+        unlinkedParentCount={unlinkedParentCount}
+        krTotals={krTotals}
+        autoRunsToday={autoRunsToday}
+        runs={runs}
+        runsLoaded={runsLoaded}
+        onNavigate={(path) => router.push(path)}
+        issueLinkSuggesting={issueLinkSuggesting}
+        issueLinkError={issueLinkError}
+        issueLinkPreview={issueLinkPreview}
+        issueLinkApplyingId={issueLinkApplyingId}
+        onSuggestIssueStrategyLinks={handleSuggestIssueStrategyLinks}
+        onAdoptIssueStrategyLink={handleAdoptIssueStrategyLink}
+        onDismissIssueLinkPreview={() => setIssueLinkPreview(null)}
+        onDismissIssueLinkOne={(issueId) =>
+          setIssueLinkPreview((prev) =>
+            prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) } : null,
+          )
+        }
+      />
+
+      {/* ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。
+          独立パネル（旧TeamStatePanel）は廃止し、チーム/メンバーの状態は今日の状況の
+          ステータスチップに一本化する（1on1 Coverageもdaily-situation.ts側で統合済み）。 */}
+      <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
+
+      {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
+          テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付ける。 */}
+      <ThemesPanel
+        themes={themes}
+        themesLoaded={themesLoaded}
+        objectives={objectives}
+        refreshThemes={refreshThemes}
+        refreshRuns={refreshRuns}
+        onNavigate={(path) => router.push(path)}
+      />
+
       {nameCandidateDialog}
-      {journalEditing.nameCandidateDialog}
       {confirmingUnmasked && (
         <NameCandidateConfirmDialog
           candidates={confirmingUnmasked.candidates}
