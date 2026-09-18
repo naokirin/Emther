@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   summarizeLogLocally,
   structureDailyReflectionLocally,
   generateNextReflectionQuestionLocally,
 } from "./local-summarizer";
+
+const mockRunCloudChat = vi.fn();
+vi.mock("@/lib/cloud-chat", () => ({
+  runCloudChat: (...args: unknown[]) => mockRunCloudChat(...args),
+}));
 
 vi.mock("@/lib/local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
@@ -16,6 +21,11 @@ vi.mock("@/lib/local-model", () => ({
 }));
 
 describe("local-summarizer", () => {
+  beforeEach(() => {
+    mockRunCloudChat.mockReset();
+    mockRunCloudChat.mockRejectedValue(new Error("cloud chat unavailable in test default"));
+  });
+
   it("空文字の場合は空文字を返す", async () => {
     expect(await summarizeLogLocally("   ")).toBe("");
     expect(await structureDailyReflectionLocally("")).toBe("");
@@ -91,6 +101,29 @@ describe("local-summarizer", () => {
     expect(res).toContain("**【事実・出来事】**\n- 本日は田中さんの1on1がスキップされたことに気づきました。");
     expect(res).toContain("**【EMの判断・対応】**\n- ロードマップの優先度を見直してスコープを削る合意を取りました。");
     expect(res).toContain("**【気づき・シグナル】**\n- QAの残業が少し増えているのが気になりました。");
+  });
+
+  it("クラウドAI連携: EMの発言と人名をマスクして外部送信し、AIの問いかけ内の人名を復元して返す", async () => {
+    mockRunCloudChat.mockResolvedValueOnce(
+      "{{PERSON_1}}さんの1on1がスキップされたのですね。普段遅刻もしないメンバーだからこそ心配になりますね。最近の{{PERSON_1}}さんの様子で気になる変化はありましたか？",
+    );
+    const res = await generateNextReflectionQuestionLocally([
+      { role: "assistant", content: "今日はどんな一日でしたか？" },
+      { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。" },
+    ]);
+    expect(res).toContain("田中さんの1on1がスキップされたのですね");
+    expect(res).toContain("普段遅刻もしないメンバーだからこそ心配になりますね");
+    expect(mockRunCloudChat).toHaveBeenCalled();
+  });
+
+  it("クラウドAI連携: 対話ログを高精度に構造化して返す", async () => {
+    mockRunCloudChat.mockResolvedValueOnce(
+      "**【事実・出来事】**\n- {{PERSON_1}}さんの1on1がスキップされた\n\n**【EMの判断・対応】**\n- 明日朝イチで棚卸しを一緒にやる\n\n**【気づき・シグナル】**\n- 新規案件が重なり抱え込み気味だった",
+    );
+    const res = await structureDailyReflectionLocally("対話ログテキスト");
+    expect(res).toContain("田中さんの1on1がスキップされた");
+    expect(res).toContain("明日朝イチで棚卸しを一緒にやる");
+    expect(res).toContain("新規案件が重なり抱え込み気味だった");
   });
 });
 

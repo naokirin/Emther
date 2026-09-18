@@ -1,6 +1,12 @@
 import { runLocalChat } from "@/lib/local-model";
+import { runCloudChat } from "@/lib/cloud-chat";
+import {
+  ensureNameCandidatesAllowed,
+  listPeople,
+  maskForStorage,
+  unmaskNames,
+} from "@/lib/people-directory";
 import { buildGlossaryContextBlock } from "@/lib/glossary-store";
-import { listPeople } from "@/lib/people-directory";
 
 /**
  * 議事録やチャットログ等の長い生テキストを、ローカルLLMを用いて外部に一切送信せずに要約する。
@@ -41,10 +47,20 @@ ${glossary ? `\n${glossary}\n` : ""}
 /**
  * 1日の終わりにEMが入力した振り返りメモ（または対話ログ）から、
  * 「事実・出来事」「EMの判断・対応」「気づき・シグナル」に整理・構造化する。
+ * まずクラウドAIによる高精度な構造化を試み、不可時はフォールバックする。
  */
 export async function structureDailyReflectionLocally(reflectionText: string): Promise<string> {
   const trimmed = reflectionText.trim();
   if (!trimmed) return "";
+
+  try {
+    const aiStructured = await structureDailyReflectionViaCloudAI(trimmed);
+    if (aiStructured && aiStructured.trim().length > 0) {
+      return aiStructured.trim();
+    }
+  } catch {
+    // フォールバック
+  }
 
   return structureFromReflectionText(trimmed);
 }
@@ -56,15 +72,138 @@ export interface ReflectionTurn {
 
 /**
  * 1日の振り返り対話で、1on1のようにEMの発言を受容・傾聴しながら次の問いかけを行う。
- * 無理に1点を深掘り・詰問（なぜスキップしたか等）するのではなく、
- * EMが1日を多面的（全体感 → チーム・メンバー → EM自身の判断・行動 → 違和感・モヤモヤ）
- * に思い返せるように優しく促す。
+ * クラウドAI（Gemini / Claude / Cursor）を活用し、EMの発言に即した血の通った深掘りと内省促進を行う。
+ * オフライン時やCLI利用不可時は、ルールベースの1on1対話生成へフォールバックする。
  */
 export async function generateNextReflectionQuestionLocally(
   dialogHistory: ReflectionTurn[],
   todayJournalTexts: string[] = [],
 ): Promise<string> {
+  const userTurns = dialogHistory.filter((t) => t.role === "user");
+
+  // Turn 0: オープニングの問いかけは定型で温かく開始
+  if (userTurns.length === 0) {
+    const extra =
+      todayJournalTexts.length > 0
+        ? `\n（今日のメモ: 「${todayJournalTexts[0].slice(0, 30)}…」なども含め振り返っていただけます）`
+        : "";
+    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）${extra}`;
+  }
+
+  // Turn 1以降: クラウドAIによる文脈を捉えた深い1on1問いかけを試みる
+  try {
+    const aiQuestion = await generateReflectionQuestionViaCloudAI(dialogHistory, todayJournalTexts);
+    if (aiQuestion && aiQuestion.trim().length > 0) {
+      return aiQuestion.trim();
+    }
+  } catch {
+    // 外部AIが利用できない環境ではルールベースへフォールバック
+  }
+
   return generate1on1ReflectionQuestion(dialogHistory, todayJournalTexts);
+}
+
+async function generateReflectionQuestionViaCloudAI(
+  dialogHistory: ReflectionTurn[],
+  todayJournalTexts: string[] = [],
+): Promise<string> {
+  const allTexts = [
+    ...dialogHistory.map((t) => t.content),
+    ...todayJournalTexts,
+  ];
+  await ensureNameCandidatesAllowed(allTexts, { registerNameCandidates: true });
+
+  const maskedTurns = await Promise.all(
+    dialogHistory.map(async (t) => ({
+      role: t.role,
+      content: await maskForStorage(t.content),
+    })),
+  );
+
+  const maskedJournals = await Promise.all(
+    todayJournalTexts.map((j) => maskForStorage(j)),
+  );
+
+  const journalContext =
+    maskedJournals.length > 0
+      ? `【本日のJournalメモ（参考）】\n${maskedJournals.slice(0, 3).map((t) => `- ${t.slice(0, 80)}`).join("\n")}\n\n`
+      : "";
+
+  const systemPrompt = `あなたはエンジニアリングマネージャー（EM）のための親身で思慮深い1on1コーチ・振り返りパートナーです。
+EMが1日の終わりに内省（振り返り）を深め、自分自身の感情・チームの兆候・業務の背景・打ち手を整理できるよう伴走します。
+
+【対話の基本方針】
+1. 受容と傾聴:
+   EMの最新の発言（感情、状況、出来事）を具体的に受け止め、労いと共感を伝えてください。
+   定型文や画一的なオウム返しではなく、EMが書いた言葉のニュアンス（葛藤、焦り、自責、安堵など）を捉えて自然に応答してください。
+2. 掘り下げ（1〜2ターン目）:
+   話題をすぐに切り替えて別の話を振るのではなく、EMが挙げた出来事や課題について、その背景や根本要因、メンバーの様子やサイン、またはEM自身の受け止めを深掘りしてください。
+   （例: 「なぜですか」と詰問するのではなく、「その背景としてどんな要因が重なっていそうでしょうか」「ご自身から見て、その時どんな点が気になりましたか」のように言語化を促す）
+3. 打ち手・展開の引き出し（2〜3ターン目）:
+   背景が共有されたら、EMが今後どう動こうと考えているか（声かけ、フォロー、優先度調整など）や、チーム全体への影響について思考を広げる問いかけを投げかけてください。
+4. 終盤（3〜4ターン目以降）:
+   状況の整理や次の一手が見えてきたら、残っている違和感や心残り、明日への持ち越し事項がないかを尋ね、まとめる準備を整えてください。
+
+【トーン＆マナー】
+- 丁寧で温かみのあるビジネス日本語（です・ます調）。
+- 詰問・尋問口調（「なぜ〜ですか？」「学びは何ですか？」などの機械的な問い）は絶対に避けてください。
+- 1回の返答は、簡潔な共感・受容（1〜2文）＋ 焦点を絞った問いかけ（1〜2文）の計3〜4文程度で構成してください。長文や質問の羅列は避け、EMが最も答えやすい問いに絞ってください。
+- 返答テキストのみを出力してください（「AI:」「アシスタント:」などのラベルや見出し、メタ解説は一切出力しないでください）。`;
+
+  const conversationLines = maskedTurns
+    .map((t) => {
+      const speaker = t.role === "user" ? "EM" : "あなた（AI）";
+      return `${speaker}: ${t.content}`;
+    })
+    .join("\n\n");
+
+  const userPrompt = `${journalContext}これまでの振り返り対話の流れ:
+---
+${conversationLines}
+---
+
+上記の対話の流れを踏まえ、EMの最新の発言に対して温かく共感・受容し、思考をさらに一歩深めるための次の問いかけ（1〜2文）を返してください。
+（返答文のみを出力してください）`;
+
+  const rawResponse = await runCloudChat(systemPrompt, userPrompt, { timeoutMs: 40_000 });
+  const cleaned = rawResponse
+    .trim()
+    .replace(/^(?:AI|あなた|アシスタント|振り返りパートナー)[:：]\s*/i, "")
+    .trim();
+
+  return unmaskNames(cleaned).replace(/(さん|くん|君|氏)(?:さん|くん|君|氏)+/g, "$1");
+}
+
+async function structureDailyReflectionViaCloudAI(text: string): Promise<string | null> {
+  await ensureNameCandidatesAllowed([text], { registerNameCandidates: true });
+  const masked = await maskForStorage(text);
+
+  const systemPrompt = `あなたはエンジニアリングマネージャー（EM）の1日の内省・振り返りを整理するアシスタントです。
+EMが対話形式で語った振り返り内容から、以下の3つの見出しに構造化してMarkdown箇条書きで整理してください。
+推測で架空の情報を付け足さず、EMが語った事実・考え・打ち手に基づいて簡潔かつ的確にまとめてください。
+
+出力フォーマット:
+- **【事実・出来事】**: 今日組織やチームであった客観的な出来事や状況（箇条書き）
+- **【EMの判断・対応】**: EM自身が決めたこと、行動したこと、今後打つ手（箇条書き）
+- **【気づき・シグナル】**: 気になったこと、違和感、メンバーの変化、今後の課題（箇条書き）
+
+返答には上記3つの見出しと箇条書きのみを出力してください。メタな解説や前置きは不要です。`;
+
+  const rawResponse = await runCloudChat(
+    systemPrompt,
+    `以下の振り返り対話内容を構造化してください:\n\n${masked}`,
+    { timeoutMs: 40_000 },
+  );
+  const cleaned = rawResponse.trim();
+  if (
+    cleaned &&
+    cleaned.includes("【事実・出来事】") &&
+    cleaned.includes("【EMの判断・対応】") &&
+    cleaned.includes("【気づき・シグナル】")
+  ) {
+    return unmaskNames(cleaned).replace(/(さん|くん|君|氏)(?:さん|くん|君|氏)+/g, "$1");
+  }
+  return null;
 }
 
 function findPersonInText(text: string): string | null {
