@@ -228,7 +228,7 @@ export function toJournalEntryViews(entries: JournalEntry[], consultIndex: Map<s
 // 全投稿で無料・低遅延に判定したいため、クラウドのLead Agent分析へはエスカレートしない）。
 const SYSTEM_PROMPT = [
   "あなたはメモから情報を抽出し、JSONだけを出力するツールです。説明や前置きは一切書かず、JSONオブジェクト1つだけを出力してください。",
-  'フォーマット: {"tags": string[], "people": string[], "teams": string[], "urgency": "low"|"mid"|"high", "sentiment": "positive"|"negative"|"neutral", "summary": string, "profileCandidate": {"person": string, "text": string} | null}',
+  'フォーマット: {"tags": string[], "people": string[], "teams": string[], "urgency": "low"|"mid"|"high", "sentiment": "positive"|"negative"|"neutral", "profileCandidate": {"person": string, "text": string} | null}',
   "tagsは日本語の短い単語（例: 技術的負債, 1on1）。peopleは文中の人物名（敬称はそのまま、例: Aさん）。",
   "teamsは文中で言及されたチーム名・組織名（例: コアチーム, Engineering）。人物名はteamsに入れないこと。",
   "profileCandidateは、peopleに含まれる人物について「一時的な出来事・感情」ではなく「今後の判断材料になりうる長期的な傾向・強み・特性」が読み取れるときだけ設定してください。personはpeopleと同じ表記の人物名、textは1文の短い候補文にすること。読み取れない・一時的な内容しかない場合は必ずnullにしてください。",
@@ -249,7 +249,6 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       teams: [],
       urgency: "high",
       sentiment: "negative",
-      summary: "Q3のリリース日が2週間前倒しになった",
       profileCandidate: null,
     }),
   },
@@ -261,7 +260,6 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       teams: [],
       urgency: "low",
       sentiment: "positive",
-      summary: "Cさんのレビューが今回も速く的確だった",
       profileCandidate: { person: "Cさん", text: "Cさんはコードレビューが速く指摘も的確" },
     }),
   },
@@ -273,7 +271,6 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       teams: ["コアチーム"],
       urgency: "mid",
       sentiment: "negative",
-      summary: "コアチームの雰囲気が重く燃え尽きが見える",
       profileCandidate: null,
     }),
   },
@@ -285,7 +282,6 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
       teams: [],
       urgency: "low",
       sentiment: "neutral",
-      summary: "Dさんと1on1で今期の目標について認識合わせをした",
       profileCandidate: null,
     }),
   },
@@ -448,11 +444,10 @@ async function createJournalEventFromText(
     embedding = undefined;
   }
 
-  // 個人情報の分離（ユーザー指摘対応）: text/summaryはSQLite（クラウドプロンプト構築の
-  // 経路からも読まれるストア）に保存する前にmaskForStorageでPERSON_n IDへ置換する。
   const maskedText = await maskForStorage(rawText);
-  const rawSummary = typeof structured.summary === "string" ? structured.summary : "";
-  const maskedSummary = rawSummary ? await maskForStorage(rawSummary) : "";
+  // docs/usage_issues Journalの本文はもともと短いため、ローカルモデルによる要約（summary）の抽出は廃止した。
+  // （抽出させると、短い・要約不能な入力に対してfew-shot例をそのまま出力してしまうハルシネーションの温床になるため）
+  const maskedSummary = "";
 
   // 個人情報の分離（実機検証で発見した実際の漏洩経路）: ローカルモデルの抽出精度の限界で、
   // tagsに人物名そのもの（例: 本来peopleに入るべき「花子さん」を含む文字列）が

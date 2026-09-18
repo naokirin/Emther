@@ -42,7 +42,7 @@ let dir: string;
 beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
-  mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+  mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
 });
 
 afterEach(() => {
@@ -76,7 +76,7 @@ describe("computeOrgVitals", () => {
   it("ネガティブなJournalが多いチームはbad(要注意)判定になる", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("Team A", ["Aさん"]);
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative",  };
     await journalStore.addJournalEntry("Aさんが不満");
     await journalStore.addJournalEntry("Aさんがまた不満");
 
@@ -88,7 +88,7 @@ describe("computeOrgVitals", () => {
   it("ポジティブなJournalが多いチームはgood(安定)判定になる", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("Team A", ["Aさん"]);
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("Aさんが好調");
     await journalStore.addJournalEntry("Aさんがまた好調");
 
@@ -105,7 +105,7 @@ describe("computeOrgVitals", () => {
   it("1on1タグ付きJournalで言及されたメンバーだけがカバレッジ対象になる", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("Team A", ["Aさん", "Bさん"]);
-    mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "mid", sentiment: "neutral", summary: "" };
+    mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
     await journalStore.addJournalEntry("Aさんと1on1した");
 
     const result = vitals.computeOrgVitals();
@@ -157,7 +157,7 @@ describe("computeOrgVitals", () => {
   it("チームに紐づくブロッカーIssueが1件あれば、Journalが良好でもwarn以上に引き上げる", async () => {
     const { vitals, orgStore, journalStore, issueStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("Aさんが好調");
     await journalStore.addJournalEntry("Aさんがまた好調");
     const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
@@ -171,7 +171,7 @@ describe("computeOrgVitals", () => {
   it("チームに紐づくブロッカーIssueがあっても、既にbad判定なら据え置く", async () => {
     const { vitals, orgStore, journalStore, issueStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative",  };
     await journalStore.addJournalEntry("Aさんが不満");
     await journalStore.addJournalEntry("Aさんがまた不満");
     const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
@@ -195,7 +195,7 @@ describe("computeOrgVitals", () => {
   it("確認済み（対応不要）にしたネガティブJournalはTeam Vitalsの判定材料から除外する", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("Team A", ["Aさん"]);
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative",  };
     const e1 = await journalStore.addJournalEntry("Aさんが不満");
     const e2 = await journalStore.addJournalEntry("Aさんがまた不満");
     await journalStore.setJournalNoActionNeeded(e1.id);
@@ -208,7 +208,7 @@ describe("computeOrgVitals", () => {
   it("メンバー未登録でも明示teamIdsのJournalが閾値以上ならsentimentで判定する", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("コアチーム", []);
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative", summary: "" };
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative",  };
     await journalStore.addJournalEntry("コアチームの士気が低い");
     await journalStore.addJournalEntry("コアチームがまた落ち込んでいる");
 
@@ -220,7 +220,7 @@ describe("computeOrgVitals", () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     // 別メンバーのチームだが、本文にチーム名があれば明示紐付けされる
     orgStore.addTeam("コアチーム", ["Bさん"]);
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("コアチーム全体の雰囲気が良い");
     await journalStore.addJournalEntry("コアチームの進捗が順調");
 
@@ -250,7 +250,7 @@ describe("computeIssueImpact", () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("コアチーム", []);
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
-    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("コアチームの雰囲気が改善した");
     const impact = vitals.computeIssueImpact(issue);
     expect(impact?.after.total).toBe(1);
@@ -261,7 +261,7 @@ describe("computeIssueImpact", () => {
     const team = orgStore.addTeam("Team A", ["Aさん"]);
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
 
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("介入後の様子");
 
     const impact = vitals.computeIssueImpact(issue);
@@ -275,7 +275,7 @@ describe("computeIssueImpact", () => {
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueArchived(issue.id, true);
 
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("介入後の様子");
 
     const archivedIssue = issueStore.getIssue(issue.id)!;
@@ -290,7 +290,7 @@ describe("computeIssueImpact", () => {
     const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueStatus(issue.id, "done");
 
-    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive", summary: "" };
+    mockExtraction = { tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("介入後の様子");
 
     const doneIssue = issueStore.getIssue(issue.id)!;
