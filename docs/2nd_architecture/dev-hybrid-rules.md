@@ -51,10 +51,16 @@
 - `GET/POST /api/journal`, `GET/PATCH /api/journal/:id`, `POST/DELETE /api/journal/:id/archive`, `POST/DELETE /api/journal/:id/no-action-needed`, `POST /api/journal/bulk`, `GET /api/journal/search`
 - `GET/PATCH /api/settings/rules`
 - `GET/POST /api/themes`, `GET/PATCH /api/themes/:id`, `POST /api/themes/from-okr`
+- `GET/POST /api/agents`, `GET /api/agents/inbox`
 
-**低リスク41ルート、全て移植完了（2026-09-19）。** 残る未移植は高リスク36ルートのみ（`docs/2nd_architecture/plan.md` フェーズ2.2参照）。
+**低リスク41ルート、全て移植完了（2026-09-19）。** 高リスク側は`agents`/`agents/inbox`の2ルートに着手済み（残り34ルート）。
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes}.ts`（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents}.ts`（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
+
+## 6. agent-runtime系ルートを移植する際の注意（高リスク側）
+
+- `agent-runtime`（`scheduled-tasks.ts`）をimportするルートをHono側へ移植すると、Next側watchdogと合わせて30秒間隔の自動バッチチェックが2プロセスで同時に走る。既存の3層二重起動ガード（globalThisクレーム・ファイル永続化・DB上の当日run存在チェック）で大筋は許容される設計（詳細は`plan.md`「高リスク バッチ1」参照）だが、完全な無害性は未検証。
+- `POST`系（agent起動を伴うもの）は実際のCLIプロセスを起動しうるため、手動`safe-curl`では叩かない。GETのみで疎通確認し、POSTの検証は`node:child_process`の`spawn`をモックした自動テストに委ねる。
 
 ## 4. まだ決めていないこと（フェーズ2.5以降で追記）
 
