@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../test-helpers/store-env";
 
 let dir: string;
 
@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe("journal-batch-window", () => {
   it("初回は直近24時間を対象にし、begin後は前回カバーより後だけを対象にする", async () => {
-    const mod = await import("@/lib/agent-runtime/journal-batch-window");
+    const mod = await import("./journal-batch-window");
     const now = Date.now();
     expect(mod.isJournalInBatchWindow(now - 12 * 60 * 60 * 1000, now)).toBe(true);
     expect(mod.isJournalInBatchWindow(now - 2 * 24 * 60 * 60 * 1000, now)).toBe(false);
@@ -38,20 +38,20 @@ describe("journal-batch-window", () => {
   });
 
   it("アクティブ窓は永続化され、モジュール再読込後も同じ範囲を返す", async () => {
-    const mod1 = await import("@/lib/agent-runtime/journal-batch-window");
+    const mod1 = await import("./journal-batch-window");
     const t0 = Date.now();
     mod1.beginJournalBatchWindow(t0);
     const mid = t0 - 1000;
     expect(mod1.isJournalInBatchWindow(mid, t0)).toBe(true);
 
     vi.resetModules();
-    const mod2 = await import("@/lib/agent-runtime/journal-batch-window");
+    const mod2 = await import("./journal-batch-window");
     expect(mod2.isJournalInBatchWindow(mid, t0)).toBe(true);
     expect(mod2.isJournalInBatchWindow(t0 + 1, t0 + 10)).toBe(false);
   });
 
   it("最大7日より古いJournalは除外する", async () => {
-    const mod = await import("@/lib/agent-runtime/journal-batch-window");
+    const mod = await import("./journal-batch-window");
     const now = Date.now();
     mod.beginJournalBatchWindow(now - 10 * 24 * 60 * 60 * 1000);
     const later = now;
@@ -61,9 +61,9 @@ describe("journal-batch-window", () => {
   });
 
   it("旧形式 { date } のみは全日クレームにせず legacyDateOnly で返す", async () => {
-    const { saveJSON } = await import("@core/persistence");
+    const { saveJSON } = await import("../persistence");
     saveJSON("auto-journal-batch.json", { date: "2026-09-17" });
-    const mod = await import("@/lib/agent-runtime/journal-batch-window");
+    const mod = await import("./journal-batch-window");
     const state = mod.loadJournalBatchPersisted();
     expect(state.date).toBe("2026-09-17");
     expect(state.claimedHours).toEqual([]);

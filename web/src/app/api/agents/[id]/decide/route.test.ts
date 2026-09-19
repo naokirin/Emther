@@ -67,7 +67,7 @@ describe("POST /api/agents/[id]/decide", () => {
     // loadRunsFromDb()はDBから読み込んだ"active"行を（サーバー再起動想定で）"error"に
     // 変換してしまうため、DB直接投入では真にactiveな状態を再現できない。実際にstartRunで
     // 起動し、spawnしたCLIプロセスをcloseさせないことで本物のactive状態を作る。
-    const agentRuntime = await import("@/lib/agent-runtime");
+    const agentRuntime = await import("@core/agent-runtime/index");
     const run = await agentRuntime.startRun("Lead Agent", "実行中のタスク");
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", { message: "続けて" }), routeCtx({ id: run.id }));

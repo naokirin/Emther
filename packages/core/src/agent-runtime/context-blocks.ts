@@ -1,6 +1,6 @@
-import { embedText } from "@core/embeddings";
-import { getIssue, getIssueByRunId, issueEmbedSource } from "@core/issue-store";
-import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@core/knowledge-store";
+import { embedText } from "../embeddings";
+import { getIssue, getIssueByRunId, issueEmbedSource } from "../issue-store";
+import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "../knowledge-store";
 import {
   getOrgStrategy,
   getTeam,
@@ -9,14 +9,14 @@ import {
   listObjectives,
   type OrgBackgroundEntry,
   type Team,
-} from "@core/org-context-store/index";
-import { listPeople, maskNames } from "@core/people-directory";
-import { buildRelatedBundleBlock } from "@core/related-context";
-import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@core/agent-knowledge-tools";
-import { getRulesAndConstraints, getSelfPersonId } from "@core/settings-store";
-import { listAdoptedThemes } from "@core/theme-store";
-import { buildGlossaryContextBlock } from "@core/glossary-store";
-import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@core/types";
+} from "../org-context-store/index";
+import { listPeople, maskNames } from "../people-directory";
+import { buildRelatedBundleBlock } from "../related-context";
+import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "../agent-knowledge-tools";
+import { getRulesAndConstraints, getSelfPersonId } from "../settings-store";
+import { listAdoptedThemes } from "../theme-store";
+import { buildGlossaryContextBlock } from "../glossary-store";
+import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "../types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import {
   buildDistillationContextBlock,

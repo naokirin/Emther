@@ -4,7 +4,7 @@ import {
   confirmPendingUnmaskedSend,
   dismissPendingUnmaskedSend,
   toRunView,
-} from "@/lib/agent-runtime";
+} from "@core/agent-runtime/index";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/agents/pending-unmasked/[id]">) {
   const { id } = await ctx.params;

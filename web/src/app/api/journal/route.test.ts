@@ -25,7 +25,7 @@ vi.mock("@core/embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-vi.mock("@/lib/agent-runtime", () => ({
+vi.mock("@core/agent-runtime/index", () => ({
   startRun: vi.fn(async () => ({})),
   listRuns: () => [],
 }));

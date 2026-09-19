@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { killLiveAgentProcesses } from "@/lib/agent-runtime";
+import { killLiveAgentProcesses } from "@core/agent-runtime/index";
 import { closeDb } from "@core/db";
 import { getBackupDir, getDataDir, getSecureDataDir } from "@core/persistence";
 

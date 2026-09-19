@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { getIssueByRunId, linkIssueRun } from "@core/issue-store";
-import type { MaskOptions } from "@core/name-candidate-confirmation";
-import { ensureNameCandidatesAllowed } from "@core/people-directory";
-import { getRulesAndConstraints } from "@core/settings-store";
+import { getIssueByRunId, linkIssueRun } from "../issue-store";
+import type { MaskOptions } from "../name-candidate-confirmation";
+import { ensureNameCandidatesAllowed } from "../people-directory";
+import { getRulesAndConstraints } from "../settings-store";
 import { SPECIALIST_AGENTS } from "./agent-catalog";
-import { runClaudeTurn, runTeamParallelKickoff } from "./cli-runners";
+import { runClaudeTurn, runTeamParallelKickoff } from "./cli-runners/index";
 import { beginJournalBatchWindow } from "./journal-batch-window";
 import { appendLog, runs, sanitizeForCloud } from "./store";
 import { originLabel, type AgentRun, type PendingUnmaskedSend } from "./types";

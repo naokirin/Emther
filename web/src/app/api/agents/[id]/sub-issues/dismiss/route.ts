@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clearSuggestedSubIssues, toRunView } from "@/lib/agent-runtime";
+import { clearSuggestedSubIssues, toRunView } from "@core/agent-runtime/index";
 
 export async function POST(_request: Request, ctx: RouteContext<"/api/agents/[id]/sub-issues/dismiss">) {
   const { id } = await ctx.params;

@@ -2,7 +2,7 @@
 // シグネチャを維持する（呼び出し側は "@/lib/agent-runtime" というパスaliasを使っており、
 // ディレクトリ化してもこのパスは解決されるため変更不要）。
 
-export type { SuggestedTheme } from "@core/theme-store";
+export type { SuggestedTheme } from "../theme-store";
 
 export {
   extractLookup,
@@ -10,7 +10,7 @@ export {
   LOOKUP_MAX_ROUNDS,
   type LookupRequest,
   type LookupQuery,
-} from "@core/agent-knowledge-tools";
+} from "../agent-knowledge-tools";
 
 export { EXEC_AGENT_NAME } from "./agent-catalog";
 

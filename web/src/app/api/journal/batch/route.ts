@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startJournalBatchAnalysis, toRunView } from "@/lib/agent-runtime";
+import { startJournalBatchAnalysis, toRunView } from "@core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 
 // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」

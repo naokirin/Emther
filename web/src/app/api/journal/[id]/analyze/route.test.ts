@@ -47,7 +47,7 @@ const startJournalAnalysisMock = vi.fn(async (rawText: string, journalId?: strin
   sourceJournalId: journalId,
 }));
 
-vi.mock("@/lib/agent-runtime", () => ({
+vi.mock("@core/agent-runtime/index", () => ({
   startJournalAnalysis: (...args: unknown[]) => startJournalAnalysisMock(...(args as [string, string?])),
   listRuns: () => [],
   toRunView: <T,>(run: T) => run,

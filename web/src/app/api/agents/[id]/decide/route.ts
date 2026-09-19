@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { decideRun, toRunView } from "@/lib/agent-runtime";
+import { decideRun, toRunView } from "@core/agent-runtime/index";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/agents/[id]/decide">) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startDistillationAnalysis, toRunView } from "@/lib/agent-runtime";
+import { startDistillationAnalysis, toRunView } from "@core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 
 export async function POST() {

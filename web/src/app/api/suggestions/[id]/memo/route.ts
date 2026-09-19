@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { addMemo, getSuggestion, toSuggestionView } from "@core/suggestion-store";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { reactToIssueUpdate } from "@/lib/agent-runtime";
+import { reactToIssueUpdate } from "@core/agent-runtime/index";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
 import { listSuggestions } from "@core/suggestion-store";
 

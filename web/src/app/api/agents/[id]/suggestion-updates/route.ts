@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adoptSuggestionUpdatesFromRun, clearSuggestedSuggestionUpdates, getRun, toRunView } from "@/lib/agent-runtime";
+import { adoptSuggestionUpdatesFromRun, clearSuggestedSuggestionUpdates, getRun, toRunView } from "@core/agent-runtime/index";
 
 type Ctx = { params: Promise<{ id: string }> };
 

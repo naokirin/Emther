@@ -1,4 +1,4 @@
-import { listRuns } from "@/lib/agent-runtime";
+import { listRuns } from "@core/agent-runtime/index";
 import { findByIdPrefix, isHexIdPrefix, normalizeIdKey } from "@core/id-prefix";
 import { listIssues, type Issue } from "@core/issue-store";
 import { listJournalEntries, type JournalEntry } from "@core/journal-store";

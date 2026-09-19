@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 let mockExtraction: {
   tags: string[];
@@ -9,7 +9,7 @@ let mockExtraction: {
   summary: string;
 };
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
     const systemContent = messages[0]?.content ?? "";
     if (systemContent.includes("人物名だけ")) return JSON.stringify({ people: [] });
@@ -18,7 +18,7 @@ vi.mock("@core/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -26,13 +26,13 @@ vi.mock("@core/embeddings", () => ({
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
-vi.mock("@core/name-candidate-detect", () => ({
+vi.mock("./name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
 }));
 
-vi.mock("@/lib/agent-runtime", () => ({
+vi.mock("./agent-runtime/index", () => ({
   startRun: vi.fn(async () => ({})),
   listRuns: () => [],
 }));
@@ -50,10 +50,10 @@ afterEach(() => {
 });
 
 async function loadModules() {
-  const vitals = await import("@/lib/vitals");
-  const orgStore = await import("@core/org-context-store/index");
-  const journalStore = await import("@core/journal-store");
-  const issueStore = await import("@core/issue-store");
+  const vitals = await import("./vitals");
+  const orgStore = await import("./org-context-store/index");
+  const journalStore = await import("./journal-store");
+  const issueStore = await import("./issue-store");
   return { vitals, orgStore, journalStore, issueStore };
 }
 
@@ -128,8 +128,8 @@ describe("computeOrgVitals", () => {
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("利用者本人(selfPersonId)は1on1カバレッジとTeamVital.membersから除外する", async () => {
     const { vitals, orgStore } = await loadModules();
-    const peopleDirectory = await import("@core/people-directory");
-    const settings = await import("@core/settings-store");
+    const peopleDirectory = await import("./people-directory");
+    const settings = await import("./settings-store");
     const selfId = peopleDirectory.registerName("EM本人");
     const otherId = peopleDirectory.registerName("Aさん");
     orgStore.addTeam("Team A", ["EM本人", "Aさん"]);

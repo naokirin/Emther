@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentJournalEntry, toJournalEntryView } from "@core/journal-store";
 import { requestJournalAnalysis } from "@/lib/journal-analysis";
-import { toRunView } from "@/lib/agent-runtime";
+import { toRunView } from "@core/agent-runtime/index";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 
 // docs/usage_issues U16。EMが明示した手動分析。投稿時・自動フィルタとは独立に起動する。

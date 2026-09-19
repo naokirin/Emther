@@ -117,7 +117,7 @@ describe("POST /api/issues", () => {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run("run-1", "Lead Agent", "task", "idle", 0, 1, 1, "auto-anomaly", 0);
-    const agentRuntime = await import("@/lib/agent-runtime");
+    const agentRuntime = await import("@core/agent-runtime/index");
     expect(agentRuntime.getRun("run-1")?.reviewed).toBe(false);
 
     const route = await import("./route");
@@ -197,7 +197,7 @@ describe("POST /api/issues", () => {
     expect(json.issue.sourceJournalId).toBe("j-sib");
     expect(json.issue.agentRunId).not.toBe("run-multi");
 
-    const agentRuntime = await import("@/lib/agent-runtime");
+    const agentRuntime = await import("@core/agent-runtime/index");
     expect(agentRuntime.getRun("run-multi")?.reviewed).toBe(false);
 
     const journalStore = await import("@core/journal-store");
@@ -209,7 +209,7 @@ describe("POST /api/issues", () => {
     const res = await route.POST(jsonRequest("http://localhost/api/issues", "POST", { title: "Journal起点のIssue", why: "本文" }));
     const json = await res.json();
 
-    const agentRuntime = await import("@/lib/agent-runtime");
+    const agentRuntime = await import("@core/agent-runtime/index");
     const runs = agentRuntime.listRuns();
     // チーム先行並列（既定ON）: Lead + 関連specialist（タグ無しなら4体）= 5
     expect(runs).toHaveLength(5);
@@ -221,7 +221,7 @@ describe("POST /api/issues", () => {
   });
 
   it("AIチームの分析起動に失敗してもIssueの起票自体は成功する", async () => {
-    const agentRuntime = await import("@/lib/agent-runtime");
+    const agentRuntime = await import("@core/agent-runtime/index");
     vi.spyOn(agentRuntime, "startRun").mockRejectedValueOnce(new Error("起動失敗"));
 
     const route = await import("./route");

@@ -21,7 +21,7 @@ vi.mock("@core/name-candidate-detect", () => ({
   registerNameCandidateFilters: () => {},
 }));
 
-vi.mock("@/lib/agent-runtime", () => ({
+vi.mock("@core/agent-runtime/index", () => ({
   startRun: vi.fn(async () => ({})),
   listRuns: () => [],
 }));

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { computeOrgVitals } from "@/lib/vitals";
+import { computeOrgVitals } from "@core/vitals";
 import { unmaskNames } from "@core/people-directory";
 
 // docs/memo.md「D. 評価不能→観測アクション」対応。vitals.tsのmembers/uncoveredMembersは

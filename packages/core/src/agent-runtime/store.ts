@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { getDb } from "@core/db";
-import { findByIdPrefix } from "@core/id-prefix";
-import { addLogEntry, getIssue, listIssues } from "@core/issue-store";
-import { maskForStorage, unmaskNames } from "@core/people-directory";
-import { getRulesAndConstraints } from "@core/settings-store";
+import { getDb } from "../db";
+import { findByIdPrefix } from "../id-prefix";
+import { addLogEntry, getIssue, listIssues } from "../issue-store";
+import { maskForStorage, unmaskNames } from "../people-directory";
+import { getRulesAndConstraints } from "../settings-store";
 import {
   addMemo as addSuggestionMemo,
   archiveSuggestion,
@@ -13,8 +13,8 @@ import {
   setReviewStatus,
   setSuggestionReviewDueAt,
   unarchiveSuggestion,
-} from "@core/suggestion-store";
-import { adoptTheme, createThemeCandidate } from "@core/theme-store";
+} from "../suggestion-store";
+import { adoptTheme, createThemeCandidate } from "../theme-store";
 import { normalizeSuggestedSubIssues, parseSuggestedPriority } from "./extraction";
 import type { AgentRun, AgentStatus, LogLine } from "./types";
 

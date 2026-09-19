@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { markRunReviewed, setRunArchived, setRunTriageStatus, toRunView } from "@/lib/agent-runtime";
+import { markRunReviewed, setRunArchived, setRunTriageStatus, toRunView } from "@core/agent-runtime/index";
 
 // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。archivedはtriageStatus
 // （様子見/却下）とは独立の軸のため、他の指定と併用できるよう独立して処理する。

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startGrowAnalysis, toRunView } from "@/lib/agent-runtime";
+import { startGrowAnalysis, toRunView } from "@core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 
 // docs/2nd_pivot_version.md Phase 8。/api/themes/distillと同型のオンデマンド起動。

@@ -1,9 +1,9 @@
-import { getDb } from "@core/db";
-import { getDataDir, loadJSON, saveJSON } from "@core/persistence";
-import { getIssue } from "@core/issue-store";
-import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@core/name-candidate-confirmation";
-import { unmaskNames } from "@core/people-directory";
-import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList } from "@core/settings-store";
+import { getDb } from "../db";
+import { getDataDir, loadJSON, saveJSON } from "../persistence";
+import { getIssue } from "../issue-store";
+import { isUnconfirmedNameCandidatesError, type MaskOptions } from "../name-candidate-confirmation";
+import { unmaskNames } from "../people-directory";
+import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList } from "../settings-store";
 import {
   loadJournalBatchPersisted,
   saveJournalBatchPersisted,

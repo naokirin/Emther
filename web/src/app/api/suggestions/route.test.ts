@@ -47,7 +47,7 @@ async function insertRunWithProposal(id: string, proposal: Record<string, unknow
 describe("POST /api/suggestions", () => {
   it("sourceRunIdのみのときは相談を吸収せず、新規分析Runも起動しない", async () => {
     await insertRun("run-consult", 0);
-    const runtime = await import("@/lib/agent-runtime");
+    const runtime = await import("@core/agent-runtime/index");
     const startSpy = vi.spyOn(runtime, "startRun").mockResolvedValue({
       id: "should-not-run",
       agentName: "Lead Agent",
@@ -78,7 +78,7 @@ describe("POST /api/suggestions", () => {
   });
 
   it("agentRunIdもsourceRunIdも無いときは分析Runを起動する", async () => {
-    const runtime = await import("@/lib/agent-runtime");
+    const runtime = await import("@core/agent-runtime/index");
     const startSpy = vi.spyOn(runtime, "startRun").mockResolvedValue({
       id: "run-new",
       agentName: "Lead Agent",

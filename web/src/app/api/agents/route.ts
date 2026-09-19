@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listPendingAgentStarts, listPendingUnmaskedSends, listRuns, startRun, toRunView } from "@/lib/agent-runtime";
+import { listPendingAgentStarts, listPendingUnmaskedSends, listRuns, startRun, toRunView } from "@core/agent-runtime/index";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { EXEC_AGENT_NAME } from "@core/types";
 

@@ -1,6 +1,6 @@
 import type { MaskOptions } from "@core/name-candidate-confirmation";
 import { getCurrentJournalEntry, type JournalEntry } from "@core/journal-store";
-import { startJournalAnalysis, type AgentRun } from "@/lib/agent-runtime";
+import { startJournalAnalysis, type AgentRun } from "@core/agent-runtime/index";
 
 // Journal（journal-store）とAgent Run（agent-runtime）という2つのドメインを組み合わせて
 // 「EMが明示した手動分析」を実行する薄いアプリケーションサービス。どちらのドメイン層にも

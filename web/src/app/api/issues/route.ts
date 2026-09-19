@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createIssue, listIssues, toIssueView } from "@core/issue-store";
-import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
+import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { linkJournalToIssue } from "@core/journal-store";

@@ -21,7 +21,7 @@ import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candid
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@core/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
-import { getRun, reactToIssueUpdate } from "@/lib/agent-runtime";
+import { getRun, reactToIssueUpdate } from "@core/agent-runtime/index";
 
 function resolveSuggestionForRead(id: string) {
   return resolveUniqueByPrefix(listSuggestions(), (s) => s.id, id);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listRunsPage, type AgentStatus } from "@/lib/agent-runtime";
+import { listRunsPage, type AgentStatus } from "@core/agent-runtime/index";
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents画面の
 // Inbox一覧（フィルタ＋ページ送り）専用の軽量エンドポイント。Fleet状態・Activity Streamは

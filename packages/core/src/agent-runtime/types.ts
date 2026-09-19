@@ -1,6 +1,6 @@
-import type { IssueCharter } from "@core/issue-store";
-import type { SuggestedTheme } from "@core/theme-store";
-import type { LookupRequest } from "@core/agent-knowledge-tools";
+import type { IssueCharter } from "../issue-store";
+import type { SuggestedTheme } from "../theme-store";
+import type { LookupRequest } from "../agent-knowledge-tools";
 import type {
   ConfirmPriority,
   IssuePriority,
@@ -9,7 +9,7 @@ import type {
   PendingUnmaskedSend,
   SuggestionReviewStatus,
   YieldKind,
-} from "@core/types";
+} from "../types";
 
 export type { PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend };
 
