@@ -5,6 +5,8 @@ import { vitalsRoute } from "./routes/vitals";
 import { timelineRoute } from "./routes/timeline";
 import { idResolveRoute } from "./routes/id-resolve";
 import { knowledgeEventsRoute } from "./routes/knowledge-events";
+import { teamsRoute } from "./routes/teams";
+import { orgBackgroundRoute } from "./routes/org-background";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -17,6 +19,8 @@ export function createApp() {
   app.route("/api/timeline", timelineRoute);
   app.route("/api/id-resolve", idResolveRoute);
   app.route("/api/knowledge/events", knowledgeEventsRoute);
+  app.route("/api/teams", teamsRoute);
+  app.route("/api/org/background", orgBackgroundRoute);
   return app;
 }
 
