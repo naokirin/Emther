@@ -48,33 +48,36 @@
 - `GET/POST /api/people`, `GET/PATCH/DELETE /api/people/:id`, `POST /api/people/:id/merge`, `PATCH /api/people/:id/concern-acks/:issueId`, `GET/POST /api/people/:id/evaluation-logs`, `PATCH /api/people/:id/evaluation-logs/:logId`
 - `GET/POST /api/org/objectives`, `PATCH/DELETE /api/org/objectives/:id`, `POST /api/org/objectives/:id/key-results`, `PATCH/DELETE /api/org/objectives/:id/key-results/:krId`, `POST /api/org/objectives/import`
 - `GET/PATCH /api/org/strategy`
-- `GET/POST /api/journal`, `GET/PATCH /api/journal/:id`, `POST/DELETE /api/journal/:id/archive`, `POST/DELETE /api/journal/:id/no-action-needed`, `POST /api/journal/bulk`, `GET /api/journal/search`
+- `GET/POST /api/journal`, `GET/PATCH /api/journal/:id`, `POST/DELETE /api/journal/:id/archive`, `POST/DELETE /api/journal/:id/no-action-needed`, `POST /api/journal/bulk`, `GET /api/journal/search`, `POST /api/journal/:id/analyze`, `POST /api/journal/batch`
 - `GET/PATCH /api/settings/rules`
-- `GET/POST /api/themes`, `GET/PATCH /api/themes/:id`, `POST /api/themes/from-okr`
+- `GET/POST /api/themes`, `GET/PATCH /api/themes/:id`, `POST /api/themes/from-okr`, `POST /api/themes/distill`
 - `GET/POST /api/agents`, `GET /api/agents/inbox`, `GET /api/agents/:id`, `POST /api/agents/:id/decide`, `POST /api/agents/:id/review`, `POST/DELETE /api/agents/:id/themes`, `POST/DELETE /api/agents/:id/suggestion-updates`, `POST /api/agents/:id/charter/dismiss`, `POST /api/agents/:id/sub-issues/dismiss`, `POST/DELETE /api/agents/:id/issue-notes`, `POST /api/agents/pending-unmasked/:id`
-
 - `GET/POST /api/issues`, `GET/PATCH /api/issues/:id`
 - `GET/POST /api/suggestions`, `GET/PATCH /api/suggestions/:id`, `POST /api/suggestions/:id/memo`
-- `POST /api/themes/distill`
 - `POST /api/growth/generate`
-- `POST /api/journal/:id/analyze`, `POST /api/journal/batch`
 - `GET/POST /api/models/status`, `POST /api/mask-check`, `POST /api/journal/local-summarize`, `GET/POST /api/knowledge/interpretations`
+- `POST /api/settings/data/backup`（`settings/data/reset`・`settings/data/restore`は`process.exit`を呼ぶため意図的に未移植。5節参照）
 
-**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク12ルート。
+**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク11ルート（うち2ルートはフェーズ4まで意図的に未移植）。
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate,models-status,mask-check,journal-local-summarize,knowledge-interpretations}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる）（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate,models-status,mask-check,journal-local-summarize,knowledge-interpretations,settings-data-backup}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる。`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
 
-## 6. agent-runtime系ルートを移植する際の注意（高リスク側）
+## 4. agent-runtime系ルートを移植する際の注意（高リスク側）
 
 - `agent-runtime`（`scheduled-tasks.ts`）をimportするルートをHono側へ移植すると、Next側watchdogと合わせて30秒間隔の自動バッチチェックが2プロセスで同時に走る。既存の3層二重起動ガード（globalThisクレーム・ファイル永続化・DB上の当日run存在チェック）で大筋は許容される設計（詳細は`plan.md`「高リスク バッチ1」参照）だが、完全な無害性は未検証。
 - `POST`系（agent起動を伴うもの）は実際のCLIプロセスを起動しうるため、手動`safe-curl`では叩かない。GETのみで疎通確認し、POSTの検証は`node:child_process`の`spawn`をモックした自動テストに委ねる。
 
-## 4. まだ決めていないこと（フェーズ2.5以降で追記）
+## 5. プロセスを終了させるルート（`process.exit`系）は並走期間中は移植しない
+
+- `settings/data/reset`・`settings/data/restore`は`state-archive.ts`の`scheduleProcessExit()`（`setTimeout`後に`process.exit(0)`）を呼ぶ。これは「呼び出し元プロセス自身」を終了させるため、Hono側へ移植すると操作のたびに`apps/server`プロセスだけが落ち、Next.js（ユーザーが実際にアクセスする側、`scripts/emther`が監視・再起動する対象）はプロキシ先が死んだ壊れた状態のまま生き残る。
+- この2ルートは**フェーズ4（単一プロセス配信への集約）まで意図的にNext側に残す**（`plan.md`のリスクレジスタ・フェーズ2.7完了基準の例外事項を参照）。同様に「呼び出し元プロセスを終了させる」処理を持つ未移植ルートが今後見つかった場合も同じ基準で判断する。
+
+## 6. ローカルMLを起動するエンドポイントの手動確認について
+
+- `journal`（POST系）・`models/status`（GET含む、`ensureLocalModels()`をfire-and-forgetで発火）等、`local-model`/`embeddings`を実際にロードするルートは、モデル未ダウンロードの開発環境では`safe-curl`での手動確認がプロセスクラッシュを起こしうる（1節参照、フェーズ2.5バッチ6・7で発見）。**手動確認は影響の少ないGET/読み取り専用系に留め、モデルロードを伴う検証は自動テスト（`@core/local-model`/`@core/embeddings`をモック済み）に任せる。**
+
+## 7. まだ決めていないこと（フェーズ2.5以降で追記）
 
 - バッチが増えて `apps/server` 側のルート数が多くなったときの、ルーティング整理方針（現状は1ファイル1リソースのフラット構成）。
 - E2E的な動作確認（`emther doctor` 相当）を2プロセス構成でどう行うか。
 - フェーズ3で `vite dev` が増えたときの3プロセス構成での同様のルール（本ドキュメントに追記する）。
-
-## 5. ローカルMLを起動するエンドポイントの手動確認について
-
-- `journal`（POST系）等、`local-model`/`embeddings`を実際にロードするルートは、モデル未ダウンロードの開発環境では`safe-curl`での手動POST確認がプロセスクラッシュを起こしうる（1節参照、フェーズ2.5バッチ6で発見）。**手動確認はGETに留め、POST系の検証は自動テスト（`@core/local-model`/`@core/embeddings`をモック済み）に任せる。**

@@ -170,8 +170,13 @@
   - 対応するNext側4ファイルは`proxyToHono`への委譲に置き換え。既存テスト3本はapps/server側へ移設、`mask-check`はNext側に専用テストが無かったため新規5ケースを追加。
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（26ファイル/293テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（278テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。`GET /api/models/status`は`ensureLocalModels()`をfire-and-forgetで発火する（journal POSTと同種のモデル未ダウンロード環境でのクラッシュリスク）ため手動smoke testの対象から外し、`knowledge/interpretations`のGETのみ`safe-curl`で確認した。
   - **残高リスク**: 16 − 4 = 12ルート。
+- **2.5 高リスク バッチ8（完了・2026-09-19）**: `settings/data/backup`（`POST`）のみを移植した。実処理を `apps/server/src/routes/settings-data-backup.ts` に実装。
+  - **重要な判断: `settings/data/reset`・`settings/data/restore`はあえて移植しない**。両ルートは`state-archive.ts`の`scheduleProcessExit()`（`setTimeout`後に`process.exit(0)`）を呼ぶ。これは「呼び出し元プロセス自身」を終了させる関数であり、Next↔Hono並走期間中にこの2ルートをHono側へ移すと、リセット／復元操作でHono（`apps/server`）プロセスだけが終了し、Next.js（ユーザーが実際にアクセスしているプロセス、`scripts/emther`が起動・監視する対象）は生きたまま「移植済みルートへのプロキシ先が死んでいる」壊れた状態になる。Docker（`restart: unless-stopped`）はコンテナ単位の再起動であり、コンテナ内の別プロセス（Hono）が落ちてもコンテナ自体もNextも再起動されない。したがってこの2ルートは、フェーズ4（単一プロセス配信への集約）まで意図的にNext側に残す。同様の「呼び出し元プロセスを終了させる」処理を持つ他のルートが今後見つかった場合も同じ基準で判断する。
+  - 対応するNext側backupのみ`proxyToHono`への委譲に置き換え。共有テストファイル`web/src/app/api/settings/data/route.test.ts`からbackupのdescribeブロックを`apps/server/src/routes/settings-data-backup.test.ts`へ抽出・移設し、reset/restoreのdescribeブロックはNext側にそのまま残した（今後も実処理がNext側にあるため）。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（27ファイル/294テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（277テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。手動smoke testは`safe-curl -X POST`（`EM_DATA_DIR`等を一時ディレクトリへ向けた上で）でtar.gzが正しく返ることを確認（backupは読み取り専用でデータを変更しないため安全）。
+  - **残高リスク**: 12 − 1 = 11ルート（`settings/data/reset`・`settings/data/restore`はフェーズ4まで意図的に未移植のまま残る。2.7完了基準の「実処理を持つroute.tsが残っていない」はこの2件を明示的な例外として扱う）。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
-- **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
+- **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。**例外**: `settings/data/reset`・`settings/data/restore`は`scheduleProcessExit()`（呼び出し元プロセスの`process.exit`）を呼ぶため、フェーズ4（単一プロセス配信）までNext側に実処理を残す意図的な例外とする（高リスク バッチ8参照）。
 
 ---
 
@@ -227,3 +232,4 @@
 | SQLite（`node:sqlite`）・JSON atomic write 等の永続化境界の意図しない変更 | 1 | 移設は「配置場所の変更」のみに限定し、実装ロジックは変更しないことをレビュー基準にする |
 | Hono単体では1リクエストの未処理例外（try/catch外の非同期処理・fire-and-forget）がNodeプロセス全体をクラッシュさせうる（Next.jsのリクエスト単位エラー境界が無い） | 2, 4 | フェーズ2.5 バッチ6（journal移植）の手動smoke testで実際に発生を確認（`checklist.md`参照）。フェーズ2.7またはフェーズ4着手前に `app.onError`/`process.on("unhandledRejection")` の要否を検証する |
 | `agent-runtime`（`scheduled-tasks.ts`）をimportするルートをHono側へ移植すると、Next側と合わせてwatchdog（30秒間隔の自動バッチチェック）が2プロセスで同時に走る。既存の3層ガードで大筋は許容される設計だが、完全な無害性は未検証 | 2 | フェーズ2.5 高リスク バッチ1（`agents`移植）で発見（本ファイル該当箇所参照）。フェーズ2.7完了基準確認時に、2プロセス起動状態で自動バッチ時刻を跨ぐ実機確認を追加する |
+| `settings/data/reset`・`settings/data/restore`は`scheduleProcessExit()`（呼び出し元プロセスの`process.exit`）を呼ぶため、Next↔Hono並走期間中にHono側へ移植するとリセット／復元のたびにHonoプロセスだけが落ち、Next.js側はプロキシ先が死んだ壊れた状態になる | 2 | フェーズ2.5 高リスク バッチ8で発見。この2ルートはフェーズ4（単一プロセス配信）まで意図的にNext側に残す（本ファイル該当箇所参照）。フェーズ4の`emther start/restart`実機確認と合わせて最終的に移植する |

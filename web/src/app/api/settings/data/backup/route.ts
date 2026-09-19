@@ -1,25 +1,4 @@
-import { readFileSync } from "node:fs";
-import { NextResponse } from "next/server";
-import { createBackupArchive } from "@core/state-archive";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/settings-data-backup.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// 個人情報を含むアーカイブをブラウザへ返す。CLI `emther backup` と同形式。
-export async function POST() {
-  try {
-    const { archivePath, fileName } = createBackupArchive();
-    const body = readFileSync(archivePath);
-    return new NextResponse(body, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/gzip",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
-        "X-Emther-Warning": "archive-contains-personal-data",
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: (err as Error).message || "バックアップに失敗しました" },
-      { status: 500 },
-    );
-  }
-}
+export const POST = proxyToHono;

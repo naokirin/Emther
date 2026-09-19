@@ -25,6 +25,7 @@ import { modelsStatusRoute } from "./routes/models-status";
 import { maskCheckRoute } from "./routes/mask-check";
 import { journalLocalSummarizeRoute } from "./routes/journal-local-summarize";
 import { knowledgeInterpretationsRoute } from "./routes/knowledge-interpretations";
+import { settingsDataBackupRoute } from "./routes/settings-data-backup";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -60,6 +61,7 @@ export function createApp() {
   app.route("/api/mask-check", maskCheckRoute);
   app.route("/api/journal/local-summarize", journalLocalSummarizeRoute);
   app.route("/api/knowledge/interpretations", knowledgeInterpretationsRoute);
+  app.route("/api/settings/data/backup", settingsDataBackupRoute);
   return app;
 }
 
