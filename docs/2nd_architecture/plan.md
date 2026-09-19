@@ -153,6 +153,10 @@
   - 対応するNext側2ファイルは`proxyToHono`への委譲に置き換え、既存テスト2本（23ケース）はapps/server側へ移設。`POST /api/issues`は素のIssue作成のたびにLead Agentの分析Runを自動起動する（チーム先行並列で最大5run）ため、既存パターンと同じ`node:child_process`のspawnモック（エラー終了するフェイク子プロセス）を踏襲。
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（19ファイル/253テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（304テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。手動smoke testはGETのみ。
   - **残高リスク**: 25 − 2 = 23ルート。
+- **2.5 高リスク バッチ4（完了・2026-09-19）**: `suggestions`（`GET`/`POST`）, `suggestions/[id]`（`GET`/`PATCH`）, `suggestions/[id]/memo`（`POST`）の3ルートを移植した。実処理を `apps/server/src/routes/suggestions.ts` に実装（`issues.ts`と構造がほぼ並行——同じ`buildIssueDraftTask`/`parkPendingUnmaskedSend`パターンを共有）。
+  - 対応するNext側3ファイルは`proxyToHono`への委譲に置き換え、既存テスト2本（16ケース）はapps/server側へ移設。`suggestions/[id]/memo`はNext側に専用テストが無かったため新規3ケースを追加（ポート中に`toSuggestionView`のログ相当フィールドが`log`ではなく`memos`であることに気づき、テストのフィールド名を修正）。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（20ファイル/272テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（290テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。手動smoke testはGETのみ。
+  - **残高リスク**: 23 − 3 = 20ルート。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
 - **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
 
