@@ -212,6 +212,8 @@ emther/
 3. Vite SPA を立ち上げ、画面をルート単位で移植  
 4. `emther` の起動対象を `next start` から `node dist/server.js` に変更（`docs/packaging.md` を更新）
 
+この4ステップを実行フェーズ・チェックリストまで分解した進行管理ドキュメントは `docs/2nd_architecture/plan.md`（詳細計画）・`docs/2nd_architecture/checklist.md`（進捗チェックリスト）を参照。2026-09-19 時点の実測では `@/lib` import は 318 ファイル・669 箇所（`grep` 実測。本文中の「280ファイル・900箇所超」は前回計測時点の値）。
+
 ---
 
 ## 8. まとめ
