@@ -43,7 +43,7 @@
 
 ## フェーズ3: Vite SPA 立ち上げ・画面移植
 
-- [ ] 3.1 新 `apps/web`（Vite）骨組み作成
+- [x] 3.1 新 `apps/web`（Vite）骨組み作成（完了・2026-09-19） — Vite + React 19 + React Router（ライブラリモード、`createBrowserRouter`）+ Vitest/Testing Library。`web/`（旧Next.js）とは別ディレクトリ（`apps/web`）で並存。詳細は`plan.md`参照
 - [ ] 3.2 TanStack Query 導入・`usePolling` 置き換え方針確定
 - [ ] 3.3 `useTypedSearchParams` 実装
 - [ ] 3.4 21画面の移行順位付け

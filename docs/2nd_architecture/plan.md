@@ -213,7 +213,12 @@
 
 対象: 現行 `src/app/**/page.tsx`（21画面）+ `src/components`（123ファイル）。
 
-- **3.1 `apps/web`（新）骨組み**: Vite + React 19 + React Router（ライブラリモード）で新規 SPA を用意。既存 `apps/web`（旧 Next.js）とは別ディレクトリで並存させる。
+- **3.1 `apps/web`（新）骨組み（完了・2026-09-19）**: Vite + React 19 + React Router（ライブラリモード、`createBrowserRouter`/`RouterProvider`）で新規 SPA を `apps/web`（`@emther/web`）に用意した。既存の旧 Next.js 実装は `web/`（物理リネームしない方針、1.1参照）のまま残るため、両者はディレクトリとして自然に並存する（当初案の「既存apps/web（旧Next.js）」という記述は1.1の判断変更前の想定で、実際には旧実装は`web/`にある）。
+  - **実施内容**: `package.json`（`dev`=`vite`、`build`=`tsc --noEmit && vite build`、`typecheck`/`test`/`test:watch`）、`vite.config.ts`（`@vitejs/plugin-react`。dev時は`/api`を`HONO_SERVER_URL`/`HONO_PORT`環境変数で指す`apps/server`へプロキシ。`dev-hybrid-rules.md`の環境変数命名と統一）、`tsconfig.json`（`apps/server`と同系統の設定。`moduleResolution: bundler`）、`index.html`、`src/main.tsx`（`createBrowserRouter`с`/`一本のプレースホルダールートのみ。画面追加は3.4/3.5）、`src/App.tsx`（骨組み確認用の最小コンポーネント）、`vitest.config.mts`/`vitest.setup.ts`（`web/`と同じjest-dom + Testing Libraryパターン、`environment: "jsdom"`固定）、`src/App.test.tsx`（スモークテスト1件）を新設。ルート`package.json`の`workspaces`には元々`apps/*`が含まれていたため追記不要。
+  - **依存関係**: `.npmrc`の`min-release-age=7`制約（2.1節の既知の注意点）により、着手日（2026-09-19）時点で7日未満だった`vite@8.3.1`ではなく`vite@8.3.0`、`react-router@8.4.0`ではなく`react-router@8.3.1`（8.4.0は4日前公開で対象外）を採用。`@vitejs/plugin-react@6.1.1`・`jsdom@30`等は`web/`側と揃えた。
+  - **付随した落とし穴**: `apps/web`追加で新しい`esbuild@0.28.2`（vite/tsxの依存）が`allowScripts`未許可としてブロックされた（`npm warn install-scripts`）。ネイティブバイナリ取得のための正当なpostinstallと判断し、`npm install-scripts approve esbuild@0.28.2`でルート`package.json`の`allowScripts`に追加した。また、`tsconfig.json`の`include`に`vitest.setup.ts`を含め忘れると、`@testing-library/jest-dom/vitest`のアンビエント型拡張（`toBeInTheDocument`等）が`tsc --noEmit`から見えず型エラーになることが判明し、`include`に追加して解消した。
+  - **検証済み**: `npm run typecheck -w @emther/web`（エラー0）、`npm test -w @emther/web`（1ファイル/1テスト green）、`npm run build -w @emther/web`（`vite build`成功、`dist/`に出力。出力先を`dist/client`に揃えるのはフェーズ4.2で行う）、`npm run dev -w @emther/server` + `npm run dev -w @emther/web`を同時起動し、`safe-curl`で`http://127.0.0.1:5273/`（Viteが返すHTML）と`http://127.0.0.1:5273/api/health`（Honoへのプロキシ経由で`{"ok":true}`）の両方を確認。既存3ワークスペース（`web`/`@emther/core`/`@emther/server`）の`typecheck`・`test`は無回帰（web側の既存5件のみ、core 729・server 330は変更前と同数）。
+  - **CI追随**: `.github/workflows/ci.yml`の`typecheck`/`test`ジョブに`-w @emther/web`を追加、`build`ジョブに`npm run build -w @emther/web`を追加。`lint`ジョブへの追加は見送り（`apps/server`同様、ESLint設定は未整備。6.1節の「最終形」で flat config を入れる際にまとめて対応）。
 - **3.2 サーバー状態層**: TanStack Query を導入し、`hooks.ts` の `usePolling` 群を置き換える方針を確定する（1:1 移植か、invalidate 戦略を見直すかを最初に決める）。
 - **3.3 型安全クエリパラメータ**: `useTypedSearchParams`（Zod ラッパー）を実装し、`/chat?run=…` 等のクエリ連動箇所で使う。
 - **3.4 移行順位付け**: 21画面を依存の少ないもの（他画面から埋め込まれていない独立画面）から順に並べる。
