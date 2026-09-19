@@ -5,6 +5,7 @@ import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { RecordDateField, todayDateInputValue } from "@/components/RecordDateField";
 import { useEmCheckins } from "@/lib/hooks";
+import type { EmCheckin } from "@/lib/types";
 
 const SCALE_OPTIONS = [1, 2, 3, 4, 5];
 const CHECKIN_PAGE_SIZE = 10;
@@ -47,7 +48,7 @@ function ScalePicker({ label, value, onChange }: { label: string; value: number;
 export type EmCheckinController = ReturnType<typeof useEmCheckinController>;
 
 // /growth では入力と履歴を別パネルに置くため、同じ状態をフォーム／履歴で共有する。
-export function useEmCheckinController() {
+export function useEmCheckinController(onSubmitted?: (checkin: EmCheckin) => void) {
   const { checkins, setCheckins, checkinsLoaded } = useEmCheckins();
 
   const [mood, setMood] = useState(3);
@@ -91,6 +92,7 @@ export function useEmCheckinController() {
       setCheckins([data.checkin, ...checkins]);
       setNote("");
       resetDate();
+      onSubmitted?.(data.checkin);
     } catch (err) {
       setError((err as Error).message);
     } finally {

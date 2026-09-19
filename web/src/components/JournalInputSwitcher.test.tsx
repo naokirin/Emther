@@ -38,11 +38,6 @@ describe("JournalInputSwitcher", () => {
     const user = userEvent.setup();
     render(<JournalInputSwitcher onSaved={vi.fn()} />);
 
-    // 1日の振り返り
-    await user.click(screen.getByRole("button", { name: "🌙 1日の振り返り" }));
-    expect(screen.getByRole("button", { name: "🌙 1日の振り返り" }).className).toContain("tabBtnActive");
-    expect(screen.getByRole("button", { name: "✨ 振り返りを始める" })).toBeInTheDocument();
-
     // 議事録ローカル要約
     await user.click(screen.getByRole("button", { name: "🔒 議事録ローカル要約" }));
     expect(screen.getByRole("button", { name: "🔒 議事録ローカル要約" }).className).toContain("tabBtnActive");

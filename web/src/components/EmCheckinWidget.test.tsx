@@ -2,7 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { EmCheckinWidget } from "./EmCheckinWidget";
+import { EmCheckinForm, EmCheckinWidget, useEmCheckinController } from "./EmCheckinWidget";
+
+function CheckinFormWithController({ onSubmitted }: { onSubmitted: () => void }) {
+  const controller = useEmCheckinController(onSubmitted);
+  return <EmCheckinForm controller={controller} />;
+}
 
 describe("EmCheckinWidget", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -60,6 +65,14 @@ describe("EmCheckinWidget", () => {
         expect.objectContaining({ createdAtDate: "2026-01-15" }),
       );
     });
+  });
+
+  it("useEmCheckinControllerにonSubmittedを渡すと、記録成功時に呼ばれる", async () => {
+    const user = userEvent.setup();
+    const onSubmitted = vi.fn();
+    render(<CheckinFormWithController onSubmitted={onSubmitted} />);
+    await user.click(screen.getByRole("button", { name: "記録する" }));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledWith(expect.objectContaining({ id: "new" })));
   });
 
   it("失敗時はエラーメッセージを表示する", async () => {

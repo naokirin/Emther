@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import { DailyReflectionForm } from "@/components/DailyReflectionForm";
 import { LocalLogSummaryImporter } from "@/components/LocalLogSummaryImporter";
 import { ObservationDumpSection } from "@/components/ObservationDumpSection";
 import { QuickJournalNoteForm } from "@/components/QuickJournalNoteForm";
 
-type Mode = "reflection" | "single" | "local-summary" | "bulk";
+type Mode = "single" | "local-summary" | "bulk";
 
 type Props = {
   onSaved: () => void;
@@ -36,13 +35,6 @@ export function JournalInputSwitcher({ onSaved, focusDumpId, initialMode, prefil
         </button>
         <button
           type="button"
-          className={`${styles.tabBtn} ${mode === "reflection" ? styles.tabBtnActive : ""}`}
-          onClick={() => setMode("reflection")}
-        >
-          🌙 1日の振り返り
-        </button>
-        <button
-          type="button"
           className={`${styles.tabBtn} ${mode === "local-summary" ? styles.tabBtnActive : ""}`}
           onClick={() => setMode("local-summary")}
         >
@@ -58,8 +50,6 @@ export function JournalInputSwitcher({ onSaved, focusDumpId, initialMode, prefil
       </div>
       {mode === "single" ? (
         <QuickJournalNoteForm onCreated={onSaved} initialText={prefill ?? undefined} />
-      ) : mode === "reflection" ? (
-        <DailyReflectionForm onCreated={onSaved} />
       ) : mode === "local-summary" ? (
         <LocalLogSummaryImporter onCreated={onSaved} />
       ) : (

@@ -6,10 +6,9 @@ import styles from "./page.module.css";
 import { NameCandidateConfirmDialog } from "@/components/NameCandidateConfirmDialog";
 import { SetupGapsBanner } from "@/components/dashboard/SetupGapsBanner";
 import { DailySituationPanel } from "@/components/dashboard/DailySituationPanel";
-import { EveningModeCard } from "@/components/dashboard/EveningModeCard";
+import { EveningReviewCard } from "@/components/dashboard/EveningReviewCard";
 import { ThemesPanel } from "@/components/dashboard/ThemesPanel";
 import { TodayActionsPanel } from "@/components/dashboard/TodayActionsPanel";
-import { getDayPhase } from "@/lib/dashboard-day-phase";
 import { buildNextActions, selectWatchingItems } from "@/lib/dashboard-next-actions";
 import { buildDailySituation } from "@/lib/daily-situation";
 import {
@@ -158,11 +157,6 @@ function DashboardPageInner() {
   const [confirmingUnmasked, setConfirmingUnmasked] = useState<PendingUnmaskedSend | null>(null);
   const [confirmingUnmaskedBusy, setConfirmingUnmaskedBusy] = useState(false);
 
-  // 今日タブから書き連ねを削除し、ジャーナル画面（/journal）へ遷移する
-  function focusJournalInput() {
-    router.push("/journal");
-  }
-
   // クイック入力のプリフィル時は /journal?prefill=... へ遷移
   function prefillJournal(text: string) {
     router.push(`/journal?prefill=${encodeURIComponent(text)}`);
@@ -226,8 +220,6 @@ function DashboardPageInner() {
     .flatMap((o) => o.progress)
     .reduce((acc, p) => ({ total: acc.total + p.total }), { total: 0 });
 
-  const dayPhase = getDayPhase(new Date(now).getHours());
-
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
   // 走らないよう、MVV/Team/Objectiveが揃うまでセットアップ導線を出す。新規ウィザード画面は
   // 増やさず、既存の/orgへの案内に留める（EMが明示的に消せるものではなく、実際に揃うと
@@ -253,16 +245,15 @@ function DashboardPageInner() {
         onNavigate={(path) => router.push(path)}
       />
 
-      {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。終業時だけ、記録し忘れへの気づきと
-          記録先（/growth）への導線のみを置く。 */}
-      {dayPhase === "evening" && (
-        <EveningModeCard
-          checkinsLoaded={checkinsLoaded}
-          hasCheckinToday={hasCheckinToday}
-          onFocusJournal={focusJournalInput}
-          onNavigateGrowth={() => router.push("/growth")}
-        />
-      )}
+      {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。ユーザー指摘「午前で1日の仕事を
+          終える可能性もあるので、時間で出し分けるのはやめたい」対応。1日の終業は時刻で
+          決まらないため、時間帯によるゲーティングはせず常に表示する。随時メモへの導線
+          （旧・夜の書き連ね）は、1日の締めくくりフローと役割が重複するため廃止した。 */}
+      <EveningReviewCard
+        checkinsLoaded={checkinsLoaded}
+        hasCheckinToday={hasCheckinToday}
+        onStart={() => router.push("/evening-review")}
+      />
 
       {/* ユーザー指摘「今日やるべき3つを上に持ってきたことで、一言診断バナー（判断待ちが
           N件あります）がほぼ意味をなさない」対応。一言診断バナーは廃止し、「今日やるべき
