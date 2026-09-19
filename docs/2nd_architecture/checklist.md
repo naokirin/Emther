@@ -37,7 +37,7 @@
 - [x] 2.2 77ルートの移行順位付け（低リスク/高リスク分類） — 低リスク41・高リスク36に分類（`@core/*` import内容で機械判定）。`link-suggest`経由の`issues/link/suggest`・`themes/link/suggest`はagent起動を伴うため高リスク側に分類（要注意事項として`plan.md`に明記）。詳細は`plan.md`参照
 - [x] 2.3 最初のバッチ移植 + Next側プロキシ設定（5ルート） — `glossary`/`glossary/[id]`/`vitals`/`timeline`/`id-resolve`/`knowledge/events`を`apps/server`へ移植、Next側は`web/src/lib/hono-proxy.ts`経由のフォワードに置き換え。テストも`apps/server`側へ移動（web 523→517、core 728維持、server新規15）。手動smoke test時に本番データを誤って書き換える事故が発生・即復旧済み（教訓を`plan.md`に記録、今後は必ず`EM_DATA_DIR`等を隔離すること）
 - [x] 2.4 dev ハイブリッド構成確立・`dev-hybrid-rules.md` 作成（ドラフト） — `docs/2nd_architecture/dev-hybrid-rules.md`新設。現段階の並走ルール（ブラウザは常にnext dev、apps/serverは裏側、起動漏れの症状、ポート設定）を記載。移植済みルート一覧はバッチ追加のたびに更新する運用
-- [~] 2.5 残りルートのバッチ移植（低リスク残23・高リスク36、バッチ単位で都度チェック追加） — バッチ2完了（2026-09-19）: `teams`/`teams/[id]`/`teams/[id]/archive`/`teams/bulk`/`org/background`/`org/background/[id]`の6ルートを移植（server 8ファイル/30テスト、web 502テストで無回帰）。バッチ3完了（2026-09-19）: `reports`/`reports/[id]`/`growth/suggestions`/`growth/suggestions/[id]`/`em-self/checkins`/`em-self/reflection-notes`/`em-self/reflection-notes/[id]`の7ルートを移植（server 11ファイル/57テスト、web 480テストで無回帰）。詳細は`plan.md`参照
+- [~] 2.5 残りルートのバッチ移植（低リスク残17・高リスク36、バッチ単位で都度チェック追加） — バッチ2完了（2026-09-19）: `teams`/`teams/[id]`/`teams/[id]/archive`/`teams/bulk`/`org/background`/`org/background/[id]`の6ルートを移植（server 8ファイル/30テスト、web 502テストで無回帰）。バッチ3完了（2026-09-19）: `reports`/`reports/[id]`/`growth/suggestions`/`growth/suggestions/[id]`/`em-self/checkins`/`em-self/reflection-notes`/`em-self/reflection-notes/[id]`の7ルートを移植（server 11ファイル/57テスト、web 480テストで無回帰）。バッチ4完了（2026-09-19）: `people`系6ルートを移植（server 12ファイル/84テスト、web 456テストで無回帰）。このバッチから手動smoke testは`curl`ではなく`safe-curl`を使用（ユーザー指摘）。詳細は`plan.md`参照
 - [ ] 2.6 Zod 導入（複雑な入力ルートのみ、2.5の該当バッチで併せて導入）
 - [ ] 2.7 完了基準確認（`src/app/api/**` に実処理が残っていない）
 
@@ -76,3 +76,4 @@
 - 2026-09-19（フェーズ1.1）: 作業環境に `docker` コマンドが無く、`docker compose build` の実機確認ができていない。`web/Dockerfile` / `docker-compose.yml` のパス変更は机上確認のみ。次にdocker環境がある場所で最初に確認すること。
 - 2026-09-19（フェーズ2.1）: `.npmrc` の `min-release-age=7`（サプライチェーン対策）により、`apps/server` 追加時に最新 `hono@4.13.8` がインストール不可（`ETARGET`）。新規依存を追加する際は事前に公開日を確認し、7日未満なら1つ前の適格バージョンを選ぶこと。フェーズ3で追加予定の Vite / React Router / TanStack Query 等でも同じ制約に当たりうるので着手時に留意する。
 - 2026-09-19（フェーズ2.3）: `apps/server` を isolation環境変数なしで起動し `curl` で手動smoke testした際、実データ（`~/.local/state/emther/data/glossary.json`）にテストエントリを書き込んでしまった（即復旧）。今後、手動でmutatingなエンドポイントを確認する際は必ず `EM_DATA_DIR`/`EM_SECURE_DATA_DIR`/`EM_BACKUP_DIR` を一時ディレクトリに向けること。
+- 2026-09-19（フェーズ2.5 バッチ4）: localhost向けの手動動作確認に通常の `curl` を使っていたところ、ユーザー指摘により `safe-curl`（利用可能な環境での許可済みラッパー）へ切り替えた。以降のバッチ・`dev-hybrid-rules.md` でも `safe-curl` を使う。

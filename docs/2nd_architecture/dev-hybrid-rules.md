@@ -9,7 +9,8 @@
 
 ## 1. 現在の段階（フェーズ2: Hono並走）
 
-- **ブラウザから見るのは常に `next dev`（`web/`）のみ。** `apps/server`（Hono）は Next の Route Handler からプロキシされるバックエンドとして裏で動くだけで、ブラウザから直接叩く対象ではない（唯一の例外は `apps/server` 自体の開発中に `curl` 等で動作確認する場合）。
+- **ブラウザから見るのは常に `next dev`（`web/`）のみ。** `apps/server`（Hono）は Next の Route Handler からプロキシされるバックエンドとして裏で動くだけで、ブラウザから直接叩く対象ではない（唯一の例外は `apps/server` 自体の開発中に `curl` 等で動作確認する場合）。localhost向けのcurlは `safe-curl`（利用可能な環境では通常の`curl`ではなくこちらを使う）。
+- **手動でmutatingなエンドポイントを確認する際は必ず環境変数（`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`/`EM_BACKUP_DIR`）を一時ディレクトリへ向けること。** 自動テストは`setupIsolatedStoreEnv`で担保されるが、手動確認はこのガードの外にある（フェーズ2.3で実データを誤って書き換えた事故の教訓。`plan.md`参照）。
 - Route Handler が `web/src/lib/hono-proxy.ts` の `proxyToHono` に置き換わっている API（下記「移植済みルート」参照）は、実処理が `apps/server/src/routes/**` にある。挙動を直すときは **`apps/server` 側のファイルを編集する**（`web/src/app/api/**/route.ts` 側はフォワードするだけで、ここを直しても反映されない）。
 - 移植済みルートを確認するには、2つのプロセスを同時に起動する。
   ```bash
@@ -44,8 +45,9 @@
 - `GET /api/growth/suggestions`, `PATCH /api/growth/suggestions/:id`
 - `GET/POST /api/em-self/checkins`
 - `GET/POST /api/em-self/reflection-notes`, `PATCH /api/em-self/reflection-notes/:id`
+- `GET/POST /api/people`, `GET/PATCH/DELETE /api/people/:id`, `POST /api/people/:id/merge`, `PATCH /api/people/:id/concern-acks/:issueId`, `GET/POST /api/people/:id/evaluation-logs`, `PATCH /api/people/:id/evaluation-logs/:logId`
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self}.ts`（`apps/server/src/app.ts` でマウント）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people}.ts`（`apps/server/src/app.ts` でマウント）。
 
 ## 4. まだ決めていないこと（フェーズ2.5以降で追記）
 
