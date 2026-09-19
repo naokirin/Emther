@@ -69,16 +69,22 @@
 
 ## フェーズ1: `packages/core` 抽出
 
-対象: 現行 `web/src/lib`（82ファイル）と、Next Route Handler から参照されている型・ドメインロジック。
+対象: 現行 `web/src/lib`（83ファイル、2026-09-19再計測。1節の82は前回計測値）と、Next Route Handler から参照されている型・ドメインロジック。
 
-- **1.1 monorepo 骨組み**: pnpm workspaces 化。`packages/core`, `apps/web`（当面は現行 `web/` を指す）, 将来の `apps/server` の3ディレクトリを用意（このフェーズでは `apps/web` は現行 Next.js のまま、参照先だけ変える）。
-- **1.2 棚卸し**: `src/lib` 82ファイルを次のカテゴリに分類する。
-  - ドメインストア（`*-store.ts` 系: journal, issue, agent-runtime 等）
-  - persistence（`persistence.ts`, `db.ts`）
-  - agent-runtime（Agent CLI 子プロセス呼び出し）
-  - ローカル ML（transformers/onnx/kuromoji ラッパー）
-  - 汎用 utility（Next 依存なし）
-  - Next 依存あり（`next/headers` 等を直接 import しているもの。これは `core` に入れず `apps` 側に残す）
+- **1.1 monorepo 骨組み（完了・2026-09-19）**: npm workspaces 化。ルート `package.json`（`"workspaces": ["web", "packages/*"]`）+ `packages/core`（`package.json`/`tsconfig.json`/`src/index.ts`）を新設。
+  - **着手時の判断変更**: 当初案の pnpm・`apps/web` への物理リネームは見送り、**npm workspaces** かつ **`web/` はディレクトリ名を変えず現状維持**とした（ユーザー判断、2026-09-19）。理由: pnpm 導入は CI・ローカル環境への追加インストール要求とロックファイル形式変更を伴い、フェーズ1（core分離）の本質的な目的に対して過剰コスト。`apps/web` への物理リネームも同様に、フェーズ3（Vite SPA立ち上げ）で `apps/web`（新）を作る際にまとめて整理する方が二度手間にならない。`apps/server` の骨組みも同じ理由でフェーズ2に先送り。
+  - **実施内容**: ルート `package.json`（`workspaces`, `allowScripts`）/ `packages/core/{package.json,tsconfig.json,src/index.ts}` 新設。`.npmrc` と `package-lock.json` を `web/` からルートへ移動。`web/tsconfig.json` に `"@core/*": ["../packages/core/src/*"]` を追加。`web/next.config.ts` に `transpilePackages: ["@emther/core"]` と `outputFileTracingRoot`（ホイストされた `node_modules` をトレース対象に含めるため）を追加。`web/package.json` の `dependencies` に `"@emther/core": "*"` を追加し、ワークスペース内でのみ意味を持つ `allowScripts` はルート側に一本化（`web/package.json` からは削除。`npm install` 実行時に `allowScripts in workspace web is ignored. Move the field to the project root package.json.` という警告で裏付け済み）。
+  - **配布まわりの追随**: `docker-compose.yml`（`context: ./web` → `context: .` + `dockerfile: web/Dockerfile`）、`web/Dockerfile`（ビルドコンテキストがルートになったため `COPY` パスを `packages/core/package.json` 追加・`web/` プレフィックス付与に調整。`npm run build` → `npm run build -w web`）、`.dockerignore`（`web/.dockerignore` からルートへ移動しパスをルート相対に調整）、`.github/workflows/ci.yml`（`working-directory: web` の defaults を廃止し `cache-dependency-path: package-lock.json` + `npm run <script> -w web` に統一。typecheck ジョブに `npm run typecheck -w @emther/core` を追加）、`.github/workflows/release.yml`（`cache-dependency-path` をルート `package-lock.json` に変更）、`scripts/package-standalone.sh`（依存インストールを `$WEB_DIR` からルート（`$ROOT`）での `npm ci`/`npm install` に変更。native 依存コピー元を `$WEB_DIR/node_modules` → 見つからなければ `$ROOT/node_modules` にフォールバック）を更新。
+  - **検証済み（2026-09-19）**: `npm run typecheck -w web`（既存の無関係な5件の型エラーのみ。`main`ブランチの baseline worktree で同一エラーを再現し、本作業由来でないことを確認済み）、`npm run test -w web`（133ファイル/1251テスト全green）、`npm run typecheck -w @emther/core`（エラー0）、`npm run build:standalone -w web`（webpackコンパイルは成功。型エラーで停止するのは上記と同じ既存問題）、`web/` ディレクトリ内から直接 `npm install` / `npm run dev` を実行してもワークスペースルートを正しく検出し `next dev` が200を返すことを確認。**未検証**: `docker build`（このセッションに docker コマンドが無いため実機確認できていない。Dockerfile 変更の妥当性はパスの机上確認のみ）。フェーズ2以降で実際に `docker compose build` を通すことをタスク化しておく。
+- **1.2 棚卸し（完了・2026-09-19）**: `src/lib` 83ファイル（テスト・`.test.ts(x)`除く）を以下のカテゴリに分類した。分類根拠: 全ファイルを `next/*` import と `@/components` import の有無で機械的にスクリーニングし（`grep`実測）、残りは役割（永続化呼び出しの有無・`*-store` 命名・純粋関数か否か）で判定。
+  - **Next 依存あり（`core` 化しない。4ファイル）**: `hooks.ts`（`next/navigation` 直接import + `@/components` 依存）, `useJournalEditing.ts`（`"use client"`、UI状態フック）, `useNameCandidateConfirm.tsx`（`"use client"` + `@/components/NameCandidateConfirmDialog` 依存）, `dashboard-next-actions.ts`（`next` import はないが `@/components/RunDetail` `@/components/PendingAgentStartNotice` に依存するため同様に不可）。
+  - **persistence（3）**: `persistence.ts`, `db.ts`, `state-archive.ts`（`fs` 直接操作によるバックアップ/アーカイブで永続化層と同格）。
+  - **ローカル ML（7）**: `embeddings.ts`, `local-model.ts`, `local-summarizer.ts`, `mask-check.ts`, `mask-check-morph.ts`, `mask-check-lexicon.ts`, `model-loader.ts`。
+  - **agent-runtime（16）**: `cloud-chat.ts`（Agent CLI を直接 spawn する点で agent-runtime と同型）, `agent-runtime/` 配下15ファイル（`agent-catalog.ts`, `batch-context-blocks.ts`, `cli-runners/{agy,claude,core,cursor,index}.ts`, `context-blocks.ts`, `extraction.ts`, `index.ts`, `journal-batch-window.ts`, `run-actions.ts`, `scheduled-tasks.ts`, `store.ts`, `types.ts`）。
+  - **ドメインストア（22）**: `em-growth-store.ts`, `em-self-store.ts`, `glossary-store.ts`, `issue-store.ts`, `issue-store-types.ts`, `journal-store.ts`, `knowledge-store.ts`, `observation-dump-store.ts`, `observation-dump-types.ts`, `observation-dump-mapping-types.ts`, `org-context-store/{backgrounds,index,objectives,strategy,teams}.ts`, `people-directory.ts`, `person-concern-ack-store.ts`, `person-evaluation-store.ts`, `report-store.ts`, `settings-store.ts`, `suggestion-store.ts`, `theme-store.ts`。
+  - **汎用 utility（29）**: `agent-knowledge-tools.ts`, `daily-situation.ts`, `daily-trends.ts`, `dashboard-day-phase.ts`, `id-prefix.ts`, `id-resolve.ts`, `journal-analysis.ts`, `journal-consult-index.ts`, `journal-date-parser.ts`, `link-suggest.ts`, `local-chat-presets.ts`, `mask-check-types.ts`, `name-candidate-confirmation.ts`, `name-candidate-detect.ts`, `objective-progress.ts`, `observation-dump-actions.ts`, `observation-dump-normalize.ts`, `observation-dump-parse.ts`, `observation-dump-profiles.ts`, `okr-parse.ts`, `origin-trace.ts`, `people-hub.ts`, `person-honorific.ts`, `reference-lookup.ts`, `related-context.ts`, `strategy-trail.ts`, `timeline.ts`, `types.ts`, `vitals.ts`。**`types.ts` は他の大半のファイルから参照される共有型定義のため、1.3の「utility」波の中でも最優先で移す。**
+  - **テストヘルパー（2、独自カテゴリ）**: `test-helpers/{api-route,store-env}.ts`。単独では移設せず、参照元（ドメインストア群）のテストと同じバッチで移す。
+  - **移設順序への反映**: 1.3 の「utility → persistence → ドメインストア → agent-runtime」に対し、ローカル ML は他カテゴリへの依存が薄いため utility 波と同時か直後に移してよい。`observation-dump-*` 系・`mask-check-*` 系は相互依存が強いため、まとまったバッチとして扱う。
 - **1.3 段階移設**: 依存の少ない utility → persistence → ドメインストア → agent-runtime の順で `packages/core` に移す。1回の移設単位は「他から参照されるファイル1〜数本」に留め、都度 `tsc --noEmit` + `vitest run` を通す。
 - **1.4 codemod 適用**: 0.3 で確立した ts-morph スクリプトで `@/lib/...` の import 先を新パス（例 `@core/...`）へ一括置換。1.3 の移設バッチごとに実行し、都度差分をレビューする。
 - **1.5 Next 側 import 更新の確認**: `src/app/api/**` と `src/app/**/page.tsx` からの import が新パスに揃っていることを確認する。

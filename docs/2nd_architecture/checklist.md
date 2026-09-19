@@ -23,8 +23,8 @@
 
 ## フェーズ1: `packages/core` 抽出
 
-- [ ] 1.1 pnpm workspaces 骨組み作成
-- [ ] 1.2 `src/lib`（82ファイル）棚卸し・カテゴリ分類
+- [x] 1.1 monorepo 骨組み作成 — npm workspaces（pnpmではなく）、`web/`は物理リネームせず現状維持（着手時判断変更、理由は`plan.md`参照）。ルート`package.json`/`packages/core`骨組み/`.npmrc`・`package-lock.json`のルート移動/CI・Docker・`package-standalone.sh`の追随を実施。typecheck・test・build:standalone・`web/`内からの`npm install`/`npm run dev`で無回帰を確認（`docker build`は環境上未検証）。詳細は`plan.md`参照
+- [x] 1.2 `src/lib`（83ファイル、再計測済み）棚卸し・カテゴリ分類 — Next依存あり4/persistence3/ローカルML7/agent-runtime16/ドメインストア22/汎用utility29/テストヘルパー2に分類。詳細は`plan.md`参照
 - [ ] 1.3 段階移設（utility → persistence → ドメインストア → agent-runtime）
 - [ ] 1.4 codemod 適用（バッチごとに import 置換）
 - [ ] 1.5 Next 側 import 更新確認
@@ -73,4 +73,4 @@
 
 （進行中に発生した問題・想定外の事象をここに追記する。`plan.md` の「リスクレジスタ」に対応するものは節番号を付記する）
 
--
+- 2026-09-19（フェーズ1.1）: 作業環境に `docker` コマンドが無く、`docker compose build` の実機確認ができていない。`web/Dockerfile` / `docker-compose.yml` のパス変更は机上確認のみ。次にdocker環境がある場所で最初に確認すること。

@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@emther/core": "*",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/zen-kaku-gothic-new": "^5.3.0",
     "@huggingface/transformers": "^4.2.0",
@@ -44,12 +45,5 @@
     "jsdom": "^30.0.1",
     "typescript": "^5",
     "vitest": "^5.0.0"
-  },
-  "allowScripts": {
-    "sharp@0.34.5": true,
-    "sharp@0.35.4": true,
-    "onnxruntime-node@1.24.3": true,
-    "protobufjs@7.6.6": true,
-    "unrs-resolver@1.12.2": true
   }
 }

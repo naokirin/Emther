@@ -1,10 +1,16 @@
 # Emther (EM Support System) — コンテナ完結イメージ
 # Node 24 LTS（node:sqlite）+ Claude / agy / cursor-agent CLI を同梱する。
 # 認証情報はイメージに焼き込まず、実行時の named volume に保存する。
+#
+# ビルドコンテキストはリポジトリルート（docker-compose.yml の context: . を参照）。
+# npm workspaces（web, packages/core）構成のため、ここでも root で npm ci する
+# （docs/2nd_architecture/plan.md フェーズ1）。
 
 FROM node:24-bookworm AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
+COPY packages/core/package.json ./packages/core/package.json
+COPY web/package.json ./web/package.json
 RUN npm ci
 
 FROM node:24-bookworm AS builder
@@ -12,7 +18,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN npm run build -w web
 # 本番実行に不要な devDependencies を落とす（transformers / onnx の native は残る）
 RUN npm prune --omit=dev
 
@@ -74,12 +80,12 @@ RUN set -eu; \
   command -v agy || echo "WARN: agy not on PATH"; \
   command -v cursor-agent || command -v agent || echo "WARN: cursor-agent/agent not on PATH"
 
-COPY --from=builder --chown=em:em /app/.next ./.next
+COPY --from=builder --chown=em:em /app/web/.next ./.next
 COPY --from=builder --chown=em:em /app/node_modules ./node_modules
-COPY --from=builder --chown=em:em /app/package.json ./package.json
-COPY --from=builder --chown=em:em /app/public ./public
-COPY --from=builder --chown=em:em /app/next.config.ts ./next.config.ts
-COPY --chown=em:em docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=builder --chown=em:em /app/web/package.json ./package.json
+COPY --from=builder --chown=em:em /app/web/public ./public
+COPY --from=builder --chown=em:em /app/web/next.config.ts ./next.config.ts
+COPY --chown=em:em web/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER em

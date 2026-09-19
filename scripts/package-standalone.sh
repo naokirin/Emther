@@ -111,9 +111,9 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
     echo "error: node が見つかりません（Node 24+）" >&2
     exit 1
   fi
-  echo "==> dependencies ($WEB_DIR)"
+  echo "==> dependencies ($ROOT, npm workspaces)"
   (
-    cd "$WEB_DIR"
+    cd "$ROOT"
     if [[ -f package-lock.json ]]; then
       npm ci
     else
@@ -149,10 +149,18 @@ stage_app_into() {
   fi
 
   for pkg in @huggingface/transformers onnxruntime-node onnxruntime-common; do
+    # npm workspaces は基本 $ROOT/node_modules にホイストするが、バージョン衝突時は
+    # $WEB_DIR/node_modules に個別配置されることもあるためそちらを優先する。
+    src=""
     if [[ -e "$WEB_DIR/node_modules/$pkg" ]]; then
+      src="$WEB_DIR/node_modules/$pkg"
+    elif [[ -e "$ROOT/node_modules/$pkg" ]]; then
+      src="$ROOT/node_modules/$pkg"
+    fi
+    if [[ -n "$src" ]]; then
       mkdir -p "$dest/node_modules/$(dirname "$pkg")"
       rm -rf "$dest/node_modules/$pkg"
-      cp -a "$WEB_DIR/node_modules/$pkg" "$dest/node_modules/$pkg"
+      cp -a "$src" "$dest/node_modules/$pkg"
     fi
   done
 
