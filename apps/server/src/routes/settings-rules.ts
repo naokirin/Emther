@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList, updateRulesAndConstraints } from "@emther/core/settings-store";
 import { listPeople } from "@emther/core/people-directory";
 import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@emther/core/local-chat-presets";
@@ -11,9 +12,39 @@ function num(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function bool(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
+// docs/2nd_architecture/plan.md フェーズ2.6: 単純な数値・真偽値フィールド（ビジネスロジックの
+// 分岐を伴わないもの）はZodスキーマに置き換える。既存の num()/bool() と同じ「型が違う値は
+// 黙って undefined 扱いにする」寛容さを1:1で保つため、各フィールドに .catch() を付ける
+// （PERSON_n照合やCLI名一覧チェック等、DB参照や個別エラーメッセージを伴うフィールドは
+// 対象外とし、従来どおり専用関数で扱う）。
+const numberField = z.number().finite().optional().catch(undefined);
+const booleanField = z.boolean().optional().catch(undefined);
+const settingsRulesPatchSchema = z
+  .object({
+    teamWindowDays: numberField,
+    minEntriesForJudgement: numberField,
+    teamBadSentimentMax: numberField,
+    teamWarnSentimentMax: numberField,
+    coverageWindowDays: numberField,
+    coverageGoodRatio: numberField,
+    coverageWarnRatio: numberField,
+    agentStaleAfterSeconds: numberField,
+    agentKillAfterSeconds: numberField,
+    journalFactTtlDays: numberField,
+    autoIssueUpdateAnalysisEnabled: booleanField,
+    autoMorningSummaryEnabled: booleanField,
+    autoMorningSummaryHour: numberField,
+    autoJournalBatchEnabled: booleanField,
+    autoJournalBatchHour: numberField, // 旧キー（互換）
+    autoDistillationEnabled: booleanField,
+    autoDistillationWeekday: numberField, // 旧キー（互換）
+    autoDistillationHour: numberField,
+    autoGrowEnabled: booleanField,
+    autoGrowWeekday: numberField,
+    autoGrowHour: numberField,
+    teamParallelKickoffEnabled: booleanField,
+  })
+  .catch({});
 
 // maxParallelAgentRunsが0以下だと、どのエージェントも永久にキューから出られなくなる
 // （デッドロック）ため、最低1は保証する。
@@ -148,6 +179,7 @@ export const settingsRulesRoute = new Hono()
   .get("/", (c) => c.json({ rules: getRulesAndConstraints() }))
   .patch("/", async (c) => {
     const body = await c.req.json().catch(() => null);
+    const parsed = settingsRulesPatchSchema.parse(body);
     const selfPersonParsed = parseSelfPersonId(body?.selfPersonId);
     if (selfPersonParsed && !selfPersonParsed.ok) {
       return c.json({ error: selfPersonParsed.error }, 400);
@@ -158,46 +190,44 @@ export const settingsRulesRoute = new Hono()
     }
     const previousPreset = getRulesAndConstraints().localChatModelPreset;
     // 旧キー autoJournalBatchHour / autoDistillationWeekday も受け付け、配列へ寄せる。
-    const legacyJournalHour = num(body?.autoJournalBatchHour);
     const journalHours =
       hourList(body?.autoJournalBatchHours) ??
-      (legacyJournalHour !== undefined ? normalizeHourList([legacyJournalHour]) : undefined);
-    const legacyDistillWeekday = num(body?.autoDistillationWeekday);
+      (parsed.autoJournalBatchHour !== undefined ? normalizeHourList([parsed.autoJournalBatchHour]) : undefined);
     const distillWeekdays =
       weekdayList(body?.autoDistillationWeekdays) ??
-      (legacyDistillWeekday !== undefined
-        ? normalizeWeekdayList([Math.min(6, Math.max(0, Math.round(legacyDistillWeekday)))])
+      (parsed.autoDistillationWeekday !== undefined
+        ? normalizeWeekdayList([Math.min(6, Math.max(0, Math.round(parsed.autoDistillationWeekday)))])
         : undefined);
     const patch = {
-      teamWindowDays: num(body?.teamWindowDays),
-      minEntriesForJudgement: num(body?.minEntriesForJudgement),
-      teamBadSentimentMax: num(body?.teamBadSentimentMax),
-      teamWarnSentimentMax: num(body?.teamWarnSentimentMax),
-      coverageWindowDays: num(body?.coverageWindowDays),
-      coverageGoodRatio: num(body?.coverageGoodRatio),
-      coverageWarnRatio: num(body?.coverageWarnRatio),
-      agentStaleAfterSeconds: num(body?.agentStaleAfterSeconds),
-      agentKillAfterSeconds: num(body?.agentKillAfterSeconds),
-      journalFactTtlDays: num(body?.journalFactTtlDays),
-      autoIssueUpdateAnalysisEnabled: bool(body?.autoIssueUpdateAnalysisEnabled),
-      autoMorningSummaryEnabled: bool(body?.autoMorningSummaryEnabled),
-      autoMorningSummaryHour: num(body?.autoMorningSummaryHour),
-      autoJournalBatchEnabled: bool(body?.autoJournalBatchEnabled),
+      teamWindowDays: parsed.teamWindowDays,
+      minEntriesForJudgement: parsed.minEntriesForJudgement,
+      teamBadSentimentMax: parsed.teamBadSentimentMax,
+      teamWarnSentimentMax: parsed.teamWarnSentimentMax,
+      coverageWindowDays: parsed.coverageWindowDays,
+      coverageGoodRatio: parsed.coverageGoodRatio,
+      coverageWarnRatio: parsed.coverageWarnRatio,
+      agentStaleAfterSeconds: parsed.agentStaleAfterSeconds,
+      agentKillAfterSeconds: parsed.agentKillAfterSeconds,
+      journalFactTtlDays: parsed.journalFactTtlDays,
+      autoIssueUpdateAnalysisEnabled: parsed.autoIssueUpdateAnalysisEnabled,
+      autoMorningSummaryEnabled: parsed.autoMorningSummaryEnabled,
+      autoMorningSummaryHour: parsed.autoMorningSummaryHour,
+      autoJournalBatchEnabled: parsed.autoJournalBatchEnabled,
       autoJournalBatchHours: journalHours,
-      autoDistillationEnabled: bool(body?.autoDistillationEnabled),
+      autoDistillationEnabled: parsed.autoDistillationEnabled,
       autoDistillationWeekdays: distillWeekdays,
       autoDistillationHour:
-        num(body?.autoDistillationHour) !== undefined
-          ? Math.min(23, Math.max(0, Math.round(num(body?.autoDistillationHour)!)))
+        parsed.autoDistillationHour !== undefined
+          ? Math.min(23, Math.max(0, Math.round(parsed.autoDistillationHour)))
           : undefined,
-      autoGrowEnabled: bool(body?.autoGrowEnabled),
+      autoGrowEnabled: parsed.autoGrowEnabled,
       autoGrowWeekday:
-        num(body?.autoGrowWeekday) !== undefined ? Math.min(6, Math.max(0, Math.round(num(body?.autoGrowWeekday)!))) : undefined,
+        parsed.autoGrowWeekday !== undefined ? Math.min(6, Math.max(0, Math.round(parsed.autoGrowWeekday))) : undefined,
       autoGrowHour:
-        num(body?.autoGrowHour) !== undefined ? Math.min(23, Math.max(0, Math.round(num(body?.autoGrowHour)!))) : undefined,
+        parsed.autoGrowHour !== undefined ? Math.min(23, Math.max(0, Math.round(parsed.autoGrowHour))) : undefined,
       maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
       perTurnBudgetUsd: positiveUsd(body?.perTurnBudgetUsd),
-      teamParallelKickoffEnabled: bool(body?.teamParallelKickoffEnabled),
+      teamParallelKickoffEnabled: parsed.teamParallelKickoffEnabled,
       decisionQueueLimit: positiveInt(body?.decisionQueueLimit),
       observationQueueLimit: positiveInt(body?.observationQueueLimit),
       staleInterventionDays: positiveInt(body?.staleInterventionDays),

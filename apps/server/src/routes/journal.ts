@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import {
   addJournalEntriesBulk,
   addJournalEntryWithProfileCandidate,
@@ -42,11 +43,46 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+// docs/2nd_architecture/plan.md フェーズ2.6: 手書きの typeof/Array.isArray ガードを
+// Zod スキーマに置き換える。既存の「型が違う値は黙って undefined 扱いにする」寛容さを
+// 1:1 で保つため、各フィールドに .catch() を付け、パース失敗時は例外を投げず
+// フォールバック値（未指定と同じ扱い）にする。オブジェクト全体も .catch({}) で包み、
+// body 自体が null/非オブジェクトでも全フィールド未指定として扱う（例外を投げない）。
+const journalPostBodyObject = z.object({
+  text: z.string().optional().catch(undefined),
+  occurredAtDate: z.string().optional().catch(undefined),
+  people: z.array(z.string()).optional().catch(undefined),
+  teams: z.array(z.string()).optional().catch(undefined),
+  teamIds: z.array(z.string()).optional().catch(undefined),
+});
+const journalPostBodySchema = journalPostBodyObject.catch({});
+// POST /bulk はtextのみ使う。.pick()はZodObjectにしか使えないため、.catch()を
+// 被せる前のjournalPostBodyObjectから派生させる。
+const journalBulkBodySchema = journalPostBodyObject.pick({ text: true }).catch({});
+
+const journalPatchBodySchema = z
+  .object({
+    rawText: z.string().optional().catch(undefined),
+    tags: z.array(z.string()).optional().catch(undefined),
+    people: z.array(z.string()).optional().catch(undefined),
+    teams: z.array(z.string()).optional().catch(undefined),
+    teamIds: z.array(z.string()).optional().catch(undefined),
+    urgency: z.enum(["low", "mid", "high"]).optional().catch(undefined),
+    sentiment: z.enum(["positive", "negative", "neutral"]).optional().catch(undefined),
+    occurredAtDate: z.string().optional().catch(undefined),
+    // resolvedIssueId/resolutionNoteは「未指定=変更しない」「null=解除」「文字列=設定」の
+    // 3値。不正な型（数値・オブジェクト等）は「未指定」と同じ扱いに落とす（.catch(undefined)）。
+    resolvedIssueId: z.string().nullable().optional().catch(undefined),
+    resolutionNote: z.string().nullable().optional().catch(undefined),
+  })
+  .catch({});
+
 export const journalRoute = new Hono()
   .get("/", async (c) => c.json({ entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()) }))
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
-    const text = typeof body?.text === "string" ? body.text.trim() : "";
+    const parsed = journalPostBodySchema.parse(body);
+    const text = parsed.text?.trim() ?? "";
 
     if (!text) {
       return c.json({ error: "textは必須です" }, 400);
@@ -56,8 +92,8 @@ export const journalRoute = new Hono()
     // occurredAtDateは"YYYY-MM-DD"（日付レベルのみ・時刻は求めない）。省略時はこれまで通り
     // Date.now()（＝今日）を使う。
     let occurredAt: number | undefined;
-    if (typeof body?.occurredAtDate === "string" && body.occurredAtDate) {
-      occurredAt = resolveJournalOccurredAtFromDateInput(body.occurredAtDate, Date.now());
+    if (parsed.occurredAtDate) {
+      occurredAt = resolveJournalOccurredAtFromDateInput(parsed.occurredAtDate, Date.now());
       if (occurredAt === undefined) {
         return c.json({ error: "occurredAtDateの形式が不正です（YYYY-MM-DD）" }, 400);
       }
@@ -65,15 +101,9 @@ export const journalRoute = new Hono()
 
     // 人物詳細など「このメンバーに紐づけて書く」導線向け。EMが明示した人物名は
     // NER抽出に頼らず作成時から people に入れる（未指定時は従来どおり抽出のみ）。
-    const people = Array.isArray(body?.people)
-      ? body.people.filter((p: unknown): p is string => typeof p === "string" && p.trim().length > 0)
-      : undefined;
-    const teams = Array.isArray(body?.teams)
-      ? body.teams.filter((t: unknown): t is string => typeof t === "string" && t.trim().length > 0)
-      : undefined;
-    const teamIds = Array.isArray(body?.teamIds)
-      ? body.teamIds.filter((t: unknown): t is string => typeof t === "string" && t.trim().length > 0)
-      : undefined;
+    const people = parsed.people?.filter((p) => p.trim().length > 0);
+    const teams = parsed.teams?.filter((t) => t.trim().length > 0);
+    const teamIds = parsed.teamIds?.filter((t) => t.trim().length > 0);
 
     const opts = {
       ...maskOptionsFromBodyStrict(body),
@@ -102,7 +132,7 @@ export const journalRoute = new Hono()
   // 後からまとめて書く場合に、1件ずつSubmitさせる負担を無くすための専用エンドポイント。
   .post("/bulk", async (c) => {
     const body = await c.req.json().catch(() => null);
-    const text = typeof body?.text === "string" ? body.text.trim() : "";
+    const text = journalBulkBodySchema.parse(body).text?.trim() ?? "";
 
     if (!text) {
       return c.json({ error: "textは必須です" }, 400);
@@ -194,12 +224,13 @@ export const journalRoute = new Hono()
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);
+    const parsed = journalPatchBodySchema.parse(body);
 
     // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
     // 訂正を扱えるように」対応。occurredAtDateは"YYYY-MM-DD"（日付レベルのみ）。
     let occurredAt: number | undefined;
-    if (typeof body?.occurredAtDate === "string" && body.occurredAtDate) {
-      occurredAt = resolveJournalOccurredAtFromDateInput(body.occurredAtDate, Date.now());
+    if (parsed.occurredAtDate) {
+      occurredAt = resolveJournalOccurredAtFromDateInput(parsed.occurredAtDate, Date.now());
       if (occurredAt === undefined) {
         return c.json({ error: "occurredAtDateの形式が不正です（YYYY-MM-DD）" }, 400);
       }
@@ -207,7 +238,7 @@ export const journalRoute = new Hono()
 
     // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
     // 記録時の言い間違い等の訂正用。空文字での更新はPOST同様に拒否する。
-    if (typeof body?.rawText === "string" && !body.rawText.trim()) {
+    if (parsed.rawText !== undefined && !parsed.rawText.trim()) {
       return c.json({ error: "rawTextは空にできません" }, 400);
     }
 
@@ -218,12 +249,12 @@ export const journalRoute = new Hono()
     // 自体を渡すため完全一致でヒットする）のみ。プレフィックス解決は他のID参照
     // （/go/<fragment>等）と共通の汎用ロジックのため、そのまま残している。
     let resolvedIssueId: string | null | undefined;
-    if (body?.resolvedIssueId === undefined) {
+    if (parsed.resolvedIssueId === undefined) {
       resolvedIssueId = undefined;
-    } else if (body.resolvedIssueId === null) {
+    } else if (parsed.resolvedIssueId === null) {
       resolvedIssueId = null;
-    } else if (typeof body.resolvedIssueId === "string") {
-      const resolved = resolveUniqueByPrefix(listIssues(), (i) => i.id, body.resolvedIssueId);
+    } else {
+      const resolved = resolveUniqueByPrefix(listIssues(), (i) => i.id, parsed.resolvedIssueId);
       if (resolved.status === "none") {
         return c.json({ error: "指定された提案が見つかりません" }, 400);
       }
@@ -237,38 +268,20 @@ export const journalRoute = new Hono()
         );
       }
       resolvedIssueId = resolved.item.id;
-    } else {
-      resolvedIssueId = undefined;
     }
-    const resolutionNote =
-      body?.resolutionNote === undefined
-        ? undefined
-        : body.resolutionNote === null
-          ? null
-          : typeof body.resolutionNote === "string"
-            ? body.resolutionNote
-            : undefined;
+    const resolutionNote = parsed.resolutionNote;
 
     try {
       const entry = await updateJournalEntry(
         id,
         {
-          rawText: typeof body?.rawText === "string" && body.rawText.trim() ? body.rawText : undefined,
-          tags: Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined,
-          people: Array.isArray(body?.people)
-            ? body.people.filter((p: unknown): p is string => typeof p === "string")
-            : undefined,
-          teams: Array.isArray(body?.teams)
-            ? body.teams.filter((t: unknown): t is string => typeof t === "string")
-            : undefined,
-          teamIds: Array.isArray(body?.teamIds)
-            ? body.teamIds.filter((t: unknown): t is string => typeof t === "string")
-            : undefined,
-          urgency: body?.urgency === "low" || body?.urgency === "mid" || body?.urgency === "high" ? body.urgency : undefined,
-          sentiment:
-            body?.sentiment === "positive" || body?.sentiment === "negative" || body?.sentiment === "neutral"
-              ? body.sentiment
-              : undefined,
+          rawText: parsed.rawText && parsed.rawText.trim() ? parsed.rawText : undefined,
+          tags: parsed.tags,
+          people: parsed.people,
+          teams: parsed.teams,
+          teamIds: parsed.teamIds,
+          urgency: parsed.urgency,
+          sentiment: parsed.sentiment,
           occurredAt,
           resolvedIssueId,
           resolutionNote,
