@@ -58,10 +58,11 @@
 - `GET/POST /api/models/status`, `POST /api/mask-check`, `POST /api/journal/local-summarize`, `GET/POST /api/knowledge/interpretations`
 - `POST /api/settings/data/backup`（`settings/data/reset`・`settings/data/restore`は`process.exit`を呼ぶため意図的に未移植。5節参照）
 - `GET/POST /api/journal/dumps`, `GET/PATCH /api/journal/dumps/:id`, `POST /api/journal/dumps/:id/parse`, `POST /api/journal/dumps/:id/accept`, `POST /api/journal/dumps/preview`, `GET/POST/DELETE /api/journal/dumps/profiles`
+- `POST /api/org/objectives/parse`, `POST /api/issues/link/suggest`, `POST /api/themes/link/suggest`
 
-**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク5ルート（うち2ルートはフェーズ4まで意図的に未移植。実質移植対象は`org/objectives/parse`・`issues/link/suggest`・`themes/link/suggest`の3ルート）。
+**フェーズ2.5、実質完了（2026-09-19）。** 低リスク41ルート・高リスク34ルート（`settings/data/reset`・`settings/data/restore`を除く）全ての移植が完了した。残る未移植は`settings/data/reset`・`settings/data/restore`の2ルートのみで、フェーズ4（単一プロセス配信）まで意図的にNext側に残す（5節参照）。次は2.6（Zod導入）・2.7（完了基準の最終確認）。
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate,models-status,mask-check,journal-local-summarize,knowledge-interpretations,settings-data-backup,journal-dumps}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる。`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate,models-status,mask-check,journal-local-summarize,knowledge-interpretations,settings-data-backup,journal-dumps,org-objectives-parse,issues-link-suggest,themes-link-suggest}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる。`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
 
 ## 4. agent-runtime系ルートを移植する際の注意（高リスク側）
 

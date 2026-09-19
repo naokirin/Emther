@@ -23,6 +23,12 @@ vi.mock("@emther/core/embeddings", async (importOriginal) => {
   };
 });
 
+vi.mock("@emther/core/cloud-chat", () => ({
+  runCloudChat: vi.fn(async () => {
+    throw new Error("cloud unavailable in test");
+  }),
+}));
+
 let dir: string;
 
 beforeEach(() => {
@@ -77,5 +83,46 @@ describe("createApp() のマウント順（静的サブパス vs 親の:idワイ
     const res = await app.request("/api/journal");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ entries: [] });
+  });
+
+  it("POST /api/org/objectives/parse は orgObjectivesParseRoute に届く（org/objectivesのPATCH /:idに飲まれない）", async () => {
+    const { app } = await import("./app");
+    const res = await app.request("/api/org/objectives/parse", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "目標: なにかを達成する" }),
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.source).toBeDefined();
+  });
+
+  it("GET /api/org/objectives は orgObjectivesRoute に届く（一覧が返る）", async () => {
+    const { app } = await import("./app");
+    const res = await app.request("/api/org/objectives");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ objectives: [] });
+  });
+
+  it("POST /api/issues/link/suggest は issuesLinkSuggestRoute に届く（issuesRouteに飲まれない）", async () => {
+    const { app } = await import("./app");
+    const res = await app.request("/api/issues/link/suggest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ suggestions: [], targetCount: 0, source: "heuristic", fallbackReason: "no_unlinked_parent_issues" });
+  });
+
+  it("POST /api/themes/link/suggest は themesLinkSuggestRoute に届く（themesRouteに飲まれない）", async () => {
+    const { app } = await import("./app");
+    const res = await app.request("/api/themes/link/suggest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ suggestions: [], targetCount: 0, source: "heuristic", fallbackReason: "no_unlinked_themes" });
   });
 });

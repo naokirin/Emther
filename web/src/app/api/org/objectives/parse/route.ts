@@ -1,19 +1,4 @@
-import { NextResponse } from "next/server";
-import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { parseOkrText } from "@core/okr-parse";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/org-objectives-parse.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// docs/usage_issues U18: OKR全文を構造化してプレビュー用ドラフトを返す（保存はしない）。
-// 外部AI（SettingsのCLI優先順）で分解し、失敗時はヒューリスティックへフォールバックする。
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text : "";
-  if (!text.trim()) {
-    return NextResponse.json({ error: "textは必須です" }, { status: 400 });
-  }
-  try {
-    const result = await parseOkrText(text, maskOptionsFromBody(body));
-    return NextResponse.json(result);
-  } catch (err) {
-    return jsonFromUnknownError(err);
-  }
-}
+export const POST = proxyToHono;

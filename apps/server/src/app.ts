@@ -27,6 +27,9 @@ import { journalLocalSummarizeRoute } from "./routes/journal-local-summarize";
 import { knowledgeInterpretationsRoute } from "./routes/knowledge-interpretations";
 import { settingsDataBackupRoute } from "./routes/settings-data-backup";
 import { journalDumpsRoute } from "./routes/journal-dumps";
+import { orgObjectivesParseRoute } from "./routes/org-objectives-parse";
+import { issuesLinkSuggestRoute } from "./routes/issues-link-suggest";
+import { themesLinkSuggestRoute } from "./routes/themes-link-suggest";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -46,6 +49,7 @@ export function createApp() {
   app.route("/api/em-self/checkins", checkinsRoute);
   app.route("/api/em-self/reflection-notes", reflectionNotesRoute);
   app.route("/api/people", peopleRoute);
+  app.route("/api/org/objectives/parse", orgObjectivesParseRoute);
   app.route("/api/org/objectives", orgObjectivesRoute);
   app.route("/api/org/strategy", orgStrategyRoute);
   // 注意: Honoは別々にmountされたサブアプリ同士でパスが重なる場合、静的パスを
@@ -59,10 +63,12 @@ export function createApp() {
   app.route("/api/journal", journalRoute);
   app.route("/api/settings/rules", settingsRulesRoute);
   app.route("/api/themes/distill", themesDistillRoute);
+  app.route("/api/themes/link/suggest", themesLinkSuggestRoute);
   app.route("/api/themes", themesRoute);
   app.route("/api/agents/inbox", agentsInboxRoute);
   app.route("/api/agents/pending-unmasked", agentsPendingUnmaskedRoute);
   app.route("/api/agents", agentsRoute);
+  app.route("/api/issues/link/suggest", issuesLinkSuggestRoute);
   app.route("/api/issues", issuesRoute);
   app.route("/api/suggestions", suggestionsRoute);
   app.route("/api/growth/generate", growthGenerateRoute);

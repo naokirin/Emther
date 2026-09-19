@@ -1,23 +1,4 @@
-import { NextResponse } from "next/server";
-import { suggestThemeOkrLinks } from "@core/link-suggest";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/themes-link-suggest.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// docs/value_hierarchy_and_flow.md §2 / §6.1。OKR未リンクの採用テーマへ Objective/KR リンク案を返す（HITL・未適用）。
-
-type Body = {
-  themeIds?: string[];
-};
-
-export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as Body;
-  const themeIds = Array.isArray(body.themeIds)
-    ? body.themeIds.filter((id): id is string => typeof id === "string" && !!id)
-    : undefined;
-
-  const result = await suggestThemeOkrLinks({ themeIds });
-  return NextResponse.json({
-    suggestions: result.suggestions,
-    targetCount: result.targetCount,
-    source: result.source,
-    fallbackReason: result.fallbackReason,
-  });
-}
+export const POST = proxyToHono;
