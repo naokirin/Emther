@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { routeCtx } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { routeCtx } from "@core/test-helpers/api-route";
 
 // route → agent-runtime → people-directory/embeddings が @huggingface/transformers を
 // 実ロードすると、lint/build 並行時などに 5s タイムアウトすることがある。
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runFallbackTitle, type AgentRun } from "@/components/RunDetail";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
-import { truncateForTitle, type PendingAgentStart, type PendingUnmaskedSend } from "@/lib/types";
+import { truncateForTitle, type PendingAgentStart, type PendingUnmaskedSend } from "@core/types";
 import type {
   EmCheckin,
   EmReflectionNote,
@@ -26,7 +26,7 @@ import type {
   Suggestion,
   Team,
   TimelineEntry,
-} from "@/lib/types";
+} from "@core/types";
 
 // Dashboard / Issues一覧 / Issue詳細 / Organization Contextの各画面で共通して使う
 // ポーリング付きデータ取得フック。画面（ルート）が分かれてもデータ取得ロジックを

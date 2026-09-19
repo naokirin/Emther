@@ -11,7 +11,7 @@ import { GlossaryPanel } from "@/components/org/GlossaryPanel";
 import { StandingBackgroundPanel } from "@/components/org/StandingBackgroundPanel";
 import { StrategyPanel } from "@/components/org/StrategyPanel";
 import { useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "@/lib/hooks";
-import { teamDisplayName, type OrgTheme } from "@/lib/types";
+import { teamDisplayName, type OrgTheme } from "@core/types";
 
 // ユーザー要望「方針・目標タブでは、方針・目標の設定によりフォーカスした形にしたい」対応。
 // チーム管理（Teams）は@/app/teams/page.tsx（チーム・メンバータブ）へ移設した。ここはEMが

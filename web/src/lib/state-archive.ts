@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { killLiveAgentProcesses } from "@/lib/agent-runtime";
 import { closeDb } from "@/lib/db";
-import { getBackupDir, getDataDir, getSecureDataDir } from "@/lib/persistence";
+import { getBackupDir, getDataDir, getSecureDataDir } from "@core/persistence";
 
 // CLI `emther backup` / `emther restore` と同形式の state アーカイブ。
 // ルートは emther/{data,secure,BACKUP_META.txt}。復元時は旧 em-ai-team/ も受理する。

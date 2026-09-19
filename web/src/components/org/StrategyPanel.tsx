@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import { teamDisplayName, type OrgStrategy, type Team } from "@/lib/types";
+import { teamDisplayName, type OrgStrategy, type Team } from "@core/types";
 
 type Props = {
   strategy: OrgStrategy;

@@ -1,4 +1,4 @@
-import { EXEC_AGENT_NAME } from "@/lib/types";
+import { EXEC_AGENT_NAME } from "@core/types";
 
 export { EXEC_AGENT_NAME };
 

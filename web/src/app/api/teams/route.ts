@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addTeam, listTeams, toTeamView } from "@/lib/org-context-store";
-import { teamPathSegments } from "@/lib/types";
+import { teamPathSegments } from "@core/types";
 
 export async function GET() {
   return NextResponse.json({ teams: listTeams().map(toTeamView) });

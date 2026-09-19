@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runMaskCheckAi, runMaskCheckQuick, MASK_CHECK_MAX_INPUT_CHARS } from "@/lib/mask-check";
+import { runMaskCheckAi, runMaskCheckQuick, MASK_CHECK_MAX_INPUT_CHARS } from "@core/mask-check";
 
 type Phase = "quick" | "ai";
 

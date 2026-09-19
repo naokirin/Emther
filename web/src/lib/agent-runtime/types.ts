@@ -9,7 +9,7 @@ import type {
   PendingUnmaskedSend,
   SuggestionReviewStatus,
   YieldKind,
-} from "@/lib/types";
+} from "@core/types";
 
 export type { PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend };
 

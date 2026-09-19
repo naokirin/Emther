@@ -14,7 +14,7 @@ import {
   type Issue,
   type JournalEntry,
   type ObjectiveWithProgress,
-} from "@/lib/types";
+} from "@core/types";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
 // 訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、常に

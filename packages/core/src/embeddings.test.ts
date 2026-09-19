@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cosineSimilarity } from "@/lib/embeddings";
+import { cosineSimilarity } from "./embeddings";
 
 describe("cosineSimilarity", () => {
   it("同一ベクトルなら1になる", () => {

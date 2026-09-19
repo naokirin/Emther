@@ -1,11 +1,11 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@/lib/types";
+import { AGENT_OPTIONS, CLI_LABELS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier, type RulesAndConstraints } from "@core/types";
 import {
   LOCAL_CHAT_MODEL_PRESET_IDS,
   LOCAL_CHAT_MODEL_PRESETS,
   type LocalChatModelPresetId,
-} from "@/lib/local-chat-presets";
+} from "@core/local-chat-presets";
 
 type Props = {
   draft: RulesAndConstraints;

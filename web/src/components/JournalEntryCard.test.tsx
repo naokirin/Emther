@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JournalEntryCard } from "./JournalEntryCard";
 import { IdResolveProvider } from "@/components/IdFragmentLink";
-import type { JournalEntry } from "@/lib/types";
+import type { JournalEntry } from "@core/types";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({

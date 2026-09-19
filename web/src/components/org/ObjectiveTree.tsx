@@ -1,4 +1,4 @@
-import { teamPathSegments, type ObjectiveWithProgress, type Team } from "@/lib/types";
+import { teamPathSegments, type ObjectiveWithProgress, type Team } from "@core/types";
 
 export function treeTitle(title: string): string {
   const first = title.split("\n")[0]?.trim() || title;

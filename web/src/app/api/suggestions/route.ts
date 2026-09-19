@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSuggestion, listSuggestions, toSuggestionView } from "@/lib/suggestion-store";
 import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
-import { isUnconfirmedNameCandidatesError } from "@/lib/name-candidate-confirmation";
+import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { linkJournalToIssue } from "@/lib/journal-store";
-import { CONFIRM_PRIORITIES, type ConfirmPriority } from "@/lib/types";
+import { CONFIRM_PRIORITIES, type ConfirmPriority } from "@core/types";
 
 export async function GET() {
   return NextResponse.json({ suggestions: listSuggestions().map(toSuggestionView) });

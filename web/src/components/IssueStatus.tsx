@@ -10,7 +10,7 @@ import {
   type IssueStatus,
   type IssueTriageScores,
   type SuggestionReviewStatus,
-} from "@/lib/types";
+} from "@core/types";
 
 const STATUS_CLS: Record<IssueStatus, string> = {
   not_started: styles.issueStatusNotStarted,

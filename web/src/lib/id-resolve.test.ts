@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -13,7 +13,7 @@ vi.mock("@/lib/embeddings", () => ({
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
-vi.mock("@/lib/name-candidate-detect", () => ({
+vi.mock("@core/name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
@@ -73,7 +73,7 @@ describe("resolveIdPrefix", () => {
 
   // ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
   it("Issue のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const issueStore = await import("@/lib/issue-store");
     const { resolveIdPrefix } = await import("./id-resolve");
@@ -85,7 +85,7 @@ describe("resolveIdPrefix", () => {
   });
 
   it("Journal の本文に含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Bさん");
     const journalStore = await import("@/lib/journal-store");
     const { resolveIdPrefix } = await import("./id-resolve");

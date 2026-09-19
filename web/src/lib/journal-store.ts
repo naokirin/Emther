@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
+import { extractFirstJsonObject, runLocalChat } from "@core/local-model";
 import {
   getPersonId,
   ensureNameCandidatesAllowed,
@@ -11,16 +11,16 @@ import {
   maskNamesSearchForms,
   registerName,
   unmaskNames,
-} from "@/lib/people-directory";
-import type { MaskOptions } from "@/lib/name-candidate-confirmation";
-import { stripPersonHonorific } from "@/lib/person-honorific";
+} from "@core/people-directory";
+import type { MaskOptions } from "@core/name-candidate-confirmation";
+import { stripPersonHonorific } from "@core/person-honorific";
 import {
   filterValidTeamIds,
   findMentionedTeamIds,
   getTeam,
   resolveTeamIdsByLabels,
 } from "@/lib/org-context-store";
-import { teamDisplayName } from "@/lib/types";
+import { teamDisplayName } from "@core/types";
 
 // 人物詳細など「この人に紐づけて書く」導線から、EMが明示した人物名を作成時に渡すため。
 // 校正（PATCH）の people と同様、明示指定は registerName してよい（NER自動抽出とは別経路）。
@@ -56,8 +56,8 @@ import {
   type EventPageFilter,
   type KnowledgeEvent,
 } from "@/lib/knowledge-store";
-import { embedText } from "@/lib/embeddings";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { embedText } from "@core/embeddings";
+import { getRulesAndConstraints } from "@core/settings-store";
 import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
 import { getIssue, toIssueView } from "@/lib/issue-store";
 

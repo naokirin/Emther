@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
 // findReferenceUrls/findReferenceUrlは実際にはclaude CLI（`--tools "WebSearch"`）または
 // cursor-agent（専用サンドボックス+hooks）を子プロセス起動するが、テストではプロセスを
@@ -60,7 +60,7 @@ describe("findReferenceUrls", () => {
   // ユーザー指摘「Claudeのみは制約が強すぎるので緩和したい」対応で、claude/cursorどちらも
   // 対応CLIになった後の挙動を検証する。
   it("cliOrderにclaude/cursorどちらも含まれていない場合はCLIを起動せず空配列を返す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["agy"] });
     const rt = await loadModule();
     const results = await rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -69,7 +69,7 @@ describe("findReferenceUrls", () => {
   });
 
   it("cliOrderでclaudeがcursorより先に並んでいればclaudeを起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "cursor"] });
     const rt = await loadModule();
     const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -82,7 +82,7 @@ describe("findReferenceUrls", () => {
   });
 
   it("cliOrderでcursorがclaudeより先に並んでいればcursor-agentを起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "claude"] });
     const rt = await loadModule();
     const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -96,7 +96,7 @@ describe("findReferenceUrls", () => {
   });
 
   it("cursor-agentを専用サンドボックス・force・named modelで起動し、hooksファイルを用意する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor"] });
     const rt = await loadModule();
     const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -136,7 +136,7 @@ describe("findReferenceUrls", () => {
   // コストが低く軽量なモデルで良いはず」対応。
   describe("この検索専用のモデル設定（referenceLookupClaudeModel/referenceLookupCursorModel）", () => {
     it("referenceLookupClaudeModelが設定されていればclaude起動時に--modelで渡す", async () => {
-      const settingsStore = await import("@/lib/settings-store");
+      const settingsStore = await import("@core/settings-store");
       settingsStore.updateRulesAndConstraints({ cliOrder: ["claude"], referenceLookupClaudeModel: "haiku" });
       const rt = await loadModule();
       const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -161,7 +161,7 @@ describe("findReferenceUrls", () => {
     });
 
     it("referenceLookupCursorModelが設定されていればcursor-agent起動時にそのモデルを渡す", async () => {
-      const settingsStore = await import("@/lib/settings-store");
+      const settingsStore = await import("@core/settings-store");
       settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor"], referenceLookupCursorModel: "gpt-custom" });
       const rt = await loadModule();
       const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -175,7 +175,7 @@ describe("findReferenceUrls", () => {
     });
 
     it("referenceLookupCursorModelが未設定ならcursor-agent起動時は既定モデル（gpt-5.2）を渡す", async () => {
-      const settingsStore = await import("@/lib/settings-store");
+      const settingsStore = await import("@core/settings-store");
       settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor"] });
       const rt = await loadModule();
       const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);
@@ -192,7 +192,7 @@ describe("findReferenceUrls", () => {
     // "auto"が残っていた場合でもcursor-agentへ渡さず既定モデルへフォールバックする
     // defense-in-depthの回帰テスト。
     it("referenceLookupCursorModelが万一'auto'（大小文字・前後空白違い含む）でも既定モデルへフォールバックする", async () => {
-      const settingsStore = await import("@/lib/settings-store");
+      const settingsStore = await import("@core/settings-store");
       settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor"], referenceLookupCursorModel: " Auto " });
       const rt = await loadModule();
       const promise = rt.findReferenceUrls([{ topic: "心理的安全性", isPrimarySource: false }]);

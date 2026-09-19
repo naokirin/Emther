@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
 let dir: string;
 
@@ -61,7 +61,7 @@ describe("journal-batch-window", () => {
   });
 
   it("旧形式 { date } のみは全日クレームにせず legacyDateOnly で返す", async () => {
-    const { saveJSON } = await import("@/lib/persistence");
+    const { saveJSON } = await import("@core/persistence");
     saveJSON("auto-journal-batch.json", { date: "2026-09-17" });
     const mod = await import("@/lib/agent-runtime/journal-batch-window");
     const state = mod.loadJournalBatchPersisted();

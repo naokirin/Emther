@@ -5,7 +5,7 @@ import {
   NameCandidateConfirmDialog,
   type NameCandidateDecision,
 } from "@/components/NameCandidateConfirmDialog";
-import { isNameCandidateConfirmation } from "@/lib/name-candidate-confirmation";
+import { isNameCandidateConfirmation } from "@core/name-candidate-confirmation";
 
 type PendingAsk = {
   candidates: string[];

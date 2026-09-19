@@ -30,7 +30,7 @@ import {
   isSuggestionStrategyUnlinked,
   type ConfirmPriority,
   type SuggestionReviewStatus,
-} from "@/lib/types";
+} from "@core/types";
 import { journalExcerptFromTask, resolveSourceConsultRun } from "@/lib/origin-trace";
 import { StrategyTrail } from "@/components/StrategyTrail";
 import { buildIssueStrategyTrail } from "@/lib/strategy-trail";

@@ -8,7 +8,7 @@ import { IdResolveProvider } from "@/components/IdFragmentLink";
 import { PageTitleRow } from "@/components/HelpLink";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, useTimeline } from "@/lib/hooks";
-import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@/lib/types";
+import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@core/types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しい永続化エンティティは持たず、
 // 既存のIssue/Team/Objectiveの変更履歴（KnowledgeEvent）を横断して日付ごとにまとめ、

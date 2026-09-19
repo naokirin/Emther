@@ -1,5 +1,5 @@
 import styles from "@/app/page.module.css";
-import type { RulesAndConstraints } from "@/lib/types";
+import type { RulesAndConstraints } from "@core/types";
 
 type Props = {
   draft: RulesAndConstraints;

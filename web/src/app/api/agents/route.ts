@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { listPendingAgentStarts, listPendingUnmaskedSends, listRuns, startRun, toRunView } from "@/lib/agent-runtime";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
-import { EXEC_AGENT_NAME } from "@/lib/types";
+import { EXEC_AGENT_NAME } from "@core/types";
 
 export async function GET() {
   return NextResponse.json({

@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { dataFilePath } from "@/lib/persistence";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { dataFilePath } from "@core/persistence";
+import { getRulesAndConstraints } from "@core/settings-store";
 
 // ユーザー要望「検索ばかりなので、もう少し直接知れるリンク先を探すようにしてほしい」対応。
 //

@@ -4,11 +4,11 @@ import {
   normalizeHourList,
   normalizeWeekdayList,
   updateRulesAndConstraints,
-} from "@/lib/settings-store";
-import { listPeople } from "@/lib/people-directory";
-import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@/lib/local-chat-presets";
+} from "@core/settings-store";
+import { listPeople } from "@core/people-directory";
+import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@core/local-chat-presets";
 import { ensureLocalModels } from "@/lib/model-loader";
-import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@/lib/types";
+import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@core/types";
 
 export async function GET() {
   return NextResponse.json({ rules: getRulesAndConstraints() });

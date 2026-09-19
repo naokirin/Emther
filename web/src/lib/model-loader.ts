@@ -3,13 +3,13 @@ import {
   clearLocalGeneratorCache,
   getLocalChatModel,
   getLocalGenerator,
-} from "@/lib/local-model";
-import { DEFAULT_LOCAL_CHAT_MODEL } from "@/lib/local-chat-presets";
+} from "@core/local-model";
+import { DEFAULT_LOCAL_CHAT_MODEL } from "@core/local-chat-presets";
 import {
   clearEmbedderCache,
   EMBEDDING_MODEL,
   getEmbedder,
-} from "@/lib/embeddings";
+} from "@core/embeddings";
 
 // ローカルモデル（チャット生成・埋め込み）のディスクキャッシュ有無を見て、
 // 未取得なら起動直後にダウンロード＋メモリロードを開始し、進捗をUIへ返すための状態機械。

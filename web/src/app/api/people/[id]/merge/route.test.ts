@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest, routeCtx } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest, routeCtx } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -27,7 +27,7 @@ afterEach(() => {
 // URLの:idが統合先（残る側）、body.duplicateIdが統合元（消える側）。
 describe("POST /api/people/[id]/merge", () => {
   it("duplicateIdをURLの:idへ統合し、統合後のプロファイルを返す", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const fromId = peopleDirectory.registerName("たなかさん");
     const toId = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
@@ -40,7 +40,7 @@ describe("POST /api/people/[id]/merge", () => {
   });
 
   it("duplicateIdが無ければ400", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const toId = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", {}), routeCtx({ id: toId }));
@@ -48,7 +48,7 @@ describe("POST /api/people/[id]/merge", () => {
   });
 
   it("存在しないduplicateIdは400", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const toId = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
     const res = await route.POST(

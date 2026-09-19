@@ -7,9 +7,9 @@ import {
   getHiraganaStopwords,
   getKatakanaStopwords,
   getSpeakerKanjiStopwords,
-} from "@/lib/mask-check-lexicon";
-import { detectMorphPersonNames, ensureNameMorphReady } from "@/lib/mask-check-morph";
-import { stripPersonHonorific } from "@/lib/person-honorific";
+} from "./mask-check-lexicon";
+import { detectMorphPersonNames, ensureNameMorphReady } from "./mask-check-morph";
+import { stripPersonHonorific } from "./person-honorific";
 
 /** 1テキストあたりの候補上限（プレビュー・確認ゲート共通）。 */
 export const NAME_CANDIDATE_MAX = 50;

@@ -8,7 +8,7 @@ import { buildTeamTree, TeamTreeView } from "@/components/teams/TeamTree";
 import { TeamCreatePanel } from "@/components/teams/TeamCreatePanel";
 import { TeamEditPanel } from "@/components/teams/TeamEditPanel";
 import { useEntityHistory, useIssues, useJournal, useTeams } from "@/lib/hooks";
-import type { Team } from "@/lib/types";
+import type { Team } from "@core/types";
 
 // ユーザー要望「メンバータブを『チーム・メンバー』とし、コンテンツをグループ内タブでチーム・
 // メンバーと切り替えられるようにしてほしい」対応。TopNav.tsxの「members」グループへ

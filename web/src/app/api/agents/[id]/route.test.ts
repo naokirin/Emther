@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { routeCtx } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { routeCtx } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -66,7 +66,7 @@ describe("GET /api/agents/[id]", () => {
 
   it("存在すれば実名復元済みで返す", async () => {
     await insertRunRow({ task: "PERSON_1についてのタスク" });
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん"); // PERSON_1として登録
     const route = await import("./route");
     const res = await route.GET(new Request("http://localhost/x"), routeCtx({ id: "run-1" }));

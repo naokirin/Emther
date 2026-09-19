@@ -8,7 +8,7 @@ import { IdFragmentLink } from "@/components/IdFragmentLink";
 import { IdLinkedText } from "@/components/IdLinkedText";
 import { ThemeOkrLinkSuggestPanel } from "@/components/HierarchyLinkSuggestPanel";
 import { ThemeOkrLinkEditor } from "@/components/ThemeOkrLinkEditor";
-import { isThemeOkrUnlinked, type ObjectiveWithProgress, type OrgTheme, type ThemeOkrLinkSuggestion } from "@/lib/types";
+import { isThemeOkrUnlinked, type ObjectiveWithProgress, type OrgTheme, type ThemeOkrLinkSuggestion } from "@core/types";
 
 // 採用＝肯定（1段階）。壁打ち前提に入ったテーマを「意識の錨」として今日タブに残す。
 const PRIORITY_THEME_LIMIT = 3;

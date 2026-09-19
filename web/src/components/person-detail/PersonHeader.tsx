@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { PersonScoreBadge } from "@/components/PersonScoreBadge";
-import { PERSON_VITAL_LABEL, personVitalReason, personVitalStatus, type PersonProfile } from "@/lib/types";
+import { PERSON_VITAL_LABEL, personVitalReason, personVitalStatus, type PersonProfile } from "@core/types";
 
 export function PersonHeader({
   person,

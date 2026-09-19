@@ -9,7 +9,7 @@ import { Select } from "@/components/Select";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import { useGoToRunIssue, useIssues, useRuns, useRunsInbox, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@/lib/types";
+import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@core/types";
 
 // docs/em_ui_ux_issue.md「ダッシュボードの簡素化」対応。旧「今日」タブに同居していた
 // Agent Fleet状態・横断Activity Stream・「相談・起動」パネル（エージェント起動フォーム＋

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 // maskForStorage()は候補検出を経由せず既知名のマスクのみ行う。
 // 候補検出（detectUnregisteredNameCandidates）は name-candidate-detect（ルール＋形態素）を使う。
-vi.mock("@/lib/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/people-directory");
+  return import("./people-directory");
 }
 
 describe("registerName / maskNames / unmaskNames", () => {
@@ -416,14 +416,14 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
 
   it("allowUnmaskedCandidates:false なら UnconfirmedNameCandidatesError を投げる", async () => {
     const pd = await loadModule();
-    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    const { UnconfirmedNameCandidatesError } = await import("./name-candidate-confirmation");
     await expect(
       pd.ensureNameCandidatesAllowed(["田中さんと話した"], { allowUnmaskedCandidates: false }),
     ).rejects.toBeInstanceOf(UnconfirmedNameCandidatesError);
   });
 
   it("厳格確認時、複数テキストは結合して1回の検出にまとめる", async () => {
-    const detect = await import("@/lib/name-candidate-detect");
+    const detect = await import("./name-candidate-detect");
     const spy = vi.spyOn(detect, "detectNameCandidatesAsync");
     const pd = await loadModule();
     await pd.ensureNameCandidatesAllowed(
@@ -453,7 +453,7 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
 
   it("additionalCandidates は形態素検出と合流して同じゲートで扱われる", async () => {
     const pd = await loadModule();
-    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    const { UnconfirmedNameCandidatesError } = await import("./name-candidate-confirmation");
     // 形態素モックが空でも、LLM抽出由来の追加候補だけでブロックできる。
     await expect(
       pd.ensureNameCandidatesAllowed(["特に名前のないメモ"], { allowUnmaskedCandidates: false }, ["山田花子"]),

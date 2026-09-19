@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildDailySituation } from "@/lib/daily-situation";
 import type { NextAction } from "@/lib/dashboard-next-actions";
-import type { JournalEntry, OrgVitals, PersonSummary } from "@/lib/types";
+import type { JournalEntry, OrgVitals, PersonSummary } from "@core/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 固定の「今日」。2026-09-13は日曜日。

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 let mockChatResponse = JSON.stringify({ findings: [], people: [] });
-vi.mock("@/lib/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => mockChatResponse),
   extractFirstJsonObject: (text: string) => {
     const start = text.indexOf("{");
@@ -19,7 +19,7 @@ vi.mock("@/lib/local-model", () => ({
   },
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -48,7 +48,7 @@ const INCIDENT_SAMPLE = `
 
 describe("detectSensitiveByRules", () => {
   it("メール・電話・APIキーっぽい文字列を検出する", async () => {
-    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const { detectSensitiveByRules } = await import("./mask-check");
     const findings = detectSensitiveByRules(
       "連絡先は user@example.com / 090-1234-5678。鍵は sk-abcdefghijklmnopqrstuvwxyz0123456789",
     );
@@ -60,13 +60,13 @@ describe("detectSensitiveByRules", () => {
   });
 
   it("URLクエリの token を url_secret として検出する", async () => {
-    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const { detectSensitiveByRules } = await import("./mask-check");
     const findings = detectSensitiveByRules("https://example.com/cb?token=abc123&x=1");
     expect(findings.some((f) => f.category === "url_secret")).toBe(true);
   });
 
   it("実値が無くても個人情報・APIキー言及をキーワードで検出し match を持つ", async () => {
-    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const { detectSensitiveByRules } = await import("./mask-check");
     const findings = detectSensitiveByRules(INCIDENT_SAMPLE);
     const cats = new Set(findings.map((f) => f.category));
     expect(cats.has("other_sensitive")).toBe(true);
@@ -77,7 +77,7 @@ describe("detectSensitiveByRules", () => {
   });
 
   it("企業名・住所・生年月日・IDを構造パターンで検出する", async () => {
-    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const { detectSensitiveByRules } = await import("./mask-check");
     const text =
       "株式会社ブルースターの担当。住所は東京都新宿区西新宿2丁目8番1号。" +
       "生年月日を確認したところ1989年6月12日。ログインID `mf-takahashi-2048` と顧客番号はC-493821。";
@@ -98,9 +98,9 @@ describe("detectSensitiveByRules", () => {
 
 describe("detectNameCandidates", () => {
   it("未登録の敬称付き人名を列挙し、登録済みは除外する", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("./people-directory");
     pd.registerName("田中さん");
-    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync(INCIDENT_SAMPLE);
     expect(names).toContain("高井さん");
     expect(names).toContain("大岩さん");
@@ -118,7 +118,7 @@ describe("detectNameCandidates", () => {
   });
 
   it("敬称なしは話者ラベルと形態素人名POSから検出する", async () => {
-    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync("高井: インシデント対応。トニーにも入ってもらう。");
     expect(names).toContain("高井");
     expect(names).toContain("トニー");
@@ -126,13 +126,13 @@ describe("detectNameCandidates", () => {
   });
 
   it("カタカナ人名は敬称付きなら検出する", async () => {
-    const { detectNameCandidates } = await import("@/lib/mask-check");
+    const { detectNameCandidates } = await import("./mask-check");
     const names = detectNameCandidates("トニーさんにも入ってもらう。");
     expect(names).toContain("トニーさん");
   });
 
   it("佐々木花子さんを欠かさず検出し、仕様・同様・客様は人名にしない", async () => {
-    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync(
       "佐々木花子さんと打ち合わせ。お客様の仕様と同様に進める。",
     );
@@ -144,7 +144,7 @@ describe("detectNameCandidates", () => {
   });
 
   it("形態素で敬称なしの姓（山本・伊藤・渡辺）を検出し仕様は拾わない", async () => {
-    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync(
       "田中さんが担当。同様に、山本、伊藤、渡辺という名前もテストケース。仕様について。",
     );
@@ -157,7 +157,7 @@ describe("detectNameCandidates", () => {
   });
 
   it("トニーさんがあるとき一覧は敬称ありのみ（bareはハイライト用に展開）", async () => {
-    const { detectNameCandidates, expandNamesForHighlight } = await import("@/lib/mask-check");
+    const { detectNameCandidates, expandNamesForHighlight } = await import("./mask-check");
     const names = detectNameCandidates("トニーさんに頼む");
     expect(names).toContain("トニーさん");
     expect(names).not.toContain("トニー");
@@ -165,7 +165,7 @@ describe("detectNameCandidates", () => {
   });
 
   it("短い敬称名が長い敬称名に含まれるとき長い方だけ残す", async () => {
-    const { dedupeNamesPreferHonorific } = await import("@/lib/mask-check");
+    const { dedupeNamesPreferHonorific } = await import("./mask-check");
     expect(dedupeNamesPreferHonorific(["中村さん", "中村一郎さん", "鈴木さん"])).toEqual([
       "中村一郎さん",
       "鈴木さん",
@@ -176,7 +176,7 @@ describe("detectNameCandidates", () => {
 describe("filterNameCandidatesWithLocalAi", () => {
   it("一般語を落として人名だけ残す", async () => {
     mockChatResponse = JSON.stringify({ people: ["鈴木さん", "山田太郎さん"] });
-    const { filterNameCandidatesWithLocalAi } = await import("@/lib/mask-check");
+    const { filterNameCandidatesWithLocalAi } = await import("./mask-check");
     const result = await filterNameCandidatesWithLocalAi([
       "鈴木さん",
       "テスト",
@@ -190,7 +190,7 @@ describe("filterNameCandidatesWithLocalAi", () => {
 
   it("AIが空を返したら敬称付きだけフォールバック", async () => {
     mockChatResponse = JSON.stringify({ people: [] });
-    const { filterNameCandidatesWithLocalAi } = await import("@/lib/mask-check");
+    const { filterNameCandidatesWithLocalAi } = await import("./mask-check");
     const result = await filterNameCandidatesWithLocalAi(["鈴木さん", "テスト"]);
     expect(result.people).toEqual(["鈴木さん"]);
   });
@@ -203,7 +203,7 @@ describe("buildTextHighlights", () => {
       detectNameCandidatesAsync,
       buildTextHighlights,
       expandNamesForHighlight,
-    } = await import("@/lib/mask-check");
+    } = await import("./mask-check");
     const text = "トニーさんがAPIキーを閉じた";
     const findings = detectSensitiveByRules(text);
     const names = await detectNameCandidatesAsync(text);
@@ -219,11 +219,11 @@ describe("buildTextHighlights", () => {
 
 describe("runMaskCheckQuick", () => {
   it("登録済み人名をマスクし、未登録人名と機微キーワードも即時返す", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("./people-directory");
     pd.registerName("田中さん");
     const before = pd.listPeople().length;
 
-    const { runMaskCheckQuick } = await import("@/lib/mask-check");
+    const { runMaskCheckQuick } = await import("./mask-check");
     const result = await runMaskCheckQuick(INCIDENT_SAMPLE);
 
     expect(result.maskedText).toContain("PERSON_");
@@ -237,7 +237,7 @@ describe("runMaskCheckQuick", () => {
   });
 
   it("メール実値も従来どおり検出する", async () => {
-    const { runMaskCheckQuick } = await import("@/lib/mask-check");
+    const { runMaskCheckQuick } = await import("./mask-check");
     const result = await runMaskCheckQuick("花子さんと user@example.com で話した");
     expect(result.sensitiveFindings.some((f) => f.category === "email")).toBe(true);
   });
@@ -249,10 +249,10 @@ describe("runMaskCheckAi", () => {
       findings: [{ category: "health", excerpt: "体調不良で休み", match: "体調不良" }],
       people: ["次郎さん"],
     });
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("./people-directory");
     const before = pd.listPeople().length;
 
-    const { runMaskCheckAi } = await import("@/lib/mask-check");
+    const { runMaskCheckAi } = await import("./mask-check");
     const result = await runMaskCheckAi("次郎さんが体調不良で休み");
 
     expect(result.sensitiveFindings[0]?.category).toBe("health");
@@ -265,7 +265,7 @@ describe("runMaskCheckAi", () => {
 
   it("AIが空でもルール人名は返し、aiWeakになる", async () => {
     mockChatResponse = JSON.stringify({ findings: [], people: [] });
-    const { runMaskCheckAi } = await import("@/lib/mask-check");
+    const { runMaskCheckAi } = await import("./mask-check");
     const result = await runMaskCheckAi("高井さんがAPIキーについて話した");
     expect(result.aiWeak).toBe(true);
     expect(result.unregisteredNameCandidates).toContain("高井さん");
@@ -277,10 +277,10 @@ describe("runMaskCheckAi", () => {
       findings: [],
       people: ["花子さん"],
     });
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("./people-directory");
     pd.registerName("花子さん");
 
-    const { runMaskCheckAi } = await import("@/lib/mask-check");
+    const { runMaskCheckAi } = await import("./mask-check");
     const result = await runMaskCheckAi("花子さんの件");
     expect(result.unregisteredNameCandidates).toEqual([]);
   });
@@ -288,7 +288,7 @@ describe("runMaskCheckAi", () => {
 
 describe("previewNameMask", () => {
   it("同一表記の出現回数を数える", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("./people-directory");
     const id = pd.registerName("太郎さん");
     const preview = pd.previewNameMask("太郎さんと太郎さんが同席");
     expect(preview.maskedText).toBe(`${pd.formatPersonToken(id)}と${pd.formatPersonToken(id)}が同席`);

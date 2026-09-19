@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import type { Team } from "@/lib/types";
+import type { Team } from "@core/types";
 
 export function TeamCreatePanel({
   refreshTeams,

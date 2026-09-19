@@ -1,8 +1,8 @@
-import { extractFirstJsonObject } from "@/lib/local-model";
+import { extractFirstJsonObject } from "@core/local-model";
 import { runCloudChat } from "@/lib/cloud-chat";
 import { listIssues } from "@/lib/issue-store";
 import { listObjectives } from "@/lib/org-context-store";
-import { unmaskNames } from "@/lib/people-directory";
+import { unmaskNames } from "@core/people-directory";
 import { listAdoptedThemes, toThemeView, type OrgTheme } from "@/lib/theme-store";
 import {
   isIssueStrategyUnlinked,
@@ -10,7 +10,7 @@ import {
   type Issue,
   type IssueStrategyLinkSuggestion,
   type ThemeOkrLinkSuggestion,
-} from "@/lib/types";
+} from "@core/types";
 
 export type { ThemeOkrLinkSuggestion, IssueStrategyLinkSuggestion };
 export { isThemeOkrUnlinked };

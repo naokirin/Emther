@@ -21,7 +21,7 @@ import {
   type Issue,
   type IssueCharter,
   type JournalEntry,
-} from "@/lib/types";
+} from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

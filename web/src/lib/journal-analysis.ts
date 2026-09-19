@@ -1,4 +1,4 @@
-import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import type { MaskOptions } from "@core/name-candidate-confirmation";
 import { getCurrentJournalEntry, type JournalEntry } from "@/lib/journal-store";
 import { startJournalAnalysis, type AgentRun } from "@/lib/agent-runtime";
 

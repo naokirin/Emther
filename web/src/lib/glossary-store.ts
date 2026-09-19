@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@/lib/persistence";
+import { loadJSON, saveJSON } from "@core/persistence";
 
 export type GlossaryEntry = {
   id: string;

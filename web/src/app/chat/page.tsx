@@ -10,7 +10,7 @@ import { NewConsultForm } from "@/components/chat/NewConsultForm";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { isConsultHistoryRun } from "@/lib/origin-trace";
-import { isRunStale } from "@/lib/types";
+import { isRunStale } from "@core/types";
 
 // docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、
 // 質問ができるチャットを用意する」への対応。Lead Agent の相談スレッドをこの画面で扱う。

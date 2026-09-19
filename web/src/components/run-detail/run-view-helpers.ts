@@ -1,4 +1,4 @@
-import type { YieldKind } from "@/lib/types";
+import type { YieldKind } from "@core/types";
 
 // RunDetail.tsx本体とrun-detail/配下の各表示コンポーネントの両方から使う純粋関数。
 // RunDetail.tsxがこのファイルをimportし、そのまま同じ名前でre-exportすることで、

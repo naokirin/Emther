@@ -6,7 +6,7 @@ import styles from "@/app/page.module.css";
 import { PersonJournalComposer } from "@/components/person-detail/PersonJournalComposer";
 import { PersonProfileComposer } from "@/components/person-detail/PersonProfileComposer";
 import { SuggestionLink } from "@/components/SuggestionLink";
-import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedIssue } from "@/lib/types";
+import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedIssue } from "@core/types";
 
 // ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブの強調を減らせない」対応。
 // sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した場合だけ、

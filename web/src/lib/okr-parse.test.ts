@@ -129,8 +129,8 @@ describe("parseOkrText", () => {
         throw new Error("no cli");
       }),
     }));
-    vi.doMock("@/lib/people-directory", async () => {
-      const actual = await vi.importActual<typeof import("@/lib/people-directory")>("@/lib/people-directory");
+    vi.doMock("@core/people-directory", async () => {
+      const actual = await vi.importActual<typeof import("@core/people-directory")>("@core/people-directory");
       return {
         ...actual,
         ensureNameCandidatesAllowed: vi.fn(async () => undefined),
@@ -153,11 +153,11 @@ describe("parseOkrText", () => {
         }),
       ),
     }));
-    vi.doMock("@/lib/local-model", () => ({
+    vi.doMock("@core/local-model", () => ({
       extractFirstJsonObject: (text: string) => text,
     }));
-    vi.doMock("@/lib/people-directory", async () => {
-      const actual = await vi.importActual<typeof import("@/lib/people-directory")>("@/lib/people-directory");
+    vi.doMock("@core/people-directory", async () => {
+      const actual = await vi.importActual<typeof import("@core/people-directory")>("@core/people-directory");
       return {
         ...actual,
         ensureNameCandidatesAllowed: vi.fn(async () => undefined),

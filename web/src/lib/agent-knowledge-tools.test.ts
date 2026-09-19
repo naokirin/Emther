@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -13,7 +13,7 @@ const embedRef = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: (text: string) => embedRef.impl(text),
   cosineSimilarity: (a: number[], b: number[]) => {
     if (a.length !== b.length || a.length === 0) return 0;
@@ -156,7 +156,7 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("executeLookupのsimilarはPERSON_nクエリを実名に戻してからembedする", async () => {
-    const people = await import("@/lib/people-directory");
+    const people = await import("@core/people-directory");
     const personId = people.registerName("花子");
     const seen: string[] = [];
     embedRef.impl = async (text: string) => {

@@ -17,8 +17,8 @@ import {
   toSuggestionView,
   type SuggestionDetailInput,
 } from "@/lib/suggestion-store";
-import type { MaskOptions } from "@/lib/name-candidate-confirmation";
-import type { ConfirmPriority, Suggestion } from "@/lib/types";
+import type { MaskOptions } from "@core/name-candidate-confirmation";
+import type { ConfirmPriority, Suggestion } from "@core/types";
 import type { Issue, IssueCharter, IssuePriority, IssueStatus } from "@/lib/issue-store-types";
 
 // docs/2nd_pivot_version.md Phase 7 移行期の互換レイヤー。

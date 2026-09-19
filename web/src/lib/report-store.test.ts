@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
 let mockExtraction: {
   tags: string[];
@@ -9,7 +9,7 @@ let mockExtraction: {
   summary: string;
 };
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
     const systemContent = messages[0]?.content ?? "";
     if (systemContent.includes("人物名だけ")) return JSON.stringify({ people: [] });
@@ -18,7 +18,7 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -26,7 +26,7 @@ vi.mock("@/lib/embeddings", () => ({
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
-vi.mock("@/lib/name-candidate-detect", () => ({
+vi.mock("@core/name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
@@ -156,7 +156,7 @@ describe("listReports / getReport / updateReportNote", () => {
 
 describe("toReportView", () => {
   it("PERSON_n IDを実名に復元する", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const issueStore = await import("@/lib/issue-store");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");

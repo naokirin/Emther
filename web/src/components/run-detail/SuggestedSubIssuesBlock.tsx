@@ -2,7 +2,7 @@
 
 import styles from "@/app/page.module.css";
 import { IdLinkedText } from "@/components/IdLinkedText";
-import { ISSUE_PRIORITY_META } from "@/lib/types";
+import { ISSUE_PRIORITY_META } from "@core/types";
 import type { SuggestedSubIssue } from "@/components/RunDetail";
 
 export function SuggestedSubIssuesBlock({

@@ -5,7 +5,7 @@ import styles from "@/app/page.module.css";
 import { PaginationControls, usePagination } from "@/components/Pagination";
 import { RecordDateField, todayDateInputValue } from "@/components/RecordDateField";
 import { useEmCheckins } from "@/lib/hooks";
-import type { EmCheckin } from "@/lib/types";
+import type { EmCheckin } from "@core/types";
 
 const SCALE_OPTIONS = [1, 2, 3, 4, 5];
 const CHECKIN_PAGE_SIZE = 10;

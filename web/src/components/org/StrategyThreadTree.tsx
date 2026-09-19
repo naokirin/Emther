@@ -5,7 +5,7 @@ import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { SuggestionReviewStatusBadge } from "@/components/IssueStatus";
 import { SuggestionLink } from "@/components/SuggestionLink";
-import { truncateForTitle, type Issue, type JournalEntry, type ObjectiveWithProgress } from "@/lib/types";
+import { truncateForTitle, type Issue, type JournalEntry, type ObjectiveWithProgress } from "@core/types";
 
 const JOURNAL_PER_ISSUE_LIMIT = 3;
 

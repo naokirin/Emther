@@ -4,7 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { ThemeOkrLinkEditor } from "@/components/ThemeOkrLinkEditor";
-import { isThemeOkrUnlinked, type ObjectiveWithProgress, type OrgTheme } from "@/lib/types";
+import { isThemeOkrUnlinked, type ObjectiveWithProgress, type OrgTheme } from "@core/types";
 
 type Props = {
   selectedObjective: ObjectiveWithProgress;

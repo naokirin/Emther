@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { teamPathSegments, type Team } from "@/lib/types";
+import { teamPathSegments, type Team } from "@core/types";
 
 // docs/memo.md TODO「チームの組織階層を入力できるようにする」への対応。
 // チーム名の"/"区切り（例: "Engineering/Team A"）をパスとして解釈し、

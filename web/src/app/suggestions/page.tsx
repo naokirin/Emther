@@ -20,7 +20,7 @@ import {
   type ConfirmPriority,
   type Suggestion,
   type SuggestionReviewStatus,
-} from "@/lib/types";
+} from "@core/types";
 
 // docs/memo.md「デフォルトの確認状態」対応。旧statusFilter="open"相当（未確認・確認中・
 // 確認保留）を複数選択の初期値として引き継ぐ（doneだけを除外した状態から始める）。

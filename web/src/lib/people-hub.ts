@@ -1,4 +1,4 @@
-import { addAlias, listPeople, mergePersons as mergePersonsInDirectory, removeAlias } from "@/lib/people-directory";
+import { addAlias, listPeople, mergePersons as mergePersonsInDirectory, removeAlias } from "@core/people-directory";
 import {
   listActiveFactsForPerson,
   listInterpretationsForPerson,
@@ -9,8 +9,8 @@ import {
 } from "@/lib/knowledge-store";
 import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-store";
 import { listIssues, toIssueView, type Issue } from "@/lib/issue-store";
-import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@/lib/settings-store";
-import { isIssueStalled, suggestionOverviewFromLogs } from "@/lib/types";
+import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@core/settings-store";
+import { isIssueStalled, suggestionOverviewFromLogs } from "@core/types";
 import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "@/lib/person-concern-ack-store";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、

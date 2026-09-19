@@ -2,7 +2,7 @@
 
 import styles from "@/app/page.module.css";
 import { IdLinkedText } from "@/components/IdLinkedText";
-import { YIELD_KIND_META, type YieldKind } from "@/lib/types";
+import { YIELD_KIND_META, type YieldKind } from "@core/types";
 import type { YieldOption } from "@/components/RunDetail";
 import { resolveYieldKind } from "./run-view-helpers";
 

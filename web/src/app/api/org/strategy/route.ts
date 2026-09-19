@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOrgStrategy, type OrgStrategy, updateOrgStrategy } from "@/lib/org-context-store";
-import { unmaskNames } from "@/lib/people-directory";
+import { unmaskNames } from "@core/people-directory";
 
 // 個人情報の分離（ユーザー指摘対応）: ストア側はPERSON_n IDでマスクされたテキストを
 // 保持している。EM向けの応答を組み立てるこの境界でだけ実名へ復元する。

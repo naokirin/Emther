@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -33,7 +33,7 @@ describe("GET /api/org/strategy", () => {
 
 describe("PATCH /api/org/strategy", () => {
   it("指定フィールドだけ更新し、実名復元済みで返す", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { mission: "Aさんを中心に価値を届ける" }));

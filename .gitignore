@@ -13,6 +13,10 @@
 # 依存関係（ルートに誤配置された場合）
 node_modules/
 
+# docs/2nd_architecture/plan.md フェーズ1: packages/core への段階移設で使う
+# 使い捨てのts-morph codemodスクリプト（バッチ実行のたびに再利用するがコミットはしない）
+.migration-tmp/
+
 # ローカルで作った Release 成果物
 dist/
 

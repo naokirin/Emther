@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest } from "@core/test-helpers/api-route";
 
 let mockExtraction: {
   tags: string[];
@@ -11,7 +11,7 @@ let mockExtraction: {
   profileCandidate?: { person: string; text: string } | null;
 };
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
     const systemContent = messages[0]?.content ?? "";
     if (systemContent.includes("人物名だけ")) return JSON.stringify({ people: [] });
@@ -20,7 +20,7 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -59,7 +59,7 @@ describe("POST /api/journal", () => {
 
   it("記録できる（201）。抽出peopleは登録済みの人物だけ紐付く（自動登録しない）", async () => {
     mockExtraction = { tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive", summary: "良かった" };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/api/journal", "POST", { text: "Aさんと1on1した" }));
@@ -82,7 +82,7 @@ describe("POST /api/journal", () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.entry.people).toEqual([]);
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
@@ -99,7 +99,7 @@ describe("POST /api/journal", () => {
     const json = await res.json();
     expect(json.code).toBe("NAME_CANDIDATE_CONFIRMATION_REQUIRED");
     expect(json.candidates).toEqual(["新人さん"]);
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
@@ -119,7 +119,7 @@ describe("POST /api/journal", () => {
     expect(json.nameCandidates).toEqual([]);
     // 未マスクのまま進めることを許可しただけで、people自体は自動登録しない（既存方針は変えない）。
     expect(json.entry.people).toEqual([]);
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
@@ -152,7 +152,7 @@ describe("POST /api/journal", () => {
       summary: "",
       profileCandidate: { person: "Aさん", text: "Aさんはレビューが速く的確" },
     };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const route = await import("./route");
     const res = await route.POST(
@@ -191,7 +191,7 @@ describe("POST /api/journal", () => {
 
   it("peopleを明示するとNER抽出が空でも紐付く", async () => {
     mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("花子さん");
     const route = await import("./route");
     const res = await route.POST(

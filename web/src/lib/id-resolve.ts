@@ -2,7 +2,7 @@ import { listRuns } from "@/lib/agent-runtime";
 import { findByIdPrefix, isHexIdPrefix, normalizeIdKey } from "@/lib/id-prefix";
 import { listIssues, type Issue } from "@/lib/issue-store";
 import { listJournalEntries, type JournalEntry } from "@/lib/journal-store";
-import { unmaskNames } from "@/lib/people-directory";
+import { unmaskNames } from "@core/people-directory";
 
 export type IdMatchKind = "issue" | "journal" | "run";
 

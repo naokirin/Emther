@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ findings: [], people: [] })),
   extractFirstJsonObject: (text: string) => {
     const start = text.indexOf("{");
@@ -18,7 +18,7 @@ vi.mock("@/lib/local-model", () => ({
   },
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -40,7 +40,7 @@ afterEach(() => {
  */
 describe("mask-check TUNING lexicon (shrunk keywords)", () => {
   it("長いインシデント言い回しはキーワードとして検出しない（CORE 核のみ）", async () => {
-    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const { detectSensitiveByRules } = await import("./mask-check");
     const findings = detectSensitiveByRules(
       "セキュリティインシデントで不正利用とアクセスを遮断した。被害拡大を防ぐ。",
     );
@@ -50,7 +50,7 @@ describe("mask-check TUNING lexicon (shrunk keywords)", () => {
   });
 
   it("CORE の不正アクセスと個人情報・漏洩は検出する", async () => {
-    const { detectSensitiveByRules } = await import("@/lib/mask-check");
+    const { detectSensitiveByRules } = await import("./mask-check");
     const findings = detectSensitiveByRules(
       "個人情報の漏洩と不正アクセスが疑われる。apiキーは別管理。",
     );
@@ -61,7 +61,7 @@ describe("mask-check TUNING lexicon (shrunk keywords)", () => {
   });
 
   it("TUNING のカタカナ一般語を人名候補から除外する", async () => {
-    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync(
       "テスト環境にコピーしたサンプル。パートナーとの打ち合わせ。テーブル定義とログイン後の画面。",
     );
@@ -74,7 +74,7 @@ describe("mask-check TUNING lexicon (shrunk keywords)", () => {
   });
 
   it("TUNING のひらがな文脈（のアカウント）で人名を拾う", async () => {
-    const { detectNameCandidatesAsync } = await import("@/lib/mask-check");
+    const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync("ただとしのアカウントが不正利用された。");
     expect(names).toContain("ただとし");
   });

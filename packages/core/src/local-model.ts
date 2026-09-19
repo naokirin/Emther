@@ -5,8 +5,8 @@ import {
   LOCAL_CHAT_MODEL_PRESETS,
   type LocalChatModelPresetId,
   type LocalChatModelSpec,
-} from "@/lib/local-chat-presets";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+} from "./local-chat-presets";
+import { getRulesAndConstraints } from "./settings-store";
 
 // このモジュールが提供するローカル推論は、機微情報を外部に一切送信しないことが目的。
 // journal-store.ts（ジャーナルの自動タグ付け）と people-directory.ts 経由の
@@ -27,7 +27,7 @@ export {
   isLocalChatModelPresetId,
   LOCAL_CHAT_MODEL_PRESET_IDS,
   LOCAL_CHAT_MODEL_PRESETS,
-} from "@/lib/local-chat-presets";
+} from "./local-chat-presets";
 
 /** 現在の設定に対応するチャットモデル仕様。不正値は 350m にフォールバック。 */
 export function getLocalChatModel(): LocalChatModelSpec {

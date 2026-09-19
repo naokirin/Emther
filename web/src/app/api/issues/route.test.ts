@@ -1,14 +1,14 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe("GET /api/issues", () => {
   it("一覧を実名復元済みで返す", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const issueStore = await import("@/lib/issue-store");
     peopleDirectory.registerName("Aさん");
     await issueStore.createIssue("Aさんの育成計画");
@@ -107,7 +107,7 @@ describe("POST /api/issues", () => {
   });
 
   it("agentRunIdを渡すとそのrunをreviewed済みにする", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({});
     const dbModule = await import("@/lib/db");
     dbModule

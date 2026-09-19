@@ -1,13 +1,13 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
 // agent-runtime.tsの「純粋なパース関数」「プロンプト組み立て関数」「DBへ直接rowを仕込むことで
 // 実プロセスを起動せずに検証できるrun一覧・状態遷移系の関数」は上のdescribeブロック群でカバー
 // 済み。ここから下は、実際にCLI子プロセスを起動するstartRun/decideRun/runClaudeTurn（claude→agy→
 // cursor-agentのフォールバック連鎖）と、Lead Agentのconsult協働ループ（handleConsult）を対象に、
 // node:child_processのspawnを丸ごとモックして検証する。
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -17,7 +17,7 @@ vi.mock("@/lib/local-model", () => ({
 const cosineSimilarityRef = vi.hoisted(() => ({
   impl: (() => 0) as (...args: unknown[]) => number,
 }));
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: (...args: unknown[]) => cosineSimilarityRef.impl(...args),
 }));
@@ -27,7 +27,7 @@ vi.mock("@/lib/embeddings", () => ({
 const nameCandidateDetectRef = vi.hoisted(() => ({
   detectNameCandidatesAsync: (async () => [] as string[]) as (text: string) => Promise<string[]>,
 }));
-vi.mock("@/lib/name-candidate-detect", () => ({
+vi.mock("@core/name-candidate-detect", () => ({
   detectNameCandidatesAsync: (text: string) => nameCandidateDetectRef.detectNameCandidatesAsync(text),
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
@@ -492,7 +492,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("朝サマリーの材料は実名をPERSON_nにマスクしてから返す", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("@core/people-directory");
     const orgStore = await import("@/lib/org-context-store");
     pd.registerName("漏洩太郎");
     // チーム名に実名が含まれると、Vitals理由文にも載る（送信前 assert の発火源になり得る）。
@@ -534,7 +534,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("Growの材料は実名をPERSON_nにマスクしてから返す", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("@core/people-directory");
     const emSelfStore = await import("@/lib/em-self-store");
     pd.registerName("漏洩太郎");
     await emSelfStore.addCheckin({ mood: 3, energy: 3, stress: 3, note: "漏洩太郎との1on1で気づいたこと" });
@@ -563,7 +563,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("Journal集約解釈の材料は実名をPERSON_nにマスクしてから返す", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("@core/people-directory");
     const journalStore = await import("@/lib/journal-store");
     pd.registerName("漏洩太郎");
     await journalStore.addJournalEntry("漏洩太郎さんが辞めたいと言っていた");
@@ -736,8 +736,8 @@ describe("buildOrgContextBlock", () => {
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("selfPersonIdが設定されていれば利用者本人として明示する", async () => {
     const orgStore = await import("@/lib/org-context-store");
-    const peopleDirectory = await import("@/lib/people-directory");
-    const settings = await import("@/lib/settings-store");
+    const peopleDirectory = await import("@core/people-directory");
+    const settings = await import("@core/settings-store");
     const selfId = peopleDirectory.registerName("EM本人");
     orgStore.addTeam("Team A", ["EM本人", "Aさん"]);
     settings.setSelfPersonId(selfId);
@@ -1078,7 +1078,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("toRunViewはPERSON_n IDを実名に復元する", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("Aさん");
     const { getDb } = await import("@/lib/db");
     insertRunRow(getDb(), {
@@ -1286,7 +1286,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   // addMemoにonUpdatedを渡さないため、autoIssueUpdateAnalysisEnabledがONでも
   // auto-issue-update分析を裏で起動してはならない。
   it("adoptSuggestionUpdatesFromRunのnote追記はauto-issue-update分析を起動しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
     const suggestionStore = await import("@/lib/suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案3");
@@ -1359,7 +1359,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   // 「すでに保存済み情報を自動でアーカイブしてしまうことは避ける」対応。過去のナレッジイベントが
   // 類似検索等でsystemPromptに含まれても、過去データを勝手に自動アーカイブしない。
   it("過去のナレッジイベントを自動アーカイブせず、入力テキストのみを確認対象とする", async () => {
-    const pd = await import("@/lib/people-directory");
+    const pd = await import("@core/people-directory");
     const ks = await import("@/lib/knowledge-store");
     pd.registerName("漏洩太郎");
     const pastEvent = ks.recordEvent({
@@ -1402,7 +1402,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
 
   it("相談の入力テキストに未登録の人名候補がある場合はUnconfirmedNameCandidatesErrorをスローし、ユーザー確認で実行できる", async () => {
     nameCandidateDetectRef.detectNameCandidatesAsync = async () => ["佐藤"];
-    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    const { UnconfirmedNameCandidatesError } = await import("@core/name-candidate-confirmation");
     const rt = await loadModule();
 
     // 未確認の人名候補が含まれ、確認前の状態（allowUnmaskedCandidates: false）の場合、startRunは拒絶する
@@ -1449,7 +1449,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("設定でエージェント種別にモデル系統が指定されていれば--modelを渡す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ agentModelTiers: { "Lead Agent": "opus" } });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "障害対応の方針を決めたい");
@@ -1460,7 +1460,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("設定のperTurnBudgetUsdを--max-budget-usdに渡す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ perTurnBudgetUsd: 2 });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "予算を上げたい");
@@ -1514,7 +1514,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("claude失敗→agyが候補に含まれていれば起動し、成功すればidleになる", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
@@ -1541,7 +1541,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("claude失敗→agyを含まずcursorが候補に含まれていれば起動し、成功すればidleになる", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
@@ -1565,7 +1565,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("claude失敗→agyも失敗→cursorが候補にあれば3段目として起動し成功する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
@@ -1594,7 +1594,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   // ON/OFF）をcliOrder（全エージェント共通の単一のCLI優先順位リスト）に統合し、
   // claudeも他の2つと同様に除外できるようにした後の挙動を検証する。
   it("cliOrderにclaudeを含めなければ、claudeは一度も起動されずagyから始まる", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["agy", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "タスク");
@@ -1612,7 +1612,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("cliOrderでcursorをclaudeより先に並べると、cursorが最初に起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "claude", "agy"] });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "タスク");
@@ -1622,7 +1622,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("cliOrderは全エージェント種別に共通で適用される", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "agy", "claude"] });
     const rt = await loadModule();
     await rt.startRun("People Agent", "タスク");
@@ -1632,7 +1632,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("cursorを先頭にして失敗した場合、次の候補（agy）へフォールバックする", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "agy", "claude"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
@@ -1659,7 +1659,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
   // できるようにしたい」対応。
   it("agentAgyModelsでこのエージェント種別のモデルを指定すると、agy起動時にそのモデルを渡す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({
       cliOrder: ["claude", "agy"],
       agentAgyModels: { "Lead Agent": "gemini-custom-model" },
@@ -1675,7 +1675,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("agentAgyModelsが未設定のエージェントは既定モデルのままagyを起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy"] });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "落ちるタスク");
@@ -1687,7 +1687,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("agentCursorModelsでこのエージェント種別のモデルを指定すると、cursor-agent起動時にそのモデルを渡す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({
       cliOrder: ["claude", "cursor"],
       agentCursorModels: { "Lead Agent": "gpt-custom" },
@@ -1703,7 +1703,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("claude/agy/cursorすべて失敗すればerrorのまま確定する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy", "cursor"] });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "全滅するタスク");
@@ -1723,7 +1723,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   });
 
   it("maxParallelAgentRunsの上限に達すると後発のrunはqueuedで待機し、先発の枠解放後に起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ maxParallelAgentRuns: 1 });
     const rt = await loadModule();
 
@@ -1934,7 +1934,7 @@ describe("Lead Agentのconsult協働ループ（handleConsult）", () => {
 
 describe("watchdog: checkStaleRuns", () => {
   it("ハングした子プロセスを追跡できている場合はkillし、ログに残す（実際の状態確定はcloseイベント側）", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ agentKillAfterSeconds: 0 });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "ハングしそうなタスク");
@@ -1955,7 +1955,7 @@ describe("watchdog: checkStaleRuns", () => {
   });
 
   it("閾値内であれば何もしない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ agentKillAfterSeconds: 600 });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "まだ新しいタスク");
@@ -1969,7 +1969,7 @@ describe("watchdog: checkStaleRuns", () => {
     // consultで相談中のLead runは、自分自身のCLIプロセスは既にcloseしてliveProcessesから
     // 消えている一方、専門エージェントの回答を待つ間statusは"active"のまま——という
     // 実際に発生しうる状態を使って、この保険分岐を再現する。
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ agentKillAfterSeconds: 0 });
     const rt = await loadModule();
     const leadRun = await rt.startRun("Lead Agent", "複合的な課題");
@@ -2017,7 +2017,7 @@ describe("watchdog: checkMorningSummary", () => {
   });
 
   it("設定時刻に達していなければ起動しない（hourを24にして『今日中は絶対到達しない』を再現）", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 24 });
     const rt = await loadModule();
     rt.checkMorningSummary();
@@ -2027,7 +2027,7 @@ describe("watchdog: checkMorningSummary", () => {
 
   it("設定時刻に達していれば当日1回だけLead Agentを自動起動する", async () => {
     // hour:0にすることで「今日中は常に到達済み」を実時刻に依存せず再現する。
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
     const rt = await loadModule();
 
@@ -2056,8 +2056,8 @@ describe("watchdog: checkMorningSummary", () => {
 
   it("メモリ上のクレームを忘れていても、当日の既存auto-summaryがあれば再起動しない", async () => {
     // 実機の HMR レース: クレーム変数は消えたが DB に今日の run が残っている状態。
-    const settingsStore = await import("@/lib/settings-store");
-    const { saveJSON } = await import("@/lib/persistence");
+    const settingsStore = await import("@core/settings-store");
+    const { saveJSON } = await import("@core/persistence");
     settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
     const rt = await loadModule();
 
@@ -2078,7 +2078,7 @@ describe("watchdog: checkMorningSummary", () => {
   });
 
   it("連続で呼び出しても当日は1件しか作らない（クレームの先取り）", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
     const rt = await loadModule();
 
@@ -2095,7 +2095,7 @@ describe("watchdog: checkMorningSummary", () => {
 
 describe("watchdog: checkWeeklyDistillation", () => {
   it("選択曜日でなければ起動しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     const otherWeekday = (new Date().getDay() + 1) % 7;
     settingsStore.updateRulesAndConstraints({
       autoDistillationEnabled: true,
@@ -2109,7 +2109,7 @@ describe("watchdog: checkWeeklyDistillation", () => {
   });
 
   it("選択曜日・時刻なら起動し、同じ曜日では再起動しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     const today = new Date().getDay();
     settingsStore.updateRulesAndConstraints({
       autoDistillationEnabled: true,
@@ -2128,8 +2128,8 @@ describe("watchdog: checkWeeklyDistillation", () => {
   });
 
   it("旧形式 { week } のみでも他曜日の実行は潰さず、未実行の選択曜日なら起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    const { saveJSON } = await import("@/lib/persistence");
+    const settingsStore = await import("@core/settings-store");
+    const { saveJSON } = await import("@core/persistence");
     const { getDb } = await import("@/lib/db");
 
     // isoWeekKey と同じ算法（agent-runtime 読込前に週キーを決めるため）
@@ -2201,7 +2201,7 @@ describe("watchdog: checkWeeklyGrow", () => {
   });
 
   it("曜日が一致しなければ起動しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     const otherWeekday = (new Date().getDay() + 1) % 7;
     settingsStore.updateRulesAndConstraints({ autoGrowEnabled: true, autoGrowWeekday: otherWeekday, autoGrowHour: 0 });
     const rt = await loadModule();
@@ -2211,7 +2211,7 @@ describe("watchdog: checkWeeklyGrow", () => {
   });
 
   it("曜日・時刻が一致すればLead Agentを自動起動し、grow_suggestionsをem-growth-storeへ保存する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     const growStore = await import("@/lib/em-growth-store");
     settingsStore.updateRulesAndConstraints({
       autoGrowEnabled: true,
@@ -2264,7 +2264,7 @@ describe("watchdog: checkJournalBatchReview", () => {
   });
 
   it("設定時刻に達していなければ起動しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     const futureHour = Math.min(23, new Date().getHours() + 1);
     // 現在が23時のときは「未来の時刻」が作れないので、空の due になるよう翌日扱いはせずスキップ相当の [23] のみ・かつ現在も23なら別手段。
     if (new Date().getHours() >= 23) {
@@ -2282,7 +2282,7 @@ describe("watchdog: checkJournalBatchReview", () => {
   });
 
   it("設定時刻に達していれば当日の過ぎたスロットをまとめて1回だけLead Agentを自動起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHours: [0] });
     const rt = await loadModule();
 
@@ -2310,7 +2310,7 @@ describe("watchdog: checkJournalBatchReview", () => {
   });
 
   it("複数時刻が設定されていても、遅れ復帰時は過ぎたスロットをまとめて1回だけ起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     const nowHour = new Date().getHours();
     settingsStore.updateRulesAndConstraints({
       autoJournalBatchEnabled: true,
@@ -2328,8 +2328,8 @@ describe("watchdog: checkJournalBatchReview", () => {
   });
 
   it("旧形式 { date } のみでも後続スロットは塞がず、朝の実行時刻より後のスロットは起動する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
-    const { saveJSON } = await import("@/lib/persistence");
+    const settingsStore = await import("@core/settings-store");
+    const { saveJSON } = await import("@core/persistence");
     const { getDb } = await import("@/lib/db");
     const now = new Date();
     const nowHour = now.getHours();
@@ -2364,7 +2364,7 @@ describe("watchdog: checkJournalBatchReview", () => {
   });
 
   it("recommendation:dismissなら自動却下する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoJournalBatchEnabled: true, autoJournalBatchHours: [0] });
     const rt = await loadModule();
 
@@ -2393,7 +2393,7 @@ describe("reactToIssueUpdate", () => {
   });
 
   it("ONかつ紐付きRunが無ければauto-issue-updateでLeadを起動しIssueに紐づける", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({
       autoIssueUpdateAnalysisEnabled: true,
       teamParallelKickoffEnabled: false,
@@ -2420,7 +2420,7 @@ describe("reactToIssueUpdate", () => {
   });
 
   it("ONかつ紐付きRunがidleならdecideRunで継続する", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({
       autoIssueUpdateAnalysisEnabled: true,
       teamParallelKickoffEnabled: false,
@@ -2449,7 +2449,7 @@ describe("reactToIssueUpdate", () => {
   });
 
   it("ONならデバウンス中はlistPendingAgentStartsに現れる", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(45_000);
@@ -2519,7 +2519,7 @@ describe("selectRelatedSpecialists", () => {
 
 describe("チーム先行並列（runTeamParallelKickoff）", () => {
   it("Issue紐付きLead起動でspecialistを先行し、Leadが統合proposalを出す", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({
       teamParallelKickoffEnabled: true,
       maxParallelAgentRuns: 4,
@@ -2571,7 +2571,7 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
   });
 
   it("teamParallelKickoffEnabledがOFFならIssue紐付きでもLead単独起動", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ teamParallelKickoffEnabled: false });
     const rt = await loadModule();
     const issueStore = await import("@/lib/issue-store");
@@ -2587,7 +2587,7 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
   });
 
   it("Issue未紐付きのLeadは先行並列しない", async () => {
-    const settingsStore = await import("@/lib/settings-store");
+    const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ teamParallelKickoffEnabled: true });
     const rt = await loadModule();
     await rt.startRun("Lead Agent", "雑談相談");

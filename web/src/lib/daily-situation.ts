@@ -7,8 +7,8 @@
 // （新しいAPI・永続化エンティティは追加しない）。
 import { periodWindow } from "@/lib/daily-trends";
 import type { NextAction } from "@/lib/dashboard-next-actions";
-import { PERSON_VITAL_LABEL, personVitalStatus, isJournalEntryResolved } from "@/lib/types";
-import type { JournalEntry, OrgVitals, PersonSummary, VitalStatus } from "@/lib/types";
+import { PERSON_VITAL_LABEL, personVitalStatus, isJournalEntryResolved } from "@core/types";
+import type { JournalEntry, OrgVitals, PersonSummary, VitalStatus } from "@core/types";
 
 export type SituationItem = {
   id: string;

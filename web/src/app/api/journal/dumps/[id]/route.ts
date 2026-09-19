@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonFromUnknownError } from "@/app/api/name-candidate-response";
-import { maskForStorage } from "@/lib/people-directory";
+import { maskForStorage } from "@core/people-directory";
 import {
   discardObservationDump,
   getObservationDump,

@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest, routeCtx } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest, routeCtx } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -31,7 +31,7 @@ describe("GET /api/people/[id]", () => {
   });
 
   it("プロファイルを返す", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("Aさん");
     const route = await import("./route");
     const res = await route.GET(new Request("http://localhost/x"), routeCtx({ id }));
@@ -43,7 +43,7 @@ describe("GET /api/people/[id]", () => {
 // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
 describe("PATCH /api/people/[id]", () => {
   it("addAliasで別名を追加できる", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { addAlias: "田中" }), routeCtx({ id }));
@@ -52,7 +52,7 @@ describe("PATCH /api/people/[id]", () => {
   });
 
   it("removeAliasで別名を取り消せる", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("田中さん");
     peopleDirectory.addAlias(id, "田中");
     const route = await import("./route");
@@ -62,7 +62,7 @@ describe("PATCH /api/people/[id]", () => {
   });
 
   it("addAlias/removeAlias/nameどれも無ければ400", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", {}), routeCtx({ id }));
@@ -70,7 +70,7 @@ describe("PATCH /api/people/[id]", () => {
   });
 
   it("nameで正式名を変更できる", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("田中さん");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { name: "田中" }), routeCtx({ id }));
@@ -80,7 +80,7 @@ describe("PATCH /api/people/[id]", () => {
   });
 
   it("addAliasが既に別の人物のものなら400", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("田中さん");
     peopleDirectory.registerName("佐藤さん");
     const route = await import("./route");
@@ -97,7 +97,7 @@ describe("DELETE /api/people/[id]", () => {
   });
 
   it("誤登録エントリを削除できる", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("誤登録");
     const route = await import("./route");
     const res = await route.DELETE(new Request("http://localhost/x"), routeCtx({ id }));

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import type { ObjectiveWithProgress } from "@/lib/types";
+import type { ObjectiveWithProgress } from "@core/types";
 
 type Props = {
   selectedObjective: ObjectiveWithProgress;

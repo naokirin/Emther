@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { PERSON_VITAL_LABEL, VITAL_ICON, personVitalReason, personVitalStatus, type PersonTrend } from "@/lib/types";
+import { PERSON_VITAL_LABEL, VITAL_ICON, personVitalReason, personVitalStatus, type PersonTrend } from "@core/types";
 
 const STATUS_CLS: Record<string, string> = {
   good: styles.personScoreGood,

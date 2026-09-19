@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@/lib/persistence";
-import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@/lib/people-directory";
-import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import { loadJSON, saveJSON } from "@core/persistence";
+import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@core/people-directory";
+import type { MaskOptions } from "@core/name-candidate-confirmation";
 import { guessImportSyntax, normalizeObservationInput } from "@/lib/observation-dump-normalize";
 import type { ImportMappingConfig } from "@/lib/observation-dump-mapping-types";
 import {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 let dir: string;
 
@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe("getRulesAndConstraints", () => {
   it("永続化ファイルが無ければ既定値を返す", async () => {
-    const { getRulesAndConstraints } = await import("@/lib/settings-store");
+    const { getRulesAndConstraints } = await import("./settings-store");
     const rules = getRulesAndConstraints();
     expect(rules.teamWindowDays).toBe(14);
     expect(rules.maxParallelAgentRuns).toBe(2);
@@ -43,7 +43,7 @@ describe("getRulesAndConstraints", () => {
 
 describe("updateRulesAndConstraints", () => {
   it("パッチした項目だけを更新し、他は既定値のまま残す", async () => {
-    const { getRulesAndConstraints, updateRulesAndConstraints } = await import("@/lib/settings-store");
+    const { getRulesAndConstraints, updateRulesAndConstraints } = await import("./settings-store");
     const updated = updateRulesAndConstraints({ maxParallelAgentRuns: 5 });
     expect(updated.maxParallelAgentRuns).toBe(5);
     expect(updated.teamWindowDays).toBe(14);
@@ -51,11 +51,11 @@ describe("updateRulesAndConstraints", () => {
   });
 
   it("更新内容を永続化し、モジュール再読み込み後も反映されている", async () => {
-    const mod1 = await import("@/lib/settings-store");
+    const mod1 = await import("./settings-store");
     mod1.updateRulesAndConstraints({ autoJournalBatchEnabled: true, cliOrder: ["claude", "agy"] });
 
     vi.resetModules();
-    const mod2 = await import("@/lib/settings-store");
+    const mod2 = await import("./settings-store");
     const rules = mod2.getRulesAndConstraints();
     expect(rules.autoJournalBatchEnabled).toBe(true);
     expect(rules.cliOrder).toEqual(["claude", "agy"]);

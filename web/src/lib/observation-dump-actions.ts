@@ -11,8 +11,8 @@ import {
   updateObservationDump,
   type ObservationDump,
 } from "@/lib/observation-dump-store";
-import { ensureNameCandidatesAllowed, unmaskNames } from "@/lib/people-directory";
-import type { MaskOptions } from "@/lib/name-candidate-confirmation";
+import { ensureNameCandidatesAllowed, unmaskNames } from "@core/people-directory";
+import type { MaskOptions } from "@core/name-candidate-confirmation";
 
 function dateHintToOccurredAt(hint: string | undefined, fallback: number): number {
   if (!hint) return fallback;

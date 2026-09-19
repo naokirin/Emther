@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { PendingAgentStart } from "@/lib/types";
+import type { PendingAgentStart } from "@core/types";
 
 function secondsUntil(firesAt: number, now: number): number {
   return Math.max(0, Math.ceil((firesAt - now) / 1000));

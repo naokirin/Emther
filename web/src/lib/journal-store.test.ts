@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
 // journal-storeはローカルモデル（タグ抽出用・人物名NER用の2種類の呼び出し）、
 // 埋め込み生成、Agent Runtime起動という3つの重い/副作用のある依存を持つため、
@@ -16,7 +16,7 @@ let mockExtraction: {
 };
 let mockNerPeople: string[];
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
     const systemContent = messages[0]?.content ?? "";
     if (systemContent.includes("人物名だけ")) {
@@ -27,7 +27,7 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: vi.fn((text: string) => text),
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -35,7 +35,7 @@ vi.mock("@/lib/embeddings", () => ({
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
-vi.mock("@/lib/name-candidate-detect", () => ({
+vi.mock("@core/name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
@@ -84,7 +84,7 @@ async function loadModule() {
 describe("addJournalEntry", () => {
   it("ローカルモデルの抽出結果でtags/people/urgency/sentimentを埋める（登録済み人物のみpeopleへ）", async () => {
     mockExtraction = { summary: "", tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive" };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("Aさんと1on1した。とても良かった");
@@ -122,7 +122,7 @@ describe("addJournalEntry", () => {
   });
 
   it("ローカルモデルがJSONを返さなくても本文は未確認エントリとして保存される", async () => {
-    const { extractFirstJsonObject } = await import("@/lib/local-model");
+    const { extractFirstJsonObject } = await import("@core/local-model");
     vi.mocked(extractFirstJsonObject).mockReturnValueOnce(undefined);
     const store = await loadModule();
     const entry = await store.addJournalEntry("JSONにならないメモ");
@@ -135,7 +135,7 @@ describe("addJournalEntry", () => {
   });
 
   it("ローカルモデル呼び出しが失敗しても本文は保存される", async () => {
-    const { runLocalChat } = await import("@/lib/local-model");
+    const { runLocalChat } = await import("@core/local-model");
     vi.mocked(runLocalChat).mockRejectedValueOnce(new Error("model unavailable"));
     const store = await loadModule();
     const entry = await store.addJournalEntry("モデル落ちても残す");
@@ -145,7 +145,7 @@ describe("addJournalEntry", () => {
 
   it("本文に登録済み人物名があれば、ローカル抽出がpeopleを空でも名簿照合で紐付く", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const aId = peopleDirectory.registerName("Aさん");
     const bId = peopleDirectory.registerName("Bさん");
     const store = await loadModule();
@@ -155,7 +155,7 @@ describe("addJournalEntry", () => {
 
   it("本文の未登録名はpeopleに自動登録しない", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const store = await loadModule();
     const entry = await store.addJournalEntry("未登録太郎さんと話した");
     expect(entry.people).toEqual([]);
@@ -164,7 +164,7 @@ describe("addJournalEntry", () => {
 
   it("opts.peopleで明示した人物は抽出漏れでも紐付く", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const personId = peopleDirectory.registerName("花子さん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("進捗が遅れている", Date.now(), { people: ["花子さん"] });
@@ -234,7 +234,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
       
       profileCandidate: { person: "Aさん", text: "Aさんはレビューが速く的確" },
     };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const { entry, profileCandidate } = await store.addJournalEntryWithProfileCandidate("Aさんはいつもレビューが速い");
@@ -268,7 +268,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
       
     };
     const store = await loadModule();
-    const { UnconfirmedNameCandidatesError } = await import("@/lib/name-candidate-confirmation");
+    const { UnconfirmedNameCandidatesError } = await import("@core/name-candidate-confirmation");
     await expect(
       store.addJournalEntryWithProfileCandidate("未登録太郎さんと話した", Date.now(), {
         allowUnmaskedCandidates: false,
@@ -348,7 +348,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
       
       profileCandidate: { person: "Aさん", text: "候補" },
     };
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("Aさんについてのメモ");
@@ -434,7 +434,7 @@ describe("listJournalEntriesPage", () => {
   });
 
   it("personは実名で渡すとPERSON_n IDへ変換して絞り込む", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     peopleDirectory.registerName("Bさん");
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };

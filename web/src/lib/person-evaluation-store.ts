@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
 import { listObjectives, getOrgStrategy, type Objective } from "@/lib/org-context-store";
 import { listActiveFactsForPerson } from "@/lib/knowledge-store";
-import { cosineSimilarity, embedText } from "@/lib/embeddings";
+import { cosineSimilarity, embedText } from "@core/embeddings";
 import { RELATED_SIMILARITY_THRESHOLD } from "@/lib/related-context";
 
 // docs/value_hierarchy_and_flow.md §5。メンバー評価の主経路は Journal → 日常の評価ログ。

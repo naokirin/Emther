@@ -26,7 +26,7 @@ import {
   useVitals,
 } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { isIssueStrategyUnlinked, isRunStale, type IssueStrategyLinkSuggestion, type PendingUnmaskedSend } from "@/lib/types";
+import { isIssueStrategyUnlinked, isRunStale, type IssueStrategyLinkSuggestion, type PendingUnmaskedSend } from "@core/types";
 
 export default function DashboardPage() {
   return (

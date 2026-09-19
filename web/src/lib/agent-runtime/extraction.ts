@@ -4,7 +4,7 @@ import {
   SUGGESTION_REVIEW_STATUSES,
   type IssuePriority,
   type YieldKind,
-} from "@/lib/types";
+} from "@core/types";
 import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
 import type { IssueCharter } from "@/lib/issue-store";
 import type { GrowReference, GrowSuggestionDraft } from "@/lib/em-growth-store";

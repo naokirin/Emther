@@ -3,7 +3,7 @@ import {
   isUnconfirmedNameCandidatesError,
   nameCandidateConfirmationBody,
   type MaskOptions,
-} from "@/lib/name-candidate-confirmation";
+} from "@core/name-candidate-confirmation";
 
 export function parseAllowUnmaskedCandidates(body: unknown): boolean {
   if (!body || typeof body !== "object") return false;

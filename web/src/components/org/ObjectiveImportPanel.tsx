@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
-import { type ObjectiveImportDraft, type ObjectiveWithProgress } from "@/lib/types";
+import { type ObjectiveImportDraft, type ObjectiveWithProgress } from "@core/types";
 
 type Props = {
   teamOptions: { value: string; label: string }[];

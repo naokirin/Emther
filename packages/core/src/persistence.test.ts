@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 import {
   dataFilePath,
   defaultBackupDir,
@@ -16,7 +16,7 @@ import {
   resetMigrationGuardForTests,
   saveJSON,
   saveSecureJSON,
-} from "@/lib/persistence";
+} from "./persistence";
 
 let dir: string;
 

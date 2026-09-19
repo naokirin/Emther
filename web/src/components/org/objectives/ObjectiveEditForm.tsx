@@ -2,7 +2,7 @@
 
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
-import type { ObjectiveWithProgress } from "@/lib/types";
+import type { ObjectiveWithProgress } from "@core/types";
 
 type Props = {
   selectedObjective: ObjectiveWithProgress;

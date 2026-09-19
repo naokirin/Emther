@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "@/app/page.module.css";
 import { useGrowSuggestions, useRuns } from "@/lib/hooks";
-import type { GrowSuggestion } from "@/lib/types";
+import type { GrowSuggestion } from "@core/types";
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });

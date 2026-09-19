@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { getRulesAndConstraints } from "@core/settings-store";
 import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
 import { applyAssistantResultText } from "./core";

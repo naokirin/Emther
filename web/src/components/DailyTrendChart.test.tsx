@@ -8,7 +8,7 @@ import { render, screen } from "@testing-library/react";
 import type { Chart, ChartData } from "chart.js";
 import { CheckinTrendChart, jitterPointsPlugin, JournalIssueTrendChart } from "./DailyTrendChart";
 import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "@/lib/daily-trends";
-import type { EmCheckin, Issue, JournalEntry } from "@/lib/types";
+import type { EmCheckin, Issue, JournalEntry } from "@core/types";
 
 vi.mock("react-chartjs-2", () => ({
   Line: ({ data }: { data: ChartData<"line"> }) => <div data-testid="line-chart" data-chart={JSON.stringify(data)} />,

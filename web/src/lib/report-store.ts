@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { listEvents, type KnowledgeEntityType } from "@/lib/knowledge-store";
 import { listIssues } from "@/lib/issue-store";
 import { listJournalEntries } from "@/lib/journal-store";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする
 // 機能を追加する。レポートを一過性とせず、蓄積して過去のものも参照できるようにする」対応。

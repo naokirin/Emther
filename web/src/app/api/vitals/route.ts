@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { computeOrgVitals } from "@/lib/vitals";
-import { unmaskNames } from "@/lib/people-directory";
+import { unmaskNames } from "@core/people-directory";
 
 // docs/memo.md「D. 評価不能→観測アクション」対応。vitals.tsのmembers/uncoveredMembersは
 // 個人情報分離のためPERSON_n IDのまま保持しているので、EM向け応答の境界であるここで

@@ -15,7 +15,7 @@ import {
   type PendingAgentStart,
   type PendingUnmaskedSend,
   type PersonSummary,
-} from "@/lib/types";
+} from "@core/types";
 
 // docs/em_human_story_and_ux.md P0-1対応。「次にすべきこと」を単一リストのままにせず、
 // 性質の異なる3つのレーンに分ける。判断待ち＝EMの決断がボトルネックになっているもの、

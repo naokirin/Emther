@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "@/lib/daily-trends";
-import type { EmCheckin, Issue, JournalEntry } from "@/lib/types";
+import type { EmCheckin, Issue, JournalEntry } from "@core/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 固定の「今日」。2026-09-13は日曜日。ローカルタイムゾーンでの日付境界ズレを避けるため正午に置く。

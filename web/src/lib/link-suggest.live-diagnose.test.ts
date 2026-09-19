@@ -11,7 +11,7 @@ describe("link-suggest live diagnose", () => {
     }
 
     const { listAdoptedThemes, toThemeView } = await import("@/lib/theme-store");
-    const { assertNoRealNamesLeaked } = await import("@/lib/people-directory");
+    const { assertNoRealNamesLeaked } = await import("@core/people-directory");
     const themes = listAdoptedThemes();
     const unmaskedBlock = themes
       .map((t) => {

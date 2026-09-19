@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@/lib/persistence";
+import { loadJSON, saveJSON } from "@core/persistence";
 import { recordChangeEvent } from "@/lib/knowledge-store";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述1本の`okr`だったものを、
 // Objective（目標）ごとにKeyResult（主要な結果、短文）を持つ最小構造へ置き換える。

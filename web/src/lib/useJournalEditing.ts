@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { timestampToDateInputValue } from "@/lib/journal-date-parser";
-import { truncateForTitle, type JournalEntry } from "@/lib/types";
+import { truncateForTitle, type JournalEntry } from "@core/types";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 
 // docs/memo.md「C. Journalセンシング→行動」対応のその場編集ロジックを、Dashboardと

@@ -10,7 +10,7 @@ import { PersonHeader } from "@/components/person-detail/PersonHeader";
 import { PersonEvaluationLogsSection } from "@/components/person-detail/PersonEvaluationLogsSection";
 import { PersonRecordsSection } from "@/components/person-detail/PersonRecordsSection";
 import { usePeople, usePersonEvaluationLogs, usePersonProfile, useTeams } from "@/lib/hooks";
-import { teamDisplayName, type Team } from "@/lib/types";
+import { teamDisplayName, type Team } from "@core/types";
 
 // ユーザー要望「メンバーの詳細画面からチームを設定できるようにしたい」対応。従来は
 // Organization Context画面でチームを選んでからメンバー一覧を編集する必要があったが、

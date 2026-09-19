@@ -7,9 +7,9 @@ import { OriginTrace, type OriginTraceJournal } from "@/components/OriginTrace";
 import { IdLinkedText } from "@/components/IdLinkedText";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import type { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { truncateForTitle } from "@/lib/types";
+import { truncateForTitle } from "@core/types";
 import { journalExcerptFromTask } from "@/lib/origin-trace";
-import type { Issue } from "@/lib/types";
+import type { Issue } from "@core/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",

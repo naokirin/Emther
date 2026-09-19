@@ -4,7 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { RecordDateField, todayDateInputValue } from "@/components/RecordDateField";
 import { useReflectionNotes } from "@/lib/hooks";
-import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
+import type { EmReflectionNote, ReflectionNoteType } from "@core/types";
 
 const NOTE_TYPE_LABEL: Record<ReflectionNoteType, string> = {
   keep: "👍 Keep（続けたいこと）",

@@ -5,7 +5,7 @@ import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { TagInput } from "@/components/TagInput";
 import { SuggestionLink } from "@/components/SuggestionLink";
-import { URGENCY_LABEL, suggestionOverviewFromLogs, type Issue, type JournalEntry, type KnowledgeEvent, type Team } from "@/lib/types";
+import { URGENCY_LABEL, suggestionOverviewFromLogs, type Issue, type JournalEntry, type KnowledgeEvent, type Team } from "@core/types";
 
 export function TeamEditPanel({
   selectedTeam,

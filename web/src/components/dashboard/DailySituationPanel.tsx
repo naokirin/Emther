@@ -2,7 +2,7 @@
 
 import styles from "@/app/page.module.css";
 import type { DailySituation, SituationItem } from "@/lib/daily-situation";
-import type { VitalStatus } from "@/lib/types";
+import type { VitalStatus } from "@core/types";
 
 // docs/2nd_pivot_version.md Phase 1対応。
 // docs/2nd_pivot_version/pivot_policy.md「目指すUX」の6項目

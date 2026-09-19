@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import type { PersonEvaluationLog } from "@/lib/types";
+import type { PersonEvaluationLog } from "@core/types";
 
 export function PersonEvaluationLogsSection({
   personId,

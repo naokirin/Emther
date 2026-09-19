@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { addPersonAlias, getPersonProfile, removePersonAlias } from "@/lib/people-hub";
-import { deletePerson, renamePerson } from "@/lib/people-directory";
-import { reassignSelfPersonId } from "@/lib/settings-store";
+import { deletePerson, renamePerson } from "@core/people-directory";
+import { reassignSelfPersonId } from "@core/settings-store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/people/[id]">) {
   const { id } = await ctx.params;

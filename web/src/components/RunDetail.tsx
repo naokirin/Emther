@@ -11,7 +11,7 @@ import {
   type IssuePriority,
   type SuggestionReviewStatus,
   type YieldKind,
-} from "@/lib/types";
+} from "@core/types";
 import { listIssueCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
@@ -20,7 +20,7 @@ import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
 import { SuggestedIssueNotesBlock } from "./run-detail/SuggestedIssueNotesBlock";
 import { SuggestedSuggestionUpdatesBlock } from "./run-detail/SuggestedSuggestionUpdatesBlock";
-import type { Issue } from "@/lib/types";
+import type { Issue } from "@core/types";
 
 export { listIssueCandidatesFromProposal, resolveYieldKind };
 

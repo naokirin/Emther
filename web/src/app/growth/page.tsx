@@ -9,7 +9,7 @@ import { PageTitleRow } from "@/components/HelpLink";
 import { GrowSuggestionsPanel } from "@/components/growth/GrowSuggestionsPanel";
 import { ReflectionNoteForm, useReflectionNoteController } from "@/components/growth/ReflectionNoteForm";
 import { buildCheckinDailyTrend } from "@/lib/daily-trends";
-import type { EmReflectionNote, ReflectionNoteType } from "@/lib/types";
+import type { EmReflectionNote, ReflectionNoteType } from "@core/types";
 
 const WEEK_GROUP_PAGE_SIZE = 4;
 const DAY_MS = 24 * 60 * 60 * 1000;

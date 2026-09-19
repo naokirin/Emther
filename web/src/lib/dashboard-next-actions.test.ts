@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildNextActions, type BuildNextActionsParams } from "@/lib/dashboard-next-actions";
-import type { Issue, JournalEntry, OrgVitals, PersonSummary } from "@/lib/types";
+import type { Issue, JournalEntry, OrgVitals, PersonSummary } from "@core/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(2026, 8, 13, 12, 0, 0).getTime();

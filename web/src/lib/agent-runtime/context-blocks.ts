@@ -1,4 +1,4 @@
-import { embedText } from "@/lib/embeddings";
+import { embedText } from "@core/embeddings";
 import { getIssue, getIssueByRunId, issueEmbedSource } from "@/lib/issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
 import {
@@ -10,13 +10,13 @@ import {
   type OrgBackgroundEntry,
   type Team,
 } from "@/lib/org-context-store";
-import { listPeople, maskNames } from "@/lib/people-directory";
+import { listPeople, maskNames } from "@core/people-directory";
 import { buildRelatedBundleBlock } from "@/lib/related-context";
 import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@/lib/agent-knowledge-tools";
-import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
+import { getRulesAndConstraints, getSelfPersonId } from "@core/settings-store";
 import { listAdoptedThemes } from "@/lib/theme-store";
 import { buildGlossaryContextBlock } from "@/lib/glossary-store";
-import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@/lib/types";
+import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@core/types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import {
   buildDistillationContextBlock,

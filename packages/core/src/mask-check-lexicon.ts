@@ -7,7 +7,7 @@
  *
  * 将来 Presidio / GiNZA 等へ寄せる場合、TUNING から見直す。
  */
-import type { SensitiveCategory } from "@/lib/mask-check-types";
+import type { SensitiveCategory } from "./mask-check-types";
 
 export type KeywordRule = { category: SensitiveCategory; phrases: string[] };
 

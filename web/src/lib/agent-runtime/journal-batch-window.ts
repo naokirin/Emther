@@ -1,4 +1,4 @@
-import { loadJSON, saveJSON } from "@/lib/persistence";
+import { loadJSON, saveJSON } from "@core/persistence";
 
 // Journal集約解釈の「漏れ防止」用ウォーターマークと、日次スロットクレームの永続化。
 // 材料窓は実行時 rolling 24h ではなく lastCoveredAt 以降（最大7日）にする。

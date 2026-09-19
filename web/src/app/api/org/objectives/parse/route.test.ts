@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest } from "@core/test-helpers/api-route";
 
 vi.mock("@/lib/cloud-chat", () => ({
   runCloudChat: vi.fn(async () =>
@@ -10,17 +10,17 @@ vi.mock("@/lib/cloud-chat", () => ({
   ),
 }));
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
 
-vi.mock("@/lib/people-directory", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/people-directory")>("@/lib/people-directory");
+vi.mock("@core/people-directory", async () => {
+  const actual = await vi.importActual<typeof import("@core/people-directory")>("@core/people-directory");
   return {
     ...actual,
     ensureNameCandidatesAllowed: vi.fn(async () => undefined),

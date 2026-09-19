@@ -1,7 +1,7 @@
 import { getTeam, listActiveTeams, type Team } from "@/lib/org-context-store";
-import { getRulesAndConstraints, getSelfPersonId } from "@/lib/settings-store";
+import { getRulesAndConstraints, getSelfPersonId } from "@core/settings-store";
 import { listJournalEntries, type JournalEntry, isJournalRelatedToTeam } from "@/lib/journal-store";
-import { isIssueStalled, teamDisplayName } from "@/lib/types";
+import { isIssueStalled, teamDisplayName } from "@core/types";
 import { listIssues, type Issue } from "@/lib/issue-store";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。

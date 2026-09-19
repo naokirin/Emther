@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // ユーザー指摘「確認したが対応不要だった、を示せず、メンバーのアラート表示（関連Issueの
 // 停滞・ブロッカー）の強調を減らせない」対応。people-hub.tsのhasConcerningIssueは、

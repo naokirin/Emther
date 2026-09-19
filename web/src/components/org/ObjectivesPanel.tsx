@@ -4,7 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { useEntityHistory } from "@/lib/hooks";
-import { type ObjectiveWithProgress, type OrgTheme, type Team } from "@/lib/types";
+import { type ObjectiveWithProgress, type OrgTheme, type Team } from "@core/types";
 import { ObjectiveImportPanel } from "./ObjectiveImportPanel";
 import { ObjectiveListCard, ObjectiveTeamListView, buildObjectiveTeamTree } from "./ObjectiveTree";
 import { ObjectiveEditForm } from "./objectives/ObjectiveEditForm";

@@ -9,7 +9,7 @@ import { PageTitleRow } from "@/components/HelpLink";
 import { PaginationControls, paginationMeta } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { useIssues, useJournalSearch, useObjectives } from "@/lib/hooks";
-import type { JournalEntry } from "@/lib/types";
+import type { JournalEntry } from "@core/types";
 import { useJournalEditing } from "@/lib/useJournalEditing";
 
 const PAGE_SIZE = 10;

@@ -15,5 +15,9 @@
     "onnxruntime-node@1.24.3": true,
     "protobufjs@7.6.6": true,
     "unrs-resolver@1.12.2": true
+  },
+  "devDependencies": {
+    "ts-morph": "^28.0.0",
+    "tsx": "^4.23.13"
   }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ConsultReviewPanel } from "./ConsultReviewPanel";
 import type { AgentRun } from "@/components/RunDetail";
-import type { Issue } from "@/lib/types";
+import type { Issue } from "@core/types";
 
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {

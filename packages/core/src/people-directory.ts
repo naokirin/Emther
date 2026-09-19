@@ -20,15 +20,15 @@
 // 候補検出は allowUnmaskedCandidates / registerNameCandidates の明示オプトイン時だけ使う
 // （実装は name-candidate-detect＝mask-check と同系統）。
 
-import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "@/lib/persistence";
-import { UnconfirmedNameCandidatesError, type MaskOptions } from "@/lib/name-candidate-confirmation";
-import { PERSON_HONORIFICS, stripPersonHonorific } from "@/lib/person-honorific";
-import { detectNameCandidatesAsync, registerNameCandidateFilters } from "@/lib/name-candidate-detect";
+import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "./persistence";
+import { UnconfirmedNameCandidatesError, type MaskOptions } from "./name-candidate-confirmation";
+import { PERSON_HONORIFICS, stripPersonHonorific } from "./person-honorific";
+import { detectNameCandidatesAsync, registerNameCandidateFilters } from "./name-candidate-detect";
 import {
   getHiraganaStopwords,
   getKatakanaStopwords,
   getSpeakerKanjiStopwords,
-} from "@/lib/mask-check-lexicon";
+} from "./mask-check-lexicon";
 
 export { stripPersonHonorific };
 

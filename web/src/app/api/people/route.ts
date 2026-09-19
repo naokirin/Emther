@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { registerName } from "@/lib/people-directory";
+import { registerName } from "@core/people-directory";
 import { addPersonAlias, getPersonProfile, listPersonSummaries } from "@/lib/people-hub";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。

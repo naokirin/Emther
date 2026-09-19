@@ -1,8 +1,8 @@
-import { cosineSimilarity, embedText } from "@/lib/embeddings";
+import { cosineSimilarity, embedText } from "@core/embeddings";
 import { listJournalEntriesPage } from "@/lib/journal-store";
 import { getIssue, listIssues, type Issue } from "@/lib/issue-store";
 import { findByIdPrefix } from "@/lib/id-prefix";
-import { maskNames, maskNamesSearchForms, unmaskNames } from "@/lib/people-directory";
+import { maskNames, maskNamesSearchForms, unmaskNames } from "@core/people-directory";
 import {
   RELATED_SIMILARITY_THRESHOLD,
   searchSimilarOpenIssues,

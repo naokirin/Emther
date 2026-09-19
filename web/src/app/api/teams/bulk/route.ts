@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { addTeam, type Team } from "@/lib/org-context-store";
-import { teamPathSegments } from "@/lib/types";
-import { unmaskNames } from "@/lib/people-directory";
+import { teamPathSegments } from "@core/types";
+import { unmaskNames } from "@core/people-directory";
 
 function toView(team: Team): Team {
   return { ...team, members: team.members.map(unmaskNames) };

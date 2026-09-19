@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { getIssueByRunId, linkIssueRun } from "@/lib/issue-store";
-import type { MaskOptions } from "@/lib/name-candidate-confirmation";
-import { ensureNameCandidatesAllowed } from "@/lib/people-directory";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import type { MaskOptions } from "@core/name-candidate-confirmation";
+import { ensureNameCandidatesAllowed } from "@core/people-directory";
+import { getRulesAndConstraints } from "@core/settings-store";
 import { SPECIALIST_AGENTS } from "./agent-catalog";
 import { runClaudeTurn, runTeamParallelKickoff } from "./cli-runners";
 import { beginJournalBatchWindow } from "./journal-batch-window";

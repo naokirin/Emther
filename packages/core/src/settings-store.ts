@@ -1,6 +1,6 @@
-import { loadJSON, saveJSON } from "@/lib/persistence";
-import type { LocalChatModelPresetId } from "@/lib/local-chat-presets";
-import type { CliName, ModelTier } from "@/lib/types";
+import { loadJSON, saveJSON } from "./persistence";
+import type { LocalChatModelPresetId } from "./local-chat-presets";
+import type { CliName, ModelTier } from "./types";
 
 // docs 3.1.1「判定閾値およびデータ欠如とみなす期間はCore Context（Rules_and_Constraints）
 // 側で定義」に対応するパラメータ群。ただしこれは「組織のMVV/体制」のような

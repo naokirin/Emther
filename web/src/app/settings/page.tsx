@@ -10,7 +10,7 @@ import { AiToolsSettingsGroup } from "@/components/settings/AiToolsSettingsGroup
 import { AutomationSettingsGroup } from "@/components/settings/AutomationSettingsGroup";
 import { MorningModeSettingsGroup } from "@/components/settings/MorningModeSettingsGroup";
 import { useSettingsRules } from "@/lib/hooks";
-import type { RulesAndConstraints } from "@/lib/types";
+import type { RulesAndConstraints } from "@core/types";
 
 // Rules_and_Constraints（Team Vitalsの判定閾値）はOrganization Context（組織のMVVや
 // 体制などの「不動の前提」）とは性質が異なり、アプリの挙動を調整する設定値なので、

@@ -5,10 +5,10 @@
 // 語彙・長いフレーズ・サンプル由来の除外リストは mask-check-lexicon.ts に分離
 // （CORE＝短い核、TUNING＝検証積み上げ）。
 
-import { extractFirstJsonObject, runLocalChat } from "@/lib/local-model";
-import { getKeywordRules, TUNING_NAME_FILTER_FEWSHOT } from "@/lib/mask-check-lexicon";
-import { ensureNameMorphReady } from "@/lib/mask-check-morph";
-import type { SensitiveCategory } from "@/lib/mask-check-types";
+import { extractFirstJsonObject, runLocalChat } from "./local-model";
+import { getKeywordRules, TUNING_NAME_FILTER_FEWSHOT } from "./mask-check-lexicon";
+import { ensureNameMorphReady } from "./mask-check-morph";
+import type { SensitiveCategory } from "./mask-check-types";
 import {
   dedupeNamesPreferHonorific,
   detectHonorificNameCandidates,
@@ -18,16 +18,16 @@ import {
   hasHonorific,
   isAcceptableBareNameCandidate,
   NAME_CANDIDATE_MAX,
-} from "@/lib/name-candidate-detect";
+} from "./name-candidate-detect";
 import {
   getPersonId,
   isAcknowledgedUnmasked,
   isPlausiblePersonName,
   previewNameMask,
   type NameMaskReplacement,
-} from "@/lib/people-directory";
+} from "./people-directory";
 
-export type { SensitiveCategory } from "@/lib/mask-check-types";
+export type { SensitiveCategory } from "./mask-check-types";
 export {
   dedupeNamesPreferHonorific,
   detectHonorificNameCandidates,

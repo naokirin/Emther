@@ -4,7 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
 import { useEntityHistory } from "@/lib/hooks";
-import { type OrgBackgroundEntry } from "@/lib/types";
+import { type OrgBackgroundEntry } from "@core/types";
 import { treeTitle } from "./ObjectiveTree";
 
 type Props = {

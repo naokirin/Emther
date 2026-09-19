@@ -14,7 +14,7 @@ import {
   type IssuePriority,
   type IssueStatus,
 } from "@/lib/issue-store";
-import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@/lib/types";
+import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@core/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";

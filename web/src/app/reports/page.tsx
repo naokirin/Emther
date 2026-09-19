@@ -8,7 +8,7 @@ import { JournalIssueTrendChart, PeriodNavigator, usePeriodNavigator } from "@/c
 import { PageTitleRow } from "@/components/HelpLink";
 import { buildJournalIssueDailyTrend } from "@/lib/daily-trends";
 import { useIssues, useJournal, useReports } from "@/lib/hooks";
-import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@/lib/types";
+import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@core/types";
 
 const PAGE_SIZE = 5;
 

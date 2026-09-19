@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest } from "@core/test-helpers/api-route";
 
 let mockExtraction: {
   tags: string[];
@@ -10,7 +10,7 @@ let mockExtraction: {
   summary: string;
 };
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
     const systemContent = messages[0]?.content ?? "";
     if (systemContent.includes("人物名だけ")) return JSON.stringify({ people: [] });
@@ -19,7 +19,7 @@ vi.mock("@/lib/local-model", () => ({
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -76,7 +76,7 @@ describe("GET /api/journal/search", () => {
 
   it("urgency/sentimentクエリで絞り込み、facetsに実名・実タグが載る", async () => {
     // ローカル抽出の人物は既登録のみ紐付く（自動登録しない）ため、先に名簿へ載せる。
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
     await addEntry("Aさんと1on1した", { extraction: { tags: ["1on1"], people: ["Aさん"], urgency: "high", sentiment: "positive" } });
     await addEntry("普通の話", { extraction: { tags: [], people: [], urgency: "low", sentiment: "neutral" } });

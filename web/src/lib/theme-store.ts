@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@/lib/persistence";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { loadJSON, saveJSON } from "@core/persistence";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // docs/knowledge_distillation.md 対応。Journal fact の類似検索だけでは「上段の解釈」に
 // 届かないため、組織状況を統括したテーマ解釈を first-class に持つ。

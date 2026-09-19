@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 import { getDb } from "@/lib/db";
 import { findByIdPrefix } from "@/lib/id-prefix";
 import { addLogEntry, getIssue, listIssues } from "@/lib/issue-store";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
+import { getRulesAndConstraints } from "@core/settings-store";
 import {
   addMemo as addSuggestionMemo,
   archiveSuggestion,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordEvent, listEvents, listInterpretationsForPerson, toEventView } from "@/lib/knowledge-store";
-import { embedText } from "@/lib/embeddings";
-import { getPersonId, maskForStorage, registerName } from "@/lib/people-directory";
+import { embedText } from "@core/embeddings";
+import { getPersonId, maskForStorage, registerName } from "@core/people-directory";
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。「Aさんはリーダー志向がある」のような
 // 長期的な解釈（プロファイル）を記録する口。Quick Journal（一時的な出来事＝fact）とは

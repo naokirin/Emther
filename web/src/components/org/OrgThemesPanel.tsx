@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { ThemeOkrLinkEditor } from "@/components/ThemeOkrLinkEditor";
-import { type ObjectiveWithProgress, type OrgTheme } from "@/lib/types";
+import { type ObjectiveWithProgress, type OrgTheme } from "@core/types";
 
 type Props = {
   themes: OrgTheme[];

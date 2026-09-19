@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import type { IssueStrategyLinkSuggestion, ThemeOkrLinkSuggestion } from "@/lib/types";
+import type { IssueStrategyLinkSuggestion, ThemeOkrLinkSuggestion } from "@core/types";
 
 export function ThemeOkrLinkSuggestPanel({
   suggestions,

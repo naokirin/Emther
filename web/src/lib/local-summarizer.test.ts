@@ -6,7 +6,7 @@ import {
 } from "./local-summarizer";
 
 const mockRunLocalChat = vi.fn();
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: (...args: unknown[]) => mockRunLocalChat(...args),
 }));
 

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/lib/db";
-import { cosineSimilarity } from "@/lib/embeddings";
-import { isInvalidPersonNameEntry, unmaskNames } from "@/lib/people-directory";
+import { cosineSimilarity } from "@core/embeddings";
+import { isInvalidPersonNameEntry, unmaskNames } from "@core/people-directory";
 
 // docs/memo.md「H: 永続化データモデルの設計」の中核。ユーザー方針:
 // 「組織・人・システムは時系列で一貫せず、方針転換・一時的感情・環境変化を多く受ける前提で

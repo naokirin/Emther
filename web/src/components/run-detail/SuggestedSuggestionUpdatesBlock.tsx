@@ -4,7 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { IdLinkedText } from "@/components/IdLinkedText";
 import { IdFragmentLink } from "@/components/IdFragmentLink";
-import { CONFIRM_PRIORITY_META, SUGGESTION_REVIEW_STATUS_META, type Issue } from "@/lib/types";
+import { CONFIRM_PRIORITY_META, SUGGESTION_REVIEW_STATUS_META, type Issue } from "@core/types";
 import type { SuggestionUpdate } from "@/components/RunDetail";
 
 type FieldDiff = { label: string; before: string; after: string };

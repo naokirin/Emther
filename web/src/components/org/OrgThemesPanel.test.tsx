@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OrgThemesPanel } from "./OrgThemesPanel";
-import type { OrgTheme } from "@/lib/types";
+import type { OrgTheme } from "@core/types";
 
 const mockThemes: OrgTheme[] = [
   {

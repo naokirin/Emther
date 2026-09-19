@@ -7,7 +7,7 @@ import { PersonDetailContent } from "@/components/PersonDetailContent";
 import { PageTitleRow } from "@/components/HelpLink";
 import { SlideOver } from "@/components/SlideOver";
 import { usePeekParam, usePeople } from "@/lib/hooks";
-import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@/lib/types";
+import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@core/types";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
 // 既存のJournal fact・解釈・チーム所属・関連Issueを人物軸で束ねて見せる一覧画面。

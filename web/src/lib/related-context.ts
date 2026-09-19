@@ -1,7 +1,7 @@
-import { cosineSimilarity, embedText } from "@/lib/embeddings";
+import { cosineSimilarity, embedText } from "@core/embeddings";
 import { listIssues, type Issue } from "@/lib/issue-store";
 import { searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
-import { getRulesAndConstraints } from "@/lib/settings-store";
+import { getRulesAndConstraints } from "@core/settings-store";
 
 // docs/knowledge_distillation.md 後続 1・2。
 // Issue の embedding と、Journal/Issue 横断の「関連束」＋繰り返しカウントを組み立て、

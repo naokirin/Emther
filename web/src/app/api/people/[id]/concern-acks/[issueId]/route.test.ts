@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest, routeCtx } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest, routeCtx } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -30,7 +30,7 @@ describe("PATCH /api/people/[id]/concern-acks/[issueId]", () => {
   });
 
   it("acknowledgedが未指定は400", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("Aさん");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", {}), routeCtx({ id, issueId: "issue-1" }));
@@ -38,7 +38,7 @@ describe("PATCH /api/people/[id]/concern-acks/[issueId]", () => {
   });
 
   it("acknowledged: trueで確認済みを記録し、people-hubのhasConcerningIssueから除外される", async () => {
-    const peopleDirectory = await import("@/lib/people-directory");
+    const peopleDirectory = await import("@core/people-directory");
     const issueStore = await import("@/lib/issue-store");
     const hub = await import("@/lib/people-hub");
     const id = peopleDirectory.registerName("Aさん");

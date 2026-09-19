@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
 // suggestEvaluationLogsFromRecentJournalsのテスト用に、テキストに含まれる目印
 // （TOPIC_A/TOPIC_B）に応じてベクトルを変える簡易埋め込み。cosineSimilarityは
-// 実装（@/lib/embeddings）をそのまま使う。
-vi.mock("@/lib/embeddings", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/embeddings")>();
+// 実装（@core/embeddings）をそのまま使う。
+vi.mock("@core/embeddings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@core/embeddings")>();
   return {
     ...actual,
     embedText: vi.fn(async (text: string) => {

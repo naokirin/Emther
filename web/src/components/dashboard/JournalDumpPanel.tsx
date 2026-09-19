@@ -5,9 +5,9 @@ import styles from "@/app/page.module.css";
 import type { AgentRun } from "@/components/RunDetail";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCandidateSuggestion";
-import { isJournalEntryResolved, type JournalEntry } from "@/lib/types";
+import { isJournalEntryResolved, type JournalEntry } from "@core/types";
 import type { useJournalEditing } from "@/lib/useJournalEditing";
-import type { DayPhase } from "@/lib/dashboard-day-phase";
+import type { DayPhase } from "@core/dashboard-day-phase";
 import type { ProfileCandidate } from "@/lib/journal-store";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;

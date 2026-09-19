@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@/lib/persistence";
-import { maskForStorage, unmaskNames } from "@/lib/people-directory";
+import { loadJSON, saveJSON } from "@core/persistence";
+import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
 // 入力・改善方針機能を作る」対応。Team Vitals等、他者についての状態は「感覚」で埋めず観測

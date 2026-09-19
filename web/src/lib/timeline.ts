@@ -7,7 +7,7 @@ import {
   toObjectiveView,
   toOrgBackgroundView,
 } from "@/lib/org-context-store";
-import { teamDisplayName } from "@/lib/types";
+import { teamDisplayName } from "@core/types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しいエンティティやデータモデルは
 // 増やさず、既存のKnowledgeEvent（変更履歴）をIssue/Team/Objective横断で1本の

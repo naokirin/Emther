@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@/lib/persistence";
-import { unmaskNames } from "@/lib/people-directory";
+import { loadJSON, saveJSON } from "@core/persistence";
+import { unmaskNames } from "@core/people-directory";
 import { findReferenceUrls } from "@/lib/reference-lookup";
 
 // docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の

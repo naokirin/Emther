@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildIssueStrategyTrail, buildJournalStrategyTrail } from "./strategy-trail";
-import type { Issue, JournalEntry, ObjectiveWithProgress } from "./types";
+import type { Issue, JournalEntry, ObjectiveWithProgress } from "@core/types";
 
 const objectives: ObjectiveWithProgress[] = [
   {

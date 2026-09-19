@@ -13,14 +13,14 @@ vi.mock("@huggingface/transformers", () => ({
   },
 }));
 
-vi.mock("@/lib/local-model", () => ({
+vi.mock("@core/local-model", () => ({
   LOCAL_CHAT_MODEL: { task: "text-generation", id: "mock/chat", dtype: "q4" },
   getLocalChatModel: () => getLocalChatModel(),
   getLocalGenerator: (...args: unknown[]) => getLocalGenerator(...(args as [])),
   clearLocalGeneratorCache: () => clearLocalGeneratorCache(),
 }));
 
-vi.mock("@/lib/embeddings", () => ({
+vi.mock("@core/embeddings", () => ({
   EMBEDDING_MODEL: { task: "feature-extraction", id: "mock/embed", dtype: "q8" },
   getEmbedder: (...args: unknown[]) => getEmbedder(...(args as [])),
   clearEmbedderCache: () => clearEmbedderCache(),

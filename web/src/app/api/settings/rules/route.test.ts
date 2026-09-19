@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@/lib/test-helpers/store-env";
-import { jsonRequest } from "@/lib/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { jsonRequest } from "@core/test-helpers/api-route";
 
 const ensureLocalModels = vi.fn(async () => undefined);
 
@@ -248,7 +248,7 @@ describe("PATCH /api/settings/rules", () => {
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   describe("selfPersonId", () => {
     it("登録済み人物を利用者本人として設定・解除できる", async () => {
-      const peopleDirectory = await import("@/lib/people-directory");
+      const peopleDirectory = await import("@core/people-directory");
       const id = peopleDirectory.registerName("EM本人");
       const route = await import("./route");
       const setRes = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { selfPersonId: id }));

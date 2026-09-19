@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrategyThreadTree } from "./StrategyThreadTree";
-import type { Issue, JournalEntry, ObjectiveWithProgress } from "@/lib/types";
+import type { Issue, JournalEntry, ObjectiveWithProgress } from "@core/types";
 
 function baseIssue(overrides: Partial<Issue> = {}): Issue {
   return {

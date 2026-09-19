@@ -16,7 +16,7 @@ import {
   updateSuggestionDetail,
   getSuggestion,
 } from "@/lib/suggestion-store";
-import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@/lib/types";
+import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@core/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
