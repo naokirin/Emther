@@ -43,7 +43,7 @@ afterEach(() => {
 describe("GET /api/issues", () => {
   it("一覧を実名復元済みで返す", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     peopleDirectory.registerName("Aさん");
     await issueStore.createIssue("Aさんの育成計画");
 
@@ -109,7 +109,7 @@ describe("POST /api/issues", () => {
   it("agentRunIdを渡すとそのrunをreviewed済みにする", async () => {
     const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({});
-    const dbModule = await import("@/lib/db");
+    const dbModule = await import("@core/db");
     dbModule
       .getDb()
       .prepare(
@@ -131,7 +131,7 @@ describe("POST /api/issues", () => {
   });
 
   it("相談のrunにsourceJournalIdがあればIssueへコピーしJournalも紐付ける", async () => {
-    const knowledgeStore = await import("@/lib/knowledge-store");
+    const knowledgeStore = await import("@core/knowledge-store");
     knowledgeStore.recordEvent({
       id: "j-fixed",
       kind: "fact",
@@ -142,7 +142,7 @@ describe("POST /api/issues", () => {
       tags: [],
       occurredAt: Date.now(),
     });
-    const dbModule = await import("@/lib/db");
+    const dbModule = await import("@core/db");
     dbModule
       .getDb()
       .prepare(
@@ -159,12 +159,12 @@ describe("POST /api/issues", () => {
     expect(json.issue.sourceJournalId).toBe("j-fixed");
     expect(json.issue.sourceRunId).toBe("run-src");
 
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     expect(journalStore.getCurrentJournalEntry("j-fixed")?.resolvedIssueId).toBe(json.issue.id);
   });
 
   it("sourceRunIdのみでも生成元を残し、Journal紐付けとreviewedは行わない", async () => {
-    const knowledgeStore = await import("@/lib/knowledge-store");
+    const knowledgeStore = await import("@core/knowledge-store");
     knowledgeStore.recordEvent({
       id: "j-sib",
       kind: "fact",
@@ -175,7 +175,7 @@ describe("POST /api/issues", () => {
       tags: [],
       occurredAt: Date.now(),
     });
-    const dbModule = await import("@/lib/db");
+    const dbModule = await import("@core/db");
     dbModule
       .getDb()
       .prepare(
@@ -200,7 +200,7 @@ describe("POST /api/issues", () => {
     const agentRuntime = await import("@/lib/agent-runtime");
     expect(agentRuntime.getRun("run-multi")?.reviewed).toBe(false);
 
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     expect(journalStore.getCurrentJournalEntry("j-sib")?.resolvedIssueId).toBeUndefined();
   });
 

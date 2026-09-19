@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 async function insertRun(suggestionUpdates: unknown) {
-  const { getDb } = await import("@/lib/db");
+  const { getDb } = await import("@core/db");
   getDb()
     .prepare(
       `INSERT INTO agent_runs
@@ -37,7 +37,7 @@ async function insertRun(suggestionUpdates: unknown) {
 // docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。
 describe("POST /api/agents/[id]/suggestion-updates", () => {
   it("対象Suggestionへ変更を反映し、差分を消す", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案");
     await insertRun([{ suggestionId: suggestion.id, reviewStatus: "done", reason: "対応済みのため" }]);
     const route = await import("./route");
@@ -63,7 +63,7 @@ describe("POST /api/agents/[id]/suggestion-updates", () => {
   });
 
   it("indicesを指定すると選んだ差分だけを反映し、残りは差分のまま残す", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestionA = await suggestionStore.createSuggestion("対象提案A");
     const suggestionB = await suggestionStore.createSuggestion("対象提案B");
     await insertRun([
@@ -90,7 +90,7 @@ describe("POST /api/agents/[id]/suggestion-updates", () => {
 
 describe("DELETE /api/agents/[id]/suggestion-updates", () => {
   it("差分を却下できる（Suggestion本体は変更しない）", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案");
     await insertRun([{ suggestionId: suggestion.id, reviewStatus: "done", reason: "対応済みのため" }]);
     const route = await import("./route");
@@ -101,7 +101,7 @@ describe("DELETE /api/agents/[id]/suggestion-updates", () => {
   });
 
   it("indicesを指定すると選んだ差分だけを却下し、残りは差分のまま残す", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestionA = await suggestionStore.createSuggestion("対象提案A");
     const suggestionB = await suggestionStore.createSuggestion("対象提案B");
     await insertRun([

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addTeam, type Team } from "@/lib/org-context-store";
+import { addTeam, type Team } from "@core/org-context-store/index";
 import { teamPathSegments } from "@core/types";
 import { unmaskNames } from "@core/people-directory";
 

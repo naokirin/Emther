@@ -31,7 +31,7 @@ describe("GET /api/timeline", () => {
   });
 
   it("Issue作成などの変更履歴を実名復元済みで返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("障害対応");
     const route = await import("./route");
     const res = await route.GET();

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createSuggestion, listSuggestions, toSuggestionView } from "@/lib/suggestion-store";
+import { createSuggestion, listSuggestions, toSuggestionView } from "@core/suggestion-store";
 import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
 import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { linkJournalToIssue } from "@/lib/journal-store";
+import { linkJournalToIssue } from "@core/journal-store";
 import { CONFIRM_PRIORITIES, type ConfirmPriority } from "@core/types";
 
 export async function GET() {

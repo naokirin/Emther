@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeObjective, updateObjective, toObjectiveView } from "@/lib/org-context-store";
+import { removeObjective, updateObjective, toObjectiveView } from "@core/org-context-store/index";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/org/objectives/[id]">) {
   const { id } = await ctx.params;

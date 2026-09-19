@@ -1,6 +1,6 @@
-import type { IssueCharter } from "@/lib/issue-store";
+import type { IssueCharter } from "@core/issue-store";
 import type { SuggestedTheme } from "@/lib/theme-store";
-import type { LookupRequest } from "@/lib/agent-knowledge-tools";
+import type { LookupRequest } from "@core/agent-knowledge-tools";
 import type {
   ConfirmPriority,
   IssuePriority,

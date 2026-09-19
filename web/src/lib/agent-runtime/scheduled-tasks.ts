@@ -1,6 +1,6 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@core/db";
 import { getDataDir, loadJSON, saveJSON } from "@core/persistence";
-import { getIssue } from "@/lib/issue-store";
+import { getIssue } from "@core/issue-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@core/name-candidate-confirmation";
 import { unmaskNames } from "@core/people-directory";
 import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList } from "@core/settings-store";

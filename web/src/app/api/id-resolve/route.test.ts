@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe("GET /api/id-resolve", () => {
   it("一意なプレフィックスを返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const route = await import("./route");
     const issue = await issueStore.createIssue("解決対象");
     const res = await route.GET(new Request(`http://localhost/api/id-resolve?q=${issue.id.slice(0, 8)}`));

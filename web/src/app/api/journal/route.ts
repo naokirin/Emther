@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { addJournalEntryWithProfileCandidate, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@/lib/journal-store";
+import { addJournalEntryWithProfileCandidate, listJournalEntries, toJournalEntryView, toJournalEntryViews } from "@core/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
-import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
+import { resolveJournalOccurredAtFromDateInput } from "@core/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 
 export async function GET() {

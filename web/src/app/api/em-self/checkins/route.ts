@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { addCheckin, listCheckins, toCheckinView } from "@/lib/em-self-store";
-import { dateStringToNoonTimestamp } from "@/lib/journal-date-parser";
+import { dateStringToNoonTimestamp } from "@core/journal-date-parser";
 
 export async function GET() {
   return NextResponse.json({ checkins: listCheckins().map(toCheckinView) });

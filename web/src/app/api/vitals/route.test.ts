@@ -33,7 +33,7 @@ describe("GET /api/vitals", () => {
   });
 
   it("membersはPERSON_n IDではなく実名で返す（マスク境界の検証）", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     orgStore.addTeam("Team A", ["Aさん"]);
     const route = await import("./route");
     const res = await route.GET();

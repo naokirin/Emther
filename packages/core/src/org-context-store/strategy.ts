@@ -1,5 +1,5 @@
-import { loadJSON, saveJSON } from "@core/persistence";
-import { maskForStorage } from "@core/people-directory";
+import { loadJSON, saveJSON } from "../persistence";
+import { maskForStorage } from "../people-directory";
 
 // docs 3.1「Core Context」の`Strategy/`ディレクトリに相当する最小実装。
 // MVV（Mission/Vision/Values）は組織全体で1つの静的な前提として保持し、

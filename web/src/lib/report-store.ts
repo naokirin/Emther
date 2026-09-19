@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "@/lib/db";
-import { listEvents, type KnowledgeEntityType } from "@/lib/knowledge-store";
-import { listIssues } from "@/lib/issue-store";
-import { listJournalEntries } from "@/lib/journal-store";
+import { getDb } from "@core/db";
+import { listEvents, type KnowledgeEntityType } from "@core/knowledge-store";
+import { listIssues } from "@core/issue-store";
+import { listJournalEntries } from "@core/journal-store";
 import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする

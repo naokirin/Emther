@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addObjective, toObjectiveView } from "@/lib/org-context-store";
+import { addObjective, toObjectiveView } from "@core/org-context-store/index";
 import { listObjectivesWithProgress } from "@/lib/objective-progress";
 
 // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。

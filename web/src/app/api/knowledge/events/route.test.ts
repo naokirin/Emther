@@ -36,7 +36,7 @@ describe("GET /api/knowledge/events", () => {
   });
 
   it("指定したentityの変更履歴を返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("Issue");
     const route = await import("./route");
     const res = await route.GET(new Request(`http://localhost/x?entityType=issue&entityId=${issue.id}`));

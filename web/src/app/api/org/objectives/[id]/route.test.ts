@@ -37,7 +37,7 @@ describe("PATCH /api/org/objectives/[id]", () => {
   });
 
   it("改名できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const objective = await orgStore.addObjective("旧タイトル");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { title: "新タイトル" }), routeCtx({ id: objective.id }));
@@ -45,7 +45,7 @@ describe("PATCH /api/org/objectives/[id]", () => {
   });
 
   it("noteだけを更新できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const objective = await orgStore.addObjective("目標");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { note: "判断理由" }), routeCtx({ id: objective.id }));
@@ -54,7 +54,7 @@ describe("PATCH /api/org/objectives/[id]", () => {
 
   // ユーザー要望「目標のカスケーディング構成」対応。
   it("teamIdだけを指定して所属チームを設定できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     const objective = await orgStore.addObjective("組織目標");
     const route = await import("./route");
@@ -63,7 +63,7 @@ describe("PATCH /api/org/objectives/[id]", () => {
   });
 
   it("teamId:nullで組織全体の目標に戻せる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     const objective = await orgStore.addObjective("チーム目標", team.id);
     const route = await import("./route");
@@ -80,7 +80,7 @@ describe("DELETE /api/org/objectives/[id]", () => {
   });
 
   it("削除できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const objective = await orgStore.addObjective("消すObjective");
     const route = await import("./route");
     const res = await route.DELETE(new Request("http://localhost/x"), routeCtx({ id: objective.id }));

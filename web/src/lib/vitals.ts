@@ -1,8 +1,8 @@
-import { getTeam, listActiveTeams, type Team } from "@/lib/org-context-store";
+import { getTeam, listActiveTeams, type Team } from "@core/org-context-store/index";
 import { getRulesAndConstraints, getSelfPersonId } from "@core/settings-store";
-import { listJournalEntries, type JournalEntry, isJournalRelatedToTeam } from "@/lib/journal-store";
+import { listJournalEntries, type JournalEntry, isJournalRelatedToTeam } from "@core/journal-store";
 import { isIssueStalled, teamDisplayName } from "@core/types";
-import { listIssues, type Issue } from "@/lib/issue-store";
+import { listIssues, type Issue } from "@core/issue-store";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
 // 重要: データが足りない場合に「良好」や「要注意」へ寄せず、必ず"unknown"として

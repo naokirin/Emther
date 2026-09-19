@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/name-candidate-detect", () => ({
+vi.mock("./name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: async () => [1, 0, 0],
   cosineSimilarity: () => 0,
 }));
@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/issue-store");
+  return import("./issue-store");
 }
 
 // docs/2nd_pivot_version.md Phase 7。issue-store は suggestion-store の互換レイヤー。
@@ -51,7 +51,7 @@ describe("issue-store compatibility", () => {
 
   it("Suggestionの明示アーカイブ（重複起票等）は、reviewStatusがunreviewedのままでも archived: true になる", async () => {
     const store = await loadModule();
-    const { archiveSuggestion } = await import("@/lib/suggestion-store");
+    const { archiveSuggestion } = await import("./suggestion-store");
     const issue = await store.createIssue("重複してしまった提案");
     archiveSuggestion(issue.id);
     const view = store.getIssue(issue.id);

@@ -5,7 +5,7 @@ import {
   updateOrgBackground,
   type OrgBackgroundScope,
   type OrgBackgroundStatus,
-} from "@/lib/org-context-store";
+} from "@core/org-context-store/index";
 
 type Ctx = { params: Promise<{ id: string }> };
 

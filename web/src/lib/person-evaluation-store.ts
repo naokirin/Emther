@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { getDb } from "@/lib/db";
+import { getDb } from "@core/db";
 import { maskForStorage, unmaskNames } from "@core/people-directory";
-import { listObjectives, getOrgStrategy, type Objective } from "@/lib/org-context-store";
-import { listActiveFactsForPerson } from "@/lib/knowledge-store";
+import { listObjectives, getOrgStrategy, type Objective } from "@core/org-context-store/index";
+import { listActiveFactsForPerson } from "@core/knowledge-store";
 import { cosineSimilarity, embedText } from "@core/embeddings";
-import { RELATED_SIMILARITY_THRESHOLD } from "@/lib/related-context";
+import { RELATED_SIMILARITY_THRESHOLD } from "@core/related-context";
 
 // docs/value_hierarchy_and_flow.md §5。メンバー評価の主経路は Journal → 日常の評価ログ。
 // テーマ / Issue は載せない。A（成果）と B（Value）を混ぜない。仮置き→確定の状態機械。

@@ -10,7 +10,7 @@ export {
   LOOKUP_MAX_ROUNDS,
   type LookupRequest,
   type LookupQuery,
-} from "@/lib/agent-knowledge-tools";
+} from "@core/agent-knowledge-tools";
 
 export { EXEC_AGENT_NAME } from "./agent-catalog";
 

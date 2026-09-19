@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { dataFilePath } from "@core/persistence";
+import { dataFilePath } from "./persistence";
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。半年〜1年単位で単調に増え続ける
 // データ（Journal/KnowledgeEvent、Agent Runの実行ログ）を、書き込みのたびにファイル全体を

@@ -31,7 +31,7 @@ afterEach(() => {
 // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
 describe("PATCH /api/suggestions/[id] archived", () => {
   it("archived:trueでアーカイブし、falseで解除できる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("重複した提案");
     const route = await import("./route");
 
@@ -62,7 +62,7 @@ describe("PATCH /api/suggestions/[id] archived", () => {
   });
 
   it("archivedが真偽値でない場合は400", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("テスト用の提案");
     const route = await import("./route");
 
@@ -81,7 +81,7 @@ describe("PATCH /api/suggestions/[id] archived", () => {
 // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
 describe("PATCH /api/suggestions/[id] reviewDueAt", () => {
   it("reviewDueAtを設定・null で解除できる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("期日をつけたい提案");
     const route = await import("./route");
 
@@ -109,7 +109,7 @@ describe("PATCH /api/suggestions/[id] reviewDueAt", () => {
   });
 
   it("reviewDueAtが数値でもnullでもない場合は400", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("テスト用の提案");
     const route = await import("./route");
 
@@ -128,7 +128,7 @@ describe("PATCH /api/suggestions/[id] reviewDueAt", () => {
 // ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。
 describe("PATCH /api/suggestions/[id] reviewStatus=in_review", () => {
   it("確認中(in_review)へ変更できる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("検討中の提案");
     const route = await import("./route");
 
@@ -148,7 +148,7 @@ describe("PATCH /api/suggestions/[id] reviewStatus=in_review", () => {
 // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
 describe("PATCH /api/suggestions/[id] refreshDetailFromRunId", () => {
   async function insertRunWithProposal(id: string, proposal: Record<string, unknown> | null) {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     getDb()
       .prepare(
         `INSERT INTO agent_runs
@@ -159,7 +159,7 @@ describe("PATCH /api/suggestions/[id] refreshDetailFromRunId", () => {
   }
 
   it("指定Runの現在のproposalで詳細を更新する", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("詳細を更新する提案");
     await insertRunWithProposal("run-updated", {
       conclusion: "新しい結論",
@@ -183,7 +183,7 @@ describe("PATCH /api/suggestions/[id] refreshDetailFromRunId", () => {
   });
 
   it("proposalが無いRunを指定すると400になる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("詳細を更新できない提案");
     await insertRunWithProposal("run-empty", null);
     const route = await import("./route");
@@ -202,7 +202,7 @@ describe("PATCH /api/suggestions/[id] refreshDetailFromRunId", () => {
 // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
 describe("PATCH /api/suggestions/[id] detail", () => {
   it("EMが詳細を新規に書き起こせる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("EM編集の提案");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -223,7 +223,7 @@ describe("PATCH /api/suggestions/[id] detail", () => {
   });
 
   it("conclusion/logicを空にする更新は400になる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("空にできない提案", {
       detail: { conclusion: "結論", facts: [], logic: "ロジック" },
     });
@@ -240,7 +240,7 @@ describe("PATCH /api/suggestions/[id] detail", () => {
   });
 
   it("detail.factsが文字列配列でなければ400になる", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const s = await suggestionStore.createSuggestion("不正なfactsの提案");
     const route = await import("./route");
     const res = await route.PATCH(

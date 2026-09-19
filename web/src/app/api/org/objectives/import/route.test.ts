@@ -33,7 +33,7 @@ describe("POST /api/org/objectives/import", () => {
   });
 
   it("追記できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     await orgStore.addObjective("既存");
     const route = await import("./route");
     const res = await route.POST(
@@ -51,7 +51,7 @@ describe("POST /api/org/objectives/import", () => {
   });
 
   it("差し替えは同一スコープのみ消す", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     await orgStore.addObjective("組織");
     await orgStore.addObjective("チーム旧", team.id);

@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe("GET /api/teams", () => {
   it("実名復元済みで一覧を返す", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     orgStore.addTeam("Team A", ["Aさん"]);
     const route = await import("./route");
     const res = await route.GET();

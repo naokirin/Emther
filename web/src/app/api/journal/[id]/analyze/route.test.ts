@@ -74,7 +74,7 @@ describe("POST /api/journal/[id]/analyze", () => {
   });
 
   it("未確認エントリは400", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("未確認のまま");
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", {}), routeCtx({ id: entry.id }));
@@ -84,7 +84,7 @@ describe("POST /api/journal/[id]/analyze", () => {
   });
 
   it("確定済みなら手動分析を起動して201を返す", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("分析対象");
     const confirmed = await journalStore.updateJournalEntry(entry.id, { urgency: "low" });
     const route = await import("./route");

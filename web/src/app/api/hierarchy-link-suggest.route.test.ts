@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe("POST /api/themes/link/suggest", () => {
   it("OKR未リンクの採用テーマへヒューリスティックでリンク案を返す", async () => {
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const themeStore = await import("@/lib/theme-store");
 
     const objective = await org.addObjective("信頼性を上げる");
@@ -72,7 +72,7 @@ describe("POST /api/themes/link/suggest", () => {
   });
 
   it("既にリンク済みのテーマは対象外", async () => {
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const themeStore = await import("@/lib/theme-store");
 
     const objective = await org.addObjective("体験改善");
@@ -96,7 +96,7 @@ describe("POST /api/themes/link/suggest", () => {
 describe("POST /api/issues/link/suggest", () => {
   it("戦略未接続の親 Issue へテーマ案を返す", async () => {
     const themeStore = await import("@/lib/theme-store");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
 
     const theme = await themeStore.createThemeCandidate({
       title: "オンボーディング改善",
@@ -124,7 +124,7 @@ describe("POST /api/issues/link/suggest", () => {
 
   it("issueIds で単件に絞れる", async () => {
     const themeStore = await import("@/lib/theme-store");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
 
     const theme = await themeStore.createThemeCandidate({
       title: "品質",
@@ -158,7 +158,7 @@ describe("POST /api/issues/link/suggest", () => {
 describe("link-suggest unit", () => {
   it("クラウド成功時は cloud source になる", async () => {
     const { runCloudChat } = await import("@/lib/cloud-chat");
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const themeStore = await import("@/lib/theme-store");
 
     const objective = await org.addObjective("基盤進化");
@@ -198,7 +198,7 @@ describe("link-suggest unit", () => {
     const { runCloudChat } = await import("@/lib/cloud-chat");
     const { registerName } = await import("@core/people-directory");
     const themeStore = await import("@/lib/theme-store");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
 
     registerName("診断太郎");
     const theme = await themeStore.createThemeCandidate({

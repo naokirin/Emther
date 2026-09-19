@@ -1,14 +1,14 @@
-import { cosineSimilarity, embedText } from "@core/embeddings";
-import { listJournalEntriesPage } from "@/lib/journal-store";
-import { getIssue, listIssues, type Issue } from "@/lib/issue-store";
-import { findByIdPrefix } from "@/lib/id-prefix";
-import { maskNames, maskNamesSearchForms, unmaskNames } from "@core/people-directory";
+import { cosineSimilarity, embedText } from "./embeddings";
+import { listJournalEntriesPage } from "./journal-store";
+import { getIssue, listIssues, type Issue } from "./issue-store";
+import { findByIdPrefix } from "./id-prefix";
+import { maskNames, maskNamesSearchForms, unmaskNames } from "./people-directory";
 import {
   RELATED_SIMILARITY_THRESHOLD,
   searchSimilarOpenIssues,
   type SimilarIssue,
-} from "@/lib/related-context";
-import { searchSimilarEvents } from "@/lib/knowledge-store";
+} from "./related-context";
+import { searchSimilarEvents } from "./knowledge-store";
 
 // docs/usage_issues U19 / U14-C。
 // CLI のネイティブツールは無効のまま、アプリ側の読み取り専用照会を

@@ -29,8 +29,8 @@ async function loadModule() {
 describe("listObjectivesWithProgress", () => {
   it("KeyResultに紐づくIssueの件数（!archived）を計算する", async () => {
     const progressModule = await loadModule();
-    const orgStore = await import("@/lib/org-context-store");
-    const issueStore = await import("@/lib/issue-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const issueStore = await import("@core/issue-store");
 
     const objective = await orgStore.addObjective("売上を伸ばす");
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
@@ -45,8 +45,8 @@ describe("listObjectivesWithProgress", () => {
 
   it("archivedなIssueは件数から除外する", async () => {
     const progressModule = await loadModule();
-    const orgStore = await import("@/lib/org-context-store");
-    const issueStore = await import("@/lib/issue-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const issueStore = await import("@core/issue-store");
 
     const objective = await orgStore.addObjective("売上を伸ばす");
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");

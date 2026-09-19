@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe("PATCH /api/teams/[id]", () => {
   it("nameが実質空なら400", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { name: "/" }), routeCtx({ id: team.id }));
@@ -39,7 +39,7 @@ describe("PATCH /api/teams/[id]", () => {
   });
 
   it("名前・メンバー・Mission・制約を更新できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     const route = await import("./route");
     const res = await route.PATCH(
@@ -61,7 +61,7 @@ describe("DELETE /api/teams/[id]", () => {
   });
 
   it("削除できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("消すチーム", []);
     const route = await import("./route");
     const res = await route.DELETE(new Request("http://localhost/x"), routeCtx({ id: team.id }));

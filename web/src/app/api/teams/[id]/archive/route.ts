@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTeam, setTeamArchived, type Team } from "@/lib/org-context-store";
+import { getTeam, setTeamArchived, type Team } from "@core/org-context-store/index";
 import { unmaskNames } from "@core/people-directory";
 
 function toView(team: Team): Team {

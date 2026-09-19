@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@core/persistence";
-import { recordChangeEvent } from "@/lib/knowledge-store";
-import { normalizeTeamName, teamDisplayName, teamPathSegments } from "@core/types";
-import { maskForStorage, registerName, registerTeamNameCollisionChecker, unmaskNames } from "@core/people-directory";
+import { loadJSON, saveJSON } from "../persistence";
+import { recordChangeEvent } from "../knowledge-store";
+import { normalizeTeamName, teamDisplayName, teamPathSegments } from "../types";
+import { maskForStorage, registerName, registerTeamNameCollisionChecker, unmaskNames } from "../people-directory";
 
 // docs 3.1「厳格に分離されたナレッジモデル」のCore Contextに相当する最小実装。
 // v5設計書はツリー型ディレクトリ+構造化フォーマットを想定しているが、MVPでは

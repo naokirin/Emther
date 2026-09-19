@@ -1,4 +1,4 @@
-import { listEventLineageIds } from "@/lib/knowledge-store";
+import { listEventLineageIds } from "@core/knowledge-store";
 import { listRuns } from "@/lib/agent-runtime";
 
 // Journal（journal-store）とAgent Run（agent-runtime）という2つのドメインを横断する

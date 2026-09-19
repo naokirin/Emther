@@ -78,7 +78,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/journal-store");
+  return import("@core/journal-store");
 }
 
 describe("addJournalEntry", () => {
@@ -174,7 +174,7 @@ describe("addJournalEntry", () => {
 
   it("本文中の登録済みチーム名を自動でteamIdsに紐付ける", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "negative",  };
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const team = org.addTeam("コアチーム", []);
     const store = await loadModule();
     const entry = await store.addJournalEntry("コアチームの雰囲気が重い");
@@ -191,7 +191,7 @@ describe("addJournalEntry", () => {
       sentiment: "neutral",
       
     };
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const team = org.addTeam("Engineering / 基盤", []);
     await org.updateTeam(team.id, { aliases: ["基盤"] });
     const store = await loadModule();
@@ -202,7 +202,7 @@ describe("addJournalEntry", () => {
 
   it("複数チームを同時に紐付けられる", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const a = org.addTeam("コアチーム", []);
     const b = org.addTeam("プロダクトチーム", []);
     const store = await loadModule();
@@ -212,7 +212,7 @@ describe("addJournalEntry", () => {
 
   it("updateJournalEntryでteamsを校正できる", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const team = org.addTeam("コアチーム", []);
     const store = await loadModule();
     const entry = await store.addJournalEntry("メモ");
@@ -602,7 +602,7 @@ describe("requestJournalAnalysis", () => {
 
 describe("toJournalEntryView", () => {
   it("resolvedIssueIdが設定されている場合はIssueタイトルを解決する", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const store = await loadModule();
     const issue = await issueStore.createIssue("追跡中のIssue");
     const entry = await store.addJournalEntry("問題発生");
@@ -665,7 +665,7 @@ describe("getCurrentJournalEntry / listSourceJournalsForIssue", () => {
   });
 
   it("resolvedIssueIdとsourceJournalIdの両方から重複なく集める", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const store = await loadModule();
     const issue = await issueStore.createIssue("追跡");
     const entry = await store.addJournalEntry("問題発生");

@@ -24,9 +24,9 @@ afterEach(() => {
 
 async function loadModules() {
   const timeline = await import("@/lib/timeline");
-  const issueStore = await import("@/lib/issue-store");
-  const orgStore = await import("@/lib/org-context-store");
-  const knowledgeStore = await import("@/lib/knowledge-store");
+  const issueStore = await import("@core/issue-store");
+  const orgStore = await import("@core/org-context-store/index");
+  const knowledgeStore = await import("@core/knowledge-store");
   return { timeline, issueStore, orgStore, knowledgeStore };
 }
 

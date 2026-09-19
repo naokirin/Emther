@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { getDb } from "@/lib/db";
-import { findByIdPrefix } from "@/lib/id-prefix";
-import { addLogEntry, getIssue, listIssues } from "@/lib/issue-store";
+import { getDb } from "@core/db";
+import { findByIdPrefix } from "@core/id-prefix";
+import { addLogEntry, getIssue, listIssues } from "@core/issue-store";
 import { maskForStorage, unmaskNames } from "@core/people-directory";
 import { getRulesAndConstraints } from "@core/settings-store";
 import {
@@ -13,7 +13,7 @@ import {
   setReviewStatus,
   setSuggestionReviewDueAt,
   unarchiveSuggestion,
-} from "@/lib/suggestion-store";
+} from "@core/suggestion-store";
 import { adoptTheme, createThemeCandidate } from "@/lib/theme-store";
 import { normalizeSuggestedSubIssues, parseSuggestedPriority } from "./extraction";
 import type { AgentRun, AgentStatus, LogLine } from "./types";

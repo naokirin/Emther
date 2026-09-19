@@ -56,8 +56,8 @@ async function loadModule() {
 describe("listPersonSummaries", () => {
   it("登録済みの人物ごとにチーム所属・trend・factCountを集計する", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const orgStore = await import("@/lib/org-context-store");
-    const journalStore = await import("@/lib/journal-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const journalStore = await import("@core/journal-store");
     const hub = await loadModule();
 
     const aId = peopleDirectory.registerName("Aさん");
@@ -83,7 +83,7 @@ describe("listPersonSummaries", () => {
 
   // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   it("自分が管理するチーム(managedByEm:true)のメンバーはisDirectReport:true", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const hub = await loadModule();
     orgStore.addTeam("Team A", ["Aさん"]);
 
@@ -92,7 +92,7 @@ describe("listPersonSummaries", () => {
   });
 
   it("自分が管理していないチーム(managedByEm:false)のみのメンバーはisDirectReport:false", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const hub = await loadModule();
     const team = orgStore.addTeam("パートナーチーム", ["Cさん"]);
     await orgStore.updateTeam(team.id, { managedByEm: false });
@@ -102,7 +102,7 @@ describe("listPersonSummaries", () => {
   });
 
   it("兼務(管理チーム＋非管理チーム)ならisDirectReport:true", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const hub = await loadModule();
     orgStore.addTeam("Team A", ["Dさん"]);
     const partner = orgStore.addTeam("パートナーチーム", ["Dさん"]);
@@ -115,7 +115,7 @@ describe("listPersonSummaries", () => {
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("selfPersonIdに紐付いた人物はisSelf:trueで部下扱いにしない", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const settings = await import("@core/settings-store");
     const hub = await loadModule();
     const selfId = peopleDirectory.registerName("EM本人");
@@ -133,7 +133,7 @@ describe("listPersonSummaries", () => {
   // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。
   it("関連Issueにブロッカーありのものが1件でもあればhasConcerningIssue:true", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
     const issue = await issueStore.createIssue("Aさんの育成計画");
@@ -145,7 +145,7 @@ describe("listPersonSummaries", () => {
 
   it("関連Issueがブロッカー・停滞のいずれでもなければhasConcerningIssue:false", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
     await issueStore.createIssue("Aさんの育成計画");
@@ -156,7 +156,7 @@ describe("listPersonSummaries", () => {
 
   it("アーカイブ済みのブロッカーIssueは無視する", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
     const issue = await issueStore.createIssue("Aさんの育成計画");
@@ -170,7 +170,7 @@ describe("listPersonSummaries", () => {
   // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
   it("確認済み（対応不要）にしたIssueはhasConcerningIssueの判定から除外する", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const concernAckStore = await import("@/lib/person-concern-ack-store");
     const hub = await loadModule();
     const personId = peopleDirectory.registerName("Aさん");
@@ -200,7 +200,7 @@ describe("getPersonProfile", () => {
 
   it("関連提案をタイトル・メモの部分一致で抽出する", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
     await issueStore.createIssue("Aさんの育成計画");
@@ -213,8 +213,8 @@ describe("getPersonProfile", () => {
 
   it("isDirectReport/hasConcerningIssueもlistPersonSummariesと同じ基準で返す", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const orgStore = await import("@/lib/org-context-store");
-    const issueStore = await import("@/lib/issue-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const issueStore = await import("@core/issue-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
     orgStore.addTeam("Team A", ["Aさん"]);
@@ -231,7 +231,7 @@ describe("getPersonProfile", () => {
   // hasConcerningIssue（アラートの強調トリガー）からは除外される。
   it("relatedIssuesはconcerning/確認済みの情報を持ち、確認済みでもIssue自体の状態は隠さない", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const concernAckStore = await import("@/lib/person-concern-ack-store");
     const hub = await loadModule();
     const personId = peopleDirectory.registerName("Aさん");
@@ -253,7 +253,7 @@ describe("getPersonProfile", () => {
 
   it("factsとinterpretationsを分けて返す", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const knowledgeStore = await import("@/lib/knowledge-store");
+    const knowledgeStore = await import("@core/knowledge-store");
     const hub = await loadModule();
     const id = peopleDirectory.registerName("Aさん");
     knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [id], text: "fact-1", tags: [], occurredAt: 1 });
@@ -284,8 +284,8 @@ describe("addPersonAlias / removePersonAlias", () => {
 describe("mergePersons", () => {
   it("Journal・チーム所属を統合先へ付け替え、統合元は一覧から消える", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const orgStore = await import("@/lib/org-context-store");
-    const knowledgeStore = await import("@/lib/knowledge-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const knowledgeStore = await import("@core/knowledge-store");
     const hub = await loadModule();
 
     const fromId = peopleDirectory.registerName("たなかさん");
@@ -327,7 +327,7 @@ describe("mergePersons", () => {
 
   it("people-directory側が失敗（存在しないID等）した場合はknowledge-store/teamsを更新しない", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const hub = await loadModule();
     const toId = peopleDirectory.registerName("田中さん");
     orgStore.addTeam("Team A", []);

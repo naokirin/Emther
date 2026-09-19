@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 async function insertRun(id: string, reviewed = 0) {
-  const { getDb } = await import("@/lib/db");
+  const { getDb } = await import("@core/db");
   getDb()
     .prepare(
       `INSERT INTO agent_runs
@@ -34,7 +34,7 @@ async function insertRun(id: string, reviewed = 0) {
 }
 
 async function insertRunWithProposal(id: string, proposal: Record<string, unknown>) {
-  const { getDb } = await import("@/lib/db");
+  const { getDb } = await import("@core/db");
   getDb()
     .prepare(
       `INSERT INTO agent_runs

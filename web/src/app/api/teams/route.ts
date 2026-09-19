@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addTeam, listTeams, toTeamView } from "@/lib/org-context-store";
+import { addTeam, listTeams, toTeamView } from "@core/org-context-store/index";
 import { teamPathSegments } from "@core/types";
 
 export async function GET() {

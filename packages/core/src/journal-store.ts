@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { extractFirstJsonObject, runLocalChat } from "@core/local-model";
+import { extractFirstJsonObject, runLocalChat } from "./local-model";
 import {
   getPersonId,
   ensureNameCandidatesAllowed,
@@ -11,16 +11,16 @@ import {
   maskNamesSearchForms,
   registerName,
   unmaskNames,
-} from "@core/people-directory";
-import type { MaskOptions } from "@core/name-candidate-confirmation";
-import { stripPersonHonorific } from "@core/person-honorific";
+} from "./people-directory";
+import type { MaskOptions } from "./name-candidate-confirmation";
+import { stripPersonHonorific } from "./person-honorific";
 import {
   filterValidTeamIds,
   findMentionedTeamIds,
   getTeam,
   resolveTeamIdsByLabels,
-} from "@/lib/org-context-store";
-import { teamDisplayName } from "@core/types";
+} from "./org-context-store/index";
+import { teamDisplayName } from "./types";
 
 // 人物詳細など「この人に紐づけて書く」導線から、EMが明示した人物名を作成時に渡すため。
 // 校正（PATCH）の people と同様、明示指定は registerName してよい（NER自動抽出とは別経路）。
@@ -55,11 +55,11 @@ import {
   clearEventArchived,
   type EventPageFilter,
   type KnowledgeEvent,
-} from "@/lib/knowledge-store";
-import { embedText } from "@core/embeddings";
-import { getRulesAndConstraints } from "@core/settings-store";
-import { parseBulkJournalText, parseDateMarkerLine } from "@/lib/journal-date-parser";
-import { getIssue, toIssueView } from "@/lib/issue-store";
+} from "./knowledge-store";
+import { embedText } from "./embeddings";
+import { getRulesAndConstraints } from "./settings-store";
+import { parseBulkJournalText, parseDateMarkerLine } from "./journal-date-parser";
+import { getIssue, toIssueView } from "./issue-store";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,

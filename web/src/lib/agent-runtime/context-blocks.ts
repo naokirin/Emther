@@ -1,6 +1,6 @@
 import { embedText } from "@core/embeddings";
-import { getIssue, getIssueByRunId, issueEmbedSource } from "@/lib/issue-store";
-import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@/lib/knowledge-store";
+import { getIssue, getIssueByRunId, issueEmbedSource } from "@core/issue-store";
+import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "@core/knowledge-store";
 import {
   getOrgStrategy,
   getTeam,
@@ -9,10 +9,10 @@ import {
   listObjectives,
   type OrgBackgroundEntry,
   type Team,
-} from "@/lib/org-context-store";
+} from "@core/org-context-store/index";
 import { listPeople, maskNames } from "@core/people-directory";
-import { buildRelatedBundleBlock } from "@/lib/related-context";
-import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@/lib/agent-knowledge-tools";
+import { buildRelatedBundleBlock } from "@core/related-context";
+import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@core/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId } from "@core/settings-store";
 import { listAdoptedThemes } from "@/lib/theme-store";
 import { buildGlossaryContextBlock } from "@/lib/glossary-store";

@@ -51,9 +51,9 @@ afterEach(() => {
 
 async function loadModules() {
   const vitals = await import("@/lib/vitals");
-  const orgStore = await import("@/lib/org-context-store");
-  const journalStore = await import("@/lib/journal-store");
-  const issueStore = await import("@/lib/issue-store");
+  const orgStore = await import("@core/org-context-store/index");
+  const journalStore = await import("@core/journal-store");
+  const issueStore = await import("@core/issue-store");
   return { vitals, orgStore, journalStore, issueStore };
 }
 

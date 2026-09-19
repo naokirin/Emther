@@ -58,7 +58,7 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("rawTextを空にしようとすると400", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("元のテキスト");
     const route = await import("./route");
     const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { rawText: "  " }), routeCtx({ id: entry.id }));
@@ -66,7 +66,7 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("occurredAtDateの形式が不正なら400", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("テキスト");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -77,7 +77,7 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("校正できる（tags/urgency/occurredAtDate）", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("テキスト");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -93,8 +93,8 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("teamsで関連チームを複数紐付けできる", async () => {
-    const journalStore = await import("@/lib/journal-store");
-    const org = await import("@/lib/org-context-store");
+    const journalStore = await import("@core/journal-store");
+    const org = await import("@core/org-context-store/index");
     const a = org.addTeam("コアチーム", []);
     const b = org.addTeam("プロダクトチーム", []);
     const entry = await journalStore.addJournalEntry("テキスト");
@@ -110,8 +110,8 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("resolvedIssueId/resolutionNoteの3値（未指定=維持・null=解除・文字列=設定）", async () => {
-    const journalStore = await import("@/lib/journal-store");
-    const issueStore = await import("@/lib/issue-store");
+    const journalStore = await import("@core/journal-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("対象Issue");
     const entry = await journalStore.addJournalEntry("問題発生");
     const route = await import("./route");
@@ -131,8 +131,8 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("resolvedIssueIdはプレフィックス一致でも解決できる", async () => {
-    const journalStore = await import("@/lib/journal-store");
-    const issueStore = await import("@/lib/issue-store");
+    const journalStore = await import("@core/journal-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("対象Issue");
     const entry = await journalStore.addJournalEntry("問題発生");
     const route = await import("./route");
@@ -146,7 +146,7 @@ describe("PATCH /api/journal/[id]", () => {
   });
 
   it("存在しないresolvedIssueIdは400", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("問題発生");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -159,7 +159,7 @@ describe("PATCH /api/journal/[id]", () => {
 
 describe("GET /api/journal/[id]", () => {
   it("現行版を返す（supersedesされた旧IDでも）", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("元のテキスト");
     const updated = await journalStore.updateJournalEntry(entry.id, { tags: ["確認済み"] });
     const route = await import("./route");

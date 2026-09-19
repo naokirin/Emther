@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { importObjectives, toObjectiveView, type ObjectiveImportDraft } from "@/lib/org-context-store";
+import { importObjectives, toObjectiveView, type ObjectiveImportDraft } from "@core/org-context-store/index";
 
 function normalizeDrafts(raw: unknown): ObjectiveImportDraft[] {
   if (!Array.isArray(raw)) return [];

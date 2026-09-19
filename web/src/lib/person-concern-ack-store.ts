@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@core/db";
 import { maskForStorage, unmaskNames } from "@core/people-directory";
 
 // ユーザー指摘「確認したが対応不要だった、を示せず、メンバーのアラート表示（関連Issueの

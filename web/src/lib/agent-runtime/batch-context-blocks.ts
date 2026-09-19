@@ -1,7 +1,7 @@
 import { listCheckins, listReflectionNotes } from "@/lib/em-self-store";
-import { listIssues } from "@/lib/issue-store";
-import { listJournalEntries } from "@/lib/journal-store";
-import { listEvents } from "@/lib/knowledge-store";
+import { listIssues } from "@core/issue-store";
+import { listJournalEntries } from "@core/journal-store";
+import { listEvents } from "@core/knowledge-store";
 import { maskNames } from "@core/people-directory";
 import { listAdoptedThemes } from "@/lib/theme-store";
 import { charterFilledCount } from "@core/types";

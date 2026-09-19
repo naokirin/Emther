@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listEventsForEntity, toEventView, type KnowledgeEntityType } from "@/lib/knowledge-store";
+import { listEventsForEntity, toEventView, type KnowledgeEntityType } from "@core/knowledge-store";
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する汎用エンドポイント。
 export async function GET(request: Request) {

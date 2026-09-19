@@ -8,7 +8,7 @@ import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCa
 import { isJournalEntryResolved, type JournalEntry } from "@core/types";
 import type { useJournalEditing } from "@/lib/useJournalEditing";
 import type { DayPhase } from "@core/dashboard-day-phase";
-import type { ProfileCandidate } from "@/lib/journal-store";
+import type { ProfileCandidate } from "@core/journal-store";
 
 const JOURNAL_DASHBOARD_LIMIT = 5;
 

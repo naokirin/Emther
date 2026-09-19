@@ -1,7 +1,7 @@
 "use client";
 
 import { IdFragmentLink } from "@/components/IdFragmentLink";
-import { splitTextByIdFragments } from "@/lib/id-prefix";
+import { splitTextByIdFragments } from "@core/id-prefix";
 import styles from "@/app/page.module.css";
 
 /** プレーンテキスト中の UUID / 先頭8桁を解決可能なリンクにする。 */

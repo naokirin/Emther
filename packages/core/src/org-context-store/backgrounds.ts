@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@core/persistence";
-import { recordChangeEvent } from "@/lib/knowledge-store";
-import { maskForStorage, unmaskNames } from "@core/people-directory";
+import { loadJSON, saveJSON } from "../persistence";
+import { recordChangeEvent } from "../knowledge-store";
+import { maskForStorage, unmaskNames } from "../people-directory";
 
 // Standing Background: 組織の長期背景事実＋いまの判断への含意。
 // Journal（揺らぎ・TTL付き）や MVV/OKR（戦略）とは別枠の Core Context。

@@ -1,20 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/name-candidate-detect", () => ({
+vi.mock("./name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: async () => [1, 0, 0],
   cosineSimilarity: () => 0,
 }));
@@ -32,7 +32,7 @@ afterEach(() => {
 
 describe("migrateLegacyIssueToSuggestion", () => {
   it("IDを維持し、archived/doneを確認済みにし、charterをメモへ移す", async () => {
-    const { migrateLegacyIssueToSuggestion } = await import("@/lib/suggestion-store");
+    const { migrateLegacyIssueToSuggestion } = await import("./suggestion-store");
     const s = migrateLegacyIssueToSuggestion({
       id: "issue-keep-id",
       title: "滞留レビュー",
@@ -61,7 +61,7 @@ describe("migrateLegacyIssueToSuggestion", () => {
   });
 
   it("未アーカイブ・非doneは未確認になる", async () => {
-    const { migrateLegacyIssueToSuggestion } = await import("@/lib/suggestion-store");
+    const { migrateLegacyIssueToSuggestion } = await import("./suggestion-store");
     const s = migrateLegacyIssueToSuggestion({
       id: "a",
       title: "t",
@@ -74,7 +74,7 @@ describe("migrateLegacyIssueToSuggestion", () => {
   });
 
   it("status=doneも確認済みになる", async () => {
-    const { migrateLegacyIssueToSuggestion } = await import("@/lib/suggestion-store");
+    const { migrateLegacyIssueToSuggestion } = await import("./suggestion-store");
     const s = migrateLegacyIssueToSuggestion({
       id: "a",
       title: "t",
@@ -108,7 +108,7 @@ describe("suggestion-store load migration", () => {
         },
       ]),
     );
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const list = store.listSuggestions();
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe("legacy-uuid");
@@ -118,7 +118,7 @@ describe("suggestion-store load migration", () => {
 
 describe("createSuggestion / review / memo", () => {
   it("作成・確認状態・メモ追記ができる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("新しい提案", { confirmPriority: "focus" });
     expect(s.reviewStatus).toBe("unreviewed");
     expect(s.confirmPriority).toBe("focus");
@@ -132,7 +132,7 @@ describe("createSuggestion / review / memo", () => {
 
   // ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。
   it("確認中(in_review)ステータスへ変更できる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("検討中の提案");
     const updated = store.setReviewStatus(s.id, "in_review");
     expect(updated?.reviewStatus).toBe("in_review");
@@ -143,7 +143,7 @@ describe("createSuggestion / review / memo", () => {
 // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
 describe("createSuggestion detail / setSuggestionDetail", () => {
   it("detailを渡して作成すると保持され、toSuggestionViewでunmaskされる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("詳細つき提案", {
       detail: { conclusion: "結論文", facts: ["根拠1"], logic: "ロジック", advice: "助言" },
     });
@@ -156,7 +156,7 @@ describe("createSuggestion detail / setSuggestionDetail", () => {
   });
 
   it("conclusion/logicが空のdetailは無視される", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("詳細なし提案", {
       detail: { conclusion: "", facts: [], logic: "" },
     });
@@ -164,7 +164,7 @@ describe("createSuggestion detail / setSuggestionDetail", () => {
   });
 
   it("setSuggestionDetailで詳細を後から更新できる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("後から詳細を足す提案");
     expect(s.detail).toBeUndefined();
     const updated = store.setSuggestionDetail(s.id, { conclusion: "更新結論", facts: [], logic: "更新ロジック" });
@@ -173,7 +173,7 @@ describe("createSuggestion detail / setSuggestionDetail", () => {
   });
 
   it("存在しないIDにはundefinedを返す", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     expect(store.setSuggestionDetail("nope", { conclusion: "c", facts: [], logic: "l" })).toBeUndefined();
   });
 });
@@ -181,7 +181,7 @@ describe("createSuggestion detail / setSuggestionDetail", () => {
 // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
 describe("updateSuggestionDetail", () => {
   it("詳細が無い状態からEMが新規に書き起こせる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("EMが詳細を書く提案");
     const updated = await store.updateSuggestionDetail(s.id, {
       conclusion: "EMの結論",
@@ -195,7 +195,7 @@ describe("updateSuggestionDetail", () => {
   });
 
   it("一部フィールドだけの部分更新では、他のフィールドの現在値を保つ", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("部分更新の提案", {
       detail: { conclusion: "元の結論", facts: ["元の事実"], logic: "元のロジック" },
     });
@@ -206,7 +206,7 @@ describe("updateSuggestionDetail", () => {
   });
 
   it("conclusion/logicを空にする更新は拒否される", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("空にできない提案", {
       detail: { conclusion: "結論", facts: [], logic: "ロジック" },
     });
@@ -214,7 +214,7 @@ describe("updateSuggestionDetail", () => {
   });
 
   it("存在しないIDにはundefinedを返す", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const updated = await store.updateSuggestionDetail("nope", { conclusion: "c", facts: [], logic: "l" });
     expect(updated).toBeUndefined();
   });
@@ -223,7 +223,7 @@ describe("updateSuggestionDetail", () => {
 // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
 describe("setSuggestionReviewDueAt", () => {
   it("確認期日を設定・解除できる。reviewStatusとは独立に変更できる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("期日つきの提案");
     expect(s.reviewDueAt).toBeUndefined();
 
@@ -236,14 +236,14 @@ describe("setSuggestionReviewDueAt", () => {
   });
 
   it("存在しないIDにはundefinedを返す", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     expect(store.setSuggestionReviewDueAt("no-such-id", 1)).toBeUndefined();
   });
 });
 
 describe("archiveSuggestion / unarchiveSuggestion", () => {
   it("reviewStatusを変えずにarchivedAtだけを立てる／解除できる", async () => {
-    const store = await import("@/lib/suggestion-store");
+    const store = await import("./suggestion-store");
     const s = await store.createSuggestion("重複して起票してしまった提案");
     expect(s.archivedAt).toBeUndefined();
 

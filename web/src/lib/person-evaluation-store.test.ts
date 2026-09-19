@@ -70,9 +70,9 @@ describe("person-evaluation-store", () => {
 
   it("suggest-from-journalは意味的に関連するFactだけを仮置きする", async () => {
     const store = await import("@/lib/person-evaluation-store");
-    const { recordEvent } = await import("@/lib/knowledge-store");
-    const { addObjective } = await import("@/lib/org-context-store");
-    const { updateOrgStrategy } = await import("@/lib/org-context-store");
+    const { recordEvent } = await import("@core/knowledge-store");
+    const { addObjective } = await import("@core/org-context-store/index");
+    const { updateOrgStrategy } = await import("@core/org-context-store/index");
 
     const objective = await addObjective("TOPIC_A の目標");
     await updateOrgStrategy({ values: "TOPIC_B というValue" });
@@ -146,8 +146,8 @@ describe("person-evaluation-store", () => {
 
   it("suggest-from-journalは埋め込みの無いFactを仮置きしない（関連性を確認できないため）", async () => {
     const store = await import("@/lib/person-evaluation-store");
-    const { recordEvent } = await import("@/lib/knowledge-store");
-    const { addObjective, updateOrgStrategy } = await import("@/lib/org-context-store");
+    const { recordEvent } = await import("@core/knowledge-store");
+    const { addObjective, updateOrgStrategy } = await import("@core/org-context-store/index");
 
     await addObjective("TOPIC_A の目標");
     await updateOrgStrategy({ values: "TOPIC_B というValue" });

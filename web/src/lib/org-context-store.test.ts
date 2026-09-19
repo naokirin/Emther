@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/org-context-store");
+  return import("@core/org-context-store/index");
 }
 
 describe("teams", () => {

@@ -19,7 +19,7 @@ import {
   useThemes,
 } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { dateStringToNoonTimestamp, timestampToDateInputValue } from "@/lib/journal-date-parser";
+import { dateStringToNoonTimestamp, timestampToDateInputValue } from "@core/journal-date-parser";
 import {
   CONFIRM_PRIORITIES,
   CONFIRM_PRIORITY_META,

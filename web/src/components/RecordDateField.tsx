@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import { timestampToDateInputValue } from "@/lib/journal-date-parser";
+import { timestampToDateInputValue } from "@core/journal-date-parser";
 
 // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
 // Journal入力の発生日UIと同じ折りたたみパターン。既定は今日のまま隠し、

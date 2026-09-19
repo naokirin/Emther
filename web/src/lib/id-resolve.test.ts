@@ -32,7 +32,7 @@ afterEach(() => {
 
 describe("resolveIdPrefix", () => {
   it("一意な Issue プレフィックスを解決する", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const issue = await issueStore.createIssue("プレフィックス解決");
     const prefix = issue.id.slice(0, 8);
@@ -42,7 +42,7 @@ describe("resolveIdPrefix", () => {
   });
 
   it("複数ヒット時は候補をすべて返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const { resolveIdPrefix, resolveUniqueByPrefix } = await import("./id-resolve");
 
     // 衝突を強制するため、内部配列へ同じ先頭の ID を持つ Issue を直接載せるのは難しいので
@@ -63,7 +63,7 @@ describe("resolveIdPrefix", () => {
   });
 
   it("Journal も解決対象に含める", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const entry = await journalStore.addJournalEntry("現場メモ");
     const matches = resolveIdPrefix(entry.id.slice(0, 8));
@@ -75,7 +75,7 @@ describe("resolveIdPrefix", () => {
   it("Issue のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
     const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Aさん");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const issue = await issueStore.createIssue("Aさんの1on1で出た懸念");
     const matches = resolveIdPrefix(issue.id.slice(0, 8));
@@ -87,7 +87,7 @@ describe("resolveIdPrefix", () => {
   it("Journal の本文に含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
     const peopleDirectory = await import("@core/people-directory");
     peopleDirectory.registerName("Bさん");
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const entry = await journalStore.addJournalEntry("Bさんと話した現場メモ");
     const matches = resolveIdPrefix(entry.id.slice(0, 8));

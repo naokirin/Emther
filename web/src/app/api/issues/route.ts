@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createIssue, listIssues, toIssueView } from "@/lib/issue-store";
+import { createIssue, listIssues, toIssueView } from "@core/issue-store";
 import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, startRun } from "@/lib/agent-runtime";
 import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { linkJournalToIssue } from "@/lib/journal-store";
+import { linkJournalToIssue } from "@core/journal-store";
 import { ISSUE_PRIORITIES, type IssuePriority } from "@core/types";
 
 export async function GET() {

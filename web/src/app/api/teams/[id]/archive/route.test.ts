@@ -31,7 +31,7 @@ describe("POST /api/teams/[id]/archive", () => {
   });
 
   it("archived省略時はトグルする", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", {}), routeCtx({ id: team.id }));

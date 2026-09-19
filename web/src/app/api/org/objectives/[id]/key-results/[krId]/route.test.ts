@@ -40,7 +40,7 @@ describe("PATCH /api/org/objectives/[id]/key-results/[krId]", () => {
   });
 
   it("タイトルを更新できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const objective = await orgStore.addObjective("Objective");
     const withKr = await orgStore.addKeyResult(objective.id, "旧KR");
     const krId = withKr!.keyResults[0].id;
@@ -62,7 +62,7 @@ describe("DELETE /api/org/objectives/[id]/key-results/[krId]", () => {
   });
 
   it("削除できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const objective = await orgStore.addObjective("Objective");
     const withKr = await orgStore.addKeyResult(objective.id, "KR");
     const krId = withKr!.keyResults[0].id;

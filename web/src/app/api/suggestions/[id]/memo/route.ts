@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { addMemo, getSuggestion, toSuggestionView } from "@/lib/suggestion-store";
+import { addMemo, getSuggestion, toSuggestionView } from "@core/suggestion-store";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { reactToIssueUpdate } from "@/lib/agent-runtime";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
-import { listSuggestions } from "@/lib/suggestion-store";
+import { listSuggestions } from "@core/suggestion-store";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/suggestions/[id]/memo">) {
   const { id } = await ctx.params;

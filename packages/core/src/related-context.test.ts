@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -13,7 +13,7 @@ const embedRef = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: (text: string) => embedRef.impl(text),
   cosineSimilarity: (a: number[], b: number[]) => {
     if (a.length !== b.length || a.length === 0) return 0;
@@ -44,11 +44,11 @@ afterEach(() => {
 
 describe("related-context", () => {
   it("searchSimilarOpenIssuesは閾値以上の未完了Issueだけ返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("./issue-store");
     const a = await issueStore.createIssue("類似A");
     const b = await issueStore.createIssue("類似B");
     await issueStore.setIssueStatus(b.id, "done");
-    const { searchSimilarOpenIssues, RELATED_SIMILARITY_THRESHOLD } = await import("@/lib/related-context");
+    const { searchSimilarOpenIssues, RELATED_SIMILARITY_THRESHOLD } = await import("./related-context");
     const hits = searchSimilarOpenIssues([1, 0, 0], { excludeId: a.id });
     expect(hits.every((h) => h.id !== a.id)).toBe(true);
     expect(hits.every((h) => h.status !== "done")).toBe(true);
@@ -56,7 +56,7 @@ describe("related-context", () => {
   });
 
   it("buildRelatedBundleBlockはjournal-analysisで繰り返しシグナルを載せる", async () => {
-    const knowledge = await import("@/lib/knowledge-store");
+    const knowledge = await import("./knowledge-store");
     const now = Date.now();
     knowledge.recordEvent({
       kind: "fact",
@@ -79,7 +79,7 @@ describe("related-context", () => {
       embedding: [0.99, 0.1, 0],
     });
 
-    const { buildRelatedBundleBlock } = await import("@/lib/related-context");
+    const { buildRelatedBundleBlock } = await import("./related-context");
     const block = await buildRelatedBundleBlock({
       queryText: "1on1が機能していない",
       mode: "journal-analysis",
@@ -89,10 +89,10 @@ describe("related-context", () => {
   });
 
   it("buildRelatedBundleBlockはissue-wallbashで関連Issueを載せる", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("./issue-store");
     const self = await issueStore.createIssue("対象", undefined, { why: "育成の停滞" });
     await issueStore.createIssue("関連", undefined, { why: "育成の停滞" });
-    const { buildRelatedBundleBlock } = await import("@/lib/related-context");
+    const { buildRelatedBundleBlock } = await import("./related-context");
     const block = await buildRelatedBundleBlock({
       queryText: issueStore.issueEmbedSource(self),
       excludeIssueId: self.id,
@@ -105,7 +105,7 @@ describe("related-context", () => {
 
   it("buildRelatedBundleBlockはヒット0件でも不在を明示する", async () => {
     embedRef.impl = async () => [0, 1, 0];
-    const { buildRelatedBundleBlock } = await import("@/lib/related-context");
+    const { buildRelatedBundleBlock } = await import("./related-context");
     const block = await buildRelatedBundleBlock({
       queryText: "全く無関係なクエリで類似ゼロを狙う",
       mode: "issue-wallbash",

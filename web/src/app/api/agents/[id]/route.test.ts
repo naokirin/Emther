@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 function insertRunRow(overrides: Partial<Record<string, unknown>> = {}) {
-  return import("@/lib/db").then(({ getDb }) => {
+  return import("@core/db").then(({ getDb }) => {
     const base = {
       id: "run-1",
       agent_name: "Lead Agent",

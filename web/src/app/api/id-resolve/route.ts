@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isHexIdPrefix } from "@/lib/id-prefix";
+import { isHexIdPrefix } from "@core/id-prefix";
 import { resolveIdPrefix } from "@/lib/id-resolve";
 
 export async function GET(request: Request) {

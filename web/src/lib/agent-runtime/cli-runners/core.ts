@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "@/lib/agent-knowledge-tools";
+import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "@core/agent-knowledge-tools";
 import { createGrowSuggestions, enrichGrowSuggestionReferences } from "@/lib/em-growth-store";
 import { getRulesAndConstraints } from "@core/settings-store";
 import { CLI_LABELS, type CliName } from "@core/types";

@@ -15,10 +15,10 @@ import {
   unarchiveSuggestion,
   updateSuggestionDetail,
   getSuggestion,
-} from "@/lib/suggestion-store";
+} from "@core/suggestion-store";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@core/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { listSourceJournalsForIssue, toJournalEntryViews } from "@/lib/journal-store";
+import { listSourceJournalsForIssue, toJournalEntryViews } from "@core/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
 import { getRun, reactToIssueUpdate } from "@/lib/agent-runtime";

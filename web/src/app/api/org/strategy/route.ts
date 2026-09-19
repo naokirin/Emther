@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOrgStrategy, type OrgStrategy, updateOrgStrategy } from "@/lib/org-context-store";
+import { getOrgStrategy, type OrgStrategy, updateOrgStrategy } from "@core/org-context-store/index";
 import { unmaskNames } from "@core/people-directory";
 
 // 個人情報の分離（ユーザー指摘対応）: ストア側はPERSON_n IDでマスクされたテキストを

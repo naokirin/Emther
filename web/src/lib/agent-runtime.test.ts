@@ -471,8 +471,8 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("朝サマリーの材料はcontextブロックに載り、buildSystemPromptへ注入される", async () => {
-    const orgStore = await import("@/lib/org-context-store");
-    const issueStore = await import("@/lib/issue-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const issueStore = await import("@core/issue-store");
     orgStore.addTeam("Morning Team", ["Aさん"]);
     const issue = await issueStore.createIssue("未整理の課題");
     const rt = await loadModule();
@@ -493,7 +493,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
 
   it("朝サマリーの材料は実名をPERSON_nにマスクしてから返す", async () => {
     const pd = await import("@core/people-directory");
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     pd.registerName("漏洩太郎");
     // チーム名に実名が含まれると、Vitals理由文にも載る（送信前 assert の発火源になり得る）。
     orgStore.addTeam("漏洩太郎チーム", []);
@@ -505,7 +505,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
 
   it("Growの材料はEM自己申告と組織側の解釈を横断し、grow_suggestionsの出力指示を含む", async () => {
     const emSelfStore = await import("@/lib/em-self-store");
-    const knowledgeStore = await import("@/lib/knowledge-store");
+    const knowledgeStore = await import("@core/knowledge-store");
     await emSelfStore.addCheckin({ mood: 2, energy: 2, stress: 4, note: "割り込みが多い" });
     await emSelfStore.addReflectionNote({ type: "problem", text: "計画作業の時間が取れない" });
     knowledgeStore.recordEvent({
@@ -552,7 +552,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("Journal集約解釈の材料は前回以降のJournalをまとめて載せ、taskは短い", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     await journalStore.addJournalEntry("1on1が空回りした");
     const rt = await loadModule();
     const ctx = rt.buildJournalBatchContextBlock();
@@ -564,7 +564,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
 
   it("Journal集約解釈の材料は実名をPERSON_nにマスクしてから返す", async () => {
     const pd = await import("@core/people-directory");
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     pd.registerName("漏洩太郎");
     await journalStore.addJournalEntry("漏洩太郎さんが辞めたいと言っていた");
     const rt = await loadModule();
@@ -725,7 +725,7 @@ describe("buildOrgContextBlock", () => {
   });
 
   it("チームがあれば名簿を含める", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     orgStore.addTeam("Team A", ["Aさん"]);
     const rt = await loadModule();
     const block = rt.buildOrgContextBlock();
@@ -735,7 +735,7 @@ describe("buildOrgContextBlock", () => {
 
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("selfPersonIdが設定されていれば利用者本人として明示する", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const peopleDirectory = await import("@core/people-directory");
     const settings = await import("@core/settings-store");
     const selfId = peopleDirectory.registerName("EM本人");
@@ -755,7 +755,7 @@ describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", 
   });
 
   it("設定済みの項目だけ行として含める", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     await orgStore.updateOrgStrategy({ mission: "顧客に価値を届ける" });
     const rt = await loadModule();
     const block = rt.buildStrategyBlock();
@@ -769,7 +769,7 @@ describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", 
   });
 
   it("Product/Lead Agentには『判断の主軸』という強調文言になる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     await orgStore.addObjective("売上を伸ばす");
     const rt = await loadModule();
     expect(rt.buildObjectivesBlock("Lead Agent")).toContain("判断の主軸としてください");
@@ -777,14 +777,14 @@ describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", 
   });
 
   it("Objectiveのメモをブロックに含める", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     await orgStore.addObjective("売上を伸ばす", undefined, "四半期重点");
     const rt = await loadModule();
     expect(rt.buildObjectivesBlock("Lead Agent")).toContain("メモ: 四半期重点");
   });
 
   it("Standing Backgroundのalwaysは常に含み、taggedは手がかりがあるときだけ", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     await orgStore.addOrgBackground({
       title: "2024 個人情報漏洩",
       fact: "顧客データが流出した",
@@ -812,7 +812,7 @@ describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", 
   });
 
   it("アーカイブ済みStanding Backgroundは注入しない", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const entry = await orgStore.addOrgBackground({
       title: "古いインシデント",
       fact: "もう効かない",
@@ -831,14 +831,14 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
   });
 
   it("charterが空でもタイトルは含める", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("Issue", "run-1");
     const rt = await loadModule();
     expect(rt.buildIssueContextBlock("run-1")).toContain("タイトル: Issue");
   });
 
   it("charter相当の内容はメモとして前提に含める", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("障害対応", "run-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
     const rt = await loadModule();
     const block = rt.buildIssueContextBlock("run-1");
@@ -849,15 +849,15 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
   });
 
   it("Issueにチームが紐付いていなければteam charterは空文字列", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("Issue", "run-1");
     const rt = await loadModule();
     expect(rt.buildTeamCharterBlock("run-1")).toBe("");
   });
 
   it("チームのMission/制約が設定されていれば含める", async () => {
-    const issueStore = await import("@/lib/issue-store");
-    const orgStore = await import("@/lib/org-context-store");
+    const issueStore = await import("@core/issue-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     await orgStore.updateTeam(team.id, { mission: "価値を届ける", constraints: "予算内で行う" });
     await issueStore.createIssue("Issue", "run-1", undefined, undefined, undefined, undefined, team.id);
@@ -868,7 +868,7 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
   });
 
   it("介入の型タグはPhase 7で廃止のためガイダンスは空", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("1on1改善", "run-1");
     await issueStore.setIssueTags(issue.id, ["1on1設計"]);
     const rt = await loadModule();
@@ -932,7 +932,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("Phase 7: sub_issuesブロック説明は付かない", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("トップレベルIssue", "run-1");
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
@@ -941,7 +941,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("子Issue作成も階層廃止のためトップレベル扱いでsub_issues説明は付かない", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const parent = await issueStore.createIssue("親Issue");
     await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
     const rt = await loadModule();
@@ -955,7 +955,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("Phase 7: charterブロック説明は付かない（メモ追記のみ）", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const parent = await issueStore.createIssue("親Issue");
     await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
     const rt = await loadModule();
@@ -965,7 +965,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("Why/What/Howメモがあってもcharterブロック説明は付かない", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("Issue", "run-1", { why: "w1", what: "w2", how: "w3" });
     const rt = await loadModule();
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```charter");
@@ -1013,7 +1013,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   }
 
   it("起動時に'active'/'queued'で残っていたrunは'error'へ復旧される（サーバー再起動想定）", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-active", status: "active" });
     insertRunRow(getDb(), { id: "run-queued", status: "queued" });
     const rt = await loadModule();
@@ -1023,14 +1023,14 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("'idle'/'yield'/'error'で残っていたrunはそのままの状態で復元される", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-idle", status: "idle" });
     const rt = await loadModule();
     expect(rt.getRun("run-idle")?.status).toBe("idle");
   });
 
   it("listRunsは作成日時の新しい順で返す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-old", created_at: 1 });
     insertRunRow(getDb(), { id: "run-new", created_at: 100 });
     const rt = await loadModule();
@@ -1038,7 +1038,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("listRunsPageはフィルタ・ページングした結果とtotalを返す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1", created_at: 5, status: "idle" });
     insertRunRow(getDb(), { id: "run-2", created_at: 4, status: "yield" });
     insertRunRow(getDb(), { id: "run-3", created_at: 3, status: "idle" });
@@ -1061,7 +1061,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("listRunsPageはrun.logを先頭の非systemログ行1件までに切り詰める", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1" });
     getDb()
       .prepare("INSERT INTO agent_run_logs (run_id, ts, channel, text) VALUES (?, ?, ?, ?)")
@@ -1080,7 +1080,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   it("toRunViewはPERSON_n IDを実名に復元する", async () => {
     const peopleDirectory = await import("@core/people-directory");
     const id = peopleDirectory.registerName("Aさん");
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       task: `${id}についてのタスク`,
@@ -1094,7 +1094,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("markRunReviewedはreviewedをtrueにする（既にtrueなら何もしない）", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1", reviewed: 0 });
     const rt = await loadModule();
     expect(rt.getRun("run-1")?.reviewed).toBe(false);
@@ -1103,7 +1103,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("setRunTriageStatusはtriageStatus/triageAt/reviewedを設定する", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1", reviewed: 0 });
     const rt = await loadModule();
     const updated = rt.setRunTriageStatus("run-1", "watching");
@@ -1113,7 +1113,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("setRunTriageStatusはconsult子runにも同じトリアージを伝播する", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "lead-1", reviewed: 0 });
     insertRunRow(getDb(), { id: "spec-1", agent_name: "People Agent", consulted_by: "lead-1", reviewed: 0 });
     const rt = await loadModule();
@@ -1125,7 +1125,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
 
   // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
   it("setRunArchivedはarchivedAtを設定・解除する（triageStatusとは独立）", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1", triage_status: "watching" });
     const rt = await loadModule();
 
@@ -1140,7 +1140,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("clearSuggestedSubIssuesは提案を消す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_sub_issues_json: JSON.stringify(["b"]),
@@ -1152,7 +1152,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("clearSuggestedIssueNotesは提案を消す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_issue_notes_json: JSON.stringify([{ issueId: "issue-1", text: "メモ" }]),
@@ -1164,9 +1164,9 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestedIssueNotesFromRunは対象Issueのlogへ追記し、提案を消す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("対象Issue");
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_issue_notes_json: JSON.stringify([{ issueId: issue.id, text: "見つけた事実" }]),
@@ -1181,7 +1181,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestedIssueNotesFromRunは存在しないissueIdをスキップする", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_issue_notes_json: JSON.stringify([{ issueId: "no-such-issue-id", text: "メモ" }]),
@@ -1193,7 +1193,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestedIssueNotesFromRunは提案が無ければundefinedを返す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1" });
     const rt = await loadModule();
     expect(await rt.adoptSuggestedIssueNotesFromRun("run-1")).toBeUndefined();
@@ -1201,7 +1201,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
 
   // docs/suggestion_organize_via_consult.md。
   it("clearSuggestedSuggestionUpdatesは提案を消す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_suggestion_updates_json: JSON.stringify([
@@ -1217,9 +1217,9 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestionUpdatesFromRunは指定フィールドをSuggestionへ反映し、提案を消す", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案");
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_suggestion_updates_json: JSON.stringify([
@@ -1244,10 +1244,10 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestionUpdatesFromRunはarchived/reviewDueAtも反映する", async () => {
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案2");
     const dueAt = Date.now() + 86_400_000;
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_suggestion_updates_json: JSON.stringify([
@@ -1262,7 +1262,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestionUpdatesFromRunは存在しないsuggestionIdをスキップする", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_suggestion_updates_json: JSON.stringify([
@@ -1276,7 +1276,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("adoptSuggestionUpdatesFromRunは提案が無ければundefinedを返す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1" });
     const rt = await loadModule();
     expect(await rt.adoptSuggestionUpdatesFromRun("run-1")).toBeUndefined();
@@ -1288,9 +1288,9 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   it("adoptSuggestionUpdatesFromRunのnote追記はauto-issue-update分析を起動しない", async () => {
     const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
-    const suggestionStore = await import("@/lib/suggestion-store");
+    const suggestionStore = await import("@core/suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案3");
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), {
       id: "run-1",
       suggested_suggestion_updates_json: JSON.stringify([
@@ -1315,9 +1315,9 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   it("専門Agent runはconsultedByの親提案コンテキスト（メモ）を使う", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     await issueStore.createIssue("障害対応", "lead-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "lead-1" });
     insertRunRow(getDb(), { id: "spec-1", agent_name: "People Agent", consulted_by: "lead-1" });
     const rt = await loadModule();
@@ -1360,7 +1360,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   // 類似検索等でsystemPromptに含まれても、過去データを勝手に自動アーカイブしない。
   it("過去のナレッジイベントを自動アーカイブせず、入力テキストのみを確認対象とする", async () => {
     const pd = await import("@core/people-directory");
-    const ks = await import("@/lib/knowledge-store");
+    const ks = await import("@core/knowledge-store");
     pd.registerName("漏洩太郎");
     const pastEvent = ks.recordEvent({
       kind: "fact",
@@ -2130,7 +2130,7 @@ describe("watchdog: checkWeeklyDistillation", () => {
   it("旧形式 { week } のみでも他曜日の実行は潰さず、未実行の選択曜日なら起動する", async () => {
     const settingsStore = await import("@core/settings-store");
     const { saveJSON } = await import("@core/persistence");
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
 
     // isoWeekKey と同じ算法（agent-runtime 読込前に週キーを決めるため）
     const isoWeek = (now: Date): string => {
@@ -2330,7 +2330,7 @@ describe("watchdog: checkJournalBatchReview", () => {
   it("旧形式 { date } のみでも後続スロットは塞がず、朝の実行時刻より後のスロットは起動する", async () => {
     const settingsStore = await import("@core/settings-store");
     const { saveJSON } = await import("@core/persistence");
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     const now = new Date();
     const nowHour = now.getHours();
     // 現在が0時だと「朝より後のスロット」を作れないためスキップ相当。
@@ -2385,7 +2385,7 @@ describe("reactToIssueUpdate", () => {
   it("autoIssueUpdateAnalysisEnabledが既定(false)なら起動しない", async () => {
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(0);
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題");
     rt.reactToIssueUpdate(issue.id, "charter", "Why");
     await new Promise((r) => setTimeout(r, 5));
@@ -2400,7 +2400,7 @@ describe("reactToIssueUpdate", () => {
     });
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(0);
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題");
 
     rt.reactToIssueUpdate(issue.id, "charter", "Why・What");
@@ -2427,7 +2427,7 @@ describe("reactToIssueUpdate", () => {
     });
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(0);
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
 
     const run = await rt.startRun("Lead Agent", "初期分析", "manual");
     await waitForSpawnCount(1);
@@ -2453,7 +2453,7 @@ describe("reactToIssueUpdate", () => {
     settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
     const rt = await loadModule();
     rt.setIssueUpdateDebounceMsForTest(45_000);
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題");
 
     rt.reactToIssueUpdate(issue.id, "charter", "Why");
@@ -2479,7 +2479,7 @@ describe("reactToIssueUpdate", () => {
 describe("selectRelatedSpecialists", () => {
   it("タグが無ければ全specialistを返す", async () => {
     const rt = await loadModule();
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題");
     expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
       "People Agent",
@@ -2491,7 +2491,7 @@ describe("selectRelatedSpecialists", () => {
 
   it("介入型タグはPhase 7で保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, ["1on1設計"]);
     expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
       "People Agent",
@@ -2503,7 +2503,7 @@ describe("selectRelatedSpecialists", () => {
 
   it("複数タグ指定も保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, [
       "優先順位／スコープ",
       "1on1設計",
@@ -2525,7 +2525,7 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
       maxParallelAgentRuns: 4,
     });
     const rt = await loadModule();
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     // Phase 7: タグは保持されないため全 quadrant specialist が先行する
     const issue = await issueStore.createIssue("課題");
 
@@ -2574,7 +2574,7 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
     const settingsStore = await import("@core/settings-store");
     settingsStore.updateRulesAndConstraints({ teamParallelKickoffEnabled: false });
     const rt = await loadModule();
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("課題");
 
     await rt.startRun("Lead Agent", "単独で分析", "manual", issue.id);

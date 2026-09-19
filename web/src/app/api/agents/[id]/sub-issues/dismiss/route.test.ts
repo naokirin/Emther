@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 async function insertRunRow() {
-  const { getDb } = await import("@/lib/db");
+  const { getDb } = await import("@core/db");
   getDb()
     .prepare(
       `INSERT INTO agent_runs

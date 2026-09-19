@@ -4,7 +4,7 @@ import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { JournalProfileCandidateSuggestion } from "@/components/JournalProfileCandidateSuggestion";
-import type { ProfileCandidate } from "@/lib/journal-store";
+import type { ProfileCandidate } from "@core/journal-store";
 
 // docs/memo.md「現場メモのタブでも単発のメモ入力をしたい」対応。/journalには従来
 // 「📥 観測を取り込む」（複数件をAIが解析するダンプ）しか無く、Dashboardの「メモする」に

@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe("POST /api/themes/from-okr", () => {
   it("Objective から候補テーマを生成する", async () => {
-    const org = await import("@/lib/org-context-store");
+    const org = await import("@core/org-context-store/index");
     const objective = await org.addObjective("デリバリー速度を上げる", undefined, "リードタイム短縮");
     await org.addKeyResult(objective.id, "デプロイ頻度を週2回に");
 

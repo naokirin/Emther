@@ -1,5 +1,5 @@
 import type { MaskOptions } from "@core/name-candidate-confirmation";
-import { getCurrentJournalEntry, type JournalEntry } from "@/lib/journal-store";
+import { getCurrentJournalEntry, type JournalEntry } from "@core/journal-store";
 import { startJournalAnalysis, type AgentRun } from "@/lib/agent-runtime";
 
 // Journal（journal-store）とAgent Run（agent-runtime）という2つのドメインを組み合わせて

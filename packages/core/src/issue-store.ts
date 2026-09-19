@@ -16,10 +16,10 @@ import {
   setSuggestionTitle,
   toSuggestionView,
   type SuggestionDetailInput,
-} from "@/lib/suggestion-store";
-import type { MaskOptions } from "@core/name-candidate-confirmation";
-import type { ConfirmPriority, Suggestion } from "@core/types";
-import type { Issue, IssueCharter, IssuePriority, IssueStatus } from "@/lib/issue-store-types";
+} from "./suggestion-store";
+import type { MaskOptions } from "./name-candidate-confirmation";
+import type { ConfirmPriority, Suggestion } from "./types";
+import type { Issue, IssueCharter, IssuePriority, IssueStatus } from "./issue-store-types";
 
 // docs/2nd_pivot_version.md Phase 7 移行期の互換レイヤー。
 // 実体は suggestion-store。旧 Issue API／agent-runtime／周辺モジュールが切替完了するまで維持する。
@@ -33,7 +33,7 @@ export type {
   IssueStatus,
   IssueTriageScores,
   IssueTriageSource,
-} from "@/lib/issue-store-types";
+} from "./issue-store-types";
 
 function emptyCharter(): IssueCharter {
   return { why: "", what: "", how: "" };

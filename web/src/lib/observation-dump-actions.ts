@@ -3,7 +3,7 @@ import {
   prefetchJournalExtraction,
   type JournalEntry,
   type JournalNameCandidateHint,
-} from "@/lib/journal-store";
+} from "@core/journal-store";
 import { parseObservationDumpText } from "@/lib/observation-dump-parse";
 import {
   getObservationDump,

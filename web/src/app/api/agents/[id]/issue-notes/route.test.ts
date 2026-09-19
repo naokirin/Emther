@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 async function insertRun(issueNotes: unknown) {
-  const { getDb } = await import("@/lib/db");
+  const { getDb } = await import("@core/db");
   getDb()
     .prepare(
       `INSERT INTO agent_runs
@@ -36,7 +36,7 @@ async function insertRun(issueNotes: unknown) {
 
 describe("POST /api/agents/[id]/issue-notes", () => {
   it("対象Issueのlogへ追記し、提案を消す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("対象Issue");
     await insertRun([{ issueId: issue.id, text: "見つけた事実" }]);
     const route = await import("./route");
@@ -62,7 +62,7 @@ describe("POST /api/agents/[id]/issue-notes", () => {
   });
 
   it("indicesを指定すると選んだ提案だけを採用し、残りは提案のまま残す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issueA = await issueStore.createIssue("対象IssueA");
     const issueB = await issueStore.createIssue("対象IssueB");
     await insertRun([
@@ -89,7 +89,7 @@ describe("POST /api/agents/[id]/issue-notes", () => {
 
 describe("DELETE /api/agents/[id]/issue-notes", () => {
   it("提案を却下できる", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("対象Issue");
     await insertRun([{ issueId: issue.id, text: "見つけた事実" }]);
     const route = await import("./route");
@@ -100,7 +100,7 @@ describe("DELETE /api/agents/[id]/issue-notes", () => {
   });
 
   it("reason:handledだと対応済みとしてrunログに残した上で提案を消す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("対象Issue");
     await insertRun([{ issueId: issue.id, text: "見つけた事実" }]);
     const route = await import("./route");
@@ -119,7 +119,7 @@ describe("DELETE /api/agents/[id]/issue-notes", () => {
   });
 
   it("indicesを指定すると選んだ提案だけを却下し、残りは提案のまま残す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issueA = await issueStore.createIssue("対象IssueA");
     const issueB = await issueStore.createIssue("対象IssueB");
     await insertRun([

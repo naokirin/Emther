@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setJournalNoActionNeeded, clearJournalNoActionNeeded, toJournalEntryView } from "@/lib/journal-store";
+import { setJournalNoActionNeeded, clearJournalNoActionNeeded, toJournalEntryView } from "@core/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 import { jsonFromUnknownError } from "@/app/api/name-candidate-response";
 

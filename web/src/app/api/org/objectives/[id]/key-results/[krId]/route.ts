@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeKeyResult, toObjectiveView, updateKeyResult } from "@/lib/org-context-store";
+import { removeKeyResult, toObjectiveView, updateKeyResult } from "@core/org-context-store/index";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/org/objectives/[id]/key-results/[krId]">) {
   const { id, krId } = await ctx.params;

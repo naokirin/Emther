@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addKeyResult, toObjectiveView } from "@/lib/org-context-store";
+import { addKeyResult, toObjectiveView } from "@core/org-context-store/index";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/org/objectives/[id]/key-results">) {
   const { id } = await ctx.params;

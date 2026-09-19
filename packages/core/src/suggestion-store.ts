@@ -1,20 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { dataFilePath, loadJSON, peekJSON, saveJSON } from "@core/persistence";
-import { embedText } from "@core/embeddings";
-import { recordChangeEvent } from "@/lib/knowledge-store";
-import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@core/people-directory";
-import type { MaskOptions } from "@core/name-candidate-confirmation";
+import { dataFilePath, loadJSON, peekJSON, saveJSON } from "./persistence";
+import { embedText } from "./embeddings";
+import { recordChangeEvent } from "./knowledge-store";
+import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "./people-directory";
+import type { MaskOptions } from "./name-candidate-confirmation";
 import type {
   ConfirmPriority,
   Suggestion,
   SuggestionDetail,
   SuggestionMemo,
   SuggestionReviewStatus,
-} from "@core/types";
+} from "./types";
 
-export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionDetail } from "@core/types";
-import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES } from "@core/types";
+export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionDetail } from "./types";
+import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES } from "./types";
 
 // docs/2nd_pivot_version.md Phase 7。Issue を廃し Suggestion を第一級エンティティにする。
 // 既存 issues.json は suggestions.json が無い初回起動時に一度だけ移行し、以降は suggestions のみ書き込む。

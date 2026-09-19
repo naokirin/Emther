@@ -7,7 +7,7 @@ import {
   type JournalListFilter,
   type Sentiment,
   type Urgency,
-} from "@/lib/journal-store";
+} from "@core/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -13,7 +13,7 @@ const embedRef = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: (text: string) => embedRef.impl(text),
   cosineSimilarity: (a: number[], b: number[]) => {
     if (a.length !== b.length || a.length === 0) return 0;
@@ -44,7 +44,7 @@ afterEach(() => {
 
 describe("agent-knowledge-tools", () => {
   it("extractLookupはqueriesをパースし上限で切る", async () => {
-    const { extractLookup, LOOKUP_MAX_QUERIES } = await import("@/lib/agent-knowledge-tools");
+    const { extractLookup, LOOKUP_MAX_QUERIES } = await import("./agent-knowledge-tools");
     const queries = Array.from({ length: LOOKUP_MAX_QUERIES + 2 }, (_, i) => ({
       type: "issues",
       query: `q${i}`,
@@ -56,18 +56,18 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("extractLookupは不正・空でundefined", async () => {
-    const { extractLookup } = await import("@/lib/agent-knowledge-tools");
+    const { extractLookup } = await import("./agent-knowledge-tools");
     expect(extractLookup("no block")).toBeUndefined();
     expect(extractLookup('```lookup\n{ "queries": [] }\n```')).toBeUndefined();
     expect(extractLookup('```lookup\n{ "queries": [{ "type": "issues" }] }\n```')).toBeUndefined();
   });
 
   it("executeLookupのissuesはキーワード一致と不在を返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("./issue-store");
     await issueStore.createIssue("Copilot Workspace 導入", undefined, { why: "開発体験" });
     await issueStore.createIssue("別件オンボーディング");
 
-    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const { executeLookup } = await import("./agent-knowledge-tools");
     const hit = await executeLookup({
       queries: [{ type: "issues", query: "Copilot Workspace", limit: 10 }],
     });
@@ -82,11 +82,11 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("executeLookupのissuesはincludeDoneで完了済みも拾う", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("./issue-store");
     const done = await issueStore.createIssue("完了したCopilot課題");
     await issueStore.setIssueStatus(done.id, "done");
 
-    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const { executeLookup } = await import("./agent-knowledge-tools");
     const withoutDone = await executeLookup({
       queries: [{ type: "issues", query: "Copilot", includeDone: false }],
     });
@@ -100,12 +100,12 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("executeLookupのissueはID詳細を返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("./issue-store");
     const issue = await issueStore.createIssue("詳細確認用", undefined, {
       why: "理由本文",
       what: "何をやるか",
     });
-    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const { executeLookup } = await import("./agent-knowledge-tools");
     const text = await executeLookup({ queries: [{ type: "issue", id: issue.id }] });
     expect(text).toContain(issue.id);
     expect(text).toContain("詳細確認用");
@@ -116,7 +116,7 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("executeLookupのjournalsはキーワード検索する", async () => {
-    const knowledge = await import("@/lib/knowledge-store");
+    const knowledge = await import("./knowledge-store");
     knowledge.recordEvent({
       kind: "fact",
       context: "observation",
@@ -127,7 +127,7 @@ describe("agent-knowledge-tools", () => {
       occurredAt: Date.now(),
     });
 
-    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const { executeLookup } = await import("./agent-knowledge-tools");
     const hit = await executeLookup({
       queries: [{ type: "journals", query: "Copilot", limit: 5 }],
     });
@@ -141,12 +141,12 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("executeLookupのsimilarは未完了と状態不問を分けて返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("./issue-store");
     await issueStore.createIssue("類似オープン", undefined, { why: "育成" });
     const done = await issueStore.createIssue("類似クローズ", undefined, { why: "育成" });
     await issueStore.setIssueStatus(done.id, "done");
 
-    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const { executeLookup } = await import("./agent-knowledge-tools");
     const text = await executeLookup({
       queries: [{ type: "similar", query: "育成の停滞", limit: 10 }],
     });
@@ -156,7 +156,7 @@ describe("agent-knowledge-tools", () => {
   });
 
   it("executeLookupのsimilarはPERSON_nクエリを実名に戻してからembedする", async () => {
-    const people = await import("@core/people-directory");
+    const people = await import("./people-directory");
     const personId = people.registerName("花子");
     const seen: string[] = [];
     embedRef.impl = async (text: string) => {
@@ -164,7 +164,7 @@ describe("agent-knowledge-tools", () => {
       return [1, 0, 0];
     };
 
-    const { executeLookup } = await import("@/lib/agent-knowledge-tools");
+    const { executeLookup } = await import("./agent-knowledge-tools");
     const text = await executeLookup({
       queries: [{ type: "similar", query: `${personId}の育成が停滞している`, limit: 5 }],
     });

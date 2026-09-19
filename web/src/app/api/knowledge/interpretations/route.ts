@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { recordEvent, listEvents, listInterpretationsForPerson, toEventView } from "@/lib/knowledge-store";
+import { recordEvent, listEvents, listInterpretationsForPerson, toEventView } from "@core/knowledge-store";
 import { embedText } from "@core/embeddings";
 import { getPersonId, maskForStorage, registerName } from "@core/people-directory";
 

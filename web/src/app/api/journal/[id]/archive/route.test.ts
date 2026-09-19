@@ -41,7 +41,7 @@ describe("POST/DELETE /api/journal/[id]/archive", () => {
   });
 
   it("アーカイブし、DELETEで解除できる", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("重複して記録してしまった");
     const route = await import("./route");
 

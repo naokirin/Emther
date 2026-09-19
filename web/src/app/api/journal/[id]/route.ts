@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@/lib/journal-store";
+import { getCurrentJournalEntry, listJournalEntries, toJournalEntryView, updateJournalEntry } from "@core/journal-store";
 import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
-import { resolveJournalOccurredAtFromDateInput } from "@/lib/journal-date-parser";
+import { resolveJournalOccurredAtFromDateInput } from "@core/journal-date-parser";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { resolveUniqueByPrefix } from "@/lib/id-resolve";
-import { listIssues } from "@/lib/issue-store";
+import { listIssues } from "@core/issue-store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/journal/[id]">) {
   const { id } = await ctx.params;

@@ -25,8 +25,8 @@ afterEach(() => {
 
 describe("GET /api/org/objectives", () => {
   it("進捗つきで一覧を返す", async () => {
-    const orgStore = await import("@/lib/org-context-store");
-    const issueStore = await import("@/lib/issue-store");
+    const orgStore = await import("@core/org-context-store/index");
+    const issueStore = await import("@core/issue-store");
     const objective = await orgStore.addObjective("売上を伸ばす");
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
     const krId = withKr!.keyResults[0].id;
@@ -56,7 +56,7 @@ describe("POST /api/org/objectives", () => {
 
   // ユーザー要望「目標のカスケーディング構成」対応。
   it("teamIdを指定するとそのチームの目標として作成できる", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", { title: "チーム目標", teamId: team.id }));

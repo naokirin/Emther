@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getIssueByRunId, linkIssueRun } from "@/lib/issue-store";
+import { getIssueByRunId, linkIssueRun } from "@core/issue-store";
 import type { MaskOptions } from "@core/name-candidate-confirmation";
 import { ensureNameCandidatesAllowed } from "@core/people-directory";
 import { getRulesAndConstraints } from "@core/settings-store";

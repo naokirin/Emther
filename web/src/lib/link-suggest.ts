@@ -1,7 +1,7 @@
 import { extractFirstJsonObject } from "@core/local-model";
 import { runCloudChat } from "@/lib/cloud-chat";
-import { listIssues } from "@/lib/issue-store";
-import { listObjectives } from "@/lib/org-context-store";
+import { listIssues } from "@core/issue-store";
+import { listObjectives } from "@core/org-context-store/index";
 import { unmaskNames } from "@core/people-directory";
 import { listAdoptedThemes, toThemeView, type OrgTheme } from "@/lib/theme-store";
 import {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listObjectives } from "@/lib/org-context-store";
+import { listObjectives } from "@core/org-context-store/index";
 import { createThemeCandidate, toThemeView } from "@/lib/theme-store";
 
 // docs/value_hierarchy_and_flow.md §2.3。期初・OKR 更新時に Objective/KR から候補テーマを先に置く。

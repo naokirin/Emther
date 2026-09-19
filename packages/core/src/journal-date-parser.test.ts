@@ -5,7 +5,7 @@ import {
   parseDateMarkerLine,
   resolveJournalOccurredAtFromDateInput,
   timestampToDateInputValue,
-} from "@/lib/journal-date-parser";
+} from "./journal-date-parser";
 
 // 基準時刻: 2026-03-05(木) 12:00:00 ローカル時刻
 const NOW = new Date(2026, 2, 5, 12, 0, 0, 0).getTime();

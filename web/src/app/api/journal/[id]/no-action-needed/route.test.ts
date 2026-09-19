@@ -54,7 +54,7 @@ describe("POST/DELETE /api/journal/[id]/no-action-needed", () => {
   });
 
   it("確認済み（対応不要）を記録し、DELETEで取り消せる", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const entry = await journalStore.addJournalEntry("つらい出来事");
     const route = await import("./route");
 

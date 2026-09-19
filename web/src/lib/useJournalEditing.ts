@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { timestampToDateInputValue } from "@/lib/journal-date-parser";
+import { timestampToDateInputValue } from "@core/journal-date-parser";
 import { truncateForTitle, type JournalEntry } from "@core/types";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 

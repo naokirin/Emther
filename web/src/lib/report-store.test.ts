@@ -73,7 +73,7 @@ describe("generateReport", () => {
   });
 
   it("期間内のJournalエントリを集計する", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const store = await loadModule();
     const now = 1_700_000_000_000;
 
@@ -91,7 +91,7 @@ describe("generateReport", () => {
 
   // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
   it("確認済み（対応不要）にしたJournalはnotableEntriesから除外する", async () => {
-    const journalStore = await import("@/lib/journal-store");
+    const journalStore = await import("@core/journal-store");
     const store = await loadModule();
     const now = 1_700_000_000_000;
 
@@ -105,7 +105,7 @@ describe("generateReport", () => {
   });
 
   it("期間内に作成・アーカイブされたIssueを分けて集計する", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const store = await loadModule();
     const now = Date.now();
 
@@ -119,7 +119,7 @@ describe("generateReport", () => {
   });
 
   it("知識イベント(context:official)を種別ごとに集計する", async () => {
-    const knowledgeStore = await import("@/lib/knowledge-store");
+    const knowledgeStore = await import("@core/knowledge-store");
     const store = await loadModule();
     const now = Date.now();
     knowledgeStore.recordChangeEvent("issue", "issue-1", "変更履歴1");
@@ -157,7 +157,7 @@ describe("listReports / getReport / updateReportNote", () => {
 describe("toReportView", () => {
   it("PERSON_n IDを実名に復元する", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");
 

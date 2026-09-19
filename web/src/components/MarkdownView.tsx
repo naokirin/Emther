@@ -5,7 +5,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import styles from "@/app/page.module.css";
 import { IdFragmentLink } from "@/components/IdFragmentLink";
-import { linkifyIdFragmentsInMarkdown } from "@/lib/id-prefix";
+import { linkifyIdFragmentsInMarkdown } from "@core/id-prefix";
 
 // docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。Issue charter（Why/What/How）・
 // Journal本文など、EMが自由記述したテキストを見出し・箇条書き・太字を活かして読みやすく

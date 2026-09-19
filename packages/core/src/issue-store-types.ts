@@ -1,7 +1,7 @@
 // docs/2nd_pivot_version.md Phase 7。issue-store 互換レイヤー用のレガシー型。
 // Suggestion 移行完了後に削除する。
 
-import type { SuggestionReviewStatus } from "@core/types";
+import type { SuggestionReviewStatus } from "./types";
 
 export type ActionItem = {
   id: string;

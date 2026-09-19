@@ -6,9 +6,9 @@ import {
   recordChangeEvent,
   toEventView,
   type KnowledgeEvent,
-} from "@/lib/knowledge-store";
-import { listActiveTeams, reassignPersonIdInTeams } from "@/lib/org-context-store";
-import { listIssues, toIssueView, type Issue } from "@/lib/issue-store";
+} from "@core/knowledge-store";
+import { listActiveTeams, reassignPersonIdInTeams } from "@core/org-context-store/index";
+import { listIssues, toIssueView, type Issue } from "@core/issue-store";
 import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@core/settings-store";
 import { isIssueStalled, suggestionOverviewFromLogs } from "@core/types";
 import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "@/lib/person-concern-ack-store";

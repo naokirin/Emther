@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeTeam, toTeamView, updateTeam } from "@/lib/org-context-store";
+import { removeTeam, toTeamView, updateTeam } from "@core/org-context-store/index";
 import { teamPathSegments } from "@core/types";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/teams/[id]">) {

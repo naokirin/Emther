@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 async function insertRunRow(status = "idle") {
-  const { getDb } = await import("@/lib/db");
+  const { getDb } = await import("@core/db");
   getDb()
     .prepare(
       `INSERT INTO agent_runs

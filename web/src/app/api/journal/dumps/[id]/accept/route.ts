@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 import { acceptDumpChunks } from "@/lib/observation-dump-actions";
 import { getObservationDump, toObservationDumpView } from "@/lib/observation-dump-store";
-import { toJournalEntryViews } from "@/lib/journal-store";
+import { toJournalEntryViews } from "@core/journal-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

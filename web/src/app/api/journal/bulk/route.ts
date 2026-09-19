@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addJournalEntriesBulk, toJournalEntryViews } from "@/lib/journal-store";
+import { addJournalEntriesBulk, toJournalEntryViews } from "@core/journal-store";
 import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。EMが忙しくて

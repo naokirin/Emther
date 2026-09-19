@@ -55,7 +55,7 @@ function insertRunRow(db: import("node:sqlite").DatabaseSync, overrides: Partial
 
 describe("GET /api/agents/inbox", () => {
   it("既定はpageSize=5・却下(dismissed)を除外して返す", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1", created_at: 2 });
     insertRunRow(getDb(), { id: "run-2", created_at: 1, triage_status: "dismissed" });
     const route = await import("./route");
@@ -67,7 +67,7 @@ describe("GET /api/agents/inbox", () => {
   });
 
   it("page/pageSize/status/showDismissedクエリを反映する", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1", created_at: 3, status: "idle" });
     insertRunRow(getDb(), { id: "run-2", created_at: 2, status: "yield" });
     insertRunRow(getDb(), { id: "run-3", created_at: 1, status: "idle", triage_status: "dismissed" });
@@ -79,7 +79,7 @@ describe("GET /api/agents/inbox", () => {
   });
 
   it("不正なstatus値は無視する", async () => {
-    const { getDb } = await import("@/lib/db");
+    const { getDb } = await import("@core/db");
     insertRunRow(getDb(), { id: "run-1" });
     const route = await import("./route");
     const res = await route.GET(new Request("http://localhost/api/agents/inbox?status=bogus"));

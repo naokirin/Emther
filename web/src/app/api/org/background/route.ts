@@ -5,7 +5,7 @@ import {
   toOrgBackgroundView,
   type OrgBackgroundScope,
   type OrgBackgroundStatus,
-} from "@/lib/org-context-store";
+} from "@core/org-context-store/index";
 
 export async function GET() {
   return NextResponse.json({

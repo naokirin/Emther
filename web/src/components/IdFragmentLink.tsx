@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
-import { goHrefForIdFragment } from "@/lib/id-prefix";
+import { goHrefForIdFragment } from "@core/id-prefix";
 import type { IdMatch, IdMatchKind } from "@/lib/id-resolve";
 import styles from "@/app/page.module.css";
 

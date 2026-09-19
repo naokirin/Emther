@@ -39,7 +39,7 @@ describe("GET /api/issues/[id]", () => {
   });
 
   it("存在すれば実名復元済みで返す", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("既存Issue");
     const route = await import("./route");
     const res = await route.GET(new Request(`http://localhost/api/issues/${issue.id}`), routeCtx({ id: issue.id }));
@@ -48,7 +48,7 @@ describe("GET /api/issues/[id]", () => {
   });
 
   it("先頭8桁の一意プレフィックスでも取得できる", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("短いID");
     const route = await import("./route");
     const prefix = issue.id.slice(0, 8);
@@ -58,8 +58,8 @@ describe("GET /api/issues/[id]", () => {
   });
 
   it("sourceJournalsにresolvedIssueIdで紐づくJournalを含める", async () => {
-    const issueStore = await import("@/lib/issue-store");
-    const journalStore = await import("@/lib/journal-store");
+    const issueStore = await import("@core/issue-store");
+    const journalStore = await import("@core/journal-store");
     const issue = await issueStore.createIssue("既存Issue");
     const entry = await journalStore.addJournalEntry("現場の問題");
     await journalStore.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
@@ -82,7 +82,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("titleを空文字にしようとすると400", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("Issue");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -93,7 +93,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("charter/title/keyResultId/teamIdをまとめて更新できる（charterはメモへ写像）", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("元のタイトル");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -115,7 +115,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("statusを更新できる", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("Issue");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -127,7 +127,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("不正なstatusは400", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("Issue");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -138,7 +138,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("priorityとmoveFocusを更新できる", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const a = await issueStore.createIssue("A");
     const b = await issueStore.createIssue("B");
     const route = await import("./route");
@@ -161,7 +161,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("不正なpriorityは400", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("Issue");
     const route = await import("./route");
     const res = await route.PATCH(
@@ -172,7 +172,7 @@ describe("PATCH /api/issues/[id]", () => {
   });
 
   it("keyResultId/teamIdにnullを渡すと解除できる（キー自体が無ければ変更しない）", async () => {
-    const issueStore = await import("@/lib/issue-store");
+    const issueStore = await import("@core/issue-store");
     const issue = await issueStore.createIssue("Issue");
     issueStore.setIssueKeyResult(issue.id, "kr-1");
     issueStore.setIssueTeam(issue.id, "team-1");

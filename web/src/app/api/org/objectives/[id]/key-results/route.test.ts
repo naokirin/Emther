@@ -37,7 +37,7 @@ describe("POST /api/org/objectives/[id]/key-results", () => {
   });
 
   it("追加できる（201）", async () => {
-    const orgStore = await import("@/lib/org-context-store");
+    const orgStore = await import("@core/org-context-store/index");
     const objective = await orgStore.addObjective("Objective");
     const route = await import("./route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", { title: "新規契約10件" }), routeCtx({ id: objective.id }));
