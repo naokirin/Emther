@@ -10,8 +10,8 @@ describe("link-suggest live diagnose", () => {
       return;
     }
 
-    const { listAdoptedThemes, toThemeView } = await import("@core/theme-store");
-    const { assertNoRealNamesLeaked } = await import("@core/people-directory");
+    const { listAdoptedThemes, toThemeView } = await import("./theme-store");
+    const { assertNoRealNamesLeaked } = await import("./people-directory");
     const themes = listAdoptedThemes();
     const unmaskedBlock = themes
       .map((t) => {
@@ -56,7 +56,7 @@ describe("link-suggest live diagnose", () => {
         return;
       }
 
-      const { suggestIssueStrategyLinks } = await import("@core/link-suggest");
+      const { suggestIssueStrategyLinks } = await import("./link-suggest");
       const started = Date.now();
       const result = await suggestIssueStrategyLinks();
       const elapsedMs = Date.now() - started;

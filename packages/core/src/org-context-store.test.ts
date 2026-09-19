@@ -1,14 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@core/org-context-store/index");
+  return import("./org-context-store/index");
 }
 
 describe("teams", () => {
@@ -252,7 +252,7 @@ describe("objectives", () => {
   });
 
   it("toObjectiveViewはPERSON_n IDでマスクされたtitleを実名復元する", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");
     const objective = await store.addObjective("Aさんの育成計画");
@@ -262,7 +262,7 @@ describe("objectives", () => {
   });
 
   it("toObjectiveViewはメモも実名復元する", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");
     const objective = await store.addObjective("育成", undefined, "Aさん向け");
