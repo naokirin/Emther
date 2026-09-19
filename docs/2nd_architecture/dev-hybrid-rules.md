@@ -57,10 +57,11 @@
 - `POST /api/growth/generate`
 - `GET/POST /api/models/status`, `POST /api/mask-check`, `POST /api/journal/local-summarize`, `GET/POST /api/knowledge/interpretations`
 - `POST /api/settings/data/backup`（`settings/data/reset`・`settings/data/restore`は`process.exit`を呼ぶため意図的に未移植。5節参照）
+- `GET/POST /api/journal/dumps`, `GET/PATCH /api/journal/dumps/:id`, `POST /api/journal/dumps/:id/parse`, `POST /api/journal/dumps/:id/accept`, `POST /api/journal/dumps/preview`, `GET/POST/DELETE /api/journal/dumps/profiles`
 
-**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク11ルート（うち2ルートはフェーズ4まで意図的に未移植）。
+**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク5ルート（うち2ルートはフェーズ4まで意図的に未移植。実質移植対象は`org/objectives/parse`・`issues/link/suggest`・`themes/link/suggest`の3ルート）。
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate,models-status,mask-check,journal-local-summarize,knowledge-interpretations,settings-data-backup}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる。`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate,models-status,mask-check,journal-local-summarize,knowledge-interpretations,settings-data-backup,journal-dumps}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる。`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
 
 ## 4. agent-runtime系ルートを移植する際の注意（高リスク側）
 
@@ -72,11 +73,17 @@
 - `settings/data/reset`・`settings/data/restore`は`state-archive.ts`の`scheduleProcessExit()`（`setTimeout`後に`process.exit(0)`）を呼ぶ。これは「呼び出し元プロセス自身」を終了させるため、Hono側へ移植すると操作のたびに`apps/server`プロセスだけが落ち、Next.js（ユーザーが実際にアクセスする側、`scripts/emther`が監視・再起動する対象）はプロキシ先が死んだ壊れた状態のまま生き残る。
 - この2ルートは**フェーズ4（単一プロセス配信への集約）まで意図的にNext側に残す**（`plan.md`のリスクレジスタ・フェーズ2.7完了基準の例外事項を参照）。同様に「呼び出し元プロセスを終了させる」処理を持つ未移植ルートが今後見つかった場合も同じ基準で判断する。
 
-## 6. ローカルMLを起動するエンドポイントの手動確認について
+## 6. 新しいルートをmountする際の必須チェック（マウント順バグ）
+
+- **あるprefix配下のサブパスを別ファイルへ切り出す**とき（例: `/api/foo`が既に`:id`ワイルドカードを持つ状態で、`/api/foo/bar`を別ファイル・別Honoインスタンスとして新設する）、`apps/server/src/app.ts`では**サブパス側を親より必ず先に`app.route()`する**こと。Honoは別々にmountしたサブアプリ間でprefixが重なる場合、静的パスを優先せず「先にmountされた方」が勝つ（単一Honoインスタンス内でのstatic-vs-`:id`優先とは異なる挙動）。
+- 2026-09-19（フェーズ2.5 高リスク バッチ9）に`GET /api/journal/dumps`が`journalRoute`の`GET /:id`に飲まれる実害のあるバグとして発覚した（`journal/local-summarize`・`themes/distill`はPOST専用のため実害は無かったが同じ落とし穴を踏んでいた）。`apps/server/src/routes/*.test.ts`は各ルートのHonoインスタンスを直接requestするため、この種の合成順序バグを検出できない。
+- 新しいルートを追加したら、**`apps/server/src/app.test.ts`（合成済み`app`への直接リクエストで確認する回帰テスト）に該当パスの確認項目を追記する**こと。手動`safe-curl`でも合成済みの実サーバー（`npm run dev -w @emther/server`）に対して疎通確認するのが望ましい。
+
+## 7. ローカルMLを起動するエンドポイントの手動確認について
 
 - `journal`（POST系）・`models/status`（GET含む、`ensureLocalModels()`をfire-and-forgetで発火）等、`local-model`/`embeddings`を実際にロードするルートは、モデル未ダウンロードの開発環境では`safe-curl`での手動確認がプロセスクラッシュを起こしうる（1節参照、フェーズ2.5バッチ6・7で発見）。**手動確認は影響の少ないGET/読み取り専用系に留め、モデルロードを伴う検証は自動テスト（`@core/local-model`/`@core/embeddings`をモック済み）に任せる。**
 
-## 7. まだ決めていないこと（フェーズ2.5以降で追記）
+## 8. まだ決めていないこと（フェーズ2.5以降で追記）
 
 - バッチが増えて `apps/server` 側のルート数が多くなったときの、ルーティング整理方針（現状は1ファイル1リソースのフラット構成）。
 - E2E的な動作確認（`emther doctor` 相当）を2プロセス構成でどう行うか。

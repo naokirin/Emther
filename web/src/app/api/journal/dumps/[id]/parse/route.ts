@@ -1,19 +1,4 @@
-import { NextResponse } from "next/server";
-import { jsonFromUnknownError } from "@/app/api/name-candidate-response";
-import { runParseOnDump } from "@core/observation-dump-actions";
-import { getObservationDump, toObservationDumpView } from "@core/observation-dump-store";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/journal-dumps.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-type Ctx = { params: Promise<{ id: string }> };
-
-export async function POST(_request: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
-  if (!getObservationDump(id)) {
-    return NextResponse.json({ error: "見つかりません" }, { status: 404 });
-  }
-  try {
-    const dump = await runParseOnDump(id);
-    return NextResponse.json({ dump: toObservationDumpView(dump) });
-  } catch (err) {
-    return jsonFromUnknownError(err);
-  }
-}
+export const POST = proxyToHono;

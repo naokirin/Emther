@@ -26,6 +26,7 @@ import { maskCheckRoute } from "./routes/mask-check";
 import { journalLocalSummarizeRoute } from "./routes/journal-local-summarize";
 import { knowledgeInterpretationsRoute } from "./routes/knowledge-interpretations";
 import { settingsDataBackupRoute } from "./routes/settings-data-backup";
+import { journalDumpsRoute } from "./routes/journal-dumps";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -47,19 +48,26 @@ export function createApp() {
   app.route("/api/people", peopleRoute);
   app.route("/api/org/objectives", orgObjectivesRoute);
   app.route("/api/org/strategy", orgStrategyRoute);
+  // 注意: Honoは別々にmountされたサブアプリ同士でパスが重なる場合、静的パスを
+  // 優先せず「先にmountされた方」が勝つ（単一Honoインスタンス内でのstatic-vs-:id
+  // 優先とは挙動が異なる）。そのため、あるprefix配下のサブパスを別ファイルへ切り出す
+  // ときは、親（:idワイルドカードを持つ）より必ず先にmountすること
+  // （実例: /api/journal/dumps が /api/journal の GET /:id に飲まれていた不具合。
+  // docs/2nd_architecture/plan.md フェーズ2.5 高リスク バッチ9参照）。
+  app.route("/api/journal/local-summarize", journalLocalSummarizeRoute);
+  app.route("/api/journal/dumps", journalDumpsRoute);
   app.route("/api/journal", journalRoute);
   app.route("/api/settings/rules", settingsRulesRoute);
+  app.route("/api/themes/distill", themesDistillRoute);
   app.route("/api/themes", themesRoute);
   app.route("/api/agents/inbox", agentsInboxRoute);
   app.route("/api/agents/pending-unmasked", agentsPendingUnmaskedRoute);
   app.route("/api/agents", agentsRoute);
   app.route("/api/issues", issuesRoute);
   app.route("/api/suggestions", suggestionsRoute);
-  app.route("/api/themes/distill", themesDistillRoute);
   app.route("/api/growth/generate", growthGenerateRoute);
   app.route("/api/models/status", modelsStatusRoute);
   app.route("/api/mask-check", maskCheckRoute);
-  app.route("/api/journal/local-summarize", journalLocalSummarizeRoute);
   app.route("/api/knowledge/interpretations", knowledgeInterpretationsRoute);
   app.route("/api/settings/data/backup", settingsDataBackupRoute);
   return app;
