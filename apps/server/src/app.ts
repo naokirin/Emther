@@ -21,6 +21,10 @@ import { issuesRoute } from "./routes/issues";
 import { suggestionsRoute } from "./routes/suggestions";
 import { themesDistillRoute } from "./routes/themes-distill";
 import { growthGenerateRoute } from "./routes/growth-generate";
+import { modelsStatusRoute } from "./routes/models-status";
+import { maskCheckRoute } from "./routes/mask-check";
+import { journalLocalSummarizeRoute } from "./routes/journal-local-summarize";
+import { knowledgeInterpretationsRoute } from "./routes/knowledge-interpretations";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -52,6 +56,10 @@ export function createApp() {
   app.route("/api/suggestions", suggestionsRoute);
   app.route("/api/themes/distill", themesDistillRoute);
   app.route("/api/growth/generate", growthGenerateRoute);
+  app.route("/api/models/status", modelsStatusRoute);
+  app.route("/api/mask-check", maskCheckRoute);
+  app.route("/api/journal/local-summarize", journalLocalSummarizeRoute);
+  app.route("/api/knowledge/interpretations", knowledgeInterpretationsRoute);
   return app;
 }
 

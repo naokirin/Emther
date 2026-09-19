@@ -166,6 +166,10 @@
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（22ファイル/279テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（287テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。両ルートともagent起動を伴うPOSTのみのため、手動smoke testはサーバー起動確認に留めた。
   - **手動smoke test用の一時ディレクトリ削除方法を修正**: `rm -rf`ではなく`rm-tmp <path>`（`/tmp`配下限定の削除ラッパー）を使うようユーザーから指摘。以降のバッチ・`dev-hybrid-rules.md`に反映。
   - **残高リスク**: 18 − 2 = 16ルート。
+- **2.5 高リスク バッチ7（完了・2026-09-19）**: agent-runtime起動を伴わない「ローカルMLのみ」クラスタ4ルートを移植した: `models/status`（`GET`/`POST`）, `mask-check`（`POST`）, `journal/local-summarize`（`POST`）, `knowledge/interpretations`（`GET`/`POST`）。実処理を `apps/server/src/routes/{models-status,mask-check,journal-local-summarize,knowledge-interpretations}.ts` に実装（1ファイル1リソース）。
+  - 対応するNext側4ファイルは`proxyToHono`への委譲に置き換え。既存テスト3本はapps/server側へ移設、`mask-check`はNext側に専用テストが無かったため新規5ケースを追加。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（26ファイル/293テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（278テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。`GET /api/models/status`は`ensureLocalModels()`をfire-and-forgetで発火する（journal POSTと同種のモデル未ダウンロード環境でのクラッシュリスク）ため手動smoke testの対象から外し、`knowledge/interpretations`のGETのみ`safe-curl`で確認した。
+  - **残高リスク**: 16 − 4 = 12ルート。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
 - **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
 

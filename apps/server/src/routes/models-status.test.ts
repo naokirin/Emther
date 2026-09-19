@@ -7,7 +7,7 @@ const getModelLoadSnapshot = vi.fn(() => ({
   models: [],
 }));
 
-vi.mock("@core/model-loader", () => ({
+vi.mock("@emther/core/model-loader", () => ({
   ensureLocalModels: () => ensureLocalModels(),
   retryFailedLocalModels: () => retryFailedLocalModels(),
   getModelLoadSnapshot: () => getModelLoadSnapshot(),
@@ -21,16 +21,16 @@ describe("/api/models/status", () => {
   });
 
   it("GET は ensure を起動してスナップショットを返す", async () => {
-    const { GET } = await import("./route");
-    const res = await GET();
+    const { modelsStatusRoute } = await import("./models-status");
+    const res = await modelsStatusRoute.request("/");
     expect(res.status).toBe(200);
     expect(ensureLocalModels).toHaveBeenCalled();
     expect(await res.json()).toEqual({ overall: "ready", models: [] });
   });
 
   it("POST は失敗スロットの再試行を起動する", async () => {
-    const { POST } = await import("./route");
-    const res = await POST();
+    const { modelsStatusRoute } = await import("./models-status");
+    const res = await modelsStatusRoute.request("/", { method: "POST" });
     expect(res.status).toBe(200);
     expect(retryFailedLocalModels).toHaveBeenCalled();
   });
