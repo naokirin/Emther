@@ -66,7 +66,7 @@
 
 ## 4. agent-runtime系ルートを移植する際の注意（高リスク側）
 
-- `agent-runtime`（`scheduled-tasks.ts`）をimportするルートをHono側へ移植すると、Next側watchdogと合わせて30秒間隔の自動バッチチェックが2プロセスで同時に走る。既存の3層二重起動ガード（globalThisクレーム・ファイル永続化・DB上の当日run存在チェック）で大筋は許容される設計（詳細は`plan.md`「高リスク バッチ1」参照）だが、完全な無害性は未検証。
+- `agent-runtime`（`scheduled-tasks.ts`）をimportするルートをHono側へ移植すると、Next側watchdogと合わせて30秒間隔の自動バッチチェックが2プロセスで同時に走る。既存の3層二重起動ガード（globalThisクレーム・ファイル永続化・DB上の当日run存在チェック）はいずれも単一プロセス内の同期実行を前提にしており、複数OSプロセス間のTOCTOUは防げない。フェーズ2.7で2プロセスを実機起動して**実際に重複起動（1ミリ秒差でauto-summary runが2件作成）を確認**したため、`auto_batch_claims`テーブル（SQLite UNIQUE制約による原子的クレーム）を4つの自動バッチ関数全てに追加し、起動直前の最終ゲートとした（詳細は`plan.md`フェーズ2.7参照）。新しい自動バッチ種別を追加する場合も、`start*()`を呼ぶ直前に`tryClaimAutoBatchSlot()`で原子的にクレームすること。
 - `POST`系（agent起動を伴うもの）は実際のCLIプロセスを起動しうるため、手動`safe-curl`では叩かない。GETのみで疎通確認し、POSTの検証は`node:child_process`の`spawn`をモックした自動テストに委ねる。
 
 ## 5. プロセスを終了させるルート（`process.exit`系）は並走期間中は移植しない

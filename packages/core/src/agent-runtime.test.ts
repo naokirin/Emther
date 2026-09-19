@@ -2091,6 +2091,30 @@ describe("watchdog: checkMorningSummary", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(rt.listRuns().filter((r) => r.origin === "auto-summary")).toHaveLength(1);
   });
+
+  // docs/2nd_architecture/plan.md フェーズ2.7: Next↔Hono並走のように複数OSプロセスが
+  // 同じデータディレクトリを見る構成では、globalThis／JSON永続化／DB run確認の
+  // 「読み取り→書き込み」の組み合わせだけではTOCTOUを防げない（2026-09-19、2プロセスを
+  // 実機起動して実際に重複起動を再現・確認した）。auto_batch_claimsテーブルへの原子的
+  // INSERTが最終防波堤として機能することを、他の3層のガードを素通りする状況を直接
+  // 作って確認する。
+  it("他プロセスがauto_batch_claimsを先取りしていれば、他のガード層を素通りしてもstartRunを呼ばない", async () => {
+    const settingsStore = await import("./settings-store");
+    settingsStore.updateRulesAndConstraints({ autoMorningSummaryEnabled: true, autoMorningSummaryHour: 0 });
+    const rt = await loadModule();
+    const { getDb } = await import("./db");
+    const today = rt.todayDateString(new Date());
+    // globalThisのクレーム・JSON永続化・DB run確認のいずれもまだ「未クレーム」の
+    // 状態のまま、auto_batch_claimsだけ他プロセスが先に取得済みという状況を再現する。
+    getDb()
+      .prepare("INSERT INTO auto_batch_claims (claim_key, claimed_at) VALUES (?, ?)")
+      .run(`auto-summary:${today}`, Date.now());
+
+    rt.checkMorningSummary();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(rt.listRuns()).toHaveLength(0);
+    expect(spawnCalls).toHaveLength(0);
+  });
 });
 
 describe("watchdog: checkWeeklyDistillation", () => {

@@ -15,21 +15,43 @@ import type { AgentRun, PendingAgentStart } from "./types";
 // docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
 // 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
 //
-// 二重起動ガードは次の3層:
+// 二重起動ガードは次の4層（朝サマリー・週次蒸留・週次Grow・Journal集約の全4種で共通の考え方）:
 // 1) globalThis 上のクレーム（同一プロセス内の HMR でも共有）
-// 2) auto-morning-summary.json の永続化（プロセス再起動後）
-// 3) 当日の origin=auto-summary が DB/メモリに既にあれば起動しない
+// 2) auto-morning-summary.json 等の永続化（プロセス再起動後）
+// 3) 当日/当該週の origin run が DB/メモリに既にあれば起動しない
+// 4) auto_batch_claims テーブルへの原子的 INSERT（起動直前の最終防波堤）
 //
 // (1) だけだと next dev の HMR でモジュール変数がリセットされ、かつ setInterval が
 // クリアされずに積み上がると、指定時刻直後に複数 tick がほぼ同時に走りレースする
 // （実機: 2026-09-11 07:00 に約3秒で9件）。ファイル永続化だけでは「全員が未クレームを
 // 読んでから書く」レースを止められないため、globalThis 単一化 + 既存 run の有無確認が必要。
+// さらに、docs/2nd_architecture/plan.md フェーズ2（Hono並走）でNext↔Honoの2プロセスが
+// 同じデータディレクトリを見る構成になると、(1)〜(3)は全て「読み取り→（別プロセスの
+// 書き込みを跨がず）書き込み」という同一プロセス内の同期実行を前提にしており、
+// 複数OSプロセス間のTOCTOUは防げない（2026-09-19、2プロセスを実機起動して実際に
+// 重複起動を再現・確認済み）。(4)のSQLite UNIQUE制約INSERTはOSのファイルロックで
+// プロセスをまたいで直列化されるため、これが唯一プロセス境界をまたいで安全な層。
 function loadLastAutoMorningSummaryDate(): string | null {
   return loadJSON<{ date: string | null }>("auto-morning-summary.json", { date: null }).date;
 }
 
 function saveLastAutoMorningSummaryDate(date: string): void {
   saveJSON("auto-morning-summary.json", { date });
+}
+
+/**
+ * 自動バッチ起動の直前に呼ぶ、プロセス境界をまたいで安全な最終クレーム。
+ * SQLiteのPRIMARY KEY制約により、同じclaimKeyへのINSERTは（他プロセスからの
+ * ものも含めて）最初の1件しか成功しない。trueを返した呼び出し元だけが実際に
+ * start*()を呼んでよい。
+ */
+function tryClaimAutoBatchSlot(claimKey: string): boolean {
+  try {
+    getDb().prepare("INSERT INTO auto_batch_claims (claim_key, claimed_at) VALUES (?, ?)").run(claimKey, Date.now());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function todayDateString(now: Date): string {
@@ -103,6 +125,8 @@ export function checkMorningSummary(): void {
   // 先にクレームしてから startRun（並行 tick が同じ窓に入っても2件目は上のガードで弾く）。
   guard.lastAutoMorningSummaryDate = today;
   saveLastAutoMorningSummaryDate(today);
+  // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
+  if (!tryClaimAutoBatchSlot(`auto-summary:${today}`)) return;
   void startRun("Lead Agent", MORNING_SUMMARY_TASK, "auto-summary").catch(() => {
     // 自動サマリーの起動失敗は無視する（次のwatchdog tickで日付が変わらない限り再試行はしない）。
   });
@@ -180,6 +204,10 @@ export function checkJournalBatchReview(): void {
     activeUntil: persisted.activeUntil,
   });
 
+  // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
+  // 「今回新たに消化する時刻の集合」単位でクレームする（同日内でも後続スロットは
+  // 別キーになるため、複数回の正当な起動は妨げない）。
+  if (!tryClaimAutoBatchSlot(`auto-journal-batch:${today}:${unclaimedDue.join(",")}`)) return;
   void startJournalBatchAnalysis().catch(() => {
     // 自動起動失敗は無視する（クレーム済みのため同スロットでは再試行しない）。
   });
@@ -392,6 +420,8 @@ export function checkWeeklyGrow(): void {
   }
   guard.lastAutoGrowWeek = week;
   saveLastAutoGrowWeek(week);
+  // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
+  if (!tryClaimAutoBatchSlot(`auto-grow:${week}`)) return;
   void startGrowAnalysis().catch(() => {
     // 学びの提案の起動失敗は無視（次週まで再試行しない）。
   });
@@ -439,6 +469,8 @@ export function checkWeeklyDistillation(): void {
   guard.lastAutoDistillationWeek = week;
   guard.lastAutoDistillationClaimedWeekdays = newClaimed;
   saveDistillationPersisted({ week, claimedWeekdays: newClaimed });
+  // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
+  if (!tryClaimAutoBatchSlot(`auto-distill:${week}:${day}`)) return;
   void startDistillationAnalysis().catch(() => {
     // 起動失敗は無視（同曜日スロットでは再試行しない）。
   });

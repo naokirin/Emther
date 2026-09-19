@@ -275,4 +275,19 @@ function migrate(database: DatabaseSync): void {
       PRIMARY KEY (person_id, issue_id)
     );
   `);
+
+  // docs/2nd_architecture/plan.md フェーズ2.7: 自動バッチ（朝サマリー・週次蒸留・週次Grow・
+  // Journal集約）の二重起動ガードは、これまでJSON永続化＋DB上の既存run確認という
+  // 「読み取り→書き込み」の組み合わせだった。単一プロセス内では同期実行のため安全だが、
+  // Next↔Hono並走のように複数OSプロセスが同じデータディレクトリを見る構成では、
+  // 読み取り後・書き込み前のTOCTOUで両プロセスが「未クレーム」と判定し二重起動しうる
+  // （2026-09-19、2プロセスを実機起動して実際に重複起動を再現・確認）。SQLiteへの
+  // INSERTはUNIQUE制約違反をプロセスをまたいでも確実に1件だけ成功させるため、
+  // 起動直前の最終防波堤として原子的なクレームに使う。
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS auto_batch_claims (
+      claim_key TEXT PRIMARY KEY,
+      claimed_at INTEGER NOT NULL
+    );
+  `);
 }

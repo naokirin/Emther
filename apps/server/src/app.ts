@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { honoErrorHandler } from "./lib/error-handling";
 import { healthRoute } from "./routes/health";
 import { glossaryRoute } from "./routes/glossary";
 import { vitalsRoute } from "./routes/vitals";
@@ -36,6 +37,9 @@ import { themesLinkSuggestRoute } from "./routes/themes-link-suggest";
 // web/src/lib/hono-proxy.ts 経由のフォワードへ置き換える（並走運用）。
 export function createApp() {
   const app = new Hono();
+  // docs/2nd_architecture/plan.md フェーズ2.7: 各ルートのtry/catchから漏れた例外の
+  // 最終防波堤。プロセスを落とさず500 JSONで返す。
+  app.onError(honoErrorHandler);
   app.route("/api/health", healthRoute);
   app.route("/api/glossary", glossaryRoute);
   app.route("/api/vitals", vitalsRoute);
