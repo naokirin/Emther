@@ -48,11 +48,16 @@
 - `GET/POST /api/people`, `GET/PATCH/DELETE /api/people/:id`, `POST /api/people/:id/merge`, `PATCH /api/people/:id/concern-acks/:issueId`, `GET/POST /api/people/:id/evaluation-logs`, `PATCH /api/people/:id/evaluation-logs/:logId`
 - `GET/POST /api/org/objectives`, `PATCH/DELETE /api/org/objectives/:id`, `POST /api/org/objectives/:id/key-results`, `PATCH/DELETE /api/org/objectives/:id/key-results/:krId`, `POST /api/org/objectives/import`
 - `GET/PATCH /api/org/strategy`
+- `GET/POST /api/journal`, `GET/PATCH /api/journal/:id`, `POST/DELETE /api/journal/:id/archive`, `POST/DELETE /api/journal/:id/no-action-needed`, `POST /api/journal/bulk`, `GET /api/journal/search`
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy}.ts`（`apps/server/src/app.ts` でマウント）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal}.ts`（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
 
 ## 4. まだ決めていないこと（フェーズ2.5以降で追記）
 
 - バッチが増えて `apps/server` 側のルート数が多くなったときの、ルーティング整理方針（現状は1ファイル1リソースのフラット構成）。
 - E2E的な動作確認（`emther doctor` 相当）を2プロセス構成でどう行うか。
 - フェーズ3で `vite dev` が増えたときの3プロセス構成での同様のルール（本ドキュメントに追記する）。
+
+## 5. ローカルMLを起動するエンドポイントの手動確認について
+
+- `journal`（POST系）等、`local-model`/`embeddings`を実際にロードするルートは、モデル未ダウンロードの開発環境では`safe-curl`での手動POST確認がプロセスクラッシュを起こしうる（1節参照、フェーズ2.5バッチ6で発見）。**手動確認はGETに留め、POST系の検証は自動テスト（`@core/local-model`/`@core/embeddings`をモック済み）に任せる。**

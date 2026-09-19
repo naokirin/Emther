@@ -129,8 +129,14 @@
   - **残低リスク**: 23 − 6 = 17ルート。
 - **2.5 バッチ5（完了・2026-09-19）**: 低リスク残17ルートから、`org-context-store`を共通の依存とするorg/objectivesクラスタ5ルート + org/strategy 1ルートを移植した: `org/objectives`（`GET`/`POST`）, `org/objectives/[id]`（`PATCH`/`DELETE`）, `org/objectives/[id]/key-results`（`POST`）, `org/objectives/[id]/key-results/[krId]`（`PATCH`/`DELETE`）, `org/objectives/import`（`POST`）, `org/strategy`（`GET`/`PATCH`）。実処理を `apps/server/src/routes/{org-objectives,org-strategy}.ts` に実装（objectives系は1リソース1ファイルにネストしたサブリソースをまとめ、teams・people同様のパターンを踏襲）。対応するNext側7ファイルは`proxyToHono`への委譲に置き換え、既存テスト6本はapps/server側へ移設。
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（14ファイル/110テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（430テスト green、無回帰）。手動smoke testは`safe-curl`＋`EM_DATA_DIR`等の一時ディレクトリで実施。
-  - **残低リスク**: 17 − 6 = 11ルート。
-- **2.5 残りルートの段階移植（バッチ6以降・未着手）**: 残り低リスク11ルート・高リスク36ルートを、2.2の分類順（低リスク優先）でバッチ単位（目安: 5〜10ルート/バッチ）で移植・検証を繰り返す。バッチごとに本ファイルへ実施内容を追記する運用はここまでのバッチを踏襲する。
+  - **残低リスク**: 17 − 6 = 11ルート（実測しなおすと journal系6・settings/rules 1・themes系3 の計10ルート。1件は前バッチまでの計上ずれ。以降はファイル一覧の実測を都度基準にする）。
+- **2.5 バッチ6（完了・2026-09-19）**: journalクラスタ6ルートを移植した: `journal`（`GET`/`POST`）, `journal/[id]`（`GET`/`PATCH`）, `journal/[id]/archive`（`POST`/`DELETE`）, `journal/[id]/no-action-needed`（`POST`/`DELETE`）, `journal/bulk`（`POST`）, `journal/search`（`GET`）。実処理を `apps/server/src/routes/journal.ts` に1ファイルへまとめて実装。
+  - **付随リファクタ**: journalルートが依存する `web/src/app/api/name-candidate-response.ts`（フレームワーク非依存のMaskOptions組み立てロジック + Next専用のエラーレスポンス整形が混在）のうち、フレームワーク非依存部分（`parseAllowUnmaskedCandidates`/`parseRegisterNameCandidates`/`maskOptionsFromBody`/`maskOptionsFromBodyStrict`）を `packages/core/src/name-candidate-response.ts` へ抽出した。web側は re-export に変更（既存呼び出し元は無変更で動作）。apps/server側には同名のHono版 `apps/server/src/lib/name-candidate-response.ts`（`jsonFromUnknownError`をNextResponseではなく標準`Response.json`で実装、他は core から re-export）を新設。この分離パターンは、まだ移植していない `agents/**`・`issues/**`・`suggestions/**`・`journal/dumps/**`（高リスク）が同じヘルパーに依存しているため、それらのバッチでも再利用できる。
+  - 対応するNext側6ファイルは`proxyToHono`への委譲に置き換え、既存テスト6本（計33ケース）はapps/server側へ移設。ただし移設時、`web/src/app/api/journal/route.test.ts`のみ元々`@core/name-candidate-detect`をモックしていなかった（実際の辞書・形態素解析に依存する「人名らしいが未登録の語句」テストがあるため）ことに気づかず、他5ファイルに合わせて全体を一括モックしてしまい1件失敗。原因判明後、モックを外して修正（実際の形態素解析が動く分テスト実行時間はやや伸びるが、全144件green）。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（15ファイル/143テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（397テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰。name-candidate-response.ts追加分は既存のname-candidate-confirmation経由の間接テストでカバーされ新規テストファイルは追加していない）。
+  - **⚠️ 手動smoke testで見つかった問題（要フォローアップ）**: `POST /api/journal`をこの環境（ローカルMLモデル未ダウンロード）で`safe-curl`実行したところ、Node プロセスごとクラッシュした。自動テストはモックで無関係だが、「1リクエストの未処理例外がプロセス全体を落とす」点はフェーズ4（単一プロセス配信）に向けたリスクとしてリスクレジスタに追加した（下記参照）。
+  - **残低リスク**: 10 − 6 = 4ルート（settings/rules 1・themes系3）。
+- **2.5 残りルートの段階移植（バッチ7以降・未着手）**: 残り低リスク4ルート・高リスク36ルートを、2.2の分類順（低リスク優先）でバッチ単位（目安: 5〜10ルート/バッチ）で移植・検証を繰り返す。バッチごとに本ファイルへ実施内容を追記する運用はここまでのバッチを踏襲する。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
 - **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
 
@@ -186,3 +192,4 @@
 | プロダクト側作業（4th_pivot等）との差分競合 | 全体 | 着手時に直近のプロダクト作業状況を確認し、フェーズ単位でmainに追従する |
 | 配布関連ドキュメント（packaging.md/docker.md/release.yml）の更新漏れ | 4 | 4.5〜4.7 を独立タスク化し、チェックリストに明示 |
 | SQLite（`node:sqlite`）・JSON atomic write 等の永続化境界の意図しない変更 | 1 | 移設は「配置場所の変更」のみに限定し、実装ロジックは変更しないことをレビュー基準にする |
+| Hono単体では1リクエストの未処理例外（try/catch外の非同期処理・fire-and-forget）がNodeプロセス全体をクラッシュさせうる（Next.jsのリクエスト単位エラー境界が無い） | 2, 4 | フェーズ2.5 バッチ6（journal移植）の手動smoke testで実際に発生を確認（`checklist.md`参照）。フェーズ2.7またはフェーズ4着手前に `app.onError`/`process.on("unhandledRejection")` の要否を検証する |

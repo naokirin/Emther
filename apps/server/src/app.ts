@@ -13,6 +13,7 @@ import { checkinsRoute, reflectionNotesRoute } from "./routes/em-self";
 import { peopleRoute } from "./routes/people";
 import { orgObjectivesRoute } from "./routes/org-objectives";
 import { orgStrategyRoute } from "./routes/org-strategy";
+import { journalRoute } from "./routes/journal";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -34,6 +35,7 @@ export function createApp() {
   app.route("/api/people", peopleRoute);
   app.route("/api/org/objectives", orgObjectivesRoute);
   app.route("/api/org/strategy", orgStrategyRoute);
+  app.route("/api/journal", journalRoute);
   return app;
 }
 
