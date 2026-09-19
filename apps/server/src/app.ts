@@ -17,6 +17,7 @@ import { journalRoute } from "./routes/journal";
 import { settingsRulesRoute } from "./routes/settings-rules";
 import { themesRoute } from "./routes/themes";
 import { agentsRoute, agentsInboxRoute, agentsPendingUnmaskedRoute } from "./routes/agents";
+import { issuesRoute } from "./routes/issues";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -44,6 +45,7 @@ export function createApp() {
   app.route("/api/agents/inbox", agentsInboxRoute);
   app.route("/api/agents/pending-unmasked", agentsPendingUnmaskedRoute);
   app.route("/api/agents", agentsRoute);
+  app.route("/api/issues", issuesRoute);
   return app;
 }
 
