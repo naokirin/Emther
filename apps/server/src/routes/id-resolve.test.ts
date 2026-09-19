@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@emther/core/test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("@emther/core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
-vi.mock("@core/embeddings", () => ({
+vi.mock("@emther/core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -23,10 +23,10 @@ afterEach(() => {
 
 describe("GET /api/id-resolve", () => {
   it("一意なプレフィックスを返す", async () => {
-    const issueStore = await import("@core/issue-store");
-    const route = await import("./route");
+    const issueStore = await import("@emther/core/issue-store");
+    const { idResolveRoute } = await import("./id-resolve");
     const issue = await issueStore.createIssue("解決対象");
-    const res = await route.GET(new Request(`http://localhost/api/id-resolve?q=${issue.id.slice(0, 8)}`));
+    const res = await idResolveRoute.request(`/?q=${issue.id.slice(0, 8)}`);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.matches).toHaveLength(1);
@@ -35,8 +35,8 @@ describe("GET /api/id-resolve", () => {
   });
 
   it("不正なクエリは空配列", async () => {
-    const route = await import("./route");
-    const res = await route.GET(new Request("http://localhost/api/id-resolve?q=short"));
+    const { idResolveRoute } = await import("./id-resolve");
+    const res = await idResolveRoute.request("/?q=short");
     expect((await res.json()).matches).toEqual([]);
   });
 });

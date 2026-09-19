@@ -1,0 +1,19 @@
+import { Hono } from "hono";
+import { listEventsForEntity, toEventView, type KnowledgeEntityType } from "@emther/core/knowledge-store";
+
+// docs/2nd_architecture/plan.md フェーズ2.3: web/src/app/api/knowledge/events/route.ts の移植。
+// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する汎用エンドポイント。
+export const knowledgeEventsRoute = new Hono().get("/", (c) => {
+  const entityType = c.req.query("entityType");
+  const entityId = c.req.query("entityId");
+
+  if (
+    (entityType !== "issue" && entityType !== "suggestion" && entityType !== "team" && entityType !== "org") ||
+    !entityId
+  ) {
+    return c.json({ error: "entityType(issue|suggestion|team|org)とentityIdは必須です" }, 400);
+  }
+
+  const events = listEventsForEntity(entityType as KnowledgeEntityType, entityId);
+  return c.json({ events: events.map(toEventView) });
+});

@@ -1,19 +1,4 @@
-import { NextResponse } from "next/server";
-import { listEventsForEntity, toEventView, type KnowledgeEntityType } from "@core/knowledge-store";
+// docs/2nd_architecture/plan.md フェーズ2.3: 実処理は apps/server/src/routes/knowledge-events.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を取得する汎用エンドポイント。
-export async function GET(request: Request) {
-  const params = new URL(request.url).searchParams;
-  const entityType = params.get("entityType");
-  const entityId = params.get("entityId");
-
-  if (
-    (entityType !== "issue" && entityType !== "suggestion" && entityType !== "team" && entityType !== "org") ||
-    !entityId
-  ) {
-    return NextResponse.json({ error: "entityType(issue|suggestion|team|org)とentityIdは必須です" }, { status: 400 });
-  }
-
-  const events = listEventsForEntity(entityType as KnowledgeEntityType, entityId);
-  return NextResponse.json({ events: events.map(toEventView) });
-}
+export const GET = proxyToHono;

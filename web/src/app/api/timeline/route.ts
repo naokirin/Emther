@@ -1,7 +1,4 @@
-import { NextResponse } from "next/server";
-import { listTimelineEntries } from "@core/timeline";
+// docs/2nd_architecture/plan.md フェーズ2.3: 実処理は apps/server/src/routes/timeline.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// docs/memo.md「N. 時系列変化をEMが読む物語に」対応。
-export async function GET() {
-  return NextResponse.json({ entries: listTimelineEntries() });
-}
+export const GET = proxyToHono;

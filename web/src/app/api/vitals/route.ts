@@ -1,17 +1,4 @@
-import { NextResponse } from "next/server";
-import { computeOrgVitals } from "@core/vitals";
-import { unmaskNames } from "@core/people-directory";
+// docs/2nd_architecture/plan.md フェーズ2.3: 実処理は apps/server/src/routes/vitals.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// docs/memo.md「D. 評価不能→観測アクション」対応。vitals.tsのmembers/uncoveredMembersは
-// 個人情報分離のためPERSON_n IDのまま保持しているので、EM向け応答の境界であるここで
-// 実名へ復元する（toRunView/toIssueViewと同じ設計方針）。
-export async function GET() {
-  const vitals = computeOrgVitals();
-  return NextResponse.json({
-    teams: vitals.teams.map((t) => ({ ...t, members: t.members.map(unmaskNames) })),
-    oneOnOneCoverage: {
-      ...vitals.oneOnOneCoverage,
-      uncoveredMembers: vitals.oneOnOneCoverage.uncoveredMembers.map(unmaskNames),
-    },
-  });
-}
+export const GET = proxyToHono;

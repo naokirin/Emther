@@ -37,6 +37,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck -w web
       - run: npm run typecheck -w @emther/core
+      - run: npm run typecheck -w @emther/server
 
   test:
     name: Test
@@ -51,6 +52,7 @@ jobs:
       - run: npm ci
       - run: npm test -w web
       - run: npm test -w @emther/core
+      - run: npm test -w @emther/server
 
   build:
     name: Build

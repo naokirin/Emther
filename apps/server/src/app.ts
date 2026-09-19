@@ -1,0 +1,23 @@
+import { Hono } from "hono";
+import { healthRoute } from "./routes/health";
+import { glossaryRoute } from "./routes/glossary";
+import { vitalsRoute } from "./routes/vitals";
+import { timelineRoute } from "./routes/timeline";
+import { idResolveRoute } from "./routes/id-resolve";
+import { knowledgeEventsRoute } from "./routes/knowledge-events";
+
+// docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
+// ルート追加のたびに、対応する web/src/app/api/**/route.ts を
+// web/src/lib/hono-proxy.ts 経由のフォワードへ置き換える（並走運用）。
+export function createApp() {
+  const app = new Hono();
+  app.route("/api/health", healthRoute);
+  app.route("/api/glossary", glossaryRoute);
+  app.route("/api/vitals", vitalsRoute);
+  app.route("/api/timeline", timelineRoute);
+  app.route("/api/id-resolve", idResolveRoute);
+  app.route("/api/knowledge/events", knowledgeEventsRoute);
+  return app;
+}
+
+export const app = createApp();

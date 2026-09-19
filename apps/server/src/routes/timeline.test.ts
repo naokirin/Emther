@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@emther/core/test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("@emther/core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("@emther/core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -24,17 +24,17 @@ afterEach(() => {
 
 describe("GET /api/timeline", () => {
   it("空の場合は空配列を返す", async () => {
-    const route = await import("./route");
-    const res = await route.GET();
+    const { timelineRoute } = await import("./timeline");
+    const res = await timelineRoute.request("/");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ entries: [] });
   });
 
   it("Issue作成などの変更履歴を実名復元済みで返す", async () => {
-    const issueStore = await import("@core/issue-store");
+    const issueStore = await import("@emther/core/issue-store");
     await issueStore.createIssue("障害対応");
-    const route = await import("./route");
-    const res = await route.GET();
+    const { timelineRoute } = await import("./timeline");
+    const res = await timelineRoute.request("/");
     const json = await res.json();
     expect(json.entries).toHaveLength(1);
     expect(json.entries[0].entityLabel).toBe("障害対応");

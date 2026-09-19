@@ -1,11 +1,4 @@
-import { NextResponse } from "next/server";
-import { isHexIdPrefix } from "@core/id-prefix";
-import { resolveIdPrefix } from "@core/id-resolve";
+// docs/2nd_architecture/plan.md フェーズ2.3: 実処理は apps/server/src/routes/id-resolve.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-export async function GET(request: Request) {
-  const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
-  if (!q || !isHexIdPrefix(q)) {
-    return NextResponse.json({ matches: [] as ReturnType<typeof resolveIdPrefix> });
-  }
-  return NextResponse.json({ matches: resolveIdPrefix(q) });
-}
+export const GET = proxyToHono;
