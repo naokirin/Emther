@@ -50,6 +50,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test -w web
+      - run: npm test -w @emther/core
 
   build:
     name: Build

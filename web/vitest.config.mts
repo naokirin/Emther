@@ -28,10 +28,12 @@ export default defineConfig({
     // 使うテストが、フルスイート実行時のCPU競合下で稀にタイムアウトすることを確認した。
     // 個々のテストをモックで誤魔化すより、実装の正しさを保ったまま余裕を持たせる。
     testTimeout: 10000,
+    // src/lib の大半は packages/core へ移設済み（docs/2nd_architecture/plan.md フェーズ1）。
+    // ここには "@/lib" のうちNext依存で core 化できなかった残り（hooks等）だけが残る。
     coverage: {
       provider: "v8",
-      include: ["src/lib/**/*.ts"],
-      exclude: ["src/lib/**/*.test.ts", "src/lib/local-model.ts", "src/lib/embeddings.ts", "src/lib/agent-runtime.ts"],
+      include: ["src/lib/**/*.ts", "src/lib/**/*.tsx"],
+      exclude: ["src/lib/**/*.test.ts", "src/lib/**/*.test.tsx"],
     },
   },
 });

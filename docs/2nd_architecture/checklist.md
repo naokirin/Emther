@@ -25,11 +25,11 @@
 
 - [x] 1.1 monorepo 骨組み作成 — npm workspaces（pnpmではなく）、`web/`は物理リネームせず現状維持（着手時判断変更、理由は`plan.md`参照）。ルート`package.json`/`packages/core`骨組み/`.npmrc`・`package-lock.json`のルート移動/CI・Docker・`package-standalone.sh`の追随を実施。typecheck・test・build:standalone・`web/`内からの`npm install`/`npm run dev`で無回帰を確認（`docker build`は環境上未検証）。詳細は`plan.md`参照
 - [x] 1.2 `src/lib`（83ファイル、再計測済み）棚卸し・カテゴリ分類 — Next依存あり4/persistence3/ローカルML7/agent-runtime16/ドメインストア22/汎用utility29/テストヘルパー2に分類。詳細は`plan.md`参照
-- [ ] 1.3 段階移設（utility → persistence → ドメインストア → agent-runtime）
-- [ ] 1.4 codemod 適用（バッチごとに import 置換）
-- [ ] 1.5 Next 側 import 更新確認
-- [ ] 1.6 循環依存・Next混入チェック（`packages/core` に `next/*` が無いことを保証）
-- [ ] 1.7 完了基準確認（全テスト green・`tsc --noEmit` エラー0）
+- [x] 1.3 段階移設（utility → persistence → ドメインストア → agent-runtime） — 7バッチ（コミット参照: バッチ1〜7 + 残テスト2本移設）で78ファイル全てを移設完了。「Next依存あり」5ファイル（hooks/useJournalEditing/useNameCandidateConfirm/dashboard-next-actions/daily-situation）のみweb/src/libに残置。詳細・見つかった落とし穴は`plan.md`参照
+- [x] 1.4 codemod 適用（バッチごとに import 置換） — 1.3と一体で実施（`.migration-tmp/move-batch.mjs`、コミット対象外）。詳細は`plan.md`参照
+- [x] 1.5 Next 側 import 更新確認 — web/src全体で残る`@/lib/`参照が意図的な5ファイルのみであることを確認
+- [x] 1.6 循環依存・Next混入チェック（`packages/core` に `next/*` が無いことを保証） — `next/*`・`"use client"`・`@/components`・`@/app`・`@/lib`混入0件を確認（CIへの恒久チェック追加はフェーズ2以降で検討）
+- [x] 1.7 完了基準確認（全テスト green・`tsc --noEmit` エラー0） — web 523 + core 728 = 1251（移設前と同数）、typecheck両方無回帰（web側の既存5件はmainのbaseline worktreeで再現し無関係と確認済み）
 
 ## フェーズ2: Hono サーバー並走
 

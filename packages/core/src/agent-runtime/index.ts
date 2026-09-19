@@ -1,5 +1,5 @@
 // lib/agent-runtime.ts のモジュール分割によるバレル。公開APIは分割前と完全に同じ名前・
-// シグネチャを維持する（呼び出し側は "@/lib/agent-runtime" というパスaliasを使っており、
+// シグネチャを維持する（呼び出し側は "@core/agent-runtime" というパスaliasを使っており、
 // ディレクトリ化してもこのパスは解決されるため変更不要）。
 
 export type { SuggestedTheme } from "../theme-store";

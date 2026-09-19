@@ -1,5 +1,5 @@
 // lib/org-context-store.ts のモジュール分割によるバレル。公開APIは分割前と完全に同じ名前・
-// シグネチャを維持する（呼び出し側は "@/lib/org-context-store" というパスaliasを使っており、
+// シグネチャを維持する（呼び出し側は "@core/org-context-store" というパスaliasを使っており、
 // ディレクトリ化してもこのパスは解決されるため変更不要）。
 //
 // Team/Strategy/Objectives・KeyResults/Standing Backgroundという4つの独立したサブドメインの

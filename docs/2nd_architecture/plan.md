@@ -85,11 +85,19 @@
   - **汎用 utility（29）**: `agent-knowledge-tools.ts`, `daily-situation.ts`, `daily-trends.ts`, `dashboard-day-phase.ts`, `id-prefix.ts`, `id-resolve.ts`, `journal-analysis.ts`, `journal-consult-index.ts`, `journal-date-parser.ts`, `link-suggest.ts`, `local-chat-presets.ts`, `mask-check-types.ts`, `name-candidate-confirmation.ts`, `name-candidate-detect.ts`, `objective-progress.ts`, `observation-dump-actions.ts`, `observation-dump-normalize.ts`, `observation-dump-parse.ts`, `observation-dump-profiles.ts`, `okr-parse.ts`, `origin-trace.ts`, `people-hub.ts`, `person-honorific.ts`, `reference-lookup.ts`, `related-context.ts`, `strategy-trail.ts`, `timeline.ts`, `types.ts`, `vitals.ts`。**`types.ts` は他の大半のファイルから参照される共有型定義のため、1.3の「utility」波の中でも最優先で移す。**
   - **テストヘルパー（2、独自カテゴリ）**: `test-helpers/{api-route,store-env}.ts`。単独では移設せず、参照元（ドメインストア群）のテストと同じバッチで移す。
   - **移設順序への反映**: 1.3 の「utility → persistence → ドメインストア → agent-runtime」に対し、ローカル ML は他カテゴリへの依存が薄いため utility 波と同時か直後に移してよい。`observation-dump-*` 系・`mask-check-*` 系は相互依存が強いため、まとまったバッチとして扱う。
-- **1.3 段階移設**: 依存の少ない utility → persistence → ドメインストア → agent-runtime の順で `packages/core` に移す。1回の移設単位は「他から参照されるファイル1〜数本」に留め、都度 `tsc --noEmit` + `vitest run` を通す。
-- **1.4 codemod 適用**: 0.3 で確立した ts-morph スクリプトで `@/lib/...` の import 先を新パス（例 `@core/...`）へ一括置換。1.3 の移設バッチごとに実行し、都度差分をレビューする。
-- **1.5 Next 側 import 更新の確認**: `src/app/api/**` と `src/app/**/page.tsx` からの import が新パスに揃っていることを確認する。
-- **1.6 循環依存・Next混入チェック**: `packages/core` 配下から `next/*` や `"use client"` を import しているファイルが無いことを grep で保証する（CI に恒久チェックとして追加できるとよい）。
-- **1.7 完了基準**: 全テスト green、`tsc --noEmit` エラー0、`packages/core` に Next 依存がゼロであることの確認コマンドが再現可能な形で残っている。
+- **1.3 段階移設（完了・2026-09-19）**: 依存の少ない utility → persistence → ドメインストア → agent-runtime の順で7バッチに分けて `packages/core` に移設し、バッチごとに `tsc --noEmit` + `vitest run`（web・core両方）を通してコミットした。移設可能と判定した78ファイル全てに加え、命名規約が`<key>.test.ts`と一致せずcodemodの自動検出から漏れていたテスト2本（`agent-runtime.test.ts`、`org-context-store.test.ts`、`link-suggest.live-diagnose.test.ts`）も手動で追従移設した。
+  - **実施したcodemod（1.4と一体で実施）**: `.migration-tmp/move-batch.mjs`（コミット対象外、`.gitignore`に追加）という ts-morph ベースのバッチ移設スクリプトを新規に書き起こした（0.3 PoC時点の実験worktreeは削除済みで再利用不可だったため）。1バッチ＝キー配列を渡すと、(1) 全プロジェクトを横断して該当ファイルへの参照（`import`/`export`宣言・動的`import()`・`vi.mock`/`vi.doMock`・`typeof import()`型・`vi.importActual`引数を含む全 `StringLiteral` ノードを網羅的に走査）を新しい specifier（移動先が web 側から参照されるなら `@core/X`、core 側からなら相対パス）に書き換え、(2) `sourceFile.move()` で物理移動する。移動直後には「直前のバッチ時点ではまだwebに残る前提で書かれた`@core/X`」を相対pathに直す自己参照正規化パス（`.migration-tmp/self-fix.mjs`としても独立実行可能）も追加した。
+  - **見つかった落とし穴（今後同種の移設をする場合の教訓）**:
+    1. `vi.mock`以外の呼び出し形（`vi.doMock`、`vi.importActual`の引数、`typeof import("...")`型）は個別のCall式パターン列挙では漏れる。`StringLiteral`ノードを型に関係なく網羅的に走査する方式に直した。
+    2. 一度coreへ移設したファイルが、後続バッチで別ファイルから再度参照されると、直前のバッチ実行時点の「まだwebに残る」前提で書かれた`@core/X`エイリアスが、移設後は本来core内部の相対import(`./X`)であるべきなのに残る。移動直後の自己参照正規化パスが必要（本文中の説明のとおり）。
+    3. 本番コードの依存グラフだけを見て移設順序を決めると、**テストファイル固有の追加依存**（本体は依存しないがテストだけが動的importする関係）を見落とす。例: `journal-store.test.ts`は`journal-store.ts`が依存しない`journal-analysis`/`journal-consult-index`（agent-runtime依存）を動的importしていたため、バッチ2では`journal-store.ts`のみ移設し`journal-store.test.ts`は一時的にweb側へ残置、agent-runtime・journal-analysis等が揃ったバッチ5で追従移設した。同様に`mask-check-lexicon.test.ts`（バッチ1）が`mask-check.ts`（同バッチのため急遽追加）を動的importしていた例もある。
+    4. web側の vitest（`web/vitest.config.mts`）は `@` エイリアスを手動定義しており、tsconfigの`paths`を自動では見ない。`@core`エイリアス追加を忘れてバッチ1適用直後に web 側97ファイルのテストが解決エラーで落ちた（`resolve.alias`に`@core`を追加して解消）。
+    5. ディレクトリ内ファイル（`agent-runtime/*`, `org-context-store/*`）は相互に相対importを使っており、本番コードの`@/lib/`importだけを見た依存グラフでは検出できない依存が隠れる。グラフ解析時に相対importも解決対象に含めて修正した上で、これらのディレクトリは常に丸ごと1バッチで移設した。
+  - **`packages/core`側のテスト実行環境**: `packages/core/vitest.config.mts`・`packages/core/package.json`の`test`/`test:watch`スクリプトを新設（Next非依存、`environment: "node"`のみ）。CIの`test`ジョブに`npm test -w @emther/core`を追加。
+- **1.4 codemod 適用（完了・1.3と同時実施）**: 上記の通り、1.3の各バッチ実行に組み込んで実施した。個別の独立ステップとしては行っていない（バッチごとに移設と参照書き換えを同時に検証する方がリスクが低いと判断）。
+- **1.5 Next 側 import 更新の確認（完了・2026-09-19）**: `web/src`全体を`grep`し、残る`"@/lib/X"`参照が全て意図的に web 側へ残した5ファイル（`hooks`, `useJournalEditing`, `useNameCandidateConfirm`, `dashboard-next-actions`, `daily-situation`）宛てのみであることを確認した。それ以外の`@/lib/...`参照は0件。
+- **1.6 循環依存・Next混入チェック（完了・2026-09-19）**: `packages/core/src`配下を`grep`し、`next/*` import・`"use client"`・`@/components`・`@/app`・残存`@/lib`（コメント2件のみ、コード側の実害なし。文言修正済み）が0件であることを確認した。CIへの恒久チェック追加は未実施（フェーズ2以降で`apps/server`骨組み構築時にあわせて追加を検討）。
+- **1.7 完了基準（達成・2026-09-19）**: 全テストgreen（web 523 + core 728 = 移設前と同じ合計1251）、`tsc --noEmit`エラー0（web・core両方。web側に残る5件は本移設と無関係の既存不具合で、`main`のbaseline worktreeで再現し本作業由来でないことを確認済み）、`packages/core`にNext依存ゼロを上記1.6のコマンドで確認済み。確認コマンド: `grep -rl 'from "next\|"use client"\|"@/components\|"@/app\|"@/lib' packages/core/src`（実行結果0件、コメントの誤検知を除く）。
 
 ---
 
