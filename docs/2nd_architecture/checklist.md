@@ -46,7 +46,7 @@
 - [x] 3.1 新 `apps/web`（Vite）骨組み作成（完了・2026-09-19） — Vite + React 19 + React Router（ライブラリモード、`createBrowserRouter`）+ Vitest/Testing Library。`web/`（旧Next.js）とは別ディレクトリ（`apps/web`）で並存。詳細は`plan.md`参照
 - [x] 3.2 TanStack Query 導入・`usePolling` 置き換え方針確定（完了・2026-09-19） — `@emther/web`に`@tanstack/react-query`導入、`QueryClientProvider`を配線。置き換え方針を決定し、代表例`useTimeline`を移植・テストで検証。残り24フックの移植は3.5（画面単位移植）で該当画面を移すタイミングに合わせて行う。詳細は`plan.md`参照
 - [x] 3.3 `useTypedSearchParams` 実装（完了・2026-09-19） — React Router `useSearchParams` + Zodの薄いラッパー。既存の`?issue=…`等の単純クエリ連動を型安全に扱う。詳細は`plan.md`参照
-- [ ] 3.4 21画面の移行順位付け
+- [x] 3.4 21画面の移行順位付け（完了・2026-09-19） — ルートシェル（layout.tsx相当）が全画面の前提であることを確認。5ティアの移行順（help/evening-review/go/issues redirect → mask-check/teams/timeline/settings/people → org/org-thread/reports/growth → journal/suggestions → agents/chat/dashboard「/」）を決定。詳細は`plan.md`参照
 - [ ] 3.5 画面単位移植（バッチ単位で都度チェック追加）
 - [ ] 3.6 CSS Modules 移設
 - [ ] 3.7 Vitest + Testing Library 移行

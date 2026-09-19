@@ -230,7 +230,16 @@
   - **API**: `useTypedSearchParams(schema: z.ZodObject<Shape>) => [values, setParams]`。`values`は`schema.parse(Object.fromEntries(searchParams))`（URLSearchParams由来の値は常に文字列のため型不一致は起きない。フィールドを`z.string().optional()`にすれば「無ければundefined」がNext側`.get()`のnull相当になる。enum等より厳密な検証をしたい場合はフェーズ2.6で確立した`.optional().catch(undefined)`の寛容さの規約を踏襲する）。`setParams(updates, {replace})`は指定キーを更新し、値が`undefined`のキーは削除する（旧`usePeekParam`の`open()`/`close()`に相当）。既定で`replace: true`（旧`router.push(..., {scroll: false})`が履歴を積み増す意図ではなかったことに合わせる）。
   - **実装は行うが呼び出し側の移植は3.5へ**: `web/src/app/chat`（`runId`/`journalId`/`prefill`）、`journal`（`focus`/`dump`/`prefill`）、`org`（`objective`）、`org/thread`（`objective`）、`teams`（`focus`）、`ThemesPanel`（`theme`）、`hooks.ts`の`usePeekParam`（issues/suggestions/people等の汎用peekパターン）が呼び出し候補。3.2のuseTimelineと同じ判断で、実際の置き換えは該当画面を移植するタイミング（3.5）にまとめて行う（フックの移植と画面の移植を分離しない）。
   - **検証済み**: `npm run typecheck -w @emther/web`（エラー0）、`npm test -w @emther/web`（3ファイル/11テスト green。パース・enum不一致時の`.catch`・`setParams`での追加/削除・既存クエリの保持を検証）、`npm run build -w @emther/web`（成功）。
-- **3.4 移行順位付け**: 21画面を依存の少ないもの（他画面から埋め込まれていない独立画面）から順に並べる。
+- **3.4 移行順位付け（完了・2026-09-19）**: 21画面全ての`page.tsx`を行数・import数で実測し、画面間の埋め込み関係を`grep`で確認した。
+  - **前提（0番目）: ルートシェルは全画面より先**。`web/src/app/layout.tsx`（`AppShell`/`TopNav`/`SuggestionPeekRoot`/`PersonQuickAdd`/`LocalModelDownloadBanner`/フォント）が21画面全てをラップしている。特に`SuggestionPeekRoot`は`usePeekParam("suggestion")`でクエリ連動のサイドピーク（`SuggestionDetailContent`埋め込み）をレイアウトレベルで提供しており、個別画面より先にルートシェル自体を移植しないと、どの画面も動作確認できない。3.5の最初の一手はこのルートシェル（+ 3.3の`useTypedSearchParams`を使った`usePeekParam`相当の再実装）に充てる。
+  - **画面間の直接埋め込みは無い**: `grep`で全`page.tsx`を調べた結果、あるpage.tsxが別のpage.tsxを直接importする例は0件（`suggestions/[id]`・`people/[id]`は`SuggestionDetailContent`/`PersonDetailContent`という「ページとは別の共有コンポーネント」を薄くラップしているだけで、これらのコンポーネント自体はルートシェルの`SuggestionPeekRoot`からも参照される）。全画面が`@/app/page.module.css`という同一の共有スタイルシートに依存している点は3.6（CSS Modules移設）でも先に確認しておく価値がある共通点。
+  - **5ティアの移行順**（行数・import数が小さく、他画面との相互リンクが薄いものを先に）:
+    1. `help`（220行/3import、静的コンテンツ中心）, `evening-review`（74行/7import）, `go/[prefix]`（84行/5import、リダイレクト解決のみ）, `issues`・`issues/[id]`（各6行、`/suggestions`へのリダイレクトのみ。ほぼコスト無し）
+    2. `mask-check`（180行/8import、ポーリング無し）, `teams`（90行/9import）, `timeline`（105行/9import）, `settings`（149行/11import）, `people`（163行/8import）+ `people/[id]`（23行、薄いラッパー）
+    3. `org`（182行/12import）+ `org/thread`（47行/6import、関連ペア）, `reports`（278行/9import）, `growth`（263行/10import）
+    4. `journal`（331行/11import）, `suggestions`（346行/9import）+ `suggestions/[id]`（18行、薄いラッパー。ルートシェルの`SuggestionPeekRoot`経由で先に一部検証済みの状態になっている）
+    5. `agents`（333行/10import、chat/run連携が濃い）, `chat`（223行/11import、`RunDetail`など複数画面から参照される共有コンポーネントを多用）, `/`（357行/14import、最多。ダッシュボードは他の全領域を集約するため最後）
+  - **決定**: 3.5では上記ティア順にバッチを組む。1バッチ＝1〜2画面を目安に、画面単位でテスト・型チェック・手動確認を行う（フェーズ2のHonoルート移植と同じ「小さく刻んでバッチごとに検証」の進め方を踏襲）。
 - **3.5 画面単位移植 + 並走ルール運用**: 1画面ずつ移植し、「その画面は旧 Next 側 / 新 Vite 側のどちらで確認するか」を都度 `dev-hybrid-rules.md` に反映しながら進める。
 - **3.6 スタイル移設**: `*.module.css` をそのまま新 `apps/web` に移す（CSS Modules 継続のため変換コストは小さい想定）。
 - **3.7 テスト移行**: Vitest + Testing Library のテストファイルを新 `apps/web` 配下に移す。Next 非依存で書かれているため書き直しは基本不要（2nd_architecture.md 6.3節の想定どおりであることをここで実証する）。
