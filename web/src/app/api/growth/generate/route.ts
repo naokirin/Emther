@@ -1,19 +1,4 @@
-import { NextResponse } from "next/server";
-import { startGrowAnalysis, toRunView } from "@core/agent-runtime/index";
-import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/growth-generate.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// docs/2nd_pivot_version.md Phase 8。/api/themes/distillと同型のオンデマンド起動。
-export async function POST() {
-  try {
-    const run = await startGrowAnalysis({ manual: true });
-    if (!run) {
-      return NextResponse.json({ pendingUnmasked: true }, { status: 202 });
-    }
-    return NextResponse.json({ run: toRunView(run) }, { status: 201 });
-  } catch (err) {
-    if (isUnconfirmedNameCandidatesError(err)) {
-      return NextResponse.json({ error: err.message, candidates: err.candidates }, { status: 409 });
-    }
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
-  }
-}
+export const POST = proxyToHono;

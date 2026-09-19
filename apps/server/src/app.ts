@@ -19,6 +19,8 @@ import { themesRoute } from "./routes/themes";
 import { agentsRoute, agentsInboxRoute, agentsPendingUnmaskedRoute } from "./routes/agents";
 import { issuesRoute } from "./routes/issues";
 import { suggestionsRoute } from "./routes/suggestions";
+import { themesDistillRoute } from "./routes/themes-distill";
+import { growthGenerateRoute } from "./routes/growth-generate";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -48,6 +50,8 @@ export function createApp() {
   app.route("/api/agents", agentsRoute);
   app.route("/api/issues", issuesRoute);
   app.route("/api/suggestions", suggestionsRoute);
+  app.route("/api/themes/distill", themesDistillRoute);
+  app.route("/api/growth/generate", growthGenerateRoute);
   return app;
 }
 

@@ -157,6 +157,10 @@
   - 対応するNext側3ファイルは`proxyToHono`への委譲に置き換え、既存テスト2本（16ケース）はapps/server側へ移設。`suggestions/[id]/memo`はNext側に専用テストが無かったため新規3ケースを追加（ポート中に`toSuggestionView`のログ相当フィールドが`log`ではなく`memos`であることに気づき、テストのフィールド名を修正）。
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（20ファイル/272テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（290テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。手動smoke testはGETのみ。
   - **残高リスク**: 23 − 3 = 20ルート。
+- **2.5 高リスク バッチ5（完了・2026-09-19）**: `themes/distill`（`POST`）, `growth/generate`（`POST`）の2ルートを移植した。両者とも`startDistillationAnalysis`/`startGrowAnalysis`（内部で`startRun`を呼ぶ、オンデマンド起動の同型エンドポイント）をそのまま呼ぶだけの薄いルートのため、`apps/server/src/routes/{themes-distill,growth-generate}.ts`として個別ファイルに実装（1ファイル1エンドポイントだが、既存の1ファイル1リソースの粒度から見ても妥当な最小単位）。
+  - 対応するNext側2ファイルは`proxyToHono`への委譲に置き換え。Next側に専用テストが元々無かったため、`node:child_process`のspawnモックを使った新規テスト（起動確認・reviewed=trueの検証）をそれぞれ1件ずつ追加。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（22ファイル/274テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（290テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。両ルートともPOSTのみでagent起動を伴うため、手動smoke testはサーバー起動確認（`/api/health`）に留めた。
+  - **残高リスク**: 20 − 2 = 18ルート。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
 - **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
 
