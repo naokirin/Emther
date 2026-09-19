@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonFromUnknownError } from "@/app/api/name-candidate-response";
-import { runParseOnDump } from "@/lib/observation-dump-actions";
-import { getObservationDump, toObservationDumpView } from "@/lib/observation-dump-store";
+import { runParseOnDump } from "@core/observation-dump-actions";
+import { getObservationDump, toObservationDumpView } from "@core/observation-dump-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

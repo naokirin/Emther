@@ -40,7 +40,7 @@ export type ObservationDumpView = {
   chunkDrafts: ChunkDraftView[];
   droppedNotes: string[];
   /** 取り込み時に使った列マッピング（再分割の参考） */
-  importMapping?: import("@/lib/observation-dump-mapping-types").ImportMappingConfig;
+  importMapping?: import("./observation-dump-mapping-types").ImportMappingConfig;
 };
 
 export const OBSERVATION_SOURCE_TYPES: ObservationSourceType[] = [

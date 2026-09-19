@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import type { ObservationDumpView } from "@/lib/observation-dump-types";
+import type { ObservationDumpView } from "@core/observation-dump-types";
 import { ObservationDumpCreateForm } from "./observation-dump/ObservationDumpCreateForm";
 import { ObservationDumpList } from "./observation-dump/ObservationDumpList";
 import { ObservationDumpDetailPanel } from "./observation-dump/ObservationDumpDetailPanel";

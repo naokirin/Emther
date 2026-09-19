@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { isImportSyntax } from "@/lib/observation-dump-mapping-types";
-import { buildImportPreview } from "@/lib/observation-dump-normalize";
-import { listImportProfiles } from "@/lib/observation-dump-profiles";
+import { isImportSyntax } from "@core/observation-dump-mapping-types";
+import { buildImportPreview } from "@core/observation-dump-normalize";
+import { listImportProfiles } from "@core/observation-dump-profiles";
 
 /** 貼り付けテキストから構文・列・推奨マッピングを返す（保存しない） */
 export async function POST(request: Request) {

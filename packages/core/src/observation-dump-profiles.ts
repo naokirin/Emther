@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@core/persistence";
+import { loadJSON, saveJSON } from "./persistence";
 import {
   parseImportMappingConfig,
   type ImportMappingConfig,
   type ImportProfile,
-} from "@/lib/observation-dump-mapping-types";
+} from "./observation-dump-mapping-types";
 
 const FILE = "observation-import-profiles.json";
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { parseImportMappingConfig } from "@/lib/observation-dump-mapping-types";
+import { parseImportMappingConfig } from "@core/observation-dump-mapping-types";
 import {
   deleteImportProfile,
   listImportProfiles,
   saveImportProfile,
-} from "@/lib/observation-dump-profiles";
+} from "@core/observation-dump-profiles";
 
 export async function GET() {
   return NextResponse.json({ profiles: listImportProfiles() });

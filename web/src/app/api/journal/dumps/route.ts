@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { runParseOnDump } from "@/lib/observation-dump-actions";
-import { parseImportMappingConfig } from "@/lib/observation-dump-mapping-types";
+import { runParseOnDump } from "@core/observation-dump-actions";
+import { parseImportMappingConfig } from "@core/observation-dump-mapping-types";
 import {
   createObservationDump,
   isObservationSourceType,
   listObservationDumps,
   toObservationDumpView,
-} from "@/lib/observation-dump-store";
+} from "@core/observation-dump-store";
 
 // docs/observation_dump_journal.md: Dump 一覧・作成。作成後は既定で分割まで実行する。
 

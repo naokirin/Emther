@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import styles from "@/app/page.module.css";
-import type { ObservationDumpView } from "@/lib/observation-dump-types";
+import type { ObservationDumpView } from "@core/observation-dump-types";
 import type { FetchWithNameConfirm } from "./observation-dump-display";
 
 type Props = {

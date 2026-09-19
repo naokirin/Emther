@@ -1,24 +1,24 @@
 import { randomUUID } from "node:crypto";
-import { loadJSON, saveJSON } from "@core/persistence";
-import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@core/people-directory";
-import type { MaskOptions } from "@core/name-candidate-confirmation";
-import { guessImportSyntax, normalizeObservationInput } from "@/lib/observation-dump-normalize";
-import type { ImportMappingConfig } from "@/lib/observation-dump-mapping-types";
+import { loadJSON, saveJSON } from "./persistence";
+import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "./people-directory";
+import type { MaskOptions } from "./name-candidate-confirmation";
+import { guessImportSyntax, normalizeObservationInput } from "./observation-dump-normalize";
+import type { ImportMappingConfig } from "./observation-dump-mapping-types";
 import {
   isObservationSourceType,
   type ChunkDisposition,
   type ObservationDumpStatus,
   type ObservationDumpView,
   type ObservationSourceType,
-} from "@/lib/observation-dump-types";
+} from "./observation-dump-types";
 
 export type {
   ChunkDisposition,
   ObservationDumpStatus,
   ObservationDumpView,
   ObservationSourceType,
-} from "@/lib/observation-dump-types";
-export { isObservationSourceType, OBSERVATION_SOURCE_TYPES } from "@/lib/observation-dump-types";
+} from "./observation-dump-types";
+export { isObservationSourceType, OBSERVATION_SOURCE_TYPES } from "./observation-dump-types";
 
 // docs/observation_dump_journal.md: Slack/MTG 等の未分割観測を薄い Dump として残し、
 // AI チャンク提案→採用分だけ Journal 化する。永続本文は常にマスク済み。

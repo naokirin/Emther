@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "@/app/page.module.css";
 import { Select } from "@/components/Select";
-import type { ObservationDumpView } from "@/lib/observation-dump-types";
+import type { ObservationDumpView } from "@core/observation-dump-types";
 import type {
   FieldMapping,
   ImportMappingConfig,
@@ -11,13 +11,13 @@ import type {
   ImportSyntax,
   SemanticField,
   TsKind,
-} from "@/lib/observation-dump-mapping-types";
+} from "@core/observation-dump-mapping-types";
 import {
   IMPORT_SYNTAX_OPTIONS,
   SEMANTIC_FIELD_OPTIONS,
   TS_KIND_OPTIONS,
-} from "@/lib/observation-dump-mapping-types";
-import type { ImportPreview } from "@/lib/observation-dump-mapping-types";
+} from "@core/observation-dump-mapping-types";
+import type { ImportPreview } from "@core/observation-dump-mapping-types";
 import { SOURCE_OPTIONS, type FetchWithNameConfirm } from "./observation-dump-display";
 
 type Props = {

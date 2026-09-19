@@ -7,7 +7,7 @@ import {
   parseSlackJsonlLine,
   parseSlackTs,
   splitDelimitedLine,
-} from "@/lib/observation-dump-normalize";
+} from "./observation-dump-normalize";
 
 const SAMPLE = [
   ' {"ts":"1779701310.701429","channel":"スレッドの場所 :  test_channel","sender":"taro.tanaka","text":"ありがとうございますopenapi generatorに関して調査して何点か気がついたところがあるので、また明日共有させてください","permalink":"https://systemjp.slack.com/archives/XXXXXXXXXX/p1779701310701429?thread_ts=1779408841.980299","thread":{"skipped":true,"reason":"already_thread_reply"}}',

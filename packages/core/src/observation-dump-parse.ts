@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { extractFirstJsonObject } from "@core/local-model";
-import { runCloudChat } from "@core/cloud-chat";
-import { maskNames, unmaskNames } from "@core/people-directory";
-import { normalizeObservationInput } from "@/lib/observation-dump-normalize";
-import type { ChunkDraft, ObservationSourceType } from "@/lib/observation-dump-store";
+import { extractFirstJsonObject } from "./local-model";
+import { runCloudChat } from "./cloud-chat";
+import { maskNames, unmaskNames } from "./people-directory";
+import { normalizeObservationInput } from "./observation-dump-normalize";
+import type { ChunkDraft, ObservationSourceType } from "./observation-dump-store";
 
 // docs/observation_dump_journal.md §6: マスク済み本文のみを外部AIへ渡し、原文抜粋チャンクを提案する。
 

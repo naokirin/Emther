@@ -3,16 +3,16 @@ import {
   prefetchJournalExtraction,
   type JournalEntry,
   type JournalNameCandidateHint,
-} from "@core/journal-store";
-import { parseObservationDumpText } from "@/lib/observation-dump-parse";
+} from "./journal-store";
+import { parseObservationDumpText } from "./observation-dump-parse";
 import {
   getObservationDump,
   refreshDumpStatusAfterAccept,
   updateObservationDump,
   type ObservationDump,
-} from "@/lib/observation-dump-store";
-import { ensureNameCandidatesAllowed, unmaskNames } from "@core/people-directory";
-import type { MaskOptions } from "@core/name-candidate-confirmation";
+} from "./observation-dump-store";
+import { ensureNameCandidatesAllowed, unmaskNames } from "./people-directory";
+import type { MaskOptions } from "./name-candidate-confirmation";
 
 function dateHintToOccurredAt(hint: string | undefined, fallback: number): number {
   if (!hint) return fallback;

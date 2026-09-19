@@ -7,7 +7,7 @@ import {
   patchChunkDrafts,
   toObservationDumpView,
   type ChunkDisposition,
-} from "@/lib/observation-dump-store";
+} from "@core/observation-dump-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

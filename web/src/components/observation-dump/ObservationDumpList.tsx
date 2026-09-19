@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "@/app/page.module.css";
-import type { ObservationDumpView } from "@/lib/observation-dump-types";
+import type { ObservationDumpView } from "@core/observation-dump-types";
 import { SOURCE_OPTIONS, STATUS_LABEL, formatWhen } from "./observation-dump-display";
 
 type Props = {

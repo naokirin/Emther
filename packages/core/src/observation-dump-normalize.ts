@@ -5,7 +5,7 @@ import {
   type ImportSyntax,
   type SemanticField,
   type TsKind,
-} from "@/lib/observation-dump-mapping-types";
+} from "./observation-dump-mapping-types";
 
 // 構文パース → 列マッピング → チャット平文。Slack 固定キー以外も UI マッピングで扱える。
 

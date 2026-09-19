@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseObservationHeuristic, splitMaskedTextIntoWindows } from "@/lib/observation-dump-parse";
+import { parseObservationHeuristic, splitMaskedTextIntoWindows } from "./observation-dump-parse";
 
 describe("parseObservationHeuristic", () => {
   it("空行区切りで複数チャンクにする", () => {
