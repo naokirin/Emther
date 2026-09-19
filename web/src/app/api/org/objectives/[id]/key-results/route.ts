@@ -1,16 +1,4 @@
-import { NextResponse } from "next/server";
-import { addKeyResult, toObjectiveView } from "@core/org-context-store/index";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/org-objectives.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-export async function POST(request: Request, ctx: RouteContext<"/api/org/objectives/[id]/key-results">) {
-  const { id } = await ctx.params;
-  const body = await request.json().catch(() => null);
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
-  if (!title) {
-    return NextResponse.json({ error: "titleは必須です" }, { status: 400 });
-  }
-  const objective = await addKeyResult(id, title);
-  if (!objective) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
-  return NextResponse.json({ objective: toObjectiveView(objective) }, { status: 201 });
-}
+export const POST = proxyToHono;

@@ -46,8 +46,10 @@
 - `GET/POST /api/em-self/checkins`
 - `GET/POST /api/em-self/reflection-notes`, `PATCH /api/em-self/reflection-notes/:id`
 - `GET/POST /api/people`, `GET/PATCH/DELETE /api/people/:id`, `POST /api/people/:id/merge`, `PATCH /api/people/:id/concern-acks/:issueId`, `GET/POST /api/people/:id/evaluation-logs`, `PATCH /api/people/:id/evaluation-logs/:logId`
+- `GET/POST /api/org/objectives`, `PATCH/DELETE /api/org/objectives/:id`, `POST /api/org/objectives/:id/key-results`, `PATCH/DELETE /api/org/objectives/:id/key-results/:krId`, `POST /api/org/objectives/import`
+- `GET/PATCH /api/org/strategy`
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people}.ts`（`apps/server/src/app.ts` でマウント）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy}.ts`（`apps/server/src/app.ts` でマウント）。
 
 ## 4. まだ決めていないこと（フェーズ2.5以降で追記）
 

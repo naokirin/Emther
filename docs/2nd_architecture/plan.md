@@ -127,7 +127,10 @@
 - **2.5 バッチ4（完了・2026-09-19）**: 低リスク残23ルートから、`people-hub`/`people-directory`/`person-evaluation-store`/`person-concern-ack-store`をまたぐpeopleクラスタ6ルートを移植した: `people`（`GET`/`POST`）, `people/[id]`（`GET`/`PATCH`/`DELETE`）, `people/[id]/merge`（`POST`）, `people/[id]/concern-acks/[issueId]`（`PATCH`）, `people/[id]/evaluation-logs`（`GET`/`POST`）, `people/[id]/evaluation-logs/[logId]`（`PATCH`）。実処理を `apps/server/src/routes/people.ts` に1ファイルへまとめて実装（1リソースに複数のネストしたサブリソースがぶら下がる構造のため、teams同様1ファイル1リソースの粒度を維持）。対応するNext側7ファイルは`proxyToHono`への委譲に置き換え、既存テスト5本はapps/server側へ移設。`people/[id]/evaluation-logs`（ネストしないベースルート）はNext側に既存テストが無かったため新規3ケースを追加した。
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（12ファイル/84テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（456テスト green、無回帰）。手動smoke testはこのバッチから`curl`ではなく`safe-curl`（localhost向けの許可済みラッパー、ユーザー指摘により導入）を使用。
   - **残低リスク**: 23 − 6 = 17ルート。
-- **2.5 残りルートの段階移植（バッチ5以降・未着手）**: 残り低リスク17ルート・高リスク36ルートを、2.2の分類順（低リスク優先）でバッチ単位（目安: 5〜10ルート/バッチ）で移植・検証を繰り返す。バッチごとに本ファイルへ実施内容を追記する運用はここまでのバッチを踏襲する。
+- **2.5 バッチ5（完了・2026-09-19）**: 低リスク残17ルートから、`org-context-store`を共通の依存とするorg/objectivesクラスタ5ルート + org/strategy 1ルートを移植した: `org/objectives`（`GET`/`POST`）, `org/objectives/[id]`（`PATCH`/`DELETE`）, `org/objectives/[id]/key-results`（`POST`）, `org/objectives/[id]/key-results/[krId]`（`PATCH`/`DELETE`）, `org/objectives/import`（`POST`）, `org/strategy`（`GET`/`PATCH`）。実処理を `apps/server/src/routes/{org-objectives,org-strategy}.ts` に実装（objectives系は1リソース1ファイルにネストしたサブリソースをまとめ、teams・people同様のパターンを踏襲）。対応するNext側7ファイルは`proxyToHono`への委譲に置き換え、既存テスト6本はapps/server側へ移設。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（14ファイル/110テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（430テスト green、無回帰）。手動smoke testは`safe-curl`＋`EM_DATA_DIR`等の一時ディレクトリで実施。
+  - **残低リスク**: 17 − 6 = 11ルート。
+- **2.5 残りルートの段階移植（バッチ6以降・未着手）**: 残り低リスク11ルート・高リスク36ルートを、2.2の分類順（低リスク優先）でバッチ単位（目安: 5〜10ルート/バッチ）で移植・検証を繰り返す。バッチごとに本ファイルへ実施内容を追記する運用はここまでのバッチを踏襲する。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
 - **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
 

@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
-import { jsonRequest } from "@core/test-helpers/api-route";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@emther/core/test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("@emther/core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("@emther/core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -25,18 +24,22 @@ afterEach(() => {
 
 describe("GET /api/org/strategy", () => {
   it("既定は空文字列", async () => {
-    const route = await import("./route");
-    const res = await route.GET();
+    const { orgStrategyRoute } = await import("./org-strategy");
+    const res = await orgStrategyRoute.request("/");
     expect(await res.json()).toEqual({ strategy: { mission: "", vision: "", values: "" } });
   });
 });
 
 describe("PATCH /api/org/strategy", () => {
   it("指定フィールドだけ更新し、実名復元済みで返す", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("@emther/core/people-directory");
     peopleDirectory.registerName("Aさん");
-    const route = await import("./route");
-    const res = await route.PATCH(jsonRequest("http://localhost/x", "PATCH", { mission: "Aさんを中心に価値を届ける" }));
+    const { orgStrategyRoute } = await import("./org-strategy");
+    const res = await orgStrategyRoute.request("/", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mission: "Aさんを中心に価値を届ける" }),
+    });
     const json = await res.json();
     expect(json.strategy.mission).toBe("Aさんを中心に価値を届ける");
     expect(json.strategy.vision).toBe("");
