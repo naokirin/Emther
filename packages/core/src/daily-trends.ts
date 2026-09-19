@@ -3,7 +3,7 @@
 // 既存の生データ（useEmCheckins / useJournal / useIssues が返す全件リスト）から
 // 週／月カレンダーに揃えた期間で集計するだけの純粋関数群。新しい永続化エンティティは
 // 持たず、既存データを画面側で読みやすい形に畳むだけ（groupNotesByWeekと同じ考え方）。
-import type { EmCheckin, Issue, JournalEntry } from "@core/types";
+import type { EmCheckin, Issue, JournalEntry } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

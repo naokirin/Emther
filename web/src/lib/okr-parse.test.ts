@@ -124,7 +124,7 @@ describe("shouldPreferHeuristic", () => {
 describe("parseOkrText", () => {
   it("外部AIが失敗したらヒューリスティックへ落とす", async () => {
     vi.resetModules();
-    vi.doMock("@/lib/cloud-chat", () => ({
+    vi.doMock("@core/cloud-chat", () => ({
       runCloudChat: vi.fn(async () => {
         throw new Error("no cli");
       }),
@@ -146,7 +146,7 @@ describe("parseOkrText", () => {
 
   it("外部AIが薄い結果のときMarkdownヒューリスティックを優先する", async () => {
     vi.resetModules();
-    vi.doMock("@/lib/cloud-chat", () => ({
+    vi.doMock("@core/cloud-chat", () => ({
       runCloudChat: vi.fn(async () =>
         JSON.stringify({
           objectives: [{ title: "全然違う目標", note: "", keyResults: ["x"] }],

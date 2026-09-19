@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -9,7 +9,7 @@ vi.mock("@core/local-model", () => ({
 type LookupTopic = { topic: string; isPrimarySource: boolean; note?: string };
 type LookupResult = { topic: string; url?: string };
 const findReferenceUrlsMock = vi.fn<(topics: LookupTopic[]) => Promise<LookupResult[]>>();
-vi.mock("@/lib/reference-lookup", () => ({
+vi.mock("./reference-lookup", () => ({
   findReferenceUrls: (topics: LookupTopic[]) => findReferenceUrlsMock(topics),
 }));
 
@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/em-growth-store");
+  return import("./em-growth-store");
 }
 
 describe("em-growth-store", () => {
@@ -72,7 +72,7 @@ describe("em-growth-store", () => {
   });
 
   it("toGrowSuggestionViewはPERSON_n IDを実名に復元する", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const store = await loadModule();
     const personId = peopleDirectory.registerName("Aさん");
     const [created] = store.createGrowSuggestions([

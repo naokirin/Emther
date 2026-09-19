@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addCheckin, listCheckins, toCheckinView } from "@/lib/em-self-store";
+import { addCheckin, listCheckins, toCheckinView } from "@core/em-self-store";
 import { dateStringToNoonTimestamp } from "@core/journal-date-parser";
 
 export async function GET() {

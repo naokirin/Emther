@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { extractFirstJsonObject } from "@core/local-model";
-import { runCloudChat } from "@/lib/cloud-chat";
+import { runCloudChat } from "@core/cloud-chat";
 import { maskNames, unmaskNames } from "@core/people-directory";
 import { normalizeObservationInput } from "@/lib/observation-dump-normalize";
 import type { ChunkDraft, ObservationSourceType } from "@/lib/observation-dump-store";

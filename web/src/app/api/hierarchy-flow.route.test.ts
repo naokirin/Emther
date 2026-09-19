@@ -6,7 +6,7 @@ vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
 }));
 
-vi.mock("@/lib/cloud-chat", () => ({
+vi.mock("@core/cloud-chat", () => ({
   runCloudChat: vi.fn(async () => {
     throw new Error("cloud disabled in hierarchy-flow tests");
   }),

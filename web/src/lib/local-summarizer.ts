@@ -1,5 +1,5 @@
 import { runLocalChat } from "@core/local-model";
-import { buildGlossaryContextBlock } from "@/lib/glossary-store";
+import { buildGlossaryContextBlock } from "@core/glossary-store";
 import { listPeople } from "@core/people-directory";
 
 /**

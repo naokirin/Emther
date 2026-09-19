@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { dataFilePath } from "@core/persistence";
-import { assertNoRealNamesLeaked } from "@core/people-directory";
-import { getRulesAndConstraints } from "@core/settings-store";
-import { CLI_LABELS, type CliName } from "@core/types";
+import { dataFilePath } from "./persistence";
+import { assertNoRealNamesLeaked } from "./people-directory";
+import { getRulesAndConstraints } from "./settings-store";
+import { CLI_LABELS, type CliName } from "./types";
 
 // Agent Runtime の Lead 起動とは分離した、ワンショットのクラウドCLI呼び出し。
 // OKR構造化など「JSONだけ返してほしい短いタスク」向け。Run DB・Org注入・consultは載せない。

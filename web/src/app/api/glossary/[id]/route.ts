@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteGlossaryEntry, getGlossaryEntry, updateGlossaryEntry } from "@/lib/glossary-store";
+import { deleteGlossaryEntry, getGlossaryEntry, updateGlossaryEntry } from "@core/glossary-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

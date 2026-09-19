@@ -5,7 +5,7 @@
 // この段階ではIssueの内部データモデルには触れず、既にクライアント側で取得済みの
 // Journal / Vitals / People / NextActionsだけを組み替えて使う
 // （新しいAPI・永続化エンティティは追加しない）。
-import { periodWindow } from "@/lib/daily-trends";
+import { periodWindow } from "@core/daily-trends";
 import type { NextAction } from "@/lib/dashboard-next-actions";
 import { PERSON_VITAL_LABEL, personVitalStatus, isJournalEntryResolved } from "@core/types";
 import type { JournalEntry, OrgVitals, PersonSummary, VitalStatus } from "@core/types";

@@ -2,7 +2,7 @@
 // シグネチャを維持する（呼び出し側は "@/lib/agent-runtime" というパスaliasを使っており、
 // ディレクトリ化してもこのパスは解決されるため変更不要）。
 
-export type { SuggestedTheme } from "@/lib/theme-store";
+export type { SuggestedTheme } from "@core/theme-store";
 
 export {
   extractLookup,

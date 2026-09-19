@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listObjectives } from "@core/org-context-store/index";
-import { createThemeCandidate, toThemeView } from "@/lib/theme-store";
+import { createThemeCandidate, toThemeView } from "@core/theme-store";
 
 // docs/value_hierarchy_and_flow.md §2.3。期初・OKR 更新時に Objective/KR から候補テーマを先に置く。
 // 初回はヒューリスティック（AI なし）。人間が採用するまで candidate。

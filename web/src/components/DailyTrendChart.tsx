@@ -16,7 +16,7 @@ import {
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import styles from "@/app/page.module.css";
-import { periodWindow, type CheckinDailyPoint, type JournalIssueDailyPoint, type PeriodUnit } from "@/lib/daily-trends";
+import { periodWindow, type CheckinDailyPoint, type JournalIssueDailyPoint, type PeriodUnit } from "@core/daily-trends";
 
 // 改修依頼「マウスオーバーで数値を確認したい／先週・先月など時間を自由に移動したい」対応。
 // 素のSVG自作から、ホバーツールチップ・積み上げ/グループ棒を標準で持つChart.jsへ移行する

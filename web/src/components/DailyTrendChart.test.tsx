@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { Chart, ChartData } from "chart.js";
 import { CheckinTrendChart, jitterPointsPlugin, JournalIssueTrendChart } from "./DailyTrendChart";
-import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "@/lib/daily-trends";
+import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "@core/daily-trends";
 import type { EmCheckin, Issue, JournalEntry } from "@core/types";
 
 vi.mock("react-chartjs-2", () => ({

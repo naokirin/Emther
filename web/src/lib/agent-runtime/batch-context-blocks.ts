@@ -1,9 +1,9 @@
-import { listCheckins, listReflectionNotes } from "@/lib/em-self-store";
+import { listCheckins, listReflectionNotes } from "@core/em-self-store";
 import { listIssues } from "@core/issue-store";
 import { listJournalEntries } from "@core/journal-store";
 import { listEvents } from "@core/knowledge-store";
 import { maskNames } from "@core/people-directory";
-import { listAdoptedThemes } from "@/lib/theme-store";
+import { listAdoptedThemes } from "@core/theme-store";
 import { charterFilledCount } from "@core/types";
 import { computeOrgVitals } from "@/lib/vitals";
 import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";

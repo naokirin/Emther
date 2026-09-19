@@ -447,7 +447,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("buildThemesContextBlockは採用済みテーマだけを載せる", async () => {
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
     const candidate = await themeStore.createThemeCandidate({
       title: "テーマA",
       summary: "見立てA",
@@ -504,7 +504,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
   });
 
   it("Growの材料はEM自己申告と組織側の解釈を横断し、grow_suggestionsの出力指示を含む", async () => {
-    const emSelfStore = await import("@/lib/em-self-store");
+    const emSelfStore = await import("@core/em-self-store");
     const knowledgeStore = await import("@core/knowledge-store");
     await emSelfStore.addCheckin({ mood: 2, energy: 2, stress: 4, note: "割り込みが多い" });
     await emSelfStore.addReflectionNote({ type: "problem", text: "計画作業の時間が取れない" });
@@ -535,7 +535,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
 
   it("Growの材料は実名をPERSON_nにマスクしてから返す", async () => {
     const pd = await import("@core/people-directory");
-    const emSelfStore = await import("@/lib/em-self-store");
+    const emSelfStore = await import("@core/em-self-store");
     pd.registerName("漏洩太郎");
     await emSelfStore.addCheckin({ mood: 3, energy: 3, stress: 3, note: "漏洩太郎との1on1で気づいたこと" });
     const rt = await loadModule();
@@ -2212,7 +2212,7 @@ describe("watchdog: checkWeeklyGrow", () => {
 
   it("曜日・時刻が一致すればLead Agentを自動起動し、grow_suggestionsをem-growth-storeへ保存する", async () => {
     const settingsStore = await import("@core/settings-store");
-    const growStore = await import("@/lib/em-growth-store");
+    const growStore = await import("@core/em-growth-store");
     settingsStore.updateRulesAndConstraints({
       autoGrowEnabled: true,
       autoGrowWeekday: new Date().getDay(),

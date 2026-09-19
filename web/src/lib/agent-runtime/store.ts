@@ -14,7 +14,7 @@ import {
   setSuggestionReviewDueAt,
   unarchiveSuggestion,
 } from "@core/suggestion-store";
-import { adoptTheme, createThemeCandidate } from "@/lib/theme-store";
+import { adoptTheme, createThemeCandidate } from "@core/theme-store";
 import { normalizeSuggestedSubIssues, parseSuggestedPriority } from "./extraction";
 import type { AgentRun, AgentStatus, LogLine } from "./types";
 

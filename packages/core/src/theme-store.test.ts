@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("theme-store", () => {
   it("候補を作成し採用・却下できる", async () => {
-    const store = await import("@/lib/theme-store");
+    const store = await import("./theme-store");
     const candidate = await store.createThemeCandidate({
       title: "承認待ちの構造化",
       summary: "複数チームで承認が滞っている",
@@ -65,14 +65,14 @@ describe("theme-store", () => {
         },
       ]),
     );
-    const store = await import("@/lib/theme-store");
+    const store = await import("./theme-store");
     const theme = store.getTheme("legacy-1");
     expect(theme?.title).toBe("旧テーマ");
     expect(theme && "embedding" in theme).toBe(false);
   });
 
   it("reviseはsupersedesで新版を作り旧版をdismissする", async () => {
-    const store = await import("@/lib/theme-store");
+    const store = await import("./theme-store");
     const candidate = await store.createThemeCandidate({
       title: "旧タイトル",
       summary: "旧見立て",
@@ -87,7 +87,7 @@ describe("theme-store", () => {
   });
 
   it("objectiveIds/keyResultIds を保持し link 更新できる", async () => {
-    const store = await import("@/lib/theme-store");
+    const store = await import("./theme-store");
     const candidate = await store.createThemeCandidate({
       title: "OKR起点",
       summary: "要約",

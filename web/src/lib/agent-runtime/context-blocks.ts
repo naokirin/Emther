@@ -14,8 +14,8 @@ import { listPeople, maskNames } from "@core/people-directory";
 import { buildRelatedBundleBlock } from "@core/related-context";
 import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "@core/agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId } from "@core/settings-store";
-import { listAdoptedThemes } from "@/lib/theme-store";
-import { buildGlossaryContextBlock } from "@/lib/glossary-store";
+import { listAdoptedThemes } from "@core/theme-store";
+import { buildGlossaryContextBlock } from "@core/glossary-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "@core/types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import {

@@ -1,5 +1,5 @@
 import type { IssueCharter } from "@core/issue-store";
-import type { SuggestedTheme } from "@/lib/theme-store";
+import type { SuggestedTheme } from "@core/theme-store";
 import type { LookupRequest } from "@core/agent-knowledge-tools";
 import type {
   ConfirmPriority,

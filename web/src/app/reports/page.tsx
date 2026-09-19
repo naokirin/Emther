@@ -6,7 +6,7 @@ import { PaginationControls, usePagination } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { JournalIssueTrendChart, PeriodNavigator, usePeriodNavigator } from "@/components/DailyTrendChart";
 import { PageTitleRow } from "@/components/HelpLink";
-import { buildJournalIssueDailyTrend } from "@/lib/daily-trends";
+import { buildJournalIssueDailyTrend } from "@core/daily-trends";
 import { useIssues, useJournal, useReports } from "@/lib/hooks";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@core/types";
 

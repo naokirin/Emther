@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "@/app/page.module.css";
-import type { GlossaryEntry } from "@/lib/glossary-store";
+import type { GlossaryEntry } from "@core/glossary-store";
 
 export function GlossaryPanel() {
   const [entries, setEntries] = useState<GlossaryEntry[]>([]);

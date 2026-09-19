@@ -6,7 +6,7 @@ import {
   reviseTheme,
   toThemeView,
   updateThemeLinks,
-} from "@/lib/theme-store";
+} from "@core/theme-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

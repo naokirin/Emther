@@ -6,7 +6,7 @@ vi.mock("@core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
 }));
 
-vi.mock("@/lib/cloud-chat", () => ({
+vi.mock("@core/cloud-chat", () => ({
   runCloudChat: vi.fn(async () => {
     throw new Error("cloud unavailable in test");
   }),
@@ -43,7 +43,7 @@ afterEach(() => {
 describe("POST /api/themes/link/suggest", () => {
   it("OKR未リンクの採用テーマへヒューリスティックでリンク案を返す", async () => {
     const org = await import("@core/org-context-store/index");
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
 
     const objective = await org.addObjective("信頼性を上げる");
     await org.addKeyResult(objective.id, "重大インシデントを半減する");
@@ -73,7 +73,7 @@ describe("POST /api/themes/link/suggest", () => {
 
   it("既にリンク済みのテーマは対象外", async () => {
     const org = await import("@core/org-context-store/index");
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
 
     const objective = await org.addObjective("体験改善");
     const theme = await themeStore.createThemeCandidate({
@@ -95,7 +95,7 @@ describe("POST /api/themes/link/suggest", () => {
 
 describe("POST /api/issues/link/suggest", () => {
   it("戦略未接続の親 Issue へテーマ案を返す", async () => {
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
     const issueStore = await import("@core/issue-store");
 
     const theme = await themeStore.createThemeCandidate({
@@ -123,7 +123,7 @@ describe("POST /api/issues/link/suggest", () => {
   });
 
   it("issueIds で単件に絞れる", async () => {
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
     const issueStore = await import("@core/issue-store");
 
     const theme = await themeStore.createThemeCandidate({
@@ -157,9 +157,9 @@ describe("POST /api/issues/link/suggest", () => {
 
 describe("link-suggest unit", () => {
   it("クラウド成功時は cloud source になる", async () => {
-    const { runCloudChat } = await import("@/lib/cloud-chat");
+    const { runCloudChat } = await import("@core/cloud-chat");
     const org = await import("@core/org-context-store/index");
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
 
     const objective = await org.addObjective("基盤進化");
     const withKr = await org.addKeyResult(objective.id, "認証をプライマリにする");
@@ -195,9 +195,9 @@ describe("link-suggest unit", () => {
   });
 
   it("クラウドプロンプトに実名を載せない（マスク済みのまま送る）", async () => {
-    const { runCloudChat } = await import("@/lib/cloud-chat");
+    const { runCloudChat } = await import("@core/cloud-chat");
     const { registerName } = await import("@core/people-directory");
-    const themeStore = await import("@/lib/theme-store");
+    const themeStore = await import("@core/theme-store");
     const issueStore = await import("@core/issue-store");
 
     registerName("診断太郎");

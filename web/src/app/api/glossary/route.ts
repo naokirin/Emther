@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addGlossaryEntry, listGlossaryEntries } from "@/lib/glossary-store";
+import { addGlossaryEntry, listGlossaryEntries } from "@core/glossary-store";
 
 export async function GET() {
   return NextResponse.json({ entries: listGlossaryEntries() });

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
 import { jsonRequest } from "@core/test-helpers/api-route";
 
-vi.mock("@/lib/cloud-chat", () => ({
+vi.mock("@core/cloud-chat", () => ({
   runCloudChat: vi.fn(async () =>
     JSON.stringify({
       objectives: [{ title: "AI目標", note: "理由", keyResults: ["KR-A"] }],

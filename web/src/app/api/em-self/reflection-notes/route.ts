@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addReflectionNote, listReflectionNotes, toReflectionNoteView } from "@/lib/em-self-store";
+import { addReflectionNote, listReflectionNotes, toReflectionNoteView } from "@core/em-self-store";
 import { dateStringToNoonTimestamp } from "@core/journal-date-parser";
 
 // 改修依頼「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』

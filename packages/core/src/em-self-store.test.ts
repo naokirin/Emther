@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/em-self-store");
+  return import("./em-self-store");
 }
 
 describe("addCheckin", () => {
@@ -105,7 +105,7 @@ describe("setReflectionNoteArchived", () => {
 
 describe("toCheckinView / toReflectionNoteView", () => {
   it("PERSON_n IDを実名に復元する", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");
     const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, note: "Aさんとの1on1で気づいたこと" });

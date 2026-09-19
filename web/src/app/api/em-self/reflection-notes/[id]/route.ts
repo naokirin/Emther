@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setReflectionNoteArchived, toReflectionNoteView } from "@/lib/em-self-store";
+import { setReflectionNoteArchived, toReflectionNoteView } from "@core/em-self-store";
 
 // ユーザー要望「現在の改善方針が残り続けてコントロールできない」対応。
 // archived=true で方針パネルから外し、false で戻す（誤操作の取り消し）。

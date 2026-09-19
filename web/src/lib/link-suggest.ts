@@ -1,9 +1,9 @@
 import { extractFirstJsonObject } from "@core/local-model";
-import { runCloudChat } from "@/lib/cloud-chat";
+import { runCloudChat } from "@core/cloud-chat";
 import { listIssues } from "@core/issue-store";
 import { listObjectives } from "@core/org-context-store/index";
 import { unmaskNames } from "@core/people-directory";
-import { listAdoptedThemes, toThemeView, type OrgTheme } from "@/lib/theme-store";
+import { listAdoptedThemes, toThemeView, type OrgTheme } from "@core/theme-store";
 import {
   isIssueStrategyUnlinked,
   isThemeOkrUnlinked,

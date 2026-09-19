@@ -19,7 +19,7 @@ vi.mock("@/lib/agent-runtime", () => ({
   listRuns: () => [],
 }));
 
-vi.mock("@/lib/cloud-chat", () => ({
+vi.mock("@core/cloud-chat", () => ({
   runCloudChat: vi.fn(async () => {
     throw new Error("cloud unavailable");
   }),

@@ -8,7 +8,7 @@ import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "@/compon
 import { PageTitleRow } from "@/components/HelpLink";
 import { GrowSuggestionsPanel } from "@/components/growth/GrowSuggestionsPanel";
 import { ReflectionNoteForm, useReflectionNoteController } from "@/components/growth/ReflectionNoteForm";
-import { buildCheckinDailyTrend } from "@/lib/daily-trends";
+import { buildCheckinDailyTrend } from "@core/daily-trends";
 import type { EmReflectionNote, ReflectionNoteType } from "@core/types";
 
 const WEEK_GROUP_PAGE_SIZE = 4;

@@ -1,5 +1,5 @@
 import { extractFirstJsonObject } from "@core/local-model";
-import { runCloudChat } from "@/lib/cloud-chat";
+import { runCloudChat } from "@core/cloud-chat";
 import type { ObjectiveImportDraft } from "@core/org-context-store/index";
 import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@core/people-directory";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@core/name-candidate-confirmation";

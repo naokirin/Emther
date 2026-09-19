@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adoptSuggestedThemesFromRun, clearSuggestedThemes, getRun, toRunView } from "@/lib/agent-runtime";
-import { toThemeView } from "@/lib/theme-store";
+import { toThemeView } from "@core/theme-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

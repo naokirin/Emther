@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createTheme, listCurrentThemes, toThemeView } from "@/lib/theme-store";
-import type { ThemeStatus } from "@/lib/theme-store";
+import { createTheme, listCurrentThemes, toThemeView } from "@core/theme-store";
+import type { ThemeStatus } from "@core/theme-store";
 
 export async function GET(request: Request) {
   const status = new URL(request.url).searchParams.get("status") as ThemeStatus | null;

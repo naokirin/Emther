@@ -7,8 +7,8 @@ import {
 } from "@core/types";
 import { dateStringToNoonTimestamp } from "@core/journal-date-parser";
 import type { IssueCharter } from "@core/issue-store";
-import type { GrowReference, GrowSuggestionDraft } from "@/lib/em-growth-store";
-import type { SuggestedTheme } from "@/lib/theme-store";
+import type { GrowReference, GrowSuggestionDraft } from "@core/em-growth-store";
+import type { SuggestedTheme } from "@core/theme-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
   AgentRun,

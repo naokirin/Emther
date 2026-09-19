@@ -4,7 +4,7 @@ import {
   setGrowSuggestionStatus,
   toGrowSuggestionView,
   type GrowSuggestionStatus,
-} from "@/lib/em-growth-store";
+} from "@core/em-growth-store";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/growth/suggestions/[id]">) {
   const { id } = await ctx.params;
