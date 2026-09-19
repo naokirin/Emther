@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRun, listRuns, toRunView } from "@core/agent-runtime/index";
-import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+import { resolveUniqueByPrefix } from "@core/id-resolve";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/agents/[id]">) {
   const { id } = await ctx.params;

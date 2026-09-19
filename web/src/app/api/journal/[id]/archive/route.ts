@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { archiveJournalEntry, unarchiveJournalEntry, toJournalEntryView } from "@core/journal-store";
-import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
+import { buildSourceConsultIndex } from "@core/journal-consult-index";
 
 // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
 // Journalを、内容の訂正（PATCH・supersedesチェーン）とは別に、一覧・AIの判断材料から

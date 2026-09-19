@@ -3,7 +3,7 @@ import {
   ensureLocalModels,
   getModelLoadSnapshot,
   retryFailedLocalModels,
-} from "@/lib/model-loader";
+} from "@core/model-loader";
 
 // ローカルモデル（チャット／埋め込み）のキャッシュ確認・未取得時ダウンロード進捗。
 // GET は状態を返すと同時に ensure を起動する（ブラウザが開いたタイミングで進めるため）。

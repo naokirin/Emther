@@ -1,6 +1,6 @@
-import { runLocalChat } from "@core/local-model";
-import { buildGlossaryContextBlock } from "@core/glossary-store";
-import { listPeople } from "@core/people-directory";
+import { runLocalChat } from "./local-model";
+import { buildGlossaryContextBlock } from "./glossary-store";
+import { listPeople } from "./people-directory";
 
 /**
  * 議事録やチャットログ等の長い生テキストを、ローカルLLMを用いて外部に一切送信せずに要約する。

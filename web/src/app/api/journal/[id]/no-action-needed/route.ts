@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { setJournalNoActionNeeded, clearJournalNoActionNeeded, toJournalEntryView } from "@core/journal-store";
-import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
+import { buildSourceConsultIndex } from "@core/journal-consult-index";
 import { jsonFromUnknownError } from "@/app/api/name-candidate-response";
 
 // ユーザー指摘「確認したが対応不要だった、をEM側から示せない・UI上の強調を減らせない」対応。

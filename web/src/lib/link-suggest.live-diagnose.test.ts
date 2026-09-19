@@ -56,7 +56,7 @@ describe("link-suggest live diagnose", () => {
         return;
       }
 
-      const { suggestIssueStrategyLinks } = await import("@/lib/link-suggest");
+      const { suggestIssueStrategyLinks } = await import("@core/link-suggest");
       const started = Date.now();
       const result = await suggestIssueStrategyLinks();
       const elapsedMs = Date.now() - started;

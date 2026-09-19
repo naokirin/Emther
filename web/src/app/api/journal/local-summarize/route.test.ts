@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
-vi.mock("@/lib/local-summarizer", () => ({
+vi.mock("@core/local-summarizer", () => ({
   summarizeLogLocally: vi.fn(async (text: string) => `[要約ログ] ${text}`),
   structureDailyReflectionLocally: vi.fn(async (text: string) => `[振り返り構造化] ${text}`),
 }));

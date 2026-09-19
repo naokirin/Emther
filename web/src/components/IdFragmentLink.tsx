@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useRef, useState, type MouseEve
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { goHrefForIdFragment } from "@core/id-prefix";
-import type { IdMatch, IdMatchKind } from "@/lib/id-resolve";
+import type { IdMatch, IdMatchKind } from "@core/id-resolve";
 import styles from "@/app/page.module.css";
 
 const KIND_LABEL: Record<IdMatchKind, string> = {

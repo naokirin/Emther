@@ -4,7 +4,7 @@ import { jsonRequest } from "@core/test-helpers/api-route";
 
 const ensureLocalModels = vi.fn(async () => undefined);
 
-vi.mock("@/lib/model-loader", () => ({
+vi.mock("@core/model-loader", () => ({
   ensureLocalModels: () => ensureLocalModels(),
 }));
 

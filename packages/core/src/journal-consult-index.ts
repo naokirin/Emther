@@ -1,5 +1,5 @@
-import { listEventLineageIds } from "@core/knowledge-store";
-import { listRuns } from "@core/agent-runtime/index";
+import { listEventLineageIds } from "./knowledge-store";
+import { listRuns } from "./agent-runtime/index";
 
 // Journal（journal-store）とAgent Run（agent-runtime）という2つのドメインを横断する
 // 参照なので、どちらのドメイン層にも置かない（互いに依存させない）。EM向けの表示で

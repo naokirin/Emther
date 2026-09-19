@@ -1,8 +1,8 @@
-import { listRuns } from "@core/agent-runtime/index";
-import { findByIdPrefix, isHexIdPrefix, normalizeIdKey } from "@core/id-prefix";
-import { listIssues, type Issue } from "@core/issue-store";
-import { listJournalEntries, type JournalEntry } from "@core/journal-store";
-import { unmaskNames } from "@core/people-directory";
+import { listRuns } from "./agent-runtime/index";
+import { findByIdPrefix, isHexIdPrefix, normalizeIdKey } from "./id-prefix";
+import { listIssues, type Issue } from "./issue-store";
+import { listJournalEntries, type JournalEntry } from "./journal-store";
+import { unmaskNames } from "./people-directory";
 
 export type IdMatchKind = "issue" | "journal" | "run";
 

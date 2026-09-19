@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "@/app/page.module.css";
-import type { ModelLoadSnapshot } from "@/lib/model-loader";
+import type { ModelLoadSnapshot } from "@core/model-loader";
 
 const EMPTY: ModelLoadSnapshot = {
   overall: "idle",

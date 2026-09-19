@@ -13,14 +13,14 @@ vi.mock("@huggingface/transformers", () => ({
   },
 }));
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   LOCAL_CHAT_MODEL: { task: "text-generation", id: "mock/chat", dtype: "q4" },
   getLocalChatModel: () => getLocalChatModel(),
   getLocalGenerator: (...args: unknown[]) => getLocalGenerator(...(args as [])),
   clearLocalGeneratorCache: () => clearLocalGeneratorCache(),
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   EMBEDDING_MODEL: { task: "feature-extraction", id: "mock/embed", dtype: "q8" },
   getEmbedder: (...args: unknown[]) => getEmbedder(...(args as [])),
   clearEmbedderCache: () => clearEmbedderCache(),
@@ -31,7 +31,7 @@ import {
   getModelLoadSnapshot,
   resetModelLoaderStateForTests,
   retryFailedLocalModels,
-} from "@/lib/model-loader";
+} from "./model-loader";
 
 describe("model-loader", () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
-import { listIssues } from "@core/issue-store";
-import { listObjectives, type Objective } from "@core/org-context-store/index";
+import { listIssues } from "./issue-store";
+import { listObjectives, type Objective } from "./org-context-store/index";
 
 // Objective（org-context-store）とIssue（issue-store）という2つのドメインを横断する
 // 進捗集計なので、どちらのドメイン層にも依存を持たせない

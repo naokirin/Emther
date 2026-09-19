@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isHexIdPrefix } from "@core/id-prefix";
-import { resolveIdPrefix } from "@/lib/id-resolve";
+import { resolveIdPrefix } from "@core/id-resolve";
 
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";

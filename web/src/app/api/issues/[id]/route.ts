@@ -17,8 +17,8 @@ import {
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from "@core/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { listSourceJournalsForIssue, toJournalEntryViews } from "@core/journal-store";
-import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
-import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+import { buildSourceConsultIndex } from "@core/journal-consult-index";
+import { resolveUniqueByPrefix } from "@core/id-resolve";
 import { reactToIssueUpdate } from "@core/agent-runtime/index";
 
 function resolveIssueForRead(id: string) {

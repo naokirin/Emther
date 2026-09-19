@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -23,14 +23,14 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@/lib/objective-progress");
+  return import("./objective-progress");
 }
 
 describe("listObjectivesWithProgress", () => {
   it("KeyResultに紐づくIssueの件数（!archived）を計算する", async () => {
     const progressModule = await loadModule();
-    const orgStore = await import("@core/org-context-store/index");
-    const issueStore = await import("@core/issue-store");
+    const orgStore = await import("./org-context-store/index");
+    const issueStore = await import("./issue-store");
 
     const objective = await orgStore.addObjective("売上を伸ばす");
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");
@@ -45,8 +45,8 @@ describe("listObjectivesWithProgress", () => {
 
   it("archivedなIssueは件数から除外する", async () => {
     const progressModule = await loadModule();
-    const orgStore = await import("@core/org-context-store/index");
-    const issueStore = await import("@core/issue-store");
+    const orgStore = await import("./org-context-store/index");
+    const issueStore = await import("./issue-store");
 
     const objective = await orgStore.addObjective("売上を伸ばす");
     const withKr = await orgStore.addKeyResult(objective.id, "新規契約10件");

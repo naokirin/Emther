@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { addMemo, getSuggestion, toSuggestionView } from "@core/suggestion-store";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 import { reactToIssueUpdate } from "@core/agent-runtime/index";
-import { resolveUniqueByPrefix } from "@/lib/id-resolve";
+import { resolveUniqueByPrefix } from "@core/id-resolve";
 import { listSuggestions } from "@core/suggestion-store";
 
 export async function POST(request: Request, ctx: RouteContext<"/api/suggestions/[id]/memo">) {

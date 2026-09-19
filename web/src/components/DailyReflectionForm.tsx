@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import styles from "@/app/page.module.css";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { RecordDateField } from "@/components/RecordDateField";
-import type { ReflectionTurn } from "@/lib/local-summarizer";
+import type { ReflectionTurn } from "@core/local-summarizer";
 
 type Props = {
   onCreated: () => void;

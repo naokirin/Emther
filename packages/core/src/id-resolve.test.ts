@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -13,7 +13,7 @@ vi.mock("@core/embeddings", () => ({
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
-vi.mock("@core/name-candidate-detect", () => ({
+vi.mock("./name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
@@ -32,7 +32,7 @@ afterEach(() => {
 
 describe("resolveIdPrefix", () => {
   it("一意な Issue プレフィックスを解決する", async () => {
-    const issueStore = await import("@core/issue-store");
+    const issueStore = await import("./issue-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const issue = await issueStore.createIssue("プレフィックス解決");
     const prefix = issue.id.slice(0, 8);
@@ -42,7 +42,7 @@ describe("resolveIdPrefix", () => {
   });
 
   it("複数ヒット時は候補をすべて返す", async () => {
-    const issueStore = await import("@core/issue-store");
+    const issueStore = await import("./issue-store");
     const { resolveIdPrefix, resolveUniqueByPrefix } = await import("./id-resolve");
 
     // 衝突を強制するため、内部配列へ同じ先頭の ID を持つ Issue を直接載せるのは難しいので
@@ -63,7 +63,7 @@ describe("resolveIdPrefix", () => {
   });
 
   it("Journal も解決対象に含める", async () => {
-    const journalStore = await import("@core/journal-store");
+    const journalStore = await import("./journal-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const entry = await journalStore.addJournalEntry("現場メモ");
     const matches = resolveIdPrefix(entry.id.slice(0, 8));
@@ -73,9 +73,9 @@ describe("resolveIdPrefix", () => {
 
   // ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
   it("Issue のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");
-    const issueStore = await import("@core/issue-store");
+    const issueStore = await import("./issue-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const issue = await issueStore.createIssue("Aさんの1on1で出た懸念");
     const matches = resolveIdPrefix(issue.id.slice(0, 8));
@@ -85,9 +85,9 @@ describe("resolveIdPrefix", () => {
   });
 
   it("Journal の本文に含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Bさん");
-    const journalStore = await import("@core/journal-store");
+    const journalStore = await import("./journal-store");
     const { resolveIdPrefix } = await import("./id-resolve");
     const entry = await journalStore.addJournalEntry("Bさんと話した現場メモ");
     const matches = resolveIdPrefix(entry.id.slice(0, 8));

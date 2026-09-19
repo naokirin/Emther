@@ -8,7 +8,7 @@ import {
   type Sentiment,
   type Urgency,
 } from "@core/journal-store";
-import { buildSourceConsultIndex } from "@/lib/journal-consult-index";
+import { buildSourceConsultIndex } from "@core/journal-consult-index";
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
 // 専用のエンドポイント。既存の/api/journal（全件取得）はDashboard・Organization Context画面

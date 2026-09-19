@@ -7,7 +7,7 @@ const getModelLoadSnapshot = vi.fn(() => ({
   models: [],
 }));
 
-vi.mock("@/lib/model-loader", () => ({
+vi.mock("@core/model-loader", () => ({
   ensureLocalModels: () => ensureLocalModels(),
   retryFailedLocalModels: () => retryFailedLocalModels(),
   getModelLoadSnapshot: () => getModelLoadSnapshot(),

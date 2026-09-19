@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { suggestThemeOkrLinks } from "@/lib/link-suggest";
+import { suggestThemeOkrLinks } from "@core/link-suggest";
 
 // docs/value_hierarchy_and_flow.md §2 / §6.1。OKR未リンクの採用テーマへ Objective/KR リンク案を返す（HITL・未適用）。
 

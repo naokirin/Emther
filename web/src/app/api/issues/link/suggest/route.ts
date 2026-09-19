@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { suggestIssueStrategyLinks } from "@/lib/link-suggest";
+import { suggestIssueStrategyLinks } from "@core/link-suggest";
 
 // docs/value_hierarchy_and_flow.md §2 / §6.1。戦略未接続の親 Issue へテーマ/KR リンク案を返す（HITL・未適用）。
 

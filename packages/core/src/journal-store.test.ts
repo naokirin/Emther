@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 // journal-storeはローカルモデル（タグ抽出用・人物名NER用の2種類の呼び出し）、
 // 埋め込み生成、Agent Runtime起動という3つの重い/副作用のある依存を持つため、
@@ -16,7 +16,7 @@ let mockExtraction: {
 };
 let mockNerPeople: string[];
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async (messages: { role: string; content: string }[]) => {
     const systemContent = messages[0]?.content ?? "";
     if (systemContent.includes("人物名だけ")) {
@@ -27,7 +27,7 @@ vi.mock("@core/local-model", () => ({
   extractFirstJsonObject: vi.fn((text: string) => text),
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -35,7 +35,7 @@ vi.mock("@core/embeddings", () => ({
 // docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
-vi.mock("@core/name-candidate-detect", () => ({
+vi.mock("./name-candidate-detect", () => ({
   detectNameCandidatesAsync: async () => [] as string[],
   detectNameCandidates: () => [] as string[],
   registerNameCandidateFilters: () => {},
@@ -55,7 +55,7 @@ const startJournalAnalysisMock = vi.fn(async (rawText: string, journalId?: strin
 const listRunsMock = vi.fn(
   () => [] as Array<{ id: string; agentName: string; sourceJournalId?: string; updatedAt: number; archivedAt?: number }>,
 );
-vi.mock("@core/agent-runtime/index", () => ({
+vi.mock("./agent-runtime/index", () => ({
   startRun: (...args: unknown[]) => startRunMock(...(args as [string, string, string?])),
   startJournalAnalysis: (...args: unknown[]) => startJournalAnalysisMock(...(args as [string, string?])),
   listRuns: () => listRunsMock(),
@@ -78,13 +78,13 @@ afterEach(() => {
 });
 
 async function loadModule() {
-  return import("@core/journal-store");
+  return import("./journal-store");
 }
 
 describe("addJournalEntry", () => {
   it("ローカルモデルの抽出結果でtags/people/urgency/sentimentを埋める（登録済み人物のみpeopleへ）", async () => {
     mockExtraction = { summary: "", tags: ["1on1"], people: ["Aさん"], urgency: "low", sentiment: "positive" };
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("Aさんと1on1した。とても良かった");
@@ -122,7 +122,7 @@ describe("addJournalEntry", () => {
   });
 
   it("ローカルモデルがJSONを返さなくても本文は未確認エントリとして保存される", async () => {
-    const { extractFirstJsonObject } = await import("@core/local-model");
+    const { extractFirstJsonObject } = await import("./local-model");
     vi.mocked(extractFirstJsonObject).mockReturnValueOnce(undefined);
     const store = await loadModule();
     const entry = await store.addJournalEntry("JSONにならないメモ");
@@ -135,7 +135,7 @@ describe("addJournalEntry", () => {
   });
 
   it("ローカルモデル呼び出しが失敗しても本文は保存される", async () => {
-    const { runLocalChat } = await import("@core/local-model");
+    const { runLocalChat } = await import("./local-model");
     vi.mocked(runLocalChat).mockRejectedValueOnce(new Error("model unavailable"));
     const store = await loadModule();
     const entry = await store.addJournalEntry("モデル落ちても残す");
@@ -145,7 +145,7 @@ describe("addJournalEntry", () => {
 
   it("本文に登録済み人物名があれば、ローカル抽出がpeopleを空でも名簿照合で紐付く", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const aId = peopleDirectory.registerName("Aさん");
     const bId = peopleDirectory.registerName("Bさん");
     const store = await loadModule();
@@ -155,7 +155,7 @@ describe("addJournalEntry", () => {
 
   it("本文の未登録名はpeopleに自動登録しない", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const store = await loadModule();
     const entry = await store.addJournalEntry("未登録太郎さんと話した");
     expect(entry.people).toEqual([]);
@@ -164,7 +164,7 @@ describe("addJournalEntry", () => {
 
   it("opts.peopleで明示した人物は抽出漏れでも紐付く", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     const personId = peopleDirectory.registerName("花子さん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("進捗が遅れている", Date.now(), { people: ["花子さん"] });
@@ -174,7 +174,7 @@ describe("addJournalEntry", () => {
 
   it("本文中の登録済みチーム名を自動でteamIdsに紐付ける", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "negative",  };
-    const org = await import("@core/org-context-store/index");
+    const org = await import("./org-context-store/index");
     const team = org.addTeam("コアチーム", []);
     const store = await loadModule();
     const entry = await store.addJournalEntry("コアチームの雰囲気が重い");
@@ -191,7 +191,7 @@ describe("addJournalEntry", () => {
       sentiment: "neutral",
       
     };
-    const org = await import("@core/org-context-store/index");
+    const org = await import("./org-context-store/index");
     const team = org.addTeam("Engineering / 基盤", []);
     await org.updateTeam(team.id, { aliases: ["基盤"] });
     const store = await loadModule();
@@ -202,7 +202,7 @@ describe("addJournalEntry", () => {
 
   it("複数チームを同時に紐付けられる", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const org = await import("@core/org-context-store/index");
+    const org = await import("./org-context-store/index");
     const a = org.addTeam("コアチーム", []);
     const b = org.addTeam("プロダクトチーム", []);
     const store = await loadModule();
@@ -212,7 +212,7 @@ describe("addJournalEntry", () => {
 
   it("updateJournalEntryでteamsを校正できる", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
-    const org = await import("@core/org-context-store/index");
+    const org = await import("./org-context-store/index");
     const team = org.addTeam("コアチーム", []);
     const store = await loadModule();
     const entry = await store.addJournalEntry("メモ");
@@ -234,7 +234,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
       
       profileCandidate: { person: "Aさん", text: "Aさんはレビューが速く的確" },
     };
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const { entry, profileCandidate } = await store.addJournalEntryWithProfileCandidate("Aさんはいつもレビューが速い");
@@ -268,7 +268,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
       
     };
     const store = await loadModule();
-    const { UnconfirmedNameCandidatesError } = await import("@core/name-candidate-confirmation");
+    const { UnconfirmedNameCandidatesError } = await import("./name-candidate-confirmation");
     await expect(
       store.addJournalEntryWithProfileCandidate("未登録太郎さんと話した", Date.now(), {
         allowUnmaskedCandidates: false,
@@ -348,7 +348,7 @@ describe("addJournalEntryWithProfileCandidate", () => {
       
       profileCandidate: { person: "Aさん", text: "候補" },
     };
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");
     const store = await loadModule();
     const entry = await store.addJournalEntry("Aさんについてのメモ");
@@ -434,7 +434,7 @@ describe("listJournalEntriesPage", () => {
   });
 
   it("personは実名で渡すとPERSON_n IDへ変換して絞り込む", async () => {
-    const peopleDirectory = await import("@core/people-directory");
+    const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");
     peopleDirectory.registerName("Bさん");
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "neutral",  };
@@ -574,7 +574,7 @@ describe("updateJournalEntry", () => {
 describe("requestJournalAnalysis", () => {
   it("未確認エントリはエラーにする", async () => {
     const store = await loadModule();
-    const analysis = await import("@/lib/journal-analysis");
+    const analysis = await import("./journal-analysis");
     const entry = await store.addJournalEntry("問題発生");
     await expect(analysis.requestJournalAnalysis(entry.id)).rejects.toThrow(/未確認/);
     expect(startJournalAnalysisMock).not.toHaveBeenCalled();
@@ -582,7 +582,7 @@ describe("requestJournalAnalysis", () => {
 
   it("確定済みなら手動分析を起動する", async () => {
     const store = await loadModule();
-    const analysis = await import("@/lib/journal-analysis");
+    const analysis = await import("./journal-analysis");
     const entry = await store.addJournalEntry("問題発生");
     const confirmed = await store.updateJournalEntry(entry.id, { urgency: "low" });
     const result = await analysis.requestJournalAnalysis(confirmed!.id);
@@ -595,14 +595,14 @@ describe("requestJournalAnalysis", () => {
   });
 
   it("存在しないIDはundefinedを返す", async () => {
-    const analysis = await import("@/lib/journal-analysis");
+    const analysis = await import("./journal-analysis");
     expect(await analysis.requestJournalAnalysis("missing")).toBeUndefined();
   });
 });
 
 describe("toJournalEntryView", () => {
   it("resolvedIssueIdが設定されている場合はIssueタイトルを解決する", async () => {
-    const issueStore = await import("@core/issue-store");
+    const issueStore = await import("./issue-store");
     const store = await loadModule();
     const issue = await issueStore.createIssue("追跡中のIssue");
     const entry = await store.addJournalEntry("問題発生");
@@ -612,7 +612,7 @@ describe("toJournalEntryView", () => {
   });
 
   it("sourceJournalIdが一致するLead相談をsourceConsultRunIdに載せる", async () => {
-    const { buildSourceConsultIndex } = await import("@/lib/journal-consult-index");
+    const { buildSourceConsultIndex } = await import("./journal-consult-index");
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
     const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
@@ -632,7 +632,7 @@ describe("toJournalEntryView", () => {
   // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
   // AIを再度実行できない」対応。アーカイブ済みrunは現行の相談とみなさない。
   it("アーカイブ済みのrunはsourceConsultRunIdとして採用しない（EMが相談をリセットできるようにする）", async () => {
-    const { buildSourceConsultIndex } = await import("@/lib/journal-consult-index");
+    const { buildSourceConsultIndex } = await import("./journal-consult-index");
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
     const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
@@ -665,7 +665,7 @@ describe("getCurrentJournalEntry / listSourceJournalsForIssue", () => {
   });
 
   it("resolvedIssueIdとsourceJournalIdの両方から重複なく集める", async () => {
-    const issueStore = await import("@core/issue-store");
+    const issueStore = await import("./issue-store");
     const store = await loadModule();
     const issue = await issueStore.createIssue("追跡");
     const entry = await store.addJournalEntry("問題発生");

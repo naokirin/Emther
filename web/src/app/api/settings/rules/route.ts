@@ -7,7 +7,7 @@ import {
 } from "@core/settings-store";
 import { listPeople } from "@core/people-directory";
 import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@core/local-chat-presets";
-import { ensureLocalModels } from "@/lib/model-loader";
+import { ensureLocalModels } from "@core/model-loader";
 import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@core/types";
 
 export async function GET() {

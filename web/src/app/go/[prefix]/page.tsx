@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import styles from "@/app/page.module.css";
 import { isHexIdPrefix } from "@core/id-prefix";
-import { resolveIdPrefix, type IdMatchKind } from "@/lib/id-resolve";
+import { resolveIdPrefix, type IdMatchKind } from "@core/id-resolve";
 
 export const dynamic = "force-dynamic";
 

@@ -1,16 +1,16 @@
-import { extractFirstJsonObject } from "@core/local-model";
-import { runCloudChat } from "@core/cloud-chat";
-import { listIssues } from "@core/issue-store";
-import { listObjectives } from "@core/org-context-store/index";
-import { unmaskNames } from "@core/people-directory";
-import { listAdoptedThemes, toThemeView, type OrgTheme } from "@core/theme-store";
+import { extractFirstJsonObject } from "./local-model";
+import { runCloudChat } from "./cloud-chat";
+import { listIssues } from "./issue-store";
+import { listObjectives } from "./org-context-store/index";
+import { unmaskNames } from "./people-directory";
+import { listAdoptedThemes, toThemeView, type OrgTheme } from "./theme-store";
 import {
   isIssueStrategyUnlinked,
   isThemeOkrUnlinked,
   type Issue,
   type IssueStrategyLinkSuggestion,
   type ThemeOkrLinkSuggestion,
-} from "@core/types";
+} from "./types";
 
 export type { ThemeOkrLinkSuggestion, IssueStrategyLinkSuggestion };
 export { isThemeOkrUnlinked };

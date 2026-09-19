@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentJournalEntry, toJournalEntryView } from "@core/journal-store";
-import { requestJournalAnalysis } from "@/lib/journal-analysis";
+import { requestJournalAnalysis } from "@core/journal-analysis";
 import { toRunView } from "@core/agent-runtime/index";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
 

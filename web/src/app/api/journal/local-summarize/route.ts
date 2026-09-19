@@ -4,7 +4,7 @@ import {
   structureDailyReflectionLocally,
   generateNextReflectionQuestionLocally,
   type ReflectionTurn,
-} from "@/lib/local-summarizer";
+} from "@core/local-summarizer";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

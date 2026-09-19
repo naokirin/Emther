@@ -186,7 +186,7 @@ describe("link-suggest unit", () => {
       }),
     );
 
-    const { suggestThemeOkrLinks } = await import("@/lib/link-suggest");
+    const { suggestThemeOkrLinks } = await import("@core/link-suggest");
     const result = await suggestThemeOkrLinks();
     expect(result.source).toBe("cloud");
     expect(result.fallbackReason).toBeUndefined();
@@ -223,7 +223,7 @@ describe("link-suggest unit", () => {
       });
     });
 
-    const { suggestIssueStrategyLinks } = await import("@/lib/link-suggest");
+    const { suggestIssueStrategyLinks } = await import("@core/link-suggest");
     const result = await suggestIssueStrategyLinks({ issueIds: [issue.id] });
     expect(capturedUser).not.toContain("診断太郎");
     expect(capturedUser).toMatch(/PERSON_\d/);
