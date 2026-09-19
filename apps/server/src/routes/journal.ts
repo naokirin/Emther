@@ -22,11 +22,15 @@ import { buildSourceConsultIndex } from "@emther/core/journal-consult-index";
 import { resolveJournalOccurredAtFromDateInput } from "@emther/core/journal-date-parser";
 import { resolveUniqueByPrefix } from "@emther/core/id-resolve";
 import { listIssues } from "@emther/core/issue-store";
-import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
+import { requestJournalAnalysis } from "@emther/core/journal-analysis";
+import { startJournalBatchAnalysis, toRunView } from "@emther/core/agent-runtime/index";
+import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
+import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
 
 // docs/2nd_architecture/plan.md フェーズ2.5:
 // web/src/app/api/journal/{route,[id]/route,[id]/archive/route,
-// [id]/no-action-needed/route,bulk/route,search/route}.ts の移植。
+// [id]/no-action-needed/route,bulk/route,search/route,[id]/analyze/route,
+// batch/route}.ts の移植。
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -315,4 +319,49 @@ export const journalRoute = new Hono()
     const entry = clearJournalNoActionNeeded(id);
     if (!entry) return c.json({ error: "not found" }, 404);
     return c.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
+  })
+  // docs/usage_issues U16。EMが明示した手動分析。投稿時・自動フィルタとは独立に起動する。
+  .post("/:id/analyze", async (c) => {
+    const id = c.req.param("id");
+    const body = await c.req.json().catch(() => null);
+
+    const current = getCurrentJournalEntry(id);
+    if (!current) {
+      return c.json({ error: "not found" }, 404);
+    }
+    if (!current.confirmed) {
+      return c.json({ error: "未確認のJournalは分析できません。先に内容を確定してください。" }, 400);
+    }
+
+    try {
+      const result = await requestJournalAnalysis(id, maskOptionsFromBody(body));
+      if (!result) {
+        return c.json({ error: "not found" }, 404);
+      }
+      return c.json(
+        {
+          entry: { ...toJournalEntryView(result.entry, new Map()), sourceConsultRunId: result.run.id },
+          run: toRunView(result.run),
+        },
+        201,
+      );
+    } catch (err) {
+      return jsonFromUnknownError(err);
+    }
+  })
+  // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
+  // 対応。/api/themes/distillと同型のオンデマンド起動。
+  .post("/batch", async (c) => {
+    try {
+      const run = await startJournalBatchAnalysis({ manual: true });
+      if (!run) {
+        return c.json({ pendingUnmasked: true }, 202);
+      }
+      return c.json({ run: toRunView(run) }, 201);
+    } catch (err) {
+      if (isUnconfirmedNameCandidatesError(err)) {
+        return c.json({ error: err.message, candidates: err.candidates }, 409);
+      }
+      return c.json({ error: (err as Error).message }, 500);
+    }
   });

@@ -1,20 +1,4 @@
-import { NextResponse } from "next/server";
-import { startJournalBatchAnalysis, toRunView } from "@core/agent-runtime/index";
-import { isUnconfirmedNameCandidatesError } from "@core/name-candidate-confirmation";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/journal.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-// ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
-// 対応。/api/themes/distillと同型のオンデマンド起動。
-export async function POST() {
-  try {
-    const run = await startJournalBatchAnalysis({ manual: true });
-    if (!run) {
-      return NextResponse.json({ pendingUnmasked: true }, { status: 202 });
-    }
-    return NextResponse.json({ run: toRunView(run) }, { status: 201 });
-  } catch (err) {
-    if (isUnconfirmedNameCandidatesError(err)) {
-      return NextResponse.json({ error: err.message, candidates: err.candidates }, { status: 409 });
-    }
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
-  }
-}
+export const POST = proxyToHono;

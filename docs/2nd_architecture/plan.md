@@ -161,6 +161,11 @@
   - 対応するNext側2ファイルは`proxyToHono`への委譲に置き換え。Next側に専用テストが元々無かったため、`node:child_process`のspawnモックを使った新規テスト（起動確認・reviewed=trueの検証）をそれぞれ1件ずつ追加。
   - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（22ファイル/274テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（290テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。両ルートともPOSTのみでagent起動を伴うため、手動smoke testはサーバー起動確認（`/api/health`）に留めた。
   - **残高リスク**: 20 − 2 = 18ルート。
+- **2.5 高リスク バッチ6（完了・2026-09-19）**: `journal/[id]/analyze`（`POST`）, `journal/batch`（`POST`）の2ルートを移植した。どちらも`/api/journal`配下の既存パスのため、新規ファイルを作らず`apps/server/src/routes/journal.ts`へ追記する形で実装（`journal/batch`は`themes/distill`・`growth/generate`と同型のオンデマンド起動、`journal/[id]/analyze`は対象Journalの`confirmed`状態を検査してから`journal-analysis.ts`経由で起動する専用ロジック）。
+  - 対応するNext側2ファイルは`proxyToHono`への委譲に置き換え。`journal/[id]/analyze`の既存テスト1本は`journal.test.ts`内の共有`agent-runtime/index`モックを拡張（`startJournalAnalysis`/`startJournalBatchAnalysis`/`toRunView`を追加）した上で移設。`journal/batch`はNext側に専用テストが無かったため新規2ケース（起動確認・pendingUnmasked時の202）を追加。
+  - **検証済み**: `npm run typecheck -w @emther/server`（エラー0）、`npm test -w @emther/server`（22ファイル/279テスト green）、`npm run typecheck -w web`（既存の無関係な5件のみ）、`npm test -w web`（287テスト green、無回帰）、`npm test -w @emther/core`（728テスト green、無回帰）。両ルートともagent起動を伴うPOSTのみのため、手動smoke testはサーバー起動確認に留めた。
+  - **手動smoke test用の一時ディレクトリ削除方法を修正**: `rm -rf`ではなく`rm-tmp <path>`（`/tmp`配下限定の削除ラッパー）を使うようユーザーから指摘。以降のバッチ・`dev-hybrid-rules.md`に反映。
+  - **残高リスク**: 18 − 2 = 16ルート。
 - **2.6 Zod 導入（未着手）**: 全ルート一律ではなく、journal 投稿・settings 更新等の複雑な入力を受けるルートに絞って導入する（2nd_architecture.md 3.4節の方針どおり）。2.5でそれらのルートを移植するバッチのタイミングで併せて導入する。
 - **2.7 完了基準（未達成）**: `src/app/api/**` に実処理を持つ `route.ts` が残っておらず（全て Hono 側の呼び出しに委譲、または削除済み）、既存の API 契約（レスポンス形状）が変わっていないことをテストで確認できる。
 

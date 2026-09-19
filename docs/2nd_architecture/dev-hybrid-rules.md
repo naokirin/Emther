@@ -9,7 +9,7 @@
 
 ## 1. 現在の段階（フェーズ2: Hono並走）
 
-- **ブラウザから見るのは常に `next dev`（`web/`）のみ。** `apps/server`（Hono）は Next の Route Handler からプロキシされるバックエンドとして裏で動くだけで、ブラウザから直接叩く対象ではない（唯一の例外は `apps/server` 自体の開発中に `curl` 等で動作確認する場合）。localhost向けのcurlは `safe-curl`（利用可能な環境では通常の`curl`ではなくこちらを使う）。
+- **ブラウザから見るのは常に `next dev`（`web/`）のみ。** `apps/server`（Hono）は Next の Route Handler からプロキシされるバックエンドとして裏で動くだけで、ブラウザから直接叩く対象ではない（唯一の例外は `apps/server` 自体の開発中に `curl` 等で動作確認する場合）。localhost向けのcurlは `safe-curl`（利用可能な環境では通常の`curl`ではなくこちらを使う）。手動smoke test用の一時ディレクトリ削除は `rm -rf` ではなく `rm-tmp <path>`（`/tmp` 配下限定の削除ラッパー、利用可能な環境ではこちらを使う）。
 - **手動でmutatingなエンドポイントを確認する際は必ず環境変数（`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`/`EM_BACKUP_DIR`）を一時ディレクトリへ向けること。** 自動テストは`setupIsolatedStoreEnv`で担保されるが、手動確認はこのガードの外にある（フェーズ2.3で実データを誤って書き換えた事故の教訓。`plan.md`参照）。
 - Route Handler が `web/src/lib/hono-proxy.ts` の `proxyToHono` に置き換わっている API（下記「移植済みルート」参照）は、実処理が `apps/server/src/routes/**` にある。挙動を直すときは **`apps/server` 側のファイルを編集する**（`web/src/app/api/**/route.ts` 側はフォワードするだけで、ここを直しても反映されない）。
 - 移植済みルートを確認するには、2つのプロセスを同時に起動する。
@@ -57,8 +57,9 @@
 - `GET/POST /api/suggestions`, `GET/PATCH /api/suggestions/:id`, `POST /api/suggestions/:id/memo`
 - `POST /api/themes/distill`
 - `POST /api/growth/generate`
+- `POST /api/journal/:id/analyze`, `POST /api/journal/batch`
 
-**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク18ルート。
+**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク16ルート。
 
 対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents,issues,suggestions,themes-distill,growth-generate}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる）（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
 

@@ -28,9 +28,43 @@ vi.mock("@emther/core/embeddings", () => ({
 // 未登録名検出に依存していたため、ここでは name-candidate-detect をモックしない
 // （他のdescribeブロックは元々このモック無しでも通っていたテスト群と同等の入力しか使わない）。
 
+const startJournalAnalysisMock = vi.hoisted(() =>
+  vi.fn(async (rawText: string, journalId?: string) => ({
+    id: "run-analyze",
+    agentName: "Lead Agent",
+    task: `対象のJournalエントリ: "${rawText}"`,
+    status: "active",
+    log: [],
+    totalCostUsd: 0,
+    createdAt: 1,
+    updatedAt: 1,
+    origin: "auto-anomaly",
+    reviewed: false,
+    sourceJournalId: journalId,
+  })),
+);
+
+const startJournalBatchAnalysisMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<Record<string, unknown> | undefined> => ({
+    id: "run-batch",
+    agentName: "Lead Agent",
+    task: "journal-batch",
+    status: "active",
+    log: [],
+    totalCostUsd: 0,
+    createdAt: 1,
+    updatedAt: 1,
+    origin: "auto-journal-batch",
+    reviewed: true,
+  })),
+);
+
 vi.mock("@emther/core/agent-runtime/index", () => ({
   startRun: vi.fn(async () => ({})),
   listRuns: () => [],
+  toRunView: <T,>(run: T) => run,
+  startJournalAnalysis: (...args: unknown[]) => startJournalAnalysisMock(...(args as [string, string?])),
+  startJournalBatchAnalysis: (...args: Parameters<typeof startJournalBatchAnalysisMock>) => startJournalBatchAnalysisMock(...args),
 }));
 
 let dir: string;
@@ -39,6 +73,8 @@ beforeEach(() => {
   dir = setupIsolatedStoreEnv();
   vi.resetModules();
   mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "neutral", summary: "" };
+  startJournalAnalysisMock.mockClear();
+  startJournalBatchAnalysisMock.mockClear();
 });
 
 afterEach(() => {
@@ -441,5 +477,56 @@ describe("GET /api/journal/search", () => {
     const json = await res.json();
     expect(json.page).toBe(2);
     expect(json.entries[0].id).toBe(target.id);
+  });
+});
+
+describe("POST /api/journal/:id/analyze", () => {
+  it("存在しないIDは404", async () => {
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request("/missing/analyze", post({}));
+    expect(res.status).toBe(404);
+  });
+
+  it("未確認エントリは400", async () => {
+    const journalStore = await import("@emther/core/journal-store");
+    const entry = await journalStore.addJournalEntry("未確認のまま");
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request(`/${entry.id}/analyze`, post({}));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/未確認/);
+    expect(startJournalAnalysisMock).not.toHaveBeenCalled();
+  });
+
+  it("確定済みなら手動分析を起動して201を返す", async () => {
+    const journalStore = await import("@emther/core/journal-store");
+    const entry = await journalStore.addJournalEntry("分析対象");
+    const confirmed = await journalStore.updateJournalEntry(entry.id, { urgency: "low" });
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request(`/${confirmed!.id}/analyze`, post({}));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.run.id).toBe("run-analyze");
+    expect(json.entry.sourceConsultRunId).toBe("run-analyze");
+    expect(startJournalAnalysisMock).toHaveBeenCalled();
+  });
+});
+
+// ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」対応。
+describe("POST /api/journal/batch", () => {
+  it("Lead Agentの分析Runを起動して201を返す", async () => {
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request("/batch", { method: "POST" });
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.run.id).toBe("run-batch");
+    expect(startJournalBatchAnalysisMock).toHaveBeenCalled();
+  });
+
+  it("pendingUnmaskedのときは202を返す", async () => {
+    startJournalBatchAnalysisMock.mockResolvedValueOnce(undefined);
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request("/batch", { method: "POST" });
+    expect(res.status).toBe(202);
+    expect((await res.json()).pendingUnmasked).toBe(true);
   });
 });
