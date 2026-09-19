@@ -7,6 +7,9 @@ import { idResolveRoute } from "./routes/id-resolve";
 import { knowledgeEventsRoute } from "./routes/knowledge-events";
 import { teamsRoute } from "./routes/teams";
 import { orgBackgroundRoute } from "./routes/org-background";
+import { reportsRoute } from "./routes/reports";
+import { growthSuggestionsRoute } from "./routes/growth-suggestions";
+import { checkinsRoute, reflectionNotesRoute } from "./routes/em-self";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -21,6 +24,10 @@ export function createApp() {
   app.route("/api/knowledge/events", knowledgeEventsRoute);
   app.route("/api/teams", teamsRoute);
   app.route("/api/org/background", orgBackgroundRoute);
+  app.route("/api/reports", reportsRoute);
+  app.route("/api/growth/suggestions", growthSuggestionsRoute);
+  app.route("/api/em-self/checkins", checkinsRoute);
+  app.route("/api/em-self/reflection-notes", reflectionNotesRoute);
   return app;
 }
 

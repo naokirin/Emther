@@ -40,8 +40,12 @@
 - `GET /api/knowledge/events`
 - `GET/POST /api/teams`, `PATCH/DELETE /api/teams/:id`, `POST /api/teams/:id/archive`, `POST /api/teams/bulk`
 - `GET/POST /api/org/background`, `PATCH/DELETE /api/org/background/:id`
+- `GET/POST /api/reports`, `PATCH /api/reports/:id`
+- `GET /api/growth/suggestions`, `PATCH /api/growth/suggestions/:id`
+- `GET/POST /api/em-self/checkins`
+- `GET/POST /api/em-self/reflection-notes`, `PATCH /api/em-self/reflection-notes/:id`
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background}.ts`（`apps/server/src/app.ts` でマウント）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self}.ts`（`apps/server/src/app.ts` でマウント）。
 
 ## 4. まだ決めていないこと（フェーズ2.5以降で追記）
 
