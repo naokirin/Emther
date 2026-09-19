@@ -1,11 +1,4 @@
-import { NextResponse } from "next/server";
-import { clearSuggestedSubIssues, toRunView } from "@core/agent-runtime/index";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/agents.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-export async function POST(_request: Request, ctx: RouteContext<"/api/agents/[id]/sub-issues/dismiss">) {
-  const { id } = await ctx.params;
-  const run = clearSuggestedSubIssues(id);
-  if (!run) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
-  return NextResponse.json({ run: toRunView(run) });
-}
+export const POST = proxyToHono;

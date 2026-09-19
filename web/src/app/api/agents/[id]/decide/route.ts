@@ -1,25 +1,4 @@
-import { NextResponse } from "next/server";
-import { decideRun, toRunView } from "@core/agent-runtime/index";
-import { jsonFromUnknownError, maskOptionsFromBodyStrict } from "@/app/api/name-candidate-response";
+// docs/2nd_architecture/plan.md フェーズ2.5: 実処理は apps/server/src/routes/agents.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-export async function POST(request: Request, ctx: RouteContext<"/api/agents/[id]/decide">) {
-  const { id } = await ctx.params;
-  const body = await request.json().catch(() => null);
-  const message = typeof body?.message === "string" ? body.message.trim() : "";
-
-  if (!message) {
-    return NextResponse.json({ error: "messageは必須です" }, { status: 400 });
-  }
-
-  try {
-    const run = await decideRun(id, message, {
-      ...maskOptionsFromBodyStrict(body),
-    });
-    if (!run) {
-      return NextResponse.json({ error: "not found" }, { status: 404 });
-    }
-    return NextResponse.json({ run: toRunView(run) });
-  } catch (err) {
-    return jsonFromUnknownError(err, 409);
-  }
-}
+export const POST = proxyToHono;

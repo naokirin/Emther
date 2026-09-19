@@ -51,11 +51,11 @@
 - `GET/POST /api/journal`, `GET/PATCH /api/journal/:id`, `POST/DELETE /api/journal/:id/archive`, `POST/DELETE /api/journal/:id/no-action-needed`, `POST /api/journal/bulk`, `GET /api/journal/search`
 - `GET/PATCH /api/settings/rules`
 - `GET/POST /api/themes`, `GET/PATCH /api/themes/:id`, `POST /api/themes/from-okr`
-- `GET/POST /api/agents`, `GET /api/agents/inbox`
+- `GET/POST /api/agents`, `GET /api/agents/inbox`, `GET /api/agents/:id`, `POST /api/agents/:id/decide`, `POST /api/agents/:id/review`, `POST/DELETE /api/agents/:id/themes`, `POST/DELETE /api/agents/:id/suggestion-updates`, `POST /api/agents/:id/charter/dismiss`, `POST /api/agents/:id/sub-issues/dismiss`, `POST/DELETE /api/agents/:id/issue-notes`, `POST /api/agents/pending-unmasked/:id`
 
-**低リスク41ルート、全て移植完了（2026-09-19）。** 高リスク側は`agents`/`agents/inbox`の2ルートに着手済み（残り34ルート）。
+**低リスク41ルート、全て移植完了（2026-09-19）。`agents/**`全11ルートも移植完了。** 残り高リスク25ルート。
 
-対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents}.ts`（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
+対応する実装: `apps/server/src/routes/{glossary,vitals,timeline,id-resolve,knowledge-events,teams,org-background,reports,growth-suggestions,em-self,people,org-objectives,org-strategy,journal,settings-rules,themes,agents}.ts`（`agents.ts`が`agentsRoute`/`agentsInboxRoute`/`agentsPendingUnmaskedRoute`の3つのHonoインスタンスをエクスポートし、それぞれ別パスにマウントされる）（`apps/server/src/app.ts` でマウント）。共有ヘルパーは `apps/server/src/lib/name-candidate-response.ts`（`packages/core/src/name-candidate-response.ts` のHono版アダプタ）。
 
 ## 6. agent-runtime系ルートを移植する際の注意（高リスク側）
 
