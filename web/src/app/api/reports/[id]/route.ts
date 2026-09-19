@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { toReportView, updateReportNote } from "@/lib/report-store";
+import { toReportView, updateReportNote } from "@core/report-store";
 
 // レポート生成後にEMが所感を書き足すための唯一の更新経路。stats（集計スナップショット）
 // 自体は再生成しない限り変更できない（生成時点の観測結果として固定する）。

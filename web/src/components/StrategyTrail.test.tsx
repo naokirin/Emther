@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { StrategyTrail } from "./StrategyTrail";
-import type { StrategyTrailNode } from "@/lib/strategy-trail";
+import type { StrategyTrailNode } from "@core/strategy-trail";
 
 const nodes: StrategyTrailNode[] = [
   { kind: "objective", id: "obj-1", label: "エンジニア満足度向上" },

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPersonProfile } from "@/lib/people-hub";
-import { acknowledgePersonIssueConcern, clearPersonIssueConcernAck } from "@/lib/person-concern-ack-store";
+import { getPersonProfile } from "@core/people-hub";
+import { acknowledgePersonIssueConcern, clearPersonIssueConcernAck } from "@core/person-concern-ack-store";
 
 type Ctx = { params: Promise<{ id: string; issueId: string }> };
 

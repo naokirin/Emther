@@ -6,7 +6,7 @@
 // EMにIssueの構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions, type AgentRun } from "@/components/RunDetail";
 import { formatPendingAgentStartText } from "@/components/PendingAgentStartNotice";
-import { truncateExcerpt } from "@/lib/origin-trace";
+import { truncateExcerpt } from "@core/origin-trace";
 import {
   isJournalEntryResolved,
   type Issue,

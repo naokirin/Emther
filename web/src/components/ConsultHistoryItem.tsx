@@ -2,7 +2,7 @@
 
 import styles from "@/app/page.module.css";
 import type { AgentRun } from "@/components/RunDetail";
-import { consultListSecondary, consultListTitle, truncateExcerpt } from "@/lib/origin-trace";
+import { consultListSecondary, consultListTitle, truncateExcerpt } from "@core/origin-trace";
 
 const TITLE_MAX = 100;
 const SECONDARY_MAX = 120;

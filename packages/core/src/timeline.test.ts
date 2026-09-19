@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
 
-vi.mock("@core/embeddings", () => ({
+vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -23,10 +23,10 @@ afterEach(() => {
 });
 
 async function loadModules() {
-  const timeline = await import("@/lib/timeline");
-  const issueStore = await import("@core/issue-store");
-  const orgStore = await import("@core/org-context-store/index");
-  const knowledgeStore = await import("@core/knowledge-store");
+  const timeline = await import("./timeline");
+  const issueStore = await import("./issue-store");
+  const orgStore = await import("./org-context-store/index");
+  const knowledgeStore = await import("./knowledge-store");
   return { timeline, issueStore, orgStore, knowledgeStore };
 }
 

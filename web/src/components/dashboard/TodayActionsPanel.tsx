@@ -5,7 +5,7 @@ import styles from "@/app/page.module.css";
 import { consultListMetaParts } from "@/components/ConsultHistoryItem";
 import type { AgentRun } from "@/components/RunDetail";
 import { IssueStrategyLinkSuggestPanel } from "@/components/HierarchyLinkSuggestPanel";
-import { consultListSecondary, consultListTitle, truncateExcerpt } from "@/lib/origin-trace";
+import { consultListSecondary, consultListTitle, truncateExcerpt } from "@core/origin-trace";
 import type { IssueStrategyLinkSuggestion } from "@core/types";
 import { LANE_META, rankActions, type Lane, type NextAction } from "@/lib/dashboard-next-actions";
 import { AgentStatusSection } from "./AgentStatusSection";

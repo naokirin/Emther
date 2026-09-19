@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { registerName } from "@core/people-directory";
-import { addPersonAlias, getPersonProfile, listPersonSummaries } from "@/lib/people-hub";
+import { addPersonAlias, getPersonProfile, listPersonSummaries } from "@core/people-hub";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。
 export async function GET() {

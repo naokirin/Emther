@@ -40,7 +40,7 @@ describe("PATCH /api/people/[id]/concern-acks/[issueId]", () => {
   it("acknowledged: trueで確認済みを記録し、people-hubのhasConcerningIssueから除外される", async () => {
     const peopleDirectory = await import("@core/people-directory");
     const issueStore = await import("@core/issue-store");
-    const hub = await import("@/lib/people-hub");
+    const hub = await import("@core/people-hub");
     const id = peopleDirectory.registerName("Aさん");
     const issue = await issueStore.createIssue("Aさんの育成計画");
     issueStore.setIssueStatus(issue.id, "blocked");

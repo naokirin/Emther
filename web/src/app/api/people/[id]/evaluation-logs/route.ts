@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPersonProfile } from "@/lib/people-hub";
+import { getPersonProfile } from "@core/people-hub";
 import {
   bundleEvaluationLogs,
   listEvaluationLogsForPerson,
@@ -7,7 +7,7 @@ import {
   toEvaluationLogView,
   type EvaluationLens,
   type EvaluationLogStatus,
-} from "@/lib/person-evaluation-store";
+} from "@core/person-evaluation-store";
 
 type Ctx = { params: Promise<{ id: string }> };
 

@@ -1,8 +1,8 @@
-import { extractFirstJsonObject } from "@core/local-model";
-import { runCloudChat } from "@core/cloud-chat";
-import type { ObjectiveImportDraft } from "@core/org-context-store/index";
-import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "@core/people-directory";
-import { isUnconfirmedNameCandidatesError, type MaskOptions } from "@core/name-candidate-confirmation";
+import { extractFirstJsonObject } from "./local-model";
+import { runCloudChat } from "./cloud-chat";
+import type { ObjectiveImportDraft } from "./org-context-store/index";
+import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "./people-directory";
+import { isUnconfirmedNameCandidatesError, type MaskOptions } from "./name-candidate-confirmation";
 
 // docs/usage_issues U18: 既存のOKR全文を Objective / Key Result / メモに分解する。
 // 複雑なOKRはローカル小モデルでは壊れるため、SettingsのCLI優先順で外部AIに任せる。

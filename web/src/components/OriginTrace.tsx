@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import styles from "@/app/page.module.css";
-import { consultExcerpt, truncateExcerpt } from "@/lib/origin-trace";
+import { consultExcerpt, truncateExcerpt } from "@core/origin-trace";
 
 export type OriginTraceJournal = {
   id: string;

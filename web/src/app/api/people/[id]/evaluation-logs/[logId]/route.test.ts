@@ -30,7 +30,7 @@ describe("PATCH /api/people/[id]/evaluation-logs/[logId]", () => {
   });
 
   it("statusもnoActionNeededも無い場合は400", async () => {
-    const store = await import("@/lib/person-evaluation-store");
+    const store = await import("@core/person-evaluation-store");
     const log = await store.createEvaluationLog({
       personId: "PERSON_1",
       lens: "outcome",
@@ -44,7 +44,7 @@ describe("PATCH /api/people/[id]/evaluation-logs/[logId]", () => {
   });
 
   it("noActionNeeded: trueで懸念の確認済みを記録し、falseで取り消せる", async () => {
-    const store = await import("@/lib/person-evaluation-store");
+    const store = await import("@core/person-evaluation-store");
     const log = await store.createEvaluationLog({
       personId: "PERSON_1",
       lens: "outcome",
@@ -75,7 +75,7 @@ describe("PATCH /api/people/[id]/evaluation-logs/[logId]", () => {
   });
 
   it("statusとnoActionNeededを同時に指定できる", async () => {
-    const store = await import("@/lib/person-evaluation-store");
+    const store = await import("@core/person-evaluation-store");
     const log = await store.createEvaluationLog({
       personId: "PERSON_1",
       lens: "outcome",

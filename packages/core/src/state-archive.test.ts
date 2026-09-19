@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 let dir: string;
 
@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 async function loadArchive() {
-  return import("@/lib/state-archive");
+  return import("./state-archive");
 }
 
 describe("createBackupArchive / restoreFromArchive", () => {

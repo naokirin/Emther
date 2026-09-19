@@ -8,7 +8,7 @@ import { IdLinkedText } from "@/components/IdLinkedText";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
 import type { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
 import { truncateForTitle } from "@core/types";
-import { journalExcerptFromTask } from "@/lib/origin-trace";
+import { journalExcerptFromTask } from "@core/origin-trace";
 import type { Issue } from "@core/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {

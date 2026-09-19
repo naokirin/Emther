@@ -1,13 +1,13 @@
-import { listRecentChangeEvents, toEventView, type KnowledgeEntityType } from "@core/knowledge-store";
-import { getIssue, toIssueView } from "@core/issue-store";
+import { listRecentChangeEvents, toEventView, type KnowledgeEntityType } from "./knowledge-store";
+import { getIssue, toIssueView } from "./issue-store";
 import {
   getTeam,
   getObjective,
   getOrgBackground,
   toObjectiveView,
   toOrgBackgroundView,
-} from "@core/org-context-store/index";
-import { teamDisplayName } from "@core/types";
+} from "./org-context-store/index";
+import { teamDisplayName } from "./types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しいエンティティやデータモデルは
 // 増やさず、既存のKnowledgeEvent（変更履歴）をIssue/Team/Objective横断で1本の

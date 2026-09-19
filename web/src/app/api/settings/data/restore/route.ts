@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { NextResponse } from "next/server";
-import { restoreFromArchive, scheduleProcessExit } from "@/lib/state-archive";
+import { restoreFromArchive, scheduleProcessExit } from "@core/state-archive";
 
 export async function POST(request: Request) {
   let tmpDir: string | undefined;

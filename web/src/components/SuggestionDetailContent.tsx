@@ -31,9 +31,9 @@ import {
   type ConfirmPriority,
   type SuggestionReviewStatus,
 } from "@core/types";
-import { journalExcerptFromTask, resolveSourceConsultRun } from "@/lib/origin-trace";
+import { journalExcerptFromTask, resolveSourceConsultRun } from "@core/origin-trace";
 import { StrategyTrail } from "@/components/StrategyTrail";
-import { buildIssueStrategyTrail } from "@/lib/strategy-trail";
+import { buildIssueStrategyTrail } from "@core/strategy-trail";
 
 // docs/2nd_pivot_version.md Phase 7。提案詳細: 確認状態・確認優先度・メモ・壁打ちに絞る。
 export function SuggestionDetailContent({ id }: { id: string }) {

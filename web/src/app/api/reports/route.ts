@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PERIOD_DAYS, generateReport, listReports, toReportView, type ReportPeriodType } from "@/lib/report-store";
+import { PERIOD_DAYS, generateReport, listReports, toReportView, type ReportPeriodType } from "@core/report-store";
 
 function isPeriodType(v: unknown): v is ReportPeriodType {
   return v === "week" || v === "month";

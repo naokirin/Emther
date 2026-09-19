@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addPersonAlias, getPersonProfile, removePersonAlias } from "@/lib/people-hub";
+import { addPersonAlias, getPersonProfile, removePersonAlias } from "@core/people-hub";
 import { deletePerson, renamePerson } from "@core/people-directory";
 import { reassignSelfPersonId } from "@core/settings-store";
 

@@ -9,7 +9,7 @@ import { ConsultReviewPanel } from "@/components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "@/components/chat/NewConsultForm";
 import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "@/lib/hooks";
 import { useNameCandidateConfirm } from "@/lib/useNameCandidateConfirm";
-import { isConsultHistoryRun } from "@/lib/origin-trace";
+import { isConsultHistoryRun } from "@core/origin-trace";
 import { isRunStale } from "@core/types";
 
 // docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、

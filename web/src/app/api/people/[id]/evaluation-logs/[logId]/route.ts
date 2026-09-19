@@ -6,7 +6,7 @@ import {
   clearEvaluationLogNoActionNeeded,
   toEvaluationLogView,
   type EvaluationLogStatus,
-} from "@/lib/person-evaluation-store";
+} from "@core/person-evaluation-store";
 
 type Ctx = { params: Promise<{ id: string; logId: string }> };
 

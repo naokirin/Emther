@@ -41,7 +41,7 @@ describe("POST /api/settings/data/backup", () => {
 
 describe("POST /api/settings/data/reset", () => {
   it("confirm 欠如は 400", async () => {
-    const archive = await import("@/lib/state-archive");
+    const archive = await import("@core/state-archive");
     const exitSpy = vi.spyOn(archive, "scheduleProcessExit").mockImplementation(() => {});
     const route = await import("./reset/route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", {}));
@@ -53,7 +53,7 @@ describe("POST /api/settings/data/reset", () => {
     mkdirSync(process.env.EM_DATA_DIR!, { recursive: true });
     writeFileSync(join(process.env.EM_DATA_DIR!, "x.json"), "{}", "utf8");
 
-    const archive = await import("@/lib/state-archive");
+    const archive = await import("@core/state-archive");
     const exitSpy = vi.spyOn(archive, "scheduleProcessExit").mockImplementation(() => {});
     const route = await import("./reset/route");
     const res = await route.POST(jsonRequest("http://localhost/x", "POST", { confirm: "RESET" }));
@@ -65,7 +65,7 @@ describe("POST /api/settings/data/reset", () => {
 
 describe("POST /api/settings/data/restore", () => {
   it("file 欠如は 400", async () => {
-    const archive = await import("@/lib/state-archive");
+    const archive = await import("@core/state-archive");
     vi.spyOn(archive, "scheduleProcessExit").mockImplementation(() => {});
     const route = await import("./restore/route");
     const res = await route.POST(new Request("http://localhost/x", { method: "POST", body: new FormData() }));
@@ -82,7 +82,7 @@ describe("POST /api/settings/data/restore", () => {
       "utf8",
     );
 
-    const archive = await import("@/lib/state-archive");
+    const archive = await import("@core/state-archive");
     const { archivePath, fileName } = archive.createBackupArchive();
     const exitSpy = vi.spyOn(archive, "scheduleProcessExit").mockImplementation(() => {});
     const route = await import("./restore/route");

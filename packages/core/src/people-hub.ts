@@ -1,4 +1,4 @@
-import { addAlias, listPeople, mergePersons as mergePersonsInDirectory, removeAlias } from "@core/people-directory";
+import { addAlias, listPeople, mergePersons as mergePersonsInDirectory, removeAlias } from "./people-directory";
 import {
   listActiveFactsForPerson,
   listInterpretationsForPerson,
@@ -6,12 +6,12 @@ import {
   recordChangeEvent,
   toEventView,
   type KnowledgeEvent,
-} from "@core/knowledge-store";
-import { listActiveTeams, reassignPersonIdInTeams } from "@core/org-context-store/index";
-import { listIssues, toIssueView, type Issue } from "@core/issue-store";
-import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "@core/settings-store";
-import { isIssueStalled, suggestionOverviewFromLogs } from "@core/types";
-import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "@/lib/person-concern-ack-store";
+} from "./knowledge-store";
+import { listActiveTeams, reassignPersonIdInTeams } from "./org-context-store/index";
+import { listIssues, toIssueView, type Issue } from "./issue-store";
+import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "./settings-store";
+import { isIssueStalled, suggestionOverviewFromLogs } from "./types";
+import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "./person-concern-ack-store";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
 // 既存のpeople-directory（誰がいるか）・knowledge-store（Journal fact／長期解釈）・

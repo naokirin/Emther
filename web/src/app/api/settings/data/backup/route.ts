@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { NextResponse } from "next/server";
-import { createBackupArchive } from "@/lib/state-archive";
+import { createBackupArchive } from "@core/state-archive";
 
 // 個人情報を含むアーカイブをブラウザへ返す。CLI `emther backup` と同形式。
 export async function POST() {

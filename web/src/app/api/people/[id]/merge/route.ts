@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPersonProfile, mergePersons } from "@/lib/people-hub";
+import { getPersonProfile, mergePersons } from "@core/people-hub";
 
 // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 // URLの:idが統合先（残る側）、body.duplicateIdが統合元（消える側）。People詳細画面で

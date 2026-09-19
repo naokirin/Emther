@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe("GET /api/reports", () => {
   it("periodTypeで絞り込める", async () => {
-    const reportStore = await import("@/lib/report-store");
+    const reportStore = await import("@core/report-store");
     reportStore.generateReport("week");
     reportStore.generateReport("month");
     const route = await import("./route");
@@ -38,7 +38,7 @@ describe("GET /api/reports", () => {
   });
 
   it("不正なperiodTypeは無視して全件返す", async () => {
-    const reportStore = await import("@/lib/report-store");
+    const reportStore = await import("@core/report-store");
     reportStore.generateReport("week");
     const route = await import("./route");
     const res = await route.GET(new Request("http://localhost/x?periodType=invalid"));

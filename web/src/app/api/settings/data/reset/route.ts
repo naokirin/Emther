@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resetAllState, scheduleProcessExit } from "@/lib/state-archive";
+import { resetAllState, scheduleProcessExit } from "@core/state-archive";
 
 export async function POST(request: Request) {
   try {

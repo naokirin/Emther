@@ -6,7 +6,7 @@ import styles from "@/app/page.module.css";
 import { MarkdownView } from "@/components/MarkdownView";
 import { StrategyTrail } from "@/components/StrategyTrail";
 import { useSuggestionPeek } from "@/components/IdFragmentLink";
-import { buildJournalStrategyTrail } from "@/lib/strategy-trail";
+import { buildJournalStrategyTrail } from "@core/strategy-trail";
 import {
   isJournalEntryResolved,
   journalResolutionLabel,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseOkrTextHeuristic, shouldPreferHeuristic } from "@/lib/okr-parse";
+import { parseOkrTextHeuristic, shouldPreferHeuristic } from "./okr-parse";
 
 const MOCK_SAMPLE = [
   "# Objective 1：【Sales】オンライン書店の売上を昨対比150%にする",
@@ -124,20 +124,20 @@ describe("shouldPreferHeuristic", () => {
 describe("parseOkrText", () => {
   it("外部AIが失敗したらヒューリスティックへ落とす", async () => {
     vi.resetModules();
-    vi.doMock("@core/cloud-chat", () => ({
+    vi.doMock("./cloud-chat", () => ({
       runCloudChat: vi.fn(async () => {
         throw new Error("no cli");
       }),
     }));
-    vi.doMock("@core/people-directory", async () => {
-      const actual = await vi.importActual<typeof import("@core/people-directory")>("@core/people-directory");
+    vi.doMock("./people-directory", async () => {
+      const actual = await vi.importActual<typeof import("./people-directory")>("./people-directory");
       return {
         ...actual,
         ensureNameCandidatesAllowed: vi.fn(async () => undefined),
         maskForStorage: vi.fn(async (t: string) => t),
       };
     });
-    const { parseOkrText } = await import("@/lib/okr-parse");
+    const { parseOkrText } = await import("./okr-parse");
     const result = await parseOkrText("Objective: 売上を伸ばす\n- 新規10件");
     expect(result.source).toBe("heuristic");
     expect(result.objectives[0]?.title).toBe("売上を伸ばす");
@@ -146,18 +146,18 @@ describe("parseOkrText", () => {
 
   it("外部AIが薄い結果のときMarkdownヒューリスティックを優先する", async () => {
     vi.resetModules();
-    vi.doMock("@core/cloud-chat", () => ({
+    vi.doMock("./cloud-chat", () => ({
       runCloudChat: vi.fn(async () =>
         JSON.stringify({
           objectives: [{ title: "全然違う目標", note: "", keyResults: ["x"] }],
         }),
       ),
     }));
-    vi.doMock("@core/local-model", () => ({
+    vi.doMock("./local-model", () => ({
       extractFirstJsonObject: (text: string) => text,
     }));
-    vi.doMock("@core/people-directory", async () => {
-      const actual = await vi.importActual<typeof import("@core/people-directory")>("@core/people-directory");
+    vi.doMock("./people-directory", async () => {
+      const actual = await vi.importActual<typeof import("./people-directory")>("./people-directory");
       return {
         ...actual,
         ensureNameCandidatesAllowed: vi.fn(async () => undefined),
@@ -165,7 +165,7 @@ describe("parseOkrText", () => {
         unmaskNames: (t: string) => t,
       };
     });
-    const { parseOkrText } = await import("@/lib/okr-parse");
+    const { parseOkrText } = await import("./okr-parse");
     const result = await parseOkrText(MOCK_SAMPLE);
     expect(result.source).toBe("heuristic");
     expect(result.objectives).toHaveLength(3);

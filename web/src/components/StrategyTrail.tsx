@@ -3,7 +3,7 @@
 import Link from "next/link";
 import styles from "@/app/page.module.css";
 import { SuggestionLink } from "@/components/SuggestionLink";
-import type { StrategyTrailNode } from "@/lib/strategy-trail";
+import type { StrategyTrailNode } from "@core/strategy-trail";
 
 const KIND_ICON: Record<StrategyTrailNode["kind"], string> = {
   objective: "🎯",

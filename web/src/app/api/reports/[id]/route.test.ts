@@ -38,7 +38,7 @@ describe("PATCH /api/reports/[id]", () => {
 
   it("noteを更新できる（実名復元済みで返す）", async () => {
     const peopleDirectory = await import("@core/people-directory");
-    const reportStore = await import("@/lib/report-store");
+    const reportStore = await import("@core/report-store");
     peopleDirectory.registerName("Aさん");
     const report = reportStore.generateReport("week");
     const route = await import("./route");

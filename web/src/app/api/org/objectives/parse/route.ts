@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonFromUnknownError, maskOptionsFromBody } from "@/app/api/name-candidate-response";
-import { parseOkrText } from "@/lib/okr-parse";
+import { parseOkrText } from "@core/okr-parse";
 
 // docs/usage_issues U18: OKR全文を構造化してプレビュー用ドラフトを返す（保存はしない）。
 // 外部AI（SettingsのCLI優先順）で分解し、失敗時はヒューリスティックへフォールバックする。

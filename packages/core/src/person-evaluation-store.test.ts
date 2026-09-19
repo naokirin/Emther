@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -9,8 +9,8 @@ vi.mock("@core/local-model", () => ({
 // suggestEvaluationLogsFromRecentJournalsのテスト用に、テキストに含まれる目印
 // （TOPIC_A/TOPIC_B）に応じてベクトルを変える簡易埋め込み。cosineSimilarityは
 // 実装（@core/embeddings）をそのまま使う。
-vi.mock("@core/embeddings", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@core/embeddings")>();
+vi.mock("./embeddings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./embeddings")>();
   return {
     ...actual,
     embedText: vi.fn(async (text: string) => {
@@ -34,7 +34,7 @@ afterEach(() => {
 
 describe("person-evaluation-store", () => {
   it("仮置きログを作成し状態遷移できる", async () => {
-    const store = await import("@/lib/person-evaluation-store");
+    const store = await import("./person-evaluation-store");
     const log = await store.createEvaluationLog({
       personId: "PERSON_1",
       lens: "outcome",
@@ -54,7 +54,7 @@ describe("person-evaluation-store", () => {
   });
 
   it("bundle は A/B を分け不足を返す", async () => {
-    const store = await import("@/lib/person-evaluation-store");
+    const store = await import("./person-evaluation-store");
     await store.createEvaluationLog({
       personId: "PERSON_1",
       lens: "outcome",
@@ -69,10 +69,10 @@ describe("person-evaluation-store", () => {
   });
 
   it("suggest-from-journalは意味的に関連するFactだけを仮置きする", async () => {
-    const store = await import("@/lib/person-evaluation-store");
-    const { recordEvent } = await import("@core/knowledge-store");
-    const { addObjective } = await import("@core/org-context-store/index");
-    const { updateOrgStrategy } = await import("@core/org-context-store/index");
+    const store = await import("./person-evaluation-store");
+    const { recordEvent } = await import("./knowledge-store");
+    const { addObjective } = await import("./org-context-store/index");
+    const { updateOrgStrategy } = await import("./org-context-store/index");
 
     const objective = await addObjective("TOPIC_A の目標");
     await updateOrgStrategy({ values: "TOPIC_B というValue" });
@@ -124,7 +124,7 @@ describe("person-evaluation-store", () => {
   });
 
   it("懸念(polarity: concern)を確認済み（対応不要）にでき、取り消せる", async () => {
-    const store = await import("@/lib/person-evaluation-store");
+    const store = await import("./person-evaluation-store");
     const log = await store.createEvaluationLog({
       personId: "PERSON_1",
       lens: "outcome",
@@ -145,9 +145,9 @@ describe("person-evaluation-store", () => {
   });
 
   it("suggest-from-journalは埋め込みの無いFactを仮置きしない（関連性を確認できないため）", async () => {
-    const store = await import("@/lib/person-evaluation-store");
-    const { recordEvent } = await import("@core/knowledge-store");
-    const { addObjective, updateOrgStrategy } = await import("@core/org-context-store/index");
+    const store = await import("./person-evaluation-store");
+    const { recordEvent } = await import("./knowledge-store");
+    const { addObjective, updateOrgStrategy } = await import("./org-context-store/index");
 
     await addObjective("TOPIC_A の目標");
     await updateOrgStrategy({ values: "TOPIC_B というValue" });

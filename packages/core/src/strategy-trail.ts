@@ -3,7 +3,7 @@
 // 一度きりのAIスナップショットで鮮度が腐る）ではなく、Issue.keyResultId／sourceJournalId・
 // JournalEntry.resolvedIssueIdというライブな外部キーから都度組み立てる。
 
-import type { Issue, JournalEntry, ObjectiveWithProgress } from "@core/types";
+import type { Issue, JournalEntry, ObjectiveWithProgress } from "./types";
 
 export type StrategyTrailNode =
   | { kind: "objective"; id: string; label: string }

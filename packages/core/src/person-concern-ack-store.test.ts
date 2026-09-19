@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@core/test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-vi.mock("@core/local-model", () => ({
+vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
@@ -20,7 +20,7 @@ afterEach(() => {
 // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
 describe("person-concern-ack-store", () => {
   it("記録・一覧・取り消しができる", async () => {
-    const store = await import("@/lib/person-concern-ack-store");
+    const store = await import("./person-concern-ack-store");
     expect(store.listPersonIssueConcernAcks("PERSON_1")).toEqual([]);
 
     const ack = await store.acknowledgePersonIssueConcern("PERSON_1", "issue-1", "対応不要と判断");
@@ -35,7 +35,7 @@ describe("person-concern-ack-store", () => {
   });
 
   it("同じ人物×Issueに再度acknowledgeすると上書きされる（重複行にならない）", async () => {
-    const store = await import("@/lib/person-concern-ack-store");
+    const store = await import("./person-concern-ack-store");
     await store.acknowledgePersonIssueConcern("PERSON_1", "issue-1", "1回目");
     await store.acknowledgePersonIssueConcern("PERSON_1", "issue-1", "2回目");
     const acks = store.listPersonIssueConcernAcks("PERSON_1");
@@ -44,7 +44,7 @@ describe("person-concern-ack-store", () => {
   });
 
   it("人物ごとに独立している", async () => {
-    const store = await import("@/lib/person-concern-ack-store");
+    const store = await import("./person-concern-ack-store");
     await store.acknowledgePersonIssueConcern("PERSON_1", "issue-1");
     expect(store.listPersonIssueConcernAcks("PERSON_2")).toEqual([]);
   });
