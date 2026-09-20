@@ -13,6 +13,7 @@ import {
 import { listIssueCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
+import { PeriodReviewBlock } from "./run-detail/PeriodReviewBlock";
 import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
 import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
@@ -78,6 +79,31 @@ export type SuggestedTheme = {
   evidenceIssueIds?: string[];
 };
 
+// docs/new_reporting.md。週次・月次レビューの構造化出力（@emther/core/agent-runtimeの
+// PeriodReviewと同じ形。フロントエンド向けのAgentRun型は他のProposal/SuggestedTheme等と
+// 同様、ここへローカルに複製している）。
+export type PeriodReviewComparisonItem = {
+  area: string;
+  before: string;
+  after: string;
+  assessment: "improved" | "worsened" | "changed" | "uncertain";
+};
+
+export type PeriodReviewBlindSpot = {
+  question: string;
+  reason: string;
+};
+
+export type PeriodReview = {
+  overview: string;
+  observations: string[];
+  interpretation: string;
+  comparisons: PeriodReviewComparisonItem[];
+  blindSpots: PeriodReviewBlindSpot[];
+  learnings: string[];
+  nextQuestions: string[];
+};
+
 // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
 export type SuggestedIssueNote = {
   issueId: string;
@@ -112,12 +138,22 @@ export type AgentRun = {
   suggestedThemes?: SuggestedTheme[];
   suggestedIssueNotes?: SuggestedIssueNote[];
   suggestedSuggestionUpdates?: SuggestionUpdate[];
+  periodReview?: PeriodReview;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
   consultedBy?: string;
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-journal-batch";
+  origin:
+    | "manual"
+    | "auto-anomaly"
+    | "auto-summary"
+    | "auto-issue-update"
+    | "auto-distill"
+    | "auto-journal-batch"
+    | "auto-weekly-report"
+    | "auto-monthly-report";
   sourceJournalId?: string;
+  sourceReportId?: string;
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
   triageAt?: number;
@@ -190,6 +226,8 @@ export function runKindLabel(run: AgentRun): string {
   if (run.origin === "auto-issue-update") return "提案更新分析";
   if (run.origin === "auto-distill") return "状況蒸留";
   if (run.origin === "auto-journal-batch") return "Journal集約解釈";
+  if (run.origin === "auto-weekly-report") return "週次レビュー";
+  if (run.origin === "auto-monthly-report") return "月次レビュー";
   if (run.status === "yield") return "Yield";
   return "手動";
 }
@@ -316,9 +354,10 @@ export function ExecutionState({
         />
       )}
 
-      {run.status === "idle" && run.proposal && (
+      {run.status === "idle" && (run.proposal || run.periodReview) && (
         <div className={styles.proposalBlock}>
-          <ProposalBlock proposal={run.proposal} />
+          {run.proposal && <ProposalBlock proposal={run.proposal} />}
+          {run.periodReview && <PeriodReviewBlock review={run.periodReview} />}
 
           {onAdoptSubIssues && run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
             <SuggestedSubIssuesBlock

@@ -44,6 +44,8 @@ type AgentRunRow = {
   suggested_themes_json: string | null;
   suggested_issue_notes_json: string | null;
   suggested_suggestion_updates_json: string | null;
+  period_review_json: string | null;
+  source_report_id: string | null;
   total_cost_usd: number;
   created_at: number;
   updated_at: number;
@@ -73,8 +75,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -89,6 +91,8 @@ function persistRunMeta(run: AgentRun): void {
          suggested_themes_json = excluded.suggested_themes_json,
          suggested_issue_notes_json = excluded.suggested_issue_notes_json,
          suggested_suggestion_updates_json = excluded.suggested_suggestion_updates_json,
+         period_review_json = excluded.period_review_json,
+         source_report_id = excluded.source_report_id,
          total_cost_usd = excluded.total_cost_usd,
          updated_at = excluded.updated_at,
          reviewed = excluded.reviewed,
@@ -113,6 +117,8 @@ function persistRunMeta(run: AgentRun): void {
       run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
       run.suggestedIssueNotes ? JSON.stringify(run.suggestedIssueNotes) : null,
       run.suggestedSuggestionUpdates ? JSON.stringify(run.suggestedSuggestionUpdates) : null,
+      run.periodReview ? JSON.stringify(run.periodReview) : null,
+      run.sourceReportId ?? null,
       run.totalCostUsd,
       run.createdAt,
       run.updatedAt,
@@ -183,11 +189,13 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       suggestedSuggestionUpdates: row.suggested_suggestion_updates_json
         ? JSON.parse(row.suggested_suggestion_updates_json)
         : undefined,
+      periodReview: row.period_review_json ? JSON.parse(row.period_review_json) : undefined,
       totalCostUsd: row.total_cost_usd,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       consultedBy: row.consulted_by ?? undefined,
       sourceJournalId: row.source_journal_id ?? undefined,
+      sourceReportId: row.source_report_id ?? undefined,
       origin: (row.origin as AgentRun["origin"]) ?? "manual",
       reviewed: !!row.reviewed,
       triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
@@ -351,6 +359,25 @@ export function toRunView(run: AgentRun): AgentRun {
       note: u.note !== undefined ? unmaskNames(u.note) : undefined,
       reason: unmaskNames(u.reason),
     })),
+    periodReview: run.periodReview
+      ? {
+          overview: unmaskNames(run.periodReview.overview),
+          observations: run.periodReview.observations.map(unmaskNames),
+          interpretation: unmaskNames(run.periodReview.interpretation),
+          comparisons: run.periodReview.comparisons.map((c) => ({
+            area: unmaskNames(c.area),
+            before: unmaskNames(c.before),
+            after: unmaskNames(c.after),
+            assessment: c.assessment,
+          })),
+          blindSpots: run.periodReview.blindSpots.map((b) => ({
+            question: unmaskNames(b.question),
+            reason: unmaskNames(b.reason),
+          })),
+          learnings: run.periodReview.learnings.map(unmaskNames),
+          nextQuestions: run.periodReview.nextQuestions.map(unmaskNames),
+        }
+      : run.periodReview,
   };
 }
 

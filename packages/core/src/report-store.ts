@@ -154,14 +154,24 @@ function computeEventStats(periodStart: number, periodEnd: number): ReportEventS
   return { total: events.length, byEntityType };
 }
 
-export function generateReport(periodType: ReportPeriodType, now = Date.now()): Report {
-  const periodEnd = now;
-  const periodStart = periodEnd - PERIOD_DAYS[periodType] * 24 * 60 * 60 * 1000;
-  const stats: ReportStats = {
+// 週次・月次レビュー（docs/new_reporting.md）対応。従来のgenerateReportは「now からの
+// 過去Nローリング日」固定だったが、AIレビュー機能は暦週/暦月（daily-trendsのperiodWindow）
+// で材料を揃えたいため、期間境界を外から渡せる形へ分離した。集計ロジック自体は変えていない。
+export function computeReportStats(periodStart: number, periodEnd: number): ReportStats {
+  return {
     journal: computeJournalStats(periodStart, periodEnd),
     issues: computeIssueStats(periodStart, periodEnd),
     events: computeEventStats(periodStart, periodEnd),
   };
+}
+
+export function generateReportForWindow(
+  periodType: ReportPeriodType,
+  periodStart: number,
+  periodEnd: number,
+  now = Date.now(),
+): Report {
+  const stats = computeReportStats(periodStart, periodEnd);
 
   const report: Report = {
     id: randomUUID(),
@@ -181,6 +191,12 @@ export function generateReport(periodType: ReportPeriodType, now = Date.now()): 
     .run(report.id, report.periodType, report.periodStart, report.periodEnd, report.generatedAt, JSON.stringify(report.stats), report.note);
 
   return report;
+}
+
+export function generateReport(periodType: ReportPeriodType, now = Date.now()): Report {
+  const periodEnd = now;
+  const periodStart = periodEnd - PERIOD_DAYS[periodType] * 24 * 60 * 60 * 1000;
+  return generateReportForWindow(periodType, periodStart, periodEnd, now);
 }
 
 export function listReports(periodType?: ReportPeriodType): Report[] {

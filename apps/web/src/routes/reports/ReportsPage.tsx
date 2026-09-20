@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
 import { PaginationControls, usePagination } from "../../components/Pagination";
 import { Select } from "../../components/Select";
 import { JournalIssueTrendChart, PeriodNavigator, usePeriodNavigator } from "../../components/DailyTrendChart";
 import { PageTitleRow } from "../../components/HelpLink";
+import type { AgentRun } from "../../components/RunDetail";
+import { PeriodReviewBlock } from "../../components/run-detail/PeriodReviewBlock";
 import { buildJournalIssueDailyTrend } from "@emther/core/daily-trends";
-import { reportsQueryKey, useIssues, useJournal, useReports } from "../../lib/queries";
+import { reportsQueryKey, useIssues, useJournal, useReports, useRuns } from "../../lib/queries";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@emther/core/types";
 
 // web/src/app/reports/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
@@ -19,7 +22,108 @@ function formatDateTime(ts: number): string {
   return new Date(ts).toLocaleString("ja-JP", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: string, note: string) => Promise<void> }) {
+// ユーザー指摘「『週次レビューをする』を実行しても結果が表示されず、レポート一覧を見ても
+// AIの分析結果やそこへのリンクが出ない」対応。実行直後にスクロール不要で見える場所
+// （ボタン列のすぐ下）に直近のレビューを表示し（後述のReviewSpotlight）、かつ一覧の各行にも
+// レビューの有無・状態を常時見えるバッジとして出す（後述のReviewStatusBadge）。
+function reviewStatusLabel(run: AgentRun): { icon: string; label: string } {
+  if (run.status === "idle" && run.periodReview) return { icon: "🤖", label: "AIレビュー完了" };
+  if (run.status === "error") return { icon: "⚠️", label: "AIレビュー エラー" };
+  return { icon: "🤖", label: "AIレビュー 検討中…" };
+}
+
+function ReviewStatusBadge({ reviewRun }: { reviewRun: AgentRun | undefined }) {
+  if (!reviewRun) return null;
+  const { icon, label } = reviewStatusLabel(reviewRun);
+  return (
+    <span className={styles.badge} style={{ marginLeft: 6 }}>
+      {icon} {label}
+    </span>
+  );
+}
+
+// docs/new_reporting.md。週次・月次「レビュー」機能。統計スナップショット（Report）に紐づく
+// Lead Agent run（AgentRun.sourceReportId）があれば、AIの概観・解釈・Before/After・見落としの
+// 問い・学び・次期間への問いをこのカード内に表示する。起動は上部の「AIとレビューする」ボタン
+// （新しい暦週/暦月のReportを生成しつつ起動する）でのみ行い、ここは表示専用。会話継続・
+// テーマ採用/却下は自前実装せず、同じrunを開ける/chatへリンクする
+// （ConsultReviewPanelが既に持つ機能をそのまま使う）。
+function ReportReviewSection({ reviewRun }: { reviewRun: AgentRun | undefined }) {
+  if (!reviewRun) return null;
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--border)" }}>
+      <strong style={{ fontSize: "0.8rem" }}>AIレビュー</strong>
+      {reviewRun.status === "idle" && reviewRun.periodReview ? (
+        <div style={{ marginTop: 6 }}>
+          <PeriodReviewBlock review={reviewRun.periodReview} />
+        </div>
+      ) : reviewRun.status === "error" ? (
+        <p className={styles.errorText} style={{ marginTop: 6 }}>
+          エラーで終了しました。
+        </p>
+      ) : (
+        <p className={styles.subtitle} style={{ marginTop: 6 }}>
+          AIが検討中です…
+        </p>
+      )}
+      <Link to={`/chat?runId=${encodeURIComponent(reviewRun.id)}`} className={styles.btnOutline} style={{ marginTop: 8, display: "inline-block" }}>
+        この提案について会話する →
+      </Link>
+    </div>
+  );
+}
+
+// ユーザー要望「今週・先週…と個別に並ぶと野暮ったい。ボタンを押すとプルダウンで
+// 今週/先週などの選択が表示されるようにまとめたい」対応。レポート作成・AIレビューの
+// 週次/月次それぞれで「今週or先週」のどちらを対象にするかだけが違う4アクションを、
+// 1つのボタン（Selectを流用したドロップダウン。押すまで選択肢は隠れている）にまとめる。
+// valueを持たせず常にplaceholder表示のままにすることで、Selectを「値を保持する入力欄」
+// ではなく「押すたびに選ぶ使い捨てのアクションメニュー」として使う。
+function PeriodActionMenu({
+  periodType,
+  idleLabel,
+  busyLabel,
+  busy,
+  disabled,
+  onPick,
+}: {
+  periodType: ReportPeriodType;
+  idleLabel: string;
+  busyLabel: string;
+  busy: boolean;
+  disabled: boolean;
+  onPick: (offset: number) => void;
+}) {
+  const options =
+    periodType === "week"
+      ? [{ value: "0", label: "今週" }, { value: "1", label: "先週" }]
+      : [{ value: "0", label: "今月" }, { value: "1", label: "先月" }];
+  return (
+    <Select
+      value=""
+      onChange={(v) => onPick(Number(v))}
+      options={options}
+      placeholder={busy ? busyLabel : idleLabel}
+      // role="combobox"は「内容からの名前付け」の対象外のため、Selectのlabel（aria-label）で
+      // 明示する。表示テキスト（placeholder）は起動中の状態表示も兼ねて変わるが、
+      // アクセシブルネームはアクション自体を指す固定文言にする。
+      label={idleLabel}
+      disabled={disabled}
+      style={{ width: "auto", minWidth: 220 }}
+    />
+  );
+}
+
+function ReportCard({
+  report,
+  reviewRun,
+  onSaveNote,
+}: {
+  report: Report;
+  reviewRun: AgentRun | undefined;
+  onSaveNote: (id: string, note: string) => Promise<void>;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState(report.note);
   const [saving, setSaving] = useState(false);
@@ -45,6 +149,7 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
       <tr>
         <td>
           <span className={styles.badge}>{REPORT_PERIOD_LABEL[report.periodType]}</span>
+          <ReviewStatusBadge reviewRun={reviewRun} />
         </td>
         <td>
           <strong>
@@ -113,6 +218,8 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
                 </div>
               </div>
 
+              <ReportReviewSection reviewRun={reviewRun} />
+
               <div className={styles.field}>
                 <label>
                   EMの所感・コメント
@@ -151,9 +258,16 @@ function ReportCard({ report, onSaveNote }: { report: Report; onSaveNote: (id: s
 export function ReportsPage() {
   const [periodFilter, setPeriodFilter] = useState<ReportPeriodType | "">("");
   const { reports, reportsLoaded, refreshReports } = useReports(periodFilter);
+  const { runs, refreshRuns } = useRuns();
   const queryClient = useQueryClient();
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  // ユーザー指摘「『週次レビューをする』を実行しても結果が表示されず、一覧を見てもAIの
+  // 分析結果やリンクが出ない」対応。POSTのレスポンスで返ってきたReportをそのまま直近レビューの
+  // 対象として保持する（種別フィルタで一覧から外れていても見失わない）。runの方はuseRuns()の
+  // ポーリングで常に最新状態を取るため、こちらはIDから毎回引き直す。
+  const [triggeredSpotlightReport, setTriggeredSpotlightReport] = useState<Report | null>(null);
+  const spotlightSectionRef = useRef<HTMLDivElement | null>(null);
 
   // 改修依頼「日毎の変化をグラフで見たい」対応。生成済みレポート（週次/月次スナップショット）
   // とは別に、生きたJournal/Issueの全件から日次の推移を都度集計して見せる。
@@ -162,22 +276,43 @@ export function ReportsPage() {
   const trendNav = usePeriodNavigator("month");
   const trendPoints = buildJournalIssueDailyTrend(journalEntries, issues, trendNav.window);
 
-  async function handleGenerate(periodType: ReportPeriodType, periodsAgo = 0) {
-    setGenerating(`${periodType}-${periodsAgo}`);
-    setGenerateError(null);
+  // トリガー直後のReportが無ければ、一覧の中でAIレビューが紐づく最新のものを既定表示にする
+  // （ページを開き直したときも「前回のレビューはどうなったか」がすぐ見える）。
+  const latestReviewedFromList = [...reports]
+    .map((r) => ({ report: r, run: runs.find((run) => run.sourceReportId === r.id) }))
+    .filter((x): x is { report: Report; run: AgentRun } => !!x.run)
+    .sort((a, b) => b.run.createdAt - a.run.createdAt)[0];
+  const spotlightReport = triggeredSpotlightReport ?? latestReviewedFromList?.report ?? null;
+  const spotlightRun = spotlightReport ? runs.find((r) => r.sourceReportId === spotlightReport.id) : undefined;
+
+  useEffect(() => {
+    if (!triggeredSpotlightReport) return;
+    // jsdom（テスト環境）にはscrollIntoViewが実装されていないため存在チェックする（Select.tsxと同じ対応）。
+    spotlightSectionRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggeredSpotlightReport?.id]);
+
+  // ユーザー指摘「『レポートを作成する』と『レビューをする』の違いが分かりにくい」対応。
+  // 機械集計のみの生成ボタンは廃止し、暦週/暦月の統計スナップショット生成とLead Agentに
+  // よる対話型レビューの起動を1つの入口（レビューをする）に一本化する。統計スナップショット
+  // 自体はstartPeriodReviewAnalysis内部で生成されるため、レポート一覧・履歴は従来どおり残る。
+  async function handleStartReview(periodType: ReportPeriodType, offset = 0) {
+    setReviewing(`${periodType}-${offset}`);
+    setReviewError(null);
     try {
-      const res = await fetch("/api/reports", {
+      const res = await fetch("/api/reports/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodType, periodsAgo }),
+        body: JSON.stringify({ periodType, offset }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "レポートの生成に失敗しました");
-      await refreshReports();
+      if (!res.ok) throw new Error(data.error ?? "レビューの起動に失敗しました");
+      setTriggeredSpotlightReport(data.report);
+      await Promise.all([refreshReports(), refreshRuns()]);
     } catch (err) {
-      setGenerateError((err as Error).message);
+      setReviewError((err as Error).message);
     } finally {
-      setGenerating(null);
+      setReviewing(null);
     }
   }
 
@@ -202,22 +337,42 @@ export function ReportsPage() {
       <div>
         <PageTitleRow title="レポート" helpAnchor="reflection">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("week")}>
-              {generating === "week-0" ? "生成中…" : "今週のレポートを作成"}
-            </button>
-            <button className={styles.btnOutline} disabled={generating !== null} onClick={() => handleGenerate("week", 1)}>
-              {generating === "week-1" ? "生成中…" : "先週のレポートを作成"}
-            </button>
-            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={generating !== null} onClick={() => handleGenerate("month")}>
-              {generating === "month-0" ? "生成中…" : "今月のレポートを作成"}
-            </button>
-            <button className={styles.btnOutline} disabled={generating !== null} onClick={() => handleGenerate("month", 1)}>
-              {generating === "month-1" ? "生成中…" : "先月のレポートを作成"}
-            </button>
+            <PeriodActionMenu
+              periodType="week"
+              idleLabel="🤖 週次レビューをする"
+              busyLabel="起動中…"
+              busy={reviewing?.startsWith("week-") ?? false}
+              disabled={reviewing !== null}
+              onPick={(offset) => handleStartReview("week", offset)}
+            />
+            <PeriodActionMenu
+              periodType="month"
+              idleLabel="🤖 月次レビューをする"
+              busyLabel="起動中…"
+              busy={reviewing?.startsWith("month-") ?? false}
+              disabled={reviewing !== null}
+              onPick={(offset) => handleStartReview("month", offset)}
+            />
           </div>
         </PageTitleRow>
-        {generateError && <p className={styles.errorText} role="alert" style={{ marginTop: 4 }}>{generateError}</p>}
+        {reviewError && <p className={styles.errorText} role="alert" style={{ marginTop: 4 }}>{reviewError}</p>}
       </div>
+
+      {spotlightReport && (
+        <div className={styles.panel} ref={spotlightSectionRef}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <h2 style={{ margin: 0 }}>直近のAIレビュー</h2>
+            <div>
+              <span className={styles.badge}>{REPORT_PERIOD_LABEL[spotlightReport.periodType]}</span>
+              <ReviewStatusBadge reviewRun={spotlightRun} />
+            </div>
+          </div>
+          <p className={styles.subtitle} style={{ marginTop: 4 }}>
+            {formatDateTime(spotlightReport.periodStart)} 〜 {formatDateTime(spotlightReport.periodEnd)}
+          </p>
+          <ReportReviewSection reviewRun={spotlightRun} />
+        </div>
+      )}
 
       <div className={styles.panel}>
         <h2>日次の推移</h2>
@@ -257,7 +412,12 @@ export function ReportsPage() {
             </thead>
             <tbody>
               {pagination.pageItems.map((report) => (
-                <ReportCard key={report.id} report={report} onSaveNote={handleSaveNote} />
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  reviewRun={runs.find((r) => r.sourceReportId === report.id)}
+                  onSaveNote={handleSaveNote}
+                />
               ))}
             </tbody>
           </table>

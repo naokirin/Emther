@@ -190,6 +190,11 @@ function migrate(database: DatabaseSync): void {
   // Suggestion本体へは反映しない（既存のsuggested_*_jsonと同じHuman-in-the-Loop設計）。
   addColumnIfMissing(database, "agent_runs", "suggested_suggestion_updates_json", "TEXT");
 
+  // docs/new_reporting.md。週次・月次レビュー（origin=auto-weekly-report/auto-monthly-report）
+  // の構造化出力（PeriodReview）と、材料となったreportsテーブル行への逆リンク。
+  addColumnIfMissing(database, "agent_runs", "period_review_json", "TEXT");
+  addColumnIfMissing(database, "agent_runs", "source_report_id", "TEXT");
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS agent_run_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

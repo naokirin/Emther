@@ -10,6 +10,7 @@ import {
   extractConsult,
   extractGrowSuggestions,
   extractIssueNotes,
+  extractPeriodReview,
   extractProposal,
   extractSuggestionUpdates,
   extractThemes,
@@ -83,6 +84,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       run.suggestedThemes = undefined;
       run.suggestedIssueNotes = undefined;
       run.suggestedSuggestionUpdates = undefined;
+      run.periodReview = undefined;
       appendLog(run, "system", `[追加照会] 上限（${LOOKUP_MAX_ROUNDS}回）到達のため拒否し、EMへ確認を求めました`);
       return;
     }
@@ -131,6 +133,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.suggestedThemes = undefined;
     run.suggestedIssueNotes = undefined;
     run.suggestedSuggestionUpdates = undefined;
+    run.periodReview = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
   } else {
     run.status = "idle";
@@ -144,6 +147,13 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
     run.suggestedIssueNotes = run.proposal ? extractIssueNotes(resultText) : undefined;
     run.suggestedSuggestionUpdates = run.proposal ? extractSuggestionUpdates(resultText) : undefined;
+    // docs/new_reporting.md。週次・月次レビューの主出力。proposalの有無に関わらず、
+    // このoriginのときだけ抽出する（他originのテキストにたまたまperiod_reviewブロック
+    // 相当の文字列が混ざっても誤って拾わないようにする）。
+    run.periodReview =
+      run.origin === "auto-weekly-report" || run.origin === "auto-monthly-report"
+        ? extractPeriodReview(resultText)
+        : undefined;
     appendLog(
       run,
       "system",
@@ -157,6 +167,9 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     }
     if (run.suggestedSuggestionUpdates) {
       appendLog(run, "system", `[提案の整理差分] ${run.suggestedSuggestionUpdates.length}件`);
+    }
+    if (run.periodReview) {
+      appendLog(run, "system", "[期間レビュー] period_reviewブロックを受け取りました");
     }
     // docs/2nd_pivot_version.md Phase 8。Growの提案は組織の前提を変更しない「EMへの
     // 参考情報」そのものなので、他のsuggested*と異なり採用/却下の中間段階を挟まず、

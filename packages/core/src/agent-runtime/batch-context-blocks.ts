@@ -1,8 +1,11 @@
+import { periodWindow, type PeriodUnit } from "../daily-trends";
 import { listCheckins, listReflectionNotes } from "../em-self-store";
 import { listIssues } from "../issue-store";
 import { listJournalEntries } from "../journal-store";
+import type { JournalEntry } from "../types";
 import { listEvents } from "../knowledge-store";
 import { maskNames } from "../people-directory";
+import { computeReportStats, getReport, type ReportStats } from "../report-store";
 import { listAdoptedThemes } from "../theme-store";
 import { charterFilledCount } from "../types";
 import { computeOrgVitals } from "../vitals";
@@ -265,6 +268,150 @@ export function buildGrowContextBlock(): string {
       "",
       "【組織側: 相談でのEMの判断ログ（直近）】",
       ...decisionLinesOut,
+    ].join("\n"),
+  );
+}
+
+const PERIOD_REVIEW_JOURNAL_LIMIT = 60;
+const PERIOD_REVIEW_ISSUE_LIMIT = 10;
+const PERIOD_REVIEW_CHECKIN_LIMIT = 8;
+const PERIOD_REVIEW_NOTE_LIMIT = 10;
+
+function periodReviewUnitOf(origin: AgentRun["origin"]): PeriodUnit {
+  return origin === "auto-monthly-report" ? "month" : "week";
+}
+
+// 緊急度high・ネガティブ・「対応不要」未確認のものを0（優先）、それ以外を1として並べ替えに使う。
+function journalPriorityWeight(e: JournalEntry): 0 | 1 {
+  return (e.urgency === "high" || e.sentiment === "negative") && !e.noActionNeededAt ? 0 : 1;
+}
+
+function formatStatsSummary(stats: ReportStats): string {
+  const { journal, issues, events } = stats;
+  return [
+    `Journal ${journal.total}件（緊急度: low ${journal.byUrgency.low} / mid ${journal.byUrgency.mid} / high ${journal.byUrgency.high}、感情: positive ${journal.bySentiment.positive} / neutral ${journal.bySentiment.neutral} / negative ${journal.bySentiment.negative}）`,
+    journal.topTags.length > 0 ? `よく出たタグ: ${journal.topTags.map((t) => `${t.tag}(${t.count})`).join(", ")}` : "よく出たタグ: なし",
+    `提案（Issue）作成 ${issues.createdCount}件 / 確認済み ${issues.archivedCount}件`,
+    `組織の変更イベント ${events.total}件`,
+  ].join(" / ");
+}
+
+// docs/new_reporting.md。週次・月次レビューの材料。buildDistillationContextBlock/
+// buildGrowContextBlockと同じく、材料はrun.taskではなくシステムプロンプトへ動的注入する
+// （origin=auto-weekly-report/auto-monthly-reportのときだけbuildSystemPromptから呼ばれる）。
+// runのsourceReportIdから対象reports行を取得し、起動時刻からの再計算ではなく生成時点の
+// 正確なperiodStart/periodEndをそのまま使う。
+export function buildPeriodReviewContextBlock(run: AgentRun): string {
+  const unit = periodReviewUnitOf(run.origin);
+  const unitLabel = unit === "month" ? "月" : "週";
+  const report = run.sourceReportId ? getReport(run.sourceReportId) : undefined;
+  if (!report) {
+    return maskNames(
+      "期間レビューの材料が見つかりませんでした（対象のreport行を特定できません）。proposalブロックでその旨をEMへ伝えてください。",
+    );
+  }
+
+  const { periodStart, periodEnd } = report;
+  const periodLabel = `${new Date(periodStart).toLocaleDateString("ja-JP")} 〜 ${new Date(periodEnd - 1).toLocaleDateString("ja-JP")}`;
+
+  const prevWindow = periodWindow(unit, -1, periodStart);
+  const prevStats = computeReportStats(prevWindow.start, prevWindow.end);
+
+  const journals = listJournalEntries()
+    .filter((e) => e.createdAt >= periodStart && e.createdAt < periodEnd)
+    .sort((a, b) => journalPriorityWeight(a) - journalPriorityWeight(b) || b.createdAt - a.createdAt)
+    .slice(0, PERIOD_REVIEW_JOURNAL_LIMIT);
+  const journalLines =
+    journals.length > 0
+      ? journals.map((e) => {
+          const meta = `urgency=${e.urgency} sentiment=${e.sentiment}${e.tags.length ? ` tags=${e.tags.join(",")}` : ""}`;
+          return `- [${e.id}] (${meta}) ${e.rawText.slice(0, 200)}`;
+        })
+      : [`- （この${unitLabel}のJournalなし）`];
+
+  const createdTitles = report.stats.issues.createdTitles.slice(0, PERIOD_REVIEW_ISSUE_LIMIT);
+  const archivedTitles = report.stats.issues.archivedTitles.slice(0, PERIOD_REVIEW_ISSUE_LIMIT);
+  const issueLines = [
+    createdTitles.length > 0
+      ? `作成: ${createdTitles.map((i) => `[${i.id}] ${i.title}`).join(" / ")}`
+      : "作成: なし",
+    archivedTitles.length > 0
+      ? `確認済み: ${archivedTitles.map((i) => `[${i.id}] ${i.title}`).join(" / ")}`
+      : "確認済み: なし",
+  ];
+
+  const adopted = listAdoptedThemes().slice(0, 10);
+  const themeLines =
+    adopted.length > 0 ? adopted.map((t) => `- ${t.title}: ${t.summary.slice(0, 120)}`) : ["- （採用済みテーマなし）"];
+
+  // docs/new_reporting.md 8節「Weekly Review → 来週の問い → 翌週のJournal → 次回Weekly Review」の
+  // ループ。前回の同originレビューが持ち越したnextQuestionsを、今回の材料として注入する。
+  const previousReview = [...runs.values()]
+    .filter((r) => r.origin === run.origin && r.id !== run.id && r.periodReview)
+    .sort((a, b) => b.createdAt - a.createdAt)[0]?.periodReview;
+  const carriedQuestionLines =
+    previousReview?.nextQuestions && previousReview.nextQuestions.length > 0
+      ? previousReview.nextQuestions.map((q) => `- ${q}`)
+      : [`- （前回の${unitLabel}次レビューから持ち越された問いなし）`];
+
+  const emSelfLines: string[] = [];
+  if (unit === "month") {
+    const checkins = listCheckins()
+      .filter((c) => c.createdAt >= periodStart && c.createdAt < periodEnd)
+      .slice(0, PERIOD_REVIEW_CHECKIN_LIMIT);
+    const notes = listReflectionNotes().filter((n) => n.createdAt >= periodStart && n.createdAt < periodEnd);
+    const problemNotes = notes.filter((n) => n.type === "problem").slice(0, PERIOD_REVIEW_NOTE_LIMIT);
+    const tryNotes = notes.filter((n) => n.type === "try").slice(0, PERIOD_REVIEW_NOTE_LIMIT);
+    emSelfLines.push(
+      "",
+      "【EM自身の行動（チェックイン・KPTメモ、この月）】",
+      checkins.length > 0
+        ? checkins
+            .map((c) => `- mood=${c.mood} energy=${c.energy} stress=${c.stress}${c.note ? ` — ${c.note.slice(0, 80)}` : ""}`)
+            .join("\n")
+        : "- （チェックイン記録なし）",
+      problemNotes.length > 0 ? problemNotes.map((n) => `- Problem: ${n.text.slice(0, 120)}`).join("\n") : "- （Problemメモなし）",
+      tryNotes.length > 0 ? tryNotes.map((n) => `- Try: ${n.text.slice(0, 120)}`).join("\n") : "- （Tryメモなし）",
+    );
+  }
+
+  return maskNames(
+    [
+      `${unitLabel}次レビューの材料（このタスク専用。1件ごとの個別対応ではなく、この${unitLabel}を横断して見えるパターン・変化を優先すること）:`,
+      "以下のperiod_reviewブロック形式でレビューを出力してください（すべてのキーが必須。配列は該当が無ければ空配列で構いません）:",
+      "```period_review",
+      '{ "overview": "…", "observations": ["…"], "interpretation": "…", "comparisons": [{ "area": "…", "before": "…", "after": "…", "assessment": "improved" }], "blindSpots": [{ "question": "…", "reason": "…" }], "learnings": ["…"], "nextQuestions": ["…"] }',
+      "```",
+      "- overview: この期間を特徴づける概観（単なる出来事の列挙ではなく、何が特徴的だったか）",
+      "- observations: 参照した事実の整理（Observation）",
+      "- interpretation: 横断的な解釈（Interpretation/Hypothesis）。断定せず仮説として書くこと",
+      "- comparisons: 前期間との比較（Before→After）。下記【前期間の統計】との対比で書くこと",
+      "- blindSpots: 「問題がない」のか「観測できていない」のかをEMに問い返す項目。断定せず問いの形で書くこと",
+      "- learnings: EM自身の経験知として残す価値があるもの",
+      "- nextQuestions: 次の期間へ持ち越したい問い。次回の同種レビューの材料として再度注入されます",
+      "さらに、複数の出来事に共通する繰り返しテーマが見つかれば、既存のthemesブロックで1〜5件提案してください（無理に出さなくてよい。下記【採用済みテーマ】と重複するものは不要）。",
+      "9.3の原則: AIは結論を押し付けない。断定できない箇所は仮説・問いとして提示し、最終的な解釈・判断はEMに委ねること。",
+      "",
+      `【対象期間】${periodLabel}`,
+      "",
+      "【今期間の統計】",
+      formatStatsSummary(report.stats),
+      "",
+      "【前期間の統計（Before/After比較用）】",
+      formatStatsSummary(prevStats),
+      "",
+      `【この${unitLabel}のJournal（最大${PERIOD_REVIEW_JOURNAL_LIMIT}件、緊急度high・ネガティブ優先）】`,
+      ...journalLines,
+      "",
+      "【この期間の提案（Issue）作成・確認済み】",
+      ...issueLines,
+      "",
+      "【採用済みテーマ解釈（重複防止用）】",
+      ...themeLines,
+      "",
+      `【前回${unitLabel}次レビューから持ち越された問い】`,
+      ...carriedQuestionLines,
+      ...emSelfLines,
     ].join("\n"),
   );
 }

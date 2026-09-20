@@ -14,6 +14,9 @@ import type {
   AgentRun,
   ConsultRequest,
   IssueCandidate,
+  PeriodReview,
+  PeriodReviewBlindSpot,
+  PeriodReviewComparisonItem,
   Proposal,
   RejectedAlternative,
   SuggestedIssueNote,
@@ -22,6 +25,8 @@ import type {
   YieldOption,
   YieldRequest,
 } from "./types";
+
+const PERIOD_REVIEW_ASSESSMENTS = ["improved", "worsened", "changed", "uncertain"] as const;
 
 /** proposal から起票用タイトル候補を返す。issueCandidates があればそれを使い、無ければ issueTitle 1件。 */
 export function listIssueCandidatesFromProposal(proposal?: Proposal | null): IssueCandidate[] {
@@ -318,6 +323,85 @@ export function extractThemes(resultText: string): SuggestedTheme[] | undefined 
       });
     }
     return items.length > 0 ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// docs/new_reporting.md。週次・月次レビューの構造化出力。extractThemesと同じ壊れにくい
+// パースの考え方——必須フィールド欠落の配列要素はスキップし、1つも残らなければその配列は
+// 空のまま返す（ブロック自体は「提案なし」にしない。overview/interpretationが無い場合のみ
+// レビュー全体を無効とする）。
+export function extractPeriodReview(resultText: string): PeriodReview | undefined {
+  const match = resultText.match(/```period_review\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const overview = (parsed as { overview?: unknown }).overview;
+    const interpretation = (parsed as { interpretation?: unknown }).interpretation;
+    if (typeof overview !== "string" || !overview.trim()) return undefined;
+    if (typeof interpretation !== "string" || !interpretation.trim()) return undefined;
+
+    const observationsRaw = (parsed as { observations?: unknown }).observations;
+    const observations = Array.isArray(observationsRaw)
+      ? observationsRaw.filter((o): o is string => typeof o === "string" && o.trim().length > 0)
+      : [];
+
+    const comparisonsRaw = (parsed as { comparisons?: unknown }).comparisons;
+    const comparisons: PeriodReviewComparisonItem[] = [];
+    if (Array.isArray(comparisonsRaw)) {
+      for (const entry of comparisonsRaw) {
+        if (!entry || typeof entry !== "object") continue;
+        const area = (entry as { area?: unknown }).area;
+        const before = (entry as { before?: unknown }).before;
+        const after = (entry as { after?: unknown }).after;
+        const assessment = (entry as { assessment?: unknown }).assessment;
+        if (typeof area !== "string" || !area.trim()) continue;
+        if (typeof before !== "string" || !before.trim()) continue;
+        if (typeof after !== "string" || !after.trim()) continue;
+        if (typeof assessment !== "string" || !PERIOD_REVIEW_ASSESSMENTS.includes(assessment as never)) continue;
+        comparisons.push({
+          area: area.trim(),
+          before: before.trim(),
+          after: after.trim(),
+          assessment: assessment as PeriodReviewComparisonItem["assessment"],
+        });
+      }
+    }
+
+    const blindSpotsRaw = (parsed as { blindSpots?: unknown }).blindSpots;
+    const blindSpots: PeriodReviewBlindSpot[] = [];
+    if (Array.isArray(blindSpotsRaw)) {
+      for (const entry of blindSpotsRaw) {
+        if (!entry || typeof entry !== "object") continue;
+        const question = (entry as { question?: unknown }).question;
+        const reason = (entry as { reason?: unknown }).reason;
+        if (typeof question !== "string" || !question.trim()) continue;
+        if (typeof reason !== "string" || !reason.trim()) continue;
+        blindSpots.push({ question: question.trim(), reason: reason.trim() });
+      }
+    }
+
+    const learningsRaw = (parsed as { learnings?: unknown }).learnings;
+    const learnings = Array.isArray(learningsRaw)
+      ? learningsRaw.filter((l): l is string => typeof l === "string" && l.trim().length > 0)
+      : [];
+
+    const nextQuestionsRaw = (parsed as { nextQuestions?: unknown }).nextQuestions;
+    const nextQuestions = Array.isArray(nextQuestionsRaw)
+      ? nextQuestionsRaw.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+      : [];
+
+    return {
+      overview: overview.trim(),
+      observations,
+      interpretation: interpretation.trim(),
+      comparisons,
+      blindSpots,
+      learnings,
+      nextQuestions,
+    };
   } catch {
     return undefined;
   }

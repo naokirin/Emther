@@ -1,8 +1,10 @@
 import { getDb } from "../db";
+import { periodWindow } from "../daily-trends";
 import { getDataDir, loadJSON, saveJSON } from "../persistence";
 import { getIssue } from "../issue-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "../name-candidate-confirmation";
 import { unmaskNames } from "../people-directory";
+import { generateReportForWindow, type Report } from "../report-store";
 import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList } from "../settings-store";
 import {
   loadJournalBatchPersisted,
@@ -476,6 +478,132 @@ export function checkWeeklyDistillation(): void {
   });
 }
 
+// docs/new_reporting.md。週次・月次レビュー。状況蒸留・学びの提案と同じくwatchdogへ相乗りし、
+// 材料（reports行の統計スナップショット）を先に生成してからLead Agent runを起動する。
+// 相談履歴・Inboxに載せる短いタスク文。材料の本体はbuildPeriodReviewContextBlock（batch-context-blocks.ts）へ。
+export const WEEKLY_REPORT_TASK =
+  "今週のレビューを作成してください。今週のJournal・提案(Issue)・組織イベントの材料と前週の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・前週比較(Before/After)・見落としていそうな点への問い・学び・来週考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+
+export const MONTHLY_REPORT_TASK =
+  "今月のレビューを作成してください。今月のJournal・提案(Issue)・組織イベント・EM自身の行動（チェックイン・KPTメモ）の材料と先月の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・先月比較(Before/After)・見落としていそうな点への問い・学び・来月考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+
+/**
+ * 対象期間（暦週/暦月。offset=0が今期間、1が前期間）の統計スナップショット（reports行）を
+ * 生成してから、それを材料とするLead Agent runを起動する。manual時（EMのボタン起動）は
+ * 他のバッチ分析と同様reviewed=trueにする。
+ */
+export async function startPeriodReviewAnalysis(
+  unit: "week" | "month",
+  offset: number,
+  opts: MaskOptions & { manual?: boolean } = {},
+): Promise<{ report: Report; run: AgentRun } | undefined> {
+  const { manual, ...maskOpts } = opts;
+  const origin = unit === "month" ? "auto-monthly-report" : "auto-weekly-report";
+  const task = unit === "month" ? MONTHLY_REPORT_TASK : WEEKLY_REPORT_TASK;
+  const window = periodWindow(unit, -offset);
+  const report = generateReportForWindow(unit, window.start, window.end);
+  try {
+    const run = await startRun("Lead Agent", task, origin, undefined, maskOpts);
+    run.sourceReportId = report.id;
+    if (manual) run.reviewed = true;
+    persistRunMeta(run);
+    return { report, run };
+  } catch (err) {
+    if (isUnconfirmedNameCandidatesError(err)) {
+      parkPendingUnmaskedSend({
+        id: `unmasked-period-review:${Date.now()}`,
+        kind: "start-run",
+        candidates: err.candidates,
+        label: unit === "month" ? "月次レビューの送信確認" : "週次レビューの送信確認",
+        agentName: "Lead Agent",
+        task,
+        origin,
+      });
+      return undefined;
+    }
+    throw err;
+  }
+}
+
+function loadLastAutoWeeklyReportWeek(): string | null {
+  return loadJSON<{ week: string | null }>("auto-weekly-report.json", { week: null }).week;
+}
+
+function saveLastAutoWeeklyReportWeek(week: string): void {
+  saveJSON("auto-weekly-report.json", { week });
+}
+
+/** ローカル日付の年月キー（例: 2026-09）。月次バッチの二重起動ガードに使う（isoWeekKeyの月版）。 */
+export function monthKey(now: Date): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function loadLastAutoMonthlyReportMonth(): string | null {
+  return loadJSON<{ month: string | null }>("auto-monthly-report.json", { month: null }).month;
+}
+
+function saveLastAutoMonthlyReportMonth(month: string): void {
+  saveJSON("auto-monthly-report.json", { month });
+}
+
+function hasOriginRunInMonth(origin: AgentRun["origin"], month: string): boolean {
+  for (const run of runs.values()) {
+    if (run.origin === origin && monthKey(new Date(run.createdAt)) === month) return true;
+  }
+  // 月境界の厳密スキャンは重いので、直近40日のDB行だけ見て判定する（hasOriginRunInIsoWeekと同方針）。
+  const since = Date.now() - 40 * 24 * 60 * 60 * 1000;
+  const rows = getDb()
+    .prepare("SELECT created_at FROM agent_runs WHERE origin = ? AND created_at >= ?")
+    .all(origin, since) as Array<{ created_at: number }>;
+  return rows.some((r) => monthKey(new Date(r.created_at)) === month);
+}
+
+export function checkWeeklyReport(): void {
+  const { autoWeeklyReportEnabled, autoWeeklyReportWeekday, autoWeeklyReportHour } = getRulesAndConstraints();
+  if (!autoWeeklyReportEnabled) return;
+  const now = new Date();
+  if (now.getDay() !== autoWeeklyReportWeekday) return;
+  if (now.getHours() < autoWeeklyReportHour) return;
+  const week = isoWeekKey(now);
+  const guard = getAutoBatchGuardState();
+  if (guard.lastAutoWeeklyReportWeek === week) return;
+  if (loadLastAutoWeeklyReportWeek() === week || hasOriginRunInIsoWeek("auto-weekly-report", week)) {
+    guard.lastAutoWeeklyReportWeek = week;
+    saveLastAutoWeeklyReportWeek(week);
+    return;
+  }
+  guard.lastAutoWeeklyReportWeek = week;
+  saveLastAutoWeeklyReportWeek(week);
+  // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
+  if (!tryClaimAutoBatchSlot(`auto-weekly-report:${week}`)) return;
+  void startPeriodReviewAnalysis("week", 0).catch(() => {
+    // 学びの提案・状況蒸留と同様、起動失敗は無視（次週まで再試行しない）。
+  });
+}
+
+export function checkMonthlyReport(): void {
+  const { autoMonthlyReportEnabled, autoMonthlyReportDay, autoMonthlyReportHour } = getRulesAndConstraints();
+  if (!autoMonthlyReportEnabled) return;
+  const now = new Date();
+  if (now.getDate() !== autoMonthlyReportDay) return;
+  if (now.getHours() < autoMonthlyReportHour) return;
+  const month = monthKey(now);
+  const guard = getAutoBatchGuardState();
+  if (guard.lastAutoMonthlyReportMonth === month) return;
+  if (loadLastAutoMonthlyReportMonth() === month || hasOriginRunInMonth("auto-monthly-report", month)) {
+    guard.lastAutoMonthlyReportMonth = month;
+    saveLastAutoMonthlyReportMonth(month);
+    return;
+  }
+  guard.lastAutoMonthlyReportMonth = month;
+  saveLastAutoMonthlyReportMonth(month);
+  // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
+  if (!tryClaimAutoBatchSlot(`auto-monthly-report:${month}`)) return;
+  void startPeriodReviewAnalysis("month", 0).catch(() => {
+    // 起動失敗は無視（翌月の同スロットまで再試行しない）。
+  });
+}
+
 // Issue Why/What/How・経過ログの連打保存でコストが爆発しないよう、同一Issueは
 // デバウンスしてから1回だけ分析する（朝サマリーと同系の軽量実装）。
 // デバウンス中は listPendingAgentStarts() でUIへ「あとN秒で起動」を公開する。
@@ -708,6 +836,8 @@ type AutoBatchGuardState = {
   lastAutoGrowWeek: string | null;
   lastAutoJournalBatchDate: string | null;
   lastAutoJournalBatchClaimedHours: number[];
+  lastAutoWeeklyReportWeek: string | null;
+  lastAutoMonthlyReportMonth: string | null;
 };
 
 const AUTO_BATCH_GUARD_KEY = Symbol.for("emther.agentRuntime.autoBatchGuard");
@@ -725,6 +855,8 @@ function getAutoBatchGuardState(): AutoBatchGuardState {
       lastAutoGrowWeek: null,
       lastAutoJournalBatchDate: null,
       lastAutoJournalBatchClaimedHours: [],
+      lastAutoWeeklyReportWeek: null,
+      lastAutoMonthlyReportMonth: null,
     };
   }
   return g[AUTO_BATCH_GUARD_KEY];
@@ -739,6 +871,8 @@ export function clearAutoBatchClaimsForTest(): void {
   guard.lastAutoGrowWeek = null;
   guard.lastAutoJournalBatchDate = null;
   guard.lastAutoJournalBatchClaimedHours = [];
+  guard.lastAutoWeeklyReportWeek = null;
+  guard.lastAutoMonthlyReportMonth = null;
 }
 
 function ensureWatchdogStarted(): void {
@@ -751,6 +885,8 @@ function ensureWatchdogStarted(): void {
     checkWeeklyDistillation();
     checkWeeklyGrow();
     checkJournalBatchReview();
+    checkWeeklyReport();
+    checkMonthlyReport();
   };
   if (guard.dataDir !== dataDir) {
     if (guard.interval) {
@@ -766,6 +902,8 @@ function ensureWatchdogStarted(): void {
     const journal = loadJournalBatchPersisted();
     guard.lastAutoJournalBatchDate = journal.date;
     guard.lastAutoJournalBatchClaimedHours = journal.claimedHours;
+    guard.lastAutoWeeklyReportWeek = loadLastAutoWeeklyReportWeek();
+    guard.lastAutoMonthlyReportMonth = loadLastAutoMonthlyReportMonth();
   }
   if (guard.interval) return;
   guard.interval = setInterval(() => guard.tick(), WATCHDOG_INTERVAL_MS);

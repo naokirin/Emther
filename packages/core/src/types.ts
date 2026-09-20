@@ -264,7 +264,16 @@ export type PendingUnmaskedSend = {
   issueTitle?: string;
   agentName?: string;
   task?: string;
-  origin?: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow" | "auto-journal-batch";
+  origin?:
+    | "manual"
+    | "auto-anomaly"
+    | "auto-summary"
+    | "auto-issue-update"
+    | "auto-distill"
+    | "auto-grow"
+    | "auto-journal-batch"
+    | "auto-weekly-report"
+    | "auto-monthly-report";
   linkedIssueId?: string;
   sourceJournalId?: string;
   /** 何でも相談で経営／役員目線レビューを必須consultするとき */
@@ -302,6 +311,13 @@ export type RulesAndConstraints = {
   autoGrowEnabled: boolean;
   autoGrowWeekday: number;
   autoGrowHour: number;
+  // docs/new_reporting.md。週次・月次レビューの自動起動（既定OFF）。
+  autoWeeklyReportEnabled: boolean;
+  autoWeeklyReportWeekday: number;
+  autoWeeklyReportHour: number;
+  autoMonthlyReportEnabled: boolean;
+  autoMonthlyReportDay: number;
+  autoMonthlyReportHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
   // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
   // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。

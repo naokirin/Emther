@@ -16,6 +16,8 @@ const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   "auto-issue-update": "提案更新分析",
   "auto-distill": "状況蒸留",
   "auto-journal-batch": "Journal集約解釈",
+  "auto-weekly-report": "週次レビュー",
+  "auto-monthly-report": "月次レビュー",
 };
 
 const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {

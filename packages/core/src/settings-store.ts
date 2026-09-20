@@ -54,6 +54,18 @@ export type RulesAndConstraints = {
   autoGrowWeekday: number;
   // サーバーローカル時刻の時（0〜23）。既定8。
   autoGrowHour: number;
+  // docs/new_reporting.md。週次レビュー（AIとの対話型ふりかえり）の自動起動。既定OFF。
+  autoWeeklyReportEnabled: boolean;
+  // 0=日曜 … 6=土曜（Date.getDay()と同じ）。既定1=月曜。
+  autoWeeklyReportWeekday: number;
+  // サーバーローカル時刻の時（0〜23）。既定8。
+  autoWeeklyReportHour: number;
+  // docs/new_reporting.md。月次レビューの自動起動。既定OFF。
+  autoMonthlyReportEnabled: boolean;
+  // 起動する日（1〜28。月末付近の存在しない日をまたぐ事故を避けるため28までに制限）。既定1。
+  autoMonthlyReportDay: number;
+  // サーバーローカル時刻の時（0〜23）。既定8。
+  autoMonthlyReportHour: number;
   // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
   // 起動することがある」対応。エージェントは1体につき1つのCLI子プロセス（claude/agy/
   // cursor-agent）を起動するため、無制限に並列起動を許すとメモリを大量消費し環境が
@@ -134,6 +146,12 @@ const DEFAULT_RULES: RulesAndConstraints = {
   autoGrowEnabled: false,
   autoGrowWeekday: 1,
   autoGrowHour: 8,
+  autoWeeklyReportEnabled: false,
+  autoWeeklyReportWeekday: 1,
+  autoWeeklyReportHour: 8,
+  autoMonthlyReportEnabled: false,
+  autoMonthlyReportDay: 1,
+  autoMonthlyReportHour: 8,
   maxParallelAgentRuns: 2,
   perTurnBudgetUsd: 0.5,
   teamParallelKickoffEnabled: true,

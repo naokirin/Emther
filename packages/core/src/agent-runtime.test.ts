@@ -406,6 +406,42 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     ]);
   });
 
+  it("extractPeriodReviewはoverview/interpretationが揃っていればパースし、不正な配列要素はスキップする", async () => {
+    const rt = await loadModule();
+    const text = `\`\`\`period_review
+{
+  "overview": "今週は判断待ちが多かった",
+  "observations": ["Journal 12件", ""],
+  "interpretation": "意思決定の所在が曖昧な可能性",
+  "comparisons": [
+    { "area": "PO確認", "before": "曖昧", "after": "明文化", "assessment": "improved" },
+    { "area": "不完全", "before": "x" }
+  ],
+  "blindSpots": [
+    { "question": "メンバーの記録が減ったのは改善か観測不足か", "reason": "先週比で半減" },
+    { "question": "理由なし" }
+  ],
+  "learnings": ["判断の所在を明示すると動きやすい"],
+  "nextQuestions": ["来週も判断待ちの件数を見る"]
+}
+\`\`\``;
+    expect(rt.extractPeriodReview(text)).toEqual({
+      overview: "今週は判断待ちが多かった",
+      observations: ["Journal 12件"],
+      interpretation: "意思決定の所在が曖昧な可能性",
+      comparisons: [{ area: "PO確認", before: "曖昧", after: "明文化", assessment: "improved" }],
+      blindSpots: [{ question: "メンバーの記録が減ったのは改善か観測不足か", reason: "先週比で半減" }],
+      learnings: ["判断の所在を明示すると動きやすい"],
+      nextQuestions: ["来週も判断待ちの件数を見る"],
+    });
+  });
+
+  it("extractPeriodReviewはoverview/interpretationが欠落していればundefined", async () => {
+    const rt = await loadModule();
+    expect(rt.extractPeriodReview('```period_review\n{ "observations": [] }\n```')).toBeUndefined();
+    expect(rt.extractPeriodReview("ブロックなし")).toBeUndefined();
+  });
+
   it("extractGrowSuggestionsは必須フィールドがある提案だけをパースする", async () => {
     const rt = await loadModule();
     const text = `\`\`\`grow_suggestions
@@ -974,6 +1010,50 @@ describe("buildSystemPrompt", () => {
   it("Issueに紐づかないrunにもcharterブロックの説明は付かない", async () => {
     const rt = await loadModule();
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-without-issue")).not.toContain("```charter");
+  });
+
+  it("origin=auto-weekly-report/auto-monthly-reportのときだけperiod_review材料を注入する", async () => {
+    const rt = await loadModule();
+    const weekly = await rt.startPeriodReviewAnalysis("week", 0, {});
+    expect(weekly).toBeDefined();
+    const weeklyPrompt = rt.buildSystemPrompt("Lead Agent", true, weekly!.run.id);
+    expect(weeklyPrompt).toContain("```period_review");
+    expect(weeklyPrompt).toContain("【対象期間】");
+
+    const monthly = await rt.startPeriodReviewAnalysis("month", 0, {});
+    expect(monthly).toBeDefined();
+    expect(rt.buildSystemPrompt("Lead Agent", true, monthly!.run.id)).toContain("```period_review");
+
+    const manualRun = await rt.startRun("Lead Agent", "何か別件", "manual");
+    expect(rt.buildSystemPrompt("Lead Agent", true, manualRun.id)).not.toContain("```period_review");
+  });
+
+  it("前回の同originレビューのnextQuestionsを次回の材料へ持ち越す", async () => {
+    const { getDb } = await import("./db");
+    const now = Date.now();
+    getDb()
+      .prepare(
+        `INSERT INTO agent_runs (id, agent_name, task, status, origin, created_at, updated_at, reviewed, total_cost_usd, period_review_json)
+         VALUES (?, 'Lead Agent', 'seed', 'idle', 'auto-weekly-report', ?, ?, 1, 0, ?)`,
+      )
+      .run(
+        "seed-weekly-report",
+        now - 7 * 24 * 60 * 60 * 1000,
+        now - 7 * 24 * 60 * 60 * 1000,
+        JSON.stringify({
+          overview: "先週の概観",
+          observations: [],
+          interpretation: "先週の解釈",
+          comparisons: [],
+          blindSpots: [],
+          learnings: [],
+          nextQuestions: ["判断待ちが減ったか来週も見る"],
+        }),
+      );
+    const rt = await loadModule();
+    const weekly = await rt.startPeriodReviewAnalysis("week", 0, {});
+    const prompt = rt.buildSystemPrompt("Lead Agent", true, weekly!.run.id);
+    expect(prompt).toContain("判断待ちが減ったか来週も見る");
   });
 });
 
@@ -2265,6 +2345,90 @@ describe("watchdog: checkWeeklyGrow", () => {
     rt.checkWeeklyGrow();
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns()).toHaveLength(1);
+    expect(spawnCalls).toHaveLength(1);
+  });
+});
+
+describe("watchdog: checkWeeklyReport", () => {
+  it("autoWeeklyReportEnabledが既定(false)なら何もしない", async () => {
+    const rt = await loadModule();
+    rt.checkWeeklyReport();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("曜日が一致しなければ起動しない", async () => {
+    const settingsStore = await import("./settings-store");
+    const otherWeekday = (new Date().getDay() + 1) % 7;
+    settingsStore.updateRulesAndConstraints({
+      autoWeeklyReportEnabled: true,
+      autoWeeklyReportWeekday: otherWeekday,
+      autoWeeklyReportHour: 0,
+    });
+    const rt = await loadModule();
+    rt.checkWeeklyReport();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("曜日・時刻が一致すればLead Agentを自動起動し、同週の再呼び出しでは再起動しない", async () => {
+    const settingsStore = await import("./settings-store");
+    settingsStore.updateRulesAndConstraints({
+      autoWeeklyReportEnabled: true,
+      autoWeeklyReportWeekday: new Date().getDay(),
+      autoWeeklyReportHour: 0,
+    });
+    const rt = await loadModule();
+    rt.checkWeeklyReport();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    expect(rt.listRuns()[0].origin).toBe("auto-weekly-report");
+    rt.checkWeeklyReport();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns().filter((r) => r.origin === "auto-weekly-report")).toHaveLength(1);
+    expect(spawnCalls).toHaveLength(1);
+  });
+});
+
+describe("watchdog: checkMonthlyReport", () => {
+  it("autoMonthlyReportEnabledが既定(false)なら何もしない", async () => {
+    const rt = await loadModule();
+    rt.checkMonthlyReport();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("起動日が一致しなければ起動しない", async () => {
+    const settingsStore = await import("./settings-store");
+    const otherDay = (new Date().getDate() % 28) + 1;
+    settingsStore.updateRulesAndConstraints({
+      autoMonthlyReportEnabled: true,
+      autoMonthlyReportDay: otherDay,
+      autoMonthlyReportHour: 0,
+    });
+    const rt = await loadModule();
+    rt.checkMonthlyReport();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns()).toHaveLength(0);
+  });
+
+  it("起動日・時刻が一致すればLead Agentを自動起動し、同月の再呼び出しでは再起動しない", async () => {
+    const settingsStore = await import("./settings-store");
+    settingsStore.updateRulesAndConstraints({
+      autoMonthlyReportEnabled: true,
+      autoMonthlyReportDay: new Date().getDate(),
+      autoMonthlyReportHour: 0,
+    });
+    const rt = await loadModule();
+    rt.checkMonthlyReport();
+    await vi.waitFor(() => {
+      if (rt.listRuns().length < 1) throw new Error("run not created yet");
+    });
+    expect(rt.listRuns()[0].origin).toBe("auto-monthly-report");
+    rt.checkMonthlyReport();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(rt.listRuns().filter((r) => r.origin === "auto-monthly-report")).toHaveLength(1);
     expect(spawnCalls).toHaveLength(1);
   });
 });

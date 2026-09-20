@@ -23,6 +23,7 @@ import {
   buildGrowContextBlock,
   buildJournalBatchContextBlock,
   buildMorningSummaryContextBlock,
+  buildPeriodReviewContextBlock,
 } from "./batch-context-blocks";
 import { extractJournalAutoAnalysisText } from "./extraction";
 import { runs } from "./store";
@@ -580,17 +581,25 @@ export function buildSystemPrompt(
   const glossaryContext = buildGlossaryContextBlock();
   // 状況蒸留・朝サマリー: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
   // 再開（decideRun）でも origin 判定だけで再注入する。
-  const runOrigin = runId ? runs.get(runId)?.origin : undefined;
+  const run = runId ? runs.get(runId) : undefined;
+  const runOrigin = run?.origin;
   const distillContext = runOrigin === "auto-distill" ? buildDistillationContextBlock() : "";
   const morningContext = runOrigin === "auto-summary" ? buildMorningSummaryContextBlock() : "";
   const growContext = runOrigin === "auto-grow" ? buildGrowContextBlock() : "";
   const journalBatchContext = runOrigin === "auto-journal-batch" ? buildJournalBatchContextBlock() : "";
+  // docs/new_reporting.md。週次・月次レビューの材料。対象reports行への逆リンク
+  // （sourceReportId）が必要なため、originだけでなくrun本体を渡す。
+  const periodReviewContext =
+    run && (runOrigin === "auto-weekly-report" || runOrigin === "auto-monthly-report")
+      ? buildPeriodReviewContextBlock(run)
+      : "";
   return [
     base,
     morningContext,
     distillContext,
     growContext,
     journalBatchContext,
+    periodReviewContext,
     issueContext,
     relatedContext,
     interventionTypeGuidance,

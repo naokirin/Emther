@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AutomationSettingsGroup } from "./AutomationSettingsGroup";
 import { makeRules } from "./test-fixtures";
@@ -34,5 +34,21 @@ describe("AutomationSettingsGroup", () => {
     render(<AutomationSettingsGroup draft={makeRules({ autoDistillationEnabled: true, autoDistillationWeekdays: [1] })} onChange={onChange} />);
     await user.click(screen.getByRole("checkbox", { name: "月" }));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("週次レビューの自動起動を有効化できる", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<AutomationSettingsGroup draft={makeRules({ autoWeeklyReportEnabled: false })} onChange={onChange} />);
+    await user.click(screen.getByRole("checkbox", { name: "毎週、指定曜日・時刻以降に自動で週次レビューを起動する" }));
+    expect(onChange).toHaveBeenCalledWith({ autoWeeklyReportEnabled: true });
+  });
+
+  it("月次レビューの起動日は1〜28日にクランプする", () => {
+    const onChange = vi.fn();
+    render(<AutomationSettingsGroup draft={makeRules({ autoMonthlyReportEnabled: true, autoMonthlyReportDay: 1 })} onChange={onChange} />);
+    const dayInput = screen.getByLabelText("起動する日（1〜28日、サーバーのローカル時刻）");
+    fireEvent.change(dayInput, { target: { value: "31" } });
+    expect(onChange).toHaveBeenCalledWith({ autoMonthlyReportDay: 28 });
   });
 });

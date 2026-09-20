@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { startPeriodReviewAnalysis, toRunView } from "@emther/core/agent-runtime/index";
+import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { PERIOD_DAYS, generateReport, listReports, toReportView, updateReportNote, type ReportPeriodType } from "@emther/core/report-store";
 
 // docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/reports/{route,[id]/route}.ts の移植。
@@ -37,4 +39,25 @@ export const reportsRoute = new Hono()
       return c.json({ error: "not found" }, 404);
     }
     return c.json({ report: toReportView(report) });
+  })
+  // docs/new_reporting.md。統計スナップショット（reports行）だけでなく、Lead Agentによる
+  // 対話型レビュー（AgentRun, origin=auto-weekly-report/auto-monthly-report）も併せて起動する。
+  .post("/review", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!isPeriodType(body?.periodType)) {
+      return c.json({ error: "periodTypeは week または month である必要があります" }, 400);
+    }
+    const offset = Number.isInteger(body?.offset) && body.offset >= 0 ? body.offset : 0;
+    try {
+      const result = await startPeriodReviewAnalysis(body.periodType as ReportPeriodType, offset, { manual: true });
+      if (!result) {
+        return c.json({ pendingUnmasked: true }, 202);
+      }
+      return c.json({ report: toReportView(result.report), run: toRunView(result.run) }, 201);
+    } catch (err) {
+      if (isUnconfirmedNameCandidatesError(err)) {
+        return c.json({ error: err.message, candidates: err.candidates }, 409);
+      }
+      return c.json({ error: (err as Error).message }, 500);
+    }
   });

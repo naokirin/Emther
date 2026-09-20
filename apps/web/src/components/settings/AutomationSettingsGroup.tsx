@@ -213,6 +213,83 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
           onChange={(e) => onChange({ autoGrowHour: Number(e.target.value) })}
         /></label>
       </div>
+
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>週次レビュー</h3>
+      <label
+        className={styles.axisTooltip}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
+        data-tooltip="今週のJournal・提案・組織イベントを横断し、概観・解釈・前週比較・見落としの問い・学び・来週への問いをLead Agentが提示します（レポート画面から手動でも起動できます）"
+      >
+        <input
+          type="checkbox"
+          checked={draft.autoWeeklyReportEnabled}
+          onChange={(e) => onChange({ autoWeeklyReportEnabled: e.target.checked })}
+        />
+        毎週、指定曜日・時刻以降に自動で週次レビューを起動する
+      </label>
+      <div className={styles.field} style={{ maxWidth: 200, opacity: draft.autoWeeklyReportEnabled ? 1 : 0.5 }}>
+        <label>曜日（サーバーのローカル時刻）
+        <select
+          disabled={!draft.autoWeeklyReportEnabled}
+          value={draft.autoWeeklyReportWeekday}
+          onChange={(e) => onChange({ autoWeeklyReportWeekday: Number(e.target.value) })}
+        >
+          <option value={0}>日曜</option>
+          <option value={1}>月曜</option>
+          <option value={2}>火曜</option>
+          <option value={3}>水曜</option>
+          <option value={4}>木曜</option>
+          <option value={5}>金曜</option>
+          <option value={6}>土曜</option>
+        </select></label>
+      </div>
+      <div className={styles.field} style={{ maxWidth: 160, opacity: draft.autoWeeklyReportEnabled ? 1 : 0.5 }}>
+        <label>時刻（0〜23時）
+        <input
+          type="number"
+          min={0}
+          max={23}
+          disabled={!draft.autoWeeklyReportEnabled}
+          value={draft.autoWeeklyReportHour}
+          onChange={(e) => onChange({ autoWeeklyReportHour: Number(e.target.value) })}
+        /></label>
+      </div>
+
+      <h3 style={{ fontSize: "0.875rem", marginTop: 16, marginBottom: 4 }}>月次レビュー</h3>
+      <label
+        className={styles.axisTooltip}
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
+        data-tooltip="今月のJournal・提案・組織イベント・EM自身の行動を横断し、概観・解釈・先月比較・見落としの問い・学び・来月への問いをLead Agentが提示します（レポート画面から手動でも起動できます）"
+      >
+        <input
+          type="checkbox"
+          checked={draft.autoMonthlyReportEnabled}
+          onChange={(e) => onChange({ autoMonthlyReportEnabled: e.target.checked })}
+        />
+        毎月、指定日・時刻以降に自動で月次レビューを起動する
+      </label>
+      <div className={styles.field} style={{ maxWidth: 160, opacity: draft.autoMonthlyReportEnabled ? 1 : 0.5 }}>
+        <label>起動する日（1〜28日、サーバーのローカル時刻）
+        <input
+          type="number"
+          min={1}
+          max={28}
+          disabled={!draft.autoMonthlyReportEnabled}
+          value={draft.autoMonthlyReportDay}
+          onChange={(e) => onChange({ autoMonthlyReportDay: Math.min(28, Math.max(1, Number(e.target.value))) })}
+        /></label>
+      </div>
+      <div className={styles.field} style={{ maxWidth: 160, opacity: draft.autoMonthlyReportEnabled ? 1 : 0.5 }}>
+        <label>時刻（0〜23時）
+        <input
+          type="number"
+          min={0}
+          max={23}
+          disabled={!draft.autoMonthlyReportEnabled}
+          value={draft.autoMonthlyReportHour}
+          onChange={(e) => onChange({ autoMonthlyReportHour: Number(e.target.value) })}
+        /></label>
+      </div>
     </>
   );
 }

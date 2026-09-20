@@ -23,6 +23,9 @@ export type {
   PendingAgentStart,
   PendingAgentStartKind,
   PendingUnmaskedSend,
+  PeriodReview,
+  PeriodReviewBlindSpot,
+  PeriodReviewComparisonItem,
   Proposal,
   ProposalRecommendation,
   RejectedAlternative,
@@ -42,6 +45,7 @@ export {
   extractGrowSuggestions,
   extractIssueNotes,
   extractJournalAutoAnalysisText,
+  extractPeriodReview,
   extractProposal,
   extractSubIssues,
   extractSuggestionUpdates,
@@ -92,15 +96,18 @@ export {
   buildGrowContextBlock,
   buildJournalBatchContextBlock,
   buildMorningSummaryContextBlock,
+  buildPeriodReviewContextBlock,
 } from "./batch-context-blocks";
 
 export {
   buildDistillationTask,
   buildJournalAnalysisTask,
   checkJournalBatchReview,
+  checkMonthlyReport,
   checkMorningSummary,
   checkWeeklyDistillation,
   checkWeeklyGrow,
+  checkWeeklyReport,
   clearAutoBatchClaimsForTest,
   DISTILLATION_TASK,
   GROWTH_TASK,
@@ -109,6 +116,8 @@ export {
   JOURNAL_BATCH_TASK,
   listPendingAgentStarts,
   localDayBoundsMs,
+  monthKey,
+  MONTHLY_REPORT_TASK,
   MORNING_SUMMARY_TASK,
   reactToIssueUpdate,
   setIssueUpdateDebounceMsForTest,
@@ -116,7 +125,9 @@ export {
   startGrowAnalysis,
   startJournalAnalysis,
   startJournalBatchAnalysis,
+  startPeriodReviewAnalysis,
   todayDateString,
+  WEEKLY_REPORT_TASK,
 } from "./scheduled-tasks";
 
 export {

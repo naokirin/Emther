@@ -130,6 +130,35 @@ export type LogLine = {
   text: string;
 };
 
+// docs/new_reporting.md。週次・月次レビューの構造化出力。9.2「事実・解釈・提案を分離する」
+// に沿い、Proposal（conclusion/facts/logic）とは別に、期間レビュー特有の観点（Before/After・
+// 繰り返しテーマは既存のthemesブロックで扱う・見落とし・学び・次期間への問い）を持つ。
+export type PeriodReviewComparisonItem = {
+  area: string;
+  before: string;
+  after: string;
+  assessment: "improved" | "worsened" | "changed" | "uncertain";
+};
+
+// 9.4「『記録がない』ことを『問題がない』と解釈しない」対応。questionは断定文ではなく
+// EMへの問いかけとして書かせる（reasonに「なぜそう思ったか」を必須で添えさせる）。
+export type PeriodReviewBlindSpot = {
+  question: string;
+  reason: string;
+};
+
+export type PeriodReview = {
+  overview: string;
+  observations: string[];
+  interpretation: string;
+  comparisons: PeriodReviewComparisonItem[];
+  blindSpots: PeriodReviewBlindSpot[];
+  learnings: string[];
+  // 6.8/7.8「来週/来月考えたい問い」。次回同originのレビュー起動時にbuildPeriodReviewContextBlock
+  // が前回runのこの値を材料へ注入し、docs/new_reporting.md 8節のループを実装する。
+  nextQuestions: string[];
+};
+
 export type AgentRun = {
   id: string;
   agentName: string;
@@ -168,6 +197,10 @@ export type AgentRun = {
   // docs/knowledge_distillation.md。状況蒸留で提案するテーマ解釈の下書き。
   // EMが「採用」するまで OrgTheme(adopted) にはならない。
   suggestedThemes?: SuggestedTheme[];
+  // docs/new_reporting.md。週次・月次レビュー（origin=auto-weekly-report/auto-monthly-report）
+  // の構造化出力そのもの。proposalと違い「採用するまで反映しない下書き」ではなく、この
+  // runの主出力（EMは会話継続で応答するのみ。Human-in-the-Loopの対象は同時に出せるthemesの方）。
+  periodReview?: PeriodReview;
   totalCostUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -191,9 +224,23 @@ export type AgentRun = {
   // "auto-journal-batch"は直近のJournalをまとめて日次で解釈するバッチ。
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
   // 間はDashboardの「次にすべきこと」に居座らせ、見て見ぬふりをできないようにする。
-  origin: "manual" | "auto-anomaly" | "auto-summary" | "auto-issue-update" | "auto-distill" | "auto-grow" | "auto-journal-batch";
+  // docs/new_reporting.md。週次・月次レビューは"auto-weekly-report"/"auto-monthly-report"。
+  // 手動起動（EMがボタンで即時実行）でも他バッチ同様originは揃え、Inboxの表示を統一する。
+  origin:
+    | "manual"
+    | "auto-anomaly"
+    | "auto-summary"
+    | "auto-issue-update"
+    | "auto-distill"
+    | "auto-grow"
+    | "auto-journal-batch"
+    | "auto-weekly-report"
+    | "auto-monthly-report";
   // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
   sourceJournalId?: string;
+  // docs/new_reporting.md。週次・月次レビューの材料となったreportsテーブルの行への逆リンク
+  // （正確なperiodStart/periodEndをここから取得する。起動時刻からの再計算はしない）。
+  sourceReportId?: string;
   // 何でも相談でEMが「経営／役員目線も聞く」をONにしたときなど、Leadがproposal/yieldする前に
   // 必ずconsultへ含めなければならない専門エージェント名。メモリ上のみ（active中に効けば足りる）。
   requiredConsultAgents?: string[];
@@ -218,5 +265,7 @@ export function originLabel(origin: AgentRun["origin"]): string {
   if (origin === "auto-distill") return "状況蒸留";
   if (origin === "auto-grow") return "学びの提案";
   if (origin === "auto-journal-batch") return "Journal集約解釈";
+  if (origin === "auto-weekly-report") return "週次レビュー";
+  if (origin === "auto-monthly-report") return "月次レビュー";
   return "手動";
 }
