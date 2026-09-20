@@ -1,4 +1,4 @@
-import { embedText } from "../embeddings";
+import { cosineSimilarity, embedText } from "../embeddings";
 import { getIssue, getIssueByRunId, issueEmbedSource } from "../issue-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "../knowledge-store";
 import {
@@ -324,6 +324,12 @@ const SEMANTIC_SIMILARITY_THRESHOLD = 0.4;
 const PERSON_FACT_LIMIT_DEFAULT = 5;
 const PERSON_FACT_LIMIT_PEOPLE = 10;
 const PERSON_INTERPRETATION_LIMIT_NON_PEOPLE = 3;
+// ユーザー指摘対応: 名前一致だけで人物ファクトを選ぶと、話題との関連度に関わらず
+// 「直近のもの」が機械的に上限件数まで埋まってしまい、組織/チーム全体規模の問いに
+// 個人単位の些末な事象（例:「1on1がスキップになった」）が紛れ込む。名前一致は維持しつつ、
+// factLimitより広く候補を取ってから話題（rawText）との類似度で再ランキングし、
+// 上位のみを残すことで「関連度の低い直近事象」が優先されるのを防ぐ。
+const PERSON_FACT_SCAN_LIMIT = 30;
 
 // 個人情報の分離（ユーザー指摘対応）: rawTextは実名（EM/クラウドどちらの入力の場合もある）
 // またはPERSON_n ID（Lead Agentからのconsult.questionのように既にマスクされたテキストの
@@ -343,14 +349,35 @@ export async function buildJournalContextBlock(
   const isPeopleAgent = agentName === "People Agent";
   const factLimit = isPeopleAgent ? PERSON_FACT_LIMIT_PEOPLE : PERSON_FACT_LIMIT_DEFAULT;
 
+  // 話題（rawText）との類似度で人物ファクトを再ランキングするためのクエリ埋め込み。
+  // 失敗時はnullのままにし、以降は類似度なし（＝再ランキングせず従来の直近順）で継続する。
+  let queryEmbedding: number[] | null = null;
+  try {
+    queryEmbedding = await embedText(rawText);
+  } catch {
+    queryEmbedding = null;
+  }
+
   const factLines: string[] = [];
   const interpretationLines: string[] = [];
   let omittedInterpretationCount = 0;
   const seenIds = new Set<string>();
   for (const person of mentioned) {
-    for (const e of listActiveFactsForPerson(person.id, factLimit, excludeEventId)) {
+    const candidates = listActiveFactsForPerson(person.id, PERSON_FACT_SCAN_LIMIT, excludeEventId);
+    const scored = candidates.map((e) => ({
+      event: e,
+      similarity: queryEmbedding && e.embedding ? cosineSimilarity(queryEmbedding, e.embedding) : null,
+    }));
+    // 類似度が取れたものは関連度優先、取れないものは元の直近順を保つ（安全側フォールバック）。
+    if (scored.some((s) => s.similarity !== null)) {
+      scored.sort((a, b) => (b.similarity ?? -1) - (a.similarity ?? -1));
+    }
+    for (const { event: e, similarity } of scored.slice(0, factLimit)) {
       seenIds.add(e.id);
-      factLines.push(`- [${person.id}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}）`);
+      const similarityNote = similarity !== null ? ` / 話題との類似度: ${similarity.toFixed(2)}` : "";
+      factLines.push(
+        `- [${person.id}] ${e.text}（タグ: ${e.tags.join(", ") || "なし"} / 緊急度: ${e.urgency ?? "-"} / 感情: ${e.sentiment ?? "-"}${similarityNote}）`,
+      );
     }
     const interpretations = listInterpretationsForPerson(person.id);
     const capped = isPeopleAgent ? interpretations : interpretations.slice(0, PERSON_INTERPRETATION_LIMIT_NON_PEOPLE);
@@ -362,8 +389,7 @@ export async function buildJournalContextBlock(
   }
 
   const semanticLines: string[] = [];
-  try {
-    const queryEmbedding = await embedText(rawText);
+  if (queryEmbedding) {
     const similarFacts = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: 3, excludeId: excludeEventId });
     const similarInterpretations = searchSimilarEvents(queryEmbedding, {
       kind: "interpretation",
@@ -377,8 +403,6 @@ export async function buildJournalContextBlock(
       seenIds.add(e.id);
       semanticLines.push(describe(e));
     }
-  } catch {
-    // 埋め込み生成に失敗しても、名前一致の結果だけで動的ロード自体は継続する。
   }
 
   if (factLines.length === 0 && interpretationLines.length === 0 && semanticLines.length === 0) return "";
@@ -395,7 +419,10 @@ export async function buildJournalContextBlock(
   }
   if (factLines.length > 0) {
     blocks.push(
-      ["直近の一時的な状況（Journal、有効期限内のもののみ。あくまで参考情報として扱うこと）:", ...factLines].join("\n"),
+      [
+        "直近の一時的な状況（Journal、有効期限内のもののみ。あくまで参考情報として扱うこと。これらは個人単位の個別事象であり、話題との類似度が低いものは元の問いとの関連が薄い可能性が高い。元の問いが組織/チーム全体規模なら、これら単独を結論や解決策の主語にせず『一事例』として引用するに留めること。複数人・複数件で同じ構造が繰り返し見られる場合のみ、一般化した結論の根拠として使ってよい）:",
+        ...factLines,
+      ].join("\n"),
     );
   }
   if (semanticLines.length > 0) {
@@ -531,12 +558,13 @@ export function buildSystemPrompt(
     "",
     // docs/3rd_pivot_version/pivot.md。いきなり解決策に飛ばず Expand → Challenge → Suggest。
     // docs/ai_ philosophy.md。Lens SelectionとHypothesisを明示ステップとして追加。
-    "分析の順序（Observe / Remember / Interpret → Lens Selection → Expand → Challenge → Hypothesis のあと、Suggestの前に必ず通すこと）:",
+    "分析の順序（Observe / Remember / Interpret → Lens Selection → Expand → Challenge → Hypothesis → Scope Check のあと、Suggestの前に必ず通すこと）:",
     "- Lens Selection: 上記の哲学レンズのうち、この状況に有効そうなものを判断して選ぶ（個数のノルマは無い。1つも無理に使わなくてよいし、複数が同時に効くならその分だけ使ってよい）。",
     "- Expand: 選んだレンズを使い、現在のEMの認識・仮説から離れて、別の解釈・別の仮説・見えていない情報・別の問題設定・過去記録やチーム全体から見える可能性を列挙する（EMの仮説を否定するのではなく「他にもこういう見方があり得る」を示す）。レンズ同士で異なる解釈・矛盾する見立てがあれば、それも書く。",
     "- Challenge: 選んだレンズを使い、前提・事実と解釈の混同・別原因の可能性・EM自身の影響・「本当に解くべき問題か」を問い直す（批判ではなく問題設定の精度向上のため）。",
     "- Hypothesis: Expand/Challengeを踏まえて結論（仮説）を形づくる。まだ断定できない場合は、結論を仮説のまま扱ってよい（recommendation: watch、またはyieldのkind: decide/informを使う）。",
-    "- Suggest: 上記を踏まえた結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
+    "- Scope Check（必須）: 元のタスク・問いが想定しているスケール（個人 / チーム / 組織全体）を判定する。注入された参考情報（人物ファクト・Journal・類似Issue等）の中に、それより小さいスケールの個別事象（例: 特定の1人の1回の予定変更）が混ざっている場合、それを結論の主語や解決策そのものにしないこと。個別事象は「一事例」としてfacts/logicで引用する程度に留め、結論（conclusion）の粒度は元の問いのスケールに合わせる。複数人・複数件で同じ構造が繰り返し観測されている場合に限り、それを一般化した結論の根拠として使ってよい。",
+    "- Suggest: Scope Checkを踏まえ、元の問いのスケールに見合った結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
     "- 入力の要約・言い換えだけで終わらせないこと。「心理的安全性」「1on1」など一般論の羅列も避けること。蓄積された具体的な記録に根ざした発見を優先する。",
     '- 介入の起票まで不要で「様子を見る／追加で確認する」が妥当なら recommendation は "watch"。次の観測・確認ポイントは advice（および conclusion）に書く。',
     "",
