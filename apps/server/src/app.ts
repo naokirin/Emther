@@ -28,6 +28,8 @@ import { maskCheckRoute } from "./routes/mask-check";
 import { journalLocalSummarizeRoute } from "./routes/journal-local-summarize";
 import { knowledgeInterpretationsRoute } from "./routes/knowledge-interpretations";
 import { settingsDataBackupRoute } from "./routes/settings-data-backup";
+import { settingsDataResetRoute } from "./routes/settings-data-reset";
+import { settingsDataRestoreRoute } from "./routes/settings-data-restore";
 import { journalDumpsRoute } from "./routes/journal-dumps";
 import { orgObjectivesParseRoute } from "./routes/org-objectives-parse";
 import { issuesLinkSuggestRoute } from "./routes/issues-link-suggest";
@@ -84,6 +86,10 @@ export function createApp(options?: { clientDir?: string }) {
   app.route("/api/mask-check", maskCheckRoute);
   app.route("/api/knowledge/interpretations", knowledgeInterpretationsRoute);
   app.route("/api/settings/data/backup", settingsDataBackupRoute);
+  // docs/2nd_architecture/plan.md フェーズ4.3a: 単一プロセス配信化により
+  // scheduleProcessExit()（process.exit）を呼んでも問題ないため移植。
+  app.route("/api/settings/data/reset", settingsDataResetRoute);
+  app.route("/api/settings/data/restore", settingsDataRestoreRoute);
   if (options?.clientDir) {
     mountStaticClient(app, options.clientDir);
   }

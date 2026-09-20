@@ -58,7 +58,7 @@
 - `GET/POST /api/suggestions`, `GET/PATCH /api/suggestions/:id`, `POST /api/suggestions/:id/memo`
 - `POST /api/growth/generate`
 - `GET/POST /api/models/status`, `POST /api/mask-check`, `POST /api/journal/local-summarize`, `GET/POST /api/knowledge/interpretations`
-- `POST /api/settings/data/backup`（`settings/data/reset`・`settings/data/restore`は`process.exit`を呼ぶため意図的に未移植。5節参照）
+- `POST /api/settings/data/backup`, `POST /api/settings/data/reset`, `POST /api/settings/data/restore`（後2つはフェーズ4.3aで移植。5節参照）
 - `GET/POST /api/journal/dumps`, `GET/PATCH /api/journal/dumps/:id`, `POST /api/journal/dumps/:id/parse`, `POST /api/journal/dumps/:id/accept`, `POST /api/journal/dumps/preview`, `GET/POST/DELETE /api/journal/dumps/profiles`
 - `POST /api/org/objectives/parse`, `POST /api/issues/link/suggest`, `POST /api/themes/link/suggest`
 
@@ -71,10 +71,12 @@
 - `agent-runtime`（`scheduled-tasks.ts`）をimportするルートをHono側へ移植すると、Next側watchdogと合わせて30秒間隔の自動バッチチェックが2プロセスで同時に走る。既存の3層二重起動ガード（globalThisクレーム・ファイル永続化・DB上の当日run存在チェック）はいずれも単一プロセス内の同期実行を前提にしており、複数OSプロセス間のTOCTOUは防げない。フェーズ2.7で2プロセスを実機起動して**実際に重複起動（1ミリ秒差でauto-summary runが2件作成）を確認**したため、`auto_batch_claims`テーブル（SQLite UNIQUE制約による原子的クレーム）を4つの自動バッチ関数全てに追加し、起動直前の最終ゲートとした（詳細は`plan.md`フェーズ2.7参照）。新しい自動バッチ種別を追加する場合も、`start*()`を呼ぶ直前に`tryClaimAutoBatchSlot()`で原子的にクレームすること。
 - `POST`系（agent起動を伴うもの）は実際のCLIプロセスを起動しうるため、手動`safe-curl`では叩かない。GETのみで疎通確認し、POSTの検証は`node:child_process`の`spawn`をモックした自動テストに委ねる。
 
-## 5. プロセスを終了させるルート（`process.exit`系）は並走期間中は移植しない
+## 5. プロセスを終了させるルート（`process.exit`系）— フェーズ4.3aで移植完了
 
-- `settings/data/reset`・`settings/data/restore`は`state-archive.ts`の`scheduleProcessExit()`（`setTimeout`後に`process.exit(0)`）を呼ぶ。これは「呼び出し元プロセス自身」を終了させるため、Hono側へ移植すると操作のたびに`apps/server`プロセスだけが落ち、Next.js（ユーザーが実際にアクセスする側、`scripts/emther`が監視・再起動する対象）はプロキシ先が死んだ壊れた状態のまま生き残る。
-- この2ルートは**フェーズ4（単一プロセス配信への集約）まで意図的にNext側に残す**（`plan.md`のリスクレジスタ・フェーズ2.7完了基準の例外事項を参照）。同様に「呼び出し元プロセスを終了させる」処理を持つ未移植ルートが今後見つかった場合も同じ基準で判断する。
+- `settings/data/reset`・`settings/data/restore`は`state-archive.ts`の`scheduleProcessExit()`（`setTimeout`後に`process.exit(0)`）を呼ぶ。フェーズ2〜3（Next↔Hono並走期間）は、これをHono側へ移植すると操作のたびに`apps/server`プロセスだけが落ち、Next.js（ユーザーが実際にアクセスする側）はプロキシ先が死んだ壊れた状態のまま生き残るため、あえてNext側に残していた。
+- **フェーズ4.3（単一プロセス配信）着手後の2026-09-20、フェーズ4.3aでこの2ルートを`apps/server/src/routes/{settings-data-reset,settings-data-restore}.ts`へ移植した。** 単一プロセスでは「プロセス終了＝アプリ全体の終了」であり、上記の壊れた状態は起きない。`web/src/app/api/settings/data/{reset,restore}/route.ts`は他の移植済みルートと同じ`proxyToHono`委譲に置き換え済み。
+- 隔離環境（`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`/`EM_BACKUP_DIR`を一時ディレクトリへ向けた状態）でbackup→reset→再起動→restoreの一連を`safe-curl`で実機確認済み（データの空化・復元・プロセス終了を確認）。
+- 同様に「呼び出し元プロセスを終了させる」処理を持つルートを今後追加する場合も、単一プロセス配信が前提であることを踏まえて設計する（並走期間中の回避策は不要）。
 
 ## 6. 新しいルートをmountする際の必須チェック（マウント順バグ）
 
@@ -106,5 +108,5 @@
 - **21画面すべてが`apps/web`（Vite、`vite dev`）側に移植済み**: `/`（ダッシュボード）, `/help`, `/issues`（`/suggestions`へリダイレクト）, `/issues/:id`（`/suggestions/:id`へリダイレクト）, `/go/:prefix`, `/evening-review`, `/mask-check`, `/teams`, `/timeline`, `/settings`, `/people`, `/people/:id`, `/org`, `/org/thread`, `/reports`, `/growth`, `/journal`, `/suggestions`, `/suggestions/:id`, `/agents`, `/chat`。**フェーズ3.5完了に伴い、通常のブラウザ確認は`vite dev`（`apps/web`）+ `apps/server`（Hono）の2プロセス構成が既定になった**（1節・9節の「常に`next dev`」という記述はフェーズ2時点のものであり陳腐化。単一プロセス配信はフェーズ4で行う）。
 - **ルートシェル・サイドピークは全画面で共通・フル機能**: `RootLayout`/`TopNav`/`SuggestionPeekRoot`（`?suggestion=`）・`timeline`自身のサイドピーク（`?issue=`）・`people`のサイドピーク（`?person=`）は全て実物のコンポーネント（`SuggestionDetailContent`/`PersonDetailContent`）で動作し、暫定プレースホルダーは0件。
 - **tier4/tier5で「後続tierへの前方参照」だった暫定実装は全て解消済み**: `SuggestionPeekRoot`/`timeline`のサイドピーク（tier4 suggestionsバッチで`SuggestionDetailContent`へ差し替え）、`useRuns`（tier4 suggestionsバッチで暫定型`AgentRunLite`から`RunDetail.tsx`正本の`AgentRun`型へ差し替え）。
-- **`/settings`の「データ」タブは復元・リセットが`vite dev`側では404になる**: `DataMigrationPanel`が呼ぶ`/api/settings/data/reset`・`/api/settings/data/restore`はフェーズ4まで意図的にNext側にのみ実装が残っているため（5節参照）、`apps/web`のdev proxy（`apps/server`にしか転送しない）経由では届かない。バックアップは移植済みなので動く。この2操作だけを試す場合は`next dev`（`web/`）側の`/settings`を使うこと（21画面移植完了後も残る唯一の既知の並走時の例外）。
+- **`/settings`の「データ」タブの復元・リセットもフェーズ4.3aで`apps/web`（`vite dev`）側から動作するようになった**: `DataMigrationPanel`が呼ぶ`/api/settings/data/reset`・`/api/settings/data/restore`は`apps/server`へ移植済み（5節参照）。`apps/web`のdev proxyは`apps/server`へ転送するため、`vite dev`側でも問題なく届く。手動で試す場合は`EM_DATA_DIR`等を隔離した`apps/server`を使うこと（7節と同様、実データに向けたまま試さない）。
 - **旧`web/`（Next.js）側は依然として起動可能なまま残置**（フェーズ5でNext.js関連ファイルを削除するまでの間、参照実装・上記2操作の確認用として並存する）。両方を同時に立ち上げても、`apps/web`の`vite dev`と`web`の`next dev`はポートが別（既定5173/3000）なので競合しない。

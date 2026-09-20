@@ -1,23 +1,4 @@
-import { NextResponse } from "next/server";
-import { resetAllState, scheduleProcessExit } from "@core/state-archive";
+// docs/2nd_architecture/plan.md フェーズ4.3a: 実処理は apps/server/src/routes/settings-data-reset.ts へ移設済み。
+import { proxyToHono } from "@/lib/hono-proxy";
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json().catch(() => null);
-    if (body?.confirm !== "RESET") {
-      return NextResponse.json(
-        { error: '確認のため body に { "confirm": "RESET" } が必要です' },
-        { status: 400 },
-      );
-    }
-
-    resetAllState();
-    scheduleProcessExit();
-    return NextResponse.json({ ok: true, requiresRestart: true });
-  } catch (err) {
-    return NextResponse.json(
-      { error: (err as Error).message || "リセットに失敗しました" },
-      { status: 500 },
-    );
-  }
-}
+export const POST = proxyToHono;
