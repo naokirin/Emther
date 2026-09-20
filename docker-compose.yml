@@ -5,7 +5,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: web/Dockerfile
+      dockerfile: docker/Dockerfile
     image: emther-web:local
     ports:
       - "${EM_PORT:-3000}:3000"

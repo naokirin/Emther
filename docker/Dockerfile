@@ -3,22 +3,27 @@
 # 認証情報はイメージに焼き込まず、実行時の named volume に保存する。
 #
 # ビルドコンテキストはリポジトリルート（docker-compose.yml の context: . を参照）。
-# npm workspaces（web, packages/core）構成のため、ここでも root で npm ci する
-# （docs/2nd_architecture/plan.md フェーズ1）。
+# apps/server（Hono、esbuild）+ apps/web（Vite）構成（docs/2nd_architecture/plan.md
+# フェーズ4）。npm workspaces のため root で npm ci する。Docker はセカンドクラスの
+# 隔離プロファイルであり、ホスト配布（scripts/package-standalone.sh）のような
+# node_modules の最小トレースはせず、シンプルに `npm prune --omit=dev` した
+# フル node_modules をそのまま同梱する。
 
 FROM node:24-bookworm AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY packages/core/package.json ./packages/core/package.json
 COPY web/package.json ./web/package.json
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/web/package.json ./apps/web/package.json
 RUN npm ci
 
 FROM node:24-bookworm AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build -w web
+RUN npm run build -w @emther/server
+RUN npm run build -w @emther/web
 # 本番実行に不要な devDependencies を落とす（transformers / onnx の native は残る）
 RUN npm prune --omit=dev
 
@@ -26,7 +31,10 @@ FROM node:24-bookworm AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# apps/server はデフォルト 127.0.0.1 バインドのため、コンテナ外からの到達には
+# 0.0.0.0 が必要（docs/2nd_architecture/plan.md フェーズ4.3のPORT/HOSTNAME参照）。
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 ENV EM_DATA_DIR=/data
 ENV EM_SECURE_DATA_DIR=/secure
 # コンテナ内ではホスト keyring が無いため、agy の自動更新を止めて安定運用する
@@ -80,12 +88,10 @@ RUN set -eu; \
   command -v agy || echo "WARN: agy not on PATH"; \
   command -v cursor-agent || command -v agent || echo "WARN: cursor-agent/agent not on PATH"
 
-COPY --from=builder --chown=em:em /app/web/.next ./.next
+COPY --from=builder --chown=em:em /app/apps/server/dist/server.js ./server.js
+COPY --from=builder --chown=em:em /app/apps/web/dist/client ./client
 COPY --from=builder --chown=em:em /app/node_modules ./node_modules
-COPY --from=builder --chown=em:em /app/web/package.json ./package.json
-COPY --from=builder --chown=em:em /app/web/public ./public
-COPY --from=builder --chown=em:em /app/web/next.config.ts ./next.config.ts
-COPY --chown=em:em web/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --chown=em:em docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER em
@@ -93,4 +99,4 @@ WORKDIR /app
 EXPOSE 3000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["npx", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["node", "server.js"]

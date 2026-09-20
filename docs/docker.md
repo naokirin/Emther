@@ -1,6 +1,6 @@
 # Docker で動かす（コンテナ完結）
 
-このリポジトリの Web アプリ（Next.js）と Agent Runtime（`claude` / 任意で `agy`・`cursor-agent`）を、**ホストの認証ディレクトリをマウントせず**にコンテナ内で完結させる手順です。
+このリポジトリの Web アプリ（`apps/server`（Hono）+ `apps/web`（Vite）。`docs/2nd_architecture/`参照）と Agent Runtime（`claude` / 任意で `agy`・`cursor-agent`）を、**ホストの認証ディレクトリをマウントせず**にコンテナ内で完結させる手順です。
 
 ホストへの通常インストール・データ配置の方針は `docs/packaging.md` を参照（Docker は隔離用の任意プロファイル）。
 
@@ -99,8 +99,8 @@ Cursor は `CURSOR_API_KEY` を `.env` に置く方法でも認証できます�
 ## 構成ファイル
 
 - `docker-compose.yml` — サービス定義と volume
-- `web/Dockerfile` — Node 24 + アプリ + CLI
-- `web/docker-entrypoint.sh` — 起動時の未認証警告
+- `docker/Dockerfile` — Node 24 + アプリ + CLI
+- `docker/docker-entrypoint.sh` — 起動時の未認証警告
 - `.env.docker.example` — ポート / API キー例
 
 ## トラブルシューティング
