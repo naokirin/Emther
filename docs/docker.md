@@ -1,6 +1,6 @@
 # Docker で動かす（コンテナ完結）
 
-このリポジトリの Web アプリ（`apps/server`（Hono）+ `apps/web`（Vite）。`docs/2nd_architecture/`参照）と Agent Runtime（`claude` / 任意で `agy`・`cursor-agent`）を、**ホストの認証ディレクトリをマウントせず**にコンテナ内で完結させる手順です。
+このリポジトリの Web アプリ（`apps/server`（Hono）+ `apps/web`（Vite）。移行経緯は `docs/archive/2nd_architecture/`参照）と Agent Runtime（`claude` / 任意で `agy`・`cursor-agent`）を、**ホストの認証ディレクトリをマウントせず**にコンテナ内で完結させる手順です。
 
 ホストへの通常インストール・データ配置の方針は `docs/packaging.md` を参照（Docker は隔離用の任意プロファイル）。
 

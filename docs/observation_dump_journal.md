@@ -5,9 +5,9 @@
 性質: **実装方針メモ**（決定済みの前提を固定。細部の API／ファイル名は実装時に調整可）  
 関連:
 
-- `docs/value_hierarchy_and_flow.md`（記録と構造化の分離・Journal 一括）
-- `docs/issue_tracker_contract.md`（分割 ≠ Issue 化。Intake は明示起票）
-- `docs/em_human_story_and_ux.md`（感知ストーリー・朝キューを汚さない）
+- `docs/archive/value_hierarchy_and_flow.md`（記録と構造化の分離・Journal 一括）
+- `docs/archive/issue_tracker_contract.md`（分割 ≠ Issue 化。Intake は明示起票）
+- `docs/archive/em_human_story_and_ux.md`（感知ストーリー・朝キューを汚さない）
 - 既存: Quick Journal／`POST /api/journal/bulk`（1行＝1件）／OKR `parse`→preview→`import`
 
 ---

@@ -5,6 +5,8 @@
 
 機微データ（実名対応表・Journal 等）はリポジトリ外の XDG パスに置きます。詳細は [`docs/packaging.md`](docs/packaging.md)。
 
+Emtherの思想・哲学（全体設計・各概念の目的・想定フロー）は [`docs/philosophy.md`](docs/philosophy.md) にまとめています。
+
 ## 必要環境
 
 - Node.js **24+**
@@ -82,7 +84,7 @@ npm run dev -w @emther/server   # 既定 http://127.0.0.1:8787
 npm run dev -w @emther/web      # 既定 http://localhost:5173（/api は上記へプロキシ）
 ```
 
-ブラウザで http://localhost:5173 を開きます。アーキテクチャ方針は [`docs/2nd_architecture.md`](docs/2nd_architecture.md)、移行の経緯・過去の実装メモは [`docs/2nd_architecture/`](docs/2nd_architecture/) と [`docs/archive/web_mvp_devlog.md`](docs/archive/web_mvp_devlog.md)（旧 Next.js 実装のMVP開発ログ）を参照してください。
+ブラウザで http://localhost:5173 を開きます。設計思想は [`docs/philosophy.md`](docs/philosophy.md)、アーキテクチャ移行の経緯・過去の実装メモは [`docs/archive/2nd_architecture.md`](docs/archive/2nd_architecture.md) と [`docs/archive/web_mvp_devlog.md`](docs/archive/web_mvp_devlog.md)（旧 Next.js 実装のMVP開発ログ）を参照してください。
 
 ## 注意
 

@@ -1,7 +1,7 @@
 # 組織状況の蒸留（Knowledge Distillation）
 
 作成日: 2026-09-10  
-関連: `docs/improvement_v1.md`（H/L/N） / `docs/agent_specialization.md` / `web/src/lib/theme-store.ts` / `web/src/lib/related-context.ts` / `web/src/lib/agent-runtime.ts`
+関連: `docs/philosophy.md`（思想・設計原則） / `docs/archive/improvement_v1.md`（H/L/N） / `docs/archive/agent_specialization.md`
 
 ## 0. 目的
 

@@ -4,9 +4,9 @@
 性質: **今後実装するときの方針正本**（未実装）  
 関連:
 
-- `docs/2nd_pivot_version/pivot_policy.md`（AI = Suggest / EM = Decide）
-- `docs/em_ui_ux_issue.md`（トリアージ圧縮・AI主導の方向。ただし本方針は「裏での自動書き換え」は採用しない）
-- `docs/value_hierarchy_and_flow.md`（認知負荷を下げる・判断を N 件に圧縮）
+- `docs/philosophy.md`（AI = Suggest / EM = Decide）
+- `docs/archive/em_ui_ux_issue.md`（トリアージ圧縮・AI主導の方向。ただし本方針は「裏での自動書き換え」は採用しない）
+- `docs/archive/value_hierarchy_and_flow.md`（認知負荷を下げる・判断を N 件に圧縮）
 - `web/src/lib/types.ts`（`Suggestion` / `reviewStatus` / `confirmPriority`）
 
 ---

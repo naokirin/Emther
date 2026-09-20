@@ -2,7 +2,7 @@
 
 個人の EM サポートツール **Emther（EM Support System）** として、**GitHub 公開リポジトリから入手でき、利用者のマシン上にだけ機微データが残る**ことを目標にする。npm レジストリへの公開はしない。
 
-関連実装: `packages/core/src/persistence.ts`（データパス）、`scripts/emther`（ランチャー）、`scripts/package-standalone.sh` / `scripts/trace-server-deps.mjs` / `scripts/install-release.sh`（Release 成果物）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）、`.github/workflows/release.yml`。第2世代アーキテクチャ（Vite + Hono）への移行の経緯・詳細は `docs/2nd_architecture.md` / `docs/2nd_architecture/plan.md` を参照。
+関連実装: `packages/core/src/persistence.ts`（データパス）、`scripts/emther`（ランチャー）、`scripts/package-standalone.sh` / `scripts/trace-server-deps.mjs` / `scripts/install-release.sh`（Release 成果物）、ルート `README.md`（配布手順）、`docs/docker.md`（隔離プロファイル）、`.github/workflows/release.yml`。第2世代アーキテクチャ（Vite + Hono）への移行の経緯・詳細は `docs/archive/2nd_architecture.md` / `docs/archive/2nd_architecture/plan.md` を参照。
 
 ## 製品像
 
@@ -44,7 +44,7 @@ emther backup
 端末移行のバックアップ／復元／全データ削除は、CLI に加えて UI の **設定 → データ** からも実行できます（アーカイブ形式は `emther backup` と同じ。復元・リセット後はプロセスが停止するため再起動が必要です）。CLI を正本とし、UI は同操作の補助経路です。
 
 - 既定で **127.0.0.1:3000** のみにバインドする（LAN 公開しない）。`--host` / `--port`（または `EM_HOST` / `EM_PORT`）で変更可能。優先順位は CLI フラグ > 環境変数 > デフォルト。
-- ビルドは `scripts/package-standalone.sh` が担う: `apps/server` を esbuild で `dist/server.js`（単一ファイル）へバンドルし、`apps/web` を `vite build` で `dist/client`（静的ファイル）へビルドする。`@huggingface/transformers` / `onnxruntime-node` / `kuromoji` はネイティブ依存のためバンドルせず `external` 指定し、`scripts/trace-server-deps.mjs`（`@vercel/nft` による依存関係トレース）で実行時に必要な `node_modules` だけをステージング先へ個別配置する（`kuromoji` は動的 require + 辞書データを含むためディレクトリごとコピー）。単一 Node プロセスが `dist/client` の静的配信と `/api/*` を同一ポートで兼ねる（詳細は `docs/2nd_architecture/plan.md` フェーズ4）。
+- ビルドは `scripts/package-standalone.sh` が担う: `apps/server` を esbuild で `dist/server.js`（単一ファイル）へバンドルし、`apps/web` を `vite build` で `dist/client`（静的ファイル）へビルドする。`@huggingface/transformers` / `onnxruntime-node` / `kuromoji` はネイティブ依存のためバンドルせず `external` 指定し、`scripts/trace-server-deps.mjs`（`@vercel/nft` による依存関係トレース）で実行時に必要な `node_modules` だけをステージング先へ個別配置する（`kuromoji` は動的 require + 辞書データを含むためディレクトリごとコピー）。単一 Node プロセスが `dist/client` の静的配信と `/api/*` を同一ポートで兼ねる（詳細は `docs/archive/2nd_architecture/plan.md` フェーズ4）。
 - UI フォントは `@fontsource/*` を npm 同梱し、ビルド時に Google Fonts へネットワークしない。
 - Docker 用のビルドも同じ `apps/server` + `apps/web` 構成を使う。詳細は `docs/docker.md`。
 
@@ -86,7 +86,7 @@ onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選�
 | Phase | 内容 | 状態 |
 | --- | --- | --- |
 | 0 | デフォルトデータパスの XDG 化＋旧配置からの移行 | 実装済み |
-| 1 | Next.js `output: "standalone"` ＋ `emther` ランチャー | 実装済み（2026-09、`apps/server`（esbuild）+ `apps/web`（Vite）構成へ移行。`docs/2nd_architecture/`参照） |
+| 1 | Next.js `output: "standalone"` ＋ `emther` ランチャー | 実装済み（2026-09、`apps/server`（esbuild）+ `apps/web`（Vite）構成へ移行。`docs/archive/2nd_architecture/`参照） |
 | 2 | `doctor` / `backup`（`restore`）／ルート配布 README | 実装済み |
 | 3 | CI から GitHub Release 成果物を作成 | 実装済み |
 

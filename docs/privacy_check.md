@@ -70,7 +70,7 @@ API: `POST /api/mask-check`
 | `mask-check-types.ts` | 共有型 |
 | `mask-check-lexicon.ts` | **CORE**（短い核フレーズ・最小 stopword）と **TUNING**（人名除外・lookahead 等。機微キーワードは縮小済みで空） |
 
-TUNING の機微キーワード羅列は過適合のため縮小した（人名まわりの辞書は残置）。業界定石との対応は `docs/privacy_check_research.md`。
+TUNING の機微キーワード羅列は過適合のため縮小した（人名まわりの辞書は残置）。業界定石との対応は `docs/archive/privacy_check_research.md`。
 
 ### 第1段 `phase: "quick"`
 
@@ -95,6 +95,6 @@ TUNING の機微キーワード羅列は過適合のため縮小した（人名�
 
 ## 4. 将来
 
-- Presidio / GiNZA 等の一般解との対応検証（`docs/privacy_check_research.md` §5–7、再現は `tools/privacy_check_bench/`）
+- Presidio / GiNZA 等の一般解との対応検証（`docs/archive/privacy_check_research.md` §5–7、再現は `tools/privacy_check_bench/`）
 - 厳格確認オプトイン時の人名候補は `name-candidate-detect` を本線と共用済み。構造PIIの本線自動マスクは対象外のまま
 - 否定文脈の抑制、カテゴリ細分化
