@@ -14,6 +14,7 @@ import type {
   AgentRun,
   ConsultRequest,
   IssueCandidate,
+  LensUsage,
   PeriodReview,
   PeriodReviewBlindSpot,
   PeriodReviewComparisonItem,
@@ -52,6 +53,22 @@ export function normalizeIssueCandidates(parsed: unknown): IssueCandidate[] | un
     const rationale =
       typeof rationaleRaw === "string" && rationaleRaw.trim() ? rationaleRaw.trim() : undefined;
     items.push(rationale ? { title: title.trim(), rationale } : { title: title.trim() });
+  }
+  return items.length > 0 ? items : undefined;
+}
+
+// docs/ai_ philosophy.md。Expand/Challengeの過程で使った哲学レンズ（任意）。壊れにくい
+// パースの考え方はnormalizeIssueCandidatesと同じ：不正な形式の要素は黙って除外する。
+export function normalizeLensUsage(parsed: unknown): LensUsage[] | undefined {
+  if (!Array.isArray(parsed)) return undefined;
+  const items: LensUsage[] = [];
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object") continue;
+    const lens = (entry as { lens?: unknown }).lens;
+    const insight = (entry as { insight?: unknown }).insight;
+    if (typeof lens !== "string" || !lens.trim()) continue;
+    if (typeof insight !== "string" || !insight.trim()) continue;
+    items.push({ lens: lens.trim(), insight: insight.trim() });
   }
   return items.length > 0 ? items : undefined;
 }
@@ -111,6 +128,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         typeof parsed.issueTitle === "string" && parsed.issueTitle.trim() ? parsed.issueTitle.trim() : undefined;
       const issueCandidates = normalizeIssueCandidates(parsed.issueCandidates);
       const advice = typeof parsed.advice === "string" && parsed.advice.trim() ? parsed.advice.trim() : undefined;
+      const lensesUsed = normalizeLensUsage(parsed.lensesUsed);
       return {
         conclusion: parsed.conclusion,
         facts: normalizeStringList(parsed.facts),
@@ -127,6 +145,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         ...(issueTitle ? { issueTitle } : {}),
         ...(issueCandidates ? { issueCandidates } : {}),
         ...(advice ? { advice } : {}),
+        ...(lensesUsed ? { lensesUsed } : {}),
       };
     }
   } catch {

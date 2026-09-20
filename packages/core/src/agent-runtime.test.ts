@@ -251,6 +251,35 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractProposal(text)?.advice).toBeUndefined();
   });
 
+  it("extractProposalはlensesUsedを拾う", async () => {
+    const rt = await loadModule();
+    const text = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        lensesUsed: [
+          { lens: "Systems Thinking", insight: "レビュー待ちが手戻りを増やしている可能性" },
+          { lens: "", insight: "不正な要素は除外される" },
+          { lens: "Lean", insight: "" },
+          "文字列だけの不正な要素も除外される",
+        ],
+      }),
+      "```",
+    ].join("\n");
+    expect(rt.extractProposal(text)?.lensesUsed).toEqual([
+      { lens: "Systems Thinking", insight: "レビュー待ちが手戻りを増やしている可能性" },
+    ]);
+  });
+
+  it("extractProposalはlensesUsed未指定でも既存フィールドだけで動く（旧run互換）", async () => {
+    const rt = await loadModule();
+    const text = '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [] }\n```';
+    expect(rt.extractProposal(text)?.lensesUsed).toBeUndefined();
+  });
+
   it("extractProposalはissueCandidatesを拾う", async () => {
     const rt = await loadModule();
     const text = [
@@ -925,6 +954,23 @@ describe("buildSystemPrompt", () => {
     const prompt = rt.buildSystemPrompt("Lead Agent", true);
     expect(prompt).toContain("```consult");
     expect(prompt).toContain("Exec Agent");
+  });
+
+  it("哲学レンズのカタログとLens Selectionを踏まえた分析順序を含む（全エージェント共通）", async () => {
+    const rt = await loadModule();
+    const lead = rt.buildSystemPrompt("Lead Agent", true);
+    const people = rt.buildSystemPrompt("People Agent", false);
+    for (const prompt of [lead, people]) {
+      expect(prompt).toContain("Lens Selection");
+      expect(prompt).toContain("Hypothesis");
+      expect(prompt).toContain("Agile");
+      expect(prompt).toContain("Scrum / Empiricism");
+      expect(prompt).toContain("Lean");
+      expect(prompt).toContain("DORA / Capability");
+      expect(prompt).toContain("Design Thinking");
+      expect(prompt).toContain("Systems Thinking");
+      expect(prompt).toContain("lensesUsed");
+    }
   });
 
   it("requiredConsultAgents付きrunでは必須consult指示が入る", async () => {

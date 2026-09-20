@@ -1,8 +1,8 @@
 # エージェント専門性の差分化（役割・観点・コンテキスト）
 
 作成日: 2026-09-08  
-関連: `docs/first_implession/em_v5.md` / `docs/improvement_v1.md`（F） / `docs/em_human_story_and_ux.md` / `docs/memo.md`  
-対象コード: `web/src/lib/agent-runtime.ts`（`buildSystemPrompt`） / `web/src/lib/types.ts`（`AGENT_OPTIONS` / `INTERVENTION_TYPES`）
+関連: `docs/first_implession/em_v5.md` / `docs/improvement_v1.md`（F） / `docs/em_human_story_and_ux.md` / `docs/memo.md` / `docs/ai_ philosophy.md`（哲学レンズ）  
+対象コード: `packages/core/src/agent-runtime/context-blocks.ts`（`buildSystemPrompt`） / `packages/core/src/agent-runtime/agent-catalog.ts`（`ROLE_BLOCKS`） / `packages/core/src/agent-runtime/philosophy-lenses.ts`（哲学レンズ） / `packages/core/src/types.ts`（`AGENT_OPTIONS` / `INTERVENTION_TYPES`）
 
 ---
 

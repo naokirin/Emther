@@ -10,10 +10,12 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
   const candidates = listIssueCandidatesFromProposal(proposal);
   const expansions = proposal.expansions ?? [];
   const challenges = proposal.challenges ?? [];
+  const lensesUsed = proposal.lensesUsed ?? [];
   const hasDetails =
     proposal.facts.length > 0 ||
     expansions.length > 0 ||
     challenges.length > 0 ||
+    lensesUsed.length > 0 ||
     Boolean(proposal.logic) ||
     proposal.rejectedAlternatives.length > 0;
 
@@ -118,6 +120,19 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
                   {challenges.map((c, i) => (
                     <li key={i}>
                       <IdLinkedText text={c} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {lensesUsed.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <strong style={{ fontSize: "0.75rem" }}>🧭 使用した哲学レンズ</strong>
+                <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
+                  {lensesUsed.map((l, i) => (
+                    <li key={i}>
+                      <strong>{l.lens}</strong>: <IdLinkedText text={l.insight} />
                     </li>
                   ))}
                 </ul>

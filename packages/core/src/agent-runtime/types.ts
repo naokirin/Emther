@@ -43,6 +43,14 @@ export type RejectedAlternative = {
 
 export type ProposalRecommendation = "issue" | "dismiss" | "watch";
 
+// docs/ai_ philosophy.md。Expand/Challengeの過程で実際に使った哲学レンズ（Agile/Lean/
+// Systems Thinking等）と、そのレンズで見て気づいたことの短い要約。任意（使わなかった/
+// 明示不要と判断した場合は省略してよい）。旧runには存在しないため常にoptional。
+export type LensUsage = {
+  lens: string;
+  insight: string;
+};
+
 // Intake（相談／Journal）から親なしの独立Issueを複数切る候補。
 // 子Issue（sub_issues）とは別：こちらは最初から別介入として並列起票する。
 export type IssueCandidate = {
@@ -60,6 +68,8 @@ export type Proposal = {
   expansions: string[];
   // docs/3rd_pivot_version/pivot.md。前提・事実と解釈の混同・問題設定への問い。批判ではなく精度向上のため。
   challenges: string[];
+  // docs/ai_ philosophy.md。Expand/Challengeで実際に使った哲学レンズ（任意）。
+  lensesUsed?: LensUsage[];
   // docs/usage_issues U2。Journal自動分析など「追跡要否」を聞かれたときだけ使う。
   // 未指定の従来出力は手動トリアージのまま。
   // 「次に観測・確認すべき」が主眼で介入の起票まで不要なら watch を使う（解決策必須ではない）。

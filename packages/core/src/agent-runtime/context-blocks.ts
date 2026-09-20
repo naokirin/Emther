@@ -18,6 +18,7 @@ import { listAdoptedThemes } from "../theme-store";
 import { buildGlossaryContextBlock } from "../glossary-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "../types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
+import { LENS_USAGE_GUIDANCE, PHILOSOPHY_LENSES } from "./philosophy-lenses";
 import {
   buildDistillationContextBlock,
   buildGrowContextBlock,
@@ -520,10 +521,21 @@ export function buildSystemPrompt(
     "",
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
     "",
+    // docs/ai_ philosophy.md。単なるEM業務の知識やフレームワーク知識ではなく、状況を考えるための
+    // 「哲学・思考様式」をレンズとして持たせる。レンズは正解を導くルールではなく、
+    // 「この状況を、この考え方から見ると何が見えるか？」を考えるための道具として使う。
+    "哲学レンズ（Lens Selection。Expand/Challengeの材料となる「見方」の一覧。正解を導くルールではなく、この状況をこの考え方で見ると何が見えるかを考えるための道具）:",
+    ...Object.entries(PHILOSOPHY_LENSES).flatMap(([name, lines]) => [`- ${name}`, ...lines.map((l) => `  ${l}`)]),
+    "",
+    ...LENS_USAGE_GUIDANCE,
+    "",
     // docs/3rd_pivot_version/pivot.md。いきなり解決策に飛ばず Expand → Challenge → Suggest。
-    "分析の順序（Observe / Remember / Interpret のあと、Suggestの前に必ず通すこと）:",
-    "- Expand: 現在のEMの認識・仮説から離れて、別の解釈・別の仮説・見えていない情報・別の問題設定・過去記録やチーム全体から見える可能性を列挙する（EMの仮説を否定するのではなく「他にもこういう見方があり得る」を示す）。",
-    "- Challenge: 前提・事実と解釈の混同・別原因の可能性・EM自身の影響・「本当に解くべき問題か」を問い直す（批判ではなく問題設定の精度向上のため）。",
+    // docs/ai_ philosophy.md。Lens SelectionとHypothesisを明示ステップとして追加。
+    "分析の順序（Observe / Remember / Interpret → Lens Selection → Expand → Challenge → Hypothesis のあと、Suggestの前に必ず通すこと）:",
+    "- Lens Selection: 上記の哲学レンズのうち、この状況に有効そうなものを判断して選ぶ（個数のノルマは無い。1つも無理に使わなくてよいし、複数が同時に効くならその分だけ使ってよい）。",
+    "- Expand: 選んだレンズを使い、現在のEMの認識・仮説から離れて、別の解釈・別の仮説・見えていない情報・別の問題設定・過去記録やチーム全体から見える可能性を列挙する（EMの仮説を否定するのではなく「他にもこういう見方があり得る」を示す）。レンズ同士で異なる解釈・矛盾する見立てがあれば、それも書く。",
+    "- Challenge: 選んだレンズを使い、前提・事実と解釈の混同・別原因の可能性・EM自身の影響・「本当に解くべき問題か」を問い直す（批判ではなく問題設定の精度向上のため）。",
+    "- Hypothesis: Expand/Challengeを踏まえて結論（仮説）を形づくる。まだ断定できない場合は、結論を仮説のまま扱ってよい（recommendation: watch、またはyieldのkind: decide/informを使う）。",
     "- Suggest: 上記を踏まえた結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
     "- 入力の要約・言い換えだけで終わらせないこと。「心理的安全性」「1on1」など一般論の羅列も避けること。蓄積された具体的な記録に根ざした発見を優先する。",
     '- 介入の起票まで不要で「様子を見る／追加で確認する」が妥当なら recommendation は "watch"。次の観測・確認ポイントは advice（および conclusion）に書く。',
@@ -536,6 +548,7 @@ export function buildSystemPrompt(
     '  "logic": "その結論に至った判断ロジック",',
     '  "expansions": ["別の解釈・仮説・不足情報・別問題設定など（Expand。無い場合は空配列）"],',
     '  "challenges": ["前提・思い込み・問題設定への問い（Challenge。無い場合は空配列）"],',
+    '  "lensesUsed": [ { "lens": "実際に使った哲学レンズ名（例: Systems Thinking）", "insight": "そのレンズで見て気づいたこと（一言）" } ],',
     '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
     '  "recommendation": "issue | dismiss | watch  （任意。EMが提案として残すべきかのときだけ。次の観測・確認が主眼なら watch）",',
     '  "issueTitle": "短い提案タイトル（単一のとき。40文字以内・結論文ではなく題名）",',
@@ -545,6 +558,7 @@ export function buildSystemPrompt(
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
     "expansions / challenges は状況分析では原則1件以上を書く（本当に無いときだけ空配列）。rejectedAlternatives（行動案の棄却）と混同しないこと。",
+    "lensesUsed は任意です。expansions / challengesの根拠として明確に使ったレンズがあれば書いてください（監査・振り返りに使えます）。無理に埋めず、無ければ省略してください。",
     '提案として残すことを勧める場合（recommendation: "issue"）は、短いタイトルを付けてください。',
     "- 論点が1つなら issueTitle のみ。別チーム・別KR・別の観測に分かれるなら issueCandidates に最大5件まで列挙すること。",
     "- issueCandidates を出すときは recommendation は \"issue\" とし、issueTitle は代表の1件を書いても省略してもよい。",

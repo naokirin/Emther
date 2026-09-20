@@ -45,6 +45,11 @@ export type RejectedAlternative = {
   reason: string;
 };
 
+export type LensUsage = {
+  lens: string;
+  insight: string;
+};
+
 export type Proposal = {
   conclusion: string;
   facts: string[];
@@ -54,6 +59,8 @@ export type Proposal = {
   expansions: string[];
   // docs/3rd_pivot_version/pivot.md。前提・問題設定への問い（旧runは空配列）。
   challenges: string[];
+  // docs/ai_ philosophy.md。Expand/Challengeで実際に使った哲学レンズ（任意）。
+  lensesUsed?: LensUsage[];
   recommendation?: "issue" | "dismiss" | "watch";
   // Issue化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
   issueTitle?: string;
