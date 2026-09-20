@@ -325,7 +325,7 @@ function SuggestionsPageInner() {
           runs={runs}
           suggestions={suggestions}
           staleRunIds={staleRunIds}
-          onNavigateChat={(runId) => router.push(`/chat?run=${runId}`)}
+          onNavigateChat={(runId) => router.push(`/chat?runId=${runId}`)}
           onCreated={(id) => {
             void refreshSuggestions();
             void refreshRuns();

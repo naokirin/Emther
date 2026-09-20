@@ -28,8 +28,7 @@ function run(overrides: Partial<AgentRun> = {}): AgentRun {
   };
 }
 
-function createWrapper(initialEntries: string[] = ["/chat"]) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function createWrapper(initialEntries: string[] = ["/chat"], queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -74,6 +73,18 @@ describe("ChatPage", () => {
   it("?runId=が既にあれば初期表示から相談レビューパネルを開く", async () => {
     render(<ChatPage />, { wrapper: createWrapper(["/chat?runId=run-1"]) });
     expect(await screen.findByRole("heading", { name: "Lead Agentへの相談" })).toBeInTheDocument();
+  });
+
+  it("ダッシュボード等でrunsLoaded/issuesLoadedが既にキャッシュ済みの状態で?runId=マウントしても相談レビューパネルを開く", async () => {
+    // 再現バグ: マウント前にキャッシュが温まっている（他画面から遷移した直後）と、
+    // selectionSyncKeyの初期値が初回レンダー時点で既にnextSelectionSyncKeyと一致してしまい、
+    // 「変化」として検知されず選択が同期されないまま新規相談フォームが表示され続けていた。
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(["api", "agents"], { runs: [run()], pendingAgentStarts: [], pendingUnmaskedSends: [] });
+    queryClient.setQueryData(["api", "issues"], { issues: [] });
+    render(<ChatPage />, { wrapper: createWrapper(["/chat?runId=run-1"], queryClient) });
+    expect(await screen.findByRole("heading", { name: "Lead Agentへの相談" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "相談を始める" })).not.toBeInTheDocument();
   });
 
   it("「新しい相談を始める」で新規フォームへ戻る", async () => {

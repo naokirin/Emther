@@ -323,7 +323,7 @@ export function SuggestionsPage() {
           runs={runs}
           suggestions={suggestions}
           staleRunIds={staleRunIds}
-          onNavigateChat={(runId) => navigate(`/chat?run=${runId}`)}
+          onNavigateChat={(runId) => navigate(`/chat?runId=${runId}`)}
           onCreated={(id) => {
             void refreshSuggestions();
             void refreshRuns();

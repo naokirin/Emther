@@ -48,7 +48,11 @@ export function ChatPage() {
   // 選択の同期は queryRunId 変化時のみ（runs ポーリング依存にすると、履歴クリック直後に
   // URL の runId＝先頭付近の相談へ選択が引き戻される）。
   const queryRunId = searchParams.get("runId");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // マウント時点で既にrunsLoaded/issuesLoadedが揃っている（ダッシュボード等からの遷移で
+  // React Queryのキャッシュが既に温まっている）場合、下のselectionSyncKeyは初回レンダーから
+  // 変化しないため、初期値をnullのままにすると選択が同期されずデフォルト表示のままになる
+  // （queryRunIdが未指定の新規相談導線ではnullのままにしたいのでlazy初期化で条件を揃える）。
+  const [selectedId, setSelectedId] = useState<string | null>(() => (queryRunId && chatHistoryLoaded ? queryRunId : null));
   const [selectionSyncKey, setSelectionSyncKey] = useState(`${queryRunId ?? ""}:${chatHistoryLoaded}`);
   const nextSelectionSyncKey = `${queryRunId ?? ""}:${chatHistoryLoaded}`;
   // URL / ロード完了に合わせて選択を揃える（effect 内 setState は lint 禁止のため render 時に調整）。

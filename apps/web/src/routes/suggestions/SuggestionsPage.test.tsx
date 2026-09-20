@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { SuggestionsPage } from "./SuggestionsPage";
@@ -25,13 +25,21 @@ function suggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   };
 }
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
 function createWrapper(onPeekOpen?: (id: string) => void) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
-          <IdResolveProvider openIssueInPeek={onPeekOpen}>{children}</IdResolveProvider>
+          <IdResolveProvider openIssueInPeek={onPeekOpen}>
+            {children}
+            <LocationProbe />
+          </IdResolveProvider>
         </MemoryRouter>
       </QueryClientProvider>
     );
@@ -97,5 +105,41 @@ describe("SuggestionsPage", () => {
     render(<SuggestionsPage />, { wrapper: createWrapper(onPeekOpen) });
     await user.click(await screen.findByText("未確認の提案"));
     expect(onPeekOpen).toHaveBeenCalledWith("sug-open");
+  });
+
+  it("提案未作成のLead Agent Runをクリックすると、その相談をrunIdで指定して/chatへ遷移する", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
+      if (url === "/api/agents") {
+        return {
+          ok: true,
+          json: async () => ({
+            runs: [
+              {
+                id: "run-lead-1",
+                agentName: "Lead Agent",
+                task: "相談内容",
+                status: "idle",
+                log: [],
+                totalCostUsd: 0,
+                createdAt: 0,
+                updatedAt: 0,
+                origin: "manual",
+                reviewed: true,
+              },
+            ],
+            pendingAgentStarts: [],
+            pendingUnmaskedSends: [],
+          }),
+        };
+      }
+      if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: { agentStaleAfterSeconds: 120 } }) };
+      return { ok: true, json: async () => ({}) };
+    });
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await user.click(await screen.findByText("Lead Agent"));
+    // 「run=」ではなく、ChatPageが読む「runId=」で指定しないと相談画面のデフォルト表示に飛んでしまう。
+    expect(screen.getByTestId("location")).toHaveTextContent("/chat?runId=run-lead-1");
   });
 });
