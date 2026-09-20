@@ -2,10 +2,11 @@
 
 関連文書: `docs/2nd_architecture.md`（方針）/ `docs/2nd_architecture/plan.md`（詳細計画・各項目の説明・完了基準はここに記載）
 
-このチェックリストは進行管理専用。各項目の背景・完了基準・検証方法は `plan.md` の対応節を参照。**着手が確定するまで全項目未着手のまま維持する。**
+このチェックリストは進行管理専用。各項目の背景・完了基準・検証方法は `plan.md` の対応節を参照（未記載の受入条件は各 `[ ]` 行に明記）。
 
 - ステータス記号: `[ ]` 未着手 / `[~]` 着手中 / `[x]` 完了
 - 各フェーズ完了時にコミットし、コミットメッセージまたはこのファイルの「メモ」列に完了日を残す。
+- **既に `[x]` の項目は当時の完了記録として変更しない。** 1.6 等で「後で検討」としていた恒久ガードは、未着手フェーズの別項目（例: 5.4）で拾う。
 
 ## 着手記録
 
@@ -47,33 +48,50 @@
 - [x] 3.2 TanStack Query 導入・`usePolling` 置き換え方針確定（完了・2026-09-19） — `@emther/web`に`@tanstack/react-query`導入、`QueryClientProvider`を配線。置き換え方針を決定し、代表例`useTimeline`を移植・テストで検証。残り24フックの移植は3.5（画面単位移植）で該当画面を移すタイミングに合わせて行う。詳細は`plan.md`参照
 - [x] 3.3 `useTypedSearchParams` 実装（完了・2026-09-19） — React Router `useSearchParams` + Zodの薄いラッパー。既存の`?issue=…`等の単純クエリ連動を型安全に扱う。詳細は`plan.md`参照
 - [x] 3.4 21画面の移行順位付け（完了・2026-09-19） — ルートシェル（layout.tsx相当）が全画面の前提であることを確認。5ティアの移行順（help/evening-review/go/issues redirect → mask-check/teams/timeline/settings/people → org/org-thread/reports/growth → journal/suggestions → agents/chat/dashboard「/」）を決定。詳細は`plan.md`参照
-- [ ] 3.5 画面単位移植（バッチ単位で都度チェック追加）
-- [ ] 3.6 CSS Modules 移設
-- [ ] 3.7 Vitest + Testing Library 移行
-- [ ] 3.8 完了基準確認（21画面全てが新SPA側で動作）
+- [x] 3.5 画面単位移植（バッチ単位で都度チェック追加、完了・2026-09-20） — 着手（2026-09-19）。バッチ1（ルートシェル + tier1の一部）完了: ルートシェル（`RootLayout`/`TopNav`/`AppShell`/`PersonQuickAdd`/`LocalModelDownloadBanner`/`SuggestionPeekRoot`/`IdFragmentLink`/`SlideOver`/`Modal`）+ tier1画面のうち`help`/`issues`/`issues/:id`/`go/:prefix`を移植（`evening-review`はDailyReflectionForm等986行分の追加コンポーネントを引き込むため次バッチへ分離）。`web/src/app/page.module.css`（全画面共通、これ1本のみ）を`apps/web/src/styles/`へ複製し3.6の対象を実質消化。SuggestionDetailContent（tier4、722行）は未移植のためSuggestionPeekRootのパネル本文は暫定プレースホルダー。バッチ2（2026-09-20）完了: tier1最後の1画面`evening-review`を移植。依存する`DailyReflectionForm`/`EmCheckinWidget`/`growth/ReflectionNoteForm`/`HelpLink`/`RecordDateField`/`Pagination`/`NameCandidateConfirmDialog`/`useNameCandidateConfirm`を移植し、これで**tier1（5画面）の移植が完了**。`useEmCheckins`/`useReflectionNotes`をフェーズ3.2の方針どおりTanStack Query化。移植中にDailyReflectionForm.tsxの既存バグ（`RecordDateField`への誤ったprops名。web側の既存5件の型エラーの1つ）を発見・修正。バッチ3（2026-09-20）完了: tier2着手、`mask-check`（`privacy-check/*`4コンポーネント込み、自己完結で最も移植コストが低い画面という3.4の見立てどおり）を移植。バッチ4（2026-09-20）完了: `teams`を移植（`TeamTree`/`TeamCreatePanel`/`TeamEditPanel`/`TagInput`/`SuggestionLink`）。`useTeams`/`useIssues`/`useJournal`/`useEntityHistory`をTanStack Query化（セッター無し版）。バッチ5（2026-09-20）完了: `timeline`を移植。`usePeekParam`共通フックを`../lib/usePeekParam.ts`へ抽出し`SuggestionPeekRoot`もこれを使うようリファクタ。timelineのサイドピークもSuggestionDetailContent未移植のため暫定プレースホルダー（ルートシェルと同じパターン、2箇所目）。バッチ6（2026-09-20）完了: `settings`を移植（`VitalsSettingsGroup`/`AgentRunSettingsGroup`/`AiToolsSettingsGroup`/`AutomationSettingsGroup`/`MorningModeSettingsGroup`/`DataMigrationPanel`）。`useSettingsRules`をfallback既定値付きでTanStack Query化。バッチ7（2026-09-20）完了: `people`/`people/:id`を移植（`PersonScoreBadge`/`PersonDetailContent`/`MultiSelectAutocomplete`/`Select`/`person-detail/{PersonHeader,PersonEvaluationLogsSection,PersonRecordsSection,PersonJournalComposer,PersonProfileComposer}`）。`usePeople`/`usePersonProfile`/`usePersonEvaluationLogs`をTanStack Query化。**これでtier2（mask-check/teams/timeline/settings/people）が完了**。tier3着手。バッチ8（2026-09-20）完了: `org`を移植（`ObjectivesPanel`/`OrgLeftTree`/`OrgThemesPanel`/`GlossaryPanel`/`StandingBackgroundPanel`/`StrategyPanel`/`ObjectiveImportPanel`/`ObjectiveTree`/`objectives/{ObjectiveEditForm,KeyResultManager,ObjectiveThemeLinkSection}`/`ThemeOkrLinkEditor`。計13ファイル）。`useObjectives`/`useOrgBackgrounds`/`useOrgStrategy`/`useThemes`をTanStack Query化。バッチ9（2026-09-20）完了: `org/thread`を移植（`StrategyThreadTree`/`IssueStatus`）。バッチ10（2026-09-20）完了: `reports`を移植（`DailyTrendChart`/`Pagination`/`Select`）。`useReports`をTanStack Query化（`reportsQueryKey`パラメータ化）。`chart.js`/`react-chartjs-2`を`apps/web`へ追加。バッチ11（2026-09-20）完了: `growth`を移植（`GrowSuggestionsPanel`/`ReflectionNoteForm`/`EmCheckinWidget`/`DailyTrendChart`）。`useGrowSuggestions`をTanStack Query化。`useRuns`はAgentRun型の正本（tier5 RunDetail.tsx、未移植）への前方参照を避けるため、必要フィールドのみの暫定型`AgentRunLite`で実装（tier5移植時に本来の型へ差し替え予定）。**これでtier3（org/org-thread/reports/growth）が完了**。tier4着手。バッチ12（2026-09-20）完了: `journal`を移植（`JournalEntryCard`/`JournalInputSwitcher`/`useJournalEditing`/`LocalLogSummaryImporter`/`ObservationDumpSection`＋`observation-dump/*`3ファイル/`QuickJournalNoteForm`/`JournalProfileCandidateSuggestion`/`MarkdownView`/`StrategyTrail`。計14ファイル、tier1〜3のどのバッチよりも大きい）。`useJournalSearch`をTanStack Query化（`useJournalEditing`との既存インターフェース互換のため例外的にセッターを維持）。`react-markdown`/`remark-breaks`/`remark-gfm`を`apps/web`へ追加。`LocalLogSummaryImporter.tsx`の既存バグ（`RecordDateField`への誤ったprops名。web側の既存5件の型エラーの1つ、DailyReflectionForm.tsxと同種）を発見・修正。tier1〜3で計21画面中17画面＋tier4の`journal`の移植が完了。バッチ13（2026-09-20）完了: `suggestions`/`suggestions/:id`を移植（`RunDetail`＋`run-detail/{run-view-helpers,YieldBlock,ProposalBlock,SuggestedSubIssuesBlock,SuggestedCharterBlock,SuggestedThemesBlock,SuggestedIssueNotesBlock,SuggestedSuggestionUpdatesBlock}`/`useAgentDecision`/`OriginTrace`/`IdLinkedText`/`PendingAgentStartNotice`/`SuggestionDetailContent`。計15ファイル、tier4最大のバッチ）。`useSuggestions`/`useSuggestion`をTanStack Query化、`useRuns`はバッチ11の暫定型`AgentRunLite`から本来の`AgentRun`型（`RunDetail.tsx`が正本）へ差し替え。**これで「後続tierへの前方参照」だった2箇所の暫定実装（`SuggestionPeekRoot`と`TimelinePage`のプレースホルダー、`AgentRunLite`）を両方とも本来の実装へ解消し、tier4（journal/suggestions）が完了**。RunDetail.test.tsx/OriginTrace.test.tsxを移植し、run-detail/*・useAgentDecision・IdLinkedText・PendingAgentStartNotice・SuggestionDetailContent・SuggestionsPage（元々専用テスト無し）に新規テストを追加（web 316テストで無回帰、server 330・core 729も無回帰）。バッチ14（2026-09-20）完了: `agents`を移植（`useGoToRunIssue`/`useRunsInbox`をTanStack Query化）。バッチ15（2026-09-20）完了: `chat`を移植（`ConsultHistoryItem`/`ChatHistoryPanel`/`NewConsultForm`/`ConsultReviewPanel`。`useJournalEntry`をTanStack Query化）。`ChatPage.tsx`の`scrollIntoView`呼び出しにjsdom同様のガード（`?.scrollIntoView?.(...)`）を追加（Select.tsxの既存パターンに揃えた予防的修正）。バッチ16（2026-09-20）完了・**tier5完走、21画面全ての移植が完了**: ダッシュボード本体（`/`）を移植（`SetupGapsBanner`/`DailySituationPanel`/`EveningReviewCard`/`ThemesPanel`/`TodayActionsPanel`/`AgentStatusSection`/`HierarchyLinkSuggestPanel`。`dashboard-next-actions.ts`/`daily-situation.ts`をフレームワーク非依存のまま移植。計10ファイル）。フェーズ3.1のプレースホルダー`App.tsx`/`App.test.tsx`を`DashboardPage`へ差し替えて削除。移植中に`web/src/components/dashboard/JournalDumpPanel.tsx`（598行）と`web/src/components/ProgressBar.tsx`がどの画面からも参照されていないデッドコードと判明・意図的に対象外とした（3.7の完了基準に抵触しないことを確認済み）。棚卸しで`LocalLogSummaryImporter.test.tsx`の移植漏れ（tier4 journalバッチ時点）を発見・追加。`web/src/lib/hooks.test.tsx`（旧`usePolling`機構のテスト）はフェーズ3.2でTanStack Queryへ設計ごと置き換え済みのため対象外（各画面のテストで個別のフックの再取得挙動を検証済み）。**これでtier1〜5・21画面すべての移植が完了し、3.5が完了**。検証: `npm run typecheck -w @emther/web`（エラー0）、`npm test -w @emther/web`（86ファイル/408テスト green）、`npm run build -w @emther/web`（成功）、`npm run typecheck -w web`（既存の無関係な5件のみ、無回帰）、`npm test -w web`（265テスト green）、`npm test -w @emther/core`（729テスト green）、`npm test -w @emther/server`（330テスト green）。詳細は`plan.md`参照
+- [x] 3.6 共有 CSS の移設完了確認（完了・2026-09-20） — `apps/web/src`に`web/src/app/page.module.css`への参照が無いことを`grep`で確認済み（3.5バッチ1で複製、以降全バッチが`apps/web/src/styles/page.module.css`のみを参照） — バッチ1（3.5）で `page.module.css` / `globals.css` を `apps/web/src/styles/` へ複製済み。**完了基準**: 全画面が `apps/web` 側スタイルのみでビルド可能であること（旧 `web/src/app/page.module.css` への import が apps/web に残っていないことを `grep` で確認）。3.8 着手前に `[x]` 可。詳細は `plan.md` 3.5 バッチ1
+- [x] 3.7 画面テスト移植の完了確認（完了・2026-09-20） — 実作業は3.5（画面単位）で実施。3.5完了後に棚卸し: `web/src/**/*.test.tsx`と`apps/web/src/**/*.test.tsx`のファイル名差分を確認したところ、`LocalLogSummaryImporter.test.tsx`（tier4 journalバッチでの移植漏れ）を発見し追加済み。残り2件（`ProgressBar.test.tsx`, `hooks.test.tsx`）は対象外と判断: `ProgressBar.tsx`はどの画面からも参照されないデッドコード（`JournalDumpPanel.tsx`と同様、移植対象外）、`hooks.test.tsx`は旧`usePolling`機構自体のテストでフェーズ3.2の設計変更（TanStack Query化）により意味を持たなくなったため（個々のフックの再取得挙動は各画面のテストで検証済み）。詳細は`plan.md`3.5バッチ16参照
+- [x] 3.8 フェーズ3完了基準確認（完了・2026-09-20） — **すべて満たした**:
+  - 21 画面すべてが `apps/web` の React Router に登録され、主要導線が `vite dev` + `@emther/server` で確認できる（`dev-hybrid-rules.md` 10節を更新済み）
+  - 3.5 で暫定とした **SuggestionPeekRoot / timeline サイドピーク**が `SuggestionDetailContent` 本実装に差し替え済み（プレースホルダー 0）
+  - **`AgentRunLite` 解消**: `useRuns` 等が tier5 の `RunDetail` と同型の `AgentRun` を参照
+  - フェーズ1で `web/src/lib` に残置した 5 ファイル（`hooks` / `useJournalEditing` / `useNameCandidateConfirm` / `dashboard-next-actions` / `daily-situation`）が **`apps/web` に収束**（`hooks`はTanStack Query化した`queries.ts`が設計ごと置き換え、残り4ファイルはそれぞれ`apps/web/src/lib/`へ移植済み）し、`apps/web`側のコードは旧`web/src/lib`のいずれも参照しない
+  - `npm run typecheck` / `npm test`（86ファイル/408テスト） / `npm run build -w @emther/web` が green
+- [ ] 3.9 `apps/web` 統合テストの共通パターン — **完了基準**: `plan.md` 3.5 で繰り返した教訓（状態持ち fetch モック、`MemoryRouter`、chart.js/`react-chartjs-2` モック、TanStack Query の `waitFor` 合図）を **`apps/web/src/test/` 等の共有ヘルパー**に寄せ、新規 Page テストがコピペしない。3.5完了後の任意タイミングでのリファクタタスクとして残置（screen移植自体のブロッカーではない）
+- [x] 3.10 `dev-hybrid-rules.md` フェーズ3完了版（完了・2026-09-20） — セクション1に「フェーズ2当時の記録であり10節を正とする」旨の注記を追加し陳腐化を解消。10節を21画面完了版に更新（移植済み画面一覧・確認先表・前方参照解消の記録）。9節の「常にnext dev」記述も更新済み
 
 ## フェーズ4: ビルド・配布切替
 
-- [ ] 4.1 サーバービルド確定（tsup/esbuild → `dist/server.js`）
-- [ ] 4.2 クライアントビルド確定（`vite build` → `dist/client`）
-- [ ] 4.3 単一プロセス配信確認
-- [ ] 4.4 `scripts/emther` ランチャー切替
+- [ ] 4.1 サーバービルド確定（tsup/esbuild → `dist/server.js`）— **完了基準**: `external` に `@huggingface/transformers` / `onnxruntime-node` / `kuromoji` を明示（0.4 PoC 踏襲）。`npm run build`（server）を CI で実行可能
+- [ ] 4.2 クライアントビルド確定（`vite build` → `dist/client`）— 出力先を配布物レイアウトと一致させる（現状 `apps/web` の `dist/` との差分を解消）
+- [ ] 4.3 単一プロセス配信確認 — Hono が `dist/client` + `/api/*` を同一ポートで配信
+- [ ] 4.3a `settings/data/reset`・`restore` の Hono 移植 — フェーズ2.5 で Next 側に残した 2 ルート（`scheduleProcessExit`）。**完了基準**: 単一 Node プロセス上で reset/restore 後、`emther` の監視・再起動と整合（プロキシ先だけ死ぬ状態が再発しない）。4.4・4.8 とセットで検証。詳細は `plan.md` 2.5 高リスクバッチ8・リスクレジスタ
+- [ ] 4.4 `scripts/emther` ランチャー切替 — 起動対象 `next start` → `node dist/server.js`（PID・port・XDG は現行維持）
 - [ ] 4.5 `docs/packaging.md` 更新
 - [ ] 4.6 `.github/workflows/release.yml` 更新
 - [ ] 4.7 `docs/docker.md` 更新
-- [ ] 4.8 完了基準確認（全 `emther` サブコマンド新構成で動作、リリース tarball 動作確認）
+- [ ] 4.8 完了基準確認 — **すべて満たして `[x]`**:
+  - `emther install` / `start` / `restart` / `stop` / `status` / `doctor` / `backup` / **`restore`** が新構成で動作
+  - リリース tarball を新規マシン想定でインストール〜起動
+  - **`node dist/server.js` 起動後**、0.4 と同手順で 3 ネイティブパッケージが実行時解決される（`plan.md` 0.4 結論・配布前 CI ステップ）
+  - 4.3a の reset/restore を apps/web の設定→データタブから実行可能
+- [ ] 4.9 `.github/workflows/ci.yml` 更新 — **完了基準**: Next ワークスペース依存を除去（`lint`/`build` から `web` を外すタイミングは 5.1 と整合）。`typecheck`/`test` は `@emther/core` / `@emther/server` / `@emther/web`。`build` に server 本番 bundle（4.1）+ `@emther/web` を含む。4.10 完了後は lint ジョブも新ワークスペースを対象
+- [ ] 4.10 ESLint flat config（Next 非依存）— **完了基準**: `eslint-config-next` に依存しないルート設定。`@emther/web`・`@emther/server` を lint 対象（方針は `2nd_architecture.md` 6.1）。CI `lint` ジョブを 4.9 と同時更新
+- [ ] 4.11 `docker compose build` 実機確認 — 1.1 以降未検証（リスク監視メモ参照）。**完了基準**: ルートコンテキストの Dockerfile でビルド成功。4.7 とセット
 
 ## フェーズ5: 旧実装の除去・後片付け
 
-- [ ] 5.1 Next.js 関連ファイル・依存の削除
+- [ ] 5.1 Next.js 関連ファイル・依存の削除 — `web/` ディレクトリ、`next.config.ts`、`eslint-config-next`、Route Handler プロキシ等
 - [ ] 5.2 `docs/2nd_architecture.md` の対応表・7節ステータス更新
-- [ ] 5.3 最終検証（クローン→インストール→起動の一連確認）
+- [ ] 5.3 最終検証（クローン→インストール→起動の一連確認）— README 手順どおり。4.8 と重複しない範囲でリポジトリ clone から確認
+- [ ] 5.4 `packages/core` アーキテクチャ境界の CI ガード — 1.6 手動 grep の恒久化。**完了基準**: CI で `packages/core/src` に `next/*`・`"use client"`・`@/components`・`@/app`・`@/lib` import が無いことを自動検証（grep ジョブまたは ESLint `no-restricted-imports`）。詳細は `plan.md` 1.6
+- [ ] 5.5 CI 全体の最終確認 — **完了基準**: main 向け CI が Next ワークスペース無しで lint / typecheck / test / build すべて green。4.9・4.10・5.1 完了後に `[x]`
 
 ## リスク監視メモ
 
 （進行中に発生した問題・想定外の事象をここに追記する。`plan.md` の「リスクレジスタ」に対応するものは節番号を付記する）
 
-- 2026-09-19（フェーズ1.1）: 作業環境に `docker` コマンドが無く、`docker compose build` の実機確認ができていない。`web/Dockerfile` / `docker-compose.yml` のパス変更は机上確認のみ。次にdocker環境がある場所で最初に確認すること。
+- 2026-09-19（フェーズ1.1）: 作業環境に `docker` コマンドが無く、`docker compose build` の実機確認ができていない。`web/Dockerfile` / `docker-compose.yml` のパス変更は机上確認のみ。**拾い上げ**: チェックリスト **4.11**（4.7 とセット）。
 - 2026-09-19（フェーズ2.1）: `.npmrc` の `min-release-age=7`（サプライチェーン対策）により、`apps/server` 追加時に最新 `hono@4.13.8` がインストール不可（`ETARGET`）。新規依存を追加する際は事前に公開日を確認し、7日未満なら1つ前の適格バージョンを選ぶこと。フェーズ3で追加予定の Vite / React Router / TanStack Query 等でも同じ制約に当たりうるので着手時に留意する。
 - 2026-09-19（フェーズ2.3）: `apps/server` を isolation環境変数なしで起動し `curl` で手動smoke testした際、実データ（`~/.local/state/emther/data/glossary.json`）にテストエントリを書き込んでしまった（即復旧）。今後、手動でmutatingなエンドポイントを確認する際は必ず `EM_DATA_DIR`/`EM_SECURE_DATA_DIR`/`EM_BACKUP_DIR` を一時ディレクトリに向けること。
 - 2026-09-19（フェーズ2.5 バッチ4）: localhost向けの手動動作確認に通常の `curl` を使っていたところ、ユーザー指摘により `safe-curl`（利用可能な環境での許可済みラッパー）へ切り替えた。以降のバッチ・`dev-hybrid-rules.md` でも `safe-curl` を使う。

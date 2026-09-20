@@ -7,9 +7,11 @@
 
 ---
 
-## 1. 現在の段階（フェーズ2: Hono並走）
+## 1. フェーズ2時点の段階（フェーズ2: Hono並走。**2026-09-20時点で陳腐化、10節を正とする**）
 
-- **ブラウザから見るのは常に `next dev`（`web/`）のみ。** `apps/server`（Hono）は Next の Route Handler からプロキシされるバックエンドとして裏で動くだけで、ブラウザから直接叩く対象ではない（唯一の例外は `apps/server` 自体の開発中に `curl` 等で動作確認する場合）。localhost向けのcurlは `safe-curl`（利用可能な環境では通常の`curl`ではなくこちらを使う）。手動smoke test用の一時ディレクトリ削除は `rm -rf` ではなく `rm-tmp <path>`（`/tmp` 配下限定の削除ラッパー、利用可能な環境ではこちらを使う）。
+> このセクションはフェーズ2（`apps/web`着手前）時点の記録として残す。フェーズ3.5完了（2026-09-20、21画面の移植完了）以降は、ブラウザ確認の既定は`vite dev`（`apps/web`）+ `apps/server`に変わっている。最新のdevサーバー判断は**10節**を参照すること。
+
+- **（フェーズ2当時）ブラウザから見るのは常に `next dev`（`web/`）のみ。** `apps/server`（Hono）は Next の Route Handler からプロキシされるバックエンドとして裏で動くだけで、ブラウザから直接叩く対象ではない（唯一の例外は `apps/server` 自体の開発中に `curl` 等で動作確認する場合）。localhost向けのcurlは `safe-curl`（利用可能な環境では通常の`curl`ではなくこちらを使う）。手動smoke test用の一時ディレクトリ削除は `rm -rf` ではなく `rm-tmp <path>`（`/tmp` 配下限定の削除ラッパー、利用可能な環境ではこちらを使う）。
 - **手動でmutatingなエンドポイントを確認する際は必ず環境変数（`EM_DATA_DIR`/`EM_SECURE_DATA_DIR`/`EM_BACKUP_DIR`）を一時ディレクトリへ向けること。** 自動テストは`setupIsolatedStoreEnv`で担保されるが、手動確認はこのガードの外にある（フェーズ2.3で実データを誤って書き換えた事故の教訓。`plan.md`参照）。
 - Route Handler が `web/src/lib/hono-proxy.ts` の `proxyToHono` に置き換わっている API（下記「移植済みルート」参照）は、実処理が `apps/server/src/routes/**` にある。挙動を直すときは **`apps/server` 側のファイルを編集する**（`web/src/app/api/**/route.ts` 側はフォワードするだけで、ここを直しても反映されない）。
 - 移植済みルートを確認するには、2つのプロセスを同時に起動する。
@@ -91,10 +93,18 @@
 
 ## 9. フェーズ3（Vite SPA立ち上げ）以降の3プロセス構成
 
-- フェーズ3.1（2026-09-19）で `apps/web`（Vite）の骨組みが立った。ただし**画面移植（3.4/3.5）が始まるまでは、ブラウザから見るのは引き続き常に `next dev`（`web/`）**。`apps/web` は現時点でプレースホルダー1画面のみで、実際の21画面はまだ移植されていない。
+- フェーズ3.1（2026-09-19）で `apps/web`（Vite）の骨組みが立った。フェーズ3.5（2026-09-20完了）で21画面全ての移植が完了し、**通常のブラウザ確認は`vite dev`（`apps/web`）が既定になった**（詳細は10節）。
 - `apps/web` の dev サーバーを起動する場合:
   ```bash
   npm run dev -w @emther/web   # 既定 http://localhost:5173（`vite`既定ポート）
   ```
   `vite.config.ts` が `/api` を `HONO_SERVER_URL`（既定 `http://127.0.0.1:${HONO_PORT ?? 8787}`）へプロキシするため、`apps/server` も同時に起動しておく必要がある（1節と同じ起動漏れの注意）。
 - 3.5（画面単位移植）が進むと「この画面は `next dev` と `vite dev` のどちらで確認するか」の判断が画面ごとに発生する。判断表・移植済み画面一覧は3.5着手時にこのセクションへ追記する。
+
+## 10. 画面ごとの確認先（3.5完了・2026-09-20。21画面全ての移植が完了）
+
+- **21画面すべてが`apps/web`（Vite、`vite dev`）側に移植済み**: `/`（ダッシュボード）, `/help`, `/issues`（`/suggestions`へリダイレクト）, `/issues/:id`（`/suggestions/:id`へリダイレクト）, `/go/:prefix`, `/evening-review`, `/mask-check`, `/teams`, `/timeline`, `/settings`, `/people`, `/people/:id`, `/org`, `/org/thread`, `/reports`, `/growth`, `/journal`, `/suggestions`, `/suggestions/:id`, `/agents`, `/chat`。**フェーズ3.5完了に伴い、通常のブラウザ確認は`vite dev`（`apps/web`）+ `apps/server`（Hono）の2プロセス構成が既定になった**（1節・9節の「常に`next dev`」という記述はフェーズ2時点のものであり陳腐化。単一プロセス配信はフェーズ4で行う）。
+- **ルートシェル・サイドピークは全画面で共通・フル機能**: `RootLayout`/`TopNav`/`SuggestionPeekRoot`（`?suggestion=`）・`timeline`自身のサイドピーク（`?issue=`）・`people`のサイドピーク（`?person=`）は全て実物のコンポーネント（`SuggestionDetailContent`/`PersonDetailContent`）で動作し、暫定プレースホルダーは0件。
+- **tier4/tier5で「後続tierへの前方参照」だった暫定実装は全て解消済み**: `SuggestionPeekRoot`/`timeline`のサイドピーク（tier4 suggestionsバッチで`SuggestionDetailContent`へ差し替え）、`useRuns`（tier4 suggestionsバッチで暫定型`AgentRunLite`から`RunDetail.tsx`正本の`AgentRun`型へ差し替え）。
+- **`/settings`の「データ」タブは復元・リセットが`vite dev`側では404になる**: `DataMigrationPanel`が呼ぶ`/api/settings/data/reset`・`/api/settings/data/restore`はフェーズ4まで意図的にNext側にのみ実装が残っているため（5節参照）、`apps/web`のdev proxy（`apps/server`にしか転送しない）経由では届かない。バックアップは移植済みなので動く。この2操作だけを試す場合は`next dev`（`web/`）側の`/settings`を使うこと（21画面移植完了後も残る唯一の既知の並走時の例外）。
+- **旧`web/`（Next.js）側は依然として起動可能なまま残置**（フェーズ5でNext.js関連ファイルを削除するまでの間、参照実装・上記2操作の確認用として並存する）。両方を同時に立ち上げても、`apps/web`の`vite dev`と`web`の`next dev`はポートが別（既定5173/3000）なので競合しない。

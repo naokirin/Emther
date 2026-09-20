@@ -1,0 +1,44 @@
+import type { RulesAndConstraints } from "@emther/core/types";
+
+// settings/*SettingsGroup.test.tsx で共有するdraftのひな形（フェーズ3.5 tier2
+// settingsバッチ）。apps/web/src/lib/queries.ts の SETTINGS_RULES_FALLBACK と同じ値。
+export function makeRules(overrides: Partial<RulesAndConstraints> = {}): RulesAndConstraints {
+  return {
+    teamWindowDays: 14,
+    minEntriesForJudgement: 2,
+    teamBadSentimentMax: -0.34,
+    teamWarnSentimentMax: 0.2,
+    coverageWindowDays: 30,
+    coverageGoodRatio: 0.8,
+    coverageWarnRatio: 0.4,
+    agentStaleAfterSeconds: 120,
+    agentKillAfterSeconds: 600,
+    journalFactTtlDays: 90,
+    autoIssueUpdateAnalysisEnabled: false,
+    autoMorningSummaryEnabled: false,
+    autoMorningSummaryHour: 7,
+    autoJournalBatchEnabled: false,
+    autoJournalBatchHours: [7],
+    autoDistillationEnabled: false,
+    autoDistillationWeekdays: [1],
+    autoDistillationHour: 8,
+    autoGrowEnabled: false,
+    autoGrowWeekday: 1,
+    autoGrowHour: 8,
+    maxParallelAgentRuns: 2,
+    perTurnBudgetUsd: 0.5,
+    teamParallelKickoffEnabled: true,
+    decisionQueueLimit: 3,
+    observationQueueLimit: 3,
+    staleInterventionDays: 14,
+    agentModelTiers: {},
+    agentAgyModels: {},
+    agentCursorModels: {},
+    referenceLookupClaudeModel: "",
+    referenceLookupCursorModel: "",
+    cliOrder: ["claude"],
+    selfPersonId: null,
+    localChatModelPreset: "1.2b-jp",
+    ...overrides,
+  };
+}

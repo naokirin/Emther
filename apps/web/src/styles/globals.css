@@ -1,0 +1,128 @@
+/* 改修依頼「全体をダークモードテーマにして」対応。ライトモードへの切り戻しは想定せず、
+   ダークを唯一のテーマとして:rootのトークンを置き換える。色は全てこのトークン経由で
+   使われている前提（page.module.css側の直書きhexも合わせてトークン参照へ揃えた）ので、
+   ここを差し替えるだけでアプリ全体の配色が変わる。
+   数値は実測コントラスト比（WCAG 1.4.3本文4.5:1・1.4.11 UI部品3:1）で検証済み。 */
+:root {
+  color-scheme: dark;
+
+  --background: #14161c;
+  --panel: #1b1e26;
+  --foreground: #e7e9ee;
+  --text-muted: #9aa1af;
+  --border: #2c2f3a;
+  /* フォーム入力欄・アウトラインボタンなど「境界線が唯一の輪郭表現」になっている
+     UIコンポーネント専用（WCAG 1.4.11、panel比3.27:1）。装飾目的の--borderより明るくする。 */
+  --input-border: #686e7d;
+
+  /* デザイン見直し（frontend-design）対応。以前は緑/黄/赤/青に加え、person/topicタグ用の
+     紫・シアン（page.module.css側の直書きhex）、Yield「Commit」用のオレンジと、
+     色相が実質8種類まで増えていた。「1色＝1つの意味」に絞り直す:
+       黄=EMの判断が要る（Yield/警告/ブロッカー。Commitもここへ統合し、4つ目の
+         「要対応」色を新設しない）／赤=緊急・エラー・ネガティブ／緑=完了・健全・ポジティブ／
+       青=操作可能・選択中の唯一の構造色。人物・トピックのタグは「状態」ではなく
+       「何についてか」という異なる種類の情報なので色を割り当てず、.tagの中立アウトライン
+       スタイル（下記）だけで表現する（page.module.css参照）。 */
+  --green-bg: #10261a;
+  --green-fg: #4ade80;
+  --green-border: #22c55e;
+  --yellow-bg: #2a2008;
+  --yellow-fg: #fbbf24;
+  --yellow-border: #d99a1b;
+  --red-bg: #2c1210;
+  --red-fg: #f87171;
+  --red-border: #e5534b;
+  --gray-bg: #22252e;
+  --gray-fg: #9aa1af;
+  --gray-border: #3a3f4b;
+
+  /* --blueはボタン塗り・枠線用（白文字4.74:1、panel比3.52:1）。暗い地の上ではこの明るさの
+     青でも文字色としては沈んで読みにくくなる（白文字との両立に必要な暗さと、暗い背景上の
+     文字に必要な明るさが数値的に両立しない）ため、リンク・選択状態などの文字色には
+     より明るい--blue-textを別に用意する。 */
+  --blue: #3b6fd6;
+  --blue-bg: #16233d;
+  --blue-text: #7fb0ff;
+
+  --terminal-bg: #1b2230;
+
+  /* layout.tsx が @fontsource で同梱する書体名。ビルド時に Google へ取りに行かない。 */
+  --font-jp-sans: "Zen Kaku Gothic New";
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html {
+  height: 100%;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--foreground);
+  background: var(--background);
+  /* デザイン見直し（frontend-design）対応。以前はnext/font/googleでGeistを読み込みながら
+     ここで参照しておらず、実際には素のOSシステムフォントで描画されていた。
+     --font-jp-sans / --font-mono は :root で定義し、@fontsource が @font-face を供給する。 */
+  font-family: var(--font-jp-sans), -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* 改修依頼「デフォルトのセレクトボックスの多用による選択のしにくさ」対応。個別クラスでは
+   なく要素セレクタでグローバルに当て、.field select以外の（フィルタ等の）素のselectも
+   含めて、OS既定の見た目のまま放置されるものを無くす。appearance:noneはOS既定の枠・背景
+   ごと消してしまうため、枠・背景・パディングもここで自足させる（.field select等の
+   個別クラスが同じ値を重ねて指定しても衝突はしない）。矢印はcurrentColor管理ではなく
+   text-mutedの色をSVGへ直接焼き込む（backgroundのSVGはcurrentColorを解決できない）。 */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: var(--panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%239aa1af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  /* SVGにwidth/height属性が無いと背景画像としての既定サイズが大きくなり、太い
+     チェックマーク状に見えてしまっていたため明示的に固定する。 */
+  background-size: 12px 12px;
+  color: var(--foreground);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  padding-right: 30px !important;
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 2.25rem;
+}
+
+select:hover {
+  border-color: var(--foreground);
+}
+
+select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}

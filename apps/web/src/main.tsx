@@ -2,13 +2,72 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { App } from "./App";
+// 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の
+// @fontsource を使う（web/src/app/layout.tsxからの移植、docs/packaging.md参照）。
+import "@fontsource/zen-kaku-gothic-new/japanese-400.css";
+import "@fontsource/zen-kaku-gothic-new/japanese-500.css";
+import "@fontsource/zen-kaku-gothic-new/japanese-700.css";
+import "@fontsource/zen-kaku-gothic-new/japanese-900.css";
+import "@fontsource/zen-kaku-gothic-new/latin-400.css";
+import "@fontsource/zen-kaku-gothic-new/latin-500.css";
+import "@fontsource/zen-kaku-gothic-new/latin-700.css";
+import "@fontsource/zen-kaku-gothic-new/latin-900.css";
+import "@fontsource/jetbrains-mono/latin-400.css";
+import "@fontsource/jetbrains-mono/latin-600.css";
+import "./styles/globals.css";
+import { RootLayout } from "./routes/RootLayout";
+import { DashboardPage } from "./routes/dashboard/DashboardPage";
+import { HelpPage } from "./routes/help/HelpPage";
+import { IssuesRedirect } from "./routes/issues/IssuesRedirect";
+import { IssueDetailRedirect } from "./routes/issues/IssueDetailRedirect";
+import { GoByIdPrefixPage } from "./routes/go/GoByIdPrefixPage";
+import { EveningReviewPage } from "./routes/evening-review/EveningReviewPage";
+import { MaskCheckPage } from "./routes/mask-check/MaskCheckPage";
+import { TeamsPage } from "./routes/teams/TeamsPage";
+import { TimelinePage } from "./routes/timeline/TimelinePage";
+import { SettingsPage } from "./routes/settings/SettingsPage";
+import { PeoplePage } from "./routes/people/PeoplePage";
+import { PersonDetailPage } from "./routes/people/PersonDetailPage";
+import { OrgPage } from "./routes/org/OrgPage";
+import { OrgThreadPage } from "./routes/org-thread/OrgThreadPage";
+import { ReportsPage } from "./routes/reports/ReportsPage";
+import { GrowthPage } from "./routes/growth/GrowthPage";
+import { JournalPage } from "./routes/journal/JournalPage";
+import { SuggestionsPage } from "./routes/suggestions/SuggestionsPage";
+import { SuggestionDetailPage } from "./routes/suggestions/SuggestionDetailPage";
+import { AgentsPage } from "./routes/agents/AgentsPage";
+import { ChatPage } from "./routes/chat/ChatPage";
 
-// フェーズ3.1時点では骨組みのみ。画面移植（3.4/3.5）でルートを追加していく。
+// フェーズ3.5（画面単位移植）: ルートシェル（旧web/src/app/layout.tsx相当）+ tier1〜tier5
+// （docs/2nd_architecture/plan.md フェーズ3.4の5ティア移行順）を全て移植し、21画面の
+// 移植が完了した。index（"/"）はダッシュボード本体（DashboardPage）に差し替え済み。
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: <RootLayout />,
+    children: [
+      { index: true, element: <DashboardPage /> },
+      { path: "help", element: <HelpPage /> },
+      { path: "evening-review", element: <EveningReviewPage /> },
+      { path: "mask-check", element: <MaskCheckPage /> },
+      { path: "teams", element: <TeamsPage /> },
+      { path: "timeline", element: <TimelinePage /> },
+      { path: "settings", element: <SettingsPage /> },
+      { path: "people", element: <PeoplePage /> },
+      { path: "people/:id", element: <PersonDetailPage /> },
+      { path: "org", element: <OrgPage /> },
+      { path: "org/thread", element: <OrgThreadPage /> },
+      { path: "reports", element: <ReportsPage /> },
+      { path: "growth", element: <GrowthPage /> },
+      { path: "journal", element: <JournalPage /> },
+      { path: "suggestions", element: <SuggestionsPage /> },
+      { path: "suggestions/:id", element: <SuggestionDetailPage /> },
+      { path: "agents", element: <AgentsPage /> },
+      { path: "chat", element: <ChatPage /> },
+      { path: "issues", element: <IssuesRedirect /> },
+      { path: "issues/:id", element: <IssueDetailRedirect /> },
+      { path: "go/:prefix", element: <GoByIdPrefixPage /> },
+    ],
   },
 ]);
 
