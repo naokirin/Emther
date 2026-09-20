@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { honoErrorHandler } from "./lib/error-handling";
+import { mountStaticClient } from "./lib/static-client";
 import { healthRoute } from "./routes/health";
 import { glossaryRoute } from "./routes/glossary";
 import { vitalsRoute } from "./routes/vitals";
@@ -35,7 +36,10 @@ import { themesLinkSuggestRoute } from "./routes/themes-link-suggest";
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
 // web/src/lib/hono-proxy.ts 経由のフォワードへ置き換える（並走運用）。
-export function createApp() {
+// docs/2nd_architecture/plan.md フェーズ4.3: clientDir を渡すと `dist/client`
+// の静的配信 + SPA フォールバックを同一プロセスで有効化する（省略時は API のみ。
+// テスト・dev（vite dev が別プロセスで配信）はこれまで通り省略で動く）。
+export function createApp(options?: { clientDir?: string }) {
   const app = new Hono();
   // docs/2nd_architecture/plan.md フェーズ2.7: 各ルートのtry/catchから漏れた例外の
   // 最終防波堤。プロセスを落とさず500 JSONで返す。
@@ -80,6 +84,9 @@ export function createApp() {
   app.route("/api/mask-check", maskCheckRoute);
   app.route("/api/knowledge/interpretations", knowledgeInterpretationsRoute);
   app.route("/api/settings/data/backup", settingsDataBackupRoute);
+  if (options?.clientDir) {
+    mountStaticClient(app, options.clientDir);
+  }
   return app;
 }
 

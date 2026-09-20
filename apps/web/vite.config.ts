@@ -7,6 +7,11 @@ const honoServerUrl = process.env.HONO_SERVER_URL ?? `http://127.0.0.1:${process
 
 export default defineConfig({
   plugins: [react()],
+  // docs/2nd_architecture.md 3.6節: 配布物レイアウトは dist/client（`apps/server` が
+  // 単一プロセスで静的配信する際の既定の探索先。フェーズ4.3参照）。
+  build: {
+    outDir: "dist/client",
+  },
   server: {
     proxy: {
       "/api": {

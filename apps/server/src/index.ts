@@ -1,5 +1,17 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { app } from "./app";
+import { createApp } from "./app";
+
+// docs/2nd_architecture/plan.md フェーズ4.3: dist/server.js から見て隣の
+// client/ ディレクトリ（apps/web の vite build 出力。フェーズ4.4のパッケージング
+// で server.js と同じ階層に配置する想定）があれば静的配信を有効化する。
+// dev（tsx watch）実行時はこのディレクトリが存在しないため、これまで通り
+// vite dev 側のプロキシ経由の API 専用サーバーとして動く。
+const here = path.dirname(fileURLToPath(import.meta.url));
+const clientDir = process.env.EM_CLIENT_DIR ?? path.join(here, "client");
+const app = createApp({ clientDir: existsSync(clientDir) ? clientDir : undefined });
 
 // docs/2nd_architecture/plan.md フェーズ2.7・リスクレジスタ: フェーズ2.5バッチ6の
 // 手動smoke testで、ローカルMLモデル読み込み中の例外がリクエストのawaitチェーンの
@@ -17,11 +29,12 @@ process.on("unhandledRejection", (reason) => {
   console.error("[emther-server] unhandledRejection（プロセスは継続します）", reason);
 });
 
-// フェーズ2（Hono並走）の間はNextとは別ポートで常駐する。
-// フェーズ4で単一プロセス配信に切り替える際、PORT/HOSTの扱いを
-// scripts/emther（Next側）と統合する（docs/2nd_architecture/plan.md 4.3〜4.4）。
-const port = Number(process.env.HONO_PORT ?? 8787);
-const hostname = process.env.HONO_HOST ?? "127.0.0.1";
+// フェーズ2〜3（Hono並走・dev並走）の間は HONO_PORT/HONO_HOST で別ポート常駐。
+// フェーズ4（単一プロセス配信）では scripts/emther が渡す PORT/HOSTNAME
+// （Next standalone server.js と同じ命名。docs/2nd_architecture/plan.md 4.4）を
+// 優先する。
+const port = Number(process.env.PORT ?? process.env.HONO_PORT ?? 8787);
+const hostname = process.env.HOSTNAME ?? process.env.HONO_HOST ?? "127.0.0.1";
 
 serve({ fetch: app.fetch, port, hostname }, (info) => {
   console.log(`[emther-server] listening on http://${info.address}:${info.port}`);
