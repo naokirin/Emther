@@ -586,7 +586,8 @@ cmd_start() {
 
   (
     cd "$APP_DIR"
-    # HOSTNAME/PORT は Next standalone server.js が参照する
+    # HOSTNAME/PORT は apps/server（Hono）の server.js が参照する
+    # （docs/2nd_architecture/plan.md フェーズ4.4。旧 Next standalone と同じ命名を踏襲）
     nohup env \
       NODE_ENV=production \
       HOSTNAME="$HOST" \

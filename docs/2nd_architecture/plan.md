@@ -400,7 +400,7 @@ tier5着手（2026-09-20）。3.4節の見立て（agents 333行/10import、chat
 | リスク | 影響フェーズ | 対応 |
 | --- | --- | --- |
 | `@/lib` import 置換規模（318ファイル・669箇所）の codemod 失敗・取りこぼし | 1 | 0.3 で PoC 済ませ、バッチ単位で `tsc`/`vitest` 検証を繰り返す |
-| ネイティブ依存（transformers/onnxruntime-node/kuromoji）の externalize 再発 | 0, 4 | 0.4 で先行 PoC。フェーズ4着手前に再確認必須 |
+| ネイティブ依存（transformers/onnxruntime-node/kuromoji）の externalize 再発 | 0, 4 | 0.4 で先行 PoC。フェーズ4着手前に再確認必須。**フェーズ4.4で実際に再発を確認**: 3パッケージのディレクトリを素朴にコピーするだけでは、それらが依存するホイストされた兄弟パッケージ（`sharp`が使う`detect-libc`）が漏れ、実機起動時に`Cannot find module 'detect-libc'`でクラッシュした。`@vercel/nft`（Next.js standaloneが内部で使うのと同じトレーサー）でdist/server.jsの実際のrequire/importグラフを辿る方式（`scripts/trace-server-deps.mjs`）に切替えて解消。ただしnftは`kuromoji`の`createRequire`経由の動的requireと辞書データ（`dict/`）を検出できないため、kuromojiのみディレクトリまるごとの明示コピーを併用する必要がある（詳細はchecklist.md 4.4参照） |
 | dev サーバー並走期間の判断負荷（6.2節） | 2, 3 | `dev-hybrid-rules.md` を都度更新し、判断を文書に寄せる |
 | プロダクト側作業（4th_pivot等）との差分競合 | 全体 | 着手時に直近のプロダクト作業状況を確認し、フェーズ単位でmainに追従する |
 | 配布関連ドキュメント（packaging.md/docker.md/release.yml）の更新漏れ | 4 | 4.5〜4.7 を独立タスク化し、チェックリストに明示 |
