@@ -1,14 +1,17 @@
+import "./transformers-env";
 import { ModelRegistry, type ProgressInfo } from "@huggingface/transformers";
 import {
   clearLocalGeneratorCache,
   getLocalChatModel,
   getLocalGenerator,
+  markLocalGeneratorUnavailable,
 } from "./local-model";
 import { DEFAULT_LOCAL_CHAT_MODEL } from "./local-chat-presets";
 import {
   clearEmbedderCache,
   EMBEDDING_MODEL,
   getEmbedder,
+  markEmbedderUnavailable,
 } from "./embeddings";
 
 // ローカルモデル（チャット生成・埋め込み）のディスクキャッシュ有無を見て、
@@ -87,6 +90,17 @@ const slots: Record<ModelSlotKey, SlotRuntime> = {
 
 let warmPromise: Promise<void> | null = null;
 
+/** 全体進捗が 100% になったあと pipeline が settle しない場合の待ち。 */
+let stallAfterCompleteMs = 120_000;
+/** ダウンロード中に進捗イベントが途絶えた場合の待ち。 */
+let downloadIdleMs = 60_000;
+
+/** テスト用: 停滞判定時間。本番コードからは呼ばない。 */
+export function setModelLoaderStallTimeoutForTests(ms: number) {
+  stallAfterCompleteMs = ms;
+  downloadIdleMs = ms;
+}
+
 /**
  * 設定のチャットモデルがスロットと食い違っていれば、キャッシュを捨ててスロットを初期化する。
  * プリセット切替後の ensure / スナップショット取得のたびに呼ぶ。
@@ -113,6 +127,8 @@ function syncChatSlotWithSettings(): void {
 /** テスト用: モジュール内状態を初期化する。本番コードからは呼ばない。 */
 export function resetModelLoaderStateForTests() {
   warmPromise = null;
+  stallAfterCompleteMs = 120_000;
+  downloadIdleMs = 60_000;
   const model = getLocalChatModel();
   slots.chat.modelId = model.id;
   slots.chat.task = model.task;
@@ -146,7 +162,7 @@ export function getModelLoadSnapshot(): ModelLoadSnapshot {
   const models = [snapshotSlot(slots.chat), snapshotSlot(slots.embedding)];
   const phases = models.map((m) => m.phase);
   let overall: ModelLoadOverall = "idle";
-  if (phases.some((p) => p === "error")) overall = "error";
+  if (phases.some((p) => p === "error") || models.some((m) => m.error)) overall = "error";
   else if (phases.some((p) => p === "downloading")) overall = "downloading";
   else if (phases.some((p) => p === "checking")) overall = "checking";
   else if (phases.every((p) => p === "ready")) overall = "ready";
@@ -158,15 +174,23 @@ export function getModelLoadSnapshot(): ModelLoadSnapshot {
 }
 
 function applyProgress(slot: SlotRuntime, info: ProgressInfo) {
+  if (slot.phase === "error" || slot.phase === "ready") return;
+
   if (info.status === "progress_total") {
     slot.phase = "downloading";
-    slot.progress = typeof info.progress === "number" ? info.progress : slot.progress;
-    slot.loadedBytes = typeof info.loaded === "number" ? info.loaded : slot.loadedBytes;
-    slot.totalBytes = typeof info.total === "number" ? info.total : slot.totalBytes;
+    if (typeof info.progress === "number") slot.progress = info.progress;
+    if (typeof info.loaded === "number") slot.loadedBytes = info.loaded;
+    if (typeof info.total === "number") slot.totalBytes = info.total;
     return;
   }
   if (info.status === "progress") {
     slot.phase = "downloading";
+    // LFM2.5 は onnx グラフ（~170KB）のあと数百MBの .onnx_data を取る。
+    // 個別ファイルの 100% で全体の total/progress を潰すと、バナーが 100% のまま止まり、
+    // 停止判定まで誤って発火する。
+    if (slot.totalBytes !== null && typeof info.total === "number" && info.total < slot.totalBytes) {
+      return;
+    }
     if (typeof info.progress === "number") slot.progress = info.progress;
     if (typeof info.loaded === "number") slot.loadedBytes = info.loaded;
     if (typeof info.total === "number") slot.totalBytes = info.total;
@@ -211,22 +235,72 @@ async function warmSlot(slot: SlotRuntime): Promise<void> {
 
   slot.phase = "downloading";
   slot.progress = 0;
-  const onProgress = (info: ProgressInfo) => applyProgress(slot, info);
+
+  // Transformers.js は Node で return_path のとき、キャッシュ書き込み前に
+  // progress:100 を出す。その直後 loadResourceFile が throw しても外側の
+  // Promise が settle しないため、100% のままバナーが消えない。
+  let settled = false;
+  let stallTimer: ReturnType<typeof setTimeout> | null = null;
+  const clearStallTimer = () => {
+    if (stallTimer !== null) {
+      clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+  };
 
   try {
-    if (slot.key === "chat") {
-      await getLocalGenerator(onProgress);
-    } else {
-      await getEmbedder(onProgress);
-    }
+    await new Promise<void>((resolve, reject) => {
+      const fail = (err: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearStallTimer();
+        reject(err instanceof Error ? err : new Error(String(err)));
+      };
+      const succeed = () => {
+        if (settled) return;
+        settled = true;
+        clearStallTimer();
+        resolve();
+      };
+
+      const onProgress = (info: ProgressInfo) => {
+        applyProgress(slot, info);
+        const overallPct =
+          info.status === "progress_total" && typeof info.progress === "number" ? info.progress : null;
+        clearStallTimer();
+        if (overallPct !== null && overallPct >= 100) {
+          stallTimer = setTimeout(() => {
+            fail(
+              new Error(
+                `ローカルモデルの読み込みが完了しませんでした（${slot.modelId}）。キャッシュ先を確認して再試行してください。`,
+              ),
+            );
+          }, stallAfterCompleteMs);
+          return;
+        }
+        stallTimer = setTimeout(() => {
+          fail(
+            new Error(
+              `ローカルモデルのダウンロードが中断しました（${slot.modelId}）。ネットワークを確認して再試行してください。`,
+            ),
+          );
+        }, downloadIdleMs);
+      };
+
+      const load = slot.key === "chat" ? getLocalGenerator(onProgress) : getEmbedder(onProgress);
+      void load.then(succeed, fail);
+    });
     slot.phase = "ready";
     slot.progress = 100;
     slot.cached = true;
   } catch (err) {
-    if (slot.key === "chat") clearLocalGeneratorCache();
-    else clearEmbedderCache();
+    if (slot.key === "chat") markLocalGeneratorUnavailable();
+    else markEmbedderUnavailable();
     slot.phase = "error";
     slot.error = err instanceof Error ? err.message : String(err);
+  } finally {
+    settled = true;
+    clearStallTimer();
   }
 }
 
@@ -259,6 +333,8 @@ export function retryFailedLocalModels(): Promise<void> {
       slot.totalBytes = null;
       slot.error = null;
       slot.cached = null;
+      if (slot.key === "chat") clearLocalGeneratorCache();
+      else clearEmbedderCache();
     }
   }
   warmPromise = null;

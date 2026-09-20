@@ -5,12 +5,15 @@ const getLocalGenerator = vi.fn();
 const getEmbedder = vi.fn();
 const clearLocalGeneratorCache = vi.fn();
 const clearEmbedderCache = vi.fn();
+const markLocalGeneratorUnavailable = vi.fn();
+const markEmbedderUnavailable = vi.fn();
 const getLocalChatModel = vi.fn(() => ({ task: "text-generation" as const, id: "mock/chat", dtype: "q4" as const }));
 
 vi.mock("@huggingface/transformers", () => ({
   ModelRegistry: {
     is_pipeline_cached: (...args: unknown[]) => isPipelineCached(...(args as [])),
   },
+  env: { cacheDir: "" },
 }));
 
 vi.mock("./local-model", () => ({
@@ -18,12 +21,14 @@ vi.mock("./local-model", () => ({
   getLocalChatModel: () => getLocalChatModel(),
   getLocalGenerator: (...args: unknown[]) => getLocalGenerator(...(args as [])),
   clearLocalGeneratorCache: () => clearLocalGeneratorCache(),
+  markLocalGeneratorUnavailable: () => markLocalGeneratorUnavailable(),
 }));
 
 vi.mock("./embeddings", () => ({
   EMBEDDING_MODEL: { task: "feature-extraction", id: "mock/embed", dtype: "q8" },
   getEmbedder: (...args: unknown[]) => getEmbedder(...(args as [])),
   clearEmbedderCache: () => clearEmbedderCache(),
+  markEmbedderUnavailable: () => markEmbedderUnavailable(),
 }));
 
 import {
@@ -31,6 +36,7 @@ import {
   getModelLoadSnapshot,
   resetModelLoaderStateForTests,
   retryFailedLocalModels,
+  setModelLoaderStallTimeoutForTests,
 } from "./model-loader";
 
 describe("model-loader", () => {
@@ -40,6 +46,8 @@ describe("model-loader", () => {
     getEmbedder.mockReset();
     clearLocalGeneratorCache.mockReset();
     clearEmbedderCache.mockReset();
+    markLocalGeneratorUnavailable.mockReset();
+    markEmbedderUnavailable.mockReset();
     getLocalChatModel.mockReset();
     getLocalChatModel.mockReturnValue({ task: "text-generation", id: "mock/chat", dtype: "q4" });
     resetModelLoaderStateForTests();
@@ -84,7 +92,7 @@ describe("model-loader", () => {
 
     await ensureLocalModels();
     expect(getModelLoadSnapshot().overall).toBe("error");
-    expect(clearLocalGeneratorCache).toHaveBeenCalled();
+    expect(markLocalGeneratorUnavailable).toHaveBeenCalled();
     // チャット失敗でも埋め込みは続ける
     expect(getEmbedder).toHaveBeenCalled();
 
@@ -134,5 +142,87 @@ describe("model-loader", () => {
     await ensureLocalModels();
     expect(getModelLoadSnapshot().models[0].phase).toBe("ready");
     expect(getModelLoadSnapshot().models[0].modelId).toBe("mock/chat-large");
+  });
+
+  it("進捗が途絶えたら error にする", async () => {
+    setModelLoaderStallTimeoutForTests(40);
+    isPipelineCached.mockResolvedValue(false);
+    getLocalGenerator.mockImplementation((cb?: (info: { status: string; progress?: number; loaded?: number; total?: number }) => void) => {
+      cb?.({ status: "progress", progress: 10, loaded: 10, total: 100 });
+      return new Promise(() => {});
+    });
+    getEmbedder.mockResolvedValue(undefined);
+
+    await ensureLocalModels();
+    const snap = getModelLoadSnapshot();
+    expect(snap.overall).toBe("error");
+    expect(snap.models[0].phase).toBe("error");
+    expect(snap.models[0].error).toMatch(/ダウンロードが中断/);
+    expect(markLocalGeneratorUnavailable).toHaveBeenCalled();
+  });
+
+  it("全体 100% のまま pipeline が終わらないときは error にする", async () => {
+    setModelLoaderStallTimeoutForTests(40);
+    isPipelineCached.mockResolvedValue(false);
+    getLocalGenerator.mockImplementation((cb?: (info: { status: string; progress?: number; loaded?: number; total?: number }) => void) => {
+      cb?.({ status: "progress_total", progress: 100, loaded: 100, total: 100 });
+      return new Promise(() => {});
+    });
+    getEmbedder.mockResolvedValue(undefined);
+
+    await ensureLocalModels();
+    const snap = getModelLoadSnapshot();
+    expect(snap.overall).toBe("error");
+    expect(snap.models[0].phase).toBe("error");
+    expect(snap.models[0].error).toMatch(/読み込みが完了しませんでした/);
+    expect(markLocalGeneratorUnavailable).toHaveBeenCalled();
+    expect(getEmbedder).toHaveBeenCalled();
+  });
+
+  it("個別ファイルの 100% で全体バイト数を上書きしない", async () => {
+    isPipelineCached.mockResolvedValue(false);
+    let resolveChat!: () => void;
+    getLocalGenerator.mockImplementation((cb?: (info: { status: string; progress?: number; loaded?: number; total?: number }) => void) => {
+      cb?.({ status: "progress_total", progress: 0.02, loaded: 173643, total: 834045515 });
+      cb?.({ status: "progress", progress: 100, loaded: 173643, total: 173643 });
+      return new Promise<void>((resolve) => {
+        resolveChat = resolve;
+      });
+    });
+    getEmbedder.mockResolvedValue(undefined);
+
+    const pending = ensureLocalModels();
+    await vi.waitFor(() => {
+      expect(getModelLoadSnapshot().models[0].totalBytes).toBe(834045515);
+    });
+    expect(getModelLoadSnapshot().models[0].progress).toBeCloseTo(0.02);
+    expect(getModelLoadSnapshot().models[0].phase).toBe("downloading");
+    resolveChat();
+    await pending;
+  });
+
+  it("外部データダウンロード中は個別ファイル 100% で停止判定しない", async () => {
+    setModelLoaderStallTimeoutForTests(40);
+    isPipelineCached.mockResolvedValue(false);
+    getLocalGenerator.mockImplementation((cb?: (info: { status: string; progress?: number; loaded?: number; total?: number }) => void) => {
+      cb?.({ status: "progress_total", progress: 5, loaded: 173643, total: 834045515 });
+      cb?.({ status: "progress", progress: 100, loaded: 173643, total: 173643 });
+      return new Promise<void>((resolve) => {
+        const tick = setInterval(() => {
+          cb?.({ status: "progress_total", progress: 40, loaded: 300_000_000, total: 834045515 });
+        }, 15);
+        setTimeout(() => {
+          clearInterval(tick);
+          cb?.({ status: "progress_total", progress: 100, loaded: 834045515, total: 834045515 });
+          cb?.({ status: "ready" });
+          resolve();
+        }, 80);
+      });
+    });
+    getEmbedder.mockResolvedValue(undefined);
+
+    await ensureLocalModels();
+    expect(getModelLoadSnapshot().models[0].phase).toBe("ready");
+    expect(markLocalGeneratorUnavailable).not.toHaveBeenCalled();
   });
 });

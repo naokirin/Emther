@@ -1,3 +1,4 @@
+import "./transformers-env";
 import { pipeline, type ProgressCallback } from "@huggingface/transformers";
 import {
   DEFAULT_LOCAL_CHAT_MODEL,
@@ -7,6 +8,7 @@ import {
   type LocalChatModelSpec,
 } from "./local-chat-presets";
 import { getRulesAndConstraints } from "./settings-store";
+import { getTransformersCacheDir } from "./transformers-env";
 
 // このモジュールが提供するローカル推論は、機微情報を外部に一切送信しないことが目的。
 // journal-store.ts（ジャーナルの自動タグ付け）と people-directory.ts 経由の
@@ -40,6 +42,17 @@ export function getLocalChatModel(): LocalChatModelSpec {
 let generatorPromise: Promise<any> | null = null;
 /** 現在キャッシュしている pipeline のモデルID。設定切替検知用。 */
 let loadedModelId: string | null = null;
+let generatorReady = false;
+let lastLoadFailed = false;
+
+function isGeneratorLoadPending(): boolean {
+  return generatorPromise !== null && !generatorReady;
+}
+
+/** 起動時ダウンロード中・前回失敗・ハング中なら true。推論経路は待たずに諦める。 */
+export function isLocalGeneratorBusyOrFailed(): boolean {
+  return lastLoadFailed || isGeneratorLoadPending();
+}
 
 export function getLocalGenerator(progress_callback?: ProgressCallback) {
   const model = getLocalChatModel();
@@ -48,10 +61,25 @@ export function getLocalGenerator(progress_callback?: ProgressCallback) {
   }
   if (!generatorPromise) {
     loadedModelId = model.id;
-    generatorPromise = pipeline(model.task, model.id, {
+    generatorReady = false;
+    lastLoadFailed = false;
+    const resultPromise = pipeline(model.task, model.id, {
       dtype: model.dtype,
       progress_callback,
-    });
+      cache_dir: getTransformersCacheDir(),
+    }).then(
+      (generator) => {
+        if (generatorPromise !== resultPromise) return generator;
+        generatorReady = true;
+        lastLoadFailed = false;
+        return generator;
+      },
+      (err) => {
+        if (generatorPromise === resultPromise) markLocalGeneratorUnavailable();
+        throw err;
+      },
+    );
+    generatorPromise = resultPromise;
   }
   return generatorPromise;
 }
@@ -60,11 +88,26 @@ export function getLocalGenerator(progress_callback?: ProgressCallback) {
 export function clearLocalGeneratorCache() {
   generatorPromise = null;
   loadedModelId = null;
+  generatorReady = false;
+  lastLoadFailed = false;
+}
+
+/** ハング／失敗を呼び出し元に見せたあと、同じ pending Promise を再利用しない。 */
+export function markLocalGeneratorUnavailable() {
+  generatorPromise = null;
+  loadedModelId = null;
+  generatorReady = false;
+  lastLoadFailed = true;
 }
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
 export async function runLocalChat(messages: ChatMessage[], maxNewTokens: number): Promise<string> {
+  // 起動ダウンロード中や loadResourceFile ハング中に Journal 保存・締めくくりを
+  // ブロックしない。抽出は補助なので、未準備なら呼び出し元の catch に任せる。
+  if (isLocalGeneratorBusyOrFailed()) {
+    throw new Error("local chat model is not ready");
+  }
   const generator = await getLocalGenerator();
   const output = await generator(messages, { max_new_tokens: maxNewTokens, do_sample: false });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

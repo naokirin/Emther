@@ -1,4 +1,6 @@
 import { defineConfig } from "vitest/config";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export default defineConfig({
   test: {
@@ -8,6 +10,9 @@ export default defineConfig({
     pool: "forks",
     maxWorkers: 4,
     testTimeout: 10000,
+    env: {
+      EM_TRANSFORMERS_CACHE_DIR: join(tmpdir(), "emther-test-transformers-cache"),
+    },
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

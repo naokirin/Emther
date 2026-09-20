@@ -1,4 +1,6 @@
+import "./transformers-env";
 import { pipeline, type ProgressCallback } from "@huggingface/transformers";
+import { getTransformersCacheDir } from "./transformers-env";
 
 // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索。埋め込みも外部送信せず、
 // local-model.ts（チャット生成）とは別に、文埋め込み専用の小さなモデルをロードする。
@@ -15,13 +17,38 @@ export const EMBEDDING_MODEL = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let embedderPromise: Promise<any> | null = null;
+let embedderReady = false;
+let lastLoadFailed = false;
+
+function isEmbedderLoadPending(): boolean {
+  return embedderPromise !== null && !embedderReady;
+}
+
+export function isEmbedderBusyOrFailed(): boolean {
+  return lastLoadFailed || isEmbedderLoadPending();
+}
 
 export function getEmbedder(progress_callback?: ProgressCallback) {
   if (!embedderPromise) {
-    embedderPromise = pipeline(EMBEDDING_MODEL.task, EMBEDDING_MODEL.id, {
+    embedderReady = false;
+    lastLoadFailed = false;
+    const resultPromise = pipeline(EMBEDDING_MODEL.task, EMBEDDING_MODEL.id, {
       dtype: EMBEDDING_MODEL.dtype,
       progress_callback,
-    });
+      cache_dir: getTransformersCacheDir(),
+    }).then(
+      (embedder) => {
+        if (embedderPromise !== resultPromise) return embedder;
+        embedderReady = true;
+        lastLoadFailed = false;
+        return embedder;
+      },
+      (err) => {
+        if (embedderPromise === resultPromise) markEmbedderUnavailable();
+        throw err;
+      },
+    );
+    embedderPromise = resultPromise;
   }
   return embedderPromise;
 }
@@ -29,9 +56,20 @@ export function getEmbedder(progress_callback?: ProgressCallback) {
 /** pipeline() 失敗後に再試行できるよう、拒否済み Promise を捨てる。 */
 export function clearEmbedderCache() {
   embedderPromise = null;
+  embedderReady = false;
+  lastLoadFailed = false;
+}
+
+export function markEmbedderUnavailable() {
+  embedderPromise = null;
+  embedderReady = false;
+  lastLoadFailed = true;
 }
 
 export async function embedText(text: string): Promise<number[]> {
+  if (isEmbedderBusyOrFailed()) {
+    throw new Error("local embedding model is not ready");
+  }
   const embedder = await getEmbedder();
   const output = await embedder(text, { pooling: "mean", normalize: true });
   return Array.from(output.data as Float32Array);
