@@ -149,7 +149,7 @@ EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を
     const raw = await runLocalChat(messages, 1000);
     if (!raw || !raw.trim()) return null;
 
-    let cleaned = raw
+    const cleaned = raw
       .trim()
       .replace(/^(?:AI|あなた|アシスタント|振り返りパートナー)[:：]\s*/i, "")
       .replace(/^(?:共感|受け止め)[:：]\s*/i, "")

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import styles from "../styles/page.module.css";
 import type { AgentRun } from "./RunDetail";
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@emther/core/origin-trace";
@@ -75,7 +76,10 @@ export function ConsultHistoryItem({
 }) {
   const title = truncateExcerpt(consultListTitle(run), TITLE_MAX);
   const secondary = consultListSecondary(run);
-  const isRecent = (now ?? Date.now()) - run.updatedAt < 24 * 60 * 60 * 1000;
+  // Date.now()はレンダー中に直接呼ぶと不純になるため、マウント時1回だけの遅延初期化で
+  // 取得する（nowプロパティで明示指定して固定できる仕組みはそのまま維持する）。
+  const [mountedAt] = useState(() => Date.now());
+  const isRecent = (now ?? mountedAt) - run.updatedAt < 24 * 60 * 60 * 1000;
   const metaParts = [
     ...consultListMetaParts(run, { stale, now }),
     ...(promoted ? ["提案化済み"] : []),

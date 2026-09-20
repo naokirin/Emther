@@ -121,7 +121,7 @@ const LITERAL_PATTERNS: { category: SensitiveCategory; re: RegExp }[] = [
   {
     category: "organization",
     // 社名本体は漢字・カタカナ・英数字のみ（「については」等のひらがなを食い込まない）
-    re: /(?:株式会社|有限会社|合同会社|合資会社|合名会社)[一-龥々ァ-ヴーA-Za-z0-9・＝&\-]{1,30}/g,
+    re: /(?:株式会社|有限会社|合同会社|合資会社|合名会社)[一-龥々ァ-ヴーA-Za-z0-9・＝&-]{1,30}/g,
   },
   {
     category: "date_of_birth",
@@ -135,7 +135,7 @@ const LITERAL_PATTERNS: { category: SensitiveCategory; re: RegExp }[] = [
   {
     category: "identifier",
     // ラベル付きID / 顧客番号らしき記号
-    re: /(?:ログインID|顧客番号|ユーザー名|ユーザ名|アカウントID)\s*[：:は]?\s*[`「『]?(?:[A-Za-z][A-Za-z0-9._\-]{2,63}|[A-Z]?-?\d{4,})[`」』]?|\bC-\d{5,}\b/g,
+    re: /(?:ログインID|顧客番号|ユーザー名|ユーザ名|アカウントID)\s*[：:は]?\s*[`「『]?(?:[A-Za-z][A-Za-z0-9._-]{2,63}|[A-Z]?-?\d{4,})[`」』]?|\bC-\d{5,}\b/g,
   },
 ];
 

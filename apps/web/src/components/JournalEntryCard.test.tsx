@@ -267,7 +267,6 @@ describe("JournalEntryCard（編集モード）", () => {
   });
 
   it("sourceConsultRunIdがあれば編集中でも相談へのリンクを出す", async () => {
-    const user = userEvent.setup();
     renderCard(
       baseProps({
         editing: true,

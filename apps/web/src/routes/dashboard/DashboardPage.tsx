@@ -144,7 +144,7 @@ export function DashboardPage() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
+  const { nameCandidateDialog } = useNameCandidateConfirm();
   const [confirmingUnmasked, setConfirmingUnmasked] = useState<PendingUnmaskedSend | null>(null);
   const [confirmingUnmaskedBusy, setConfirmingUnmaskedBusy] = useState(false);
 

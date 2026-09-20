@@ -85,9 +85,13 @@ export function AgentStatusSection({
   runsLoaded,
   autoRunsToday,
   onNavigate,
-  now = Date.now(),
+  now,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
+  // Date.now()はレンダー中に直接呼ぶと不純になるため、マウント時1回だけの遅延初期化で
+  // 取得する（テストからnowを明示指定して固定できる仕組みはそのまま維持する）。
+  const [mountedAt] = useState(() => Date.now());
+  const effectiveNow = now ?? mountedAt;
 
   if (!runsLoaded) {
     return (
@@ -109,7 +113,7 @@ export function AgentStatusSection({
 
   const activeRuns = runs.filter((r) => r.status === "active" || r.status === "queued");
   const activeCount = activeRuns.length;
-  const recentActivities = extractRecentActivities(runs, 3, now);
+  const recentActivities = extractRecentActivities(runs, 3, effectiveNow);
   const latestActivity = recentActivities[0];
 
   return (

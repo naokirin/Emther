@@ -34,7 +34,7 @@ describe("getDb", () => {
     const { getDb } = await import("./db");
     getDb();
     vi.resetModules();
-    process.env.EM_DATA_DIR = process.env.EM_DATA_DIR; // 同じディレクトリを維持
+    // EM_DATA_DIRは変更せず同じディレクトリを維持したままdbモジュールを再importする。
     const mod2 = await import("./db");
     expect(() => mod2.getDb()).not.toThrow();
   });

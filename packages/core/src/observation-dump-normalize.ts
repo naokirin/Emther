@@ -42,7 +42,7 @@ export function parseTimestampValue(
   const raw = String(ts).trim();
   if (!raw) return undefined;
 
-  if (kind === "iso" || (kind === "auto" && /[T/\-]/.test(raw) && Number.isNaN(Number(raw)))) {
+  if (kind === "iso" || (kind === "auto" && /[T/-]/.test(raw) && Number.isNaN(Number(raw)))) {
     const d = new Date(raw);
     return Number.isNaN(d.getTime()) ? undefined : d;
   }
@@ -203,7 +203,7 @@ export function suggestTsKind(columns: string[], sampleValues: string[]): TsKind
   if (samples.some((s) => /^\d+\.\d+$/.test(s))) return "slack";
   if (samples.some((s) => /^\d{13,}$/.test(s))) return "unix_millis";
   if (samples.some((s) => /^\d{10}$/.test(s))) return "unix_seconds";
-  if (samples.some((s) => /[T/\-]/.test(s) && Number.isNaN(Number(s)))) return "iso";
+  if (samples.some((s) => /[T/-]/.test(s) && Number.isNaN(Number(s)))) return "iso";
   if (tsCol === "ts") return "slack";
   return "auto";
 }

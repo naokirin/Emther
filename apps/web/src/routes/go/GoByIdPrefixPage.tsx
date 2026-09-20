@@ -14,31 +14,34 @@ const KIND_LABEL: Record<IdMatchKind, string> = {
   run: "相談 / Agent Run",
 };
 
-type ResolveState = { status: "loading" } | { status: "invalid" } | { status: "resolved"; matches: IdMatch[] };
+type ResolveState = { prefix: string; status: "resolved"; matches: IdMatch[] };
 
 export function GoByIdPrefixPage() {
   const { prefix: raw } = useParams();
   const prefix = decodeURIComponent(raw ?? "").trim();
-  const [state, setState] = useState<ResolveState>(isHexIdPrefix(prefix) ? { status: "loading" } : { status: "invalid" });
+  // prefixの妥当性はpropsから毎レンダー導出できるため、effect内での同期setState
+  // （react-hooks/set-state-in-effect）を避けて先にここで分岐する。
+  const isValid = isHexIdPrefix(prefix);
+  const [resolved, setResolved] = useState<ResolveState | null>(null);
+  // 直近のfetch結果が現在のprefixのものでなければ「まだ解決中」として扱う
+  // （prefix変更時にeffect内で同期setStateしてloadingへ戻す必要をなくすため）。
+  const state: ResolveState | { status: "loading" } =
+    resolved?.prefix === prefix ? resolved : { status: "loading" };
 
   useEffect(() => {
-    if (!isHexIdPrefix(prefix)) {
-      setState({ status: "invalid" });
-      return;
-    }
+    if (!isValid) return;
     let cancelled = false;
-    setState({ status: "loading" });
     (async () => {
       const res = await fetch(`/api/id-resolve?q=${encodeURIComponent(prefix)}`);
       const data = (await res.json()) as { matches?: IdMatch[] };
-      if (!cancelled) setState({ status: "resolved", matches: data.matches ?? [] });
+      if (!cancelled) setResolved({ prefix, status: "resolved", matches: data.matches ?? [] });
     })();
     return () => {
       cancelled = true;
     };
-  }, [prefix]);
+  }, [prefix, isValid]);
 
-  if (state.status === "invalid") {
+  if (!isValid) {
     return (
       <div className={styles.screen}>
         <Link to="/" className={styles.backLink}>

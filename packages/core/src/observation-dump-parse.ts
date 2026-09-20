@@ -130,7 +130,7 @@ export function parseObservationHeuristic(maskedText: string): {
     for (const line of lines) {
       const startsUnit =
         /^\[\d{4}-\d{2}-\d{2}/.test(line.trim()) ||
-        /^[\[【]?\d{1,2}:\d{2}/.test(line.trim()) ||
+        /^[[【]?\d{1,2}:\d{2}/.test(line.trim()) ||
         /^[^:]{1,40}:\s+\S/.test(line.trim());
       if (startsUnit && buf.length > 0) flush();
       buf.push(line);

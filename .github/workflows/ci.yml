@@ -23,6 +23,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run lint -w web
+      - run: npm run lint
 
   typecheck:
     name: Typecheck
@@ -70,4 +71,5 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run build -w web
+      - run: npm run build -w @emther/server
       - run: npm run build -w @emther/web

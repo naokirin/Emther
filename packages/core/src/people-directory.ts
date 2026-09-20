@@ -540,6 +540,7 @@ const RESERVED_TERMS = new Set(
 );
 
 function isAsciiOnly(s: string): boolean {
+  // eslint-disable-next-line no-control-regex -- ASCII全域（0x00-0x7F）の判定として意図的
   return /^[\x00-\x7F]*$/.test(s);
 }
 

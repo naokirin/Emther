@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import styles from "../styles/page.module.css";
@@ -28,23 +28,17 @@ export function Modal({
   children: ReactNode;
   size?: "default" | "wide";
 }) {
-  const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     boxRef.current?.focus();
     return () => {
       previouslyFocused.current?.focus?.();
     };
-  }, [mounted]);
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -69,7 +63,7 @@ export function Modal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  if (!mounted || typeof document === "undefined") return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className={styles.modalOverlay} onClick={onClose}>
