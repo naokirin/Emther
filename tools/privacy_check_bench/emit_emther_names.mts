@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../web/src/lib/test-helpers/store-env.ts";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../packages/core/src/test-helpers/store-env.ts";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const REPO = join(ROOT, "../..");
@@ -29,7 +29,7 @@ function extractBlockquotes(md: string): string[] {
 
 const dir = setupIsolatedStoreEnv();
 try {
-  const { detectNameCandidatesAsync } = await import("../../web/src/lib/mask-check.ts");
+  const { detectNameCandidatesAsync } = await import("../../packages/core/src/mask-check.ts");
   const blocks = extractBlockquotes(readFileSync(SAMPLES_MD, "utf8"));
   const keys = ["sec1", "sec2", "sec3", "sec4", "sec5", "sec6", "sec7", "sec8", "sec9", "sec10"];
   const out: Record<string, string[]> = {};

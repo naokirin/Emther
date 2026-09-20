@@ -74,7 +74,15 @@ emther restart --host 127.0.0.1 --port 3001
 
 ## 開発者向け
 
-アプリ本体は `web/`（Next.js）です。開発サーバーや実装メモは [`web/README.md`](web/README.md)。
+アプリ本体は `apps/server`（Hono API、esbuild）+ `apps/web`（Vite + React SPA）+ `packages/core`（ドメイン・永続化、フレームワーク非依存）の npm workspaces 構成です。
+
+```bash
+npm install
+npm run dev -w @emther/server   # 既定 http://127.0.0.1:8787
+npm run dev -w @emther/web      # 既定 http://localhost:5173（/api は上記へプロキシ）
+```
+
+ブラウザで http://localhost:5173 を開きます。アーキテクチャ方針は [`docs/2nd_architecture.md`](docs/2nd_architecture.md)、移行の経緯・過去の実装メモは [`docs/2nd_architecture/`](docs/2nd_architecture/) と [`docs/archive/web_mvp_devlog.md`](docs/archive/web_mvp_devlog.md)（旧 Next.js 実装のMVP開発ログ）を参照してください。
 
 ## 注意
 

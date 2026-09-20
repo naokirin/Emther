@@ -22,8 +22,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run lint -w web
       - run: npm run lint
+      - run: npm run check:core-boundary
 
   typecheck:
     name: Typecheck
@@ -36,7 +36,6 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run typecheck -w web
       - run: npm run typecheck -w @emther/core
       - run: npm run typecheck -w @emther/server
       - run: npm run typecheck -w @emther/web
@@ -52,7 +51,6 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm test -w web
       - run: npm test -w @emther/core
       - run: npm test -w @emther/server
       - run: npm test -w @emther/web
@@ -60,8 +58,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    env:
-      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,6 +66,5 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run build -w web
       - run: npm run build -w @emther/server
       - run: npm run build -w @emther/web

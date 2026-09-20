@@ -75,7 +75,7 @@ onnxruntime 等は OS/CPU 固有のため、必ず自分の platform 用を選�
 ```
 
 - 開発・テスト・Docker は従来どおり環境変数で差し替える。
-- リポジトリ配下の `web/.data` には**新規書き込みしない**（公開 clone 作業ツリーと機微データの混在を防ぐ）。
+- リポジトリ配下の `./.data`（`persistence.ts`が旧配置移行チェックで参照するcwd基準パス）には**新規書き込みしない**（公開 clone 作業ツリーと機微データの混在を防ぐ）。
 - 旧配置からの一度きりの移行（存在する場合のみ、宛先が未作成のとき）:
   - `~/.local/state/em-ai-team/{data,secure}` → `.../emther/{data,secure}`
   - `./.data`（起動時 cwd 基準の旧デフォルト）→ `.../emther/data`

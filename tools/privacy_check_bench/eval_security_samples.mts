@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../web/src/lib/test-helpers/store-env.ts";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../packages/core/src/test-helpers/store-env.ts";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const DOC = join(ROOT, "../../docs/security_check/security_check_samples.md");
@@ -377,7 +377,7 @@ try {
     process.exit(1);
   }
   const sets = buildSets(texts.slice(0, 10));
-  const { detectNameCandidatesAsync, detectSensitiveByRules } = await import("../../web/src/lib/mask-check.ts");
+  const { detectNameCandidatesAsync, detectSensitiveByRules } = await import("../../packages/core/src/mask-check.ts");
 
   const results = [];
   for (const set of sets) {

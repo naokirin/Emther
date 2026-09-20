@@ -1,7 +1,9 @@
 # Emther 第2世代アーキテクチャ方針
 
 作成日: 2026-09-19  
-関連文書: `docs/packaging.md` / `docs/4th_pivot/pivot.md` / `web/`（現行実装）
+関連文書: `docs/packaging.md` / `docs/4th_pivot/pivot.md` / `docs/2nd_architecture/`（移行の詳細計画・進捗）
+
+> **移行完了（2026-09-20）**: 本ドキュメントが検討した第2世代案（`packages/core` + `apps/server`（Hono） + `apps/web`（Vite + React））への移行はフェーズ5まで完了し、旧 Next.js 実装（`web/`）は削除済み。現在の実装は本ドキュメント3節の推奨スタックそのものである。1〜3節・5〜6節は**採用時点の検討記録**として、4・7節は**移行前後の対応表**として当時のまま残す（詳細な移行経緯・各フェーズの実機検証は `docs/2nd_architecture/plan.md`・`checklist.md` を参照）。
 
 本ドキュメントは、**同じ製品像（ローカル常駐・単一ユーザー・機微データはホスト外に出さない）をゼロから作るならどう選ぶか**を整理したものである。新機能の置き場所や将来の大規模リファクタの判断材料として使う。
 
@@ -135,9 +137,11 @@ emther/
 
 ---
 
-## 4. 現行実装との対応表
+## 4. 現行実装との対応表（移行前時点の記録）
 
-| 現行（`web/`） | 第2世代案 |
+> 2026-09-20の移行完了により、右列（第2世代案）が現在の実装そのものになった。左列（`web/`）は削除済みの旧実装。
+
+| 旧実装（`web/`、削除済み） | 第2世代案（＝現在の実装） |
 | --- | --- |
 | `src/app/**/page.tsx`（多くが `"use client"`） | `apps/web` の React Router ルート |
 | `src/lib/hooks.ts`（`usePolling` 等） | TanStack Query + `core` の型を直接使った fetcher（RPC/OpenAPI は任意） |
@@ -196,9 +200,11 @@ emther/
 
 ---
 
-## 7. 現行コードベースへの位置づけ
+## 7. 現行コードベースへの位置づけ（移行着手前時点の判断記録）
 
-| 判断 | 推奨 |
+> 以下は移行に着手する前（2026-09-19以前）の判断であり、その後 2026-09-19〜09-20 にかけて実際に着手・完了した（`docs/2nd_architecture/checklist.md`参照）。着手当時の判断根拠の記録としてそのまま残す。
+
+| 判断 | 推奨（着手前時点） |
 | --- | --- |
 | 直ちに Next から移行する | **しない**（コスト大。4th pivot のプロダクト変更を優先） |
 | 新規ドメインロジック | **`web/src/lib` に追加し、HTTP は薄く**（将来 `core` 抽出しやすい形） |
@@ -212,7 +218,7 @@ emther/
 3. Vite SPA を立ち上げ、画面をルート単位で移植  
 4. `emther` の起動対象を `next start` から `node dist/server.js` に変更（`docs/packaging.md` を更新）
 
-この4ステップを実行フェーズ・チェックリストまで分解した進行管理ドキュメントは `docs/2nd_architecture/plan.md`（詳細計画）・`docs/2nd_architecture/checklist.md`（進捗チェックリスト）を参照。2026-09-19 時点の実測では `@/lib` import は 318 ファイル・669 箇所（`grep` 実測。本文中の「280ファイル・900箇所超」は前回計測時点の値）。
+この4ステップを実行フェーズ・チェックリストまで分解した進行管理ドキュメントは `docs/2nd_architecture/plan.md`（詳細計画）・`docs/2nd_architecture/checklist.md`（進捗チェックリスト）を参照。2026-09-19 時点の実測では `@/lib` import は 318 ファイル・669 箇所（`grep` 実測。本文中の「280ファイル・900箇所超」は前回計測時点の値）。**この4ステップは2026-09-19〜09-20にかけて実際に完走し、フェーズ5（`web/` 削除）まで完了した。**
 
 ---
 
@@ -220,4 +226,4 @@ emther/
 
 Emther は **「ローカルで動く、厚いドメインの EM 計器盤」** である。フレームワーク選定は **SEO やページ単位 SSR** ではなく、**単一 Node プロセスでの API + 静的 UI 配布** と **ドメインのテスト容易性** で決めるのがよい。
 
-新規同等製品では **Vite + React + React Router + TanStack Query** と **Hono on Node + packages/core** を推奨する。ルーティングの型安全性やAPIの型共有は、TanStack Router や Hono RPC/OpenAPI のような専用機構を初手から導入せず、薄いラッパーと `core` の型の直接 import で必要な分だけ確保する（5節）。現行 Next 実装は **API と lib に既に寄っている**ため、全面否定ではなく **「ホストとしての Next」の段階的な剥がし** が現実的な進め方であり、その過渡期の開発体験とリスク（`core` 抽出の規模、ネイティブ依存の externalize 再検証）は 6 節のチェックリストで管理する。
+新規同等製品では **Vite + React + React Router + TanStack Query** と **Hono on Node + packages/core** を推奨する。ルーティングの型安全性やAPIの型共有は、TanStack Router や Hono RPC/OpenAPI のような専用機構を初手から導入せず、薄いラッパーと `core` の型の直接 import で必要な分だけ確保する（5節）。当初の Next 実装は **API と lib に既に寄っている**状態だったため、全面否定ではなく **「ホストとしての Next」の段階的な剥がし** を採った。その過渡期の開発体験とリスク（`core` 抽出の規模、ネイティブ依存の externalize 再検証）は 6 節のチェックリストで管理し、2026-09-20 に移行を完了した（現在の実装は 3 節の推奨スタックそのもの。詳細は `docs/2nd_architecture/plan.md`・`checklist.md`）。

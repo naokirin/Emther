@@ -383,15 +383,15 @@ tier5着手（2026-09-20）。3.4節の見立て（agents 333行/10import、chat
 
 ---
 
-## フェーズ5: 旧実装の除去・後片付け
+## フェーズ5: 旧実装の除去・後片付け（完了・2026-09-20）
 
-進行管理の受入条件（core 境界 CI・CI 最終確認等）は **`checklist.md` フェーズ5（5.1〜5.5）** を正とする。
+進行管理の受入条件（core 境界 CI・CI 最終確認等）は **`checklist.md` フェーズ5（5.1〜5.5）** を正とする。5.1〜5.5全て完了（4.11のみ、この作業環境にdockerが無いため未検証のまま`checklist.md`4.11に残置）。
 
-- **5.1** Next.js 関連ファイル・依存の削除（`next.config.ts`, `eslint-config-next`, 旧 `web/`（Next版）ディレクトリ等）。
-- **5.2** `docs/2nd_architecture.md` の対応表（4節）・7節のステータスを「移行完了」に更新。
-- **5.3** 最終検証: 新規クローン→インストール→起動の一連の動作確認（README の手順をなぞる）。
+- **5.1** Next.js 関連ファイル・依存の削除（`next.config.ts`, `eslint-config-next`, 旧 `web/`（Next版）ディレクトリ等）。**完了**。削除に伴い`scripts/emther`のソースツリー検出ロジック（`web/package.json`の存在チェック）が壊れる実害あるバグを発見・修正。`web/README.md`（旧MVP開発ログ、セキュリティ設計の経緯を含む）は`docs/archive/web_mvp_devlog.md`へアーカイブ。詳細は`checklist.md`5.1参照。
+- **5.2** `docs/2nd_architecture.md` の対応表（4節）・7節のステータスを「移行完了」に更新。**完了**。
+- **5.3** 最終検証: 新規クローン→インストール→起動の一連の動作確認（README の手順をなぞる）。**完了**。詳細は`checklist.md`5.3参照。
 
-**完了基準**: リポジトリ内に Next.js への参照が残っていない（`package.json` の依存、import、ドキュメントの現状記述を含む）。
+**完了基準**: リポジトリ内に Next.js への参照が残っていない（`package.json` の依存、import、ドキュメントの現状記述を含む）。**達成**（歴史的記録として意図的に残した`docs/archive/`・過去バッチの`plan.md`本文中の言及を除く）。
 
 ---
 

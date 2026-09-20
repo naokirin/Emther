@@ -13,7 +13,6 @@ FROM node:24-bookworm AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY packages/core/package.json ./packages/core/package.json
-COPY web/package.json ./web/package.json
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/web/package.json ./apps/web/package.json
 RUN npm ci

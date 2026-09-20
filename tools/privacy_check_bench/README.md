@@ -19,18 +19,18 @@ tools/privacy_check_bench/.venv/bin/pip install 'ginza>=5.2' 'ja-ginza>=5.2'
 # GiNZA 単体
 tools/privacy_check_bench/.venv/bin/python tools/privacy_check_bench/run_ginza.py
 
-# Emther（web の mask-check）
-cd web && npx tsx ../tools/privacy_check_bench/run_emther.mts
+# Emther（packages/core の mask-check）
+cd packages/core && npx tsx ../../tools/privacy_check_bench/run_emther.mts
 
 # CORE vs TUNING キーワード
-cd web && npx tsx ../tools/privacy_check_bench/run_core_vs_tuning.mts
+cd packages/core && npx tsx ../../tools/privacy_check_bench/run_core_vs_tuning.mts
 
 # 人名エンジン比較（敬称ルール / Sudachi POS / GiNZA / 併用）
-cd web && npx tsx ../tools/privacy_check_bench/emit_emther_names.mts
+cd packages/core && npx tsx ../../tools/privacy_check_bench/emit_emther_names.mts
 tools/privacy_check_bench/.venv/bin/python tools/privacy_check_bench/compare_name_detectors.py
 
 # security_check_samples.md の機微評価
-cd web && npx tsx ../tools/privacy_check_bench/eval_security_samples.mts
+cd packages/core && npx tsx ../../tools/privacy_check_bench/eval_security_samples.mts
 ```
 
 解釈は `docs/privacy_check_research.md` §5–8。

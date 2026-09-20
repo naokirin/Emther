@@ -6,7 +6,6 @@
     "node": ">=24"
   },
   "workspaces": [
-    "web",
     "packages/*",
     "apps/*"
   ],
@@ -19,7 +18,8 @@
     "esbuild@0.28.2": true
   },
   "scripts": {
-    "lint": "eslint packages/core/src apps/server/src apps/web/src"
+    "lint": "eslint packages/core/src apps/server/src apps/web/src",
+    "check:core-boundary": "./scripts/check-core-boundary.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

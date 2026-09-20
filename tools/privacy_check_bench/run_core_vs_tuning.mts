@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../web/src/lib/test-helpers/store-env.ts";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../packages/core/src/test-helpers/store-env.ts";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(ROOT, "fixtures");
@@ -35,7 +35,7 @@ function notCoveredByCore(tuningMatch: string, coreMatches: string[]): boolean {
 
 const dir = setupIsolatedStoreEnv();
 try {
-  const lex = await import("../../web/src/lib/mask-check-lexicon.ts");
+  const lex = await import("../../packages/core/src/mask-check-lexicon.ts");
   const gold = JSON.parse(readFileSync(join(FIXTURES, "gold.json"), "utf8"));
   const report: Record<string, unknown> = {};
 

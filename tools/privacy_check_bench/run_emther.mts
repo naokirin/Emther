@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../web/src/lib/test-helpers/store-env.ts";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../../packages/core/src/test-helpers/store-env.ts";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(ROOT, "fixtures");
@@ -39,7 +39,7 @@ function score(pred: string[], gold: string[]) {
 
 const dir = setupIsolatedStoreEnv();
 try {
-  const { detectNameCandidates, detectSensitiveByRules } = await import("../../web/src/lib/mask-check.ts");
+  const { detectNameCandidates, detectSensitiveByRules } = await import("../../packages/core/src/mask-check.ts");
   const gold = JSON.parse(readFileSync(join(FIXTURES, "gold.json"), "utf8"));
   const results: Record<string, unknown> = { engine: "emther/detectNameCandidates+rules", samples: {} };
 

@@ -98,7 +98,7 @@ resolve_source_root() {
   # リポジトリの scripts/ から直接実行された場合
   local candidate
   candidate="$(cd "$SCRIPT_DIR/.." && pwd)"
-  if [[ -f "$candidate/web/package.json" ]]; then
+  if [[ -f "$candidate/apps/server/package.json" ]]; then
     echo "$candidate"
     return
   fi
@@ -222,13 +222,13 @@ is_running() {
 require_source() {
   local root
   if ! root="$(resolve_source_root)"; then
-    echo "error: ソースツリー（web/package.json）が見つかりません。" >&2
+    echo "error: ソースツリー（apps/server/package.json）が見つかりません。" >&2
     echo "       clone したリポジトリで ./scripts/emther install を実行するか、" >&2
     echo "       EM_SOURCE_ROOT を設定してください。" >&2
     exit 1
   fi
-  if [[ ! -f "$root/web/package.json" ]]; then
-    echo "error: $root/web/package.json がありません" >&2
+  if [[ ! -f "$root/apps/server/package.json" ]]; then
+    echo "error: $root/apps/server/package.json がありません" >&2
     exit 1
   fi
   echo "$root"
