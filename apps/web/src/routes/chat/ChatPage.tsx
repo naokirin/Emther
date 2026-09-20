@@ -118,7 +118,9 @@ export function ChatPage() {
   function replaceChatQuery(mutate: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams);
     mutate(params);
-    setSearchParams(params, { replace: true });
+    // 旧web/src/app/chat/page.tsxのrouter.replace(..., { scroll: false })と同じく、
+    // 履歴一覧からの選択切り替えでは画面全体のスクロール位置を動かさない。
+    setSearchParams(params, { replace: true, preventScrollReset: true });
   }
 
   function selectHistoryRun(id: string) {

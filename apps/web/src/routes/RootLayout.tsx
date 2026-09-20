@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router";
+import { Link, Outlet, ScrollRestoration } from "react-router";
 import styles from "../styles/page.module.css";
 import { LocalModelDownloadBanner } from "../components/LocalModelDownloadBanner";
 import { PersonQuickAdd } from "../components/PersonQuickAdd";
@@ -12,6 +12,13 @@ import { AppShell, TopNav } from "../components/TopNav";
 export function RootLayout() {
   return (
     <>
+      {/* Next.js版はrouter.push/<Link>のデフォルト（scroll:trueに相当）で画面遷移のたびに
+          トップへスクロールしていたが、react-routerのcreateBrowserRouterはこれを自動で
+          行わない。<ScrollRestoration />で同等の挙動（遷移時はトップへ、戻る/進むでは
+          位置を復元）を明示的に有効化する。サイドピーク開閉・相談履歴選択など「同じ画面内の
+          クエリパラメータ更新」側はuseTypedSearchParams/ChatPageのpreventScrollReset:trueで
+          個別にオプトアウトしている（旧実装のscroll:falseに対応）。 */}
+      <ScrollRestoration />
       {/* WCAG 2.2 2.4.1 Bypass Blocks対応。キーボード利用者がグローバルメニュー
           （8項目）＋グループ内タブを毎回タブ移動せずに本文へ飛べるようにする。
           通常は視覚的に隠し、フォーカス時だけ表示する。 */}

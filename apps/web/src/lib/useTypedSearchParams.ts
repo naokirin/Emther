@@ -24,6 +24,9 @@ export function useTypedSearchParams<Shape extends z.ZodRawShape>(schema: z.ZodO
   // undefinedを指定したキーは削除する（Next側の usePeekParam の close() と同じ意味）。
   // 既定でreplace: trueにしているのは、旧実装のrouter.push(..., {scroll:false})が
   // 実質「今の画面のURLを書き換えるだけ」で履歴を積み増す意図が無かったことに合わせるため。
+  // preventScrollReset: trueも同じ旧実装のscroll:falseに揃えるため常定で付与する
+  // （<ScrollRestoration />導入後、サイドピークの開閉のたびにスクロール位置が
+  // トップへ飛ぶ回帰を防ぐ）。
   const setParams = useCallback(
     (updates: ParamUpdates<Shape>, options?: { replace?: boolean }) => {
       setSearchParams(
@@ -38,7 +41,7 @@ export function useTypedSearchParams<Shape extends z.ZodRawShape>(schema: z.ZodO
           }
           return next;
         },
-        { replace: options?.replace ?? true },
+        { replace: options?.replace ?? true, preventScrollReset: true },
       );
     },
     [setSearchParams],
