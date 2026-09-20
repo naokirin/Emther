@@ -164,6 +164,36 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
     const button = screen.getByRole("button", { name: "📌 提案済み" });
     expect(button).toBeDisabled();
   });
+
+  it("reviewedがtrueなだけ（手動相談は常にtrue）では提案化済み扱いにならない", () => {
+    // 手動相談（origin: "manual"）はreviewed: trueで作られるが、それだけでは
+    // 実際に提案が作られたことを意味しない。「この相談への結論」バッジも
+    // 「提案として残す」ボタンの活性状態も、reviewedではなく実際の提案有無で判定する。
+    const reviewedButNotPromotedRun = baseRun({
+      reviewed: true,
+      proposal: {
+        conclusion: "結論です",
+        facts: [],
+        logic: "ロジック",
+        rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
+        issueCandidates: [{ title: "単一候補", rationale: "理由" }],
+      },
+    });
+
+    renderPanel(
+      <ConsultReviewPanel
+        {...defaultProps}
+        selectedRun={reviewedButNotPromotedRun}
+        issueCandidates={[{ title: "単一候補", rationale: "理由" }]}
+        issues={[]}
+      />,
+    );
+
+    expect(screen.queryByText("提案化済み")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "📌 提案として残す" })).toBeEnabled();
+  });
 });
 
 describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {

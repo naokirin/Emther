@@ -104,8 +104,7 @@ export function ConsultReviewPanel({
       ? (candidatePromotedFlags[0] ?? false)
       : existingTitles.has(fallbackTitle.trim()) ||
         existingTitles.has(truncateForTitle(fallbackTitle).trim()) ||
-        createdIssuesFromRun.length > 0 ||
-        Boolean(selectedRun.reviewed);
+        createdIssuesFromRun.length > 0;
 
   function toggleCandidate(index: number) {
     if (candidatePromotedFlags[index]) return;
@@ -504,7 +503,7 @@ export function ConsultReviewPanel({
         <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
           <strong>
             📋 この相談への結論
-            {(selectedRun.reviewed || selectedRun.triageStatus || createdIssuesFromRun.length > 0) && (
+            {(selectedRun.triageStatus || createdIssuesFromRun.length > 0) && (
               <span style={{ marginLeft: 8, color: "var(--yellow-fg)" }}>
                 [{selectedRun.triageStatus ? (selectedRun.triageStatus === "watching" ? "様子見" : "却下") : "提案化済み"}]
               </span>
