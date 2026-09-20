@@ -19,7 +19,7 @@ describe("TopNav", () => {
       "ジャーナル",
       "提案",
       "相談",
-      "振り返り",
+      "振り返り・レポート",
       "チーム・メンバー",
       "方針・目標",
       "設定",
@@ -44,9 +44,9 @@ describe("TopNav", () => {
     expect(screen.getByRole("link", { name: "今日" }).className).not.toContain("tabBtnActive");
   });
 
-  it("振り返りタブの既定先はEMの成長", () => {
+  it("振り返り・レポートタブの既定先はEMの成長", () => {
     renderAt("/", <TopNav />);
-    expect(screen.getByRole("link", { name: "振り返り" })).toHaveAttribute("href", "/growth");
+    expect(screen.getByRole("link", { name: "振り返り・レポート" })).toHaveAttribute("href", "/growth");
   });
 });
 
