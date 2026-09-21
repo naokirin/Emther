@@ -86,24 +86,20 @@ describe("theme-store", () => {
     expect(store.listCurrentThemes({ status: "adopted" })).toHaveLength(1);
   });
 
-  it("objectiveIds/keyResultIds を保持し link 更新できる", async () => {
+  it("goalIds を保持し link 更新できる", async () => {
     const store = await import("./theme-store");
     const candidate = await store.createThemeCandidate({
-      title: "OKR起点",
+      title: "Goal起点",
       summary: "要約",
       rationale: "根拠",
       facts: ["f"],
-      objectiveIds: ["obj-1"],
-      keyResultIds: ["kr-1", "kr-1"],
+      goalIds: ["goal-1", "goal-1"],
     });
-    expect(candidate.objectiveIds).toEqual(["obj-1"]);
-    expect(candidate.keyResultIds).toEqual(["kr-1"]);
+    expect(candidate.goalIds).toEqual(["goal-1"]);
 
     const linked = store.updateThemeLinks(candidate.id, {
-      objectiveIds: ["obj-2"],
-      keyResultIds: ["kr-2", "kr-3"],
+      goalIds: ["goal-2", "goal-3"],
     });
-    expect(linked?.objectiveIds).toEqual(["obj-2"]);
-    expect(linked?.keyResultIds).toEqual(["kr-2", "kr-3"]);
+    expect(linked?.goalIds).toEqual(["goal-2", "goal-3"]);
   });
 });

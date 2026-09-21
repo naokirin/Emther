@@ -79,9 +79,10 @@ export {
 export {
   buildInterventionTypeGuidance,
   buildIssueContextBlock,
-  buildObjectivesBlock,
   buildOrgBackgroundBlock,
+  buildGoalsContextBlock,
   buildOrgContextBlock,
+  buildPolicyContextBlock,
   buildRelatedContextForRun,
   buildStrategyBlock,
   buildSystemPrompt,

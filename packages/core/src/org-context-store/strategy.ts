@@ -5,8 +5,8 @@ import { maskForStorage } from "../people-directory";
 // MVV（Mission/Vision/Values）は組織全体で1つの静的な前提として保持し、
 // Agent Runtimeへ常時（Issue非依存で）注入する。空文字列は「未設定」を意味し、
 // 未設定の項目はプロンプトに含めない（他のcharter系項目と同じ扱い）。
-// OKRはdocs/memo.md「H」対応でObjective/KeyResultとして別途構造化した
-// （lib/org-context-store/objectives.ts参照）ため、ここには含まない。
+// 目標（Goal）はdocs/goal_policy_model.md対応で別エンティティとして構造化した
+// （org-context-store/goals.ts参照）ため、ここには含まない。
 export type OrgStrategy = {
   mission: string;
   vision: string;

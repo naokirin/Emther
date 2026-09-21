@@ -4,9 +4,10 @@ import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEv
 import {
   getOrgStrategy,
   getTeam,
+  listActiveGoals,
   listActiveOrgBackgrounds,
+  listActivePolicies,
   listActiveTeams,
-  listObjectives,
   type OrgBackgroundEntry,
   type Team,
 } from "../org-context-store/index";
@@ -96,6 +97,35 @@ export function buildStrategyBlock(): string {
   return ["組織のMVV（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
+// docs/goal_policy_model.md。EMとして見据えている「到達したい状態」。MVVと同じく組織全体で
+// 1つの静的な前提として常時注入する。未設定（0件）ならブロック自体を省略する。
+export function buildGoalsContextBlock(): string {
+  const goals = listActiveGoals();
+  if (goals.length === 0) return "";
+  const lines = goals.map((g) => {
+    const note = g.note?.trim() ? `\n  メモ: ${g.note}` : "";
+    const horizon = g.horizon ? `（${g.horizon === "long" ? "遠い" : g.horizon === "mid" ? "中間" : "近い"}Goal）` : "";
+    return `- ${g.title}${horizon}${note}`;
+  });
+  return [
+    "EMが見据えているGoal（絶対の前提として扱うこと。必ずしもOKRとして具体化されているとは限らない）:",
+    ...lines,
+  ].join("\n");
+}
+
+// docs/goal_policy_model.md / docs/goal_policy_model_plan.md Decision 2。Goalに向かう際に
+// EMが守りたい判断原則（大切にする／優先する／やらない／判断原則）。MVVと同じく組織全体で
+// 1つの静的な前提とし、Issue非依存で常時注入する。未設定（0件）ならブロック自体を省略する。
+export function buildPolicyContextBlock(): string {
+  const policies = listActivePolicies();
+  if (policies.length === 0) return "";
+  const lines = policies.map((p) => `- ${p.text}`);
+  return [
+    "EMの判断原則（Policy、絶対の前提として扱うこと。大切にすること・優先すること・やらないこと・判断に迷ったときの原則など）:",
+    ...lines,
+  ].join("\n");
+}
+
 /** Standing Background（tagged）が現在の手がかりにヒットするか。 */
 function backgroundMatchesContext(entry: OrgBackgroundEntry, haystack: string, issueTags: string[]): boolean {
   const lowerHay = haystack.toLowerCase();
@@ -147,36 +177,6 @@ export function buildOrgBackgroundBlock(runId?: string, rawText?: string): strin
     "組織の背景事実（Standing Background、絶対の前提として扱うこと。事実と含意を混同しないこと。含意は現時点の判断拘束であり、事実そのものの拡大解釈はしない）:",
     ...lines,
   ].join("\n");
-}
-
-// docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述のOKRだった部分を、
-// Objective/KeyResultの構造化データから組み立てる。進捗（何件完了か）はEMが画面で見る
-// ものであり、エージェントへの前提としては「今期何を目指し、何が主要な結果か」という
-// 構造だけで十分なため、ここでは件数計算はしない。
-// docs/agent_specialization.md「5.3 象限ごとの厚み」対応。同じObjectives/KRという
-// 事実は全エージェントに渡す（コアは共通のまま）が、前置き文だけを変えて
-// 「判断の主軸にすべきか、参考程度か」という重み付けの差をつける。事実そのものを
-// 隠すと判断材料が欠けるため、削るのではなく強調の度合いだけを変える。
-function objectivesBlockIntro(agentName: string): string {
-  if (agentName === "Product Agent" || agentName === "Lead Agent" || agentName === EXEC_AGENT_NAME) {
-    return "組織の今期Objective/Key Results（あなたの判断の主軸としてください。Organization Context / Strategy、絶対の前提として扱うこと）:";
-  }
-  if (agentName === "People Agent") {
-    return "組織の今期Objective/Key Results（参考情報。人物・関係性の判断を優先してください。Organization Context / Strategy）:";
-  }
-  return "組織の今期Objective/Key Results（Organization Context / Strategy、絶対の前提として扱うこと）:";
-}
-
-export function buildObjectivesBlock(agentName: string): string {
-  const objectives = listObjectives();
-  if (objectives.length === 0) return "";
-  const lines = objectives.map((o) => {
-    const krs = o.keyResults.length > 0 ? o.keyResults.map((k) => `KR: ${k.title}`).join(" / ") : "(Key Result未設定)";
-    // docs/usage_issues U18: 判断理由などの補足も絶対の前提として渡す。
-    const note = o.note?.trim() ? `\n  メモ: ${o.note}` : "";
-    return `- ${o.title} — ${krs}${note}`;
-  });
-  return [objectivesBlockIntro(agentName), ...lines].join("\n");
 }
 
 // docs/knowledge_distillation.md。採用済みテーマ解釈のみを絶対の前提として注入する。
@@ -617,8 +617,9 @@ export function buildSystemPrompt(
   const teamCharterContext = runId ? buildTeamCharterBlock(runId) : "";
   const orgContext = buildOrgContextBlock(runId, rawText);
   const strategyContext = buildStrategyBlock();
+  const policyContext = buildPolicyContextBlock();
+  const goalsContext = buildGoalsContextBlock();
   const backgroundContext = buildOrgBackgroundBlock(runId, rawText);
-  const objectivesContext = buildObjectivesBlock(agentName);
   const themesContext = buildThemesContextBlock();
   const glossaryContext = buildGlossaryContextBlock();
   // 状況蒸留・朝サマリー: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
@@ -649,8 +650,9 @@ export function buildSystemPrompt(
     journalContext,
     orgContext,
     strategyContext,
+    policyContext,
+    goalsContext,
     backgroundContext,
-    objectivesContext,
     themesContext,
     glossaryContext,
   ]

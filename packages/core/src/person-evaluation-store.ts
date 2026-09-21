@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 import { maskForStorage, unmaskNames } from "./people-directory";
-import { listObjectives, getOrgStrategy, type Objective } from "./org-context-store/index";
+import { getOrgStrategy } from "./org-context-store/index";
 import { listActiveFactsForPerson } from "./knowledge-store";
 import { cosineSimilarity, embedText } from "./embeddings";
 import { RELATED_SIMILARITY_THRESHOLD } from "./related-context";
@@ -20,8 +20,6 @@ export type PersonEvaluationLog = {
   status: EvaluationLogStatus;
   polarity: EvaluationPolarity;
   sourceJournalId: string;
-  targetObjectiveId?: string;
-  targetKeyResultId?: string;
   /** Values 参照は ID が無いため生成時点の文言スナップショット */
   valueSnapshot?: string;
   snapshotText: string;
@@ -43,8 +41,6 @@ type Row = {
   status: string;
   polarity: string;
   source_journal_id: string;
-  target_objective_id: string | null;
-  target_key_result_id: string | null;
   value_snapshot: string | null;
   snapshot_text: string;
   rationale: string;
@@ -62,8 +58,6 @@ function rowToLog(row: Row): PersonEvaluationLog {
     status: row.status as EvaluationLogStatus,
     polarity: row.polarity as EvaluationPolarity,
     sourceJournalId: row.source_journal_id,
-    targetObjectiveId: row.target_objective_id ?? undefined,
-    targetKeyResultId: row.target_key_result_id ?? undefined,
     valueSnapshot: row.value_snapshot ?? undefined,
     snapshotText: row.snapshot_text,
     rationale: row.rationale,
@@ -89,8 +83,6 @@ export async function createEvaluationLog(input: {
   lens: EvaluationLens;
   polarity?: EvaluationPolarity;
   sourceJournalId: string;
-  targetObjectiveId?: string;
-  targetKeyResultId?: string;
   valueSnapshot?: string;
   snapshotText: string;
   rationale: string;
@@ -104,8 +96,6 @@ export async function createEvaluationLog(input: {
     status: input.status ?? "provisional",
     polarity: input.polarity ?? "positive",
     sourceJournalId: input.sourceJournalId,
-    targetObjectiveId: input.targetObjectiveId,
-    targetKeyResultId: input.targetKeyResultId,
     valueSnapshot: input.valueSnapshot?.trim()
       ? await maskForStorage(input.valueSnapshot.trim())
       : undefined,
@@ -118,9 +108,8 @@ export async function createEvaluationLog(input: {
   db.prepare(
     `INSERT INTO person_evaluation_logs (
       id, person_id, lens, status, polarity, source_journal_id,
-      target_objective_id, target_key_result_id, value_snapshot,
-      snapshot_text, rationale, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      value_snapshot, snapshot_text, rationale, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     log.id,
     log.personId,
@@ -128,8 +117,6 @@ export async function createEvaluationLog(input: {
     log.status,
     log.polarity,
     log.sourceJournalId,
-    log.targetObjectiveId ?? null,
-    log.targetKeyResultId ?? null,
     log.valueSnapshot ?? null,
     log.snapshotText,
     log.rationale,
@@ -217,45 +204,6 @@ function alreadyLogged(personId: string, sourceJournalId: string, lens: Evaluati
   return !!row;
 }
 
-type ObjectiveMatch = {
-  objectiveId: string;
-  objectiveTitle: string;
-  keyResultId?: string;
-  embedding: number[];
-};
-
-/** Objective/KeyResultごとに埋め込みを作り、Factとの意味的な照合対象にする。 */
-async function buildObjectiveMatches(objectives: Objective[]): Promise<ObjectiveMatch[]> {
-  const matches: ObjectiveMatch[] = [];
-  for (const o of objectives) {
-    if (o.keyResults.length === 0) {
-      try {
-        matches.push({
-          objectiveId: o.id,
-          objectiveTitle: o.title,
-          embedding: await embedText([o.title, o.note].filter(Boolean).join(" ")),
-        });
-      } catch {
-        // 埋め込み失敗時はこのObjectiveを照合対象から外す（関連性を確認できないため）
-      }
-      continue;
-    }
-    for (const kr of o.keyResults) {
-      try {
-        matches.push({
-          objectiveId: o.id,
-          objectiveTitle: o.title,
-          keyResultId: kr.id,
-          embedding: await embedText(`${o.title} ${kr.title}`),
-        });
-      } catch {
-        // 同上
-      }
-    }
-  }
-  return matches;
-}
-
 type ValueMatch = { text: string; embedding: number[] };
 
 /** Values は複数の価値観が1つの自由記述にまとまっているため、行単位に割ってから照合する。 */
@@ -288,15 +236,14 @@ function bestMatch<T extends { embedding: number[] }>(
 }
 
 /**
- * Journal 事実から A/B 仮置きログをヒューリスティック生成。
+ * Journal 事実から Value（B）仮置きログをヒューリスティック生成。
  * AI 本格推定の置き場。断定せず rationale に根拠を残す。
  *
- * ユーザー指摘「単に紐づくものを引っ張ってくるだけになっている」対応。以前は対象の
- * Journal事実を無条件に「先頭のObjective」「Values全文」へ仮置きしていたため、実際には
- * 無関係な事実まで拾われていた。今はFactの埋め込みとObjective/KeyResult・Valuesの
- * 各項目の埋め込みを意味的に照合し、一定の類似度（RELATED_SIMILARITY_THRESHOLD、
- * 関連Issue/Journal検索と同じ基準）を超えたものだけを仮置きする。埋め込みが無いFact
- * （生成失敗）は関連性を確認できないためスキップする。
+ * Objectives機能の削除に伴い、成果・目標貢献（outcome）レンズの自動照合は撤去した
+ * （照合先が無くなったため）。outcomeログは手動でcreateEvaluationLogを呼ぶ経路のみ残る。
+ * Factの埋め込みとValuesの各項目の埋め込みを意味的に照合し、一定の類似度
+ * （RELATED_SIMILARITY_THRESHOLD、関連Issue/Journal検索と同じ基準）を超えたものだけを
+ * 仮置きする。埋め込みが無いFact（生成失敗）は関連性を確認できないためスキップする。
  */
 export async function suggestEvaluationLogsFromRecentJournals(
   personId: string,
@@ -306,7 +253,6 @@ export async function suggestEvaluationLogsFromRecentJournals(
   const limit = opts.limit ?? 20;
   const facts = listActiveFactsForPerson(personId, limit);
 
-  const objectiveMatches = await buildObjectiveMatches(listObjectives());
   const valuesText = getOrgStrategy().values?.trim() || undefined;
   const valueMatches = valuesText ? await buildValueMatches(valuesText) : [];
 
@@ -320,23 +266,6 @@ export async function suggestEvaluationLogsFromRecentJournals(
 
     const concern =
       /懸念|不安|乖離|問題|炎上|離職|バーン|遅延|対立|ミス/.test(excerpt) || fact.sentiment === "negative";
-
-    if (!alreadyLogged(personId, journalId, "outcome")) {
-      const match = bestMatch(fact.embedding, objectiveMatches);
-      if (match && match.similarity >= RELATED_SIMILARITY_THRESHOLD) {
-        const log = await createEvaluationLog({
-          personId,
-          lens: "outcome",
-          polarity: concern ? "concern" : "positive",
-          sourceJournalId: journalId,
-          targetObjectiveId: match.objectiveId,
-          targetKeyResultId: match.keyResultId,
-          snapshotText: excerpt,
-          rationale: `Journal の事実を、Objective「${match.objectiveTitle}」への貢献候補として仮置き（意味的関連度 ${match.similarity.toFixed(2)}・要レビュー）`,
-        });
-        created.push(log);
-      }
-    }
 
     if (!alreadyLogged(personId, journalId, "value")) {
       const match = bestMatch(fact.embedding, valueMatches);

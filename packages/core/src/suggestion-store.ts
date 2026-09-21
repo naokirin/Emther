@@ -34,7 +34,6 @@ export type LegacyIssueRecord = {
   focusOrder?: number;
   archived?: boolean;
   archivedAt?: number;
-  keyResultId?: string;
   themeId?: string;
   teamId?: string;
   embedding?: number[];
@@ -81,7 +80,6 @@ export function migrateLegacyIssueToSuggestion(raw: LegacyIssueRecord): Suggesti
     sourceJournalId: raw.sourceJournalId,
     teamId: raw.teamId,
     themeId: raw.themeId,
-    keyResultId: raw.keyResultId,
     embedding: raw.embedding,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
@@ -236,7 +234,6 @@ export async function createSuggestion(
     agentRunId?: string;
     sourceRunId?: string;
     sourceJournalId?: string;
-    keyResultId?: string;
     themeId?: string;
     teamId?: string;
     confirmPriority?: ConfirmPriority;
@@ -248,7 +245,6 @@ export async function createSuggestion(
     agentRunId,
     sourceRunId,
     sourceJournalId,
-    keyResultId,
     themeId,
     teamId,
     confirmPriority: requestedPriority,
@@ -285,7 +281,6 @@ export async function createSuggestion(
     agentRunId,
     sourceRunId: sourceRunId ?? agentRunId,
     sourceJournalId,
-    keyResultId,
     themeId,
     teamId,
     createdAt: now,
@@ -465,18 +460,6 @@ export async function addMemo(
   } catch {
     // 通知失敗で本体更新は落とさない
   }
-  return s;
-}
-
-export function setSuggestionKeyResult(id: string, keyResultId: string | null): Suggestion | undefined {
-  const s = getSuggestion(id);
-  if (!s) return undefined;
-  const next = keyResultId ?? undefined;
-  if ((s.keyResultId ?? null) === (next ?? null)) return s;
-  s.keyResultId = next;
-  s.updatedAt = Date.now();
-  persist();
-  recordChangeEvent("suggestion", s.id, next ? "Key Resultに紐付けました" : "Key Resultの紐付けを解除しました");
   return s;
 }
 

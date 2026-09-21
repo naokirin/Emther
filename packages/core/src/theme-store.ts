@@ -20,9 +20,8 @@ export type OrgTheme = {
   suggestedDirection?: string;
   evidenceJournalIds: string[];
   evidenceIssueIds: string[];
-  // docs/value_hierarchy_and_flow.md §2。実行時の焦点は OrgTheme。OKR への明示リンク。
-  objectiveIds: string[];
-  keyResultIds: string[];
+  // Goalへの明示リンク。既存データは未設定＝空配列として読み込む。
+  goalIds?: string[];
   status: ThemeStatus;
   sourceRunId?: string;
   teamId?: string;
@@ -41,8 +40,7 @@ export type SuggestedTheme = {
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
   evidenceIssueIds?: string[];
-  objectiveIds?: string[];
-  keyResultIds?: string[];
+  goalIds?: string[];
 };
 
 function normalizeIdList(ids: string[] | undefined): string[] {
@@ -56,8 +54,7 @@ function normalizeTheme(raw: OrgTheme & { embedding?: number[] }): OrgTheme {
   void _unused;
   return {
     ...rest,
-    objectiveIds: normalizeIdList(rest.objectiveIds),
-    keyResultIds: normalizeIdList(rest.keyResultIds),
+    goalIds: normalizeIdList(rest.goalIds),
     evidenceJournalIds: rest.evidenceJournalIds ?? [],
     evidenceIssueIds: rest.evidenceIssueIds ?? [],
     facts: rest.facts ?? [],
@@ -152,8 +149,7 @@ export async function createTheme(
     facts: masked.facts.filter(Boolean),
     evidenceJournalIds: input.evidenceJournalIds ?? [],
     evidenceIssueIds: input.evidenceIssueIds ?? [],
-    objectiveIds: normalizeIdList(input.objectiveIds),
-    keyResultIds: normalizeIdList(input.keyResultIds),
+    goalIds: normalizeIdList(input.goalIds),
     status,
     sourceRunId: input.sourceRunId,
     teamId: input.teamId,
@@ -166,12 +162,11 @@ export async function createTheme(
   return theme;
 }
 
-/** OKR / 証拠リンクなど、テキスト以外の構造フィールドを更新する。 */
+/** Goal / 証拠リンクなど、テキスト以外の構造フィールドを更新する。 */
 export function updateThemeLinks(
   id: string,
   patch: {
-    objectiveIds?: string[] | null;
-    keyResultIds?: string[] | null;
+    goalIds?: string[] | null;
     evidenceJournalIds?: string[];
     evidenceIssueIds?: string[];
     teamId?: string | null;
@@ -179,11 +174,8 @@ export function updateThemeLinks(
 ): OrgTheme | undefined {
   const theme = getTheme(id);
   if (!theme) return undefined;
-  if (patch.objectiveIds !== undefined) {
-    theme.objectiveIds = patch.objectiveIds === null ? [] : normalizeIdList(patch.objectiveIds);
-  }
-  if (patch.keyResultIds !== undefined) {
-    theme.keyResultIds = patch.keyResultIds === null ? [] : normalizeIdList(patch.keyResultIds);
+  if (patch.goalIds !== undefined) {
+    theme.goalIds = patch.goalIds === null ? [] : normalizeIdList(patch.goalIds);
   }
   if (patch.evidenceJournalIds !== undefined) {
     theme.evidenceJournalIds = normalizeIdList(patch.evidenceJournalIds);

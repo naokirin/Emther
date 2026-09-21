@@ -10,7 +10,6 @@ import {
   refreshSuggestionEmbedding,
   setConfirmPriority,
   setReviewStatus,
-  setSuggestionKeyResult,
   setSuggestionTeam,
   setSuggestionTheme,
   setSuggestionTitle,
@@ -65,7 +64,6 @@ export function suggestionToLegacyIssue(s: Suggestion): Issue {
     archivedAt: s.archivedAt ?? (done ? s.reviewedAt : undefined),
     doneAt: done ? s.reviewedAt : undefined,
     tags: [],
-    keyResultId: s.keyResultId,
     themeId: s.themeId,
     teamId: s.teamId,
     embedding: s.embedding,
@@ -128,7 +126,6 @@ export async function createIssue(
   _charter?: Partial<IssueCharter>,
   parentId?: string,
   tags?: string[],
-  keyResultId?: string,
   teamId?: string,
   opts: MaskOptions & {
     priority?: IssuePriority;
@@ -146,7 +143,6 @@ export async function createIssue(
     agentRunId,
     sourceRunId: opts.sourceRunId,
     sourceJournalId: opts.sourceJournalId,
-    keyResultId,
     themeId: opts.themeId,
     teamId,
     confirmPriority: opts.priority as ConfirmPriority | undefined,
@@ -228,11 +224,6 @@ export function moveFocusIssue(issueId: string, direction: "up" | "down"): Issue
 
 export function setIssueArchived(issueId: string, archived: boolean): Issue | undefined {
   const s = setReviewStatus(issueId, archived ? "done" : "unreviewed");
-  return s ? suggestionToLegacyIssue(s) : undefined;
-}
-
-export function setIssueKeyResult(issueId: string, keyResultId: string | null): Issue | undefined {
-  const s = setSuggestionKeyResult(issueId, keyResultId);
   return s ? suggestionToLegacyIssue(s) : undefined;
 }
 

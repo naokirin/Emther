@@ -234,6 +234,8 @@ function migrate(database: DatabaseSync): void {
       status TEXT NOT NULL,
       polarity TEXT NOT NULL,
       source_journal_id TEXT NOT NULL,
+      -- target_objective_id/target_key_result_idはObjectives機能の削除に伴いアプリ側で
+      -- 未使用（既存DBとの互換のため列自体は残す。DROP COLUMNのマイグレーションはしない）。
       target_objective_id TEXT,
       target_key_result_id TEXT,
       value_snapshot TEXT,

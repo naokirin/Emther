@@ -160,7 +160,7 @@ describe("computeOrgVitals", () => {
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("Aさんが好調");
     await journalStore.addJournalEntry("Aさんがまた好調");
-    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueStatus(issue.id, "blocked");
 
     const result = vitals.computeOrgVitals();
@@ -174,7 +174,7 @@ describe("computeOrgVitals", () => {
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative",  };
     await journalStore.addJournalEntry("Aさんが不満");
     await journalStore.addJournalEntry("Aさんがまた不満");
-    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueStatus(issue.id, "blocked");
 
     const result = vitals.computeOrgVitals();
@@ -184,7 +184,7 @@ describe("computeOrgVitals", () => {
   it("アーカイブ済みのブロッカーIssueは無視する", async () => {
     const { vitals, orgStore, issueStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueStatus(issue.id, "blocked");
     issueStore.setIssueArchived(issue.id, true);
 
@@ -239,7 +239,7 @@ describe("computeIssueImpact", () => {
   it("チームにメンバーが居なくてもImpact構造を返す（明示紐付けJournal用・方針A）", async () => {
     const { vitals, issueStore, orgStore } = await loadModules();
     const team = orgStore.addTeam("Team A", []);
-    const issue = await issueStore.createIssue("Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("Issue", undefined, undefined, undefined, undefined, team.id);
     const impact = vitals.computeIssueImpact(issue);
     expect(impact).toBeDefined();
     expect(impact?.inProgress).toBe(true);
@@ -249,7 +249,7 @@ describe("computeIssueImpact", () => {
   it("メンバー無しでも明示teamIdsのJournalは介入効果に含まれる", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("コアチーム", []);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("コアチームの雰囲気が改善した");
     const impact = vitals.computeIssueImpact(issue);
@@ -259,7 +259,7 @@ describe("computeIssueImpact", () => {
   it("未完了のIssueはinProgress:trueで、Issue作成〜現在を観測窓にする", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
 
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("介入後の様子");
@@ -272,7 +272,7 @@ describe("computeIssueImpact", () => {
   it("アーカイブ（確認済み）は完了扱いの効果窓になる", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueArchived(issue.id, true);
 
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
@@ -287,7 +287,7 @@ describe("computeIssueImpact", () => {
   it("status=doneのIssueはinProgress:falseで、doneAt以降windowDays日間を観測窓にする", async () => {
     const { vitals, issueStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, undefined, team.id);
+    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
     issueStore.setIssueStatus(issue.id, "done");
 
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };

@@ -813,7 +813,7 @@ describe("buildOrgContextBlock", () => {
   });
 });
 
-describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", () => {
+describe("buildStrategyBlock / buildOrgBackgroundBlock", () => {
   it("MVVが未設定なら空文字列", async () => {
     const rt = await loadModule();
     expect(rt.buildStrategyBlock()).toBe("");
@@ -826,26 +826,6 @@ describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", 
     const block = rt.buildStrategyBlock();
     expect(block).toContain("Mission: 顧客に価値を届ける");
     expect(block).not.toContain("Vision:");
-  });
-
-  it("Objectiveが無ければ空文字列", async () => {
-    const rt = await loadModule();
-    expect(rt.buildObjectivesBlock("Lead Agent")).toBe("");
-  });
-
-  it("Product/Lead Agentには『判断の主軸』という強調文言になる", async () => {
-    const orgStore = await import("./org-context-store/index");
-    await orgStore.addObjective("売上を伸ばす");
-    const rt = await loadModule();
-    expect(rt.buildObjectivesBlock("Lead Agent")).toContain("判断の主軸としてください");
-    expect(rt.buildObjectivesBlock("People Agent")).toContain("参考情報");
-  });
-
-  it("Objectiveのメモをブロックに含める", async () => {
-    const orgStore = await import("./org-context-store/index");
-    await orgStore.addObjective("売上を伸ばす", undefined, "四半期重点");
-    const rt = await loadModule();
-    expect(rt.buildObjectivesBlock("Lead Agent")).toContain("メモ: 四半期重点");
   });
 
   it("Standing Backgroundのalwaysは常に含み、taggedは手がかりがあるときだけ", async () => {
@@ -889,6 +869,52 @@ describe("buildStrategyBlock / buildObjectivesBlock / buildOrgBackgroundBlock", 
   });
 });
 
+describe("buildPolicyContextBlock", () => {
+  it("Policyが無ければ空文字列", async () => {
+    const rt = await loadModule();
+    expect(rt.buildPolicyContextBlock()).toBe("");
+  });
+
+  it("登録済みPolicyを絶対の前提として含める", async () => {
+    const orgStore = await import("./org-context-store/index");
+    await orgStore.addPolicy({ text: "現場の裁量を優先する", category: "priority" });
+    const rt = await loadModule();
+    expect(rt.buildPolicyContextBlock()).toContain("現場の裁量を優先する");
+  });
+
+  it("アーカイブ済みPolicyは注入しない", async () => {
+    const orgStore = await import("./org-context-store/index");
+    const entry = await orgStore.addPolicy({ text: "もう使わない方針" });
+    await orgStore.updatePolicy(entry.id, { archivedAt: Date.now() });
+    const rt = await loadModule();
+    expect(rt.buildPolicyContextBlock()).toBe("");
+  });
+});
+
+describe("buildGoalsContextBlock", () => {
+  it("Goalが無ければ空文字列", async () => {
+    const rt = await loadModule();
+    expect(rt.buildGoalsContextBlock()).toBe("");
+  });
+
+  it("登録済みGoalを絶対の前提として含める", async () => {
+    const orgStore = await import("./org-context-store/index");
+    await orgStore.addGoal({ title: "チームの自律性を高めたい", horizon: "mid" });
+    const rt = await loadModule();
+    const block = rt.buildGoalsContextBlock();
+    expect(block).toContain("チームの自律性を高めたい");
+    expect(block).toContain("中間Goal");
+  });
+
+  it("達成済み・断念済みGoalは注入しない", async () => {
+    const orgStore = await import("./org-context-store/index");
+    const goal = await orgStore.addGoal({ title: "もう終わったGoal" });
+    await orgStore.updateGoal(goal.id, { status: "achieved" });
+    const rt = await loadModule();
+    expect(rt.buildGoalsContextBlock()).toBe("");
+  });
+});
+
 describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionTypeGuidance", () => {
   it("runIdに紐づくIssueが無ければ空文字列", async () => {
     const rt = await loadModule();
@@ -925,7 +951,7 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
     const orgStore = await import("./org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     await orgStore.updateTeam(team.id, { mission: "価値を届ける", constraints: "予算内で行う" });
-    await issueStore.createIssue("Issue", "run-1", undefined, undefined, undefined, undefined, team.id);
+    await issueStore.createIssue("Issue", "run-1", undefined, undefined, undefined, team.id);
     const rt = await loadModule();
     const block = rt.buildTeamCharterBlock("run-1");
     expect(block).toContain("Mission: 価値を届ける");

@@ -60,13 +60,13 @@ describe("listTimelineEntries", () => {
     expect(entry?.entityLabel).toBe("Team A");
   });
 
-  it("Objectiveの変更イベントは/org?objective= へのリンクになる", async () => {
+  it("Goalの変更イベントは/orgへのリンクになる", async () => {
     const { timeline, orgStore } = await loadModules();
-    const objective = await orgStore.addObjective("売上を伸ばす");
+    const goal = await orgStore.addGoal({ title: "売上を伸ばす" });
     const entries = timeline.listTimelineEntries();
-    const entry = entries.find((e) => e.entityId === objective.id);
+    const entry = entries.find((e) => e.entityId === goal.id);
     expect(entry?.entityType).toBe("org");
-    expect(entry?.href).toBe(`/org?objective=${encodeURIComponent(objective.id)}`);
+    expect(entry?.href).toBe("/org");
     expect(entry?.entityLabel).toBe("売上を伸ばす");
   });
 

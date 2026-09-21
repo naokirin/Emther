@@ -553,7 +553,7 @@ export function listEventsForEntity(entityType: KnowledgeEntityType, entityId: s
 }
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。特定のentityに絞らず、
-// Issue/Team/Objectiveの変更（recordChangeEventで記録されるkind:"fact" context:"official"）
+// Issue/Team/Goalの変更（recordChangeEventで記録されるkind:"fact" context:"official"）
 // を横断的に新しい順で返す。Journal（context:"observation"）は含めない
 // （「組織の状態がどう変わったか」の物語であり、日々の所感・出来事のログとは別軸）。
 export function listRecentChangeEvents(limit = 100): KnowledgeEvent[] {

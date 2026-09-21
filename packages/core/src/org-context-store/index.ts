@@ -2,9 +2,8 @@
 // シグネチャを維持する（呼び出し側は "@core/org-context-store" というパスaliasを使っており、
 // ディレクトリ化してもこのパスは解決されるため変更不要）。
 //
-// Team/Strategy/Objectives・KeyResults/Standing Backgroundという4つの独立したサブドメインの
-// 寄せ集めだったため、それぞれ別ファイルへ分割した。互いに依存し合っていないので
-// 循環参照は発生しない。
+// Team/Strategy/Standing Backgroundという独立したサブドメインの寄せ集めだったため、
+// それぞれ別ファイルへ分割した。互いに依存し合っていないので循環参照は発生しない。
 
 export type { Team, TeamCharter } from "./teams";
 export {
@@ -26,20 +25,6 @@ export {
 export type { OrgStrategy } from "./strategy";
 export { getOrgStrategy, updateOrgStrategy } from "./strategy";
 
-export type { KeyResult, Objective, ObjectiveImportDraft } from "./objectives";
-export {
-  addKeyResult,
-  addObjective,
-  getObjective,
-  importObjectives,
-  listObjectives,
-  removeKeyResult,
-  removeObjective,
-  toObjectiveView,
-  updateKeyResult,
-  updateObjective,
-} from "./objectives";
-
 export type { NewOrgBackgroundInput, OrgBackgroundEntry, OrgBackgroundScope, OrgBackgroundStatus } from "./backgrounds";
 export {
   addOrgBackground,
@@ -50,3 +35,17 @@ export {
   toOrgBackgroundView,
   updateOrgBackground,
 } from "./backgrounds";
+
+export type { Goal, GoalHorizon, GoalStatus } from "./goals";
+export { addGoal, getGoal, listActiveGoals, listGoals, removeGoal, toGoalView, updateGoal } from "./goals";
+
+export type { NewPolicyInput, PolicyCategory, PolicyEntry } from "./policies";
+export {
+  addPolicy,
+  getPolicy,
+  listActivePolicies,
+  listPolicies,
+  removePolicy,
+  toPolicyView,
+  updatePolicy,
+} from "./policies";

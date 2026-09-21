@@ -186,44 +186,47 @@ export type OrgBackgroundEntry = {
   updatedAt: number;
 };
 
-// docs/memo.md「H. 戦略→Issue→結果の一本線」対応。以前は自由記述1本の`okr`文字列だった
-// OKRを、Objective（目標）ごとにKeyResult（主要な結果）を持つ最小構造に置き換える。
-// 進捗は手動入力ではなく、KeyResultへ紐付いたIssueのうち active（!archived）の
-// status=done 件数から機械的に出す（docs/issue_tracker_contract.md §4）。
-export type KeyResult = {
+// docs/goal_policy_model.md / docs/goal_policy_model_plan.md Decision 2。Goalに向かう際に
+// 守りたい判断原則（大切にすること／優先すること／やらないこと／判断に迷ったときの原則、など）。
+// MVVのような固定欄にはせず、OrgBackgroundEntryに近い自由記述の複数エントリにする。
+// categoryは分類のヒントであり必須ではない（方針4「入力項目を埋めることを目的にしない」）。
+export type PolicyCategory = "value" | "priority" | "avoid" | "principle" | "other";
+
+export type PolicyEntry = {
   id: string;
-  title: string;
+  text: string;
+  category?: PolicyCategory;
+  createdAt: number;
+  updatedAt: number;
+  archivedAt?: number;
 };
 
-export type Objective = {
+// docs/goal_policy_model.md / docs/goal_policy_model_plan.md。EMとして見据えている
+// 「到達したい状態」。SMARTである必要はなく、曖昧な段階から登録してよい。
+export type GoalHorizon = "long" | "mid" | "near";
+export type GoalStatus = "active" | "achieved" | "abandoned";
+
+export type Goal = {
   id: string;
   title: string;
-  // docs/usage_issues U18: 判断理由などの補足。未設定時は省略。
   note?: string;
-  // ユーザー要望「目標のカスケーディング構成」対応。未指定＝組織全体のトップレベル目標、
-  // 指定時はそのチーム自身の目標（＝上位の組織目標を達成するための下位目標）。
   teamId?: string;
-  keyResults: KeyResult[];
+  horizon?: GoalHorizon;
+  status: GoalStatus;
   createdAt: number;
   updatedAt: number;
 };
 
-/** OKRテキスト取り込み（U18）のプレビュー／一括保存用ドラフト。 */
-export type ObjectiveImportDraft = {
-  title: string;
-  note?: string;
-  keyResults: string[];
-};
+// Theme(採用済み)へのGoal紐づけAI提案。HITLパターン（永続化はしない。採用は既存PATCH経由）。
+export type GoalLinkSourceKind = "theme";
 
-// docs/2nd_pivot_version.md Phase 6対応。doneはstatus=doneの集計だったが、対応する書き込み
-// 経路が無くなり常に0になるバグだったため撤去した（objective-progress.tsの型定義と同期）。
-export type KeyResultProgress = {
-  keyResultId: string;
-  total: number;
-};
-
-export type ObjectiveWithProgress = Objective & {
-  progress: KeyResultProgress[];
+export type GoalLinkSuggestion = {
+  sourceKind: GoalLinkSourceKind;
+  sourceId: string;
+  sourceTitle: string;
+  goalIds: string[];
+  rationale: string;
+  labels: { goals: string[] };
 };
 
 // ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
@@ -473,7 +476,6 @@ export type Suggestion = {
   sourceJournalId?: string;
   teamId?: string;
   themeId?: string;
-  keyResultId?: string;
   embedding?: number[];
   createdAt: number;
   updatedAt: number;
@@ -500,8 +502,8 @@ export function isSuggestionReviewOverdue(
   return isSuggestionOpen(s) && s.reviewDueAt !== undefined && s.reviewDueAt < now;
 }
 
-export function isSuggestionStrategyUnlinked(s: Pick<Suggestion, "themeId" | "keyResultId">): boolean {
-  return !s.themeId && !s.keyResultId;
+export function isSuggestionStrategyUnlinked(s: Pick<Suggestion, "themeId">): boolean {
+  return !s.themeId;
 }
 
 /** 未確認・確認保留のまま長く動いていない提案。 */
@@ -650,9 +652,6 @@ export type Issue = {
   // docs/issue_tracker_contract.md §3／案α。status=done になった時刻。介入効果の起点。
   doneAt?: number;
   tags: string[];
-  // docs/memo.md「H. 戦略→Issue→結果の一本線」対応。このIssueがどのKey Resultに
-  // 貢献するかの紐付け（任意）。
-  keyResultId?: string;
   // docs/value_hierarchy_and_flow.md §2。採用済みテーマへの任意リンク（EM介入線）。
   themeId?: string;
   // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
@@ -664,9 +663,9 @@ export type Issue = {
   updatedAt: number;
 };
 
-/** 戦略線（テーマ / KR）に未接続か。警告表示用。必須ではない。 */
-export function isIssueStrategyUnlinked(issue: Pick<Issue, "themeId" | "keyResultId">): boolean {
-  return !issue.themeId && !issue.keyResultId;
+/** 戦略線（テーマ）に未接続か。警告表示用。必須ではない。 */
+export function isIssueStrategyUnlinked(issue: Pick<Issue, "themeId">): boolean {
+  return !issue.themeId;
 }
 
 // 一覧・Dashboard横断の並び: focus（focusOrder）→ normal（更新新しい順）→ parked。
@@ -933,8 +932,6 @@ export type PersonEvaluationLog = {
   status: EvaluationLogStatus;
   polarity: EvaluationPolarity;
   sourceJournalId: string;
-  targetObjectiveId?: string;
-  targetKeyResultId?: string;
   valueSnapshot?: string;
   snapshotText: string;
   rationale: string;
@@ -958,9 +955,8 @@ export type OrgTheme = {
   suggestedDirection?: string;
   evidenceJournalIds: string[];
   evidenceIssueIds: string[];
-  // docs/value_hierarchy_and_flow.md §2。OKR への明示リンク。
-  objectiveIds: string[];
-  keyResultIds: string[];
+  // Goalへの明示リンク。
+  goalIds?: string[];
   status: ThemeStatus;
   sourceRunId?: string;
   teamId?: string;
@@ -969,31 +965,18 @@ export type OrgTheme = {
   adoptedAt?: number;
 };
 
-/** 採用テーマが Objective / KR に未リンクか。警告表示用。 */
-export function isThemeOkrUnlinked(
-  theme: Pick<OrgTheme, "status" | "objectiveIds" | "keyResultIds">,
-): boolean {
-  return theme.status === "adopted" && !(theme.objectiveIds.length || theme.keyResultIds.length);
+/** 採用テーマがGoalに未リンクか。警告表示用。 */
+export function isThemeGoalUnlinked(theme: Pick<OrgTheme, "status" | "goalIds">): boolean {
+  return theme.status === "adopted" && !(theme.goalIds?.length);
 }
-
-/** POST /api/themes/link/suggest の1件。HITL 用（未適用）。 */
-export type ThemeOkrLinkSuggestion = {
-  themeId: string;
-  themeTitle: string;
-  objectiveIds: string[];
-  keyResultIds: string[];
-  rationale: string;
-  labels: { objectives: string[]; keyResults: string[] };
-};
 
 /** POST /api/issues/link/suggest の1件。HITL 用（未適用）。 */
 export type IssueStrategyLinkSuggestion = {
   issueId: string;
   issueTitle: string;
   themeId: string | null;
-  keyResultId: string | null;
   rationale: string;
-  labels: { theme?: string; keyResult?: string };
+  labels: { theme?: string };
 };
 
 export type SuggestedTheme = {
@@ -1005,8 +988,7 @@ export type SuggestedTheme = {
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
   evidenceIssueIds?: string[];
-  objectiveIds?: string[];
-  keyResultIds?: string[];
+  goalIds?: string[];
 };
 
 // docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。

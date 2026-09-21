@@ -41,7 +41,6 @@ describe("person-evaluation-store", () => {
       sourceJournalId: "j1",
       snapshotText: "リリースを主導した",
       rationale: "KR達成への寄与候補",
-      targetObjectiveId: "obj-1",
     });
     expect(log.status).toBe("provisional");
     expect(store.listEvaluationLogsForPerson("PERSON_1")).toHaveLength(1);
@@ -68,26 +67,13 @@ describe("person-evaluation-store", () => {
     expect(bundle.missing).toContain("Value 体現ログが不足");
   });
 
-  it("suggest-from-journalは意味的に関連するFactだけを仮置きする", async () => {
+  it("suggest-from-journalは意味的に関連するFactだけを仮置きする（Objectives削除に伴いvalueレンズのみ自動照合）", async () => {
     const store = await import("./person-evaluation-store");
     const { recordEvent } = await import("./knowledge-store");
-    const { addObjective } = await import("./org-context-store/index");
     const { updateOrgStrategy } = await import("./org-context-store/index");
 
-    const objective = await addObjective("TOPIC_A の目標");
     await updateOrgStrategy({ values: "TOPIC_B というValue" });
 
-    // Objectiveに関連するFact
-    recordEvent({
-      kind: "fact",
-      context: "observation",
-      entityType: "journal",
-      people: ["PERSON_1"],
-      text: "TOPIC_A に取り組んだ",
-      tags: [],
-      occurredAt: Date.now(),
-      embedding: [1, 0, 0],
-    });
     // Valueに関連するFact
     recordEvent({
       kind: "fact",
@@ -99,7 +85,7 @@ describe("person-evaluation-store", () => {
       occurredAt: Date.now(),
       embedding: [0, 1, 0],
     });
-    // どちらにも意味的に無関係なFact
+    // Valueに無関係なFact
     recordEvent({
       kind: "fact",
       context: "observation",
@@ -115,12 +101,12 @@ describe("person-evaluation-store", () => {
 
     const outcomeLogs = created.filter((l) => l.lens === "outcome");
     const valueLogs = created.filter((l) => l.lens === "value");
-    expect(outcomeLogs).toHaveLength(1);
-    expect(outcomeLogs[0].targetObjectiveId).toBe(objective.id);
+    // outcomeレンズの自動照合は撤去済み（照合先のObjectivesが無い）。
+    expect(outcomeLogs).toHaveLength(0);
     expect(valueLogs).toHaveLength(1);
     expect(valueLogs[0].valueSnapshot).toBe("TOPIC_B というValue");
-    // 無関係なFactからはA/Bどちらも仮置きされない
-    expect(created).toHaveLength(2);
+    // 無関係なFactからは仮置きされない
+    expect(created).toHaveLength(1);
   });
 
   it("懸念(polarity: concern)を確認済み（対応不要）にでき、取り消せる", async () => {
@@ -147,9 +133,8 @@ describe("person-evaluation-store", () => {
   it("suggest-from-journalは埋め込みの無いFactを仮置きしない（関連性を確認できないため）", async () => {
     const store = await import("./person-evaluation-store");
     const { recordEvent } = await import("./knowledge-store");
-    const { addObjective, updateOrgStrategy } = await import("./org-context-store/index");
+    const { updateOrgStrategy } = await import("./org-context-store/index");
 
-    await addObjective("TOPIC_A の目標");
     await updateOrgStrategy({ values: "TOPIC_B というValue" });
 
     recordEvent({

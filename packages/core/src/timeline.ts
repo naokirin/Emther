@@ -2,15 +2,15 @@ import { listRecentChangeEvents, toEventView, type KnowledgeEntityType } from ".
 import { getIssue, toIssueView } from "./issue-store";
 import {
   getTeam,
-  getObjective,
+  getGoal,
   getOrgBackground,
-  toObjectiveView,
+  toGoalView,
   toOrgBackgroundView,
 } from "./org-context-store/index";
 import { teamDisplayName } from "./types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しいエンティティやデータモデルは
-// 増やさず、既存のKnowledgeEvent（変更履歴）をIssue/Team/Objective横断で1本の
+// 増やさず、既存のKnowledgeEvent（変更履歴）をIssue/Team/Goal横断で1本の
 // タイムラインとして見せるだけの集約レイヤー（people-hub.tsと同じ考え方）。
 
 export type TimelineEntry = {
@@ -20,8 +20,7 @@ export type TimelineEntry = {
   // このイベントが指すエンティティの現在の表示名。エンティティが削除済みの場合はundefined
   // （呼び出し側は「(削除済み)」等で扱う）。
   entityLabel?: string;
-  // IssueはentityIdへ直接リンクできる。Objectiveは /org?objective= で選択状態を開く。
-  // Teamは /teams?focus= へ（方針・目標ではなくチーム管理側）。
+  // IssueはentityIdへ直接リンクできる。Teamは /teams?focus= へ（方針・目標ではなくチーム管理側）。
   href?: string;
   text: string;
   occurredAt: number;
@@ -50,9 +49,9 @@ function resolveEntity(entityType: KnowledgeEntityType, entityId: string): { lab
     return team ? { label: teamDisplayName(team.name), href: `/teams?focus=${encodeURIComponent(team.id)}` } : {};
   }
   if (entityType === "org") {
-    const objective = getObjective(entityId);
-    if (objective) {
-      return { label: toObjectiveView(objective).title, href: `/org?objective=${encodeURIComponent(objective.id)}` };
+    const goal = getGoal(entityId);
+    if (goal) {
+      return { label: toGoalView(goal).title, href: "/org" };
     }
     const background = getOrgBackground(entityId);
     if (background) return { label: toOrgBackgroundView(background).title, href: "/org" };

@@ -61,7 +61,6 @@ export type Issue = {
   archivedAt?: number;
   doneAt?: number;
   tags: string[];
-  keyResultId?: string;
   themeId?: string;
   teamId?: string;
   triage?: IssueTriageScores;
