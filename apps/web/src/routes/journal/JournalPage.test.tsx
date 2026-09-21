@@ -84,4 +84,48 @@ describe("JournalPage", () => {
     render(<JournalPage />, { wrapper: createWrapper() });
     expect(await screen.findByText("条件に一致するJournalはありません。")).toBeInTheDocument();
   });
+
+  it("?focus= 指定時は対象Journalへ scrollIntoView する", async () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    const focusEntry = { ...ENTRY, id: "focus-me", rawText: "フォーカス対象のメモ" };
+    const otherEntry = { ...ENTRY, id: "other", rawText: "別のメモ" };
+
+    fetchMock = vi.fn(async (url: string) => {
+      if (url.startsWith("/api/journal/search")) {
+        return {
+          ok: true,
+          json: async () => ({
+            entries: [otherEntry, focusEntry],
+            total: 2,
+            page: 1,
+            pageSize: 10,
+            facets: { tags: [], people: [] },
+          }),
+        };
+      }
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
+      if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
+      if (url === "/api/journal/dumps") return { ok: true, json: async () => ({ dumps: [] }) };
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    function FocusWrapper({ children }: { children: ReactNode }) {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return (
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/journal?focus=focus-me"]}>{children}</MemoryRouter>
+        </QueryClientProvider>
+      );
+    }
+
+    render(<JournalPage />, { wrapper: FocusWrapper });
+
+    expect(await screen.findByText("フォーカス対象のメモ")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+    });
+  });
 });

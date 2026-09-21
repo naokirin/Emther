@@ -115,9 +115,26 @@ export function JournalPage() {
   }
 
   const focusedEntryRef = useRef<HTMLDivElement | null>(null);
+  // focus適用後は queryKey から focusId が外れるため、一瞬 entries が空になり ref が
+  // 取れないことがある。また <ScrollRestoration /> は親の effect でトップへ戻すため、
+  // 子の同期的 scrollIntoView は遷移直後に上書きされうる。entries に対象が載ったあと、
+  // 親 effect より後の macrotask で一度だけスクロールする。
+  const scrolledFocusIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (appliedFocusId) focusedEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [appliedFocusId]);
+    if (!appliedFocusId || scrolledFocusIdRef.current === appliedFocusId) return;
+    if (!entries.some((e) => e.id === appliedFocusId)) return;
+
+    const timer = window.setTimeout(() => {
+      const el =
+        focusedEntryRef.current ??
+        document.querySelector<HTMLElement>(`[data-journal-id="${CSS.escape(appliedFocusId)}"]`);
+      if (!el) return;
+      // jsdom には scrollIntoView が無いため optional（Select.tsx 等と同じ）。
+      el.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      scrolledFocusIdRef.current = appliedFocusId;
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [appliedFocusId, entries]);
 
   return (
     <div className={styles.screen}>
@@ -233,7 +250,7 @@ export function JournalPage() {
           <p className={styles.subtitle}>{!searchLoaded ? "読み込み中…" : "条件に一致するJournalはありません。"}</p>
         ) : (
           entries.map((entry) => (
-            <div key={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
+            <div key={entry.id} data-journal-id={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
               <JournalEntryCard
                 entry={entry}
                 suggestions={suggestions}
