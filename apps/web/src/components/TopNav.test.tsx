@@ -44,9 +44,9 @@ describe("TopNav", () => {
     expect(screen.getByRole("link", { name: "今日" }).className).not.toContain("tabBtnActive");
   });
 
-  it("振り返り・レポートタブの既定先はEMの成長", () => {
+  it("振り返り・レポートタブの既定先は自己チェックイン", () => {
     renderAt("/", <TopNav />);
-    expect(screen.getByRole("link", { name: "振り返り・レポート" })).toHaveAttribute("href", "/growth");
+    expect(screen.getByRole("link", { name: "振り返り・レポート" })).toHaveAttribute("href", "/checkin");
   });
 });
 
@@ -64,6 +64,21 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "エージェント" }).className).toContain("subTabBtn");
     expect(screen.getByRole("link", { name: "エージェント" }).className).not.toContain("subTabBtnActive");
     expect(screen.getByText("page content")).toBeInTheDocument();
+  });
+
+  it("振り返り・レポートのサブナビは自己チェックイン／EM週次振り返り／レポート", () => {
+    renderAt(
+      "/checkin",
+      <AppShell>
+        <div>page content</div>
+      </AppShell>,
+    );
+    const subNav = screen.getByRole("navigation", { name: "振り返り・レポート" });
+    expect(subNav.className).toContain("subTabs");
+    expect(screen.getByRole("link", { name: "自己チェックイン" }).className).toContain("subTabBtnActive");
+    expect(screen.getByRole("link", { name: "EM週次振り返り" })).toHaveAttribute("href", "/growth");
+    expect(screen.getByRole("link", { name: "レポート" })).toHaveAttribute("href", "/reports");
+    expect(screen.queryByRole("link", { name: "タイムライン" })).not.toBeInTheDocument();
   });
 
   it("単一画面グループではサブナビを表示しない", () => {

@@ -21,7 +21,7 @@ export function EveningReviewCard({ checkinsLoaded, hasCheckinToday, onStart }: 
       ) : (
         !hasCheckinToday && (
           <div className={styles.charterWarnBanner}>
-            ⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス）を記録していません。
+            ⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス・心の余裕）を記録していません。
           </div>
         )
       )}

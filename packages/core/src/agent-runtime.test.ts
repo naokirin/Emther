@@ -556,7 +556,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
   it("Growの材料はEM自己申告と組織側の解釈を横断し、grow_suggestionsの出力指示を含む", async () => {
     const emSelfStore = await import("./em-self-store");
     const knowledgeStore = await import("./knowledge-store");
-    await emSelfStore.addCheckin({ mood: 2, energy: 2, stress: 4, note: "割り込みが多い" });
+    await emSelfStore.addCheckin({ mood: 2, energy: 2, stress: 4, headroom: 2, note: "割り込みが多い" });
     await emSelfStore.addReflectionNote({ type: "problem", text: "計画作業の時間が取れない" });
     knowledgeStore.recordEvent({
       kind: "interpretation",
@@ -587,7 +587,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     const pd = await import("./people-directory");
     const emSelfStore = await import("./em-self-store");
     pd.registerName("漏洩太郎");
-    await emSelfStore.addCheckin({ mood: 3, energy: 3, stress: 3, note: "漏洩太郎との1on1で気づいたこと" });
+    await emSelfStore.addCheckin({ mood: 3, energy: 3, stress: 3, headroom: 3, note: "漏洩太郎との1on1で気づいたこと" });
     const rt = await loadModule();
     const ctx = rt.buildGrowContextBlock();
     expect(ctx).not.toContain("漏洩太郎");

@@ -72,19 +72,28 @@ export type CheckinDailyPoint = {
   mood: number | null;
   energy: number | null;
   stress: number | null;
+  headroom: number | null;
   count: number;
 };
 
 // 1日に複数回チェックインした場合は平均する。記録が無い日はnull（折れ線を繋げず途切れさせる）。
+// headroomは既存JSONに無い記録があり得るため、値がある件だけ平均し、1件も無い日はnull。
 export function buildCheckinDailyTrend(checkins: EmCheckin[], window: DateWindow): CheckinDailyPoint[] {
-  const byDay = new Map<string, { mood: number; energy: number; stress: number; count: number }>();
+  const byDay = new Map<
+    string,
+    { mood: number; energy: number; stress: number; headroom: number; headroomCount: number; count: number }
+  >();
   for (const c of checkins) {
     if (c.createdAt < window.start || c.createdAt >= window.end) continue;
     const key = dateKeyOf(c.createdAt);
-    const agg = byDay.get(key) ?? { mood: 0, energy: 0, stress: 0, count: 0 };
+    const agg = byDay.get(key) ?? { mood: 0, energy: 0, stress: 0, headroom: 0, headroomCount: 0, count: 0 };
     agg.mood += c.mood;
     agg.energy += c.energy;
     agg.stress += c.stress;
+    if (typeof c.headroom === "number") {
+      agg.headroom += c.headroom;
+      agg.headroomCount += 1;
+    }
     agg.count += 1;
     byDay.set(key, agg);
   }
@@ -96,6 +105,7 @@ export function buildCheckinDailyTrend(checkins: EmCheckin[], window: DateWindow
       mood: agg ? agg.mood / agg.count : null,
       energy: agg ? agg.energy / agg.count : null,
       stress: agg ? agg.stress / agg.count : null,
+      headroom: agg && agg.headroomCount > 0 ? agg.headroom / agg.headroomCount : null,
       count: agg?.count ?? 0,
     };
   });

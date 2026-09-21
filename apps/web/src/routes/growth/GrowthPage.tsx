@@ -1,21 +1,16 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
 import { PaginationControls, usePagination } from "../../components/Pagination";
-import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "../../components/EmCheckinWidget";
-import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "../../components/DailyTrendChart";
 import { PageTitleRow } from "../../components/HelpLink";
 import { GrowSuggestionsPanel } from "../../components/growth/GrowSuggestionsPanel";
 import { ReflectionNoteForm, useReflectionNoteController } from "../../components/growth/ReflectionNoteForm";
-import { buildCheckinDailyTrend } from "@emther/core/daily-trends";
 import { reflectionNotesQueryKey } from "../../lib/queries";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
 
-// web/src/app/growth/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3、最終バッチ）。
-// stylesのimportパス・`@core/*`のbare specifier化以外はロジックを変更していないが、
-// `useReflectionNoteController`の旧`setNotes`（楽観的ローカル更新）はフェーズ3.2の方針どおり
-// `queryClient.setQueryData(reflectionNotesQueryKey, ...)`に置き換えた
-// （ReportsPage.tsxの`setReports`置き換えと同じパターン）。
+// 振り返りタブ改善案: 旧「EMの成長」のうち週次（学び・方針・KPT）だけを残す。
+// 自己チェックインは /checkin へ分離。URL /growth と /api/growth/* は維持する。
 const WEEK_GROUP_PAGE_SIZE = 4;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -58,13 +53,18 @@ function groupNotesByWeek(notes: EmReflectionNote[]): WeekGroup[] {
   return [...groups.values()].sort((a, b) => b.weekStart - a.weekStart);
 }
 
+function currentWeekLabel(): string {
+  const start = startOfWeek(Date.now());
+  const end = start + 6 * DAY_MS;
+  const fmt = (ts: number) =>
+    new Date(ts).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+  return `今週 · ${fmt(start)}–${fmt(end)}`;
+}
+
 export function GrowthPage() {
   const noteController = useReflectionNoteController();
   const { notes, notesLoaded } = noteController;
   const queryClient = useQueryClient();
-  const checkin = useEmCheckinController();
-  const checkinNav = usePeriodNavigator("week");
-  const checkinTrend = buildCheckinDailyTrend(checkin.checkins, checkinNav.window);
 
   const [policyUpdating, setPolicyUpdating] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
@@ -102,12 +102,20 @@ export function GrowthPage() {
 
   return (
     <div className={styles.screen}>
-      <PageTitleRow title="EMの成長" helpAnchor="reflection" />
+      <PageTitleRow title="EM週次振り返り" helpAnchor="reflection">
+        <span className={styles.subtitle}>{currentWeekLabel()}</span>
+      </PageTitleRow>
+      <p className={styles.subtitle} style={{ marginTop: -4 }}>
+        個人の学びとKPT。組織の全景はレポートへ。この画面で決めるのは「方針」と「学びの取捨」。
+      </p>
 
       <GrowSuggestionsPanel />
 
       <div className={styles.panel}>
-        <h2>現在の改善方針</h2>
+        <p className={styles.subtitle} style={{ margin: 0 }}>
+          いまフォーカス中
+        </p>
+        <h2 style={{ marginTop: 4 }}>現在の改善方針</h2>
         {latestTryNote ? (
           <>
             <p style={{ fontSize: "0.875rem", fontWeight: 600, margin: "4px 0" }}>{latestTryNote.text}</p>
@@ -181,33 +189,16 @@ export function GrowthPage() {
         )}
       </div>
 
-      <div className={styles.dashColumns}>
-        <div className={styles.panel}>
-          <h2>EM自身のバイタル（自己チェックイン）</h2>
-          <EmCheckinForm controller={checkin} />
-        </div>
-
-        <div className={styles.panel}>
-          <h2>振り返り（Keep / Problem / Try）</h2>
-          <ReflectionNoteForm controller={noteController} />
-        </div>
+      <div className={styles.panel}>
+        <h2>気づきメモ（Keep / Problem / Try）</h2>
+        <p className={styles.subtitle} style={{ marginTop: 0 }}>
+          スキマにひとこと。週の表は下でまとまる。
+        </p>
+        <ReflectionNoteForm controller={noteController} />
       </div>
 
       <div className={styles.panel}>
-        <h2>チェックインの推移（日次）</h2>
-        <div style={{ marginBottom: 10 }}>
-          <PeriodNavigator state={checkinNav} />
-        </div>
-        <CheckinTrendChart points={checkinTrend} />
-      </div>
-
-      <div className={styles.panel}>
-        <h2>チェックイン履歴</h2>
-        <EmCheckinHistory controller={checkin} />
-      </div>
-
-      <div className={styles.panel}>
-        <h2>週次のKPT</h2>
+        <h2>この数週のKPT</h2>
         {weekGroups.length === 0 ? (
           <p className={styles.subtitle}>
             {!notesLoaded ? "読み込み中…" : "まだ気づきメモがありません。"}
@@ -254,6 +245,16 @@ export function GrowthPage() {
           rangeEnd={weekGroupPagination.rangeEnd}
           onChange={weekGroupPagination.setPage}
         />
+      </div>
+
+      <div className={styles.panel}>
+        <h2>組織の全景はレポートで</h2>
+        <p className={styles.subtitle} style={{ marginTop: 0 }}>
+          Journal・提案・イベントの週次スナップショットとAIレビューへ
+        </p>
+        <Link to="/reports" className={styles.primaryBtn} style={{ display: "inline-block", width: "auto" }}>
+          レポートを開く →
+        </Link>
       </div>
     </div>
   );

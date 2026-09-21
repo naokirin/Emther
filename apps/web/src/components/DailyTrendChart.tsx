@@ -15,6 +15,7 @@ import {
 import { Bar, Line } from "react-chartjs-2";
 import styles from "../styles/page.module.css";
 import { periodWindow, type CheckinDailyPoint, type JournalSuggestionDailyPoint, type PeriodUnit } from "@emther/core/daily-trends";
+import { scaleLabel, toChartValue, type CheckinMetricKey } from "../lib/checkin-scale";
 
 // 改修依頼「マウスオーバーで数値を確認したい／先週・先月など時間を自由に移動したい」対応。
 // 素のSVG自作から、ホバーツールチップ・積み上げ/グループ棒を標準で持つChart.jsへ移行する
@@ -111,15 +112,16 @@ export function PeriodNavigator({ state }: { state: PeriodNavigatorState }) {
   );
 }
 
-// ---------- チェックイン（気分・エネルギー・ストレス）の折れ線 ----------
+// ---------- チェックイン（気分・エネルギー・ストレス・心の余裕）の折れ線 ----------
 
-type CheckinLineKey = "mood" | "energy" | "stress";
-// mood/stressは自己申告の良し悪しの向きそのものが既存のgreen/redの意味と一致する。
+type CheckinLineKey = CheckinMetricKey;
+// mood/headroomは良い向きがそのまま上。stressは保存値が「高い＝悪い」なので描画時に反転する。
 // energyは「操作可能な資源」に近い意味でblueを当てる。
 const CHECKIN_LINES: { key: CheckinLineKey; label: string; color: string }[] = [
   { key: "mood", label: "気分", color: CHART_COLORS.green },
   { key: "energy", label: "エネルギー", color: CHART_COLORS.blue },
   { key: "stress", label: "ストレス", color: CHART_COLORS.red },
+  { key: "headroom", label: "心の余裕", color: CHART_COLORS.gray },
 ];
 
 function checkinChartOptions(pointCount: number): ChartOptions<"line"> {
@@ -129,7 +131,19 @@ function checkinChartOptions(pointCount: number): ChartOptions<"line"> {
     interaction: { mode: "index", intersect: false },
     plugins: {
       legend: { position: "bottom", labels: LEGEND_LABEL_STYLE },
-      tooltip: { ...TOOLTIP_STYLE, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y == null ? "記録なし" : ctx.parsed.y.toFixed(1)}` } },
+      tooltip: {
+        ...TOOLTIP_STYLE,
+        callbacks: {
+          label: (ctx) => {
+            const key = CHECKIN_LINES[ctx.datasetIndex!]?.key;
+            const plotted = ctx.parsed.y;
+            if (plotted == null || key == null) return `${ctx.dataset.label}: 記録なし`;
+            // プロットは反転済み。ツールチップは保存強度の定性ラベルを出す。
+            const stored = key === "stress" ? 6 - plotted : plotted;
+            return `${ctx.dataset.label}: ${scaleLabel(stored)}`;
+          },
+        },
+      },
     },
     scales: {
       x: {
@@ -139,7 +153,15 @@ function checkinChartOptions(pointCount: number): ChartOptions<"line"> {
       y: {
         min: 1,
         max: 5,
-        ticks: { ...AXIS_TICK_STYLE, stepSize: 1 },
+        ticks: {
+          ...AXIS_TICK_STYLE,
+          stepSize: 4,
+          callback: (value) => {
+            if (value === 5) return "良い";
+            if (value === 1) return "悪い";
+            return "";
+          },
+        },
         grid: { color: CHART_COLORS.border },
       },
     },
@@ -182,15 +204,14 @@ export const jitterPointsPlugin: Plugin<"line"> = {
   },
 };
 
-// EMの成長: チェックイン（気分・エネルギー・ストレス）の日次推移。記録が無い日は
-// null（折れ線を繋げず途切れさせる）にして、「この日は記録が少ない」ことも見えるようにする。
+// 自己チェックイン: 日次推移。記録が無い日はnull。ストレスは描画時に反転して「上＝良い」に揃える。
 export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
   const hasAnyData = points.some((p) => p.count > 0);
   const data: ChartData<"line"> = {
     labels: points.map((p) => p.label),
     datasets: CHECKIN_LINES.map((series) => ({
       label: series.label,
-      data: points.map((p) => p[series.key]),
+      data: points.map((p) => toChartValue(series.key, p[series.key])),
       borderColor: series.color,
       backgroundColor: series.color,
       spanGaps: false,

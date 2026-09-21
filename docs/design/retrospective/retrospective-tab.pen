@@ -13647,7 +13647,7 @@
                   "id": "C7sj07",
                   "x": 0,
                   "y": 0,
-                  "name": "L ストレス（反転）",
+                  "name": "L ストレス",
                   "geometry": "M49.5 96l174.33333 0 174.33334 36 174.33333-36 174.33333 36 174.33334-36 174.33333-36",
                   "viewBox": [
                     0,
@@ -13887,7 +13887,7 @@
                 {
                   "type": "frame",
                   "id": "nwrr0",
-                  "name": "Lg ストレス（反転）",
+                  "name": "Lg ストレス",
                   "gap": 6,
                   "alignItems": "center",
                   "children": [
@@ -13904,7 +13904,7 @@
                       "id": "IUY7s",
                       "name": "L",
                       "fill": "$text-muted",
-                      "content": "ストレス（反転）",
+                      "content": "ストレス",
                       "fontFamily": "$font-sans",
                       "fontSize": 12,
                       "fontWeight": "normal"

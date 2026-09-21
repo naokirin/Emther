@@ -27,25 +27,26 @@ async function loadModule() {
 }
 
 describe("addCheckin", () => {
-  it("mood/energy/stressを1〜5の範囲にクランプする", async () => {
+  it("mood/energy/stress/headroomを1〜5の範囲にクランプする", async () => {
     const store = await loadModule();
-    const checkin = await store.addCheckin({ mood: 10, energy: -3, stress: 3.6, note: "" });
+    const checkin = await store.addCheckin({ mood: 10, energy: -3, stress: 3.6, headroom: 0, note: "" });
     expect(checkin.mood).toBe(5);
     expect(checkin.energy).toBe(1);
     expect(checkin.stress).toBe(4);
+    expect(checkin.headroom).toBe(1);
   });
 
   it("noteが空文字なら空のまま保存する", async () => {
     const store = await loadModule();
-    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, note: "   " });
+    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, headroom: 3, note: "   " });
     expect(checkin.note).toBe("");
   });
 
   it("listCheckinsは新しい順で返す", async () => {
     const store = await loadModule();
-    await store.addCheckin({ mood: 1, energy: 1, stress: 1, note: "1件目" });
+    await store.addCheckin({ mood: 1, energy: 1, stress: 1, headroom: 1, note: "1件目" });
     await new Promise((r) => setTimeout(r, 2));
-    await store.addCheckin({ mood: 2, energy: 2, stress: 2, note: "2件目" });
+    await store.addCheckin({ mood: 2, energy: 2, stress: 2, headroom: 2, note: "2件目" });
     const list = store.listCheckins();
     expect(list[0].note).toBe("2件目");
     expect(list[1].note).toBe("1件目");
@@ -54,7 +55,7 @@ describe("addCheckin", () => {
   it("createdAtを指定できる", async () => {
     const store = await loadModule();
     const createdAt = new Date(2026, 0, 15, 12, 0, 0, 0).getTime();
-    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, note: "前日分", createdAt });
+    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, headroom: 3, note: "前日分", createdAt });
     expect(checkin.createdAt).toBe(createdAt);
   });
 });
@@ -108,7 +109,7 @@ describe("toCheckinView / toReflectionNoteView", () => {
     const peopleDirectory = await import("./people-directory");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");
-    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, note: "Aさんとの1on1で気づいたこと" });
+    const checkin = await store.addCheckin({ mood: 3, energy: 3, stress: 3, headroom: 3, note: "Aさんとの1on1で気づいたこと" });
     expect(store.toCheckinView(checkin).note).toBe("Aさんとの1on1で気づいたこと");
 
     const note = await store.addReflectionNote({ type: "keep", text: "Aさんへのフォロー" });

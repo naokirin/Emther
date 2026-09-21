@@ -19,8 +19,14 @@ export const checkinsRoute = new Hono()
     const mood = Number(body?.mood);
     const energy = Number(body?.energy);
     const stress = Number(body?.stress);
-    if (!Number.isFinite(mood) || !Number.isFinite(energy) || !Number.isFinite(stress)) {
-      return c.json({ error: "mood/energy/stressは数値である必要があります" }, 400);
+    const headroom = Number(body?.headroom);
+    if (
+      !Number.isFinite(mood) ||
+      !Number.isFinite(energy) ||
+      !Number.isFinite(stress) ||
+      !Number.isFinite(headroom)
+    ) {
+      return c.json({ error: "mood/energy/stress/headroomは数値である必要があります" }, 400);
     }
     const note = typeof body?.note === "string" ? body.note : "";
 
@@ -34,7 +40,7 @@ export const checkinsRoute = new Hono()
       }
     }
 
-    const checkin = await addCheckin({ mood, energy, stress, note, createdAt });
+    const checkin = await addCheckin({ mood, energy, stress, headroom, note, createdAt });
     return c.json({ checkin: toCheckinView(checkin) }, 201);
   });
 

@@ -30,7 +30,9 @@ describe("EmCheckinWidget", () => {
       if (init?.method === "POST") {
         return {
           ok: true,
-          json: async () => ({ checkin: { id: "new", mood: 3, energy: 3, stress: 3, note: "", createdAt: Date.now() } }),
+          json: async () => ({
+            checkin: { id: "new", mood: 3, energy: 3, stress: 3, headroom: 3, note: "", createdAt: Date.now() },
+          }),
         };
       }
       return { ok: true, json: async () => ({ checkins: [] }) };
@@ -59,7 +61,46 @@ describe("EmCheckinWidget", () => {
         expect.objectContaining({ method: "POST" }),
       ),
     );
+    const postCall = fetchMock.mock.calls.find((c) => c[1]?.method === "POST");
+    expect(JSON.parse(String(postCall![1]?.body))).toEqual(
+      expect.objectContaining({ mood: 3, energy: 3, stress: 3, headroom: 3 }),
+    );
     expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  it("スライダーで選択し、履歴は定性ラベルで出す", async () => {
+    fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            checkin: {
+              id: "new",
+              mood: 4,
+              energy: 5,
+              stress: 2,
+              headroom: 4,
+              note: "メモ",
+              createdAt: Date.now(),
+            },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ checkins: [] }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<EmCheckinWidget />, { wrapper: createWrapper() });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "1" })).not.toBeInTheDocument();
+    const moodSlider = screen.getByRole("slider", { name: /気分/ });
+    await user.click(moodSlider);
+    moodSlider.focus();
+    await user.keyboard("{ArrowRight}");
+    await user.click(screen.getByRole("button", { name: "記録する" }));
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getAllByText("やや高").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("高")).toBeInTheDocument();
   });
 
   it("日付を変えてPOSTできる", async () => {

@@ -28,25 +28,32 @@ describe("GET /api/em-self/checkins", () => {
 });
 
 describe("POST /api/em-self/checkins", () => {
-  it("mood/energy/stressが数値でなければ400", async () => {
+  it("mood/energy/stress/headroomが数値でなければ400", async () => {
     const { checkinsRoute } = await import("./em-self");
-    const res = await checkinsRoute.request("/", post({ mood: "x", energy: 3, stress: 3 }));
+    const res = await checkinsRoute.request("/", post({ mood: "x", energy: 3, stress: 3, headroom: 3 }));
+    expect(res.status).toBe(400);
+  });
+
+  it("headroomが無ければ400", async () => {
+    const { checkinsRoute } = await import("./em-self");
+    const res = await checkinsRoute.request("/", post({ mood: 3, energy: 3, stress: 3 }));
     expect(res.status).toBe(400);
   });
 
   it("記録できる（201、範囲外の値はクランプされる）", async () => {
     const { checkinsRoute } = await import("./em-self");
-    const res = await checkinsRoute.request("/", post({ mood: 10, energy: 3, stress: -5, note: "疲れた" }));
+    const res = await checkinsRoute.request("/", post({ mood: 10, energy: 3, stress: -5, headroom: 8, note: "疲れた" }));
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.checkin.mood).toBe(5);
     expect(json.checkin.stress).toBe(1);
+    expect(json.checkin.headroom).toBe(5);
     expect(json.checkin.note).toBe("疲れた");
   });
 
   it("createdAtDateを指定すると日付レベルで記録される", async () => {
     const { checkinsRoute } = await import("./em-self");
-    const res = await checkinsRoute.request("/", post({ mood: 3, energy: 3, stress: 3, createdAtDate: "2026-01-15" }));
+    const res = await checkinsRoute.request("/", post({ mood: 3, energy: 3, stress: 3, headroom: 3, createdAtDate: "2026-01-15" }));
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.checkin.createdAt).toBe(new Date(2026, 0, 15, 12, 0, 0, 0).getTime());
@@ -54,7 +61,7 @@ describe("POST /api/em-self/checkins", () => {
 
   it("createdAtDateの形式が不正なら400", async () => {
     const { checkinsRoute } = await import("./em-self");
-    const res = await checkinsRoute.request("/", post({ mood: 3, energy: 3, stress: 3, createdAtDate: "not-a-date" }));
+    const res = await checkinsRoute.request("/", post({ mood: 3, energy: 3, stress: 3, headroom: 3, createdAtDate: "not-a-date" }));
     expect(res.status).toBe(400);
   });
 });

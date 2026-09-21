@@ -227,7 +227,7 @@ export function buildGrowContextBlock(): string {
       ? checkins.map((c) => {
           const dateLabel = new Date(c.createdAt).toLocaleDateString("ja-JP");
           const noteSuffix = c.note ? ` — ${c.note.slice(0, 80)}` : "";
-          return `- ${dateLabel}: mood=${c.mood} energy=${c.energy} stress=${c.stress}${noteSuffix}`;
+          return `- ${dateLabel}: mood=${c.mood} energy=${c.energy} stress=${c.stress}${typeof c.headroom === "number" ? ` headroom=${c.headroom}` : ""}${noteSuffix}`;
         })
       : ["- （チェックインの記録なし）"];
   const problemLines =
@@ -253,7 +253,7 @@ export function buildGrowContextBlock(): string {
       '[{ "title": "…", "rationale": "…", "evidenceSummary": "…", "references": [{ "topic": "…", "isPrimarySource": false, "note": "…", "url": "https://…" }] }]',
       "```",
       "",
-      "【EM自己申告: 直近のチェックイン（mood/energy/stress、1〜5）】",
+      "【EM自己申告: 直近のチェックイン（mood/energy/stress/headroom、1〜5。stressは高いほど悪い／headroomは高いほど余裕あり）】",
       ...checkinLines,
       "",
       "【EM自己申告: 直近のProblemメモ】",
@@ -366,7 +366,7 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
       "【EM自身の行動（チェックイン・KPTメモ、この月）】",
       checkins.length > 0
         ? checkins
-            .map((c) => `- mood=${c.mood} energy=${c.energy} stress=${c.stress}${c.note ? ` — ${c.note.slice(0, 80)}` : ""}`)
+            .map((c) => `- mood=${c.mood} energy=${c.energy} stress=${c.stress}${typeof c.headroom === "number" ? ` headroom=${c.headroom}` : ""}${c.note ? ` — ${c.note.slice(0, 80)}` : ""}`)
             .join("\n")
         : "- （チェックイン記録なし）",
       problemNotes.length > 0 ? problemNotes.map((n) => `- Problem: ${n.text.slice(0, 120)}`).join("\n") : "- （Problemメモなし）",

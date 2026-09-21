@@ -908,6 +908,8 @@ export type EmCheckin = {
   mood: number;
   energy: number;
   stress: number;
+  // 1(余裕なし)〜5(余裕あり)。既存記録には無い場合がある。
+  headroom?: number;
   note: string;
   createdAt: number;
 };

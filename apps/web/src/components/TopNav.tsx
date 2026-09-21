@@ -40,10 +40,10 @@ const STORY_GROUPS: StoryGroup[] = [
   {
     key: "reflection",
     label: "振り返り・レポート",
-    hint: "組織と自分の変化を読む（週次でよい・毎日必須ではない）",
+    hint: "日次のコンディションと週次の学び・組織の全景（毎日必須ではない）",
     items: [
-      { href: "/growth", label: "EMの成長" },
-      { href: "/timeline", label: "タイムライン" },
+      { href: "/checkin", label: "自己チェックイン" },
+      { href: "/growth", label: "EM週次振り返り" },
       { href: "/reports", label: "レポート" },
     ],
   },

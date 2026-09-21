@@ -14,7 +14,10 @@ export type EmCheckin = {
   id: string;
   mood: number; // 1(悪い)〜5(良い)
   energy: number; // 1(低い)〜5(高い)
-  stress: number; // 1(低い)〜5(高い)
+  stress: number; // 1(弱い)〜5(強い)。高いほど悪い
+  // 振り返りタブ改善案「心の余裕」。1(余裕なし)〜5(余裕あり)。
+  // 既存JSONに無い記録はundefinedのまま読み、UIは「—」・チャートはnull扱い。
+  headroom?: number;
   note: string;
   createdAt: number;
 };
@@ -73,6 +76,7 @@ export async function addCheckin(input: {
   mood: number;
   energy: number;
   stress: number;
+  headroom: number;
   note: string;
   // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
   // 省略時は Date.now()。指定時はその日の正午など呼び出し側が決めたタイムスタンプ。
@@ -83,6 +87,7 @@ export async function addCheckin(input: {
     mood: clampScale(input.mood),
     energy: clampScale(input.energy),
     stress: clampScale(input.stress),
+    headroom: clampScale(input.headroom),
     note: input.note.trim() ? await maskForStorage(input.note.trim()) : "",
     createdAt: input.createdAt ?? Date.now(),
   };

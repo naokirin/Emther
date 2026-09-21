@@ -24,18 +24,28 @@ describe("CheckinTrendChart", () => {
     expect(screen.getByText("この期間のチェックインはまだありません。")).toBeInTheDocument();
   });
 
-  it("チェックインがある期間は3系列（気分/エネルギー/ストレス）を渡す", () => {
+  it("チェックインがある期間は4系列で、ストレスは反転して渡す", () => {
     const checkins: EmCheckin[] = [
-      { id: "c1", mood: 4, energy: 3, stress: 2, note: "", createdAt: WEEK.start },
-      { id: "c2", mood: 2, energy: 2, stress: 4, note: "", createdAt: WEEK.start + 2 * DAY_MS },
+      { id: "c1", mood: 4, energy: 3, stress: 2, headroom: 4, note: "", createdAt: WEEK.start },
+      { id: "c2", mood: 2, energy: 2, stress: 4, headroom: 2, note: "", createdAt: WEEK.start + 2 * DAY_MS },
     ];
     render(<CheckinTrendChart points={buildCheckinDailyTrend(checkins, WEEK)} />);
     const chart = JSON.parse(screen.getByTestId("line-chart").getAttribute("data-chart")!) as ChartData<"line">;
     expect(chart.labels).toHaveLength(7);
-    expect(chart.datasets.map((d) => d.label)).toEqual(["気分", "エネルギー", "ストレス"]);
+    expect(chart.datasets.map((d) => d.label)).toEqual(["気分", "エネルギー", "ストレス", "心の余裕"]);
     // 記録が無い日はnull（線を途切れさせる）
     expect(chart.datasets[0]!.data).toContain(null);
     expect(chart.datasets[0]!.data[0]).toBe(4);
+    // stress=2 → チャート上は 6-2=4（上＝良い）
+    expect(chart.datasets[2]!.data[0]).toBe(4);
+    expect(chart.datasets[3]!.data[0]).toBe(4);
+  });
+
+  it("headroomが無い旧データでも落ちず、心の余裕系列はnull", () => {
+    const checkins: EmCheckin[] = [{ id: "c1", mood: 3, energy: 3, stress: 3, note: "", createdAt: WEEK.start }];
+    render(<CheckinTrendChart points={buildCheckinDailyTrend(checkins, WEEK)} />);
+    const chart = JSON.parse(screen.getByTestId("line-chart").getAttribute("data-chart")!) as ChartData<"line">;
+    expect(chart.datasets[3]!.data[0]).toBeNull();
   });
 });
 

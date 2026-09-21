@@ -7,15 +7,9 @@ import type { ReactNode } from "react";
 import { GrowthPage } from "./GrowthPage";
 
 // web/src/app/growth/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier3、最終バッチ）。EmCheckinWidget/ReflectionNoteForm/GrowSuggestionsPanel
+// （フェーズ3.5 tier3、最終バッチ）。ReflectionNoteForm/GrowSuggestionsPanel
 // 自体の詳細ロジックは個別テストで検証済みのため、ここでは「現在の改善方針」の
-// 完了/アーカイブフローに絞って検証する。jsdomはcanvasの2Dコンテキストを実装していないため
-// （DailyTrendChart.test.tsxと同じ理由）、GrowthPageが埋め込むCheckinTrendChartがクラッシュ
-// しないようreact-chartjs-2をモックする。
-vi.mock("react-chartjs-2", () => ({
-  Line: () => <div data-testid="line-chart" />,
-  Bar: () => <div data-testid="bar-chart" />,
-}));
+// 完了/アーカイブフローに絞って検証する。
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -48,7 +42,6 @@ describe("GrowthPage", () => {
         return { ok: true, json: async () => ({ note: archived }) };
       }
       if (url === "/api/em-self/reflection-notes") return { ok: true, json: async () => ({ notes }) };
-      if (url === "/api/em-self/checkins") return { ok: true, json: async () => ({ checkins: [] }) };
       if (url === "/api/growth/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
       return { ok: true, json: async () => ({}) };

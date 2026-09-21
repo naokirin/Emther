@@ -6,8 +6,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // 固定の「今日」。2026-09-13は日曜日。ローカルタイムゾーンでの日付境界ズレを避けるため正午に置く。
 const TODAY = new Date(2026, 8, 13, 12, 0, 0).getTime();
 
-function checkin(daysAgo: number, mood: number, energy: number, stress: number): EmCheckin {
-  return { id: `c-${daysAgo}-${mood}`, mood, energy, stress, note: "", createdAt: TODAY - daysAgo * DAY_MS };
+function checkin(daysAgo: number, mood: number, energy: number, stress: number, headroom?: number): EmCheckin {
+  return {
+    id: `c-${daysAgo}-${mood}`,
+    mood,
+    energy,
+    stress,
+    ...(headroom !== undefined ? { headroom } : {}),
+    note: "",
+    createdAt: TODAY - daysAgo * DAY_MS,
+  };
 }
 
 describe("periodWindow", () => {
@@ -49,20 +57,26 @@ describe("buildCheckinDailyTrend", () => {
     const window = { start: new Date(2026, 8, 11).getTime(), end: new Date(2026, 8, 14).getTime() };
     const points = buildCheckinDailyTrend([checkin(0, 4, 3, 2)], window);
     expect(points).toHaveLength(3);
-    expect(points[0]).toMatchObject({ mood: null, energy: null, stress: null, count: 0 });
+    expect(points[0]).toMatchObject({ mood: null, energy: null, stress: null, headroom: null, count: 0 });
     expect(points[1]).toMatchObject({ mood: null, count: 0 });
-    expect(points[2]).toMatchObject({ mood: 4, energy: 3, stress: 2, count: 1 });
+    expect(points[2]).toMatchObject({ mood: 4, energy: 3, stress: 2, headroom: null, count: 1 });
   });
 
   it("同じ日の複数チェックインは平均する", () => {
     const window = { start: TODAY, end: TODAY + DAY_MS };
-    const points = buildCheckinDailyTrend([checkin(0, 5, 5, 1), checkin(0, 3, 1, 3)], window);
-    expect(points[0]).toMatchObject({ mood: 4, energy: 3, stress: 2, count: 2 });
+    const points = buildCheckinDailyTrend([checkin(0, 5, 5, 1, 5), checkin(0, 3, 1, 3, 3)], window);
+    expect(points[0]).toMatchObject({ mood: 4, energy: 3, stress: 2, headroom: 4, count: 2 });
+  });
+
+  it("headroomが無い記録だけならheadroomはnull", () => {
+    const window = { start: TODAY, end: TODAY + DAY_MS };
+    const points = buildCheckinDailyTrend([checkin(0, 4, 3, 2)], window);
+    expect(points[0]).toMatchObject({ headroom: null, count: 1 });
   });
 
   it("ウィンドウ外のチェックインは数えない", () => {
     const window = { start: TODAY, end: TODAY + DAY_MS };
-    const points = buildCheckinDailyTrend([checkin(1, 5, 5, 1)], window);
+    const points = buildCheckinDailyTrend([checkin(1, 5, 5, 1, 5)], window);
     expect(points[0]).toMatchObject({ count: 0 });
   });
 });

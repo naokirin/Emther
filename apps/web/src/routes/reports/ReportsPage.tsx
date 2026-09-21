@@ -53,9 +53,9 @@ function ReportReviewSection({ reviewRun }: { reviewRun: AgentRun | undefined })
 
   return (
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--border)" }}>
-      <strong style={{ fontSize: "0.8rem" }}>AIレビュー</strong>
+      <strong style={{ fontSize: "0.9rem" }}>AIレビュー</strong>
       {reviewRun.status === "idle" && reviewRun.periodReview ? (
-        <div style={{ marginTop: 6 }}>
+        <div className={styles.reportReviewBody} style={{ marginTop: 6 }}>
           <PeriodReviewBlock review={reviewRun.periodReview} />
         </div>
       ) : reviewRun.status === "error" ? (
@@ -361,9 +361,9 @@ export function ReportsPage() {
       </div>
 
       {spotlightReport && (
-        <div className={styles.panel} ref={spotlightSectionRef}>
+        <div className={`${styles.panel} ${styles.reportReviewHero}`} ref={spotlightSectionRef}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <h2 style={{ margin: 0 }}>直近のAIレビュー</h2>
+            <h2 style={{ margin: 0, fontSize: "1.25rem" }}>直近のAIレビュー</h2>
             <div>
               <span className={styles.badge}>{REPORT_PERIOD_LABEL[spotlightReport.periodType]}</span>
               <ReviewStatusBadge reviewRun={spotlightRun} />

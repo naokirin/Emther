@@ -204,9 +204,8 @@ export function DashboardPage() {
   todayStart.setHours(0, 0, 0, 0);
   const autoRunsToday = runs.filter((r) => r.origin !== "manual" && r.createdAt >= todayStart.getTime()).length;
 
-  // 改修依頼「今日の振り返りは、今日記録されていない場合のアラート表示とEMの成長への
-  // リンクのみ置く」対応。入力フォーム自体はここには置かず、未記録のときだけ気づかせて
-  // /growthへ誘導する（記録は/growthに一本化）。
+  // 改修依頼「今日の振り返りは、今日記録されていない場合のアラート表示」対応。
+  // 入力フォーム自体はここには置かず、未記録のときだけ気づかせて /evening-review → /checkin へ誘導する。
   const hasCheckinToday = checkins.some((c) => c.createdAt >= todayStart.getTime());
 
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが

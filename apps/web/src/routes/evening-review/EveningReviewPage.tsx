@@ -54,8 +54,11 @@ export function EveningReviewPage() {
           <>
             <p>お疲れさまでした。今日の締めくくりが完了しました。</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-              <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={() => navigate("/growth")}>
-                成長ページで確認する
+              <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={() => navigate("/checkin")}>
+                自己チェックインを確認する
+              </button>
+              <button className={styles.btnOutline} onClick={() => navigate("/growth")}>
+                週次振り返りへ
               </button>
               <button className={styles.btnOutline} onClick={() => navigate("/")}>
                 ダッシュボードへ戻る

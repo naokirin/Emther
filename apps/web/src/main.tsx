@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の
 // @fontsource を使う（web/src/app/layout.tsxからの移植、docs/packaging.md参照）。
@@ -24,13 +24,13 @@ import { GoByIdPrefixPage } from "./routes/go/GoByIdPrefixPage";
 import { EveningReviewPage } from "./routes/evening-review/EveningReviewPage";
 import { MaskCheckPage } from "./routes/mask-check/MaskCheckPage";
 import { TeamsPage } from "./routes/teams/TeamsPage";
-import { TimelinePage } from "./routes/timeline/TimelinePage";
 import { SettingsPage } from "./routes/settings/SettingsPage";
 import { PeoplePage } from "./routes/people/PeoplePage";
 import { PersonDetailPage } from "./routes/people/PersonDetailPage";
 import { OrgPage } from "./routes/org/OrgPage";
 import { ReportsPage } from "./routes/reports/ReportsPage";
 import { GrowthPage } from "./routes/growth/GrowthPage";
+import { CheckinPage } from "./routes/checkin/CheckinPage";
 import { JournalPage } from "./routes/journal/JournalPage";
 import { SuggestionsPage } from "./routes/suggestions/SuggestionsPage";
 import { SuggestionDetailPage } from "./routes/suggestions/SuggestionDetailPage";
@@ -40,6 +40,7 @@ import { ChatPage } from "./routes/chat/ChatPage";
 // フェーズ3.5（画面単位移植）: ルートシェル（旧web/src/app/layout.tsx相当）+ tier1〜tier5
 // （docs/2nd_architecture/plan.md フェーズ3.4の5ティア移行順）を全て移植し、21画面の
 // 移植が完了した。index（"/"）はダッシュボード本体（DashboardPage）に差し替え済み。
+// 振り返りタブ改善案: /timelineはナビから外し /reports へリダイレクト。日次は /checkin。
 const router = createBrowserRouter([
   {
     path: "/",
@@ -50,12 +51,13 @@ const router = createBrowserRouter([
       { path: "evening-review", element: <EveningReviewPage /> },
       { path: "mask-check", element: <MaskCheckPage /> },
       { path: "teams", element: <TeamsPage /> },
-      { path: "timeline", element: <TimelinePage /> },
+      { path: "timeline", element: <Navigate to="/reports" replace /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "people", element: <PeoplePage /> },
       { path: "people/:id", element: <PersonDetailPage /> },
       { path: "org", element: <OrgPage /> },
       { path: "reports", element: <ReportsPage /> },
+      { path: "checkin", element: <CheckinPage /> },
       { path: "growth", element: <GrowthPage /> },
       { path: "journal", element: <JournalPage /> },
       { path: "suggestions", element: <SuggestionsPage /> },

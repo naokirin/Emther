@@ -18,7 +18,8 @@ function createWrapper() {
         <MemoryRouter initialEntries={["/evening-review"]}>
           <Routes>
             <Route path="/evening-review" element={children} />
-            <Route path="/growth" element={<div>成長ページ</div>} />
+            <Route path="/checkin" element={<div>自己チェックイン</div>} />
+            <Route path="/growth" element={<div>EM週次振り返り</div>} />
             <Route path="/" element={<div>ダッシュボード</div>} />
           </Routes>
         </MemoryRouter>
