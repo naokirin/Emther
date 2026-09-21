@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createIssue, listIssues, moveFocusIssue, setIssueKeyResult, setIssuePriority, setIssueStatus, setIssueTags, setIssueTeam, setIssueTheme, setIssueTitle, toIssueView, updateIssueCharter, type IssuePriority as IssueStorePriority, type IssueStatus } from "@emther/core/issue-store";
+import { createIssue, listIssues, moveFocusIssue, setIssuePriority, setIssueStatus, setIssueTags, setIssueTeam, setIssueTheme, setIssueTitle, toIssueView, updateIssueCharter, type IssuePriority as IssueStorePriority, type IssueStatus } from "@emther/core/issue-store";
 import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, reactToIssueUpdate, startRun } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { linkJournalToIssue, listSourceJournalsForIssue, toJournalEntryViews } from "@emther/core/journal-store";
@@ -33,7 +33,6 @@ export const issuesRoute = new Hono()
     }
 
     const tags = Array.isArray(body?.tags) ? body.tags.filter((t: unknown): t is string => typeof t === "string") : undefined;
-    const keyResultId = typeof body?.keyResultId === "string" && body.keyResultId ? body.keyResultId : undefined;
     const themeId = typeof body?.themeId === "string" && body.themeId ? body.themeId : undefined;
     const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
     const priority =
@@ -67,7 +66,7 @@ export const issuesRoute = new Hono()
       : undefined;
 
     try {
-      const issue = await createIssue(title, agentRunId, charter, parentId, tags, keyResultId, teamId, {
+      const issue = await createIssue(title, agentRunId, charter, parentId, tags, teamId, {
         ...opts,
         priority,
         sourceJournalId,
@@ -167,10 +166,6 @@ export const issuesRoute = new Hono()
       if (Array.isArray(body?.tags)) {
         const tags = body.tags.filter((t: unknown): t is string => typeof t === "string");
         issue = (await setIssueTags(id, tags)) ?? issue;
-      }
-      if ("keyResultId" in (body ?? {})) {
-        const keyResultId = typeof body.keyResultId === "string" && body.keyResultId ? body.keyResultId : null;
-        issue = setIssueKeyResult(id, keyResultId) ?? issue;
       }
       if ("themeId" in (body ?? {})) {
         const themeId = typeof body.themeId === "string" && body.themeId ? body.themeId : null;

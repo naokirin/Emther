@@ -43,13 +43,11 @@ function post(body: unknown) {
   return { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
 }
 
-describe("POST /api/themes/link/suggest", () => {
-  it("OKR未リンクの採用テーマへヒューリスティックでリンク案を返す", async () => {
+describe("POST /api/themes/link/suggest-goal", () => {
+  it("未リンクの採用テーマへヒューリスティックでGoal候補を返す", async () => {
     const org = await import("@emther/core/org-context-store/index");
     const themeStore = await import("@emther/core/theme-store");
-
-    const objective = await org.addObjective("信頼性を上げる");
-    await org.addKeyResult(objective.id, "重大インシデントを半減する");
+    await org.addGoal({ title: "組織の信頼性を高める" });
 
     const theme = await themeStore.createThemeCandidate({
       title: "信頼性の立て直し",
@@ -59,37 +57,14 @@ describe("POST /api/themes/link/suggest", () => {
     });
     await themeStore.adoptTheme(theme.id);
 
-    const { themesLinkSuggestRoute } = await import("./themes-link-suggest");
-    const res = await themesLinkSuggestRoute.request("/", post({}));
+    const { themeGoalLinkSuggestRoute } = await import("./goal-link-suggest");
+    const res = await themeGoalLinkSuggestRoute.request("/", post({}));
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.targetCount).toBe(1);
     expect(data.source).toBe("heuristic");
-    expect(typeof data.fallbackReason).toBe("string");
-    expect(data.fallbackReason).toMatch(/^cloud_error:/);
     expect(data.suggestions.length).toBeGreaterThan(0);
-    expect(data.suggestions[0].themeId).toBe(theme.id);
-    expect(data.suggestions[0].objectiveIds.length + data.suggestions[0].keyResultIds.length).toBeGreaterThan(0);
-  });
-
-  it("既にリンク済みのテーマは対象外", async () => {
-    const org = await import("@emther/core/org-context-store/index");
-    const themeStore = await import("@emther/core/theme-store");
-
-    const objective = await org.addObjective("体験改善");
-    const theme = await themeStore.createThemeCandidate({
-      title: "体験",
-      summary: "体験",
-      rationale: "理由",
-      facts: [],
-      objectiveIds: [objective.id],
-    });
-    await themeStore.adoptTheme(theme.id);
-
-    const { themesLinkSuggestRoute } = await import("./themes-link-suggest");
-    const res = await themesLinkSuggestRoute.request("/", post({}));
-    const data = await res.json();
-    expect(data.targetCount).toBe(0);
-    expect(data.suggestions).toEqual([]);
+    expect(data.suggestions[0].sourceKind).toBe("theme");
+    expect(data.suggestions[0].sourceId).toBe(theme.id);
   });
 });

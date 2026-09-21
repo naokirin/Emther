@@ -112,15 +112,20 @@ describe("PATCH /api/themes/:id", () => {
     expect((await res.json()).theme.title).toBe("改訂タイトル");
   });
 
-  it("actionを省略しobjectiveIdsを渡すとlinkとして扱う", async () => {
+  // docs/goal_policy_model_plan.md Decision 1。
+  it("goalIdsを渡すとlinkとして扱い、nullで解除できる", async () => {
     const orgStore = await import("@emther/core/org-context-store/index");
-    const objective = await orgStore.addObjective("Objective");
+    const goal = await orgStore.addGoal({ title: "信頼性を高める" });
     const { themesRoute } = await import("./themes");
     const created = await themesRoute.request("/", post({ title: "テーマ", summary: "要約" }));
     const { theme } = await created.json();
-    const res = await themesRoute.request(`/${theme.id}`, patch({ objectiveIds: [objective.id] }));
-    expect(res.status).toBe(200);
-    expect((await res.json()).theme.objectiveIds).toEqual([objective.id]);
+
+    const linked = await themesRoute.request(`/${theme.id}`, patch({ goalIds: [goal.id] }));
+    expect(linked.status).toBe(200);
+    expect((await linked.json()).theme.goalIds).toEqual([goal.id]);
+
+    const unlinked = await themesRoute.request(`/${theme.id}`, patch({ action: "link", goalIds: null }));
+    expect((await unlinked.json()).theme.goalIds).toEqual([]);
   });
 
   it("存在しないidは404", async () => {
@@ -130,44 +135,42 @@ describe("PATCH /api/themes/:id", () => {
   });
 });
 
-// docs/value_hierarchy_and_flow.md §2.3。
-describe("POST /api/themes/from-okr", () => {
-  it("Objectiveが無ければ400", async () => {
+// docs/goal_policy_model_plan.md Decision 3 / Phase 3。
+describe("POST /api/themes/from-goal", () => {
+  it("Goalが無ければ400", async () => {
     const { themesRoute } = await import("./themes");
-    const res = await themesRoute.request("/from-okr", post({}));
+    const res = await themesRoute.request("/from-goal", post({}));
     expect(res.status).toBe(400);
   });
 
-  it("Objective単位で候補テーマを作成する", async () => {
+  it("Goal単位で候補テーマを作成する", async () => {
     const orgStore = await import("@emther/core/org-context-store/index");
-    const objective = await orgStore.addObjective("売上を伸ばす");
-    await orgStore.addKeyResult(objective.id, "新規契約10件");
+    const goal = await orgStore.addGoal({ title: "チームの自律性を高めたい" });
     const { themesRoute } = await import("./themes");
-    const res = await themesRoute.request("/from-okr", post({}));
+    const res = await themesRoute.request("/from-goal", post({}));
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.themes).toHaveLength(1);
-    expect(json.themes[0].title).toBe("売上を伸ばす");
+    expect(json.themes[0].title).toBe("チームの自律性を高めたい");
     expect(json.themes[0].status).toBe("candidate");
+    expect(json.themes[0].goalIds).toEqual([goal.id]);
   });
 
-  it("perKeyResultを指定するとKey Result単位で分割する", async () => {
+  it("達成済み・断念済みGoalは対象外", async () => {
     const orgStore = await import("@emther/core/org-context-store/index");
-    const objective = await orgStore.addObjective("売上を伸ばす");
-    await orgStore.addKeyResult(objective.id, "新規契約10件");
-    await orgStore.addKeyResult(objective.id, "解約率を下げる");
+    const goal = await orgStore.addGoal({ title: "もう終わったGoal" });
+    await orgStore.updateGoal(goal.id, { status: "achieved" });
     const { themesRoute } = await import("./themes");
-    const res = await themesRoute.request("/from-okr", post({ perKeyResult: true }));
-    const json = await res.json();
-    expect(json.themes).toHaveLength(2);
+    const res = await themesRoute.request("/from-goal", post({}));
+    expect(res.status).toBe(400);
   });
 
-  it("objectiveIdsで対象を絞り込める", async () => {
+  it("goalIdsで対象を絞り込める", async () => {
     const orgStore = await import("@emther/core/org-context-store/index");
-    const a = await orgStore.addObjective("A");
-    await orgStore.addObjective("B");
+    const a = await orgStore.addGoal({ title: "A" });
+    await orgStore.addGoal({ title: "B" });
     const { themesRoute } = await import("./themes");
-    const res = await themesRoute.request("/from-okr", post({ objectiveIds: [a.id] }));
+    const res = await themesRoute.request("/from-goal", post({ goalIds: [a.id] }));
     const json = await res.json();
     expect(json.themes).toHaveLength(1);
     expect(json.themes[0].title).toBe("A");

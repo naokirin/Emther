@@ -9,11 +9,13 @@ import { idResolveRoute } from "./routes/id-resolve";
 import { knowledgeEventsRoute } from "./routes/knowledge-events";
 import { teamsRoute } from "./routes/teams";
 import { orgBackgroundRoute } from "./routes/org-background";
+import { orgPoliciesRoute } from "./routes/org-policies";
+import { goalsRoute } from "./routes/goals";
+import { themeGoalLinkSuggestRoute } from "./routes/goal-link-suggest";
 import { reportsRoute } from "./routes/reports";
 import { growthSuggestionsRoute } from "./routes/growth-suggestions";
 import { checkinsRoute, reflectionNotesRoute } from "./routes/em-self";
 import { peopleRoute } from "./routes/people";
-import { orgObjectivesRoute } from "./routes/org-objectives";
 import { orgStrategyRoute } from "./routes/org-strategy";
 import { journalRoute } from "./routes/journal";
 import { settingsRulesRoute } from "./routes/settings-rules";
@@ -31,9 +33,7 @@ import { settingsDataBackupRoute } from "./routes/settings-data-backup";
 import { settingsDataResetRoute } from "./routes/settings-data-reset";
 import { settingsDataRestoreRoute } from "./routes/settings-data-restore";
 import { journalDumpsRoute } from "./routes/journal-dumps";
-import { orgObjectivesParseRoute } from "./routes/org-objectives-parse";
 import { issuesLinkSuggestRoute } from "./routes/issues-link-suggest";
-import { themesLinkSuggestRoute } from "./routes/themes-link-suggest";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -54,13 +54,13 @@ export function createApp(options?: { clientDir?: string }) {
   app.route("/api/knowledge/events", knowledgeEventsRoute);
   app.route("/api/teams", teamsRoute);
   app.route("/api/org/background", orgBackgroundRoute);
+  app.route("/api/org/policies", orgPoliciesRoute);
+  app.route("/api/org/goals", goalsRoute);
   app.route("/api/reports", reportsRoute);
   app.route("/api/growth/suggestions", growthSuggestionsRoute);
   app.route("/api/em-self/checkins", checkinsRoute);
   app.route("/api/em-self/reflection-notes", reflectionNotesRoute);
   app.route("/api/people", peopleRoute);
-  app.route("/api/org/objectives/parse", orgObjectivesParseRoute);
-  app.route("/api/org/objectives", orgObjectivesRoute);
   app.route("/api/org/strategy", orgStrategyRoute);
   // 注意: Honoは別々にmountされたサブアプリ同士でパスが重なる場合、静的パスを
   // 優先せず「先にmountされた方」が勝つ（単一Honoインスタンス内でのstatic-vs-:id
@@ -73,7 +73,7 @@ export function createApp(options?: { clientDir?: string }) {
   app.route("/api/journal", journalRoute);
   app.route("/api/settings/rules", settingsRulesRoute);
   app.route("/api/themes/distill", themesDistillRoute);
-  app.route("/api/themes/link/suggest", themesLinkSuggestRoute);
+  app.route("/api/themes/link/suggest-goal", themeGoalLinkSuggestRoute);
   app.route("/api/themes", themesRoute);
   app.route("/api/agents/inbox", agentsInboxRoute);
   app.route("/api/agents/pending-unmasked", agentsPendingUnmaskedRoute);

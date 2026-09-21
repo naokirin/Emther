@@ -9,7 +9,6 @@ import {
   setConfirmPriority,
   setReviewStatus,
   setSuggestionDetail,
-  setSuggestionKeyResult,
   setSuggestionReviewDueAt,
   setSuggestionTeam,
   setSuggestionTheme,
@@ -56,7 +55,6 @@ export const suggestionsRoute = new Hono()
       return c.json({ error: "titleは必須です" }, 400);
     }
 
-    const keyResultId = typeof body?.keyResultId === "string" && body.keyResultId ? body.keyResultId : undefined;
     const themeId = typeof body?.themeId === "string" && body.themeId ? body.themeId : undefined;
     const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
     const confirmPriority =
@@ -92,7 +90,6 @@ export const suggestionsRoute = new Hono()
         agentRunId,
         sourceRunId,
         sourceJournalId,
-        keyResultId,
         themeId,
         teamId,
         confirmPriority,
@@ -224,10 +221,6 @@ export const suggestionsRoute = new Hono()
       }
       if (body?.moveFocus === "up" || body?.moveFocus === "down") {
         suggestion = moveFocusSuggestion(suggestionId, body.moveFocus) ?? suggestion;
-      }
-      if ("keyResultId" in (body ?? {})) {
-        const keyResultId = typeof body.keyResultId === "string" && body.keyResultId ? body.keyResultId : null;
-        suggestion = setSuggestionKeyResult(suggestionId, keyResultId) ?? suggestion;
       }
       if ("themeId" in (body ?? {})) {
         const themeId = typeof body.themeId === "string" && body.themeId ? body.themeId : null;

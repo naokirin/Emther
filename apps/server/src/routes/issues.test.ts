@@ -95,7 +95,7 @@ describe("POST /api/issues", () => {
     expect(json.issue.charter).toEqual({ why: "", what: "", how: "" });
   });
 
-  it("charter/keyResultId/teamIdを渡すと反映される（charterはメモへ写像）", async () => {
+  it("charter/teamIdを渡すと反映される（charterはメモへ写像）", async () => {
     const { issuesRoute } = await import("./issues");
     const res = await issuesRoute.request(
       "/",
@@ -105,14 +105,12 @@ describe("POST /api/issues", () => {
         what: "内容",
         how: "方法",
         tags: ["技術的負債", 123],
-        keyResultId: "kr-1",
         teamId: "team-1",
       }),
     );
     const json = await res.json();
     expect(json.issue.title).toBe("詳細付きIssue");
     expect(json.issue.logEntries.some((e: { text: string }) => e.text.includes("Why: 理由"))).toBe(true);
-    expect(json.issue.keyResultId).toBe("kr-1");
     expect(json.issue.teamId).toBe("team-1");
   });
 
@@ -296,19 +294,18 @@ describe("PATCH /api/issues/:id", () => {
     expect(res.status).toBe(400);
   });
 
-  it("charter/title/keyResultId/teamIdをまとめて更新できる（charterはメモへ写像）", async () => {
+  it("charter/title/teamIdをまとめて更新できる（charterはメモへ写像）", async () => {
     const issueStore = await import("@emther/core/issue-store");
     const issue = await issueStore.createIssue("元のタイトル");
     const { issuesRoute } = await import("./issues");
     const res = await issuesRoute.request(
       `/${issue.id}`,
-      patch({ title: "新しいタイトル", why: "理由", tags: ["技術的負債"], keyResultId: "kr-1", teamId: "team-1" }),
+      patch({ title: "新しいタイトル", why: "理由", tags: ["技術的負債"], teamId: "team-1" }),
     );
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.issue.title).toBe("新しいタイトル");
     expect(json.issue.logEntries.some((e: { text: string }) => e.text.includes("理由"))).toBe(true);
-    expect(json.issue.keyResultId).toBe("kr-1");
     expect(json.issue.teamId).toBe("team-1");
   });
 
@@ -351,19 +348,17 @@ describe("PATCH /api/issues/:id", () => {
     expect(res.status).toBe(400);
   });
 
-  it("keyResultId/teamIdにnullを渡すと解除できる（キー自体が無ければ変更しない）", async () => {
+  it("teamIdにnullを渡すと解除できる（キー自体が無ければ変更しない）", async () => {
     const issueStore = await import("@emther/core/issue-store");
     const issue = await issueStore.createIssue("Issue");
-    issueStore.setIssueKeyResult(issue.id, "kr-1");
     issueStore.setIssueTeam(issue.id, "team-1");
     const { issuesRoute } = await import("./issues");
 
     const untouched = await issuesRoute.request(`/${issue.id}`, patch({}));
-    expect((await untouched.json()).issue.keyResultId).toBe("kr-1");
+    expect((await untouched.json()).issue.teamId).toBe("team-1");
 
-    const cleared = await issuesRoute.request(`/${issue.id}`, patch({ keyResultId: null, teamId: null }));
+    const cleared = await issuesRoute.request(`/${issue.id}`, patch({ teamId: null }));
     const json = await cleared.json();
-    expect(json.issue.keyResultId).toBeUndefined();
     expect(json.issue.teamId).toBeUndefined();
   });
 });
