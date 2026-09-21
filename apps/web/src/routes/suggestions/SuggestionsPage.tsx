@@ -5,33 +5,27 @@ import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls, usePagination } from "../../components/Pagination";
 import { StatusBadge } from "../../components/RunDetail";
 import { useSuggestionPeek } from "../../components/IdFragmentLink";
-import { useRuns, useSettingsRules, useSuggestions } from "../../lib/queries";
 import {
-  CONFIRM_PRIORITIES,
+  DEFAULT_SUGGESTION_STATUS_FILTER,
+  SuggestionFilterBar,
+  type SuggestionFilterState,
+  type SuggestionSortKey,
+} from "../../components/SuggestionFilterBar";
+import {
+  SUGGESTION_THEME_ALL,
+  SUGGESTION_THEME_UNLINKED,
+  SuggestionThemeSwitcher,
+} from "../../components/SuggestionThemeSwitcher";
+import { useRuns, useSettingsRules, useSuggestions, useThemes } from "../../lib/queries";
+import {
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUS_META,
-  SUGGESTION_REVIEW_STATUSES,
   compareSuggestionsByConfirmPriority,
   isRunStale,
   isSuggestionReviewOverdue,
   suggestionMatchesKeyword,
-  type ConfirmPriority,
   type Suggestion,
-  type SuggestionReviewStatus,
 } from "@emther/core/types";
-
-// docs/memo.md「デフォルトの確認状態」対応。旧statusFilter="open"相当（未確認・確認中・
-// 確認保留）を複数選択の初期値として引き継ぐ（doneだけを除外した状態から始める）。
-const DEFAULT_STATUS_FILTER: SuggestionReviewStatus[] = ["unreviewed", "in_review", "deferred"];
-
-/** docs/memo.md「提案一覧のフィルタを複数選択式にしたい」対応。チェックボックス群での
- * トグル。選択が空＝フィルタなし（すべて表示）として扱う（他のcheckbox群フィルタと同じ規約）。 */
-function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
-}
 
 const PAGE_SIZE = 8;
 
@@ -40,6 +34,35 @@ function formatRelativeDays(ts: number, now: number): string {
   if (days <= 0) return "今日";
   if (days === 1) return "1日前";
   return `${days}日前`;
+}
+
+function matchesThemeFilter(s: Suggestion, themeKey: string): boolean {
+  if (themeKey === SUGGESTION_THEME_ALL) return true;
+  if (themeKey === SUGGESTION_THEME_UNLINKED) return !s.themeId;
+  return s.themeId === themeKey;
+}
+
+function compareByDue(a: Suggestion, b: Suggestion, now: number): number {
+  const aDue = a.reviewDueAt;
+  const bDue = b.reviewDueAt;
+  if (aDue == null && bDue == null) return compareSuggestionsByConfirmPriority(a, b);
+  if (aDue == null) return 1;
+  if (bDue == null) return -1;
+  if (aDue !== bDue) return aDue - bDue;
+  return compareSuggestionsByConfirmPriority(a, b);
+}
+
+function compareByUpdated(a: Suggestion, b: Suggestion): number {
+  if (a.updatedAt !== b.updatedAt) return b.updatedAt - a.updatedAt;
+  return compareSuggestionsByConfirmPriority(a, b);
+}
+
+function sortSuggestions(list: Suggestion[], sort: SuggestionSortKey, now: number): Suggestion[] {
+  const next = list.slice();
+  if (sort === "due") next.sort((a, b) => compareByDue(a, b, now));
+  else if (sort === "updated") next.sort(compareByUpdated);
+  else next.sort(compareSuggestionsByConfirmPriority);
+  return next;
 }
 
 function UnlinkedRunsAsSuggestions({
@@ -114,11 +137,16 @@ function UnlinkedRunsAsSuggestions({
   );
 }
 
+/**
+ * docs/design/suggestion/suggestion-tab.pen 改善案C「テーマメニュー切替 + 段階開示」。
+ * 長文テーマ向けのメニュー切替、検索／ソート／絞り込みチップ、4列表のフル幅一覧。
+ */
 export function SuggestionsPage() {
   const navigate = useNavigate();
   const peek = useSuggestionPeek();
   const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
   const { runs, refreshRuns } = useRuns();
+  const { themes } = useThemes();
   const { rules } = useSettingsRules();
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
@@ -127,24 +155,79 @@ export function SuggestionsPage() {
     [runs, rules.agentStaleAfterSeconds],
   );
 
-  const [query, setQuery] = useState("");
-  const [showDone, setShowDone] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<Set<SuggestionReviewStatus>>(new Set(DEFAULT_STATUS_FILTER));
-  const [priorityFilter, setPriorityFilter] = useState<Set<ConfirmPriority>>(new Set());
+  const adoptedThemes = useMemo(
+    () =>
+      themes
+        .filter((t) => t.status === "adopted")
+        .sort((a, b) => (b.adoptedAt ?? b.updatedAt) - (a.adoptedAt ?? a.updatedAt)),
+    [themes],
+  );
+
+  const [themeKey, setThemeKey] = useState(SUGGESTION_THEME_ALL);
+  const [filters, setFilters] = useState<SuggestionFilterState>(() => ({
+    query: "",
+    sort: "due",
+    statusFilter: new Set(DEFAULT_SUGGESTION_STATUS_FILTER),
+    priorityFilter: new Set(),
+    showDone: false,
+    showArchived: false,
+  }));
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
 
-  const filtered = suggestions
-    .filter((s) => suggestionMatchesKeyword(s, query))
-    .filter((s) => {
-      if (!showArchived && s.archivedAt) return false;
-      if (!showDone && s.reviewStatus === "done") return false;
-      if (statusFilter.size > 0 && !statusFilter.has(s.reviewStatus)) return false;
-      return true;
-    })
-    .filter((s) => priorityFilter.size === 0 || priorityFilter.has(s.confirmPriority))
-    .slice()
-    .sort(compareSuggestionsByConfirmPriority);
+  function handleFilterChange<K extends keyof SuggestionFilterState>(key: K, next: SuggestionFilterState[K]) {
+    setFilters((prev) => ({ ...prev, [key]: next }));
+  }
+
+  function clearFilters() {
+    setFilters((prev) => ({
+      ...prev,
+      statusFilter: new Set(),
+      priorityFilter: new Set(),
+      showDone: true,
+      showArchived: false,
+    }));
+  }
+
+  const themeCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      [SUGGESTION_THEME_ALL]: 0,
+      [SUGGESTION_THEME_UNLINKED]: 0,
+    };
+    for (const t of adoptedThemes) counts[t.id] = 0;
+    for (const s of suggestions) {
+      if (s.archivedAt) continue;
+      counts[SUGGESTION_THEME_ALL] += 1;
+      if (!s.themeId) counts[SUGGESTION_THEME_UNLINKED] += 1;
+      else if (counts[s.themeId] !== undefined) counts[s.themeId] += 1;
+    }
+    return counts;
+  }, [suggestions, adoptedThemes]);
+
+  const themeScoped = useMemo(
+    () => suggestions.filter((s) => matchesThemeFilter(s, themeKey)),
+    [suggestions, themeKey],
+  );
+
+  const statusSummary = useMemo(() => {
+    const scope = themeScoped.filter((s) => !s.archivedAt);
+    const unreviewed = scope.filter((s) => s.reviewStatus === "unreviewed").length;
+    const inReview = scope.filter((s) => s.reviewStatus === "in_review").length;
+    const overdue = scope.filter((s) => isSuggestionReviewOverdue(s, now)).length;
+    return `未確認 ${unreviewed} · 確認中 ${inReview} · 期日超過 ${overdue}`;
+  }, [themeScoped, now]);
+
+  const filtered = useMemo(() => {
+    const list = themeScoped
+      .filter((s) => suggestionMatchesKeyword(s, filters.query))
+      .filter((s) => {
+        if (!filters.showArchived && s.archivedAt) return false;
+        if (!filters.showDone && s.reviewStatus === "done") return false;
+        if (filters.statusFilter.size > 0 && !filters.statusFilter.has(s.reviewStatus)) return false;
+        return true;
+      })
+      .filter((s) => filters.priorityFilter.size === 0 || filters.priorityFilter.has(s.confirmPriority));
+    return sortSuggestions(list, filters.sort, now);
+  }, [themeScoped, filters, now]);
 
   const pagination = usePagination(filtered, PAGE_SIZE);
   const doneCount = suggestions.filter((s) => s.reviewStatus === "done").length;
@@ -167,60 +250,27 @@ export function SuggestionsPage() {
   return (
     <>
       <div className={styles.screen}>
-        <PageTitleRow title="提案" helpAnchor="issues" />
+        <div style={{ marginBottom: 12 }}>
+          <PageTitleRow title="提案" helpAnchor="issues" />
+          <p className={styles.journalTitleHint}>いま向き合うテーマを選び、その中の提案だけを確認・並び替える</p>
+        </div>
+
+        <SuggestionThemeSwitcher
+          value={themeKey}
+          onChange={setThemeKey}
+          themes={adoptedThemes}
+          counts={themeCounts}
+          statusSummary={statusSummary}
+        />
+
         <div className={styles.panel}>
-          {/* ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。
-              タイトル・メモ・詳細を対象にクライアント側で部分一致検索する。 */}
-          <div className={styles.field} style={{ margin: "8px 0" }}>
-            <label>キーワード検索（タイトル・メモ・詳細）
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="例: リファクタリング"
-            /></label>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "8px 0" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
-              確認済み（もう追わない）も表示する（{doneCount}件）
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-              🗄 アーカイブ済みも表示する（{archivedCount}件）
-            </label>
-          </div>
-          {/* docs/memo.md「提案一覧のフィルタを複数選択式にしたい」対応。単一選択のSelectを
-              チェックボックス群に置き換え、複数の確認状態・確認優先度を同時に選べるようにする
-              （未選択＝フィルタなし、すべて表示）。 */}
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, margin: "0 0 8px" }}>
-            <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              確認状態:
-              {SUGGESTION_REVIEW_STATUSES.map((status) => (
-                <label key={status} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={statusFilter.has(status)}
-                    onChange={() => setStatusFilter((prev) => toggleInSet(prev, status))}
-                  />
-                  {SUGGESTION_REVIEW_STATUS_META[status].icon} {SUGGESTION_REVIEW_STATUS_META[status].label}
-                </label>
-              ))}
-            </span>
-            <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              確認優先度:
-              {CONFIRM_PRIORITIES.map((p) => (
-                <label key={p} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={priorityFilter.has(p)}
-                    onChange={() => setPriorityFilter((prev) => toggleInSet(prev, p))}
-                  />
-                  {CONFIRM_PRIORITY_META[p].icon} {CONFIRM_PRIORITY_META[p].label}
-                </label>
-              ))}
-            </span>
-          </div>
+          <SuggestionFilterBar
+            value={filters}
+            onChange={handleFilterChange}
+            onClearFilters={clearFilters}
+            doneCount={doneCount}
+            archivedCount={archivedCount}
+          />
 
           <div className={styles.tableWrap}>
             <table className={styles.table}>
@@ -229,15 +279,13 @@ export function SuggestionsPage() {
                   <th>タイトル</th>
                   <th>確認状態</th>
                   <th>確認優先度</th>
-                  <th>根拠</th>
                   <th>確認期日</th>
-                  <th>最終更新</th>
                 </tr>
               </thead>
               <tbody>
                 {pagination.total === 0 && (
                   <tr>
-                    <td colSpan={6} className={styles.tableEmpty}>
+                    <td colSpan={4} className={styles.tableEmpty}>
                       {!suggestionsLoaded ? "読み込み中…" : "条件に一致する提案はありません。"}
                     </td>
                   </tr>
@@ -264,6 +312,7 @@ export function SuggestionsPage() {
                           {s.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                           {s.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}
                           {s.archivedAt && <span className={styles.tableMuted}>🗄 アーカイブ済み</span>}
+                          <span className={styles.tableMuted}>{formatRelativeDays(s.updatedAt, now)}</span>
                         </div>
                       </td>
                       <td>
@@ -294,15 +343,11 @@ export function SuggestionsPage() {
                           </span>
                         )}
                       </td>
-                      <td className={styles.tableMuted}>
-                        {s.sourceJournalId ? "Journal" : s.sourceRunId ? "相談" : linkedRun ? "Agent" : "—"}
-                      </td>
                       <td className={isSuggestionReviewOverdue(s, now) ? styles.errorText : styles.tableMuted}>
                         {s.reviewDueAt
                           ? `${isSuggestionReviewOverdue(s, now) ? "⚠ " : ""}${new Date(s.reviewDueAt).toLocaleDateString("ja-JP")}まで`
                           : "—"}
                       </td>
-                      <td className={styles.tableMuted}>{formatRelativeDays(s.updatedAt, now)}</td>
                     </tr>
                   );
                 })}

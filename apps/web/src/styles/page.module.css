@@ -3449,3 +3449,216 @@ button.situationChip:hover {
   font-size: 0.8125rem;
 }
 
+/* docs/design/suggestion/suggestion-tab.pen 改善案C: テーマメニュー切替 + 段階開示 */
+
+.suggestionThemeContext {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.suggestionThemeLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.suggestionThemeSelect {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.suggestionThemeSelect:hover {
+  border-color: var(--blue);
+}
+
+.suggestionThemeSelect:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.suggestionThemeSelect[aria-expanded="true"] {
+  border-color: var(--blue);
+}
+
+.suggestionThemeSelectTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.suggestionThemeChevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.suggestionThemeMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.suggestionThemeCounts {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.suggestionThemeDetailLink {
+  font-size: 0.75rem;
+  color: var(--blue-text);
+  text-decoration: none;
+}
+
+.suggestionThemeDetailLink:hover {
+  text-decoration: underline;
+}
+
+.suggestionThemeDetailLinkMuted {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.suggestionThemeSummary {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.suggestionThemeMenu {
+  z-index: 50;
+  max-height: min(420px, calc(100vh - 48px));
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.suggestionThemeMenuItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.suggestionThemeMenuItemActive {
+  background: var(--gray-bg);
+}
+
+.suggestionThemeMenuItemSelected {
+  background: var(--blue-bg);
+}
+
+.suggestionThemeMenuItemSelected .suggestionThemeMenuItemTitle {
+  color: var(--blue-text);
+}
+
+.suggestionThemeMenuItemMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.suggestionThemeMenuItemTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--foreground);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.suggestionThemeMenuItemSummary {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.suggestionThemeMenuItemCount {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.suggestionFilterBar {
+  margin-bottom: 12px;
+}
+
+.suggestionToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.suggestionToolbar .journalSearchInput {
+  flex: 1 1 220px;
+}
+
+.suggestionSortField {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.suggestionSortPrefix {
+  white-space: nowrap;
+}
+
+.suggestionFilterGroup {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestionFilterGroup legend {
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+

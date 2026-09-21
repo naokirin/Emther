@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,9 +8,8 @@ import { SuggestionsPage } from "./SuggestionsPage";
 import { IdResolveProvider } from "../../components/IdFragmentLink";
 import type { Suggestion } from "@emther/core/types";
 
-// web/src/app/suggestions/page.tsx（Next.js版）には専用テストが元々無かったため新規に
-// 追加する（フェーズ3.5 tier4 suggestionsバッチ）。デフォルトフィルタ（確認済みは非表示）と
-// キーワード検索、サイドピークを開く導線に絞って検証する。
+// docs/design/suggestion/suggestion-tab.pen 改善案C対応後の一覧UIを検証する。
+// テーマメニュー・絞り込みポップオーバー・4列表・デフォルトの確認済み非表示に絞る。
 
 function suggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   return {
@@ -58,6 +57,33 @@ describe("SuggestionsPage", () => {
             suggestions: [
               suggestion({ id: "sug-open", title: "未確認の提案" }),
               suggestion({ id: "sug-done", title: "確認済みの提案", reviewStatus: "done" }),
+              suggestion({
+                id: "sug-theme",
+                title: "テーマ付き提案",
+                themeId: "theme-1",
+              }),
+            ],
+          }),
+        };
+      }
+      if (url === "/api/themes") {
+        return {
+          ok: true,
+          json: async () => ({
+            themes: [
+              {
+                id: "theme-1",
+                title: "優先度の高いセキュリティリスクの排除とリスク運用実現",
+                summary: "重大インシデントにつながる穴を先に潰す",
+                rationale: "",
+                facts: [],
+                evidenceJournalIds: [],
+                evidenceSuggestionIds: [],
+                status: "adopted",
+                createdAt: 1,
+                updatedAt: 1,
+                adoptedAt: 1,
+              },
             ],
           }),
         };
@@ -83,10 +109,11 @@ describe("SuggestionsPage", () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await screen.findByText("未確認の提案");
-    // showDone（トップの表示切替）と確認状態フィルタ（複数選択チェックボックス）は独立しており、
-    // doneの提案を表示するには両方をONにする必要がある（SuggestionsPage.tsxのfilteredロジック参照）。
-    await user.click(screen.getByLabelText(/確認済み（もう追わない）も表示する/));
-    await user.click(screen.getByRole("checkbox", { name: "✅ 確認済み" }));
+    await user.click(screen.getByRole("button", { name: "絞り込み" }));
+    const dialog = screen.getByRole("dialog", { name: "絞り込み" });
+    await user.click(within(dialog).getByLabelText(/確認済み（もう追わない）も表示する/));
+    await user.click(within(dialog).getByRole("checkbox", { name: "✅ 確認済み" }));
+    await user.click(within(dialog).getByRole("button", { name: /適用する/ }));
     expect(await screen.findByText("確認済みの提案")).toBeInTheDocument();
   });
 
@@ -94,7 +121,7 @@ describe("SuggestionsPage", () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await screen.findByText("未確認の提案");
-    await user.type(screen.getByLabelText(/キーワード検索/), "存在しないキーワード");
+    await user.type(screen.getByLabelText(/このテーマ内を検索/), "存在しないキーワード");
     expect(screen.queryByText("未確認の提案")).not.toBeInTheDocument();
     expect(screen.getByText("条件に一致する提案はありません。")).toBeInTheDocument();
   });
@@ -107,9 +134,20 @@ describe("SuggestionsPage", () => {
     expect(onPeekOpen).toHaveBeenCalledWith("sug-open");
   });
 
+  it("テーマメニューで特定テーマを選ぶとそのテーマの提案だけ残る", async () => {
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("combobox", { name: "いま向き合うテーマ" }));
+    await user.click(await screen.findByRole("option", { name: /優先度の高いセキュリティリスク/ }));
+    expect(await screen.findByText("テーマ付き提案")).toBeInTheDocument();
+    expect(screen.queryByText("未確認の提案")).not.toBeInTheDocument();
+  });
+
   it("提案未作成のLead Agent Runをクリックすると、その相談をrunIdで指定して/chatへ遷移する", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
+      if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
       if (url === "/api/agents") {
         return {
           ok: true,
@@ -139,7 +177,6 @@ describe("SuggestionsPage", () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await user.click(await screen.findByText("Lead Agent"));
-    // 「run=」ではなく、ChatPageが読む「runId=」で指定しないと相談画面のデフォルト表示に飛んでしまう。
     expect(screen.getByTestId("location")).toHaveTextContent("/chat?runId=run-lead-1");
   });
 });
