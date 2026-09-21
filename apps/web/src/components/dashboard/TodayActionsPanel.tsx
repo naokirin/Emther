@@ -51,7 +51,6 @@ type Props = {
   watchingItems: AgentRun[];
   lastSeenAt: number | null;
   unlinkedParentCount: number;
-  krTotals: { total: number };
   autoRunsToday: number;
   runs?: AgentRun[];
   runsLoaded?: boolean;
@@ -82,7 +81,6 @@ export function TodayActionsPanel({
   watchingItems,
   lastSeenAt,
   unlinkedParentCount,
-  krTotals,
   autoRunsToday,
   runs = [],
   runsLoaded = true,
@@ -171,14 +169,6 @@ export function TodayActionsPanel({
         />
       )}
 
-      {krTotals.total > 0 && (
-        <p className={styles.subtitle} style={{ margin: "0 0 4px" }}>
-          📈 今期のKRに紐づく提案: {krTotals.total}件
-          <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => onNavigate("/org")}>
-            詳細
-          </button>
-        </p>
-      )}
       {/* 4th Pivot: 相談タブのエージェント以下に埋もれていたエージェント状態・直近の動きを可視化 */}
       <AgentStatusSection
         runs={runs}

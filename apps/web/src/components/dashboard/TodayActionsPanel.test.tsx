@@ -50,7 +50,6 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof TodayActionsPa
     watchingItems: [],
     lastSeenAt: null,
     unlinkedParentCount: 0,
-    krTotals: { total: 0 },
     autoRunsToday: 0,
     runs: [],
     runsLoaded: true,

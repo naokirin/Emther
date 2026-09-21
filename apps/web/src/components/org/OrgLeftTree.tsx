@@ -3,7 +3,8 @@ import styles from "../../styles/page.module.css";
 export type Selection =
   | { kind: "strategy" }
   | { kind: "backgrounds" }
-  | { kind: "objectives" }
+  | { kind: "policies" }
+  | { kind: "goals" }
   | { kind: "themes" }
   | { kind: "glossary" }
   | null;
@@ -12,13 +13,16 @@ type Props = {
   selection: Selection;
   backgroundsLoaded: boolean;
   activeBackgroundsCount: number;
-  objectivesLoaded: boolean;
-  objectivesCount: number;
+  policiesLoaded: boolean;
+  activePoliciesCount: number;
+  goalsLoaded: boolean;
+  activeGoalsCount: number;
   themesLoaded: boolean;
   adoptedThemesCount: number;
   onSelectStrategy: () => void;
   onSelectBackgrounds: () => void;
-  onSelectObjectives: () => void;
+  onSelectPolicies: () => void;
+  onSelectGoals: () => void;
   onSelectThemes: () => void;
   onSelectGlossary: () => void;
 };
@@ -27,13 +31,16 @@ export function OrgLeftTree({
   selection,
   backgroundsLoaded,
   activeBackgroundsCount,
-  objectivesLoaded,
-  objectivesCount,
+  policiesLoaded,
+  activePoliciesCount,
+  goalsLoaded,
+  activeGoalsCount,
   themesLoaded,
   adoptedThemesCount,
   onSelectStrategy,
   onSelectBackgrounds,
-  onSelectObjectives,
+  onSelectPolicies,
+  onSelectGoals,
   onSelectThemes,
   onSelectGlossary,
 }: Props) {
@@ -57,13 +64,22 @@ export function OrgLeftTree({
           {backgroundsLoaded && activeBackgroundsCount > 0 ? `（${activeBackgroundsCount}件）` : ""}
         </div>
 
-        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Objectives（OKR）</div>
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Policy（判断原則）</div>
         <div
-          className={`${styles.treeFile} ${selection?.kind === "objectives" ? styles.treeFileSelected : ""}`}
-          onClick={onSelectObjectives}
+          className={`${styles.treeFile} ${selection?.kind === "policies" ? styles.treeFileSelected : ""}`}
+          onClick={onSelectPolicies}
         >
-          📄 Objectives
-          {objectivesLoaded && objectivesCount > 0 ? `（${objectivesCount}件）` : ""}
+          📄 Policy
+          {policiesLoaded && activePoliciesCount > 0 ? `（${activePoliciesCount}件）` : ""}
+        </div>
+
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Goal</div>
+        <div
+          className={`${styles.treeFile} ${selection?.kind === "goals" ? styles.treeFileSelected : ""}`}
+          onClick={onSelectGoals}
+        >
+          📄 Goal
+          {goalsLoaded && activeGoalsCount > 0 ? `（${activeGoalsCount}件）` : ""}
         </div>
 
         <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Themes</div>

@@ -1,33 +1,24 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
-import { ThemeOkrLinkEditor } from "../../components/ThemeOkrLinkEditor";
-import { type ObjectiveWithProgress, type OrgTheme } from "@emther/core/types";
+import { ThemeGoalLinkEditor } from "../../components/ThemeGoalLinkEditor";
+import { type Goal, type OrgTheme } from "@emther/core/types";
 
 type Props = {
   themes: OrgTheme[];
   themesLoaded: boolean;
-  objectives: ObjectiveWithProgress[];
+  goals: Goal[];
   refreshThemes: () => Promise<void>;
   editingThemeId: string | null;
   onSelectTheme: (theme: OrgTheme) => void;
   onBack: () => void;
 };
 
-function themeOkrSummary(theme: OrgTheme, objectives: ObjectiveWithProgress[]): string {
+function themeGoalSummary(theme: OrgTheme, goals: Goal[]): string {
   const parts: string[] = [];
-  for (const id of theme.objectiveIds ?? []) {
-    const o = objectives.find((obj) => obj.id === id);
-    if (o) parts.push(o.title.split("\n")[0] ?? o.title);
-  }
-  for (const krId of theme.keyResultIds ?? []) {
-    for (const o of objectives) {
-      const kr = o.keyResults.find((k) => k.id === krId);
-      if (kr) {
-        parts.push(`${o.title.split("\n")[0]} ＞ ${kr.title.split("\n")[0]}`);
-        break;
-      }
-    }
+  for (const id of theme.goalIds ?? []) {
+    const g = goals.find((goal) => goal.id === id);
+    if (g) parts.push(g.title.split("\n")[0] ?? g.title);
   }
   return parts.length > 0 ? parts.join(" · ") : "";
 }
@@ -35,7 +26,7 @@ function themeOkrSummary(theme: OrgTheme, objectives: ObjectiveWithProgress[]): 
 export function OrgThemesPanel({
   themes,
   themesLoaded,
-  objectives,
+  goals,
   refreshThemes,
   editingThemeId,
   onSelectTheme,
@@ -208,7 +199,7 @@ export function OrgThemesPanel({
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {adoptedThemes.map((t) => {
-              const okr = themeOkrSummary(t, objectives);
+              const goalSummary = themeGoalSummary(t, goals);
               return (
                 <button
                   key={t.id}
@@ -229,8 +220,8 @@ export function OrgThemesPanel({
                   <div className={styles.subtitle} style={{ margin: "4px 0 0" }}>
                     {t.summary}
                   </div>
-                  <div style={{ marginTop: 4, fontSize: "0.75rem", color: okr ? "var(--text-muted)" : "var(--warning, #b45309)" }}>
-                    {okr ? `📈 ${okr}` : "⚠ OKR未リンク"}
+                  <div style={{ marginTop: 4, fontSize: "0.75rem", color: goalSummary ? "var(--text-muted)" : "var(--warning, #b45309)" }}>
+                    {goalSummary ? `🎯 ${goalSummary}` : "⚠ Goal未リンク"}
                   </div>
                 </button>
               );
@@ -243,7 +234,7 @@ export function OrgThemesPanel({
             <h3 style={{ marginTop: 20, marginBottom: 8, fontSize: "0.875rem" }}>候補</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {candidateThemes.map((t) => {
-                const okr = themeOkrSummary(t, objectives);
+                const goalSummary = themeGoalSummary(t, goals);
                 return (
                   <button
                     key={t.id}
@@ -265,7 +256,7 @@ export function OrgThemesPanel({
                       {t.summary}
                     </div>
                     <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                      {okr ? `📈 ${okr}` : "OKR未リンク（候補）"}
+                      {goalSummary ? `🎯 ${goalSummary}` : "Goal未リンク（候補）"}
                     </div>
                   </button>
                 );
@@ -305,11 +296,10 @@ export function OrgThemesPanel({
           {selectedTheme.rationale}
         </p>
       )}
-      <ThemeOkrLinkEditor
+      <ThemeGoalLinkEditor
         themeId={selectedTheme.id}
-        objectiveIds={selectedTheme.objectiveIds ?? []}
-        keyResultIds={selectedTheme.keyResultIds ?? []}
-        objectives={objectives}
+        goalIds={selectedTheme.goalIds ?? []}
+        goals={goals}
         onSaved={refreshThemes}
       />
     </>

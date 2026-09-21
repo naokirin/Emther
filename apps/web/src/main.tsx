@@ -29,7 +29,6 @@ import { SettingsPage } from "./routes/settings/SettingsPage";
 import { PeoplePage } from "./routes/people/PeoplePage";
 import { PersonDetailPage } from "./routes/people/PersonDetailPage";
 import { OrgPage } from "./routes/org/OrgPage";
-import { OrgThreadPage } from "./routes/org-thread/OrgThreadPage";
 import { ReportsPage } from "./routes/reports/ReportsPage";
 import { GrowthPage } from "./routes/growth/GrowthPage";
 import { JournalPage } from "./routes/journal/JournalPage";
@@ -56,7 +55,6 @@ const router = createBrowserRouter([
       { path: "people", element: <PeoplePage /> },
       { path: "people/:id", element: <PersonDetailPage /> },
       { path: "org", element: <OrgPage /> },
-      { path: "org/thread", element: <OrgThreadPage /> },
       { path: "reports", element: <ReportsPage /> },
       { path: "growth", element: <GrowthPage /> },
       { path: "journal", element: <JournalPage /> },

@@ -8,7 +8,6 @@ import { PendingAgentStartNotice } from "./PendingAgentStartNotice";
 import { Select } from "./Select";
 import { useAgentDecision } from "./useAgentDecision";
 import {
-  useObjectives,
   useRuns,
   useSettingsRules,
   useSuggestion,
@@ -41,7 +40,6 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const { refreshSuggestions } = useSuggestions();
   const { runs, pendingAgentStarts, refreshRuns } = useRuns();
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
-  const { objectives } = useObjectives();
   const { teams } = useTeams();
   const { themes } = useThemes();
   const { rules } = useSettingsRules();
@@ -197,14 +195,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
         ? [{ id: suggestion.sourceJournalId, rawText: journalExcerptFromTask(sourceConsult?.task ?? linkedRun?.task ?? "") ?? "" }]
         : [];
 
-  const trail = buildIssueStrategyTrail(
-    {
-      id: suggestion.id,
-      title: suggestion.title,
-      keyResultId: suggestion.keyResultId,
-    },
-    objectives,
-  );
+  const trail = buildIssueStrategyTrail({ id: suggestion.id, title: suggestion.title });
 
   return (
     <>
@@ -329,7 +320,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       </div>
 
       {isSuggestionStrategyUnlinked(suggestion) && (
-        <p className={styles.subtitle}>テーマ／KR 未接続（任意）。方針の縦糸につなぐ場合は下で設定できます。</p>
+        <p className={styles.subtitle}>テーマ 未接続（任意）。方針の縦糸につなぐ場合は下で設定できます。</p>
       )}
       <StrategyTrail nodes={trail} currentKind="issue" />
 
@@ -350,20 +341,6 @@ export function SuggestionDetailContent({ id }: { id: string }) {
             disabled={saving}
             onChange={(v) => void patchSuggestion({ themeId: v || null })}
             options={[{ value: "", label: "（なし）" }, ...themes.map((t) => ({ value: t.id, label: t.title }))]}
-          />
-        </label>
-        <label className={styles.field} style={{ margin: 0, minWidth: 200 }}>
-          <span className={styles.fieldCaption}>Key Result</span>
-          <Select
-            value={suggestion.keyResultId ?? ""}
-            disabled={saving}
-            onChange={(v) => void patchSuggestion({ keyResultId: v || null })}
-            options={[
-              { value: "", label: "（なし）" },
-              ...objectives.flatMap((o) =>
-                o.keyResults.map((kr) => ({ value: kr.id, label: `${o.title} ＞ ${kr.title}` })),
-              ),
-            ]}
           />
         </label>
       </div>

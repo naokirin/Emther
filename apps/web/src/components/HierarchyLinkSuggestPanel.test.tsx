@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { IssueStrategyLinkSuggestPanel, ThemeOkrLinkSuggestPanel } from "./HierarchyLinkSuggestPanel";
-import type { IssueStrategyLinkSuggestion, ThemeOkrLinkSuggestion } from "@emther/core/types";
+import { GoalLinkSuggestPanel, IssueStrategyLinkSuggestPanel } from "./HierarchyLinkSuggestPanel";
+import type { GoalLinkSuggestion, IssueStrategyLinkSuggestion } from "@emther/core/types";
 
 // web/src/components/HierarchyLinkSuggestPanel.tsx（Next.js版）には専用テストが元々
 // 無かったため新規に追加する（フェーズ3.5 tier5 dashboardバッチ）。
 
-function themeSuggestion(overrides: Partial<ThemeOkrLinkSuggestion> = {}): ThemeOkrLinkSuggestion {
+function goalSuggestion(overrides: Partial<GoalLinkSuggestion> = {}): GoalLinkSuggestion {
   return {
-    themeId: "theme-1",
-    themeTitle: "テーマA",
-    objectiveIds: [],
-    keyResultIds: [],
+    sourceKind: "theme",
+    sourceId: "theme-1",
+    sourceTitle: "テーマA",
+    goalIds: [],
     rationale: "理由",
-    labels: { objectives: [], keyResults: [] },
+    labels: { goals: [] },
     ...overrides,
   };
 }
@@ -24,17 +24,25 @@ function issueSuggestion(overrides: Partial<IssueStrategyLinkSuggestion> = {}): 
     issueId: "issue-1",
     issueTitle: "提案A",
     themeId: null,
-    keyResultId: null,
     rationale: "理由",
     labels: {},
     ...overrides,
   };
 }
 
-describe("ThemeOkrLinkSuggestPanel", () => {
-  it("提案が無ければその旨を表示する", () => {
+describe("GoalLinkSuggestPanel", () => {
+  it("提案が無ければemptyTextを表示する", () => {
     render(
-      <ThemeOkrLinkSuggestPanel suggestions={[]} source="heuristic" applyingId={null} onAdopt={vi.fn()} onDismiss={vi.fn()} onDismissOne={vi.fn()} />,
+      <GoalLinkSuggestPanel
+        suggestions={[]}
+        title="テーマへのGoalリンク提案"
+        emptyText="提案できるリンクがありませんでした。"
+        source="heuristic"
+        applyingId={null}
+        onAdopt={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissOne={vi.fn()}
+      />,
     );
     expect(screen.getByText(/提案できるリンクがありませんでした/)).toBeInTheDocument();
   });
@@ -44,10 +52,12 @@ describe("ThemeOkrLinkSuggestPanel", () => {
     const onDismiss = vi.fn();
     const onDismissOne = vi.fn();
     const user = userEvent.setup();
-    const suggestion = themeSuggestion();
+    const suggestion = goalSuggestion();
     render(
-      <ThemeOkrLinkSuggestPanel
+      <GoalLinkSuggestPanel
         suggestions={[suggestion]}
+        title="テーマへのGoalリンク提案"
+        emptyText="提案できるリンクがありませんでした。"
         source="cloud"
         applyingId={null}
         onAdopt={onAdopt}
@@ -66,8 +76,10 @@ describe("ThemeOkrLinkSuggestPanel", () => {
 
   it("applyingId一致時は採用ボタンが「採用中…」でdisabledになる", () => {
     render(
-      <ThemeOkrLinkSuggestPanel
-        suggestions={[themeSuggestion()]}
+      <GoalLinkSuggestPanel
+        suggestions={[goalSuggestion()]}
+        title="テーマへのGoalリンク提案"
+        emptyText="提案できるリンクがありませんでした。"
         source="cloud"
         applyingId="theme-1"
         onAdopt={vi.fn()}
@@ -83,7 +95,7 @@ describe("IssueStrategyLinkSuggestPanel", () => {
   it("提案内容とラベルを表示する", () => {
     render(
       <IssueStrategyLinkSuggestPanel
-        suggestions={[issueSuggestion({ labels: { theme: "テーマX", keyResult: "KR-1" } })]}
+        suggestions={[issueSuggestion({ labels: { theme: "テーマX" } })]}
         source="heuristic"
         fallbackReason="AI呼び出し失敗"
         applyingId={null}
@@ -94,7 +106,6 @@ describe("IssueStrategyLinkSuggestPanel", () => {
     );
     expect(screen.getByText("提案A")).toBeInTheDocument();
     expect(screen.getByText(/テーマX/)).toBeInTheDocument();
-    expect(screen.getByText(/KR-1/)).toBeInTheDocument();
     expect(screen.getByText(/AI呼び出し失敗/)).toBeInTheDocument();
   });
 

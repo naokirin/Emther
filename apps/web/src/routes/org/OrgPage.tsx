@@ -1,26 +1,22 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import { PageTitleRow } from "../../components/HelpLink";
-import { ObjectivesPanel } from "../../components/org/ObjectivesPanel";
 import { OrgLeftTree, type Selection } from "../../components/org/OrgLeftTree";
 import { OrgThemesPanel } from "../../components/org/OrgThemesPanel";
 import { GlossaryPanel } from "../../components/org/GlossaryPanel";
+import { GoalsPanel } from "../../components/org/GoalsPanel";
+import { PolicyPanel } from "../../components/org/PolicyPanel";
 import { StandingBackgroundPanel } from "../../components/org/StandingBackgroundPanel";
 import { StrategyPanel } from "../../components/org/StrategyPanel";
-import { useObjectives, useOrgBackgrounds, useOrgStrategy, useTeams, useThemes } from "../../lib/queries";
-import { teamDisplayName, type OrgTheme } from "@emther/core/types";
+import { useGoals, useOrgBackgrounds, useOrgStrategy, usePolicies, useTeams, useThemes } from "../../lib/queries";
+import { teamDisplayName } from "@emther/core/types";
 
-// web/src/app/org/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。react-routerの
-// useSearchParamsはSuspenseを要求しないため、元実装の<Suspense>ラッパーは不要（削除した）。
-// Issue詳細・一覧などから `?objective=<id>` で飛んできたとき、該当 Objective を右パネルで開く。
+// web/src/app/org/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
 export function OrgPage() {
-  const [searchParams] = useSearchParams();
-  const objectiveFocusId = searchParams.get("objective");
-
   const { strategy, strategyLoaded, refreshStrategy } = useOrgStrategy();
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();
-  const { objectives, objectivesLoaded, refreshObjectives } = useObjectives();
+  const { policies, policiesLoaded, refreshPolicies } = usePolicies();
+  const { goals, goalsLoaded, refreshGoals } = useGoals();
   const { teams, teamsLoaded } = useTeams();
   const { themes, themesLoaded, refreshThemes } = useThemes();
   const activeTeams = teams.filter((t) => !t.archived);
@@ -28,7 +24,6 @@ export function OrgPage() {
   const adoptedThemes = themes.filter((t) => t.status === "adopted");
 
   const [selection, setSelection] = useState<Selection>(null);
-  const [appliedObjectiveFocusId, setAppliedObjectiveFocusId] = useState<string | null>(null);
   const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
 
   // 各パネルは選択中(kind一致)のときだけマウントされ、内部stateはアンマウントで
@@ -47,8 +42,13 @@ export function OrgPage() {
     setNavToken((n) => n + 1);
   }
 
-  function selectObjectivesView() {
-    setSelection({ kind: "objectives" });
+  function selectPoliciesView() {
+    setSelection({ kind: "policies" });
+    setNavToken((n) => n + 1);
+  }
+
+  function selectGoalsView() {
+    setSelection({ kind: "goals" });
     setNavToken((n) => n + 1);
   }
 
@@ -62,23 +62,6 @@ export function OrgPage() {
     setNavToken((n) => n + 1);
   }
 
-  function openTheme(theme: OrgTheme) {
-    setEditingThemeId(theme.id);
-    setSelection({ kind: "themes" });
-  }
-
-  // objectives の初回ロード後に一度だけ、URLの?objective=をobjectives一覧へ反映する
-  // （ポーリングで編集中ドラフトを上書きしないよう、id単位でガードする）。
-  if (
-    objectivesLoaded &&
-    objectiveFocusId &&
-    objectiveFocusId !== appliedObjectiveFocusId &&
-    objectives.some((o) => o.id === objectiveFocusId)
-  ) {
-    setAppliedObjectiveFocusId(objectiveFocusId);
-    setSelection({ kind: "objectives" });
-  }
-
   return (
     <div className={styles.screen}>
       <PageTitleRow title="方針・目標" helpAnchor="org" />
@@ -87,20 +70,25 @@ export function OrgPage() {
           selection={selection}
           backgroundsLoaded={backgroundsLoaded}
           activeBackgroundsCount={backgrounds.filter((b) => b.status === "active").length}
-          objectivesLoaded={objectivesLoaded}
-          objectivesCount={objectives.length}
+          policiesLoaded={policiesLoaded}
+          activePoliciesCount={policies.filter((p) => !p.archivedAt).length}
+          goalsLoaded={goalsLoaded}
+          activeGoalsCount={goals.filter((g) => g.status === "active").length}
           themesLoaded={themesLoaded}
           adoptedThemesCount={adoptedThemes.length}
           onSelectStrategy={selectStrategy}
           onSelectBackgrounds={selectBackgroundsView}
-          onSelectObjectives={selectObjectivesView}
+          onSelectPolicies={selectPoliciesView}
+          onSelectGoals={selectGoalsView}
           onSelectThemes={selectThemesView}
           onSelectGlossary={selectGlossaryView}
         />
 
         <div className={styles.panel}>
           {!selection && (
-            <p className={styles.emptyState}>左のツリーからStrategy・Standing Background・Objectives・Themes・Glossaryを選択してください。</p>
+            <p className={styles.emptyState}>
+              左のツリーからStrategy・Standing Background・Policy・Goal・Themes・Glossaryを選択してください。
+            </p>
           )}
 
           {selection?.kind === "strategy" && (
@@ -123,18 +111,18 @@ export function OrgPage() {
             />
           )}
 
-          {selection?.kind === "objectives" && (
-            <ObjectivesPanel
+          {selection?.kind === "policies" && (
+            <PolicyPanel key={navToken} policies={policies} policiesLoaded={policiesLoaded} refreshPolicies={refreshPolicies} />
+          )}
+
+          {selection?.kind === "goals" && (
+            <GoalsPanel
               key={navToken}
-              objectives={objectives}
-              objectivesLoaded={objectivesLoaded}
-              refreshObjectives={refreshObjectives}
-              activeTeams={activeTeams}
+              goals={goals}
+              goalsLoaded={goalsLoaded}
+              refreshGoals={refreshGoals}
               teamOptions={teamOptions}
-              themes={themes}
               refreshThemes={refreshThemes}
-              focusObjectiveId={appliedObjectiveFocusId === objectiveFocusId ? objectiveFocusId : null}
-              onOpenTheme={openTheme}
             />
           )}
 
@@ -142,7 +130,7 @@ export function OrgPage() {
             <OrgThemesPanel
               themes={themes}
               themesLoaded={themesLoaded}
-              objectives={objectives}
+              goals={goals}
               refreshThemes={refreshThemes}
               editingThemeId={editingThemeId}
               onSelectTheme={(theme) => setEditingThemeId(theme.id)}

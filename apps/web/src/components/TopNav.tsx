@@ -59,11 +59,8 @@ const STORY_GROUPS: StoryGroup[] = [
   {
     key: "constitution",
     label: "方針・目標",
-    hint: "組織の憲法＝MVV・目標（OKR）という前提を置く",
-    items: [
-      { href: "/org", label: "方針・目標" },
-      { href: "/org/thread", label: "つながりを見る" },
-    ],
+    hint: "組織の憲法＝MVV・Goal・Policyという前提を置く",
+    items: [{ href: "/org", label: "方針・目標" }],
   },
   { key: "settings", label: "設定", hint: "しきい値・自動起動の挙動を調整する", items: [{ href: "/settings", label: "設定" }] },
 ];

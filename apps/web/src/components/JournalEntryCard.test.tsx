@@ -133,27 +133,14 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(openSuggestionPeekMock).toHaveBeenCalledWith("issue-1");
   });
 
-  it("resolvedIssueIdとissues/objectivesがあれば戦略のつながりパンくずを表示する", () => {
+  it("resolvedIssueIdとissuesがあれば戦略のつながりパンくずを表示する", () => {
     renderCard(
       baseProps({
         entry: baseEntry({ resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }),
-        issues: [{ id: "issue-1", title: "追跡中Issue", keyResultId: "kr-1" }],
-        objectives: [
-          {
-            id: "obj-1",
-            title: "エンジニア満足度向上",
-            keyResults: [{ id: "kr-1", title: "1on1カバレッジ90%" }],
-            createdAt: 0,
-            updatedAt: 0,
-            progress: [{ keyResultId: "kr-1", total: 1 }],
-          },
-        ],
+        issues: [{ id: "issue-1", title: "追跡中Issue" }],
       }),
     );
-    expect(screen.getByRole("link", { name: /エンジニア満足度向上/ })).toHaveAttribute(
-      "href",
-      "/org/thread?objective=obj-1",
-    );
+    expect(screen.getByText(/追跡中Issue/)).toBeInTheDocument();
   });
 
   it("resolvedIssueIdが無ければ戦略のつながりパンくずを表示しない", () => {

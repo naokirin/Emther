@@ -9,7 +9,7 @@ import { SetupGapsBanner } from "./SetupGapsBanner";
 describe("SetupGapsBanner", () => {
   it("setupGapsが空なら何も描画しない", () => {
     const { container } = render(
-      <SetupGapsBanner setupGaps={[]} teamsCount={1} hasMvv onNavigate={vi.fn()} objectivesCount={1} />,
+      <SetupGapsBanner setupGaps={[]} teamsCount={1} hasMvv onNavigate={vi.fn()} goalsCount={1} />,
     );
     expect(container).toBeEmptyDOMElement();
   });
@@ -18,17 +18,17 @@ describe("SetupGapsBanner", () => {
     const onNavigate = vi.fn();
     const user = userEvent.setup();
     render(
-      <SetupGapsBanner setupGaps={["Team 0件"]} teamsCount={0} hasMvv objectivesCount={1} onNavigate={onNavigate} />,
+      <SetupGapsBanner setupGaps={["Team 0件"]} teamsCount={0} hasMvv goalsCount={1} onNavigate={onNavigate} />,
     );
     await user.click(screen.getByRole("button", { name: "チームへ" }));
     expect(onNavigate).toHaveBeenCalledWith("/teams");
   });
 
-  it("MVV未設定またはObjective0件なら「方針・目標へ」ボタンを表示する", async () => {
+  it("MVV未設定またはGoal0件なら「方針・目標へ」ボタンを表示する", async () => {
     const onNavigate = vi.fn();
     const user = userEvent.setup();
     render(
-      <SetupGapsBanner setupGaps={["MVV未設定"]} teamsCount={1} hasMvv={false} objectivesCount={0} onNavigate={onNavigate} />,
+      <SetupGapsBanner setupGaps={["MVV未設定"]} teamsCount={1} hasMvv={false} goalsCount={0} onNavigate={onNavigate} />,
     );
     await user.click(screen.getByRole("button", { name: "方針・目標へ" }));
     expect(onNavigate).toHaveBeenCalledWith("/org");
@@ -36,7 +36,7 @@ describe("SetupGapsBanner", () => {
 
   it("setupGapsの内容を・区切りで表示する", () => {
     render(
-      <SetupGapsBanner setupGaps={["MVV未設定", "Team 0件"]} teamsCount={0} hasMvv={false} objectivesCount={0} onNavigate={vi.fn()} />,
+      <SetupGapsBanner setupGaps={["MVV未設定", "Team 0件"]} teamsCount={0} hasMvv={false} goalsCount={0} onNavigate={vi.fn()} />,
     );
     expect(screen.getByText(/MVV未設定・Team 0件/)).toBeInTheDocument();
   });

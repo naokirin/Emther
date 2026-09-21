@@ -16,8 +16,7 @@ function makeTheme(overrides: Partial<OrgTheme> & Pick<OrgTheme, "id" | "title" 
     facts: [],
     evidenceJournalIds: [],
     evidenceIssueIds: [],
-    objectiveIds: [],
-    keyResultIds: [],
+    goalIds: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
     ...overrides,
@@ -47,7 +46,7 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof OrgThemesPan
       <OrgThemesPanel
         themes={mockThemes}
         themesLoaded={true}
-        objectives={[]}
+        goals={[]}
         refreshThemes={vi.fn().mockResolvedValue(undefined)}
         editingThemeId={null}
         onSelectTheme={vi.fn()}

@@ -79,18 +79,23 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
     body: (
       <>
         <p>
-          Strategy（MVV）、Standing Background（長期の背景事実）、Objectives（OKR）、Themes（今期の焦点）は、
-          EM が不動の前提として Agent Runtime へ注入する情報です。未入力の項目は注入されません。
+          Strategy（MVV）、Standing Background（長期の背景事実）、Policy（判断原則）、Goal（到達したい状態）、
+          Themes（今期の焦点）は、EM が不動の前提として Agent Runtime へ注入する情報です。
+          未入力の項目は注入されません。
         </p>
         <p>
           Standing Background は事実と含意を分けて書きます。注入範囲が always ならほぼ全 Run に、
           tagged ならタグ／本文の手がかりがあるときだけ渡します（常時効くものは 5〜20 件程度を目安）。
         </p>
-        <p>チームの追加・編集は「チーム・メンバー」タブで行います。</p>
         <p>
-          「つながりを見る」サブタブでは、Objective › Key Result › 提案 › Journal の縦の接続をツリーで一望できます
-          （提案の Key Result 紐付け・起点 Journal から都度組み立てる閲覧専用ビューで、ここでは編集できません）。
+          Policy は「大切にすること・優先すること・やらないこと・判断に迷ったときの原則」などを 1 件ずつ書き残す場所です。
+          固定の入力欄はなく、思いついた原則から自由記述で書き足していけます（カテゴリは任意のヒントで、未設定でも構いません）。
         </p>
+        <p>
+          Goal は EM として見据えている「到達したい状態」です。SMART である必要はなく、曖昧なままでも登録できます。
+          Goal からは「このGoalの重点テーマ候補を出す」でテーマ候補を先に置くことができ、テーマへのGoal紐づけは AI 提案でも探せます。
+        </p>
+        <p>チームの追加・編集は「チーム・メンバー」タブで行います。</p>
       </>
     ),
   },
@@ -153,7 +158,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
           気づきメモ（Keep / Problem / Try）はスキマにひとことずつで、週ごとにまとまります。
         </p>
         <p>
-          タイムラインは提案・Team・Objective の変更履歴の横断です。
+          タイムラインは提案・Team・Goal の変更履歴の横断です。
           レポートは Journal・提案・組織イベントの週次／月次スナップショットです。
         </p>
       </>

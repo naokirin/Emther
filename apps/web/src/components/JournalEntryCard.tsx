@@ -11,7 +11,6 @@ import {
   URGENCY_LABEL,
   type Issue,
   type JournalEntry,
-  type ObjectiveWithProgress,
 } from "@emther/core/types";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
@@ -36,10 +35,9 @@ function formatEntryDate(ts: number): string {
 export function JournalEntryCard({
   entry,
   // docs/memo.md「戦略→Issue→Journalの縦の接続が見えづらい」対応。resolvedIssueId経由で
-  // Objective/KeyResultまで辿れるときだけパンくずを出す。呼び出し側で未指定なら何も出さない
+  // Issueまで辿れるときだけパンくずを出す。呼び出し側で未指定なら何も出さない
   // （Dashboard等、既に手一杯な画面での強制表示は避ける）。
   issues = [],
-  objectives = [],
   editing,
   editRawText,
   editTags,
@@ -76,8 +74,7 @@ export function JournalEntryCard({
   onDismissPendingError,
 }: {
   entry: JournalEntry;
-  issues?: Pick<Issue, "id" | "title" | "keyResultId">[];
-  objectives?: ObjectiveWithProgress[];
+  issues?: Pick<Issue, "id" | "title">[];
   editing: boolean;
   editRawText: string;
   editTags: string;
@@ -410,7 +407,7 @@ export function JournalEntryCard({
         <MarkdownView text={entry.rawText} />
       </div>
       {entry.resolvedIssueId && (
-        <StrategyTrail nodes={buildJournalStrategyTrail(entry, issues, objectives)} currentKind="journal" />
+        <StrategyTrail nodes={buildJournalStrategyTrail(entry, issues)} currentKind="journal" />
       )}
       <div className={styles.tagRow}>
         <span className={`${styles.subtitle} ${styles.axisTooltip}`} data-tooltip="出来事の発生日" tabIndex={0}>

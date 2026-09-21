@@ -1,8 +1,11 @@
 import styles from "../styles/page.module.css";
-import type { IssueStrategyLinkSuggestion, ThemeOkrLinkSuggestion } from "@emther/core/types";
+import type { GoalLinkSuggestion, IssueStrategyLinkSuggestion } from "@emther/core/types";
 
-export function ThemeOkrLinkSuggestPanel({
+// Theme(採用済み)へのGoal紐づけAI提案のHITL表示。
+export function GoalLinkSuggestPanel({
   suggestions,
+  title,
+  emptyText,
   source,
   fallbackReason,
   applyingId,
@@ -10,13 +13,15 @@ export function ThemeOkrLinkSuggestPanel({
   onDismiss,
   onDismissOne,
 }: {
-  suggestions: ThemeOkrLinkSuggestion[];
+  suggestions: GoalLinkSuggestion[];
+  title: string;
+  emptyText: string;
   source: "cloud" | "heuristic";
   fallbackReason?: string;
   applyingId: string | null;
-  onAdopt: (s: ThemeOkrLinkSuggestion) => void;
+  onAdopt: (s: GoalLinkSuggestion) => void;
   onDismiss: () => void;
-  onDismissOne: (themeId: string) => void;
+  onDismissOne: (sourceId: string) => void;
 }) {
   return (
     <div
@@ -29,7 +34,7 @@ export function ThemeOkrLinkSuggestPanel({
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-        <strong>OKRリンク提案</strong>
+        <strong>{title}</strong>
         <button type="button" className={styles.detailToggle} onClick={onDismiss}>
           閉じる
         </button>
@@ -44,45 +49,40 @@ export function ThemeOkrLinkSuggestPanel({
       ) : null}
       {suggestions.length === 0 ? (
         <p className={styles.subtitle} style={{ margin: 0 }}>
-          提案できるリンクがありませんでした。方針・目標に OKR があるか確認してください。
+          {emptyText}
         </p>
       ) : (
         <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
           {suggestions.map((s) => (
             <li
-              key={s.themeId}
+              key={s.sourceId}
               style={{
                 marginBottom: 10,
                 paddingBottom: 10,
                 borderBottom: "1px solid var(--border)",
               }}
             >
-              <div style={{ fontWeight: 600 }}>{s.themeTitle}</div>
+              <div style={{ fontWeight: 600 }}>{s.sourceTitle}</div>
               <p className={styles.subtitle} style={{ margin: "2px 0 4px" }}>
                 {s.rationale}
               </p>
-              {s.labels.objectives.length > 0 && (
-                <p style={{ margin: "0 0 2px" }}>Objective: {s.labels.objectives.join(" · ")}</p>
-              )}
-              {s.labels.keyResults.length > 0 && (
-                <p style={{ margin: "0 0 6px" }}>KR: {s.labels.keyResults.join(" · ")}</p>
-              )}
+              {s.labels.goals.length > 0 && <p style={{ margin: "0 0 6px" }}>Goal: {s.labels.goals.join(" · ")}</p>}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 <button
                   type="button"
                   className={styles.primaryBtn}
                   style={{ width: "auto", fontSize: "0.75rem" }}
-                  disabled={applyingId === s.themeId}
+                  disabled={applyingId === s.sourceId}
                   onClick={() => onAdopt(s)}
                 >
-                  {applyingId === s.themeId ? "採用中…" : "採用してリンク"}
+                  {applyingId === s.sourceId ? "採用中…" : "採用してリンク"}
                 </button>
                 <button
                   type="button"
                   className={styles.btnOutline}
                   style={{ fontSize: "0.75rem" }}
                   disabled={!!applyingId}
-                  onClick={() => onDismissOne(s.themeId)}
+                  onClick={() => onDismissOne(s.sourceId)}
                 >
                   スキップ
                 </button>
@@ -138,7 +138,7 @@ export function IssueStrategyLinkSuggestPanel({
       ) : null}
       {suggestions.length === 0 ? (
         <p className={styles.subtitle} style={{ margin: 0 }}>
-          提案できるリンクがありませんでした。採用テーマや KR があるか確認してください。
+          提案できるリンクがありませんでした。採用テーマがあるか確認してください。
         </p>
       ) : (
         <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
@@ -155,8 +155,7 @@ export function IssueStrategyLinkSuggestPanel({
               <p className={styles.subtitle} style={{ margin: "2px 0 4px" }}>
                 {s.rationale}
               </p>
-              {s.labels.theme && <p style={{ margin: "0 0 2px" }}>テーマ: {s.labels.theme}</p>}
-              {s.labels.keyResult && <p style={{ margin: "0 0 6px" }}>KR: {s.labels.keyResult}</p>}
+              {s.labels.theme && <p style={{ margin: "0 0 6px" }}>テーマ: {s.labels.theme}</p>}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 <button
                   type="button"

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { ThemesPanel } from "./ThemesPanel";
-import type { ObjectiveWithProgress, OrgTheme } from "@emther/core/types";
+import type { Goal, OrgTheme } from "@emther/core/types";
 
 // web/src/components/dashboard/ThemesPanel.tsx（Next.js版）には専用テストが元々無かった
 // ため新規に追加する（フェーズ3.5 tier5 dashboardバッチ）。
@@ -16,8 +16,7 @@ function theme(overrides: Partial<OrgTheme> & { id: string }): OrgTheme {
     facts: [],
     evidenceJournalIds: [],
     evidenceIssueIds: [],
-    objectiveIds: [],
-    keyResultIds: [],
+    goalIds: [],
     status: "adopted",
     createdAt: 0,
     updatedAt: 0,
@@ -29,7 +28,7 @@ function renderPanel(props: Partial<React.ComponentProps<typeof ThemesPanel>> = 
   const defaults: React.ComponentProps<typeof ThemesPanel> = {
     themes: [],
     themesLoaded: true,
-    objectives: [] as ObjectiveWithProgress[],
+    goals: [] as Goal[],
     refreshThemes: vi.fn().mockResolvedValue(undefined),
     refreshRuns: vi.fn().mockResolvedValue(undefined),
     onNavigate: vi.fn(),
@@ -60,9 +59,9 @@ describe("ThemesPanel", () => {
     expect(screen.getByText(/1on1の質/)).toBeInTheDocument();
   });
 
-  it("OKR未リンクなテーマは警告件数を表示する", () => {
-    renderPanel({ themes: [theme({ id: "t1", objectiveIds: [], keyResultIds: [] })] });
-    expect(screen.getByText(/⚠ OKR未リンク 1件/)).toBeInTheDocument();
+  it("Goal未リンクなテーマは警告件数を表示する", () => {
+    renderPanel({ themes: [theme({ id: "t1", goalIds: [] })] });
+    expect(screen.getByText(/⚠ Goal未リンク 1件/)).toBeInTheDocument();
   });
 
   it("「詳細を見る」でテーマ一覧が展開される", async () => {
@@ -70,7 +69,7 @@ describe("ThemesPanel", () => {
     renderPanel({ themes: [theme({ id: "t1", title: "1on1の質", summary: "要約テキスト" })] });
     await user.click(screen.getByRole("button", { name: "詳細を見る" }));
     expect(screen.getByText("要約テキスト")).toBeInTheDocument();
-    expect(screen.getByText("⚠ OKR未リンク")).toBeInTheDocument();
+    expect(screen.getByText("⚠ Goal未リンク")).toBeInTheDocument();
   });
 
   it("テーマの「詳細」トグルで根拠・根本原因を表示する", async () => {

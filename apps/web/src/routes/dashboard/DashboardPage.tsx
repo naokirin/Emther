@@ -11,10 +11,10 @@ import { buildNextActions, selectWatchingItems } from "../../lib/dashboard-next-
 import { buildDailySituation } from "../../lib/daily-situation";
 import {
   useEmCheckins,
+  useGoals,
   useGoToRunIssue,
   useIssues,
   useJournal,
-  useObjectives,
   useOrgStrategy,
   usePeople,
   useRuns,
@@ -104,7 +104,6 @@ export function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           themeId: s.themeId,
-          keyResultId: s.keyResultId,
         }),
       });
       if (!res.ok) {
@@ -129,13 +128,13 @@ export function DashboardPage() {
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。
   const { strategy, strategyLoaded } = useOrgStrategy();
   const { teams, teamsLoaded } = useTeams();
-  const { objectives, objectivesLoaded } = useObjectives();
+  const { goals, goalsLoaded } = useGoals();
   // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
   const { people, peopleLoaded } = usePeople();
   const { themes, themesLoaded, refreshThemes } = useThemes();
   // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
   // SettingsのrulesLoadedと同じ考え方（usePollingのloaded）。
-  const setupLoaded = strategyLoaded && teamsLoaded && objectivesLoaded;
+  const setupLoaded = strategyLoaded && teamsLoaded && goalsLoaded;
   const nextActionsLoaded = runsLoaded && issuesLoaded && vitalsLoaded && journalLoaded && peopleLoaded;
 
   // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
@@ -204,22 +203,15 @@ export function DashboardPage() {
   // /growthへ誘導する（記録は/growthに一本化）。
   const hasCheckinToday = checkins.some((c) => c.createdAt >= todayStart.getTime());
 
-  // docs/em_human_story_and_ux.md P1-10対応。戦略（H）を「ある画面」から朝の要約へ薄く載せる。
-  // 判断待ちの項目ではなく単なる現況表示なので、次にすべきことのリストではなくヘッダー直下の
-  // 1行として出す。
-  const krTotals = objectives
-    .flatMap((o) => o.progress)
-    .reduce((acc, p) => ({ total: acc.total + p.total }), { total: 0 });
-
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
-  // 走らないよう、MVV/Team/Objectiveが揃うまでセットアップ導線を出す。新規ウィザード画面は
+  // 走らないよう、MVV/Team/Goalが揃うまでセットアップ導線を出す。新規ウィザード画面は
   // 増やさず、既存の/orgへの案内に留める（EMが明示的に消せるものではなく、実際に揃うと
   // 自然に消える）。未ロード中は空fallbackを「未設定」と誤認しないよう計算しない。
   const setupGaps: string[] = [];
   if (setupLoaded) {
     if (!strategy.mission && !strategy.vision && !strategy.values) setupGaps.push("MVV未設定");
     if (teams.length === 0) setupGaps.push(`Team ${teams.length}件`);
-    if (objectives.length === 0) setupGaps.push(`Objective ${objectives.length}件`);
+    if (goals.length === 0) setupGaps.push(`Goal ${goals.length}件`);
   }
 
   const unlinkedParentCount = issues.filter(
@@ -232,7 +224,7 @@ export function DashboardPage() {
         setupGaps={setupGaps}
         teamsCount={teams.length}
         hasMvv={!!(strategy.mission || strategy.vision || strategy.values)}
-        objectivesCount={objectives.length}
+        goalsCount={goals.length}
         onNavigate={(path) => navigate(path)}
       />
 
@@ -258,7 +250,6 @@ export function DashboardPage() {
         watchingItems={watchingItems}
         lastSeenAt={lastSeenAt}
         unlinkedParentCount={unlinkedParentCount}
-        krTotals={krTotals}
         autoRunsToday={autoRunsToday}
         runs={runs}
         runsLoaded={runsLoaded}
@@ -287,7 +278,7 @@ export function DashboardPage() {
       <ThemesPanel
         themes={themes}
         themesLoaded={themesLoaded}
-        objectives={objectives}
+        goals={goals}
         refreshThemes={refreshThemes}
         refreshRuns={refreshRuns}
         onNavigate={(path) => navigate(path)}

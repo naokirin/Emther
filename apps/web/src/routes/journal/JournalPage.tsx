@@ -6,7 +6,7 @@ import { JournalInputSwitcher } from "../../components/JournalInputSwitcher";
 import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls, paginationMeta } from "../../components/Pagination";
 import { Select } from "../../components/Select";
-import { useIssues, useJournalSearch, useObjectives } from "../../lib/queries";
+import { useIssues, useJournalSearch } from "../../lib/queries";
 import type { JournalEntry } from "@emther/core/types";
 import { useJournalEditing } from "../../lib/useJournalEditing";
 
@@ -103,7 +103,6 @@ export function JournalPage() {
   );
   const editing = useJournalEditing(entries, setEntries);
   const { issues } = useIssues();
-  const { objectives } = useObjectives();
   const pagination = paginationMeta(total, activeFocusId ? resolvedPage : page, PAGE_SIZE);
 
   if (activeFocusId) {
@@ -238,7 +237,6 @@ export function JournalPage() {
               <JournalEntryCard
                 entry={entry}
                 issues={issues}
-                objectives={objectives}
                 editing={editing.editingEntryId === entry.id}
                 editRawText={editing.editRawText}
                 editTags={editing.editTags}

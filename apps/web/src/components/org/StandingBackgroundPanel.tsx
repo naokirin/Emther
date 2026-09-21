@@ -3,7 +3,7 @@ import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
 import { useEntityHistory } from "../../lib/queries";
 import { type OrgBackgroundEntry } from "@emther/core/types";
-import { treeTitle } from "./ObjectiveTree";
+import { treeTitle } from "./treeTitle";
 
 type Props = {
   backgrounds: OrgBackgroundEntry[];

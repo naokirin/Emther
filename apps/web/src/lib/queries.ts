@@ -26,11 +26,11 @@ import { truncateForTitle } from "@emther/core/types";
 import type {
   EmCheckin,
   EmReflectionNote,
+  Goal,
   GrowSuggestion,
   Issue,
   JournalEntry,
   KnowledgeEvent,
-  ObjectiveWithProgress,
   OrgBackgroundEntry,
   OrgStrategy,
   OrgTheme,
@@ -40,6 +40,7 @@ import type {
   PersonEvaluationLog,
   PersonProfile,
   PersonSummary,
+  PolicyEntry,
   Report,
   ReportPeriodType,
   RulesAndConstraints,
@@ -300,14 +301,13 @@ export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useObjectives。呼び出し側は`refreshObjectives: () => Promise<void>`
-// という型で受け取るため、useTeams等と同じくrefetchの戻り値を握りつぶす。
-export function useObjectives(intervalMs = 5000) {
-  const query = usePolledQuery<{ objectives: ObjectiveWithProgress[] }>(["api", "org", "objectives"], "/api/org/objectives", intervalMs);
+// docs/goal_policy_model_plan.md Phase 2。useTeams等と同じ構成のGoal版。
+export function useGoals(intervalMs = 5000) {
+  const query = usePolledQuery<{ goals: Goal[] }>(["api", "org", "goals"], "/api/org/goals", intervalMs);
   return {
-    objectives: query.data?.objectives ?? [],
-    objectivesLoaded: !query.isPending,
-    refreshObjectives: async () => {
+    goals: query.data?.goals ?? [],
+    goalsLoaded: !query.isPending,
+    refreshGoals: async () => {
       await query.refetch();
     },
   };
@@ -334,6 +334,18 @@ export function useOrgStrategy(intervalMs = 8000) {
     strategy: query.data?.strategy ?? ORG_STRATEGY_FALLBACK,
     strategyLoaded: !query.isPending,
     refreshStrategy: async () => {
+      await query.refetch();
+    },
+  };
+}
+
+// docs/goal_policy_model_plan.md Phase 1。useOrgBackgrounds等と同じ構成のPolicy版。
+export function usePolicies(intervalMs = 8000) {
+  const query = usePolledQuery<{ policies: PolicyEntry[] }>(["api", "org", "policies"], "/api/org/policies", intervalMs);
+  return {
+    policies: query.data?.policies ?? [],
+    policiesLoaded: !query.isPending,
+    refreshPolicies: async () => {
       await query.refetch();
     },
   };

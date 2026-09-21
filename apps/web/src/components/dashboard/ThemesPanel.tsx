@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import { IdFragmentLink } from "../IdFragmentLink";
 import { IdLinkedText } from "../IdLinkedText";
-import { ThemeOkrLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
-import { ThemeOkrLinkEditor } from "../ThemeOkrLinkEditor";
-import { isThemeOkrUnlinked, type ObjectiveWithProgress, type OrgTheme, type ThemeOkrLinkSuggestion } from "@emther/core/types";
+import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
+import { ThemeGoalLinkEditor } from "../ThemeGoalLinkEditor";
+import { isThemeGoalUnlinked, type Goal, type GoalLinkSuggestion, type OrgTheme } from "@emther/core/types";
 
 // 採用＝肯定（1段階）。壁打ち前提に入ったテーマを「意識の錨」として今日タブに残す。
 const PRIORITY_THEME_LIMIT = 3;
@@ -13,37 +13,25 @@ const PRIORITY_THEME_LIMIT = 3;
 type Props = {
   themes: OrgTheme[];
   themesLoaded: boolean;
-  objectives: ObjectiveWithProgress[];
+  goals: Goal[];
   refreshThemes: () => Promise<void>;
   refreshRuns: () => Promise<void>;
   onNavigate: (path: string) => void;
 };
 
-function themeOkrLinks(theme: OrgTheme, objectives: ObjectiveWithProgress[]): { href: string; label: string }[] {
-  const links: { href: string; label: string }[] = [];
-  for (const id of theme.objectiveIds ?? []) {
-    const o = objectives.find((obj) => obj.id === id);
-    if (o) links.push({ href: `/org?objective=${encodeURIComponent(o.id)}`, label: o.title });
-  }
-  for (const krId of theme.keyResultIds ?? []) {
-    for (const o of objectives) {
-      const kr = o.keyResults.find((k) => k.id === krId);
-      if (kr) {
-        links.push({
-          href: `/org?objective=${encodeURIComponent(o.id)}`,
-          label: `${o.title} ＞ ${kr.title}`,
-        });
-        break;
-      }
-    }
+function themeGoalLinks(theme: OrgTheme, goals: Goal[]): { label: string }[] {
+  const links: { label: string }[] = [];
+  for (const id of theme.goalIds ?? []) {
+    const g = goals.find((goal) => goal.id === id);
+    if (g) links.push({ label: g.title });
   }
   return links.slice(0, 2);
 }
 
 // UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
 // テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付け、既定では
-// 要約1行だけを見せる。詳細（Why/What/How・OKRリンク・編集）はクリックしてから。
-export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, refreshRuns, onNavigate }: Props) {
+// 要約1行だけを見せる。詳細（Why/What/How・Goalリンク・編集）はクリックしてから。
+export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refreshRuns, onNavigate }: Props) {
   const [searchParams] = useSearchParams();
   const themeFocusId = searchParams.get("theme");
 
@@ -60,7 +48,7 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
   const [themeLinkSuggesting, setThemeLinkSuggesting] = useState(false);
   const [themeLinkError, setThemeLinkError] = useState<string | null>(null);
   const [themeLinkPreview, setThemeLinkPreview] = useState<{
-    suggestions: ThemeOkrLinkSuggestion[];
+    suggestions: GoalLinkSuggestion[];
     source: "cloud" | "heuristic";
     fallbackReason?: string;
   } | null>(null);
@@ -71,7 +59,7 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
     .sort((a, b) => (b.adoptedAt ?? b.updatedAt) - (a.adoptedAt ?? a.updatedAt));
   const visiblePriorityThemes = priorityThemesShowAll ? adoptedThemes : adoptedThemes.slice(0, PRIORITY_THEME_LIMIT);
   const hiddenPriorityThemeCount = Math.max(0, adoptedThemes.length - PRIORITY_THEME_LIMIT);
-  const unlinkedThemeCount = adoptedThemes.filter((t) => isThemeOkrUnlinked(t)).length;
+  const unlinkedThemeCount = adoptedThemes.filter((t) => isThemeGoalUnlinked(t)).length;
 
   // Issue詳細などから `/?theme=<id>` で飛んできたとき、該当テーマを展開して見せる。
   if (themesLoaded && themeFocusId && themeFocusId !== appliedThemeFocusId) {
@@ -112,17 +100,17 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
     }
   }
 
-  async function handleSuggestThemeOkrLinks() {
+  async function handleSuggestThemeGoalLinks() {
     setThemeLinkSuggesting(true);
     setThemeLinkError(null);
     try {
-      const res = await fetch("/api/themes/link/suggest", {
+      const res = await fetch("/api/themes/link/suggest-goal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "OKRリンク提案に失敗しました");
+      if (!res.ok) throw new Error(data?.error ?? "Goalリンク提案に失敗しました");
       setThemeLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
         source: data?.source === "cloud" ? "cloud" : "heuristic",
@@ -135,17 +123,16 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
     }
   }
 
-  async function handleAdoptThemeOkrLink(s: ThemeOkrLinkSuggestion) {
-    setThemeLinkApplyingId(s.themeId);
+  async function handleAdoptThemeGoalLink(s: GoalLinkSuggestion) {
+    setThemeLinkApplyingId(s.sourceId);
     setThemeLinkError(null);
     try {
-      const res = await fetch(`/api/themes/${s.themeId}`, {
+      const res = await fetch(`/api/themes/${s.sourceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "link",
-          objectiveIds: s.objectiveIds,
-          keyResultIds: s.keyResultIds,
+          goalIds: s.goalIds,
         }),
       });
       if (!res.ok) {
@@ -154,7 +141,7 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
       }
       await refreshThemes();
       setThemeLinkPreview((prev) =>
-        prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.themeId !== s.themeId) } : null,
+        prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.sourceId !== s.sourceId) } : null,
       );
     } catch (err) {
       setThemeLinkError((err as Error).message);
@@ -168,14 +155,14 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
       <div className={styles.panel} style={{ marginBottom: 16 }}>
         <h2 style={{ margin: 0, fontSize: "1rem" }}>テーマの見直し</h2>
         <p className={styles.subtitle} style={{ marginTop: 4 }}>
-          採用中の優先テーマはまだありません。観測差分から候補を出すか、方針・目標から OKR 起点の候補を作れます。
+          採用中の優先テーマはまだありません。観測差分から候補を出すか、方針・目標から Goal 起点の候補を作れます。
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center" }}>
           <button className={styles.btnOutline} disabled={distillSubmitting} onClick={handleDistillThemes}>
             {distillSubmitting ? "修正候補を生成中…" : "🧭 テーマを見直す（観測差分）"}
           </button>
           <button className={styles.btnOutline} onClick={() => onNavigate("/org")}>
-            方針・目標（OKR起点）へ
+            方針・目標（Goal起点）へ
           </button>
         </div>
         {distillError && (
@@ -196,7 +183,7 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
             今期の焦点: {adoptedThemes.slice(0, 3).map((t) => t.title).join(" / ")}
             {adoptedThemes.length > 3 ? ` 他${adoptedThemes.length - 3}` : ""}
             {unlinkedThemeCount > 0 && (
-              <span style={{ color: "var(--yellow-fg)", marginLeft: 8 }}>⚠ OKR未リンク {unlinkedThemeCount}件</span>
+              <span style={{ color: "var(--yellow-fg)", marginLeft: 8 }}>⚠ Goal未リンク {unlinkedThemeCount}件</span>
             )}
           </p>
         </div>
@@ -280,11 +267,10 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
                         キャンセル
                       </button>
                     </div>
-                    <ThemeOkrLinkEditor
+                    <ThemeGoalLinkEditor
                       themeId={t.id}
-                      objectiveIds={t.objectiveIds ?? []}
-                      keyResultIds={t.keyResultIds ?? []}
-                      objectives={objectives}
+                      goalIds={t.goalIds ?? []}
+                      goals={goals}
                       onSaved={refreshThemes}
                       disabled={themeEditBusy}
                       compact
@@ -297,21 +283,15 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
                         <strong>{t.title}</strong>
                         <p style={{ margin: "2px 0 0", color: "var(--text-muted)" }}>{t.summary}</p>
                         {(() => {
-                          const okrLinks = themeOkrLinks(t, objectives);
-                          if (okrLinks.length > 0) {
+                          const goalLinks = themeGoalLinks(t, goals);
+                          if (goalLinks.length > 0) {
                             return (
                               <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                📈{" "}
-                                {okrLinks.map((link, i) => (
-                                  <span key={link.href + link.label}>
+                                🎯{" "}
+                                {goalLinks.map((link, i) => (
+                                  <span key={link.label}>
                                     {i > 0 ? " · " : ""}
-                                    <Link
-                                      to={link.href}
-                                      className={styles.tableRowLink}
-                                      style={{ display: "inline", width: "auto", fontWeight: 500 }}
-                                    >
-                                      {link.label}
-                                    </Link>
+                                    {link.label}
                                   </span>
                                 ))}
                               </p>
@@ -319,7 +299,7 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
                           }
                           return (
                             <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--warning, #b45309)" }}>
-                              ⚠ OKR未リンク
+                              ⚠ Goal未リンク
                             </p>
                           );
                         })()}
@@ -446,11 +426,11 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
             {unlinkedThemeCount > 0 && (
               <button
                 className={`${styles.btnOutline} ${styles.axisTooltip}`}
-                disabled={themeLinkSuggesting || objectives.length === 0}
-                onClick={handleSuggestThemeOkrLinks}
-                data-tooltip="OKR未リンクの採用テーマへ、Objective / KR の紐付けをAIが提案します（採用まで反映しません）"
+                disabled={themeLinkSuggesting || goals.length === 0}
+                onClick={handleSuggestThemeGoalLinks}
+                data-tooltip="Goal未リンクの採用テーマへ、Goalの紐付けをAIが提案します（採用まで反映しません）"
               >
-                {themeLinkSuggesting ? "OKRリンクを提案中…" : `🔗 OKR未リンクを見直す（${unlinkedThemeCount}）`}
+                {themeLinkSuggesting ? "Goalリンクを提案中…" : `🔗 Goal未リンクを見直す（${unlinkedThemeCount}）`}
               </button>
             )}
             <span className={styles.subtitle} style={{ margin: 0 }}>
@@ -463,16 +443,18 @@ export function ThemesPanel({ themes, themesLoaded, objectives, refreshThemes, r
             </p>
           )}
           {themeLinkPreview && (
-            <ThemeOkrLinkSuggestPanel
+            <GoalLinkSuggestPanel
               suggestions={themeLinkPreview.suggestions}
+              title="テーマへのGoalリンク提案"
+              emptyText="提案できるリンクがありませんでした。Goalが登録されているか確認してください。"
               source={themeLinkPreview.source}
               fallbackReason={themeLinkPreview.fallbackReason}
               applyingId={themeLinkApplyingId}
-              onAdopt={handleAdoptThemeOkrLink}
+              onAdopt={handleAdoptThemeGoalLink}
               onDismiss={() => setThemeLinkPreview(null)}
-              onDismissOne={(themeId) =>
+              onDismissOne={(sourceId) =>
                 setThemeLinkPreview((prev) =>
-                  prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.themeId !== themeId) } : null,
+                  prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.sourceId !== sourceId) } : null,
                 )
               }
             />
