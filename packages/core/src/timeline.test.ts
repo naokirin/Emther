@@ -24,27 +24,27 @@ afterEach(() => {
 
 async function loadModules() {
   const timeline = await import("./timeline");
-  const issueStore = await import("./issue-store");
+  const suggestionStore = await import("./suggestion-store");
   const orgStore = await import("./org-context-store/index");
   const knowledgeStore = await import("./knowledge-store");
-  return { timeline, issueStore, orgStore, knowledgeStore };
+  return { timeline, suggestionStore, orgStore, knowledgeStore };
 }
 
 describe("listTimelineEntries", () => {
   it("提案作成イベントを、現在のタイトルとリンク付きで返す", async () => {
-    const { timeline, issueStore } = await loadModules();
-    const issue = await issueStore.createIssue("障害対応");
+    const { timeline, suggestionStore } = await loadModules();
+    const suggestion = await suggestionStore.createSuggestion("障害対応");
     const entries = timeline.listTimelineEntries();
-    const entry = entries.find((e) => e.entityId === issue.id);
+    const entry = entries.find((e) => e.entityId === suggestion.id);
     expect(entry?.entityType).toBe("suggestion");
     expect(entry?.entityLabel).toBe("障害対応");
-    expect(entry?.href).toBe(`/suggestions/${issue.id}`);
+    expect(entry?.href).toBe(`/suggestions/${suggestion.id}`);
   });
 
   it("提案の後続の変更（タイトル変更）でも常に現在のタイトルを解決する", async () => {
-    const { timeline, issueStore } = await loadModules();
-    const issue = await issueStore.createIssue("旧タイトル");
-    await issueStore.setIssueTitle(issue.id, "新タイトル");
+    const { timeline, suggestionStore } = await loadModules();
+    const suggestion = await suggestionStore.createSuggestion("旧タイトル");
+    await suggestionStore.setSuggestionTitle(suggestion.id, "新タイトル");
     const entries = timeline.listTimelineEntries();
     const createdEntry = entries.find((e) => e.text.includes("提案を作成") || e.text.includes("タイトルを変更"));
     expect(createdEntry?.entityLabel).toBe("新タイトル");
@@ -71,16 +71,16 @@ describe("listTimelineEntries", () => {
   });
 
   it("参照先エンティティが削除済みの場合はentityLabel/hrefを付けない", async () => {
-    const { timeline, issueStore, knowledgeStore } = await loadModules();
-    const issue = await issueStore.createIssue("後で消えるIssue");
-    // issue-storeには削除APIが無いため、直接knowledge-storeへ「削除済みID」を指す
+    const { timeline, suggestionStore, knowledgeStore } = await loadModules();
+    const suggestion = await suggestionStore.createSuggestion("後で消える提案");
+    // suggestion-storeには削除APIが無いため、直接knowledge-storeへ「削除済みID」を指す
     // 変更イベントを記録することで、参照先が存在しないケースを再現する。
-    knowledgeStore.recordChangeEvent("issue", "deleted-issue-id", "削除済みIssueへの変更履歴");
+    knowledgeStore.recordChangeEvent("suggestion", "deleted-suggestion-id", "削除済み提案への変更履歴");
     const entries = timeline.listTimelineEntries();
-    const entry = entries.find((e) => e.text === "削除済みIssueへの変更履歴");
+    const entry = entries.find((e) => e.text === "削除済み提案への変更履歴");
     expect(entry?.entityLabel).toBeUndefined();
     expect(entry?.href).toBeUndefined();
-    expect(issue.id).not.toBe("deleted-issue-id");
+    expect(suggestion.id).not.toBe("deleted-suggestion-id");
   });
 
   it("Journal(context:observation)のイベントは含まれない", async () => {
@@ -91,8 +91,8 @@ describe("listTimelineEntries", () => {
   });
 
   it("limitで件数を制限する", async () => {
-    const { timeline, issueStore } = await loadModules();
-    for (let i = 0; i < 5; i++) await issueStore.createIssue(`Issue ${i}`);
+    const { timeline, suggestionStore } = await loadModules();
+    for (let i = 0; i < 5; i++) await suggestionStore.createSuggestion(`提案 ${i}`);
     expect(timeline.listTimelineEntries(2)).toHaveLength(2);
   });
 });

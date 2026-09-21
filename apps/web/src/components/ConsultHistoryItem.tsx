@@ -18,7 +18,7 @@ const ORIGIN_SHORT: Record<AgentRun["origin"], string> = {
   manual: "",
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
-  "auto-issue-update": "提案更新分析",
+  "auto-suggestion-update": "提案更新分析",
   "auto-distill": "状況蒸留",
   "auto-journal-batch": "Journal集約解釈",
   "auto-weekly-report": "週次レビュー",

@@ -2,22 +2,22 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { IdLinkedText } from "../IdLinkedText";
 import { IdFragmentLink } from "../IdFragmentLink";
-import type { SuggestedIssueNote } from "../RunDetail";
+import type { SuggestedSuggestionNote } from "../RunDetail";
 
-// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。lookupで
-// 見つけた別Issueへの追記提案。採用すると対象Issueの経過ログ（IssueLogEntry）へ追記されるだけで、
+// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。lookupで
+// 見つけた別提案への追記提案。採用すると対象提案の経過ログへ追記されるだけで、
 // 作成・ステータス変更は行わない。
-// docs/memo.md「他Issueへの追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
+// docs/memo.md「他提案への追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
 // 対応済みも」対応。複数件あるときはチェックで対象を絞り込め、却下（提案自体が誤り）と
 // 対応済み（別口ですでに対応済みなので追わない）を区別できる。
-export function SuggestedIssueNotesBlock({
+export function SuggestedSuggestionNotesBlock({
   notes,
   onAdopt,
   onDismiss,
   onMarkHandled,
   submitting,
 }: {
-  notes: SuggestedIssueNote[];
+  notes: SuggestedSuggestionNote[];
   onAdopt?: (indices: number[]) => void;
   onDismiss?: (indices: number[]) => void;
   onMarkHandled?: (indices: number[]) => void;
@@ -67,8 +67,8 @@ export function SuggestedIssueNotesBlock({
           <span>
             <strong>
               提案:{" "}
-              <IdFragmentLink fragment={note.issueId} className={styles.idFragmentLink}>
-                {note.issueId.slice(0, 8)}
+              <IdFragmentLink fragment={note.suggestionId} className={styles.idFragmentLink}>
+                {note.suggestionId.slice(0, 8)}
               </IdFragmentLink>
             </strong>
             <p style={{ margin: "4px 0" }}>

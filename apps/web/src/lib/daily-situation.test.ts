@@ -30,7 +30,7 @@ function person(overrides: Partial<PersonSummary> & { id: string; name: string }
     factCount: 0,
     isDirectReport: true,
     isSelf: false,
-    hasConcerningIssue: false,
+    hasConcerningSuggestion: false,
     ...overrides,
   };
 }

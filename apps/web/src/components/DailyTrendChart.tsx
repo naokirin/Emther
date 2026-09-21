@@ -14,7 +14,7 @@ import {
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import styles from "../styles/page.module.css";
-import { periodWindow, type CheckinDailyPoint, type JournalIssueDailyPoint, type PeriodUnit } from "@emther/core/daily-trends";
+import { periodWindow, type CheckinDailyPoint, type JournalSuggestionDailyPoint, type PeriodUnit } from "@emther/core/daily-trends";
 
 // 改修依頼「マウスオーバーで数値を確認したい／先週・先月など時間を自由に移動したい」対応。
 // 素のSVG自作から、ホバーツールチップ・積み上げ/グループ棒を標準で持つChart.jsへ移行する
@@ -207,11 +207,11 @@ export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
   );
 }
 
-// ---------- Journal(sentiment別)・Issue(起票)の日次件数 ----------
+// ---------- Journal(sentiment別)・提案(起票)の日次件数 ----------
 
 type CountSeriesKey = keyof Pick<
-  JournalIssueDailyPoint,
-  "journalPositive" | "journalNeutral" | "journalNegative" | "issueCreated"
+  JournalSuggestionDailyPoint,
+  "journalPositive" | "journalNeutral" | "journalNegative" | "suggestionCreated"
 >;
 type CountSeries = { key: CountSeriesKey; label: string; color: string };
 
@@ -224,7 +224,7 @@ const SENTIMENT_SERIES: CountSeries[] = [
   { key: "journalPositive", label: "ポジティブ", color: CHART_COLORS.green },
 ];
 
-const ISSUE_SERIES: CountSeries[] = [{ key: "issueCreated", label: "起票", color: CHART_COLORS.blue }];
+const SUGGESTION_SERIES: CountSeries[] = [{ key: "suggestionCreated", label: "起票", color: CHART_COLORS.blue }];
 
 function countChartOptions(stacked: boolean): ChartOptions<"bar"> {
   return {
@@ -242,7 +242,7 @@ function countChartOptions(stacked: boolean): ChartOptions<"bar"> {
   };
 }
 
-function buildCountChartData(points: JournalIssueDailyPoint[], series: CountSeries[], stackKey?: string): ChartData<"bar"> {
+function buildCountChartData(points: JournalSuggestionDailyPoint[], series: CountSeries[], stackKey?: string): ChartData<"bar"> {
   return {
     labels: points.map((p) => p.label),
     datasets: series.map((s) => ({
@@ -256,12 +256,12 @@ function buildCountChartData(points: JournalIssueDailyPoint[], series: CountSeri
   };
 }
 
-// タイムライン／レポート: Journal(sentiment別)とIssue(起票)の日次件数。
+// タイムライン／レポート: Journal(sentiment別)と提案(起票)の日次件数。
 // 「この日は記録が少ない」「ネガティブ・ポジティブの多寡」を積み上げ棒で、
-// 「業務状況（起票の勢い）」をIssue側の棒で読む。
-export function JournalIssueTrendChart({ points }: { points: JournalIssueDailyPoint[] }) {
+// 「業務状況（起票の勢い）」を提案側の棒で読む。
+export function JournalSuggestionTrendChart({ points }: { points: JournalSuggestionDailyPoint[] }) {
   const hasJournal = points.some((p) => p.journalTotal > 0);
-  const hasIssue = points.some((p) => p.issueCreated > 0);
+  const hasSuggestion = points.some((p) => p.suggestionCreated > 0);
 
   return (
     <div className={styles.trendChart}>
@@ -277,9 +277,9 @@ export function JournalIssueTrendChart({ points }: { points: JournalIssueDailyPo
       <div className={styles.fieldCaption} style={{ marginTop: 18 }}>
         提案（起票の日次件数）
       </div>
-      {hasIssue ? (
+      {hasSuggestion ? (
         <div className={styles.trendChartCanvasWrapSmall}>
-          <Bar data={buildCountChartData(points, ISSUE_SERIES)} options={countChartOptions(false)} />
+          <Bar data={buildCountChartData(points, SUGGESTION_SERIES)} options={countChartOptions(false)} />
         </div>
       ) : (
         <p className={styles.tableEmpty}>この期間の提案の起票はまだありません。</p>

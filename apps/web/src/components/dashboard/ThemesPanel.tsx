@@ -336,12 +336,12 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
                             解決の方向性: <IdLinkedText text={t.suggestedDirection} />
                           </p>
                         )}
-                        {(t.evidenceIssueIds.length > 0 || t.evidenceJournalIds.length > 0) && (
+                        {(t.evidenceSuggestionIds.length > 0 || t.evidenceJournalIds.length > 0) && (
                           <div style={{ marginTop: 6, fontSize: "0.75rem" }}>
-                            {t.evidenceIssueIds.length > 0 && (
+                            {t.evidenceSuggestionIds.length > 0 && (
                               <p style={{ margin: "2px 0" }}>
                                 <strong>根拠 提案: </strong>
-                                {t.evidenceIssueIds.map((id, ii) => (
+                                {t.evidenceSuggestionIds.map((id, ii) => (
                                   <span key={id}>
                                     {ii > 0 ? "、" : ""}
                                     <IdFragmentLink fragment={id} className={styles.idFragmentLink}>

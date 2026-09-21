@@ -9,8 +9,8 @@ import {
   isJournalEntryResolved,
   journalResolutionLabel,
   URGENCY_LABEL,
-  type Issue,
   type JournalEntry,
+  type Suggestion,
 } from "@emther/core/types";
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
@@ -34,10 +34,10 @@ function formatEntryDate(ts: number): string {
 // 1件ずつ読む場面の方が多いため、カードの並びに戻す（表形式にはしない）。
 export function JournalEntryCard({
   entry,
-  // docs/memo.md「戦略→Issue→Journalの縦の接続が見えづらい」対応。resolvedIssueId経由で
-  // Issueまで辿れるときだけパンくずを出す。呼び出し側で未指定なら何も出さない
+  // docs/memo.md「戦略→提案→Journalの縦の接続が見えづらい」対応。resolvedSuggestionId経由で
+  // 提案まで辿れるときだけパンくずを出す。呼び出し側で未指定なら何も出さない
   // （Dashboard等、既に手一杯な画面での強制表示は避ける）。
-  issues = [],
+  suggestions = [],
   editing,
   editRawText,
   editTags,
@@ -65,7 +65,7 @@ export function JournalEntryCard({
   onCancelEdit,
   onStartEdit,
   onResolveWithNote,
-  onResolveWithNewIssue,
+  onResolveWithNewSuggestion,
   onClearResolution,
   onAcknowledgeSentiment,
   onClearSentimentAck,
@@ -74,7 +74,7 @@ export function JournalEntryCard({
   onDismissPendingError,
 }: {
   entry: JournalEntry;
-  issues?: Pick<Issue, "id" | "title">[];
+  suggestions?: Pick<Suggestion, "id" | "title">[];
   editing: boolean;
   editRawText: string;
   editTags: string;
@@ -108,7 +108,7 @@ export function JournalEntryCard({
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onResolveWithNote: () => void;
-  onResolveWithNewIssue: () => Promise<string | undefined>;
+  onResolveWithNewSuggestion: () => Promise<string | undefined>;
   onClearResolution: () => void;
   // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
   onAcknowledgeSentiment: () => void;
@@ -124,16 +124,16 @@ export function JournalEntryCard({
   const isResolved = isJournalEntryResolved(entry);
   // docs/em_human_story_and_ux.md 改修依頼「本文編集は他の編集項目より頻度が低いので、
   // 編集を押したときだけ編集モードに入るようにする」対応。tags/people/urgency/日付は
-  // 編集モードに入ると常に触れるが、本文はIssueのタイトル編集と同じくボタンで
+  // 編集モードに入ると常に触れるが、本文は提案のタイトル編集と同じくボタンで
   // 明示的に開始する（うっかり本文を書き換えてしまう事故も減らせる）。
   const [rawTextRevealed, setRawTextRevealed] = useState(false);
   const [analysisStarting, setAnalysisStarting] = useState(false);
 
-  async function handleCreateIssue() {
-    const issueId = await onResolveWithNewIssue();
-    if (issueId) {
+  async function handleCreateSuggestion() {
+    const suggestionId = await onResolveWithNewSuggestion();
+    if (suggestionId) {
       setRawTextRevealed(false);
-      suggestionPeek.open(issueId);
+      suggestionPeek.open(suggestionId);
     }
   }
 
@@ -341,13 +341,13 @@ export function JournalEntryCard({
           {isResolved ? (
             <div>
               <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
-                {entry.resolvedIssueId
-                  ? `✅ 提案「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です。`
+                {entry.resolvedSuggestionId
+                  ? `✅ 提案「${entry.resolvedSuggestionTitle ?? "(不明)"}」で追跡中です。`
                   : `✅ メモを残して解決済みにしています: ${entry.resolutionNote}`}
               </p>
               <div style={{ display: "flex", gap: 6 }}>
-                {entry.resolvedIssueId && (
-                  <button className={styles.btnOutline} onClick={() => suggestionPeek.open(entry.resolvedIssueId!)}>
+                {entry.resolvedSuggestionId && (
+                  <button className={styles.btnOutline} onClick={() => suggestionPeek.open(entry.resolvedSuggestionId!)}>
                     提案を開く
                   </button>
                 )}
@@ -361,7 +361,7 @@ export function JournalEntryCard({
               <p className={styles.subtitle} style={{ margin: "0 0 6px" }}>
                 Urgencyは記録のまま変えず、別枠でこの件をどう扱っているかを残せます。
               </p>
-              <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCreateIssue} style={{ marginBottom: 8 }}>
+              <button className={styles.btnOutline} disabled={editSubmitting} onClick={handleCreateSuggestion} style={{ marginBottom: 8 }}>
                 提案を起票してこの件を追跡する
               </button>
               <div style={{ display: "flex", gap: 6 }}>
@@ -393,7 +393,7 @@ export function JournalEntryCard({
   return (
     <div className={`${styles.journalEntry} ${isResolved ? styles.journalEntryResolved : ""}`}>
       {/* 改修依頼「対応済みラベルを本文前につけることでより『対応済み』がわかりやすい
-          ようにする」対応。tagRow内の✅チップ（Issueへのリンク・メモの詳細）とは別に、
+          ようにする」対応。tagRow内の✅チップ（提案へのリンク・メモの詳細）とは別に、
           本文を読み始める前に一目で分かるよう先頭に軽量なラベルを添える。 */}
       {isResolved && (
         <span className={`${styles.tag} ${styles.tagPos}`} style={{ marginRight: 6 }}>
@@ -406,8 +406,8 @@ export function JournalEntryCard({
       <div className={styles.editableTextView} onClick={onStartEdit}>
         <MarkdownView text={entry.rawText} />
       </div>
-      {entry.resolvedIssueId && (
-        <StrategyTrail nodes={buildJournalStrategyTrail(entry, issues)} currentKind="journal" />
+      {entry.resolvedSuggestionId && (
+        <StrategyTrail nodes={buildJournalStrategyTrail(entry, suggestions)} currentKind="journal" />
       )}
       <div className={styles.tagRow}>
         <span className={`${styles.subtitle} ${styles.axisTooltip}`} data-tooltip="出来事の発生日" tabIndex={0}>
@@ -436,7 +436,7 @@ export function JournalEntryCard({
           <button
             key={t}
             className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-            onClick={() => navigate(`/issues?tag=${encodeURIComponent(t)}`)}
+            onClick={() => navigate(`/suggestions?tag=${encodeURIComponent(t)}`)}
           >
             #{t}
           </button>
@@ -483,11 +483,11 @@ export function JournalEntryCard({
             📥 取り込み元
           </button>
         )}
-        {entry.resolvedIssueId ? (
+        {entry.resolvedSuggestionId ? (
           <button
             className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn} ${styles.axisTooltip}`}
-            data-tooltip={`提案「${entry.resolvedIssueTitle ?? "(不明)"}」で追跡中です`}
-            onClick={() => suggestionPeek.open(entry.resolvedIssueId!)}
+            data-tooltip={`提案「${entry.resolvedSuggestionTitle ?? "(不明)"}」で追跡中です`}
+            onClick={() => suggestionPeek.open(entry.resolvedSuggestionId!)}
           >
             ✅ 提案で追跡中
           </button>

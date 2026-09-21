@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import {
-  adoptSuggestedIssueNotesFromRun,
+  adoptSuggestedSuggestionNotesFromRun,
   adoptSuggestedThemesFromRun,
   adoptSuggestionUpdatesFromRun,
   clearSuggestedCharter,
-  clearSuggestedIssueNotes,
-  clearSuggestedSubIssues,
+  clearSuggestedSuggestionNotes,
+  clearSuggestedSubSuggestions,
   clearSuggestedSuggestionUpdates,
   clearSuggestedThemes,
   confirmPendingUnmaskedSend,
@@ -193,33 +193,33 @@ export const agentsRoute = new Hono()
     }
     return c.json({ run: toRunView(run) });
   })
-  .post("/:id/sub-issues/dismiss", (c) => {
+  .post("/:id/sub-suggestions/dismiss", (c) => {
     const id = c.req.param("id");
-    const run = clearSuggestedSubIssues(id);
+    const run = clearSuggestedSubSuggestions(id);
     if (!run) {
       return c.json({ error: "not found" }, 404);
     }
     return c.json({ run: toRunView(run) });
   })
-  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」「他Issueへの追記提案で
-  // 追記対象を個別に選択できるようにする」対応。POST=採用（対象Issueへの追記を確定）、DELETE=却下/
-  // 対応済み。bodyでindicesを指定するとsuggestedIssueNotes中の該当要素のみを対象にし、未指定時は
+  // docs/memo.md「Agentが相談などから他提案などへ記録することができない」「他提案への追記提案で
+  // 追記対象を個別に選択できるようにする」対応。POST=採用（対象提案への追記を確定）、DELETE=却下/
+  // 対応済み。bodyでindicesを指定するとsuggestedSuggestionNotes中の該当要素のみを対象にし、未指定時は
   // 従来どおり全件を対象にする。いずれも処理した提案はrunから消す。
-  .post("/:id/issue-notes", async (c) => {
+  .post("/:id/suggestion-notes", async (c) => {
     const id = c.req.param("id");
     if (!getRun(id)) return c.json({ error: "not found" }, 404);
     const body = await c.req.json().catch(() => null);
     const indices = parseIndices(body);
-    const result = await adoptSuggestedIssueNotesFromRun(id, indices);
+    const result = await adoptSuggestedSuggestionNotesFromRun(id, indices);
     if (!result) return c.json({ error: "採用できる追記提案がありません" }, 400);
     return c.json({ run: toRunView(result.run), written: result.written, skipped: result.skipped });
   })
-  .delete("/:id/issue-notes", async (c) => {
+  .delete("/:id/suggestion-notes", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);
     const indices = parseIndices(body);
     const reason = (body as { reason?: unknown } | null)?.reason === "handled" ? "handled" : "dismissed";
-    const run = clearSuggestedIssueNotes(id, { indices, reason });
+    const run = clearSuggestedSuggestionNotes(id, { indices, reason });
     if (!run) return c.json({ error: "not found" }, 404);
     return c.json({ run: toRunView(run) });
   });

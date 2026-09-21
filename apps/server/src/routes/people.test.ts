@@ -194,10 +194,10 @@ describe("POST /api/people/:id/merge", () => {
 });
 
 // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
-describe("PATCH /api/people/:id/concern-acks/:issueId", () => {
+describe("PATCH /api/people/:id/concern-acks/:suggestionId", () => {
   it("存在しない人物は404", async () => {
     const { peopleRoute } = await import("./people");
-    const res = await peopleRoute.request("/missing/concern-acks/issue-1", patch({ acknowledged: true }));
+    const res = await peopleRoute.request("/missing/concern-acks/suggestion-1", patch({ acknowledged: true }));
     expect(res.status).toBe(404);
   });
 
@@ -205,27 +205,27 @@ describe("PATCH /api/people/:id/concern-acks/:issueId", () => {
     const peopleDirectory = await import("@emther/core/people-directory");
     const id = peopleDirectory.registerName("Aさん");
     const { peopleRoute } = await import("./people");
-    const res = await peopleRoute.request(`/${id}/concern-acks/issue-1`, patch({}));
+    const res = await peopleRoute.request(`/${id}/concern-acks/suggestion-1`, patch({}));
     expect(res.status).toBe(400);
   });
 
-  it("acknowledged: trueで確認済みを記録し、people-hubのhasConcerningIssueから除外される", async () => {
+  it("acknowledged: trueで確認済みを記録し、people-hubのhasConcerningSuggestionから除外される", async () => {
     const peopleDirectory = await import("@emther/core/people-directory");
-    const issueStore = await import("@emther/core/issue-store");
+    const suggestionStore = await import("@emther/core/suggestion-store");
     const hub = await import("@emther/core/people-hub");
     const id = peopleDirectory.registerName("Aさん");
-    const issue = await issueStore.createIssue("Aさんの育成計画");
-    issueStore.setIssueStatus(issue.id, "blocked");
-    expect(hub.getPersonProfile(id)?.hasConcerningIssue).toBe(true);
+    const suggestion = await suggestionStore.createSuggestion("Aさんの育成計画");
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
+    expect(hub.getPersonProfile(id)?.hasConcerningSuggestion).toBe(true);
 
     const { peopleRoute } = await import("./people");
-    const ackRes = await peopleRoute.request(`/${id}/concern-acks/${issue.id}`, patch({ acknowledged: true, note: "対応不要" }));
+    const ackRes = await peopleRoute.request(`/${id}/concern-acks/${suggestion.id}`, patch({ acknowledged: true, note: "対応不要" }));
     expect(ackRes.status).toBe(200);
-    expect(hub.getPersonProfile(id)?.hasConcerningIssue).toBe(false);
+    expect(hub.getPersonProfile(id)?.hasConcerningSuggestion).toBe(false);
 
-    const clearRes = await peopleRoute.request(`/${id}/concern-acks/${issue.id}`, patch({ acknowledged: false }));
+    const clearRes = await peopleRoute.request(`/${id}/concern-acks/${suggestion.id}`, patch({ acknowledged: false }));
     expect(clearRes.status).toBe(200);
-    expect(hub.getPersonProfile(id)?.hasConcerningIssue).toBe(true);
+    expect(hub.getPersonProfile(id)?.hasConcerningSuggestion).toBe(true);
   });
 });
 

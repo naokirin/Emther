@@ -18,16 +18,16 @@ import { isInvalidPersonNameEntry, unmaskNames } from "./people-directory";
 
 export type KnowledgeKind = "fact" | "interpretation";
 export type KnowledgeContext = "official" | "observation" | "casual" | "complaint" | "profile";
-export type KnowledgeEntityType = "journal" | "person" | "team" | "issue" | "suggestion" | "org";
+export type KnowledgeEntityType = "journal" | "person" | "team" | "suggestion" | "org";
 
 export type KnowledgeEvent = {
   id: string;
   kind: KnowledgeKind;
   context: KnowledgeContext;
   entityType: KnowledgeEntityType;
-  // Issue/Teamの変更履歴（Phase 2）のように、特定の1エンティティ（issueId/teamId）を
+  // Suggestion/Teamの変更履歴（Phase 2）のように、特定の1エンティティ（suggestionId/teamId）を
   // 一意に指す必要がある場合に使う。人物についてのイベント（peopleで名前を持つ）とは
-  // 直交する概念なので、両方が同時に埋まることもある（例: 「issueにAさんの名前が言及された」）。
+  // 直交する概念なので、両方が同時に埋まることもある（例: 「提案にAさんの名前が言及された」）。
   entityId?: string;
   // 個人情報の分離（ユーザー指摘対応）: 実名ではなくpeople-directory.tsが発行する
   // `PERSON_n` IDを保持する（recordEvent呼び出し側が保存前に変換する）。text/summaryも
@@ -51,7 +51,7 @@ export type KnowledgeEvent = {
   // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは「起きた出来事自体の深刻さ」の
   // 記録として書き換えない一方、「今どこで管理されているか」を別軸として持たせる
   // （Journal専用の概念だが、他のentityTypeで使っても害はないため型を分けない）。
-  resolvedIssueId?: string;
+  resolvedSuggestionId?: string;
   resolutionNote?: string;
   // docs/observation_dump_journal.md: 外部ログ取り込み Dump／チャンクへの弱いリンク。
   sourceDumpId?: string;
@@ -96,7 +96,7 @@ type Row = {
   supersedes: string | null;
   source_journal_id: string | null;
   embedding_json: string | null;
-  resolved_issue_id: string | null;
+  resolved_suggestion_id: string | null;
   resolution_note: string | null;
   source_dump_id: string | null;
   source_chunk_id: string | null;
@@ -126,7 +126,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     supersedes: row.supersedes ?? undefined,
     sourceJournalId: row.source_journal_id ?? undefined,
     embedding: row.embedding_json ? JSON.parse(row.embedding_json) : undefined,
-    resolvedIssueId: row.resolved_issue_id ?? undefined,
+    resolvedSuggestionId: row.resolved_suggestion_id ?? undefined,
     resolutionNote: row.resolution_note ?? undefined,
     sourceDumpId: row.source_dump_id ?? undefined,
     sourceChunkId: row.source_chunk_id ?? undefined,
@@ -216,7 +216,7 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_issue_id, resolution_note, source_dump_id, source_chunk_id)
+        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_suggestion_id, resolution_note, source_dump_id, source_chunk_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
@@ -238,7 +238,7 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
       event.supersedes ?? null,
       event.sourceJournalId ?? null,
       event.embedding ? JSON.stringify(event.embedding) : null,
-      event.resolvedIssueId ?? null,
+      event.resolvedSuggestionId ?? null,
       event.resolutionNote ?? null,
       event.sourceDumpId ?? null,
       event.sourceChunkId ?? null,
@@ -407,7 +407,7 @@ function buildEventPageWhere(filter: EventPageFilter): { where: string; params: 
     params.push(`%"${escapeLike(filter.personExact)}"%`);
   }
   if (filter.excludeResolved) {
-    conditions.push("resolved_issue_id IS NULL AND (resolution_note IS NULL OR resolution_note = '')");
+    conditions.push("resolved_suggestion_id IS NULL AND (resolution_note IS NULL OR resolution_note = '')");
   }
   if (filter.excludeSuperseded) {
     conditions.push("id NOT IN (SELECT supersedes FROM knowledge_events WHERE supersedes IS NOT NULL)");
@@ -543,17 +543,13 @@ export function toEventView(event: KnowledgeEvent): KnowledgeEvent {
   };
 }
 
-// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴を1つのentityId単位で取得する。
+// docs/memo.md「H: Phase 2」対応。Suggestion/Teamの変更履歴を1つのentityId単位で取得する。
 export function listEventsForEntity(entityType: KnowledgeEntityType, entityId: string): KnowledgeEvent[] {
-  // docs/2nd_pivot_version.md Phase 7: Suggestion の変更履歴は entityType=suggestion。
-  // 旧クライアントが issue で問い合わせても同じ ID の履歴を返す。
-  const types: KnowledgeEntityType[] =
-    entityType === "issue" || entityType === "suggestion" ? ["issue", "suggestion"] : [entityType];
-  return listEvents({}).filter((e) => e.entityId === entityId && types.includes(e.entityType));
+  return listEvents({}).filter((e) => e.entityId === entityId && e.entityType === entityType);
 }
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。特定のentityに絞らず、
-// Issue/Team/Goalの変更（recordChangeEventで記録されるkind:"fact" context:"official"）
+// Suggestion/Team/Goalの変更（recordChangeEventで記録されるkind:"fact" context:"official"）
 // を横断的に新しい順で返す。Journal（context:"observation"）は含めない
 // （「組織の状態がどう変わったか」の物語であり、日々の所感・出来事のログとは別軸）。
 export function listRecentChangeEvents(limit = 100): KnowledgeEvent[] {
@@ -562,11 +558,11 @@ export function listRecentChangeEvents(limit = 100): KnowledgeEvent[] {
     .slice(0, limit);
 }
 
-// Issue/Team/人物の変更履歴（Phase 2、人物統合は後日追加）記録用の薄いヘルパー。変更は
+// Suggestion/Team/人物の変更履歴（Phase 2、人物統合は後日追加）記録用の薄いヘルパー。変更は
 // 「起きた出来事そのもの」なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"
 // で固定する。変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
 export function recordChangeEvent(
-  entityType: "issue" | "suggestion" | "team" | "org" | "person",
+  entityType: "suggestion" | "team" | "org" | "person",
   entityId: string,
   text: string,
   tags: string[] = [],

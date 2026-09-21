@@ -6,14 +6,14 @@ import type { IdMatch, IdMatchKind } from "@emther/core/id-resolve";
 import styles from "../styles/page.module.css";
 
 const KIND_LABEL: Record<IdMatchKind, string> = {
-  issue: "提案",
+  suggestion: "提案",
   journal: "Journal",
   run: "相談 / Agent Run",
 };
 
 type IdResolveContextValue = {
   /** サイドピーク内なら提案をピークで開き直す。未指定時は通常のページ遷移。 */
-  openIssueInPeek?: (id: string) => void;
+  openSuggestionInPeek?: (id: string) => void;
   /** 提案の全画面共通サイドピークの現在の対象id（useSuggestionPeek向け）。 */
   suggestionPeekId?: string | null;
   closeSuggestionPeek?: () => void;
@@ -22,18 +22,18 @@ type IdResolveContextValue = {
 const IdResolveContext = createContext<IdResolveContextValue>({});
 
 export function IdResolveProvider({
-  openIssueInPeek,
+  openSuggestionInPeek,
   suggestionPeekId,
   closeSuggestionPeek,
   children,
 }: {
-  openIssueInPeek?: (id: string) => void;
+  openSuggestionInPeek?: (id: string) => void;
   suggestionPeekId?: string | null;
   closeSuggestionPeek?: () => void;
   children: ReactNode;
 }) {
   return (
-    <IdResolveContext.Provider value={{ openIssueInPeek, suggestionPeekId, closeSuggestionPeek }}>
+    <IdResolveContext.Provider value={{ openSuggestionInPeek, suggestionPeekId, closeSuggestionPeek }}>
       {children}
     </IdResolveContext.Provider>
   );
@@ -44,27 +44,27 @@ export function IdResolveProvider({
 // どの画面のコンポーネントからでもこのhookで同じ提案サイドピークを開ける
 // （そのページが独自のIdResolveProviderを持っていればそちらが優先される——timeline/page.tsx等）。
 export function useSuggestionPeek(): { id: string | null; open: (id: string) => void; close: () => void } {
-  const { openIssueInPeek, suggestionPeekId, closeSuggestionPeek } = useContext(IdResolveContext);
+  const { openSuggestionInPeek, suggestionPeekId, closeSuggestionPeek } = useContext(IdResolveContext);
   return {
     id: suggestionPeekId ?? null,
-    open: openIssueInPeek ?? (() => {}),
+    open: openSuggestionInPeek ?? (() => {}),
     close: closeSuggestionPeek ?? (() => {}),
   };
 }
 
 function useIdResolveNav() {
   const navigate = useNavigate();
-  const { openIssueInPeek } = useContext(IdResolveContext);
+  const { openSuggestionInPeek } = useContext(IdResolveContext);
 
   return useCallback(
     (match: IdMatch) => {
-      if (match.kind === "issue" && openIssueInPeek) {
-        openIssueInPeek(match.id);
+      if (match.kind === "suggestion" && openSuggestionInPeek) {
+        openSuggestionInPeek(match.id);
         return;
       }
       navigate(match.href);
     },
-    [openIssueInPeek, navigate],
+    [openSuggestionInPeek, navigate],
   );
 }
 

@@ -43,10 +43,10 @@ function post(body: unknown) {
   return { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
 }
 
-describe("POST /api/issues/link/suggest", () => {
-  it("戦略未接続の親 Issue へテーマ案を返す", async () => {
+describe("POST /api/suggestions/link/suggest", () => {
+  it("戦略未接続の提案へテーマ案を返す", async () => {
     const themeStore = await import("@emther/core/theme-store");
-    const issueStore = await import("@emther/core/issue-store");
+    const suggestionStore = await import("@emther/core/suggestion-store");
 
     const theme = await themeStore.createThemeCandidate({
       title: "オンボーディング改善",
@@ -56,36 +56,38 @@ describe("POST /api/issues/link/suggest", () => {
     });
     await themeStore.adoptTheme(theme.id);
 
-    const issue = await issueStore.createIssue("オンボーディングの詰まり解消", undefined, {
-      why: "新規参加の立ち上がりを速くする",
-      what: "詰まりを特定する",
-      how: "ヒアリング",
+    const suggestion = await suggestionStore.createSuggestion("オンボーディングの詰まり解消", {
+      detail: { conclusion: "新規参加の立ち上がりを速くする", facts: ["詰まりを特定する"], logic: "ヒアリング" },
     });
 
-    const { issuesLinkSuggestRoute } = await import("./issues-link-suggest");
-    const res = await issuesLinkSuggestRoute.request("/", post({}));
+    const { suggestionsLinkSuggestRoute } = await import("./suggestions-link-suggest");
+    const res = await suggestionsLinkSuggestRoute.request("/", post({}));
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.targetCount).toBe(1);
     expect(data.suggestions.length).toBeGreaterThan(0);
-    expect(data.suggestions[0].issueId).toBe(issue.id);
+    expect(data.suggestions[0].suggestionId).toBe(suggestion.id);
     expect(data.suggestions[0].themeId).toBe(theme.id);
   });
 
-  it("issueIds で単件に絞れる", async () => {
+  it("suggestionIds で単件に絞れる", async () => {
     const themeStore = await import("@emther/core/theme-store");
-    const issueStore = await import("@emther/core/issue-store");
+    const suggestionStore = await import("@emther/core/suggestion-store");
 
     const theme = await themeStore.createThemeCandidate({ title: "品質", summary: "品質を上げる", rationale: "理由", facts: [] });
     await themeStore.adoptTheme(theme.id);
 
-    const a = await issueStore.createIssue("品質の課題A", undefined, { why: "品質", what: "A", how: "調査" });
-    await issueStore.createIssue("品質の課題B", undefined, { why: "品質", what: "B", how: "調査" });
+    const a = await suggestionStore.createSuggestion("品質の課題A", {
+      detail: { conclusion: "品質", facts: ["A"], logic: "調査" },
+    });
+    await suggestionStore.createSuggestion("品質の課題B", {
+      detail: { conclusion: "品質", facts: ["B"], logic: "調査" },
+    });
 
-    const { issuesLinkSuggestRoute } = await import("./issues-link-suggest");
-    const res = await issuesLinkSuggestRoute.request("/", post({ issueIds: [a.id] }));
+    const { suggestionsLinkSuggestRoute } = await import("./suggestions-link-suggest");
+    const res = await suggestionsLinkSuggestRoute.request("/", post({ suggestionIds: [a.id] }));
     const data = await res.json();
     expect(data.targetCount).toBe(1);
-    expect(data.suggestions.every((s: { issueId: string }) => s.issueId === a.id)).toBe(true);
+    expect(data.suggestions.every((s: { suggestionId: string }) => s.suggestionId === a.id)).toBe(true);
   });
 });

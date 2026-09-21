@@ -1,7 +1,7 @@
 import { getDb } from "../db";
 import { periodWindow } from "../daily-trends";
 import { getDataDir, loadJSON, saveJSON } from "../persistence";
-import { getIssue } from "../issue-store";
+import { getSuggestion } from "../suggestion-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "../name-candidate-confirmation";
 import { unmaskNames } from "../people-directory";
 import { generateReportForWindow, type Report } from "../report-store";
@@ -217,7 +217,7 @@ export function checkJournalBatchReview(): void {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildJournalBatchContextBlock（batch-context-blocks.ts）へ。 */
 export const JOURNAL_BATCH_TASK =
-  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式でIssue化を検討し、未確定なら watch＋advice にしてください。追跡不要なものは無理に提案化しないでください。";
+  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式で提案化を検討し、未確定なら watch＋advice にしてください。追跡不要なものは無理に提案化しないでください。";
 
 // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
 // 対応。startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
@@ -324,7 +324,7 @@ export function isoWeekKey(now: Date): string {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildDistillationContextBlock（context-blocks.ts）へ。 */
 export const DISTILLATION_TASK =
-  "直近の組織状況（Journal・未完了Issue・採用済みテーマ）を統括し、より根本の課題のテーマ解釈を蒸留してください。proposalとthemesブロックを出力してください。";
+  "直近の組織状況（Journal・未完了の提案・採用済みテーマ）を統括し、より根本の課題のテーマ解釈を蒸留してください。proposalとthemesブロックを出力してください。";
 
 /** @deprecated 互換用。短いタスク文を返す。材料は buildDistillationContextBlock。 */
 export function buildDistillationTask(): string {
@@ -482,10 +482,10 @@ export function checkWeeklyDistillation(): void {
 // 材料（reports行の統計スナップショット）を先に生成してからLead Agent runを起動する。
 // 相談履歴・Inboxに載せる短いタスク文。材料の本体はbuildPeriodReviewContextBlock（batch-context-blocks.ts）へ。
 export const WEEKLY_REPORT_TASK =
-  "今週のレビューを作成してください。今週のJournal・提案(Issue)・組織イベントの材料と前週の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・前週比較(Before/After)・見落としていそうな点への問い・学び・来週考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+  "今週のレビューを作成してください。今週のJournal・提案・組織イベントの材料と前週の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・前週比較(Before/After)・見落としていそうな点への問い・学び・来週考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
 
 export const MONTHLY_REPORT_TASK =
-  "今月のレビューを作成してください。今月のJournal・提案(Issue)・組織イベント・EM自身の行動（チェックイン・KPTメモ）の材料と先月の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・先月比較(Before/After)・見落としていそうな点への問い・学び・来月考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+  "今月のレビューを作成してください。今月のJournal・提案・組織イベント・EM自身の行動（チェックイン・KPTメモ）の材料と先月の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・先月比較(Before/After)・見落としていそうな点への問い・学び・来月考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
 
 /**
  * 対象期間（暦週/暦月。offset=0が今期間、1が前期間）の統計スナップショット（reports行）を
@@ -604,72 +604,72 @@ export function checkMonthlyReport(): void {
   });
 }
 
-// Issue Why/What/How・経過ログの連打保存でコストが爆発しないよう、同一Issueは
+// 提案のタイトル・整理内容・経過メモの連打保存でコストが爆発しないよう、同一提案は
 // デバウンスしてから1回だけ分析する（朝サマリーと同系の軽量実装）。
 // デバウンス中は listPendingAgentStarts() でUIへ「あとN秒で起動」を公開する。
-export const ISSUE_UPDATE_DEBOUNCE_MS = 45_000;
+export const SUGGESTION_UPDATE_DEBOUNCE_MS = 45_000;
 
-type PendingIssueUpdateJob = {
+type PendingSuggestionUpdateJob = {
   timer: ReturnType<typeof setTimeout>;
   pending: PendingAgentStart;
 };
 
-const pendingIssueUpdateJobs = new Map<string, PendingIssueUpdateJob>();
+const pendingSuggestionUpdateJobs = new Map<string, PendingSuggestionUpdateJob>();
 
 // テストからデバウンスを bypass するためのフック（本番は常にデバウンスする）。
-let issueUpdateDebounceMs = ISSUE_UPDATE_DEBOUNCE_MS;
-export function setIssueUpdateDebounceMsForTest(ms: number): void {
-  issueUpdateDebounceMs = ms;
+let suggestionUpdateDebounceMs = SUGGESTION_UPDATE_DEBOUNCE_MS;
+export function setSuggestionUpdateDebounceMsForTest(ms: number): void {
+  suggestionUpdateDebounceMs = ms;
 }
 
 export function listPendingAgentStarts(): PendingAgentStart[] {
-  return [...pendingIssueUpdateJobs.values()]
+  return [...pendingSuggestionUpdateJobs.values()]
     .map((j) => j.pending)
     .sort((a, b) => a.firesAt - b.firesAt);
 }
 
-function scheduleDebouncedIssueUpdate(
-  issueId: string,
-  meta: { label: string; issueTitle: string; detail: string },
+function scheduleDebouncedSuggestionUpdate(
+  suggestionId: string,
+  meta: { label: string; suggestionTitle: string; detail: string },
   run: () => void,
 ): void {
-  const existing = pendingIssueUpdateJobs.get(issueId);
+  const existing = pendingSuggestionUpdateJobs.get(suggestionId);
   if (existing) clearTimeout(existing.timer);
 
-  if (issueUpdateDebounceMs <= 0) {
-    pendingIssueUpdateJobs.delete(issueId);
+  if (suggestionUpdateDebounceMs <= 0) {
+    pendingSuggestionUpdateJobs.delete(suggestionId);
     run();
     return;
   }
 
-  const firesAt = Date.now() + issueUpdateDebounceMs;
+  const firesAt = Date.now() + suggestionUpdateDebounceMs;
   const pending: PendingAgentStart = {
-    id: `issue-update:${issueId}`,
-    kind: "issue-update",
+    id: `suggestion-update:${suggestionId}`,
+    kind: "suggestion-update",
     label: meta.label,
     firesAt,
-    issueId,
-    issueTitle: meta.issueTitle,
+    suggestionId,
+    suggestionTitle: meta.suggestionTitle,
     detail: meta.detail,
   };
   const timer = setTimeout(() => {
-    pendingIssueUpdateJobs.delete(issueId);
+    pendingSuggestionUpdateJobs.delete(suggestionId);
     run();
-  }, issueUpdateDebounceMs);
-  pendingIssueUpdateJobs.set(issueId, { timer, pending });
+  }, suggestionUpdateDebounceMs);
+  pendingSuggestionUpdateJobs.set(suggestionId, { timer, pending });
 }
 
-function buildIssueUpdateTask(
+function buildSuggestionUpdateTask(
   trigger: "charter" | "log",
   detail: string,
-  issue: { title: string; logEntries: { text: string }[] },
+  suggestion: { title: string; memos: { text: string }[] },
 ): string {
-  const recentMemos = issue.logEntries.slice(-5).map((m) => `- ${m.text}`).join("\n");
+  const recentMemos = suggestion.memos.slice(-5).map((m) => `- ${m.text}`).join("\n");
   const memoBlock = recentMemos ? `最近のメモ:\n${recentMemos}` : "最近のメモ: （なし）";
   if (trigger === "charter") {
     return [
       "提案のタイトル／整理内容が更新されました。最新の内容を踏まえ、チームとして再分析してください。",
-      `タイトル: ${issue.title}`,
+      `タイトル: ${suggestion.title}`,
       memoBlock,
       `今回の更新: ${detail}`,
       "不足している観点・リスク・次に確認すべき点があれば提案してください。",
@@ -678,30 +678,30 @@ function buildIssueUpdateTask(
   }
   return [
     "提案にメモが追加されました。進捗・ピボット要否・次に確認すべき点をチームとして判断してください。",
-    `タイトル: ${issue.title}`,
+    `タイトル: ${suggestion.title}`,
     memoBlock,
     `追加されたメモ: ${detail}`,
     "判断が必要ならYieldしてください。",
   ].join("\n");
 }
 
-async function executeIssueUpdateAnalysis(
-  issueId: string,
+async function executeSuggestionUpdateAnalysis(
+  suggestionId: string,
   trigger: "charter" | "log",
   detail: string,
 ): Promise<void> {
-  if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
-  const issue = getIssue(issueId);
-  if (!issue || issue.archived || issue.status === "done") return;
+  if (!getRulesAndConstraints().autoSuggestionUpdateAnalysisEnabled) return;
+  const suggestion = getSuggestion(suggestionId);
+  if (!suggestion || suggestion.archivedAt || suggestion.reviewStatus === "done") return;
 
-  const task = buildIssueUpdateTask(trigger, detail, issue);
-  const linkedRun = issue.agentRunId ? runs.get(issue.agentRunId) : undefined;
-  const issueTitle = unmaskNames(issue.title);
+  const task = buildSuggestionUpdateTask(trigger, detail, suggestion);
+  const linkedRun = suggestion.agentRunId ? runs.get(suggestion.agentRunId) : undefined;
+  const suggestionTitle = unmaskNames(suggestion.title);
 
   if (linkedRun) {
     if (linkedRun.status === "active" || linkedRun.status === "queued") {
       // 実行中なら完了後に再試行するよう再度デバウンスする（カウントダウン表示も続く）。
-      reactToIssueUpdate(issueId, trigger, detail);
+      reactToSuggestionUpdate(suggestionId, trigger, detail);
       return;
     }
     try {
@@ -715,8 +715,8 @@ async function executeIssueUpdateAnalysis(
           kind: "decide-run",
           candidates: err.candidates,
           label: "提案の更新分析の送信確認",
-          issueId,
-          issueTitle,
+          suggestionId,
+          suggestionTitle,
           runId: linkedRun.id,
           message: task,
           teamParallelKickoff: getRulesAndConstraints().teamParallelKickoffEnabled,
@@ -727,20 +727,20 @@ async function executeIssueUpdateAnalysis(
   }
 
   try {
-    await startRun("Lead Agent", task, "auto-issue-update", issueId);
+    await startRun("Lead Agent", task, "auto-suggestion-update", suggestionId);
   } catch (err) {
     if (isUnconfirmedNameCandidatesError(err)) {
       parkPendingUnmaskedSend({
-        id: `unmasked-start:${issueId}:${Date.now()}`,
+        id: `unmasked-start:${suggestionId}:${Date.now()}`,
         kind: "start-run",
         candidates: err.candidates,
         label: "提案の更新分析の送信確認",
-        issueId,
-        issueTitle,
+        suggestionId,
+        suggestionTitle,
         agentName: "Lead Agent",
         task,
-        origin: "auto-issue-update",
-        linkedIssueId: issueId,
+        origin: "auto-suggestion-update",
+        linkedSuggestionId: suggestionId,
       });
     }
   }
@@ -748,25 +748,25 @@ async function executeIssueUpdateAnalysis(
 
 // 提案の重要更新（タイトル・メモ）をきっかけにAgentチームを起こす。
 // 既定OFF。呼び出し側は失敗しても本体の保存を失敗させない。
-export function reactToIssueUpdate(
-  issueId: string,
+export function reactToSuggestionUpdate(
+  suggestionId: string,
   trigger: "charter" | "log",
   detail: string,
 ): void {
-  if (!getRulesAndConstraints().autoIssueUpdateAnalysisEnabled) return;
-  const issue = getIssue(issueId);
-  if (!issue || issue.archived || issue.status === "done") return;
+  if (!getRulesAndConstraints().autoSuggestionUpdateAnalysisEnabled) return;
+  const suggestion = getSuggestion(suggestionId);
+  if (!suggestion || suggestion.archivedAt || suggestion.reviewStatus === "done") return;
 
   const label = trigger === "charter" ? "提案の更新分析（タイトル／整理）" : "提案の更新分析（メモ）";
-  scheduleDebouncedIssueUpdate(
-    issueId,
+  scheduleDebouncedSuggestionUpdate(
+    suggestionId,
     {
       label,
-      issueTitle: unmaskNames(issue.title),
+      suggestionTitle: unmaskNames(suggestion.title),
       detail: trigger === "charter" ? detail : unmaskNames(detail),
     },
     () => {
-      void executeIssueUpdateAnalysis(issueId, trigger, detail).catch(() => {
+      void executeSuggestionUpdateAnalysis(suggestionId, trigger, detail).catch(() => {
         // 自動分析の起動失敗で提案更新自体は失敗させない。
       });
     },
@@ -776,14 +776,14 @@ export function reactToIssueUpdate(
 /** EM明示の手動分析タスク文。本文マーカーは origin-trace と揃える。 */
 export function buildJournalAnalysisTask(rawText: string): string {
   return [
-    "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、Issueとして追跡すべき実質的な問題かどうかを判断してください。",
-    "ただし、このIssue化判定はあくまで一覧に残すかどうかの分類に過ぎません。判定結果がissueでもwatchでもdismissでも、それだけで終わらせず、EMがこの状況にどう向き合うとよいかという実務的な気づき・助言を回答本文に必ず書いてください（判定を言い渡すだけの素っ気ない回答にしないこと）。",
+    "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、提案として追跡すべき実質的な問題かどうかを判断してください。",
+    "ただし、この提案化判定はあくまで一覧に残すかどうかの分類に過ぎません。判定結果がsuggestionでもwatchでもdismissでも、それだけで終わらせず、EMがこの状況にどう向き合うとよいかという実務的な気づき・助言を回答本文に必ず書いてください（判定を言い渡すだけの素っ気ない回答にしないこと）。",
     // docs/3rd_pivot_version/pivot.md, docs/ai_ philosophy.md。EMの問題設定をなぞるだけの提案を避ける。
     "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別の解釈・仮説・不足情報・別問題設定）と Challenge（前提・事実と解釈の混同・本当に解くべき問題か）を必ず経てください。入力の要約や言い換えだけで終わらせないこと。",
-    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・expansions・challenges・判断ロジック・棄却した代替案）で示し、結論の中でIssue化を検討する旨を明記してください。あわせて proposal の issueTitle（単一）または issueCandidates（複数・親なしの独立Issue）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
-    "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず issueCandidates に分けてください（親Issueは作らない）。同じ介入の具体作業への分解はここではしないこと。",
-    "Issueとして追跡するほどではないが、様子を見続けたい・追加で確認したい・問題設定をまだ確定できないと判断した場合は、recommendation を \"watch\" にしてください。次に観測・確認すべき点は advice に書いてください（解決策を無理に出さなくてよい）。",
-    "単なる一時的な感情の吐露などで追跡も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理にIssue化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。Issue化すべきなら recommendation は \"issue\" です。",
+    "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・expansions・challenges・判断ロジック・棄却した代替案）で示し、結論の中で提案化を検討する旨を明記してください。あわせて proposal の suggestionTitle（単一）または suggestionCandidates（複数・親なしの独立提案）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
+    "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず suggestionCandidates に分けてください（親提案は作らない）。同じ介入の具体作業への分解はここではしないこと。",
+    "提案として追跡するほどではないが、様子を見続けたい・追加で確認したい・問題設定をまだ確定できないと判断した場合は、recommendation を \"watch\" にしてください。次に観測・確認すべき点は advice に書いてください（解決策を無理に出さなくてよい）。",
+    "単なる一時的な感情の吐露などで追跡も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理に提案化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。提案化すべきなら recommendation は \"suggestion\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
   ].join("\n");

@@ -19,7 +19,7 @@ export type OrgTheme = {
   rootCause?: string;
   suggestedDirection?: string;
   evidenceJournalIds: string[];
-  evidenceIssueIds: string[];
+  evidenceSuggestionIds: string[];
   // Goalへの明示リンク。既存データは未設定＝空配列として読み込む。
   goalIds?: string[];
   status: ThemeStatus;
@@ -39,7 +39,7 @@ export type SuggestedTheme = {
   rootCause?: string;
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
-  evidenceIssueIds?: string[];
+  evidenceSuggestionIds?: string[];
   goalIds?: string[];
 };
 
@@ -48,20 +48,24 @@ function normalizeIdList(ids: string[] | undefined): string[] {
   return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
 }
 
-function normalizeTheme(raw: OrgTheme & { embedding?: number[] }): OrgTheme {
+// Issue→Suggestion統合の命名統一。旧themes.jsonはevidenceIssueIdsキーで永続化されていたため、
+// 新キーが無い行だけ旧キーから読み替える（次回保存時にevidenceSuggestionIdsへ揃う）。
+type LegacyOrgTheme = OrgTheme & { embedding?: number[]; evidenceIssueIds?: string[] };
+
+function normalizeTheme(raw: LegacyOrgTheme): OrgTheme {
   // 旧 themes.json の embedding は読み捨て（ベクトル検索経路は持たない）。
-  const { embedding: _unused, ...rest } = raw;
+  const { embedding: _unused, evidenceIssueIds: legacyEvidenceIssueIds, ...rest } = raw;
   void _unused;
   return {
     ...rest,
     goalIds: normalizeIdList(rest.goalIds),
     evidenceJournalIds: rest.evidenceJournalIds ?? [],
-    evidenceIssueIds: rest.evidenceIssueIds ?? [],
+    evidenceSuggestionIds: rest.evidenceSuggestionIds ?? legacyEvidenceIssueIds ?? [],
     facts: rest.facts ?? [],
   };
 }
 
-const themes: OrgTheme[] = loadJSON<(OrgTheme & { embedding?: number[] })[]>("themes.json", []).map(normalizeTheme);
+const themes: OrgTheme[] = loadJSON<LegacyOrgTheme[]>("themes.json", []).map(normalizeTheme);
 
 function persist(): void {
   saveJSON("themes.json", themes);
@@ -148,7 +152,7 @@ export async function createTheme(
     ...masked,
     facts: masked.facts.filter(Boolean),
     evidenceJournalIds: input.evidenceJournalIds ?? [],
-    evidenceIssueIds: input.evidenceIssueIds ?? [],
+    evidenceSuggestionIds: input.evidenceSuggestionIds ?? [],
     goalIds: normalizeIdList(input.goalIds),
     status,
     sourceRunId: input.sourceRunId,
@@ -168,7 +172,7 @@ export function updateThemeLinks(
   patch: {
     goalIds?: string[] | null;
     evidenceJournalIds?: string[];
-    evidenceIssueIds?: string[];
+    evidenceSuggestionIds?: string[];
     teamId?: string | null;
   },
 ): OrgTheme | undefined {
@@ -180,8 +184,8 @@ export function updateThemeLinks(
   if (patch.evidenceJournalIds !== undefined) {
     theme.evidenceJournalIds = normalizeIdList(patch.evidenceJournalIds);
   }
-  if (patch.evidenceIssueIds !== undefined) {
-    theme.evidenceIssueIds = normalizeIdList(patch.evidenceIssueIds);
+  if (patch.evidenceSuggestionIds !== undefined) {
+    theme.evidenceSuggestionIds = normalizeIdList(patch.evidenceSuggestionIds);
   }
   if (patch.teamId !== undefined) {
     theme.teamId = patch.teamId ?? undefined;

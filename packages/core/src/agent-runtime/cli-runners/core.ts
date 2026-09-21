@@ -9,7 +9,7 @@ import {
   ensureRequiredConsult,
   extractConsult,
   extractGrowSuggestions,
-  extractIssueNotes,
+  extractSuggestionNotes,
   extractPeriodReview,
   extractProposal,
   extractSuggestionUpdates,
@@ -78,11 +78,11 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       };
       run.proposal = undefined;
       run.suggestedActionItems = undefined;
-      run.suggestedSubIssues = undefined;
+      run.suggestedSubSuggestions = undefined;
       run.suggestedCharter = undefined;
       run.suggestedPriority = undefined;
       run.suggestedThemes = undefined;
-      run.suggestedIssueNotes = undefined;
+      run.suggestedSuggestionNotes = undefined;
       run.suggestedSuggestionUpdates = undefined;
       run.periodReview = undefined;
       appendLog(run, "system", `[追加照会] 上限（${LOOKUP_MAX_ROUNDS}回）到達のため拒否し、EMへ確認を求めました`);
@@ -127,11 +127,11 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.yieldRequest = yieldRequest;
     run.proposal = undefined;
     run.suggestedActionItems = undefined;
-    run.suggestedSubIssues = undefined;
+    run.suggestedSubSuggestions = undefined;
     run.suggestedCharter = undefined;
     run.suggestedPriority = undefined;
     run.suggestedThemes = undefined;
-    run.suggestedIssueNotes = undefined;
+    run.suggestedSuggestionNotes = undefined;
     run.suggestedSuggestionUpdates = undefined;
     run.periodReview = undefined;
     appendLog(run, "system", `[YIELD] ${yieldRequest.reason}`);
@@ -140,12 +140,12 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
     run.suggestedActionItems = undefined;
-    run.suggestedSubIssues = undefined;
+    run.suggestedSubSuggestions = undefined;
     run.suggestedCharter = undefined;
     // docs/2nd_pivot_version.md Phase 7: charter/sub_issues 提案は生成しない。
     run.suggestedPriority = undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
-    run.suggestedIssueNotes = run.proposal ? extractIssueNotes(resultText) : undefined;
+    run.suggestedSuggestionNotes = run.proposal ? extractSuggestionNotes(resultText) : undefined;
     run.suggestedSuggestionUpdates = run.proposal ? extractSuggestionUpdates(resultText) : undefined;
     // docs/new_reporting.md。週次・月次レビューの主出力。proposalの有無に関わらず、
     // このoriginのときだけ抽出する（他originのテキストにたまたまperiod_reviewブロック
@@ -162,8 +162,8 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     if (run.suggestedThemes) {
       appendLog(run, "system", `[テーマ解釈提案] ${run.suggestedThemes.length}件`);
     }
-    if (run.suggestedIssueNotes) {
-      appendLog(run, "system", `[他提案へのメモ追記提案] ${run.suggestedIssueNotes.length}件`);
+    if (run.suggestedSuggestionNotes) {
+      appendLog(run, "system", `[他提案へのメモ追記提案] ${run.suggestedSuggestionNotes.length}件`);
     }
     if (run.suggestedSuggestionUpdates) {
       appendLog(run, "system", `[提案の整理差分] ${run.suggestedSuggestionUpdates.length}件`);
@@ -186,7 +186,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       }
     }
     // docs/usage_issues U2。Journal分析（EM明示の個別分析／日次の集約解釈）が追跡不要と
-    // 明示したときだけ自動却下する。手動相談やIssue更新分析はEMのトリアージ対象のまま残す。
+    // 明示したときだけ自動却下する。手動相談や提案更新分析はEMのトリアージ対象のまま残す。
     if (
       (run.origin === "auto-anomaly" || run.origin === "auto-journal-batch") &&
       run.proposal?.recommendation === "dismiss"
@@ -333,9 +333,9 @@ export async function runTeamParallelKickoff(
   leadRun: AgentRun,
   rawTask: string,
   maskedTask: string,
-  issueId: string,
+  suggestionId: string,
 ): Promise<void> {
-  const agents = selectRelatedSpecialists(issueId);
+  const agents = selectRelatedSpecialists(suggestionId);
   appendLog(
     leadRun,
     "system",

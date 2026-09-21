@@ -1,5 +1,5 @@
 import { cosineSimilarity, embedText } from "../embeddings";
-import { getIssue, getIssueByRunId, issueEmbedSource } from "../issue-store";
+import { getSuggestion, getSuggestionByRunId } from "../suggestion-store";
 import { listActiveFactsForPerson, listInterpretationsForPerson, searchSimilarEvents, type KnowledgeEvent } from "../knowledge-store";
 import {
   getOrgStrategy,
@@ -31,13 +31,13 @@ import { extractJournalAutoAnalysisText } from "./extraction";
 import { runs } from "./store";
 import type { AgentRun } from "./types";
 
-// 紐づくIssueのtagsに介入の型が含まれ、かつそのagentNameが主担当／副担当に該当する場合、
+// 紐づく提案のtagsに介入の型が含まれ、かつそのagentNameが主担当／副担当に該当する場合、
 // 「この介入型を主軸に」という一文を足す。該当しない場合はブロック自体を省略する
 // （無関係な介入型の指示で専門性をブレさせないため）。
-// docs/usage_issues U3。専門AgentのrunはIssueに直接紐付かない（consultedByだけが親Leadを指す）。
-// getIssueByRunId(そのrun)だとWhy/What/Howが空になり、「分からない」Yieldの原因になる。
-export function resolveIssueForRun(runId: string) {
-  const direct = getIssueByRunId(runId);
+// docs/usage_issues U3。専門Agentのrunは提案に直接紐付かない（consultedByだけが親Leadを指す）。
+// getSuggestionByRunId(そのrun)だとWhy/What/Howが空になり、「分からない」Yieldの原因になる。
+export function resolveSuggestionForRun(runId: string) {
+  const direct = getSuggestionByRunId(runId);
   if (direct) return direct;
   const seen = new Set<string>();
   let currentId: string | undefined = runId;
@@ -45,28 +45,31 @@ export function resolveIssueForRun(runId: string) {
     seen.add(currentId);
     currentId = runs.get(currentId)?.consultedBy;
     if (currentId) {
-      const viaParent = getIssueByRunId(currentId);
+      const viaParent = getSuggestionByRunId(currentId);
       if (viaParent) return viaParent;
     }
   }
   return undefined;
 }
 
+// Suggestionはtagsを持たないため、介入の型タグは常に空扱い（この関数は常に空文字を返す）。
+// docs/2nd_pivot_version.md Phase 7でIssueのtags/介入の型UIを廃止した後の残骸。
 export function buildInterventionTypeGuidance(runId: string | undefined, agentName: string): string {
   if (!runId) return "";
-  const issue = resolveIssueForRun(runId);
-  if (!issue || issue.tags.length === 0) return "";
+  const suggestion = resolveSuggestionForRun(runId);
+  const tags: string[] = [];
+  if (!suggestion || tags.length === 0) return "";
 
   const validLabels = new Set(INTERVENTION_TYPES.map((t) => t.label));
   const lines: string[] = [];
-  for (const tag of issue.tags) {
+  for (const tag of tags) {
     if (!validLabels.has(tag)) continue;
     const mapping = INTERVENTION_TYPE_AGENTS[tag];
     if (!mapping) continue;
     if (mapping.primary.includes(agentName)) {
-      lines.push(`- 「${tag}」はこのIssueに設定された介入の型です。あなたが主担当として、この介入型を主軸に検討してください。`);
+      lines.push(`- 「${tag}」はこの提案に設定された介入の型です。あなたが主担当として、この介入型を主軸に検討してください。`);
     } else if (mapping.secondary.includes(agentName)) {
-      lines.push(`- 「${tag}」はこのIssueに設定された介入の型です。あなたは副担当のため、主担当エージェントの観点を補う形で検討してください。`);
+      lines.push(`- 「${tag}」はこの提案に設定された介入の型です。あなたは副担当のため、主担当エージェントの観点を補う形で検討してください。`);
     }
   }
   if (lines.length === 0) return "";
@@ -74,14 +77,14 @@ export function buildInterventionTypeGuidance(runId: string | undefined, agentNa
 }
 
 // docs 3.1「動的ロード」対応（docs/em_human_story_and_ux.md P2-13で残件を解消）。
-// 紐づくIssueのteamId、またはタスク本文中のチーム名の言及という手がかりがあれば
+// 紐づく提案のteamId、またはタスク本文中のチーム名の言及という手がかりがあれば
 // Organization Context（チーム名簿）を関連チームだけに絞る（buildOrgContextBlock内の
 // relevantTeams参照）。手がかりが一つも無い場合だけ、MVP当初の方針どおり全チームを注入する。
 // メンバー名はここで初めて登場する可能性があるため、注入前に必ずpeople-directoryへ登録し、
 // 実名のままクラウドに出さないようmaskNamesを通す（他の経路と同じ匿名化ルール）。
 // docs 3.1「Core Context」の`Strategy/`ディレクトリ相当。MVV/OKRは組織全体で
-// 1つの静的な前提であり、Issueに紐づくかどうかに関わらず常に「絶対の前提」として注入する
-// （動的ロード対象はIssue charterとJournalのみ）。未設定の項目は行ごと省略する。
+// 1つの静的な前提であり、提案に紐づくかどうかに関わらず常に「絶対の前提」として注入する
+// （動的ロード対象は提案charterとJournalのみ）。未設定の項目は行ごと省略する。
 // 個人情報の分離（ユーザー指摘対応）: org-context-store.tsはMission/Vision/Values/OKRを
 // 既にPERSON_n IDでマスクした状態で保持している（保存前にmaskForStorageを通す設計に変更）。
 // そのためここではmaskNamesを呼ばない——呼ぶ必要が無いのではなく、呼んではいけない
@@ -115,7 +118,7 @@ export function buildGoalsContextBlock(): string {
 
 // docs/goal_policy_model.md / docs/goal_policy_model_plan.md Decision 2。Goalに向かう際に
 // EMが守りたい判断原則（大切にする／優先する／やらない／判断原則）。MVVと同じく組織全体で
-// 1つの静的な前提とし、Issue非依存で常時注入する。未設定（0件）ならブロック自体を省略する。
+// 1つの静的な前提とし、提案非依存で常時注入する。未設定（0件）ならブロック自体を省略する。
 export function buildPolicyContextBlock(): string {
   const policies = listActivePolicies();
   if (policies.length === 0) return "";
@@ -127,10 +130,10 @@ export function buildPolicyContextBlock(): string {
 }
 
 /** Standing Background（tagged）が現在の手がかりにヒットするか。 */
-function backgroundMatchesContext(entry: OrgBackgroundEntry, haystack: string, issueTags: string[]): boolean {
+function backgroundMatchesContext(entry: OrgBackgroundEntry, haystack: string, suggestionTags: string[]): boolean {
   const lowerHay = haystack.toLowerCase();
   const entryTags = entry.tags.map((t) => t.toLowerCase()).filter(Boolean);
-  if (issueTags.some((t) => entryTags.includes(t.toLowerCase()))) return true;
+  if (suggestionTags.some((t) => entryTags.includes(t.toLowerCase()))) return true;
   if (entryTags.some((t) => lowerHay.includes(t))) return true;
   const title = entry.title.trim().toLowerCase();
   if (title && lowerHay.includes(title)) return true;
@@ -139,30 +142,21 @@ function backgroundMatchesContext(entry: OrgBackgroundEntry, haystack: string, i
 
 /**
  * Standing Background: 組織の長期背景事実＋判断への含意。
- * scope=always は常時、tagged は Issue タグ／タスク文などの手がかりがあるときだけ注入する。
+ * scope=always は常時、tagged は提案タグ／タスク文などの手がかりがあるときだけ注入する。
  */
 export function buildOrgBackgroundBlock(runId?: string, rawText?: string): string {
   const active = listActiveOrgBackgrounds();
   if (active.length === 0) return "";
 
-  const issue = runId ? (getIssueByRunId(runId) ?? resolveIssueForRun(runId)) : undefined;
+  const suggestion = runId ? (getSuggestionByRunId(runId) ?? resolveSuggestionForRun(runId)) : undefined;
   const runTask = runId ? runs.get(runId)?.task ?? "" : "";
-  const haystack = [
-    rawText ?? "",
-    runTask,
-    issue?.title ?? "",
-    issue?.charter.why ?? "",
-    issue?.charter.what ?? "",
-    issue?.charter.how ?? "",
-    ...(issue?.tags ?? []),
-  ]
-    .join("\n")
-    .toLowerCase();
-  const issueTags = issue?.tags ?? [];
+  // Suggestionはcharter/tagsを持たないため、この手がかりは常に空（タイトルのみ寄与する）。
+  const haystack = [rawText ?? "", runTask, suggestion?.title ?? ""].join("\n").toLowerCase();
+  const suggestionTags: string[] = [];
 
   const selected = active.filter((e) => {
     if (e.scope === "always") return true;
-    return backgroundMatchesContext(e, haystack, issueTags);
+    return backgroundMatchesContext(e, haystack, suggestionTags);
   });
   if (selected.length === 0) return "";
 
@@ -192,13 +186,13 @@ export function buildThemesContextBlock(): string {
     return parts.join("\n");
   });
   return [
-    "組織の採用済みテーマ解釈（状況蒸留の成果、絶対の前提として扱うこと。個別Issueはこれらの具体化・矛盾・例外として読め）:",
+    "組織の採用済みテーマ解釈（状況蒸留の成果、絶対の前提として扱うこと。個別提案はこれらの具体化・矛盾・例外として読め）:",
     ...lines,
   ].join("\n");
 }
 
 // docs/knowledge_distillation.md 後続 1・2。
-// Issue 壁打ち・Journal 自動分析向けに関連 Journal/Issue 束をシステムプロンプトへ載せる。
+// 提案 壁打ち・Journal 自動分析向けに関連 Journal/提案 束をシステムプロンプトへ載せる。
 // run.task には載せない（U13）。
 export async function buildRelatedContextForRun(run: AgentRun, rawText?: string): Promise<string> {
   try {
@@ -206,12 +200,12 @@ export async function buildRelatedContextForRun(run: AgentRun, rawText?: string)
       const queryText = extractJournalAutoAnalysisText(rawText ?? run.task);
       return await buildRelatedBundleBlock({ queryText, mode: "journal-analysis" });
     }
-    const issue = getIssueByRunId(run.id) ?? (run.id ? resolveIssueForRun(run.id) : undefined);
-    if (!issue) return "";
+    const suggestion = getSuggestionByRunId(run.id) ?? (run.id ? resolveSuggestionForRun(run.id) : undefined);
+    if (!suggestion) return "";
     return await buildRelatedBundleBlock({
-      queryText: issueEmbedSource(issue),
-      excludeIssueId: issue.id,
-      mode: "issue-wallbash",
+      queryText: suggestion.title,
+      excludeSuggestionId: suggestion.id,
+      mode: "suggestion-wallbash",
     });
   } catch {
     return "";
@@ -219,16 +213,16 @@ export async function buildRelatedContextForRun(run: AgentRun, rawText?: string)
 }
 
 // docs/em_human_story_and_ux.md P2-13（docs 3.1「動的ロード」の残件）対応。
-// チーム憲法（buildTeamCharterBlock）は既にIssue単位でスコープ済みだが、チーム名簿
+// チーム憲法（buildTeamCharterBlock）は既に提案単位でスコープ済みだが、チーム名簿
 // （名前＋メンバー一覧）自体は「チーム数が少ない前提」で常に全件注入していた。
-// 関連性の手がかり（紐づくIssueのteamId、タスク本文中のチーム名の言及）が
+// 関連性の手がかり（紐づく提案のteamId、タスク本文中のチーム名の言及）が
 // 1つも無い場合は絞り込みようがないため、当初のMVP方針どおり全件にフォールバックする
 // （手がかりが無いのに一部だけ見せると、かえって判断材料が欠けて混乱させるため）。
 // 手がかりがある場合だけ、関連するチームに絞る。
 export function relevantTeams(teams: Team[], runId: string | undefined, rawText: string | undefined): Team[] {
   const relevantIds = new Set<string>();
 
-  const linkedTeamId = runId ? resolveIssueForRun(runId)?.teamId : undefined;
+  const linkedTeamId = runId ? resolveSuggestionForRun(runId)?.teamId : undefined;
   if (linkedTeamId) relevantIds.add(linkedTeamId);
 
   if (rawText) {
@@ -267,12 +261,12 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
 
 // docs 3.1「動的ロード」: そのrunが提案（Suggestion）に紐づいている場合、タイトルとメモを
 // 「絶対の前提」としてエージェントに渡す。docs/2nd_pivot_version.md Phase 7。
-export function buildIssueContextBlock(runId: string): string {
-  const issue = resolveIssueForRun(runId);
-  if (!issue) return "";
+export function buildSuggestionContextBlock(runId: string): string {
+  const suggestion = resolveSuggestionForRun(runId);
+  if (!suggestion) return "";
 
-  const lines = ["このタスクが紐づく提案の前提（絶対の前提として扱うこと）:", `タイトル: ${issue.title}`];
-  const recentMemos = issue.logEntries.slice(-5);
+  const lines = ["このタスクが紐づく提案の前提（絶対の前提として扱うこと）:", `タイトル: ${suggestion.title}`];
+  const recentMemos = suggestion.memos.slice(-5);
   if (recentMemos.length > 0) {
     lines.push("最近のメモ:");
     for (const m of recentMemos) {
@@ -283,14 +277,14 @@ export function buildIssueContextBlock(runId: string): string {
 }
 
 // docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。buildOrgContextBlockが
-// 全チームの名簿を常時注入するのに対し、こちらは「そのIssueが紐づくチーム」1つだけの
+// 全チームの名簿を常時注入するのに対し、こちらは「その提案が紐づくチーム」1つだけの
 // Mission/制約を動的にロードする（docs/memo.md TODO「Organization Contextの動的ロードを
-// 対象Issueに関連するチームのみに絞る」に対応する部分）。Mission/制約が両方未設定なら
+// 対象提案に関連するチームのみに絞る」に対応する部分）。Mission/制約が両方未設定なら
 // 渡す情報が無いのでブロック自体を省略する。
 export function buildTeamCharterBlock(runId: string): string {
-  const issue = resolveIssueForRun(runId);
-  if (!issue?.teamId) return "";
-  const team = getTeam(issue.teamId);
+  const suggestion = resolveSuggestionForRun(runId);
+  if (!suggestion?.teamId) return "";
+  const team = getTeam(suggestion.teamId);
   if (!team) return "";
   const { mission, constraints } = team.charter;
   if (!mission && !constraints) return "";
@@ -474,12 +468,12 @@ export function buildSystemPrompt(
         ]
       : [];
 
-  // docs/2nd_pivot_version.md Phase 7。サブIssue分解・Charter埋め提案は廃止。
+  // docs/2nd_pivot_version.md Phase 7。子提案分解・Charter埋め提案は廃止。
   // 他提案へのメモ追記のみ残す。
-  const issueNoteRule = [
-    "- 相談やlookupの過程で、このタスクとは別の提案に関わる重要な事実・懸念を見つけた場合は、その提案への一言メモを提案できます。proposalブロックに続けて以下の形式でissue_noteブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと。issueIdはlookup結果で得た実在の提案IDのみを使い、推測や新規作成はしないこと）。",
-    "```issue_note",
-    '[{ "issueId": "lookupで見つけた提案ID", "text": "その提案に追記する短い一言（1〜2文）" }]',
+  const suggestionNoteRule = [
+    "- 相談やlookupの過程で、このタスクとは別の提案に関わる重要な事実・懸念を見つけた場合は、その提案への一言メモを提案できます。proposalブロックに続けて以下の形式でsuggestion_noteブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと。suggestionIdはlookup結果で得た実在の提案IDのみを使い、推測や新規作成はしないこと）。",
+    "```suggestion_note",
+    '[{ "suggestionId": "lookupで見つけた提案ID", "text": "その提案に追記する短い一言（1〜2文）" }]',
     "```",
     "",
   ];
@@ -536,14 +530,14 @@ export function buildSystemPrompt(
       "回まで）。",
     "  ```lookup",
     '  { "reason": "なぜ追加で確認したいか（任意）", "queries": [',
-    '    { "type": "issues", "query": "キーワード", "includeDone": true, "includeArchived": false, "limit": 10 },',
-    '    { "type": "issue", "id": "suggestion-id" },',
+    '    { "type": "suggestions", "query": "キーワード", "includeDone": true, "includeArchived": false, "limit": 10 },',
+    '    { "type": "suggestion", "id": "suggestion-id" },',
     '    { "type": "journals", "query": "キーワード", "limit": 10 },',
     '    { "type": "similar", "query": "意味検索したい文", "limit": 10 }',
     "  ] }",
     "  ```",
-    '  type "issues" はタイトル・メモのキーワード部分一致（既定は未確認・確認保留のみ。includeDone/includeArchivedで確認済みも含める）。',
-    '  type "issue" はID指定の1件詳細。type "journals" はJournalのキーワード検索。type "similar" は埋め込み類似。',
+    '  type "suggestions" はタイトル・メモのキーワード部分一致（既定は未確認・確認保留のみ。includeDone/includeArchivedで確認済みも含める）。',
+    '  type "suggestion" はID指定の1件詳細。type "journals" はJournalのキーワード検索。type "similar" は埋め込み類似。',
     "  結果は次のターンで渡されます。lookupとproposal/yield/consultを同時に出さないこと。",
     "",
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
@@ -563,7 +557,7 @@ export function buildSystemPrompt(
     "- Expand: 選んだレンズを使い、現在のEMの認識・仮説から離れて、別の解釈・別の仮説・見えていない情報・別の問題設定・過去記録やチーム全体から見える可能性を列挙する（EMの仮説を否定するのではなく「他にもこういう見方があり得る」を示す）。レンズ同士で異なる解釈・矛盾する見立てがあれば、それも書く。",
     "- Challenge: 選んだレンズを使い、前提・事実と解釈の混同・別原因の可能性・EM自身の影響・「本当に解くべき問題か」を問い直す（批判ではなく問題設定の精度向上のため）。",
     "- Hypothesis: Expand/Challengeを踏まえて結論（仮説）を形づくる。まだ断定できない場合は、結論を仮説のまま扱ってよい（recommendation: watch、またはyieldのkind: decide/informを使う）。",
-    "- Scope Check（必須）: 元のタスク・問いが想定しているスケール（個人 / チーム / 組織全体）を判定する。注入された参考情報（人物ファクト・Journal・類似Issue等）の中に、それより小さいスケールの個別事象（例: 特定の1人の1回の予定変更）が混ざっている場合、それを結論の主語や解決策そのものにしないこと。個別事象は「一事例」としてfacts/logicで引用する程度に留め、結論（conclusion）の粒度は元の問いのスケールに合わせる。複数人・複数件で同じ構造が繰り返し観測されている場合に限り、それを一般化した結論の根拠として使ってよい。",
+    "- Scope Check（必須）: 元のタスク・問いが想定しているスケール（個人 / チーム / 組織全体）を判定する。注入された参考情報（人物ファクト・Journal・類似提案等）の中に、それより小さいスケールの個別事象（例: 特定の1人の1回の予定変更）が混ざっている場合、それを結論の主語や解決策そのものにしないこと。個別事象は「一事例」としてfacts/logicで引用する程度に留め、結論（conclusion）の粒度は元の問いのスケールに合わせる。複数人・複数件で同じ構造が繰り返し観測されている場合に限り、それを一般化した結論の根拠として使ってよい。",
     "- Suggest: Scope Checkを踏まえ、元の問いのスケールに見合った結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
     "- 入力の要約・言い換えだけで終わらせないこと。「心理的安全性」「1on1」など一般論の羅列も避けること。蓄積された具体的な記録に根ざした発見を優先する。",
     '- 介入の起票まで不要で「様子を見る／追加で確認する」が妥当なら recommendation は "watch"。次の観測・確認ポイントは advice（および conclusion）に書く。',
@@ -578,20 +572,20 @@ export function buildSystemPrompt(
     '  "challenges": ["前提・思い込み・問題設定への問い（Challenge。無い場合は空配列）"],',
     '  "lensesUsed": [ { "lens": "実際に使った哲学レンズ名（例: Systems Thinking）", "insight": "そのレンズで見て気づいたこと（一言）" } ],',
     '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
-    '  "recommendation": "issue | dismiss | watch  （任意。EMが提案として残すべきかのときだけ。次の観測・確認が主眼なら watch）",',
-    '  "issueTitle": "短い提案タイトル（単一のとき。40文字以内・結論文ではなく題名）",',
-    '  "issueCandidates": [ { "title": "独立した提案案1", "rationale": "なぜ別提案か（任意）" }, { "title": "独立した提案案2" } ],',
+    '  "recommendation": "suggestion | dismiss | watch  （任意。EMが提案として残すべきかのときだけ。次の観測・確認が主眼なら watch）",',
+    '  "suggestionTitle": "短い提案タイトル（単一のとき。40文字以内・結論文ではなく題名）",',
+    '  "suggestionCandidates": [ { "title": "独立した提案案1", "rationale": "なぜ別提案か（任意）" }, { "title": "独立した提案案2" } ],',
     '  "advice": "次に観測・確認・考えるべき点、または計画・進行・検証上の実務ポイント（任意。結論の繰り返しではないときだけ）"',
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
     "expansions / challenges は状況分析では原則1件以上を書く（本当に無いときだけ空配列）。rejectedAlternatives（行動案の棄却）と混同しないこと。",
     "lensesUsed は任意です。expansions / challengesの根拠として明確に使ったレンズがあれば書いてください（監査・振り返りに使えます）。無理に埋めず、無ければ省略してください。",
-    '提案として残すことを勧める場合（recommendation: "issue"）は、短いタイトルを付けてください。',
-    "- 論点が1つなら issueTitle のみ。別チーム・別KR・別の観測に分かれるなら issueCandidates に最大5件まで列挙すること。",
-    "- issueCandidates を出すときは recommendation は \"issue\" とし、issueTitle は代表の1件を書いても省略してもよい。",
+    '提案として残すことを勧める場合（recommendation: "suggestion"）は、短いタイトルを付けてください。',
+    "- 論点が1つなら suggestionTitle のみ。別チーム・別KR・別の観測に分かれるなら suggestionCandidates に最大5件まで列挙すること。",
+    "- suggestionCandidates を出すときは recommendation は \"suggestion\" とし、suggestionTitle は代表の1件を書いても省略してもよい。",
     "- adviceは、次に何を観測・確認・考えるべきか、または計画の立て方・進め方・検証方法など、結論とロジックだけでは伝わらない実務的な助言があれば書いてください。特に無ければ省略してよい（無理に埋めないこと）。",
-    ...issueNoteRule,
+    ...suggestionNoteRule,
     ...suggestionUpdatesRule,
     "",
     "- 次のいずれかに該当し、人間(EM)の判断や情報がなければ先に進めない場合は、proposalブロックの代わりに、回答の最後に必ず以下の形式でyieldブロックを1つだけ出力してください（yieldとproposalを同時に出さないこと）。",
@@ -612,7 +606,7 @@ export function buildSystemPrompt(
     '情報が単に不足しているだけで具体的な選択肢を提示できない場合は "options": [] としてください（この場合は通常kind: "inform"）。',
   ].join("\n");
 
-  const issueContext = runId ? buildIssueContextBlock(runId) : "";
+  const suggestionContext = runId ? buildSuggestionContextBlock(runId) : "";
   const interventionTypeGuidance = buildInterventionTypeGuidance(runId, agentName);
   const teamCharterContext = runId ? buildTeamCharterBlock(runId) : "";
   const orgContext = buildOrgContextBlock(runId, rawText);
@@ -643,7 +637,7 @@ export function buildSystemPrompt(
     growContext,
     journalBatchContext,
     periodReviewContext,
-    issueContext,
+    suggestionContext,
     relatedContext,
     interventionTypeGuidance,
     teamCharterContext,
@@ -668,14 +662,16 @@ export function perTurnBudgetUsdArg(): string {
   return String(Math.max(0.01, usd));
 }
 
-// Issueの介入型タグから関連specialistを選ぶ。タグが無い／介入型に該当しない場合は
+// 提案の介入型タグから関連specialistを選ぶ。タグが無い／介入型に該当しない場合は
 // 4象限（People/Process/Tech/Product）を返す。Exec Agentはオプトイン専用のため含めない。
-export function selectRelatedSpecialists(issueId: string): string[] {
-  const issue = getIssue(issueId);
-  if (!issue || issue.tags.length === 0) return [...QUADRANT_SPECIALISTS];
+// Suggestionはtagsを持たないため、この関数は常に4象限を返す（Issue時代の残骸）。
+export function selectRelatedSpecialists(suggestionId: string): string[] {
+  const suggestion = getSuggestion(suggestionId);
+  const tags: string[] = [];
+  if (!suggestion || tags.length === 0) return [...QUADRANT_SPECIALISTS];
 
   const selected = new Set<string>();
-  for (const tag of issue.tags) {
+  for (const tag of tags) {
     const mapping = INTERVENTION_TYPE_AGENTS[tag];
     if (!mapping) continue;
     for (const agent of mapping.primary) {

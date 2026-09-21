@@ -5,7 +5,7 @@ import { STATUS_META, StatusBadge, runKindLabel, type AgentRun, type AgentStatus
 import { PaginationControls, paginationMeta } from "../../components/Pagination";
 import { Select } from "../../components/Select";
 import { useSuggestionPeek } from "../../components/IdFragmentLink";
-import { useGoToRunIssue, useIssues, useRuns, useRunsInbox, useSettingsRules } from "../../lib/queries";
+import { useGoToRunSuggestion, useSuggestions, useRuns, useRunsInbox, useSettingsRules } from "../../lib/queries";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@emther/core/types";
 
@@ -50,8 +50,8 @@ export function AgentsPage() {
   const navigate = useNavigate();
   const suggestionPeek = useSuggestionPeek();
   const { runs, runsLoaded, refreshRuns } = useRuns();
-  const { issues } = useIssues();
-  const goToRunIssue = useGoToRunIssue(issues);
+  const { suggestions } = useSuggestions();
+  const goToRunSuggestion = useGoToRunSuggestion(suggestions);
   const { rules } = useSettingsRules();
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
 
@@ -108,13 +108,13 @@ export function AgentsPage() {
       setTask("");
       await refreshRuns();
       // docs/em_human_story_and_ux.md P0-2対応。Lead Agentは「何でも相談」の相手なので、
-      // 起票フォームから始めた場合も即Issue化はせず、まず相談画面に着地させる
-      // （Issue化・様子見・却下はそちら側で明示的に選べる）。専門エージェントは
-      // 「決まった介入」を前提に既存どおり即Issue化する。
+      // 起票フォームから始めた場合も即提案化はせず、まず相談画面に着地させる
+      // （提案化・様子見・却下はそちら側で明示的に選べる）。専門エージェントは
+      // 「決まった介入」を前提に既存どおり即提案化する。
       if (agentName === "Lead Agent") {
         navigate(`/chat?runId=${run.id}`);
       } else {
-        await goToRunIssue(run);
+        await goToRunSuggestion(run);
       }
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
@@ -126,15 +126,15 @@ export function AgentsPage() {
   }
 
   // docs/em_human_story_and_ux.md P0-2対応。Inbox行クリックの既定を「相談」優先にする。
-  // Lead Agentでまだ何にも紐付いていないrunは/chatへ（そこで「Issueにする/様子見/却下」を
-  // 選べる）。専門エージェントや、既にIssue化済みのrunはこれまで通り。
+  // Lead Agentでまだ何にも紐付いていないrunは/chatへ（そこで「提案にする/様子見/却下」を
+  // 選べる）。専門エージェントや、既に提案化済みのrunはこれまで通り。
   function handleInboxRunClick(run: AgentRun) {
-    const existing = issues.find((i) => i.agentRunId === run.id);
+    const existing = suggestions.find((s) => s.agentRunId === run.id);
     if (!existing && run.agentName === "Lead Agent") {
       navigate(`/chat?runId=${run.id}`);
       return;
     }
-    goToRunIssue(run);
+    goToRunSuggestion(run);
   }
 
   const fleetStatuses = AGENT_OPTIONS.map((name) => {
@@ -156,13 +156,13 @@ export function AgentsPage() {
         icon: line.text.startsWith("[YIELD]") ? "🟡" : line.channel === "system" ? "⚙️" : line.channel === "meta" ? "📝" : "💬",
         text: line.text.replace(/\s+/g, " ").slice(0, 80),
         onSelect: () => {
-          const linkedIssue = issues.find((i) => i.agentRunId === run.id);
-          if (linkedIssue) {
-            suggestionPeek.open(linkedIssue.id);
+          const linkedSuggestion = suggestions.find((s) => s.agentRunId === run.id);
+          if (linkedSuggestion) {
+            suggestionPeek.open(linkedSuggestion.id);
           } else if (run.agentName === "Lead Agent") {
             navigate(`/chat?runId=${run.id}`);
           } else {
-            goToRunIssue(run);
+            goToRunSuggestion(run);
           }
         },
       })),
@@ -283,7 +283,7 @@ export function AgentsPage() {
                 </tr>
               )}
               {inboxRuns.map((run) => {
-                const linked = issues.some((i) => i.agentRunId === run.id);
+                const linked = suggestions.some((s) => s.agentRunId === run.id);
                 return (
                   <tr key={run.id}>
                     <td>
@@ -304,7 +304,7 @@ export function AgentsPage() {
                     </td>
                     <td>
                       {!linked && run.agentName === "Lead Agent" && (
-                        <button className={styles.btnOutline} onClick={() => goToRunIssue(run)}>
+                        <button className={styles.btnOutline} onClick={() => goToRunSuggestion(run)}>
                           📌 提案として残す
                         </button>
                       )}

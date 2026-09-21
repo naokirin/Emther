@@ -45,14 +45,14 @@ describe("GoByIdPrefixPage", () => {
   });
 
   it("一致件数1件ならそのhrefへ自動遷移する", async () => {
-    mockMatches([{ kind: "issue", id: "abcdef1234567890", label: "サンプル提案", href: "/suggestions/abcdef1234567890" }]);
+    mockMatches([{ kind: "suggestion", id: "abcdef1234567890", label: "サンプル提案", href: "/suggestions/abcdef1234567890" }]);
     renderAt("abcdef12");
     await waitFor(() => expect(screen.getByText("提案詳細ページ")).toBeInTheDocument());
   });
 
   it("一致件数が複数なら候補一覧を表示する", async () => {
     mockMatches([
-      { kind: "issue", id: "abcdef1234567890", label: "提案A", href: "/suggestions/abcdef1234567890" },
+      { kind: "suggestion", id: "abcdef1234567890", label: "提案A", href: "/suggestions/abcdef1234567890" },
       { kind: "journal", id: "abcdef1234567891", label: "Journal B", href: "/journal?focus=abcdef1234567891" },
     ]);
     renderAt("abcdef12");

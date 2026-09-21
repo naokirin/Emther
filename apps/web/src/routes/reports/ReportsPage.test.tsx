@@ -32,7 +32,7 @@ const REPORT = {
   note: "",
   stats: {
     journal: { total: 3, byUrgency: { low: 1, mid: 1, high: 1 }, bySentiment: { positive: 1, neutral: 1, negative: 1 }, topTags: [], notableEntries: [] },
-    issues: { createdCount: 1, archivedCount: 0, createdTitles: [], archivedTitles: [] },
+    suggestions: { createdCount: 1, archivedCount: 0, createdTitles: [], archivedTitles: [] },
     events: { total: 0, byEntityType: {} },
   },
 };
@@ -48,7 +48,7 @@ describe("ReportsPage", () => {
       vi.fn(async (url: string) => {
         if (url === "/api/reports") return { ok: true, json: async () => ({ reports: [] }) };
         if (url === "/api/journal") return { ok: true, json: async () => ({ entries: [] }) };
-        if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+        if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
         return { ok: true, json: async () => ({}) };
       }),
     );
@@ -64,7 +64,7 @@ describe("ReportsPage", () => {
       }
       if (url === "/api/reports") return { ok: true, json: async () => ({ reports: [REPORT] }) };
       if (url === "/api/journal") return { ok: true, json: async () => ({ entries: [] }) };
-      if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       return { ok: true, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -121,7 +121,7 @@ describe("ReportsPage", () => {
       if (url === "/api/reports") return { ok: true, json: async () => ({ reports }) };
       if (url === "/api/agents") return { ok: true, json: async () => ({ runs, pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
       if (url === "/api/journal") return { ok: true, json: async () => ({ entries: [] }) };
-      if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       return { ok: true, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -182,7 +182,7 @@ describe("ReportsPage", () => {
         if (url === "/api/reports") return { ok: true, json: async () => ({ reports: [reviewedReport] }) };
         if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [reviewRun], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
         if (url === "/api/journal") return { ok: true, json: async () => ({ entries: [] }) };
-        if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+        if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
         return { ok: true, json: async () => ({}) };
       }),
     );

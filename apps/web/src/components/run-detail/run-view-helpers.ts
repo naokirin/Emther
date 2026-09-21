@@ -14,18 +14,18 @@ export function resolveYieldKind(kind: YieldKind | undefined, optionsLength: num
   return optionsLength === 0 ? "inform" : "decide";
 }
 
-/** proposal から起票タイトル候補を返す（issueCandidates優先、なければ issueTitle）。 */
-export function listIssueCandidatesFromProposal(
-  proposal?: { issueCandidates?: { title: string; rationale?: string }[]; issueTitle?: string } | null,
+/** proposal から起票タイトル候補を返す（suggestionCandidates優先、なければ suggestionTitle）。 */
+export function listSuggestionCandidatesFromProposal(
+  proposal?: { suggestionCandidates?: { title: string; rationale?: string }[]; suggestionTitle?: string } | null,
 ): { title: string; rationale?: string }[] {
   if (!proposal) return [];
-  const fromArray = (proposal.issueCandidates ?? [])
+  const fromArray = (proposal.suggestionCandidates ?? [])
     .map((c) => ({
       title: c.title.trim(),
       ...(c.rationale?.trim() ? { rationale: c.rationale.trim() } : {}),
     }))
     .filter((c) => c.title.length > 0);
   if (fromArray.length > 0) return fromArray;
-  const single = proposal.issueTitle?.trim();
+  const single = proposal.suggestionTitle?.trim();
   return single ? [{ title: single }] : [];
 }

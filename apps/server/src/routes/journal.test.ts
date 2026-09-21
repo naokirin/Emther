@@ -281,40 +281,40 @@ describe("PATCH /api/journal/:id", () => {
     expect(json.entry.teamNames.sort()).toEqual(["コアチーム", "プロダクトチーム"].sort());
   });
 
-  it("resolvedIssueId/resolutionNoteの3値（未指定=維持・null=解除・文字列=設定）", async () => {
+  it("resolvedSuggestionId/resolutionNoteの3値（未指定=維持・null=解除・文字列=設定）", async () => {
     const journalStore = await import("@emther/core/journal-store");
-    const issueStore = await import("@emther/core/issue-store");
-    const issue = await issueStore.createIssue("対象Issue");
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案");
     const entry = await journalStore.addJournalEntry("問題発生");
     const { journalRoute } = await import("./journal");
 
-    const withResolution = await journalRoute.request(`/${entry.id}`, patch({ resolvedIssueId: issue.id }));
+    const withResolution = await journalRoute.request(`/${entry.id}`, patch({ resolvedSuggestionId: suggestion.id }));
     const withResolutionJson = await withResolution.json();
-    expect(withResolutionJson.entry.resolvedIssueId).toBe(issue.id);
+    expect(withResolutionJson.entry.resolvedSuggestionId).toBe(suggestion.id);
 
     const untouched = await journalRoute.request(`/${withResolutionJson.entry.id}`, patch({ tags: ["x"] }));
-    expect((await untouched.json()).entry.resolvedIssueId).toBe(issue.id);
+    expect((await untouched.json()).entry.resolvedSuggestionId).toBe(suggestion.id);
   });
 
-  it("resolvedIssueIdはプレフィックス一致でも解決できる", async () => {
+  it("resolvedSuggestionIdはプレフィックス一致でも解決できる", async () => {
     const journalStore = await import("@emther/core/journal-store");
-    const issueStore = await import("@emther/core/issue-store");
-    const issue = await issueStore.createIssue("対象Issue");
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案");
     const entry = await journalStore.addJournalEntry("問題発生");
     const { journalRoute } = await import("./journal");
 
-    const res = await journalRoute.request(`/${entry.id}`, patch({ resolvedIssueId: issue.id.slice(0, 8) }));
+    const res = await journalRoute.request(`/${entry.id}`, patch({ resolvedSuggestionId: suggestion.id.slice(0, 8) }));
     expect(res.status).toBe(200);
-    expect((await res.json()).entry.resolvedIssueId).toBe(issue.id);
+    expect((await res.json()).entry.resolvedSuggestionId).toBe(suggestion.id);
   });
 
-  it("存在しないresolvedIssueIdは400", async () => {
+  it("存在しないresolvedSuggestionIdは400", async () => {
     const journalStore = await import("@emther/core/journal-store");
     const entry = await journalStore.addJournalEntry("問題発生");
     const { journalRoute } = await import("./journal");
     const res = await journalRoute.request(
       `/${entry.id}`,
-      patch({ resolvedIssueId: "00000000-0000-0000-0000-000000000000" }),
+      patch({ resolvedSuggestionId: "00000000-0000-0000-0000-000000000000" }),
     );
     expect(res.status).toBe(400);
   });

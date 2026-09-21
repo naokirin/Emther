@@ -43,15 +43,15 @@ afterEach(() => {
 });
 
 describe("related-context", () => {
-  it("searchSimilarOpenIssuesは閾値以上の未完了Issueだけ返す", async () => {
-    const issueStore = await import("./issue-store");
-    const a = await issueStore.createIssue("類似A");
-    const b = await issueStore.createIssue("類似B");
-    await issueStore.setIssueStatus(b.id, "done");
-    const { searchSimilarOpenIssues, RELATED_SIMILARITY_THRESHOLD } = await import("./related-context");
-    const hits = searchSimilarOpenIssues([1, 0, 0], { excludeId: a.id });
+  it("searchSimilarOpenSuggestionsは閾値以上の未完了提案だけ返す", async () => {
+    const suggestionStore = await import("./suggestion-store");
+    const a = await suggestionStore.createSuggestion("類似A");
+    const b = await suggestionStore.createSuggestion("類似B");
+    await suggestionStore.setReviewStatus(b.id, "done");
+    const { searchSimilarOpenSuggestions, RELATED_SIMILARITY_THRESHOLD } = await import("./related-context");
+    const hits = searchSimilarOpenSuggestions([1, 0, 0], { excludeId: a.id });
     expect(hits.every((h) => h.id !== a.id)).toBe(true);
-    expect(hits.every((h) => h.status !== "done")).toBe(true);
+    expect(hits.every((h) => h.reviewStatus !== "done")).toBe(true);
     expect(hits.every((h) => h.similarity >= RELATED_SIMILARITY_THRESHOLD)).toBe(true);
   });
 
@@ -88,17 +88,18 @@ describe("related-context", () => {
     expect(block).toContain("関連するJournal");
   });
 
-  it("buildRelatedBundleBlockはissue-wallbashで関連Issueを載せる", async () => {
-    const issueStore = await import("./issue-store");
-    const self = await issueStore.createIssue("対象", undefined, { why: "育成の停滞" });
-    await issueStore.createIssue("関連", undefined, { why: "育成の停滞" });
+  it("buildRelatedBundleBlockはsuggestion-wallbashで関連提案を載せる", async () => {
+    const suggestionStore = await import("./suggestion-store");
+    const self = await suggestionStore.createSuggestion("対象");
+    await suggestionStore.addMemo(self.id, "育成の停滞");
+    await suggestionStore.createSuggestion("関連");
     const { buildRelatedBundleBlock } = await import("./related-context");
     const block = await buildRelatedBundleBlock({
-      queryText: issueStore.issueEmbedSource(self),
-      excludeIssueId: self.id,
-      mode: "issue-wallbash",
+      queryText: self.title,
+      excludeSuggestionId: self.id,
+      mode: "suggestion-wallbash",
     });
-    expect(block).toContain("関連する未完了Issue");
+    expect(block).toContain("関連する未完了の提案");
     expect(block).toContain("関連");
     expect(block).not.toContain(self.id);
   });
@@ -108,9 +109,9 @@ describe("related-context", () => {
     const { buildRelatedBundleBlock } = await import("./related-context");
     const block = await buildRelatedBundleBlock({
       queryText: "全く無関係なクエリで類似ゼロを狙う",
-      mode: "issue-wallbash",
+      mode: "suggestion-wallbash",
     });
-    expect(block).toContain("閾値以上の類似未完了Issueなし");
+    expect(block).toContain("閾値以上の類似未完了提案なし");
     expect(block).toContain("lookup");
     expect(block).toContain("閾値以上の類似Journalなし");
   });

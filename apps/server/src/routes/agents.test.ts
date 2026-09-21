@@ -116,10 +116,10 @@ function insertRunRow(db: import("node:sqlite").DatabaseSync, overrides: Partial
     yield_request_json: null,
     proposal_json: null,
     suggested_action_items_json: null,
-    suggested_sub_issues_json: null,
+    suggested_sub_suggestions_json: null,
     suggested_charter_json: null,
     suggested_themes_json: null,
-    suggested_issue_notes_json: null,
+    suggested_suggestion_notes_json: null,
     suggested_suggestion_updates_json: null,
     total_cost_usd: 0,
     created_at: 1000,
@@ -133,8 +133,8 @@ function insertRunRow(db: import("node:sqlite").DatabaseSync, overrides: Partial
   };
   db.prepare(
     `INSERT INTO agent_runs
-      (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_themes_json, suggested_issue_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-     VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_themes_json, @suggested_issue_notes_json, @suggested_suggestion_updates_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
+      (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+     VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_suggestions_json, @suggested_charter_json, @suggested_themes_json, @suggested_suggestion_notes_json, @suggested_suggestion_updates_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
   ).run(base);
 }
 
@@ -336,20 +336,20 @@ describe("POST /api/agents/:id/charter/dismiss", () => {
   });
 });
 
-describe("POST /api/agents/:id/sub-issues/dismiss", () => {
+describe("POST /api/agents/:id/sub-suggestions/dismiss", () => {
   it("存在しないIDは404", async () => {
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/missing/sub-issues/dismiss", { method: "POST" });
+    const res = await agentsRoute.request("/missing/sub-suggestions/dismiss", { method: "POST" });
     expect(res.status).toBe(404);
   });
 
   it("提案を消す", async () => {
     const { getDb } = await import("@emther/core/db");
-    insertRunRow(getDb(), { suggested_sub_issues_json: JSON.stringify(["子Issue案1"]) });
+    insertRunRow(getDb(), { suggested_sub_suggestions_json: JSON.stringify(["子提案案1"]) });
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/sub-issues/dismiss", { method: "POST" });
+    const res = await agentsRoute.request("/run-1/sub-suggestions/dismiss", { method: "POST" });
     expect(res.status).toBe(200);
-    expect((await res.json()).run.suggestedSubIssues).toBeUndefined();
+    expect((await res.json()).run.suggestedSubSuggestions).toBeUndefined();
   });
 });
 
@@ -425,57 +425,57 @@ describe("POST/DELETE /api/agents/:id/suggestion-updates", () => {
   });
 });
 
-describe("POST/DELETE /api/agents/:id/issue-notes", () => {
-  it("対象Issueのlogへ追記し、提案を消す", async () => {
-    const issueStore = await import("@emther/core/issue-store");
-    const issue = await issueStore.createIssue("対象Issue");
+describe("POST/DELETE /api/agents/:id/suggestion-notes", () => {
+  it("対象提案のメモへ追記し、提案を消す", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案");
     const { getDb } = await import("@emther/core/db");
-    insertRunRow(getDb(), { suggested_issue_notes_json: JSON.stringify([{ issueId: issue.id, text: "見つけた事実" }]) });
+    insertRunRow(getDb(), { suggested_suggestion_notes_json: JSON.stringify([{ suggestionId: suggestion.id, text: "見つけた事実" }]) });
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/issue-notes", { method: "POST" });
+    const res = await agentsRoute.request("/run-1/suggestion-notes", { method: "POST" });
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.written).toEqual([{ issueId: issue.id, text: "見つけた事実" }]);
-    expect(json.run.suggestedIssueNotes).toBeUndefined();
-    expect(issueStore.getIssue(issue.id)?.logEntries.map((l) => l.text)).toEqual(["見つけた事実"]);
+    expect(json.written).toEqual([{ suggestionId: suggestion.id, text: "見つけた事実" }]);
+    expect(json.run.suggestedSuggestionNotes).toBeUndefined();
+    expect(suggestionStore.getSuggestion(suggestion.id)?.memos.map((m) => m.text)).toEqual(["見つけた事実"]);
   });
 
   it("提案が無ければ400", async () => {
     const { getDb } = await import("@emther/core/db");
     insertRunRow(getDb());
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/issue-notes", { method: "POST" });
+    const res = await agentsRoute.request("/run-1/suggestion-notes", { method: "POST" });
     expect(res.status).toBe(400);
   });
 
   it("runが無ければ404", async () => {
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/missing/issue-notes", { method: "POST" });
+    const res = await agentsRoute.request("/missing/suggestion-notes", { method: "POST" });
     expect(res.status).toBe(404);
   });
 
   it("DELETEで提案を却下できる", async () => {
-    const issueStore = await import("@emther/core/issue-store");
-    const issue = await issueStore.createIssue("対象Issue");
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案");
     const { getDb } = await import("@emther/core/db");
-    insertRunRow(getDb(), { suggested_issue_notes_json: JSON.stringify([{ issueId: issue.id, text: "見つけた事実" }]) });
+    insertRunRow(getDb(), { suggested_suggestion_notes_json: JSON.stringify([{ suggestionId: suggestion.id, text: "見つけた事実" }]) });
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/issue-notes", del());
+    const res = await agentsRoute.request("/run-1/suggestion-notes", del());
     expect(res.status).toBe(200);
-    expect((await res.json()).run.suggestedIssueNotes).toBeUndefined();
-    expect(issueStore.getIssue(issue.id)?.logEntries).toEqual([]);
+    expect((await res.json()).run.suggestedSuggestionNotes).toBeUndefined();
+    expect(suggestionStore.getSuggestion(suggestion.id)?.memos).toEqual([]);
   });
 
   it("reason:handledだと対応済みとしてrunログに残した上で提案を消す", async () => {
-    const issueStore = await import("@emther/core/issue-store");
-    const issue = await issueStore.createIssue("対象Issue");
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("対象提案");
     const { getDb } = await import("@emther/core/db");
-    insertRunRow(getDb(), { suggested_issue_notes_json: JSON.stringify([{ issueId: issue.id, text: "見つけた事実" }]) });
+    insertRunRow(getDb(), { suggested_suggestion_notes_json: JSON.stringify([{ suggestionId: suggestion.id, text: "見つけた事実" }]) });
     const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/issue-notes", del({ reason: "handled" }));
+    const res = await agentsRoute.request("/run-1/suggestion-notes", del({ reason: "handled" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.run.suggestedIssueNotes).toBeUndefined();
+    expect(json.run.suggestedSuggestionNotes).toBeUndefined();
     expect(json.run.log.some((l: { text: string }) => l.text.includes("対応済み"))).toBe(true);
   });
 });

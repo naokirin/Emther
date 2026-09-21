@@ -1,5 +1,5 @@
 import { listRecentChangeEvents, toEventView, type KnowledgeEntityType } from "./knowledge-store";
-import { getIssue, toIssueView } from "./issue-store";
+import { getSuggestion, toSuggestionView } from "./suggestion-store";
 import {
   getTeam,
   getGoal,
@@ -10,7 +10,7 @@ import {
 import { teamDisplayName } from "./types";
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しいエンティティやデータモデルは
-// 増やさず、既存のKnowledgeEvent（変更履歴）をIssue/Team/Goal横断で1本の
+// 増やさず、既存のKnowledgeEvent（変更履歴）をSuggestion/Team/Goal横断で1本の
 // タイムラインとして見せるだけの集約レイヤー（people-hub.tsと同じ考え方）。
 
 export type TimelineEntry = {
@@ -20,14 +20,13 @@ export type TimelineEntry = {
   // このイベントが指すエンティティの現在の表示名。エンティティが削除済みの場合はundefined
   // （呼び出し側は「(削除済み)」等で扱う）。
   entityLabel?: string;
-  // IssueはentityIdへ直接リンクできる。Teamは /teams?focus= へ（方針・目標ではなくチーム管理側）。
+  // SuggestionはentityIdへ直接リンクできる。Teamは /teams?focus= へ（方針・目標ではなくチーム管理側）。
   href?: string;
   text: string;
   occurredAt: number;
 };
 
 export const ENTITY_TYPE_LABEL: Record<KnowledgeEntityType, string> = {
-  issue: "提案",
   suggestion: "提案",
   team: "Team",
   org: "Org",
@@ -39,9 +38,9 @@ export const ENTITY_TYPE_LABEL: Record<KnowledgeEntityType, string> = {
 // 「元々マスク対象外（team.name）」かが異なるため、それぞれの既存のtoXxxView境界に
 // 揃えてここで復元する。
 function resolveEntity(entityType: KnowledgeEntityType, entityId: string): { label?: string; href?: string } {
-  if (entityType === "issue" || entityType === "suggestion") {
-    const issue = getIssue(entityId);
-    return issue ? { label: toIssueView(issue).title, href: `/suggestions/${issue.id}` } : {};
+  if (entityType === "suggestion") {
+    const suggestion = getSuggestion(entityId);
+    return suggestion ? { label: toSuggestionView(suggestion).title, href: `/suggestions/${suggestion.id}` } : {};
   }
   if (entityType === "team") {
     // チーム名は個人名ではないため元々マスク対象外（org-context-store.tsの設計）。

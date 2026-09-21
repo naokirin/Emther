@@ -36,10 +36,10 @@ describe("GET /api/knowledge/events", () => {
   });
 
   it("指定したentityの変更履歴を返す", async () => {
-    const issueStore = await import("@emther/core/issue-store");
-    const issue = await issueStore.createIssue("Issue");
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("提案");
     const { knowledgeEventsRoute } = await import("./knowledge-events");
-    const res = await knowledgeEventsRoute.request(`/?entityType=issue&entityId=${issue.id}`);
+    const res = await knowledgeEventsRoute.request(`/?entityType=suggestion&entityId=${suggestion.id}`);
     const json = await res.json();
     expect(json.events).toHaveLength(1);
     expect(json.events[0].text).toContain("提案を作成");

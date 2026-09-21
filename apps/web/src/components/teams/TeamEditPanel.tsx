@@ -3,21 +3,21 @@ import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
 import { TagInput } from "../TagInput";
 import { SuggestionLink } from "../SuggestionLink";
-import { URGENCY_LABEL, suggestionOverviewFromLogs, type Issue, type JournalEntry, type KnowledgeEvent, type Team } from "@emther/core/types";
+import { URGENCY_LABEL, suggestionOverviewFromLogs, type Suggestion, type JournalEntry, type KnowledgeEvent, type Team } from "@emther/core/types";
 
 // web/src/components/teams/TeamEditPanel.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
 // stylesのimportパス・`next/link`→`react-router`の`Link`・`@core/*`のbare specifier化
 // 以外はロジックを変更していない。
 export function TeamEditPanel({
   selectedTeam,
-  issues,
+  suggestions,
   journalEntries,
   teamHistory,
   refreshTeams,
   onRemoved,
 }: {
   selectedTeam: Team | null;
-  issues: Issue[];
+  suggestions: Suggestion[];
   journalEntries: JournalEntry[];
   teamHistory: KnowledgeEvent[];
   refreshTeams: () => Promise<void>;
@@ -120,12 +120,12 @@ export function TeamEditPanel({
     return <p className={styles.emptyState}>左のツリーからチームを選択してください。</p>;
   }
 
-  // docs/memo.md TODO「チームや、メンバーごとの関連するIssueおよびIssueではない特性や問題などについて、
-  // 確認できるようにする」への対応。Issueは teamId 明示＋メンバー名の本文一致、
+  // docs/memo.md TODO「チームや、メンバーごとの関連する提案および提案ではない特性や問題などについて、
+  // 確認できるようにする」への対応。提案は teamId 明示＋メンバー名の本文一致、
   // Journalは方針A（明示 teamIds またはメンバー一致）で関連付ける。
-  const relatedIssues = issues.filter((issue) => {
-    if (issue.teamId === selectedTeam.id) return true;
-    const haystack = `${issue.title} ${issue.charter.why} ${issue.charter.what} ${issue.charter.how}`;
+  const relatedSuggestions = suggestions.filter((suggestion) => {
+    if (suggestion.teamId === selectedTeam.id) return true;
+    const haystack = [suggestion.title, ...suggestion.memos.map((m) => m.text)].join(" ");
     return selectedTeam.members.some((m) => haystack.includes(m));
   });
   const relatedJournal = journalEntries
@@ -217,7 +217,7 @@ export function TeamEditPanel({
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
         メンバー名がタイトル・メモに含まれる提案を表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
       </p>
-      {relatedIssues.length === 0 ? (
+      {relatedSuggestions.length === 0 ? (
         <p className={styles.subtitle}>関連する提案は見つかりませんでした。</p>
       ) : (
         <div className={styles.tableWrap} style={{ marginBottom: 12 }}>
@@ -229,15 +229,15 @@ export function TeamEditPanel({
               </tr>
             </thead>
             <tbody>
-              {relatedIssues.map((issue) => (
-                <tr key={issue.id}>
+              {relatedSuggestions.map((suggestion) => (
+                <tr key={suggestion.id}>
                   <td>
-                    <SuggestionLink id={issue.id} className={styles.tableRowLink}>
-                      {issue.title}
+                    <SuggestionLink id={suggestion.id} className={styles.tableRowLink}>
+                      {suggestion.title}
                     </SuggestionLink>
-                    {issue.archived && <div className={styles.tableMuted}>🗄 確認済み</div>}
+                    {suggestion.reviewStatus === "done" && <div className={styles.tableMuted}>🗄 確認済み</div>}
                   </td>
-                  <td className={styles.tableMuted}>{suggestionOverviewFromLogs(issue.logEntries)}</td>
+                  <td className={styles.tableMuted}>{suggestionOverviewFromLogs(suggestion.memos)}</td>
                 </tr>
               ))}
             </tbody>

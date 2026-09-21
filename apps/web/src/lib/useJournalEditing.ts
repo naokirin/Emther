@@ -210,11 +210,11 @@ export function useJournalEditing(
   }
 
   // 「提案として残してこの件を追跡する」: 新規 Suggestion を作成し、紐付ける。
-  async function resolveWithNewIssue(entry: JournalEntry): Promise<string | undefined> {
+  async function resolveWithNewSuggestion(entry: JournalEntry): Promise<string | undefined> {
     setEditSubmitting(true);
     setEditError(null);
     try {
-      const { res: issueRes, data: issueData } = await fetchWithNameConfirm(
+      const { res: suggestionRes, data: suggestionData } = await fetchWithNameConfirm(
         "/api/suggestions",
         {
           method: "POST",
@@ -225,16 +225,16 @@ export function useJournalEditing(
         },
         "保存する",
       );
-      if (!issueRes.ok) {
-        throw new Error((issueData as { error?: string } | null)?.error ?? "提案の作成に失敗しました");
+      if (!suggestionRes.ok) {
+        throw new Error((suggestionData as { error?: string } | null)?.error ?? "提案の作成に失敗しました");
       }
 
-      const suggestionId = (issueData as { suggestion: { id: string } }).suggestion.id;
+      const suggestionId = (suggestionData as { suggestion: { id: string } }).suggestion.id;
       const { res, data } = await fetchWithNameConfirm(
         `/api/journal/${entry.id}`,
         {
           method: "PATCH",
-          body: { ...currentEditPatch(), resolvedIssueId: suggestionId },
+          body: { ...currentEditPatch(), resolvedSuggestionId: suggestionId },
         },
         "保存する",
       );
@@ -256,10 +256,10 @@ export function useJournalEditing(
     }
   }
 
-  // 解決状態の取り消し（誤ってIssue化/メモした場合の巻き戻し）。編集フォームを
+  // 解決状態の取り消し（誤って提案化/メモした場合の巻き戻し）。編集フォームを
   // 閉じない操作であり、resolutionNote/rawTextを含まないため通常は速い。意図的に
   // sendJournalPatchは使わず、フォームを開いたままeditErrorでエラーを出す
-  // （resolveWithNewIssueと同じ理由——編集中の他の入力を巻き込んでエラーカードに
+  // （resolveWithNewSuggestionと同じ理由——編集中の他の入力を巻き込んでエラーカードに
   // 差し替えたくない）。
   async function clearResolution(entryId: string) {
     setEditSubmitting(true);
@@ -269,7 +269,7 @@ export function useJournalEditing(
         `/api/journal/${entryId}`,
         {
           method: "PATCH",
-          body: { ...currentEditPatch(), resolvedIssueId: null, resolutionNote: null },
+          body: { ...currentEditPatch(), resolvedSuggestionId: null, resolutionNote: null },
         },
         "保存する",
       );
@@ -412,7 +412,7 @@ export function useJournalEditing(
     resolutionNoteDraft,
     setResolutionNoteDraft,
     resolveWithNote,
-    resolveWithNewIssue,
+    resolveWithNewSuggestion,
     clearResolution,
     acknowledgeSentiment,
     clearSentimentAck,

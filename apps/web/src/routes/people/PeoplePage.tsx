@@ -16,7 +16,7 @@ function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (
     <div className={styles.personCardGrid}>
       {people.map((p) => (
         <button key={p.id} type="button" className={styles.personCard} onClick={() => onOpen(p.id)}>
-          <PersonScoreBadge trend={p.trend} factCount={p.factCount} hasConcerningIssue={p.hasConcerningIssue} />
+          <PersonScoreBadge trend={p.trend} factCount={p.factCount} hasConcerningSuggestion={p.hasConcerningSuggestion} />
           <div className={styles.personCardBody}>
             <div className={styles.personCardName}>
               {p.name}
@@ -25,7 +25,7 @@ function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (
             <div className={styles.tableMuted}>
               {p.isSelf
                 ? "利用者本人"
-                : `${PERSON_VITAL_LABEL[personVitalStatus(p.trend, p.hasConcerningIssue)]}・${p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}`}
+                : `${PERSON_VITAL_LABEL[personVitalStatus(p.trend, p.hasConcerningSuggestion)]}・${p.teamNames.length > 0 ? p.teamNames.join(", ") : "未所属"}`}
             </div>
           </div>
         </button>

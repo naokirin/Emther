@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
-import { listIssueCandidatesFromProposal, type AgentRun } from "../../components/RunDetail";
+import { listSuggestionCandidatesFromProposal, type AgentRun } from "../../components/RunDetail";
 import { ChatHistoryPanel } from "../../components/chat/ChatHistoryPanel";
 import { ConsultReviewPanel } from "../../components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "../../components/chat/NewConsultForm";
-import { useIssues, useJournalEntry, useRuns, useSettingsRules } from "../../lib/queries";
+import { useSuggestions, useJournalEntry, useRuns, useSettingsRules } from "../../lib/queries";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { isConsultHistoryRun } from "@emther/core/origin-trace";
 import { isRunStale } from "@emther/core/types";
@@ -20,7 +20,7 @@ import { isRunStale } from "@emther/core/types";
 export function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { runs, runsLoaded, refreshRuns } = useRuns();
-  const { issues, issuesLoaded, refreshIssues } = useIssues();
+  const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
   const { rules } = useSettingsRules();
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const staleRunIds = new Set(
@@ -38,11 +38,11 @@ export function ChatPage() {
     .filter((r) => showArchivedConsults || !r.archivedAt)
     .sort((a, b) => b.updatedAt - a.updatedAt);
   const promotedRunIds = new Set(
-    issues.flatMap((i) => [i.agentRunId, i.sourceRunId].filter((id): id is string => Boolean(id))),
+    suggestions.flatMap((s) => [s.agentRunId, s.sourceRunId].filter((id): id is string => Boolean(id))),
   );
-  const chatHistoryLoaded = runsLoaded && issuesLoaded;
+  const chatHistoryLoaded = runsLoaded && suggestionsLoaded;
 
-  // docs/usage_issues U6。runs+issuesの両方が揃ってから runId を選択する。
+  // docs/usage_issues U6。runs+suggestionsの両方が揃ってから runId を選択する。
   // 蒸留など巨大taskの旧runは /api/agents 全件に載らない／遅延することがあるため、
   // 一覧に無いときは GET /api/agents/[id] で1件だけ拾って履歴へピン留めする。
   // 選択の同期は queryRunId 変化時のみ（runs ポーリング依存にすると、履歴クリック直後に
@@ -166,7 +166,7 @@ export function ChatPage() {
   const queryJournalId = searchParams.get("journalId");
   const { entry: sourceJournal } = useJournalEntry(selectedRun?.sourceJournalId);
 
-  const issueCandidates = listIssueCandidatesFromProposal(selectedRun?.proposal);
+  const suggestionCandidates = listSuggestionCandidatesFromProposal(selectedRun?.proposal);
 
   async function handleConsultStarted(runId: string) {
     selectHistoryRun(runId);
@@ -194,14 +194,14 @@ export function ChatPage() {
           <ConsultReviewPanel
             selectedRun={selectedRun}
             sourceJournal={sourceJournal}
-            issueCandidates={issueCandidates}
+            suggestionCandidates={suggestionCandidates}
             candidatePick={candidatePick}
             setCandidatePick={setCandidatePick}
             stale={staleRunIds.has(selectedRun.id)}
             fetchWithNameConfirm={fetchWithNameConfirm}
             refreshRuns={refreshRuns}
-            refreshIssues={refreshIssues}
-            issues={issues}
+            refreshSuggestions={refreshSuggestions}
+            suggestions={suggestions}
             onReanalyzed={handleConsultStarted}
           />
         ) : (

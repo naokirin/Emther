@@ -130,57 +130,57 @@ describe("listPersonSummaries", () => {
     expect(other?.isDirectReport).toBe(true);
   });
 
-  // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。
-  it("関連Issueにブロッカーありのものが1件でもあればhasConcerningIssue:true", async () => {
+  // ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。
+  it("関連提案に確認保留ありのものが1件でもあればhasConcerningSuggestion:true", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
-    const issue = await issueStore.createIssue("Aさんの育成計画");
-    issueStore.setIssueStatus(issue.id, "blocked");
+    const suggestion = await suggestionStore.createSuggestion("Aさんの育成計画");
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
 
     const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
-    expect(summary?.hasConcerningIssue).toBe(true);
+    expect(summary?.hasConcerningSuggestion).toBe(true);
   });
 
-  it("関連Issueがブロッカー・停滞のいずれでもなければhasConcerningIssue:false", async () => {
+  it("関連提案が確認保留・停滞のいずれでもなければhasConcerningSuggestion:false", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
-    await issueStore.createIssue("Aさんの育成計画");
+    await suggestionStore.createSuggestion("Aさんの育成計画");
 
     const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
-    expect(summary?.hasConcerningIssue).toBe(false);
+    expect(summary?.hasConcerningSuggestion).toBe(false);
   });
 
-  it("アーカイブ済みのブロッカーIssueは無視する", async () => {
+  it("アーカイブ済みの確認保留提案は無視する", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
-    const issue = await issueStore.createIssue("Aさんの育成計画");
-    issueStore.setIssueStatus(issue.id, "blocked");
-    issueStore.setIssueArchived(issue.id, true);
+    const suggestion = await suggestionStore.createSuggestion("Aさんの育成計画");
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
+    suggestionStore.archiveSuggestion(suggestion.id);
 
     const summary = hub.listPersonSummaries().find((s) => s.name === "Aさん");
-    expect(summary?.hasConcerningIssue).toBe(false);
+    expect(summary?.hasConcerningSuggestion).toBe(false);
   });
 
   // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
-  it("確認済み（対応不要）にしたIssueはhasConcerningIssueの判定から除外する", async () => {
+  it("確認済み（対応不要）にした提案はhasConcerningSuggestionの判定から除外する", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const concernAckStore = await import("./person-concern-ack-store");
     const hub = await loadModule();
     const personId = peopleDirectory.registerName("Aさん");
-    const issue = await issueStore.createIssue("Aさんの育成計画");
-    issueStore.setIssueStatus(issue.id, "blocked");
+    const suggestion = await suggestionStore.createSuggestion("Aさんの育成計画");
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
 
-    expect(hub.listPersonSummaries().find((s) => s.name === "Aさん")?.hasConcerningIssue).toBe(true);
+    expect(hub.listPersonSummaries().find((s) => s.name === "Aさん")?.hasConcerningSuggestion).toBe(true);
 
-    await concernAckStore.acknowledgePersonIssueConcern(personId, issue.id, "対応不要と判断");
-    expect(hub.listPersonSummaries().find((s) => s.name === "Aさん")?.hasConcerningIssue).toBe(false);
+    await concernAckStore.acknowledgePersonSuggestionConcern(personId, suggestion.id, "対応不要と判断");
+    expect(hub.listPersonSummaries().find((s) => s.name === "Aさん")?.hasConcerningSuggestion).toBe(false);
   });
 });
 
@@ -200,55 +200,55 @@ describe("getPersonProfile", () => {
 
   it("関連提案をタイトル・メモの部分一致で抽出する", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
-    await issueStore.createIssue("Aさんの育成計画");
-    await issueStore.createIssue("無関係のIssue");
+    await suggestionStore.createSuggestion("Aさんの育成計画");
+    await suggestionStore.createSuggestion("無関係の提案");
 
     const profile = hub.getPersonProfile("Aさん");
-    expect(profile?.relatedIssues).toHaveLength(1);
-    expect(profile?.relatedIssues[0].title).toBe("Aさんの育成計画");
+    expect(profile?.relatedSuggestions).toHaveLength(1);
+    expect(profile?.relatedSuggestions[0].title).toBe("Aさんの育成計画");
   });
 
-  it("isDirectReport/hasConcerningIssueもlistPersonSummariesと同じ基準で返す", async () => {
+  it("isDirectReport/hasConcerningSuggestionもlistPersonSummariesと同じ基準で返す", async () => {
     const peopleDirectory = await import("./people-directory");
     const orgStore = await import("./org-context-store/index");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const hub = await loadModule();
     peopleDirectory.registerName("Aさん");
     orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("Aさんの育成計画");
-    issueStore.setIssueStatus(issue.id, "blocked");
+    const suggestion = await suggestionStore.createSuggestion("Aさんの育成計画");
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
 
     const profile = hub.getPersonProfile("Aさん");
     expect(profile?.isDirectReport).toBe(true);
-    expect(profile?.hasConcerningIssue).toBe(true);
+    expect(profile?.hasConcerningSuggestion).toBe(true);
   });
 
   // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
-  // relatedIssuesは、確認済み後もIssue自体の状態(concerning)はtrueのまま返す一方、
-  // hasConcerningIssue（アラートの強調トリガー）からは除外される。
-  it("relatedIssuesはconcerning/確認済みの情報を持ち、確認済みでもIssue自体の状態は隠さない", async () => {
+  // relatedSuggestionsは、確認済み後も提案自体の状態(concerning)はtrueのまま返す一方、
+  // hasConcerningSuggestion（アラートの強調トリガー）からは除外される。
+  it("relatedSuggestionsはconcerning/確認済みの情報を持ち、確認済みでも提案自体の状態は隠さない", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const concernAckStore = await import("./person-concern-ack-store");
     const hub = await loadModule();
     const personId = peopleDirectory.registerName("Aさん");
-    const issue = await issueStore.createIssue("Aさんの育成計画");
-    issueStore.setIssueStatus(issue.id, "blocked");
+    const suggestion = await suggestionStore.createSuggestion("Aさんの育成計画");
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
 
     const before = hub.getPersonProfile("Aさん");
-    expect(before?.relatedIssues[0].concerning).toBe(true);
-    expect(before?.relatedIssues[0].concernAcknowledgedAt).toBeUndefined();
-    expect(before?.hasConcerningIssue).toBe(true);
+    expect(before?.relatedSuggestions[0].concerning).toBe(true);
+    expect(before?.relatedSuggestions[0].concernAcknowledgedAt).toBeUndefined();
+    expect(before?.hasConcerningSuggestion).toBe(true);
 
-    await concernAckStore.acknowledgePersonIssueConcern(personId, issue.id, "対応不要と判断");
+    await concernAckStore.acknowledgePersonSuggestionConcern(personId, suggestion.id, "対応不要と判断");
     const after = hub.getPersonProfile("Aさん");
-    expect(after?.relatedIssues[0].concerning).toBe(true);
-    expect(after?.relatedIssues[0].concernAcknowledgedAt).toBeDefined();
-    expect(after?.relatedIssues[0].concernAcknowledgedNote).toBe("対応不要と判断");
-    expect(after?.hasConcerningIssue).toBe(false);
+    expect(after?.relatedSuggestions[0].concerning).toBe(true);
+    expect(after?.relatedSuggestions[0].concernAcknowledgedAt).toBeDefined();
+    expect(after?.relatedSuggestions[0].concernAcknowledgedNote).toBe("対応不要と判断");
+    expect(after?.hasConcerningSuggestion).toBe(false);
   });
 
   it("factsとinterpretationsを分けて返す", async () => {

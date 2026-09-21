@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { SuggestedSuggestionUpdatesBlock } from "./SuggestedSuggestionUpdatesBlock";
 import type { SuggestionUpdate } from "../RunDetail";
-import type { Issue } from "@emther/core/types";
+import type { Suggestion } from "@emther/core/types";
 
 // web/src/components/run-detail/SuggestedSuggestionUpdatesBlock.tsx（Next.js版）には専用
 // テストが元々無かったため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。
@@ -13,19 +13,17 @@ const UPDATES: SuggestionUpdate[] = [
   { suggestionId: "a1b2c3d4e5f6", reviewStatus: "done", reason: "対応済みのため" },
 ];
 
-function currentSuggestion(overrides: Partial<Issue> = {}): Issue {
+function currentSuggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   return {
     id: "a1b2c3d4e5f6",
     title: "既存の提案タイトル",
     reviewStatus: "unreviewed",
-    priority: "watch",
-    confirmPriority: "watch",
-    archived: false,
+    confirmPriority: "normal",
     memos: [],
     createdAt: 0,
     updatedAt: 0,
     ...overrides,
-  } as unknown as Issue;
+  };
 }
 
 describe("SuggestedSuggestionUpdatesBlock", () => {

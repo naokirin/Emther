@@ -1,13 +1,12 @@
 import { periodWindow, type PeriodUnit } from "../daily-trends";
 import { listCheckins, listReflectionNotes } from "../em-self-store";
-import { listIssues } from "../issue-store";
+import { listSuggestions } from "../suggestion-store";
 import { listJournalEntries } from "../journal-store";
 import type { JournalEntry } from "../types";
 import { listEvents } from "../knowledge-store";
 import { maskNames } from "../people-directory";
 import { computeReportStats, getReport, type ReportStats } from "../report-store";
 import { listAdoptedThemes } from "../theme-store";
-import { charterFilledCount } from "../types";
 import { computeOrgVitals } from "../vitals";
 import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";
 import { runs } from "./store";
@@ -19,14 +18,14 @@ import type { AgentRun } from "./types";
 
 const MORNING_YIELD_LIMIT = 15;
 const MORNING_ERROR_LIMIT = 10;
-const MORNING_CHARTER_ISSUE_LIMIT = 15;
+const MORNING_OPEN_SUGGESTION_LIMIT = 15;
 
 // 朝サマリーの材料は run.task に載せない（巨大 task で相談履歴が壊れる・U13 と同型）。
 // origin=auto-summary のときシステムプロンプトへ動的注入する。再開（decideRun）でも
 // origin 判定だけで再注入するため、「続けて」だけでは材料が消えない。
 export function buildMorningSummaryContextBlock(): string {
   const vitals = computeOrgVitals();
-  const issues = listIssues();
+  const suggestions = listSuggestions();
   const allRuns = [...runs.values()];
 
   const omitRun = (run: AgentRun) => {
@@ -34,7 +33,7 @@ export function buildMorningSummaryContextBlock(): string {
     if (run.triageStatus === "dismissed") return true;
     // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
     if (run.archivedAt) return true;
-    return issues.some((i) => i.agentRunId === run.id && i.archived);
+    return suggestions.some((s) => s.agentRunId === run.id && !!s.archivedAt);
   };
 
   const yieldRuns = allRuns
@@ -45,10 +44,12 @@ export function buildMorningSummaryContextBlock(): string {
     .filter((r) => r.status === "error" && !omitRun(r))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, MORNING_ERROR_LIMIT);
-  const unchartered = issues
-    .filter((i) => !i.parentId && !i.archived && i.status !== "done" && charterFilledCount(i.charter) < 3)
+  // docs/2nd_pivot_version.md Phase 2.1。「Why/What/How未整理」の絞り込みはEMに提案の
+  // 構造を手入れさせない方針と衝突するため廃止し、単純に未確認・確認保留の提案を挙げる。
+  const openSuggestions = suggestions
+    .filter((s) => !s.archivedAt && s.reviewStatus !== "done")
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, MORNING_CHARTER_ISSUE_LIMIT);
+    .slice(0, MORNING_OPEN_SUGGESTION_LIMIT);
 
   const teamLines =
     vitals.teams.length > 0
@@ -77,13 +78,10 @@ export function buildMorningSummaryContextBlock(): string {
     errorRuns.length > 0
       ? errorRuns.map((r) => `- [${r.id}] ${r.agentName}: ${r.task.slice(0, 100)}`)
       : ["- （エラー状態の Run なし）"];
-  const charterLines =
-    unchartered.length > 0
-      ? unchartered.map((i) => {
-          const filled = charterFilledCount(i.charter);
-          return `- [${i.id}] ${i.title}（Why/What/How ${filled}/3）`;
-        })
-      : ["- （Why/What/How 未整理の Issue なし）"];
+  const openSuggestionLines =
+    openSuggestions.length > 0
+      ? openSuggestions.map((s) => `- [${s.id}] ${s.title}（${s.reviewStatus}）`)
+      : ["- （未確認・確認保留の提案なし）"];
 
   return maskNames(
     [
@@ -102,8 +100,8 @@ export function buildMorningSummaryContextBlock(): string {
       "【エラーの Agent Run】",
       ...errorLines,
       "",
-      "【Why/What/How 未整理の Issue】",
-      ...charterLines,
+      "【未確認・確認保留の提案】",
+      ...openSuggestionLines,
     ].join("\n"),
   );
 }
@@ -131,9 +129,9 @@ export function buildJournalBatchContextBlock(): string {
       "Journal集約解釈の材料（このタスク専用。1件ごとに個別反応するのではなく、直近のJournalをまとめて読み、単発では見えない繰り返しや複数エントリにまたがるパターンから見える問題を優先すること）:",
       // docs/3rd_pivot_version/pivot.md, docs/ai_ philosophy.md
       "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別解釈・別仮説・不足情報・別問題設定）と Challenge（前提・本当に解くべき問題か）を経ること。入力の言い換えや一般論の羅列で終わらせないこと。",
-      "個別の一時的な感情の吐露など、単体でもまとめても追跡不要なものは無理に提案化しないこと。既に把握済みで動きのある提案・Issueと重複する内容は、新規提案化ではなく監視継続（recommendation: watch）にとどめること（既存の提案・Issueは他の注入材料で確認できます）。",
+      "個別の一時的な感情の吐露など、単体でもまとめても追跡不要なものは無理に提案化しないこと。既に把握済みで動きのある提案と重複する内容は、新規提案化ではなく監視継続（recommendation: watch）にとどめること（既存の提案は他の注入材料で確認できます）。",
       "問題設定が未確定で追加の観測・確認が先の場合も recommendation: watch とし、次に確認すべき点を advice に書くこと（解決策を無理に出さなくてよい）。",
-      "独立した複数の問題が見つかった場合は、無理に1件へまとめず proposal の issueCandidates に分けてください。",
+      "独立した複数の問題が見つかった場合は、無理に1件へまとめず proposal の suggestionCandidates に分けてください。",
       "",
       "【前回解釈以降のJournal（最大7日・最大60件）】",
       ...journalLines,
@@ -142,7 +140,7 @@ export function buildJournalBatchContextBlock(): string {
 }
 
 const DISTILL_JOURNAL_LIMIT = 25;
-const DISTILL_ISSUE_LIMIT = 20;
+const DISTILL_SUGGESTION_LIMIT = 20;
 
 // docs/knowledge_distillation.md。蒸留の材料は run.task に載せない（巨大な task だと
 // /api/agents 全件取得が重くなり、相談タブの履歴に載らない／開けない不具合の原因になる）。
@@ -152,10 +150,10 @@ export function buildDistillationContextBlock(): string {
   const journals = listJournalEntries()
     .filter((e) => e.createdAt >= since)
     .slice(0, DISTILL_JOURNAL_LIMIT);
-  const openIssues = listIssues()
-    .filter((i) => !i.archived && i.status !== "done")
+  const openSuggestions = listSuggestions()
+    .filter((s) => !s.archivedAt && s.reviewStatus !== "done")
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, DISTILL_ISSUE_LIMIT);
+    .slice(0, DISTILL_SUGGESTION_LIMIT);
   const adopted = listAdoptedThemes().slice(0, 10);
 
   const journalLines =
@@ -165,13 +163,14 @@ export function buildDistillationContextBlock(): string {
           return `- [${e.id}] ${snippet}${e.tags.length ? `（タグ: ${e.tags.join(", ")}）` : ""}`;
         })
       : ["- （直近30日のJournalなし）"];
-  const issueLines =
-    openIssues.length > 0
-      ? openIssues.map((i) => {
-          const why = i.charter.why ? ` Why: ${i.charter.why.slice(0, 80)}` : "";
-          return `- [${i.id}] ${i.title}${why}`;
+  const suggestionLines =
+    openSuggestions.length > 0
+      ? openSuggestions.map((s) => {
+          const latestMemo = s.memos.at(-1)?.text;
+          const memo = latestMemo ? ` メモ: ${latestMemo.slice(0, 80)}` : "";
+          return `- [${s.id}] ${s.title}${memo}`;
         })
-      : ["- （未完了のIssueなし）"];
+      : ["- （未完了の提案なし）"];
   const themeLines =
     adopted.length > 0
       ? adopted.map((t) => `- ${t.title}: ${t.summary.slice(0, 120)}`)
@@ -181,16 +180,16 @@ export function buildDistillationContextBlock(): string {
     "状況蒸留の材料（このタスク専用。個別1件対応ではなく、繰り返しや横断から見える上段の解釈を出すこと）:",
     "proposalブロックでは全体の見立て（結論・参照ファクト・判断ロジック・棄却した代替案）を述べてください。",
     "加えて、採用候補となるテーマを themes ブロックで1〜5件出してください（無ければ空配列でも可）。",
-    "各テーマには title / summary（根本課題の見立て）/ rationale（なぜこの結果に至ったか）/ facts（根拠）を必須とし、任意で rootCause・suggestedDirection・evidenceJournalIds・evidenceIssueIds（下記一覧のID）を付けてください。",
+    "各テーマには title / summary（根本課題の見立て）/ rationale（なぜこの結果に至ったか）/ facts（根拠）を必須とし、任意で rootCause・suggestedDirection・evidenceJournalIds・evidenceSuggestionIds（下記一覧のID）を付けてください。",
     "```themes",
-    '[{ "title": "…", "summary": "…", "rationale": "…", "facts": ["…"], "rootCause": "…", "suggestedDirection": "…", "evidenceJournalIds": [], "evidenceIssueIds": [] }]',
+    '[{ "title": "…", "summary": "…", "rationale": "…", "facts": ["…"], "rootCause": "…", "suggestedDirection": "…", "evidenceJournalIds": [], "evidenceSuggestionIds": [] }]',
     "```",
     "",
     "【直近Journal（最大25件）】",
     ...journalLines,
     "",
-    "【未完了Issue（最大20件）】",
-    ...issueLines,
+    "【未完了の提案（最大20件）】",
+    ...suggestionLines,
     "",
     "【既に採用されているテーマ解釈】",
     ...themeLines,
@@ -273,7 +272,7 @@ export function buildGrowContextBlock(): string {
 }
 
 const PERIOD_REVIEW_JOURNAL_LIMIT = 60;
-const PERIOD_REVIEW_ISSUE_LIMIT = 10;
+const PERIOD_REVIEW_SUGGESTION_LIMIT = 10;
 const PERIOD_REVIEW_CHECKIN_LIMIT = 8;
 const PERIOD_REVIEW_NOTE_LIMIT = 10;
 
@@ -287,11 +286,11 @@ function journalPriorityWeight(e: JournalEntry): 0 | 1 {
 }
 
 function formatStatsSummary(stats: ReportStats): string {
-  const { journal, issues, events } = stats;
+  const { journal, suggestions, events } = stats;
   return [
     `Journal ${journal.total}件（緊急度: low ${journal.byUrgency.low} / mid ${journal.byUrgency.mid} / high ${journal.byUrgency.high}、感情: positive ${journal.bySentiment.positive} / neutral ${journal.bySentiment.neutral} / negative ${journal.bySentiment.negative}）`,
     journal.topTags.length > 0 ? `よく出たタグ: ${journal.topTags.map((t) => `${t.tag}(${t.count})`).join(", ")}` : "よく出たタグ: なし",
-    `提案（Issue）作成 ${issues.createdCount}件 / 確認済み ${issues.archivedCount}件`,
+    `提案作成 ${suggestions.createdCount}件 / 確認済み ${suggestions.archivedCount}件`,
     `組織の変更イベント ${events.total}件`,
   ].join(" / ");
 }
@@ -329,14 +328,14 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
         })
       : [`- （この${unitLabel}のJournalなし）`];
 
-  const createdTitles = report.stats.issues.createdTitles.slice(0, PERIOD_REVIEW_ISSUE_LIMIT);
-  const archivedTitles = report.stats.issues.archivedTitles.slice(0, PERIOD_REVIEW_ISSUE_LIMIT);
-  const issueLines = [
+  const createdTitles = report.stats.suggestions.createdTitles.slice(0, PERIOD_REVIEW_SUGGESTION_LIMIT);
+  const archivedTitles = report.stats.suggestions.archivedTitles.slice(0, PERIOD_REVIEW_SUGGESTION_LIMIT);
+  const suggestionLines = [
     createdTitles.length > 0
-      ? `作成: ${createdTitles.map((i) => `[${i.id}] ${i.title}`).join(" / ")}`
+      ? `作成: ${createdTitles.map((s) => `[${s.id}] ${s.title}`).join(" / ")}`
       : "作成: なし",
     archivedTitles.length > 0
-      ? `確認済み: ${archivedTitles.map((i) => `[${i.id}] ${i.title}`).join(" / ")}`
+      ? `確認済み: ${archivedTitles.map((s) => `[${s.id}] ${s.title}`).join(" / ")}`
       : "確認済み: なし",
   ];
 
@@ -403,8 +402,8 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
       `【この${unitLabel}のJournal（最大${PERIOD_REVIEW_JOURNAL_LIMIT}件、緊急度high・ネガティブ優先）】`,
       ...journalLines,
       "",
-      "【この期間の提案（Issue）作成・確認済み】",
-      ...issueLines,
+      "【この期間の提案の作成・確認済み】",
+      ...suggestionLines,
       "",
       "【採用済みテーマ解釈（重複防止用）】",
       ...themeLines,

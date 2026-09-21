@@ -15,7 +15,7 @@ export type OriginTraceConsult = {
     | "manual"
     | "auto-anomaly"
     | "auto-summary"
-    | "auto-issue-update"
+    | "auto-suggestion-update"
     | "auto-distill"
     | "auto-journal-batch"
     | "auto-weekly-report"
@@ -25,7 +25,7 @@ export type OriginTraceConsult = {
 function originKindLabel(origin: OriginTraceConsult["origin"]): string | undefined {
   if (origin === "auto-anomaly") return "Journal自動分析";
   if (origin === "auto-summary") return "朝のサマリー";
-  if (origin === "auto-issue-update") return "提案更新分析";
+  if (origin === "auto-suggestion-update") return "提案更新分析";
   if (origin === "auto-distill") return "状況蒸留";
   if (origin === "auto-journal-batch") return "Journal集約解釈";
   if (origin === "auto-weekly-report") return "週次レビュー";

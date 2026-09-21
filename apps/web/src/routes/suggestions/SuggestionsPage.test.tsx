@@ -36,7 +36,7 @@ function createWrapper(onPeekOpen?: (id: string) => void) {
     return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
-          <IdResolveProvider openIssueInPeek={onPeekOpen}>
+          <IdResolveProvider openSuggestionInPeek={onPeekOpen}>
             {children}
             <LocationProbe />
           </IdResolveProvider>

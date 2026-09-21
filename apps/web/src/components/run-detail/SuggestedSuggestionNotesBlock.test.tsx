@@ -2,26 +2,26 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { SuggestedIssueNotesBlock } from "./SuggestedIssueNotesBlock";
-import type { SuggestedIssueNote } from "../RunDetail";
+import { SuggestedSuggestionNotesBlock } from "./SuggestedSuggestionNotesBlock";
+import type { SuggestedSuggestionNote } from "../RunDetail";
 
 // web/src/components/run-detail/SuggestedIssueNotesBlock.tsx（Next.js版）には専用テストが
 // 元々無かったため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。チェックボックスの
 // 選択状態を対象indexに正しく反映できているかを検証する。
-const NOTES: SuggestedIssueNote[] = [
-  { issueId: "a1b2c3d4e5f6", text: "追記内容A" },
-  { issueId: "1a2b3c4d5e6f", text: "追記内容B" },
+const NOTES: SuggestedSuggestionNote[] = [
+  { suggestionId: "a1b2c3d4e5f6", text: "追記内容A" },
+  { suggestionId: "1a2b3c4d5e6f", text: "追記内容B" },
 ];
 
-function renderBlock(overrides: Partial<React.ComponentProps<typeof SuggestedIssueNotesBlock>> = {}) {
+function renderBlock(overrides: Partial<React.ComponentProps<typeof SuggestedSuggestionNotesBlock>> = {}) {
   return render(
     <MemoryRouter>
-      <SuggestedIssueNotesBlock notes={NOTES} {...overrides} />
+      <SuggestedSuggestionNotesBlock notes={NOTES} {...overrides} />
     </MemoryRouter>,
   );
 }
 
-describe("SuggestedIssueNotesBlock", () => {
+describe("SuggestedSuggestionNotesBlock", () => {
   it("初期状態は全件選択されており、採用は選択中indexで呼ばれる", async () => {
     const onAdopt = vi.fn();
     const user = userEvent.setup();

@@ -555,18 +555,18 @@ describe("updateJournalEntry", () => {
     expect(updated?.confirmed).toBe(true);
   });
 
-  it("resolvedIssueId未指定は既存値を保持し、nullは解除し、文字列は設定する", async () => {
+  it("resolvedSuggestionId未指定は既存値を保持し、nullは解除し、文字列は設定する", async () => {
     const store = await loadModule();
     const entry = await store.addJournalEntry("問題発生");
 
-    const withResolution = await store.updateJournalEntry(entry.id, { resolvedIssueId: "issue-1" });
-    expect(withResolution?.resolvedIssueId).toBe("issue-1");
+    const withResolution = await store.updateJournalEntry(entry.id, { resolvedSuggestionId: "suggestion-1" });
+    expect(withResolution?.resolvedSuggestionId).toBe("suggestion-1");
 
     const untouched = await store.updateJournalEntry(withResolution!.id, { tags: ["x"] });
-    expect(untouched?.resolvedIssueId).toBe("issue-1");
+    expect(untouched?.resolvedSuggestionId).toBe("suggestion-1");
 
-    const cleared = await store.updateJournalEntry(untouched!.id, { resolvedIssueId: null });
-    expect(cleared?.resolvedIssueId).toBeUndefined();
+    const cleared = await store.updateJournalEntry(untouched!.id, { resolvedSuggestionId: null });
+    expect(cleared?.resolvedSuggestionId).toBeUndefined();
   });
 
 });
@@ -601,14 +601,14 @@ describe("requestJournalAnalysis", () => {
 });
 
 describe("toJournalEntryView", () => {
-  it("resolvedIssueIdが設定されている場合はIssueタイトルを解決する", async () => {
-    const issueStore = await import("./issue-store");
+  it("resolvedSuggestionIdが設定されている場合は提案タイトルを解決する", async () => {
+    const suggestionStore = await import("./suggestion-store");
     const store = await loadModule();
-    const issue = await issueStore.createIssue("追跡中のIssue");
+    const suggestion = await suggestionStore.createSuggestion("追跡中の提案");
     const entry = await store.addJournalEntry("問題発生");
-    const updated = await store.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
+    const updated = await store.updateJournalEntry(entry.id, { resolvedSuggestionId: suggestion.id });
     const view = store.toJournalEntryView(updated!, new Map());
-    expect(view.resolvedIssueTitle).toBe("追跡中のIssue");
+    expect(view.resolvedSuggestionTitle).toBe("追跡中の提案");
   });
 
   it("sourceJournalIdが一致するLead相談をsourceConsultRunIdに載せる", async () => {
@@ -654,7 +654,7 @@ describe("toJournalEntryView", () => {
   });
 });
 
-describe("getCurrentJournalEntry / listSourceJournalsForIssue", () => {
+describe("getCurrentJournalEntry / listSourceJournalsForSuggestion", () => {
   it("supersedesされた旧IDからも現行版を返す", async () => {
     const store = await loadModule();
     const original = await store.addJournalEntry("旧本文");
@@ -664,24 +664,24 @@ describe("getCurrentJournalEntry / listSourceJournalsForIssue", () => {
     expect(current?.rawText).toBe("旧本文");
   });
 
-  it("resolvedIssueIdとsourceJournalIdの両方から重複なく集める", async () => {
-    const issueStore = await import("./issue-store");
+  it("resolvedSuggestionIdとsourceJournalIdの両方から重複なく集める", async () => {
+    const suggestionStore = await import("./suggestion-store");
     const store = await loadModule();
-    const issue = await issueStore.createIssue("追跡");
+    const suggestion = await suggestionStore.createSuggestion("追跡");
     const entry = await store.addJournalEntry("問題発生");
-    const linked = await store.updateJournalEntry(entry.id, { resolvedIssueId: issue.id });
-    const listed = store.listSourceJournalsForIssue(issue.id, entry.id);
+    const linked = await store.updateJournalEntry(entry.id, { resolvedSuggestionId: suggestion.id });
+    const listed = store.listSourceJournalsForSuggestion(suggestion.id, entry.id);
     expect(listed).toHaveLength(1);
     expect(listed[0].id).toBe(linked!.id);
   });
 
-  it("linkJournalToIssueは現行版へresolvedIssueIdを付ける", async () => {
+  it("linkJournalToSuggestionは現行版へresolvedSuggestionIdを付ける", async () => {
     const store = await loadModule();
     const original = await store.addJournalEntry("問題発生");
     const confirmed = await store.updateJournalEntry(original.id, { tags: ["確認済み"] });
-    const linked = await store.linkJournalToIssue(original.id, "issue-9");
+    const linked = await store.linkJournalToSuggestion(original.id, "suggestion-9");
     expect(linked?.id).not.toBe(confirmed!.id);
-    expect(linked?.resolvedIssueId).toBe("issue-9");
-    expect(store.getCurrentJournalEntry(original.id)?.resolvedIssueId).toBe("issue-9");
+    expect(linked?.resolvedSuggestionId).toBe("suggestion-9");
+    expect(store.getCurrentJournalEntry(original.id)?.resolvedSuggestionId).toBe("suggestion-9");
   });
 });

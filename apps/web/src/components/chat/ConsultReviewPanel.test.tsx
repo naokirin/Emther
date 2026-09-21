@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { ConsultReviewPanel } from "./ConsultReviewPanel";
 import type { AgentRun } from "../RunDetail";
-import type { Issue } from "@emther/core/types";
+import type { Suggestion } from "@emther/core/types";
 
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -21,20 +21,15 @@ function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   };
 }
 
-function baseIssue(overrides: Partial<Issue> = {}): Issue {
+function baseSuggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   return {
-    id: "issue-1",
+    id: "suggestion-1",
     title: "既存の提案タイトル",
-    status: "in_progress",
-    priority: "normal",
     createdAt: 1000,
     updatedAt: 2000,
     reviewStatus: "unreviewed",
-    archived: false,
-    tags: [],
-    charter: { why: "", what: "", how: "" },
-    actionItems: [],
-    logEntries: [],
+    confirmPriority: "normal",
+    memos: [],
     ...overrides,
   };
 }
@@ -53,14 +48,14 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-        issueCandidates: [
+        suggestionCandidates: [
           { title: "候補A: 1on1の改善", rationale: "理由A" },
           { title: "候補B: 評価基準の統一", rationale: "理由B" },
         ],
       },
     }),
     sourceJournal: null,
-    issueCandidates: [
+    suggestionCandidates: [
       { title: "候補A: 1on1の改善", rationale: "理由A" },
       { title: "候補B: 評価基準の統一", rationale: "理由B" },
     ],
@@ -69,8 +64,8 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
     stale: false,
     fetchWithNameConfirm: vi.fn(),
     refreshRuns: vi.fn().mockResolvedValue(undefined),
-    refreshIssues: vi.fn().mockResolvedValue(undefined),
-    issues: [],
+    refreshSuggestions: vi.fn().mockResolvedValue(undefined),
+    suggestions: [],
   };
 
   it("まだ提案化されていない候補は選択可能でバッジなし", () => {
@@ -85,9 +80,9 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
   });
 
   it("すでに提案化された候補はチェック不可かつ「提案済み」バッジがつく", () => {
-    const issuesWithCandidateA = [
-      baseIssue({
-        id: "issue-created-1",
+    const suggestionsWithCandidateA = [
+      baseSuggestion({
+        id: "suggestion-created-1",
         title: "候補A: 1on1の改善",
         sourceRunId: "run-consult-1",
       }),
@@ -96,7 +91,7 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
     renderPanel(
       <ConsultReviewPanel
         {...defaultProps}
-        issues={issuesWithCandidateA}
+        suggestions={suggestionsWithCandidateA}
       />,
     );
 
@@ -114,15 +109,15 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
   });
 
   it("すべての候補が提案済みの場合はボタンが無効化される", () => {
-    const issuesAllCandidates = [
-      baseIssue({ id: "i1", title: "候補A: 1on1の改善", sourceRunId: "run-consult-1" }),
-      baseIssue({ id: "i2", title: "候補B: 評価基準の統一", sourceRunId: "run-consult-1" }),
+    const suggestionsAllCandidates = [
+      baseSuggestion({ id: "i1", title: "候補A: 1on1の改善", sourceRunId: "run-consult-1" }),
+      baseSuggestion({ id: "i2", title: "候補B: 評価基準の統一", sourceRunId: "run-consult-1" }),
     ];
 
     renderPanel(
       <ConsultReviewPanel
         {...defaultProps}
-        issues={issuesAllCandidates}
+        suggestions={suggestionsAllCandidates}
       />,
     );
 
@@ -144,20 +139,20 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-        issueCandidates: [{ title: "単一候補", rationale: "理由" }],
+        suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
       },
     });
 
-    const issuesSingle = [
-      baseIssue({ id: "i1", title: "単一候補", sourceRunId: "run-consult-1" }),
+    const suggestionsSingle = [
+      baseSuggestion({ id: "i1", title: "単一候補", sourceRunId: "run-consult-1" }),
     ];
 
     renderPanel(
       <ConsultReviewPanel
         {...defaultProps}
         selectedRun={singleRun}
-        issueCandidates={[{ title: "単一候補", rationale: "理由" }]}
-        issues={issuesSingle}
+        suggestionCandidates={[{ title: "単一候補", rationale: "理由" }]}
+        suggestions={suggestionsSingle}
       />,
     );
 
@@ -178,7 +173,7 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-        issueCandidates: [{ title: "単一候補", rationale: "理由" }],
+        suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
       },
     });
 
@@ -186,8 +181,8 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
       <ConsultReviewPanel
         {...defaultProps}
         selectedRun={reviewedButNotPromotedRun}
-        issueCandidates={[{ title: "単一候補", rationale: "理由" }]}
-        issues={[]}
+        suggestionCandidates={[{ title: "単一候補", rationale: "理由" }]}
+        suggestions={[]}
       />,
     );
 
@@ -208,14 +203,14 @@ describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
       <ConsultReviewPanel
         selectedRun={errorRun}
         sourceJournal={null}
-        issueCandidates={[]}
+        suggestionCandidates={[]}
         candidatePick={null}
         setCandidatePick={vi.fn()}
         stale={false}
         fetchWithNameConfirm={vi.fn()}
         refreshRuns={vi.fn().mockResolvedValue(undefined)}
-        refreshIssues={vi.fn().mockResolvedValue(undefined)}
-        issues={[]}
+        refreshSuggestions={vi.fn().mockResolvedValue(undefined)}
+        suggestions={[]}
       />,
     );
 
@@ -252,14 +247,14 @@ describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
       <ConsultReviewPanel
         selectedRun={errorRun}
         sourceJournal={null}
-        issueCandidates={[]}
+        suggestionCandidates={[]}
         candidatePick={null}
         setCandidatePick={vi.fn()}
         stale={false}
         fetchWithNameConfirm={mockFetchWithNameConfirm}
         refreshRuns={refreshRuns}
-        refreshIssues={vi.fn().mockResolvedValue(undefined)}
-        issues={[]}
+        refreshSuggestions={vi.fn().mockResolvedValue(undefined)}
+        suggestions={[]}
         onReanalyzed={onReanalyzed}
       />,
     );

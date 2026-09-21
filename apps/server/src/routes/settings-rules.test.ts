@@ -77,7 +77,7 @@ describe("PATCH /api/settings/rules", () => {
       patch({
         autoJournalBatchEnabled: true,
         autoJournalBatchHours: [9, 18],
-        autoIssueUpdateAnalysisEnabled: true,
+        autoSuggestionUpdateAnalysisEnabled: true,
         autoDistillationWeekdays: [1, 4],
       }),
     );
@@ -85,7 +85,7 @@ describe("PATCH /api/settings/rules", () => {
     expect(json.rules.autoJournalBatchEnabled).toBe(true);
     expect(json.rules.autoJournalBatchHours).toEqual([9, 18]);
     expect(json.rules.autoDistillationWeekdays).toEqual([1, 4]);
-    expect(json.rules.autoIssueUpdateAnalysisEnabled).toBe(true);
+    expect(json.rules.autoSuggestionUpdateAnalysisEnabled).toBe(true);
   });
 
   it("旧キー autoJournalBatchHour / autoDistillationWeekday も配列へ移行して受け付ける", async () => {

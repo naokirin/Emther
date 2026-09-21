@@ -14,7 +14,7 @@ export function makeRules(overrides: Partial<RulesAndConstraints> = {}): RulesAn
     agentStaleAfterSeconds: 120,
     agentKillAfterSeconds: 600,
     journalFactTtlDays: 90,
-    autoIssueUpdateAnalysisEnabled: false,
+    autoSuggestionUpdateAnalysisEnabled: false,
     autoMorningSummaryEnabled: false,
     autoMorningSummaryHour: 7,
     autoJournalBatchEnabled: false,

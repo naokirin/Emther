@@ -51,6 +51,27 @@ function addColumnIfMissing(database: DatabaseSync, table: string, column: strin
   }
 }
 
+// Issue→Suggestion統合の命名統一（docs/2nd_pivot_version.md Phase 7）。旧カラム名が残る既存DBだけ
+// リネームし、データを保ったまま新カラム名に揃える。新規DB（旧カラムが無い）・移行済みDB
+// （新カラムが既にある）では「no such column」で無視するだけの冪等操作。
+function renameColumnIfNeeded(database: DatabaseSync, table: string, oldColumn: string, newColumn: string): void {
+  try {
+    database.exec(`ALTER TABLE ${table} RENAME COLUMN ${oldColumn} TO ${newColumn};`);
+  } catch (err) {
+    const message = (err as Error).message ?? "";
+    if (!message.includes("no such column") && !message.includes("duplicate column name")) throw err;
+  }
+}
+
+function renameTableIfNeeded(database: DatabaseSync, oldTable: string, newTable: string): void {
+  try {
+    database.exec(`ALTER TABLE ${oldTable} RENAME TO ${newTable};`);
+  } catch (err) {
+    const message = (err as Error).message ?? "";
+    if (!message.includes("no such table") && !message.includes("already exists")) throw err;
+  }
+}
+
 function migrate(database: DatabaseSync): void {
   // kind: 'fact'（起きた出来事そのもの） | 'interpretation'（そこから導いた長期的な解釈）
   // context: 'official' | 'observation' | 'casual' | 'complaint' | 'profile'
@@ -87,6 +108,8 @@ function migrate(database: DatabaseSync): void {
   // 列を足さないため、既存DBに対しては明示的にALTER TABLEする（無ければ追加、あれば何もしない）。
   addColumnIfMissing(database, "knowledge_events", "entity_id", "TEXT");
   database.exec("CREATE INDEX IF NOT EXISTS idx_knowledge_events_entity_id ON knowledge_events(entity_id);");
+  // Issue→Suggestion統合の命名統一。entity_typeの値そのものに残っていた旧リテラルを一括更新する。
+  database.exec("UPDATE knowledge_events SET entity_type = 'suggestion' WHERE entity_type = 'issue';");
 
   // docs/memo.md「H: Phase 3」対応。意味的な類似度検索用の埋め込みベクトル（JSON配列として
   // 保存）。この規模（単一ローカルユーザー）ではブルートフォースのコサイン類似度計算で
@@ -101,7 +124,8 @@ function migrate(database: DatabaseSync): void {
   // resolution_noteはIssue化せずメモだけで解決とする場合の自由記述（他の自由記述と同じく
   // 保存前にmaskForStorageを通す）。他のJournal編集項目と同様、supersedesチェーンで
   // 引き継がれる。
-  addColumnIfMissing(database, "knowledge_events", "resolved_issue_id", "TEXT");
+  renameColumnIfNeeded(database, "knowledge_events", "resolved_issue_id", "resolved_suggestion_id");
+  addColumnIfMissing(database, "knowledge_events", "resolved_suggestion_id", "TEXT");
   addColumnIfMissing(database, "knowledge_events", "resolution_note", "TEXT");
 
   // Journal→チームの明示紐付け（複数可）。people（人物）と同様に配列JSONで持つ。
@@ -145,6 +169,9 @@ function migrate(database: DatabaseSync): void {
   // バッチ駆動）と、AI主導のrunをEMがまだレビューしたかどうかを持つ。
   addColumnIfMissing(database, "agent_runs", "origin", "TEXT");
   addColumnIfMissing(database, "agent_runs", "reviewed", "INTEGER");
+  // Issue→Suggestion統合の命名統一。origin列の値として保存されていた旧リテラルを
+  // 新リテラルへ一括更新する（列名ではなく値そのものの移行。再実行しても影響行数0で安全）。
+  database.exec("UPDATE agent_runs SET origin = 'auto-suggestion-update' WHERE origin = 'auto-issue-update';");
 
   // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの下書き。
   addColumnIfMissing(database, "agent_runs", "suggested_action_items_json", "TEXT");
@@ -158,8 +185,9 @@ function migrate(database: DatabaseSync): void {
   // 「次にすべきこと」へ再浮上させられるようにする。
   addColumnIfMissing(database, "agent_runs", "triage_at", "INTEGER");
 
-  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案の下書き。
-  addColumnIfMissing(database, "agent_runs", "suggested_sub_issues_json", "TEXT");
+  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子提案分解案の下書き。
+  renameColumnIfNeeded(database, "agent_runs", "suggested_sub_issues_json", "suggested_sub_suggestions_json");
+  addColumnIfMissing(database, "agent_runs", "suggested_sub_suggestions_json", "TEXT");
 
   // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
   // 対応。AIが提案するWhy/What/Howの下書き（未整理の項目のみ埋める提案。既存の
@@ -173,9 +201,10 @@ function migrate(database: DatabaseSync): void {
   addColumnIfMissing(database, "agent_runs", "suggested_themes_json", "TEXT");
 
   // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-  // lookupで見つけた「このタスクとは別の」Issueへの追記提案の下書き。採用までは
-  // 対象Issueのlogへは反映しない（既存のsuggested_*_jsonと同じHuman-in-the-Loop設計）。
-  addColumnIfMissing(database, "agent_runs", "suggested_issue_notes_json", "TEXT");
+  // lookupで見つけた「このタスクとは別の」提案への追記提案の下書き。採用までは
+  // 対象提案のメモへは反映しない（既存のsuggested_*_jsonと同じHuman-in-the-Loop設計）。
+  renameColumnIfNeeded(database, "agent_runs", "suggested_issue_notes_json", "suggested_suggestion_notes_json");
+  addColumnIfMissing(database, "agent_runs", "suggested_suggestion_notes_json", "TEXT");
 
   // Journal自動分析・Journalからの手動相談で、生成元Journalへ戻れるようにする。
   // origin=auto-anomaly だけでは ID が残らず、相談画面で「なぜ生まれたか」が分からなかった。
@@ -270,18 +299,20 @@ function migrate(database: DatabaseSync): void {
   // （自動隔離時のみ"name_leak"を設定。手動アーカイブはNULLのまま）。
   addColumnIfMissing(database, "knowledge_events", "archived_reason", "TEXT");
 
-  // メンバー詳細の「関連Issue（停滞・ブロッカーあり）」アラートは、Issueそのものではなく
-  // 「この人物にとって」対応不要と判断した、という人物×Issue単位の判断のため、
-  // 既存のknowledge_events/person_evaluation_logsとは別に person_id×issue_id のペアで持つ。
+  // メンバー詳細の「関連提案（停滞・ブロッカーあり）」アラートは、提案そのものではなく
+  // 「この人物にとって」対応不要と判断した、という人物×提案単位の判断のため、
+  // 既存のknowledge_events/person_evaluation_logsとは別に person_id×suggestion_id のペアで持つ。
+  renameTableIfNeeded(database, "person_issue_concern_acks", "person_suggestion_concern_acks");
   database.exec(`
-    CREATE TABLE IF NOT EXISTS person_issue_concern_acks (
+    CREATE TABLE IF NOT EXISTS person_suggestion_concern_acks (
       person_id TEXT NOT NULL,
-      issue_id TEXT NOT NULL,
+      suggestion_id TEXT NOT NULL,
       note TEXT,
       created_at INTEGER NOT NULL,
-      PRIMARY KEY (person_id, issue_id)
+      PRIMARY KEY (person_id, suggestion_id)
     );
   `);
+  renameColumnIfNeeded(database, "person_suggestion_concern_acks", "issue_id", "suggestion_id");
 
   // docs/2nd_architecture/plan.md フェーズ2.7: 自動バッチ（朝サマリー・週次蒸留・週次Grow・
   // Journal集約）の二重起動ガードは、これまでJSON永続化＋DB上の既存run確認という

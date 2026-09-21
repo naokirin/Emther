@@ -8,7 +8,7 @@ import type { StrategyTrailNode } from "@emther/core/strategy-trail";
 // journalバッチ）。`next/link`→`react-router`の`Link`に伴いMemoryRouterで包む以外は
 // 検証内容を変更していない。
 const nodes: StrategyTrailNode[] = [
-  { kind: "issue", id: "issue-1", label: "Bチーム1on1不足" },
+  { kind: "suggestion", id: "suggestion-1", label: "Bチーム1on1不足" },
   { kind: "journal", id: "journal-1", label: "このJournal" },
 ];
 
@@ -22,13 +22,13 @@ function renderTrail(currentKind: StrategyTrailNode["kind"], trailNodes: Strateg
 
 describe("StrategyTrail", () => {
   it("nodesが空なら何も描画しない", () => {
-    const { container } = renderTrail("issue", []);
+    const { container } = renderTrail("suggestion", []);
     // MemoryRouterがラップするため直下は空だが、StrategyTrail自体は何も出力しない。
     expect(container.textContent).toBe("");
   });
 
   it("現在地ノードはリンクにせず、他はリンクにする", () => {
-    renderTrail("issue");
+    renderTrail("suggestion");
 
     expect(screen.getByText(/Bチーム1on1不足/)).not.toHaveAttribute("href");
     expect(screen.getByRole("link", { name: /このJournal/ })).toHaveAttribute("href", "/journal?focus=journal-1");
@@ -38,6 +38,6 @@ describe("StrategyTrail", () => {
     renderTrail("journal");
 
     expect(screen.getByText(/このJournal/)).not.toHaveAttribute("href");
-    expect(screen.getByRole("link", { name: /Bチーム1on1不足/ })).toHaveAttribute("href", "/suggestions/issue-1");
+    expect(screen.getByRole("link", { name: /Bチーム1on1不足/ })).toHaveAttribute("href", "/suggestions/suggestion-1");
   });
 });

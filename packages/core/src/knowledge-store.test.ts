@@ -44,7 +44,7 @@ describe("recordEvent / getEventById / listEvents", () => {
   it("entityType/kindでフィルタできる", async () => {
     const { knowledgeStore } = await loadModules();
     knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "a", tags: [], occurredAt: 1 });
-    knowledgeStore.recordEvent({ kind: "fact", context: "official", entityType: "issue", people: [], text: "b", tags: [], occurredAt: 2 });
+    knowledgeStore.recordEvent({ kind: "fact", context: "official", entityType: "suggestion", people: [], text: "b", tags: [], occurredAt: 2 });
     knowledgeStore.recordEvent({ kind: "interpretation", context: "profile", entityType: "person", people: [], text: "c", tags: [], occurredAt: 3 });
 
     expect(knowledgeStore.listEvents({ entityType: "journal" })).toHaveLength(1);
@@ -125,7 +125,7 @@ describe("listEventsPage", () => {
     expect(byPerson.events[0].people).toEqual(["P1"]);
   });
 
-  it("excludeResolvedはresolved_issue_id/resolution_noteが無いものだけ返す", async () => {
+  it("excludeResolvedはresolved_suggestion_id/resolution_noteが無いものだけ返す", async () => {
     const { knowledgeStore } = await loadModules();
     knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "未解決", tags: [], occurredAt: 1 });
     knowledgeStore.recordEvent({
@@ -136,7 +136,7 @@ describe("listEventsPage", () => {
       text: "解決済み",
       tags: [],
       occurredAt: 2,
-      resolvedIssueId: "issue-1",
+      resolvedSuggestionId: "suggestion-1",
     });
 
     const { events, total } = knowledgeStore.listEventsPage({ excludeResolved: true }, { limit: 10, offset: 0 });
@@ -535,8 +535,8 @@ describe("setEventArchived / clearEventArchived", () => {
 describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () => {
   it("recordChangeEventはkind:fact context:officialで記録する", async () => {
     const { knowledgeStore } = await loadModules();
-    knowledgeStore.recordChangeEvent("issue", "issue-1", "起票しました");
-    const events = knowledgeStore.listEventsForEntity("issue", "issue-1");
+    knowledgeStore.recordChangeEvent("suggestion", "suggestion-1", "起票しました");
+    const events = knowledgeStore.listEventsForEntity("suggestion", "suggestion-1");
     expect(events).toHaveLength(1);
     expect(events[0].kind).toBe("fact");
     expect(events[0].context).toBe("official");
@@ -545,7 +545,7 @@ describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () 
 
   it("listRecentChangeEventsはcontext:officialのみを返しJournal(observation)は含まない", async () => {
     const { knowledgeStore } = await loadModules();
-    knowledgeStore.recordChangeEvent("issue", "issue-1", "変更履歴");
+    knowledgeStore.recordChangeEvent("suggestion", "suggestion-1", "変更履歴");
     knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "journal entry", tags: [], occurredAt: 2 });
     const events = knowledgeStore.listRecentChangeEvents();
     expect(events.map((e) => e.text)).toEqual(["変更履歴"]);
@@ -553,7 +553,7 @@ describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () 
 
   it("limitで件数を制限する", async () => {
     const { knowledgeStore } = await loadModules();
-    for (let i = 0; i < 5; i++) knowledgeStore.recordChangeEvent("issue", "issue-1", `change-${i}`);
+    for (let i = 0; i < 5; i++) knowledgeStore.recordChangeEvent("suggestion", "suggestion-1", `change-${i}`);
     expect(knowledgeStore.listRecentChangeEvents(2)).toHaveLength(2);
   });
 });
@@ -572,7 +572,7 @@ describe("reassignPersonId", () => {
       summary: "PERSON_2の件",
       tags: [],
       occurredAt: 1,
-      resolvedIssueId: undefined,
+      resolvedSuggestionId: undefined,
       resolutionNote: "PERSON_2が対応した",
     });
     const updated = knowledgeStore.reassignPersonId("PERSON_2", "PERSON_1");

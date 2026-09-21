@@ -31,21 +31,21 @@ afterEach(() => {
 });
 
 describe("resolveIdPrefix", () => {
-  it("一意な Issue プレフィックスを解決する", async () => {
-    const issueStore = await import("./issue-store");
+  it("一意な Suggestion プレフィックスを解決する", async () => {
+    const suggestionStore = await import("./suggestion-store");
     const { resolveIdPrefix } = await import("./id-resolve");
-    const issue = await issueStore.createIssue("プレフィックス解決");
-    const prefix = issue.id.slice(0, 8);
+    const suggestion = await suggestionStore.createSuggestion("プレフィックス解決");
+    const prefix = suggestion.id.slice(0, 8);
     const matches = resolveIdPrefix(prefix);
     expect(matches).toHaveLength(1);
-    expect(matches[0]).toMatchObject({ kind: "issue", id: issue.id, href: `/suggestions/${issue.id}` });
+    expect(matches[0]).toMatchObject({ kind: "suggestion", id: suggestion.id, href: `/suggestions/${suggestion.id}` });
   });
 
   it("複数ヒット時は候補をすべて返す", async () => {
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const { resolveIdPrefix, resolveUniqueByPrefix } = await import("./id-resolve");
 
-    // 衝突を強制するため、内部配列へ同じ先頭の ID を持つ Issue を直接載せるのは難しいので
+    // 衝突を強制するため、内部配列へ同じ先頭の ID を持つ Suggestion を直接載せるのは難しいので
     // resolveUniqueByPrefix をユニットで検証する。
     const items = [
       { id: "aaaaaaaa-1111-4111-8111-111111111111", title: "A" },
@@ -57,8 +57,8 @@ describe("resolveIdPrefix", () => {
       expect(resolved.items).toHaveLength(2);
     }
 
-    const issue = await issueStore.createIssue("単独");
-    const alone = resolveIdPrefix(issue.id.slice(0, 8));
+    const suggestion = await suggestionStore.createSuggestion("単独");
+    const alone = resolveIdPrefix(suggestion.id.slice(0, 8));
     expect(alone).toHaveLength(1);
   });
 
@@ -72,14 +72,14 @@ describe("resolveIdPrefix", () => {
   });
 
   // ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
-  it("Issue のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
+  it("Suggestion のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
     const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const { resolveIdPrefix } = await import("./id-resolve");
-    const issue = await issueStore.createIssue("Aさんの1on1で出た懸念");
-    const matches = resolveIdPrefix(issue.id.slice(0, 8));
-    const match = matches.find((m) => m.id === issue.id);
+    const suggestion = await suggestionStore.createSuggestion("Aさんの1on1で出た懸念");
+    const matches = resolveIdPrefix(suggestion.id.slice(0, 8));
+    const match = matches.find((m) => m.id === suggestion.id);
     expect(match?.label).toBe("Aさんの1on1で出た懸念");
     expect(match?.label).not.toContain("PERSON_");
   });

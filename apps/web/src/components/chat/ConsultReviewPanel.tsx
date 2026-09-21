@@ -1,19 +1,19 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
-import { CopilotChat, ExecutionState, listIssueCandidatesFromProposal, runFallbackTitle, type AgentRun } from "../RunDetail";
+import { CopilotChat, ExecutionState, listSuggestionCandidatesFromProposal, runFallbackTitle, type AgentRun } from "../RunDetail";
 import { OriginTrace, type OriginTraceJournal } from "../OriginTrace";
 import { IdLinkedText } from "../IdLinkedText";
 import { useSuggestionPeek } from "../IdFragmentLink";
 import type { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { truncateForTitle } from "@emther/core/types";
 import { journalExcerptFromTask } from "@emther/core/origin-trace";
-import type { Issue } from "@emther/core/types";
+import type { Suggestion } from "@emther/core/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
-  "auto-issue-update": "提案更新分析",
+  "auto-suggestion-update": "提案更新分析",
   "auto-distill": "状況蒸留",
   "auto-journal-batch": "Journal集約解釈",
   "auto-weekly-report": "週次レビュー",
@@ -25,41 +25,41 @@ const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {
   dismissed: "却下",
 };
 
-type IssueCandidate = ReturnType<typeof listIssueCandidatesFromProposal>[number];
+type SuggestionCandidate = ReturnType<typeof listSuggestionCandidatesFromProposal>[number];
 type CandidatePick = { runId: string; selected: boolean[] } | null;
 
 type Props = {
   selectedRun: AgentRun;
   sourceJournal: OriginTraceJournal | null;
-  issueCandidates: IssueCandidate[];
+  suggestionCandidates: SuggestionCandidate[];
   candidatePick: CandidatePick;
   setCandidatePick: (pick: CandidatePick) => void;
   stale: boolean;
   fetchWithNameConfirm: ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];
   refreshRuns: () => Promise<void>;
-  refreshIssues: () => Promise<void>;
+  refreshSuggestions: () => Promise<void>;
   // docs/suggestion_organize_via_consult.md。整理差分のbefore値表示用。
-  issues: Issue[];
+  suggestions: Suggestion[];
   // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
   // AIを再度実行できない」対応。リセット後に新しく生まれたrunを選択状態にする。
   onReanalyzed?: (runId: string) => void;
 };
 
-// 「何でも相談」画面の、選択中run（Lead Agentへの相談）の右パネル。Issue候補の選択・
+// 「何でも相談」画面の、選択中run（Lead Agentへの相談）の右パネル。提案候補の選択・
 // 様子見/却下・ExecutionState・CopilotChatをまとめて持つ。candidatePickは、URL経由の
 // run切り替え（selectHistoryRunを経ないケース）でも既存の挙動を変えないよう親
 // （ChatPageInner）に残している。
 export function ConsultReviewPanel({
   selectedRun,
   sourceJournal,
-  issueCandidates,
+  suggestionCandidates,
   candidatePick,
   setCandidatePick,
   stale,
   fetchWithNameConfirm,
   refreshRuns,
-  refreshIssues,
-  issues,
+  refreshSuggestions,
+  suggestions,
   onReanalyzed,
 }: Props) {
   const suggestionPeek = useSuggestionPeek();
@@ -70,41 +70,41 @@ export function ConsultReviewPanel({
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [themesSubmitting, setThemesSubmitting] = useState(false);
-  const [issueNotesSubmitting, setIssueNotesSubmitting] = useState(false);
+  const [suggestionNotesSubmitting, setSuggestionNotesSubmitting] = useState(false);
   const [suggestionUpdatesSubmitting, setSuggestionUpdatesSubmitting] = useState(false);
-  const currentSuggestions = new Map(issues.map((i) => [i.id, i]));
+  const currentSuggestions = new Map(suggestions.map((s) => [s.id, s]));
   const [resetSubmitting, setResetSubmitting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
   // この相談（selectedRun）から生まれた提案一覧
-  const createdIssuesFromRun = issues.filter(
-    (i) => i.sourceRunId === selectedRun.id || i.agentRunId === selectedRun.id,
+  const createdSuggestionsFromRun = suggestions.filter(
+    (s) => s.sourceRunId === selectedRun.id || s.agentRunId === selectedRun.id,
   );
   const existingTitles = new Set(
-    createdIssuesFromRun.flatMap((i) => [i.title.trim(), truncateForTitle(i.title).trim()]),
+    createdSuggestionsFromRun.flatMap((s) => [s.title.trim(), truncateForTitle(s.title).trim()]),
   );
 
   // 各候補が既に提案化されているか判定
-  const candidatePromotedFlags = issueCandidates.map((c) =>
+  const candidatePromotedFlags = suggestionCandidates.map((c) =>
     existingTitles.has(c.title.trim()) || existingTitles.has(truncateForTitle(c.title).trim()),
   );
 
   const candidateSelectedFlags =
-    candidatePick?.runId === selectedRun.id && candidatePick.selected.length === issueCandidates.length
+    candidatePick?.runId === selectedRun.id && candidatePick.selected.length === suggestionCandidates.length
       ? candidatePick.selected.map((sel, i) => (candidatePromotedFlags[i] ? false : sel))
-      : issueCandidates.map((_, i) => !candidatePromotedFlags[i]);
+      : suggestionCandidates.map((_, i) => !candidatePromotedFlags[i]);
 
-  const selectedCandidateTitles = issueCandidates
+  const selectedCandidateTitles = suggestionCandidates
     .filter((_, i) => !candidatePromotedFlags[i] && candidateSelectedFlags[i])
     .map((c) => c.title);
 
   const fallbackTitle = runFallbackTitle(selectedRun);
   const isSinglePromoted =
-    issueCandidates.length === 1
+    suggestionCandidates.length === 1
       ? (candidatePromotedFlags[0] ?? false)
       : existingTitles.has(fallbackTitle.trim()) ||
         existingTitles.has(truncateForTitle(fallbackTitle).trim()) ||
-        createdIssuesFromRun.length > 0;
+        createdSuggestionsFromRun.length > 0;
 
   function toggleCandidate(index: number) {
     if (candidatePromotedFlags[index]) return;
@@ -113,12 +113,12 @@ export function ConsultReviewPanel({
     setCandidatePick({ runId: selectedRun.id, selected: next });
   }
 
-  async function handlePromoteToIssue() {
+  async function handlePromoteToSuggestion() {
     const titles =
-      issueCandidates.length > 1
+      suggestionCandidates.length > 1
         ? selectedCandidateTitles
-        : issueCandidates.length === 1
-          ? [issueCandidates[0].title]
+        : suggestionCandidates.length === 1
+          ? [suggestionCandidates[0].title]
           : [runFallbackTitle(selectedRun)];
     if (titles.length === 0) {
       setReviewError("起票する候補を1件以上選んでください");
@@ -141,7 +141,7 @@ export function ConsultReviewPanel({
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "提案の保存に失敗しました");
         createdIds.push((data as { suggestion: { id: string } }).suggestion.id);
       }
-      await Promise.all([refreshIssues(), refreshRuns()]);
+      await Promise.all([refreshSuggestions(), refreshRuns()]);
       setCandidatePick(null);
       if (createdIds.length === 1) {
         suggestionPeek.open(createdIds[0]);
@@ -308,32 +308,32 @@ export function ConsultReviewPanel({
     }
   }
 
-  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-  // 「他Issueへの追記提案で追記対象を個別に選択できるようにする」対応でindicesを渡すよう拡張。
-  async function handleAdoptIssueNotes(indices: number[]) {
-    setIssueNotesSubmitting(true);
+  // docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
+  // 「他提案への追記提案で追記対象を個別に選択できるようにする」対応でindicesを渡すよう拡張。
+  async function handleAdoptSuggestionNotes(indices: number[]) {
+    setSuggestionNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, {
+      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-notes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ indices }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "追記の採用に失敗しました");
-      await Promise.all([refreshIssues(), refreshRuns()]);
+      await Promise.all([refreshSuggestions(), refreshRuns()]);
     } catch (err) {
       setDecideError((err as Error).message);
     } finally {
-      setIssueNotesSubmitting(false);
+      setSuggestionNotesSubmitting(false);
     }
   }
 
-  async function handleDismissIssueNotes(indices: number[]) {
-    setIssueNotesSubmitting(true);
+  async function handleDismissSuggestionNotes(indices: number[]) {
+    setSuggestionNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, {
+      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-notes`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ indices, reason: "dismissed" }),
@@ -343,17 +343,17 @@ export function ConsultReviewPanel({
     } catch (err) {
       setDecideError((err as Error).message);
     } finally {
-      setIssueNotesSubmitting(false);
+      setSuggestionNotesSubmitting(false);
     }
   }
 
   // docs/memo.md「却下だけでなく対応済みも」対応。却下（提案自体が誤り）と違い、別口ですでに
   // 対応済みであることをrunのログに残した上で提案を消す。
-  async function handleMarkHandledIssueNotes(indices: number[]) {
-    setIssueNotesSubmitting(true);
+  async function handleMarkHandledSuggestionNotes(indices: number[]) {
+    setSuggestionNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/issue-notes`, {
+      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-notes`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ indices, reason: "handled" }),
@@ -363,7 +363,7 @@ export function ConsultReviewPanel({
     } catch (err) {
       setDecideError((err as Error).message);
     } finally {
-      setIssueNotesSubmitting(false);
+      setSuggestionNotesSubmitting(false);
     }
   }
 
@@ -379,7 +379,7 @@ export function ConsultReviewPanel({
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "整理差分の反映に失敗しました");
-      await Promise.all([refreshIssues(), refreshRuns()]);
+      await Promise.all([refreshSuggestions(), refreshRuns()]);
     } catch (err) {
       setDecideError((err as Error).message);
     } finally {
@@ -490,10 +490,10 @@ export function ConsultReviewPanel({
         onAdoptThemes={handleAdoptThemes}
         onDismissThemes={handleDismissThemes}
         themesSubmitting={themesSubmitting}
-        onAdoptIssueNotes={handleAdoptIssueNotes}
-        onDismissIssueNotes={handleDismissIssueNotes}
-        onMarkHandledIssueNotes={handleMarkHandledIssueNotes}
-        issueNotesSubmitting={issueNotesSubmitting}
+        onAdoptSuggestionNotes={handleAdoptSuggestionNotes}
+        onDismissSuggestionNotes={handleDismissSuggestionNotes}
+        onMarkHandledSuggestionNotes={handleMarkHandledSuggestionNotes}
+        suggestionNotesSubmitting={suggestionNotesSubmitting}
         onAdoptSuggestionUpdates={handleAdoptSuggestionUpdates}
         onDismissSuggestionUpdates={handleDismissSuggestionUpdates}
         suggestionUpdatesSubmitting={suggestionUpdatesSubmitting}
@@ -503,19 +503,19 @@ export function ConsultReviewPanel({
         <div className={styles.yieldBlock} style={{ marginTop: 12 }}>
           <strong>
             📋 この相談への結論
-            {(selectedRun.triageStatus || createdIssuesFromRun.length > 0) && (
+            {(selectedRun.triageStatus || createdSuggestionsFromRun.length > 0) && (
               <span style={{ marginLeft: 8, color: "var(--yellow-fg)" }}>
                 [{selectedRun.triageStatus ? (selectedRun.triageStatus === "watching" ? "様子見" : "却下") : "提案化済み"}]
               </span>
             )}
           </strong>
-          {issueCandidates.length > 1 && (
+          {suggestionCandidates.length > 1 && (
             <div style={{ width: "100%", margin: "8px 0" }}>
               <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
                 AIが親なしの独立提案候補を複数出しています。起票する件にチェックを入れてください（Journal紐付けは先頭の1件のみ）。
               </p>
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {issueCandidates.map((c, i) => {
+                {suggestionCandidates.map((c, i) => {
                   const isPromoted = candidatePromotedFlags[i];
                   return (
                     <li key={`${c.title}-${i}`} style={{ marginBottom: 4 }}>
@@ -565,17 +565,17 @@ export function ConsultReviewPanel({
               </ul>
             </div>
           )}
-          <div className={styles.yieldActions} style={{ marginTop: issueCandidates.length > 1 ? 0 : 8 }}>
+          <div className={styles.yieldActions} style={{ marginTop: suggestionCandidates.length > 1 ? 0 : 8 }}>
             <button
               className={styles.primaryBtn}
               style={{ width: "auto" }}
               disabled={
                 reviewSubmitting ||
-                (issueCandidates.length > 1 ? selectedCandidateTitles.length === 0 : isSinglePromoted)
+                (suggestionCandidates.length > 1 ? selectedCandidateTitles.length === 0 : isSinglePromoted)
               }
-              onClick={handlePromoteToIssue}
+              onClick={handlePromoteToSuggestion}
             >
-              {issueCandidates.length > 1
+              {suggestionCandidates.length > 1
                 ? selectedCandidateTitles.length > 0
                   ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
                   : candidatePromotedFlags.every(Boolean)

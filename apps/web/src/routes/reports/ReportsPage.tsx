@@ -4,12 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
 import { PaginationControls, usePagination } from "../../components/Pagination";
 import { Select } from "../../components/Select";
-import { JournalIssueTrendChart, PeriodNavigator, usePeriodNavigator } from "../../components/DailyTrendChart";
+import { JournalSuggestionTrendChart, PeriodNavigator, usePeriodNavigator } from "../../components/DailyTrendChart";
 import { PageTitleRow } from "../../components/HelpLink";
 import type { AgentRun } from "../../components/RunDetail";
 import { PeriodReviewBlock } from "../../components/run-detail/PeriodReviewBlock";
-import { buildJournalIssueDailyTrend } from "@emther/core/daily-trends";
-import { reportsQueryKey, useIssues, useJournal, useReports, useRuns } from "../../lib/queries";
+import { buildJournalSuggestionDailyTrend } from "@emther/core/daily-trends";
+import { reportsQueryKey, useJournal, useReports, useRuns, useSuggestions } from "../../lib/queries";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@emther/core/types";
 
 // web/src/app/reports/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
@@ -142,7 +142,7 @@ function ReportCard({
     }
   }
 
-  const { journal, issues, events } = report.stats;
+  const { journal, suggestions, events } = report.stats;
 
   return (
     <>
@@ -157,7 +157,7 @@ function ReportCard({
           </strong>
           <div className={styles.tableMuted} style={{ marginTop: 4 }}>
             Journal {journal.total}件（高緊急度 {journal.byUrgency.high}件 / ネガティブ {journal.bySentiment.negative}件） ・ 提案の作成{" "}
-            {issues.createdCount}件 / 確認済み {issues.archivedCount}件 ・ 組織の変更イベント {events.total}件
+            {suggestions.createdCount}件 / 確認済み {suggestions.archivedCount}件 ・ 組織の変更イベント {events.total}件
           </div>
         </td>
         <td>
@@ -200,11 +200,13 @@ function ReportCard({
               <div>
                 <strong>提案（作成・確認済み）</strong>
                 <div className={styles.subtitle}>
-                  期間中に作成: {issues.createdCount}件 / 確認済み（もう追わない）: {issues.archivedCount}件
+                  期間中に作成: {suggestions.createdCount}件 / 確認済み（もう追わない）: {suggestions.archivedCount}件
                 </div>
-                {issues.createdTitles.length > 0 && <div style={{ marginTop: 4 }}>作成: {issues.createdTitles.map((i) => i.title).join(" / ")}</div>}
-                {issues.archivedTitles.length > 0 && (
-                  <div style={{ marginTop: 4 }}>確認済み: {issues.archivedTitles.map((i) => i.title).join(" / ")}</div>
+                {suggestions.createdTitles.length > 0 && (
+                  <div style={{ marginTop: 4 }}>作成: {suggestions.createdTitles.map((s) => s.title).join(" / ")}</div>
+                )}
+                {suggestions.archivedTitles.length > 0 && (
+                  <div style={{ marginTop: 4 }}>確認済み: {suggestions.archivedTitles.map((s) => s.title).join(" / ")}</div>
                 )}
               </div>
 
@@ -270,11 +272,11 @@ export function ReportsPage() {
   const spotlightSectionRef = useRef<HTMLDivElement | null>(null);
 
   // 改修依頼「日毎の変化をグラフで見たい」対応。生成済みレポート（週次/月次スナップショット）
-  // とは別に、生きたJournal/Issueの全件から日次の推移を都度集計して見せる。
+  // とは別に、生きたJournal/提案の全件から日次の推移を都度集計して見せる。
   const { journalEntries } = useJournal();
-  const { issues } = useIssues();
+  const { suggestions } = useSuggestions();
   const trendNav = usePeriodNavigator("month");
-  const trendPoints = buildJournalIssueDailyTrend(journalEntries, issues, trendNav.window);
+  const trendPoints = buildJournalSuggestionDailyTrend(journalEntries, suggestions, trendNav.window);
 
   // トリガー直後のReportが無ければ、一覧の中でAIレビューが紐づく最新のものを既定表示にする
   // （ページを開き直したときも「前回のレビューはどうなったか」がすぐ見える）。
@@ -379,7 +381,7 @@ export function ReportsPage() {
         <div style={{ marginBottom: 10 }}>
           <PeriodNavigator state={trendNav} />
         </div>
-        <JournalIssueTrendChart points={trendPoints} />
+        <JournalSuggestionTrendChart points={trendPoints} />
       </div>
 
       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: 10 }}>

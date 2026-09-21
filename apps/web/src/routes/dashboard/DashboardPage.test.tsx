@@ -28,7 +28,7 @@ describe("DashboardPage", () => {
       "fetch",
       vi.fn(async (url: string) => {
         if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
-        if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+        if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
         if (url === "/api/vitals") {
           return {
             ok: true,
@@ -69,7 +69,7 @@ describe("DashboardPage", () => {
         if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
         if (url === "/api/org/strategy") return { ok: true, json: async () => ({ strategy: { mission: "", vision: "", values: "" } }) };
         if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
-        if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+        if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
         if (url === "/api/vitals") {
           return { ok: true, json: async () => ({ teams: [], oneOnOneCoverage: { status: "good", covered: 1, total: 1, reason: "", uncoveredMembers: [] } }) };
         }

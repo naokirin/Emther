@@ -132,7 +132,7 @@ async function loadModule() {
   return import("./agent-runtime/index");
 }
 
-describe("extractYield / extractProposal / extractActionItems / extractSubIssues / extractConsult", () => {
+describe("extractYield / extractProposal / extractActionItems / extractSubSuggestions / extractConsult", () => {
   it("extractYieldはfenced yieldブロックをパースする", async () => {
     const rt = await loadModule();
     const text = [
@@ -231,11 +231,11 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractProposal(text)?.recommendation).toBe("dismiss");
   });
 
-  it("extractProposalはissueTitleを拾う", async () => {
+  it("extractProposalはsuggestionTitleを拾う", async () => {
     const rt = await loadModule();
     const text =
-      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "recommendation": "issue", "issueTitle": "短い課題名" }\n```';
-    expect(rt.extractProposal(text)?.issueTitle).toBe("短い課題名");
+      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "recommendation": "suggestion", "suggestionTitle": "短い課題名" }\n```';
+    expect(rt.extractProposal(text)?.suggestionTitle).toBe("短い課題名");
   });
 
   it("extractProposalはadviceを拾う", async () => {
@@ -280,7 +280,7 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(rt.extractProposal(text)?.lensesUsed).toBeUndefined();
   });
 
-  it("extractProposalはissueCandidatesを拾う", async () => {
+  it("extractProposalはsuggestionCandidatesを拾う", async () => {
     const rt = await loadModule();
     const text = [
       "```proposal",
@@ -291,8 +291,8 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-        recommendation: "issue",
-        issueCandidates: [
+        recommendation: "suggestion",
+        suggestionCandidates: [
           { title: "燃え尽きへの介入", rationale: "個人軸" },
           { title: "リリース属人化の解消" },
           "  ",
@@ -302,45 +302,45 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
       }),
       "```",
     ].join("\n");
-    expect(rt.extractProposal(text)?.issueCandidates).toEqual([
+    expect(rt.extractProposal(text)?.suggestionCandidates).toEqual([
       { title: "燃え尽きへの介入", rationale: "個人軸" },
       { title: "リリース属人化の解消" },
       { title: "文字列だけの候補" },
     ]);
   });
 
-  it("listIssueCandidatesFromProposalはissueCandidatesを優先する", async () => {
+  it("listSuggestionCandidatesFromProposalはsuggestionCandidatesを優先する", async () => {
     const rt = await loadModule();
     expect(
-      rt.listIssueCandidatesFromProposal({
+      rt.listSuggestionCandidatesFromProposal({
         conclusion: "c",
         logic: "l",
         facts: [],
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-        issueTitle: "代表",
-        issueCandidates: [{ title: "A" }, { title: "B" }],
+        suggestionTitle: "代表",
+        suggestionCandidates: [{ title: "A" }, { title: "B" }],
       }),
     ).toEqual([{ title: "A" }, { title: "B" }]);
     expect(
-      rt.listIssueCandidatesFromProposal({
+      rt.listSuggestionCandidatesFromProposal({
         conclusion: "c",
         logic: "l",
         facts: [],
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-        issueTitle: "単一",
+        suggestionTitle: "単一",
       }),
     ).toEqual([{ title: "単一" }]);
   });
 
-  it("extractProposalは空のissueTitleを無視する", async () => {
+  it("extractProposalは空のsuggestionTitleを無視する", async () => {
     const rt = await loadModule();
     const text =
-      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "issueTitle": "  " }\n```';
-    expect(rt.extractProposal(text)?.issueTitle).toBeUndefined();
+      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "suggestionTitle": "  " }\n```';
+    expect(rt.extractProposal(text)?.suggestionTitle).toBeUndefined();
   });
 
   it("extractProposalはconclusion/logicが文字列でなければundefined", async () => {
@@ -356,31 +356,31 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
     expect(proposal?.rejectedAlternatives).toEqual([{ option: "ok" }]);
   });
 
-  it("extractSubIssuesも同様にパースする", async () => {
+  it("extractSubSuggestionsも同様にパースする", async () => {
     const rt = await loadModule();
     const text = '```sub_issues\n["子課題A", "子課題B"]\n```';
-    expect(rt.extractSubIssues(text)).toEqual([{ title: "子課題A" }, { title: "子課題B" }]);
+    expect(rt.extractSubSuggestions(text)).toEqual([{ title: "子課題A" }, { title: "子課題B" }]);
   });
 
-  it("extractSubIssuesはpriority付きオブジェクトもパースする", async () => {
+  it("extractSubSuggestionsはpriority付きオブジェクトもパースする", async () => {
     const rt = await loadModule();
     const text = '```sub_issues\n[{ "title": "子A", "priority": "focus" }, { "title": "子B" }]\n```';
-    expect(rt.extractSubIssues(text)).toEqual([
+    expect(rt.extractSubSuggestions(text)).toEqual([
       { title: "子A", priority: "focus" },
       { title: "子B" },
     ]);
   });
 
-  it("extractIssueNotesはissueId/textが揃った要素だけをパースする", async () => {
+  it("extractSuggestionNotesはsuggestionId/textが揃った要素だけをパースする", async () => {
     const rt = await loadModule();
-    const text = '```issue_note\n[{ "issueId": "abc123", "text": "関連する事実" }, { "issueId": "" , "text": "x" }, { "text": "issueId無し" }]\n```';
-    expect(rt.extractIssueNotes(text)).toEqual([{ issueId: "abc123", text: "関連する事実" }]);
+    const text = '```suggestion_note\n[{ "suggestionId": "abc123", "text": "関連する事実" }, { "suggestionId": "" , "text": "x" }, { "text": "suggestionId無し" }]\n```';
+    expect(rt.extractSuggestionNotes(text)).toEqual([{ suggestionId: "abc123", text: "関連する事実" }]);
   });
 
-  it("extractIssueNotesは全項目が空/ブロックなしの場合undefined", async () => {
+  it("extractSuggestionNotesは全項目が空/ブロックなしの場合undefined", async () => {
     const rt = await loadModule();
-    expect(rt.extractIssueNotes('```issue_note\n[]\n```')).toBeUndefined();
-    expect(rt.extractIssueNotes("ブロックなし")).toBeUndefined();
+    expect(rt.extractSuggestionNotes('```suggestion_note\n[]\n```')).toBeUndefined();
+    expect(rt.extractSuggestionNotes("ブロックなし")).toBeUndefined();
   });
 
   it("extractSuggestionUpdatesはsuggestionId/reasonが揃い、何らかの変更を含む要素だけをパースする", async () => {
@@ -537,9 +537,9 @@ describe("extractYield / extractProposal / extractActionItems / extractSubIssues
 
   it("朝サマリーの材料はcontextブロックに載り、buildSystemPromptへ注入される", async () => {
     const orgStore = await import("./org-context-store/index");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     orgStore.addTeam("Morning Team", ["Aさん"]);
-    const issue = await issueStore.createIssue("未整理の課題");
+    const issue = await suggestionStore.createSuggestion("未整理の課題");
     const rt = await loadModule();
 
     const ctx = rt.buildMorningSummaryContextBlock();
@@ -915,24 +915,25 @@ describe("buildGoalsContextBlock", () => {
   });
 });
 
-describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionTypeGuidance", () => {
+describe("buildSuggestionContextBlock / buildTeamCharterBlock / buildInterventionTypeGuidance", () => {
   it("runIdに紐づくIssueが無ければ空文字列", async () => {
     const rt = await loadModule();
-    expect(rt.buildIssueContextBlock("missing-run")).toBe("");
+    expect(rt.buildSuggestionContextBlock("missing-run")).toBe("");
   });
 
   it("charterが空でもタイトルは含める", async () => {
-    const issueStore = await import("./issue-store");
-    await issueStore.createIssue("Issue", "run-1");
+    const suggestionStore = await import("./suggestion-store");
+    await suggestionStore.createSuggestion("提案", { agentRunId: "run-1" });
     const rt = await loadModule();
-    expect(rt.buildIssueContextBlock("run-1")).toContain("タイトル: Issue");
+    expect(rt.buildSuggestionContextBlock("run-1")).toContain("タイトル: 提案");
   });
 
   it("charter相当の内容はメモとして前提に含める", async () => {
-    const issueStore = await import("./issue-store");
-    await issueStore.createIssue("障害対応", "run-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
+    const suggestionStore = await import("./suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("障害対応", { agentRunId: "run-1" });
+    await suggestionStore.updateSuggestionCharter(suggestion.id, { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
     const rt = await loadModule();
-    const block = rt.buildIssueContextBlock("run-1");
+    const block = rt.buildSuggestionContextBlock("run-1");
     expect(block).toContain("タイトル: 障害対応");
     expect(block).toContain("最近のメモ:");
     expect(block).toContain("顧客影響を止める");
@@ -940,18 +941,18 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
   });
 
   it("Issueにチームが紐付いていなければteam charterは空文字列", async () => {
-    const issueStore = await import("./issue-store");
-    await issueStore.createIssue("Issue", "run-1");
+    const suggestionStore = await import("./suggestion-store");
+    await suggestionStore.createSuggestion("提案", { agentRunId: "run-1" });
     const rt = await loadModule();
     expect(rt.buildTeamCharterBlock("run-1")).toBe("");
   });
 
   it("チームのMission/制約が設定されていれば含める", async () => {
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const orgStore = await import("./org-context-store/index");
     const team = orgStore.addTeam("Team A", []);
     await orgStore.updateTeam(team.id, { mission: "価値を届ける", constraints: "予算内で行う" });
-    await issueStore.createIssue("Issue", "run-1", undefined, undefined, undefined, team.id);
+    await suggestionStore.createSuggestion("提案", { agentRunId: "run-1", teamId: team.id });
     const rt = await loadModule();
     const block = rt.buildTeamCharterBlock("run-1");
     expect(block).toContain("Mission: 価値を届ける");
@@ -959,9 +960,8 @@ describe("buildIssueContextBlock / buildTeamCharterBlock / buildInterventionType
   });
 
   it("介入の型タグはPhase 7で廃止のためガイダンスは空", async () => {
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("1on1改善", "run-1");
-    await issueStore.setIssueTags(issue.id, ["1on1設計"]);
+    const suggestionStore = await import("./suggestion-store");
+    await suggestionStore.createSuggestion("1on1改善", { agentRunId: "run-1" });
     const rt = await loadModule();
     expect(rt.buildInterventionTypeGuidance("run-1", "People Agent")).toBe("");
     expect(rt.buildInterventionTypeGuidance("run-1", "Process Agent")).toBe("");
@@ -1021,7 +1021,7 @@ describe("buildSystemPrompt", () => {
     const lead = rt.buildSystemPrompt("Lead Agent", true);
     const people = rt.buildSystemPrompt("People Agent", false);
     expect(lead).toContain("```lookup");
-    expect(lead).toContain('"type": "issues"');
+    expect(lead).toContain('"type": "suggestions"');
     expect(lead).toContain("上位最大5件");
     expect(people).toContain("```lookup");
     expect(people).toContain("追加照会");
@@ -1040,18 +1040,17 @@ describe("buildSystemPrompt", () => {
   });
 
   it("Phase 7: sub_issuesブロック説明は付かない", async () => {
-    const issueStore = await import("./issue-store");
-    await issueStore.createIssue("トップレベルIssue", "run-1");
+    const suggestionStore = await import("./suggestion-store");
+    await suggestionStore.createSuggestion("トップレベル提案", { agentRunId: "run-1" });
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
     expect(prompt).not.toContain("```sub_issues");
-    expect(prompt).toContain("```issue_note");
+    expect(prompt).toContain("```suggestion_note");
   });
 
-  it("子Issue作成も階層廃止のためトップレベル扱いでsub_issues説明は付かない", async () => {
-    const issueStore = await import("./issue-store");
-    const parent = await issueStore.createIssue("親Issue");
-    await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
+  it("子提案階層は廃止のためsub_issues説明は付かない", async () => {
+    const suggestionStore = await import("./suggestion-store");
+    await suggestionStore.createSuggestion("子提案", { agentRunId: "run-1" });
     const rt = await loadModule();
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```sub_issues");
   });
@@ -1063,18 +1062,18 @@ describe("buildSystemPrompt", () => {
   });
 
   it("Phase 7: charterブロック説明は付かない（メモ追記のみ）", async () => {
-    const issueStore = await import("./issue-store");
-    const parent = await issueStore.createIssue("親Issue");
-    await issueStore.createIssue("子Issue", "run-1", undefined, parent.id);
+    const suggestionStore = await import("./suggestion-store");
+    await suggestionStore.createSuggestion("提案", { agentRunId: "run-1" });
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, "run-1");
     expect(prompt).not.toContain("```charter");
-    expect(prompt).toContain("```issue_note");
+    expect(prompt).toContain("```suggestion_note");
   });
 
   it("Why/What/Howメモがあってもcharterブロック説明は付かない", async () => {
-    const issueStore = await import("./issue-store");
-    await issueStore.createIssue("Issue", "run-1", { why: "w1", what: "w2", how: "w3" });
+    const suggestionStore = await import("./suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("提案", { agentRunId: "run-1" });
+    await suggestionStore.updateSuggestionCharter(suggestion.id, { why: "w1", what: "w2", how: "w3" });
     const rt = await loadModule();
     expect(rt.buildSystemPrompt("Lead Agent", true, "run-1")).not.toContain("```charter");
   });
@@ -1142,10 +1141,10 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
       yield_request_json: null,
       proposal_json: null,
       suggested_action_items_json: null,
-      suggested_sub_issues_json: null,
+      suggested_sub_suggestions_json: null,
       suggested_charter_json: null,
       suggested_priority_json: null,
-      suggested_issue_notes_json: null,
+      suggested_suggestion_notes_json: null,
       suggested_suggestion_updates_json: null,
       total_cost_usd: 0,
       created_at: 1000,
@@ -1159,8 +1158,8 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     };
     db.prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_issue_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
-       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_issues_json, @suggested_charter_json, @suggested_priority_json, @suggested_issue_notes_json, @suggested_suggestion_updates_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, total_cost_usd, created_at, updated_at, consulted_by, origin, reviewed, triage_status, triage_at)
+       VALUES (@id, @agent_name, @task, @status, @session_id, @agy_conversation_id, @cursor_session_id, @yield_request_json, @proposal_json, @suggested_action_items_json, @suggested_sub_suggestions_json, @suggested_charter_json, @suggested_priority_json, @suggested_suggestion_notes_json, @suggested_suggestion_updates_json, @total_cost_usd, @created_at, @updated_at, @consulted_by, @origin, @reviewed, @triage_status, @triage_at)`,
     ).run(base);
   }
 
@@ -1291,64 +1290,64 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("run-1")?.archivedAt).toBeUndefined();
   });
 
-  it("clearSuggestedSubIssuesは提案を消す", async () => {
+  it("clearSuggestedSubSuggestionsは提案を消す", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), {
       id: "run-1",
-      suggested_sub_issues_json: JSON.stringify(["b"]),
+      suggested_sub_suggestions_json: JSON.stringify(["b"]),
     });
     const rt = await loadModule();
-    expect(rt.getRun("run-1")?.suggestedSubIssues).toEqual([{ title: "b" }]);
-    rt.clearSuggestedSubIssues("run-1");
-    expect(rt.getRun("run-1")?.suggestedSubIssues).toBeUndefined();
+    expect(rt.getRun("run-1")?.suggestedSubSuggestions).toEqual([{ title: "b" }]);
+    rt.clearSuggestedSubSuggestions("run-1");
+    expect(rt.getRun("run-1")?.suggestedSubSuggestions).toBeUndefined();
   });
 
-  it("clearSuggestedIssueNotesは提案を消す", async () => {
+  it("clearSuggestedSuggestionNotesは提案を消す", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), {
       id: "run-1",
-      suggested_issue_notes_json: JSON.stringify([{ issueId: "issue-1", text: "メモ" }]),
+      suggested_suggestion_notes_json: JSON.stringify([{ suggestionId: "issue-1", text: "メモ" }]),
     });
     const rt = await loadModule();
-    expect(rt.getRun("run-1")?.suggestedIssueNotes).toEqual([{ issueId: "issue-1", text: "メモ" }]);
-    rt.clearSuggestedIssueNotes("run-1");
-    expect(rt.getRun("run-1")?.suggestedIssueNotes).toBeUndefined();
+    expect(rt.getRun("run-1")?.suggestedSuggestionNotes).toEqual([{ suggestionId: "issue-1", text: "メモ" }]);
+    rt.clearSuggestedSuggestionNotes("run-1");
+    expect(rt.getRun("run-1")?.suggestedSuggestionNotes).toBeUndefined();
   });
 
-  it("adoptSuggestedIssueNotesFromRunは対象Issueのlogへ追記し、提案を消す", async () => {
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("対象Issue");
+  it("adoptSuggestedSuggestionNotesFromRunは対象Issueのlogへ追記し、提案を消す", async () => {
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("対象Issue");
     const { getDb } = await import("./db");
     insertRunRow(getDb(), {
       id: "run-1",
-      suggested_issue_notes_json: JSON.stringify([{ issueId: issue.id, text: "見つけた事実" }]),
+      suggested_suggestion_notes_json: JSON.stringify([{ suggestionId: issue.id, text: "見つけた事実" }]),
     });
     const rt = await loadModule();
-    const result = await rt.adoptSuggestedIssueNotesFromRun("run-1");
-    expect(result?.written).toEqual([{ issueId: issue.id, text: "見つけた事実" }]);
+    const result = await rt.adoptSuggestedSuggestionNotesFromRun("run-1");
+    expect(result?.written).toEqual([{ suggestionId: issue.id, text: "見つけた事実" }]);
     expect(result?.skipped).toEqual([]);
-    expect(rt.getRun("run-1")?.suggestedIssueNotes).toBeUndefined();
-    const updated = issueStore.getIssue(issue.id);
-    expect(updated?.logEntries.map((l) => l.text)).toEqual(["見つけた事実"]);
+    expect(rt.getRun("run-1")?.suggestedSuggestionNotes).toBeUndefined();
+    const updated = suggestionStore.getSuggestion(issue.id);
+    expect(updated?.memos.map((l) => l.text)).toEqual(["見つけた事実"]);
   });
 
-  it("adoptSuggestedIssueNotesFromRunは存在しないissueIdをスキップする", async () => {
+  it("adoptSuggestedSuggestionNotesFromRunは存在しないsuggestionIdをスキップする", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), {
       id: "run-1",
-      suggested_issue_notes_json: JSON.stringify([{ issueId: "no-such-issue-id", text: "メモ" }]),
+      suggested_suggestion_notes_json: JSON.stringify([{ suggestionId: "no-such-suggestion-id", text: "メモ" }]),
     });
     const rt = await loadModule();
-    const result = await rt.adoptSuggestedIssueNotesFromRun("run-1");
+    const result = await rt.adoptSuggestedSuggestionNotesFromRun("run-1");
     expect(result?.written).toEqual([]);
-    expect(result?.skipped).toEqual(["no-such-issue-id"]);
+    expect(result?.skipped).toEqual(["no-such-suggestion-id"]);
   });
 
-  it("adoptSuggestedIssueNotesFromRunは提案が無ければundefinedを返す", async () => {
+  it("adoptSuggestedSuggestionNotesFromRunは提案が無ければundefinedを返す", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), { id: "run-1" });
     const rt = await loadModule();
-    expect(await rt.adoptSuggestedIssueNotesFromRun("run-1")).toBeUndefined();
+    expect(await rt.adoptSuggestedSuggestionNotesFromRun("run-1")).toBeUndefined();
   });
 
   // docs/suggestion_organize_via_consult.md。
@@ -1435,11 +1434,11 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   });
 
   // docs/suggestion_organize_via_consult.md「3.2 やらないこと」対応。noteの追記は
-  // addMemoにonUpdatedを渡さないため、autoIssueUpdateAnalysisEnabledがONでも
-  // auto-issue-update分析を裏で起動してはならない。
-  it("adoptSuggestionUpdatesFromRunのnote追記はauto-issue-update分析を起動しない", async () => {
+  // addMemoにonUpdatedを渡さないため、autoSuggestionUpdateAnalysisEnabledがONでも
+  // auto-suggestion-update分析を裏で起動してはならない。
+  it("adoptSuggestionUpdatesFromRunのnote追記はauto-suggestion-update分析を起動しない", async () => {
     const settingsStore = await import("./settings-store");
-    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    settingsStore.updateRulesAndConstraints({ autoSuggestionUpdateAnalysisEnabled: true });
     const suggestionStore = await import("./suggestion-store");
     const suggestion = await suggestionStore.createSuggestion("対象提案3");
     const { getDb } = await import("./db");
@@ -1450,11 +1449,11 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
       ]),
     });
     const rt = await loadModule();
-    rt.setIssueUpdateDebounceMsForTest(0);
+    rt.setSuggestionUpdateDebounceMsForTest(0);
     await rt.adoptSuggestionUpdatesFromRun("run-1");
     await new Promise((r) => setTimeout(r, 10));
     expect(rt.listPendingAgentStarts()).toHaveLength(0);
-    expect(rt.listRuns().filter((r) => r.origin === "auto-issue-update")).toHaveLength(0);
+    expect(rt.listRuns().filter((r) => r.origin === "auto-suggestion-update")).toHaveLength(0);
   });
 
   it("存在しないIDへの操作はundefinedを返す", async () => {
@@ -1462,18 +1461,19 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.markRunReviewed("missing")).toBeUndefined();
     expect(rt.setRunTriageStatus("missing", "dismissed")).toBeUndefined();
     expect(rt.setRunArchived("missing", true)).toBeUndefined();
-    expect(rt.clearSuggestedSubIssues("missing")).toBeUndefined();
+    expect(rt.clearSuggestedSubSuggestions("missing")).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();
   });
 
   it("専門Agent runはconsultedByの親提案コンテキスト（メモ）を使う", async () => {
-    const issueStore = await import("./issue-store");
-    await issueStore.createIssue("障害対応", "lead-1", { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
+    const suggestionStore = await import("./suggestion-store");
+    const suggestion = await suggestionStore.createSuggestion("障害対応", { agentRunId: "lead-1" });
+    await suggestionStore.updateSuggestionCharter(suggestion.id, { why: "顧客影響を止める", what: "原因特定", how: "ログ調査" });
     const { getDb } = await import("./db");
     insertRunRow(getDb(), { id: "lead-1" });
     insertRunRow(getDb(), { id: "spec-1", agent_name: "People Agent", consulted_by: "lead-1" });
     const rt = await loadModule();
-    expect(rt.buildIssueContextBlock("spec-1")).toContain("顧客影響を止める");
+    expect(rt.buildSuggestionContextBlock("spec-1")).toContain("顧客影響を止める");
   });
 });
 
@@ -2641,36 +2641,36 @@ describe("watchdog: checkJournalBatchReview", () => {
   });
 });
 
-describe("reactToIssueUpdate", () => {
-  it("autoIssueUpdateAnalysisEnabledが既定(false)なら起動しない", async () => {
+describe("reactToSuggestionUpdate", () => {
+  it("autoSuggestionUpdateAnalysisEnabledが既定(false)なら起動しない", async () => {
     const rt = await loadModule();
-    rt.setIssueUpdateDebounceMsForTest(0);
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題");
-    rt.reactToIssueUpdate(issue.id, "charter", "Why");
+    rt.setSuggestionUpdateDebounceMsForTest(0);
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
+    rt.reactToSuggestionUpdate(issue.id, "charter", "Why");
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns()).toHaveLength(0);
   });
 
-  it("ONかつ紐付きRunが無ければauto-issue-updateでLeadを起動しIssueに紐づける", async () => {
+  it("ONかつ紐付きRunが無ければauto-suggestion-updateでLeadを起動しIssueに紐づける", async () => {
     const settingsStore = await import("./settings-store");
     settingsStore.updateRulesAndConstraints({
-      autoIssueUpdateAnalysisEnabled: true,
+      autoSuggestionUpdateAnalysisEnabled: true,
       teamParallelKickoffEnabled: false,
     });
     const rt = await loadModule();
-    rt.setIssueUpdateDebounceMsForTest(0);
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題");
+    rt.setSuggestionUpdateDebounceMsForTest(0);
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
 
-    rt.reactToIssueUpdate(issue.id, "charter", "Why・What");
+    rt.reactToSuggestionUpdate(issue.id, "charter", "Why・What");
     await vi.waitFor(() => {
       if (rt.listRuns().length < 1) throw new Error("run not created yet");
     });
     const run = rt.listRuns()[0];
-    expect(run.origin).toBe("auto-issue-update");
+    expect(run.origin).toBe("auto-suggestion-update");
     expect(run.agentName).toBe("Lead Agent");
-    expect(issueStore.getIssue(issue.id)?.agentRunId).toBe(run.id);
+    expect(suggestionStore.getSuggestion(issue.id)?.agentRunId).toBe(run.id);
 
     await waitForSpawnCount(1);
     emitClaudeResult(spawnCalls[0].child, {
@@ -2682,12 +2682,12 @@ describe("reactToIssueUpdate", () => {
   it("ONかつ紐付きRunがidleならdecideRunで継続する", async () => {
     const settingsStore = await import("./settings-store");
     settingsStore.updateRulesAndConstraints({
-      autoIssueUpdateAnalysisEnabled: true,
+      autoSuggestionUpdateAnalysisEnabled: true,
       teamParallelKickoffEnabled: false,
     });
     const rt = await loadModule();
-    rt.setIssueUpdateDebounceMsForTest(0);
-    const issueStore = await import("./issue-store");
+    rt.setSuggestionUpdateDebounceMsForTest(0);
+    const suggestionStore = await import("./suggestion-store");
 
     const run = await rt.startRun("Lead Agent", "初期分析", "manual");
     await waitForSpawnCount(1);
@@ -2699,9 +2699,9 @@ describe("reactToIssueUpdate", () => {
       if (rt.getRun(run.id)?.status !== "idle") throw new Error("not idle yet");
     });
 
-    const issue = await issueStore.createIssue("課題", run.id);
+    const issue = await suggestionStore.createSuggestion("課題", { agentRunId: run.id });
     const spawnBefore = spawnCalls.length;
-    rt.reactToIssueUpdate(issue.id, "log", "対応を始めた");
+    rt.reactToSuggestionUpdate(issue.id, "log", "対応を始めた");
     await waitForSpawnCount(spawnBefore + 1);
     expect(rt.listRuns()).toHaveLength(1);
     const logText = rt.getRun(run.id)?.log.map((l) => l.text).join("\n") ?? "";
@@ -2710,17 +2710,17 @@ describe("reactToIssueUpdate", () => {
 
   it("ONならデバウンス中はlistPendingAgentStartsに現れる", async () => {
     const settingsStore = await import("./settings-store");
-    settingsStore.updateRulesAndConstraints({ autoIssueUpdateAnalysisEnabled: true });
+    settingsStore.updateRulesAndConstraints({ autoSuggestionUpdateAnalysisEnabled: true });
     const rt = await loadModule();
-    rt.setIssueUpdateDebounceMsForTest(45_000);
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題");
+    rt.setSuggestionUpdateDebounceMsForTest(45_000);
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
 
-    rt.reactToIssueUpdate(issue.id, "charter", "Why");
+    rt.reactToSuggestionUpdate(issue.id, "charter", "Why");
     const pending = rt.listPendingAgentStarts();
     expect(pending).toHaveLength(1);
-    expect(pending[0].issueId).toBe(issue.id);
-    expect(pending[0].kind).toBe("issue-update");
+    expect(pending[0].suggestionId).toBe(issue.id);
+    expect(pending[0].kind).toBe("suggestion-update");
     expect(pending[0].label).toContain("タイトル／整理");
     expect(pending[0].firesAt).toBeGreaterThan(Date.now());
     expect(rt.listRuns()).toHaveLength(0);
@@ -2728,7 +2728,7 @@ describe("reactToIssueUpdate", () => {
     // 再スケジュールでfiresAtが延びる（連打保存のデバウンス）
     const firstFiresAt = pending[0].firesAt;
     await new Promise((r) => setTimeout(r, 20));
-    rt.reactToIssueUpdate(issue.id, "log", "経過を追記");
+    rt.reactToSuggestionUpdate(issue.id, "log", "経過を追記");
     const again = rt.listPendingAgentStarts();
     expect(again).toHaveLength(1);
     expect(again[0].firesAt).toBeGreaterThanOrEqual(firstFiresAt);
@@ -2739,8 +2739,8 @@ describe("reactToIssueUpdate", () => {
 describe("selectRelatedSpecialists", () => {
   it("タグが無ければ全specialistを返す", async () => {
     const rt = await loadModule();
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題");
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
     expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
       "People Agent",
       "Process Agent",
@@ -2751,8 +2751,8 @@ describe("selectRelatedSpecialists", () => {
 
   it("介入型タグはPhase 7で保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, ["1on1設計"]);
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
     expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
       "People Agent",
       "Process Agent",
@@ -2763,11 +2763,8 @@ describe("selectRelatedSpecialists", () => {
 
   it("複数タグ指定も保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題", undefined, undefined, undefined, [
-      "優先順位／スコープ",
-      "1on1設計",
-    ]);
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
     expect(rt.selectRelatedSpecialists(issue.id)).toEqual([
       "People Agent",
       "Process Agent",
@@ -2785,9 +2782,9 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
       maxParallelAgentRuns: 4,
     });
     const rt = await loadModule();
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     // Phase 7: タグは保持されないため全 quadrant specialist が先行する
-    const issue = await issueStore.createIssue("課題");
+    const issue = await suggestionStore.createSuggestion("課題");
 
     const leadRun = await rt.startRun("Lead Agent", "メンバーの1on1設計を見直したい", "manual", issue.id);
 
@@ -2834,8 +2831,8 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
     const settingsStore = await import("./settings-store");
     settingsStore.updateRulesAndConstraints({ teamParallelKickoffEnabled: false });
     const rt = await loadModule();
-    const issueStore = await import("./issue-store");
-    const issue = await issueStore.createIssue("課題");
+    const suggestionStore = await import("./suggestion-store");
+    const issue = await suggestionStore.createSuggestion("課題");
 
     await rt.startRun("Lead Agent", "単独で分析", "manual", issue.id);
     await waitForSpawnCount(1);

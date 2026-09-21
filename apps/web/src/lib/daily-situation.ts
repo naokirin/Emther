@@ -1,8 +1,8 @@
-// docs/2nd_pivot_version.md Phase 1対応。「Issueが何件あるか」ではなく、
+// docs/2nd_pivot_version.md Phase 1対応。「提案が何件あるか」ではなく、
 // docs/2nd_pivot_version/pivot_policy.md「目指すUX」の6項目
 // （昨日から変わったこと／気になる兆候／良い状態／評価できないこと／過去との比較／
 // 判断する価値がありそうなこと）でEMに状況を提示するための純粋関数群。
-// この段階ではIssueの内部データモデルには触れず、既にクライアント側で取得済みの
+// この段階では提案の内部データモデルには触れず、既にクライアント側で取得済みの
 // Journal / Vitals / People / NextActionsだけを組み替えて使う
 // （新しいAPI・永続化エンティティは追加しない）。
 import { periodWindow } from "@emther/core/daily-trends";
@@ -98,7 +98,7 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
     }
   }
   for (const p of people) {
-    const status = personVitalStatus(p.trend, p.hasConcerningIssue);
+    const status = personVitalStatus(p.trend, p.hasConcerningSuggestion);
     if (status === "bad" || status === "warn") {
       concerns.push({
         id: `concern-person-${p.id}`,
@@ -165,7 +165,7 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
     }
   }
   for (const p of people) {
-    if (personVitalStatus(p.trend, p.hasConcerningIssue) === "good") {
+    if (personVitalStatus(p.trend, p.hasConcerningSuggestion) === "good") {
       good.push({
         id: `good-person-${p.id}`,
         text: p.name,
@@ -213,7 +213,7 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
     }
   }
   for (const p of people) {
-    if (personVitalStatus(p.trend, p.hasConcerningIssue) === "unknown") {
+    if (personVitalStatus(p.trend, p.hasConcerningSuggestion) === "unknown") {
       unevaluable.push({
         id: `unevaluable-person-${p.id}`,
         text: p.name,

@@ -1,12 +1,12 @@
 import { extractFirstJsonObject } from "./local-model";
 import { runCloudChat } from "./cloud-chat";
-import { listIssues } from "./issue-store";
+import { listSuggestions } from "./suggestion-store";
 import { getTheme, listAdoptedThemes, toThemeView, type OrgTheme } from "./theme-store";
 import { listGoals } from "./org-context-store/index";
 import { unmaskNames } from "./people-directory";
-import { isIssueStrategyUnlinked, type GoalLinkSuggestion, type Issue, type IssueStrategyLinkSuggestion } from "./types";
+import { isSuggestionStrategyUnlinked, type GoalLinkSuggestion, type Suggestion, type SuggestionStrategyLinkSuggestion } from "./types";
 
-export type { GoalLinkSuggestion, IssueStrategyLinkSuggestion };
+export type { GoalLinkSuggestion, SuggestionStrategyLinkSuggestion };
 
 export type LinkSuggestSource = "cloud" | "heuristic";
 
@@ -18,14 +18,14 @@ export type LinkSuggestResult<T> = {
   fallbackReason?: string;
 };
 
-// 戦略未接続の親 Issue → テーマ を AI（失敗時はヒューリスティック）で提案する。
-// 永続化はしない（HITL）。採用は既存 PATCH（issue themeId）。
+// 戦略未接続の提案 → テーマ を AI（失敗時はヒューリスティック）で提案する。
+// 永続化はしない（HITL）。採用は既存 PATCH（suggestion themeId）。
 // クラウドへ渡す本文はストア上のマスク済みテキストのままにする（toThemeView で実名復元すると
 // assertNoRealNamesLeaked で即失敗し、類似度フォールバックに落ちる）。
 
-const ISSUE_SYSTEM_PROMPT = [
-  "あなたは組織の階層接続（テーマ ↔ Issue）を提案するツールです。説明や前置き・Markdownフェンスは書かず、JSONオブジェクト1つだけを出力してください。",
-  'フォーマット: {"suggestions":[{"issueId":string,"themeId":string|null,"rationale":string}]}',
+const SUGGESTION_SYSTEM_PROMPT = [
+  "あなたは組織の階層接続（テーマ ↔ 提案）を提案するツールです。説明や前置き・Markdownフェンスは書かず、JSONオブジェクト1つだけを出力してください。",
+  'フォーマット: {"suggestions":[{"suggestionId":string,"themeId":string|null,"rationale":string}]}',
   "themeIdは入力リストにあるIDのみ。無い候補はnull。",
   "rationale は日本語で1文。入力に無い事実を捏造しない。",
 ].join("\n");
@@ -59,28 +59,39 @@ function logFallback(scope: string, reason: string): void {
   console.warn(`[link-suggest] ${scope}: heuristic fallback — ${reason}`);
 }
 
-function labelIssueSuggestion(
-  issue: Issue,
+// 提案の内容源: detail（AIの結論・根拠・ロジック）があればそれを、無ければ直近メモを使う
+// （旧issue-store経由のcharterは常に空だったため、リンク候補の材料として機能していなかった。
+// Suggestion直結にする際に実際に内容が乗るよう修正した）。
+function suggestionContentHaystack(suggestion: Suggestion): string {
+  const parts = [suggestion.title];
+  if (suggestion.detail) {
+    parts.push(suggestion.detail.conclusion, suggestion.detail.logic, ...suggestion.detail.facts);
+  }
+  const latestMemo = suggestion.memos.at(-1)?.text;
+  if (latestMemo) parts.push(latestMemo);
+  return parts.filter(Boolean).join(" ");
+}
+
+function labelSuggestionLink(
+  suggestion: Suggestion,
   themeId: string | null,
   rationale: string,
   themes: OrgTheme[],
-): IssueStrategyLinkSuggestion | null {
+): SuggestionStrategyLinkSuggestion | null {
   const theme = themeId ? themes.find((t) => t.id === themeId) : undefined;
   const resolvedThemeId = theme ? theme.id : null;
   if (!resolvedThemeId) return null;
   return {
-    issueId: issue.id,
-    issueTitle: unmaskNames(issue.title),
+    suggestionId: suggestion.id,
+    suggestionTitle: unmaskNames(suggestion.title),
     themeId: resolvedThemeId,
     rationale: rationale.trim() || "内容の類似から候補を選びました",
     labels: { theme: theme ? toThemeView(theme).title : undefined },
   };
 }
 
-function heuristicIssueSuggestion(issue: Issue, themes: OrgTheme[]): IssueStrategyLinkSuggestion | null {
-  const hay = [issue.title, issue.charter.why, issue.charter.what, issue.charter.how, issue.tags.join(" ")].join(
-    " ",
-  );
+function heuristicSuggestionLink(suggestion: Suggestion, themes: OrgTheme[]): SuggestionStrategyLinkSuggestion | null {
+  const hay = suggestionContentHaystack(suggestion);
   const rankedThemes = themes
     .map((t) => ({
       t,
@@ -94,8 +105,8 @@ function heuristicIssueSuggestion(issue: Issue, themes: OrgTheme[]): IssueStrate
   if (!themeId) {
     if (themes.length === 1) {
       const only = themes[0];
-      return labelIssueSuggestion(
-        issue,
+      return labelSuggestionLink(
+        suggestion,
         only.id,
         "唯一の採用テーマへ暫定リンクを提案します（内容照合が弱いため要確認）",
         themes,
@@ -104,36 +115,36 @@ function heuristicIssueSuggestion(issue: Issue, themes: OrgTheme[]): IssueStrate
     return null;
   }
 
-  return labelIssueSuggestion(issue, themeId, "Issue内容とテーマ文言の類似から候補を選びました", themes);
+  return labelSuggestionLink(suggestion, themeId, "提案内容とテーマ文言の類似から候補を選びました", themes);
 }
 
-function parseIssueCloud(
+function parseSuggestionCloud(
   raw: unknown,
-  targets: Issue[],
+  targets: Suggestion[],
   themes: OrgTheme[],
 ): {
-  suggestions: IssueStrategyLinkSuggestion[];
-  stats: { raw: number; matchedIssue: number; labeled: number; nullTheme: number; unknownTheme: number };
+  suggestions: SuggestionStrategyLinkSuggestion[];
+  stats: { raw: number; matchedSuggestion: number; labeled: number; nullTheme: number; unknownTheme: number };
 } {
-  const stats = { raw: 0, matchedIssue: 0, labeled: 0, nullTheme: 0, unknownTheme: 0 };
+  const stats = { raw: 0, matchedSuggestion: 0, labeled: 0, nullTheme: 0, unknownTheme: 0 };
   if (!raw || typeof raw !== "object") return { suggestions: [], stats };
   const suggestions = (raw as { suggestions?: unknown }).suggestions;
   if (!Array.isArray(suggestions)) return { suggestions: [], stats };
-  const byId = new Map(targets.map((i) => [i.id, i]));
-  const out: IssueStrategyLinkSuggestion[] = [];
+  const byId = new Map(targets.map((s) => [s.id, s]));
+  const out: SuggestionStrategyLinkSuggestion[] = [];
   for (const item of suggestions) {
     stats.raw++;
     if (!item || typeof item !== "object") continue;
     const row = item as Record<string, unknown>;
-    const issueId = typeof row.issueId === "string" ? row.issueId : "";
-    const issue = byId.get(issueId);
-    if (!issue) continue;
-    stats.matchedIssue++;
+    const suggestionId = typeof row.suggestionId === "string" ? row.suggestionId : "";
+    const suggestion = byId.get(suggestionId);
+    if (!suggestion) continue;
+    stats.matchedSuggestion++;
     const themeIdRaw = typeof row.themeId === "string" ? row.themeId : null;
     if (!themeIdRaw) stats.nullTheme++;
     if (themeIdRaw && !themes.some((t) => t.id === themeIdRaw)) stats.unknownTheme++;
     const rationale = typeof row.rationale === "string" ? row.rationale : "";
-    const labeled = labelIssueSuggestion(issue, themeIdRaw, rationale, themes);
+    const labeled = labelSuggestionLink(suggestion, themeIdRaw, rationale, themes);
     if (labeled) {
       stats.labeled++;
       out.push(labeled);
@@ -142,89 +153,82 @@ function parseIssueCloud(
   return { suggestions: out, stats };
 }
 
-function selectUnlinkedIssues(issueIds?: string[]): Issue[] {
-  const filter = issueIds?.length ? new Set(issueIds) : null;
-  return listIssues()
-    .filter((i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i))
-    .filter((i) => (filter ? filter.has(i.id) : true))
+function selectUnlinkedSuggestions(suggestionIds?: string[]): Suggestion[] {
+  const filter = suggestionIds?.length ? new Set(suggestionIds) : null;
+  return listSuggestions()
+    .filter((s) => !s.archivedAt && s.reviewStatus !== "done" && isSuggestionStrategyUnlinked(s))
+    .filter((s) => (filter ? filter.has(s.id) : true))
     .slice(0, 15);
 }
 
-export async function suggestIssueStrategyLinks(opts?: {
-  issueIds?: string[];
-}): Promise<LinkSuggestResult<IssueStrategyLinkSuggestion>> {
-  const targets = selectUnlinkedIssues(opts?.issueIds);
+export async function suggestSuggestionStrategyLinks(opts?: {
+  suggestionIds?: string[];
+}): Promise<LinkSuggestResult<SuggestionStrategyLinkSuggestion>> {
+  const targets = selectUnlinkedSuggestions(opts?.suggestionIds);
   const themes = listAdoptedThemes();
   if (targets.length === 0 || themes.length === 0) {
-    const fallbackReason = targets.length === 0 ? "no_unlinked_parent_issues" : "no_theme_candidates";
-    logFallback("issue→strategy", fallbackReason);
+    const fallbackReason = targets.length === 0 ? "no_unlinked_suggestions" : "no_theme_candidates";
+    logFallback("suggestion→strategy", fallbackReason);
     return { suggestions: [], targetCount: targets.length, source: "heuristic", fallbackReason };
   }
 
-  // Issue / テーマともマスク済みのまま（実名復元すると送信ガードで即失敗する）
-  const issueBlock = targets
-    .map((i) => {
-      return [
-        `- issueId=${i.id}`,
-        `  title: ${i.title}`,
-        `  why: ${i.charter.why}`,
-        `  what: ${i.charter.what}`,
-        `  how: ${i.charter.how}`,
-        `  tags: ${i.tags.join(", ") || "(なし)"}`,
-      ].join("\n");
+  // 提案 / テーマともマスク済みのまま（実名復元すると送信ガードで即失敗する）
+  const suggestionBlock = targets
+    .map((s) => {
+      return [`- suggestionId=${s.id}`, `  title: ${s.title}`, `  内容: ${suggestionContentHaystack(s)}`].join("\n");
     })
     .join("\n");
   const themeBlock = themes
     .map((t) => `- themeId=${t.id} ${t.title} — ${t.summary}`)
     .join("\n");
 
-  let cloud: IssueStrategyLinkSuggestion[] = [];
+  let cloud: SuggestionStrategyLinkSuggestion[] = [];
   let fallbackReason: string | undefined;
   try {
     const content = await runCloudChat(
-      ISSUE_SYSTEM_PROMPT,
-      ["戦略未接続の親 Issue:", issueBlock, "", "採用テーマ候補:", themeBlock].join("\n"),
+      SUGGESTION_SYSTEM_PROMPT,
+      ["戦略未接続の提案:", suggestionBlock, "", "採用テーマ候補:", themeBlock].join("\n"),
     );
     const jsonText = extractFirstJsonObject(content);
     if (!jsonText) {
       fallbackReason = "cloud_response_had_no_json";
       console.warn(
-        `[link-suggest] issue→strategy: ${fallbackReason} (responseChars=${content.length})`,
+        `[link-suggest] suggestion→strategy: ${fallbackReason} (responseChars=${content.length})`,
       );
     } else {
       try {
-        const parsed = parseIssueCloud(JSON.parse(jsonText), targets, themes);
+        const parsed = parseSuggestionCloud(JSON.parse(jsonText), targets, themes);
         cloud = parsed.suggestions;
         if (cloud.length === 0) {
-          fallbackReason = `cloud_json_parsed_but_no_valid_suggestions(raw=${parsed.stats.raw},matchedIssue=${parsed.stats.matchedIssue},labeled=${parsed.stats.labeled},nullTheme=${parsed.stats.nullTheme},unknownTheme=${parsed.stats.unknownTheme})`;
-          console.warn(`[link-suggest] issue→strategy: ${fallbackReason}`);
+          fallbackReason = `cloud_json_parsed_but_no_valid_suggestions(raw=${parsed.stats.raw},matchedSuggestion=${parsed.stats.matchedSuggestion},labeled=${parsed.stats.labeled},nullTheme=${parsed.stats.nullTheme},unknownTheme=${parsed.stats.unknownTheme})`;
+          console.warn(`[link-suggest] suggestion→strategy: ${fallbackReason}`);
         }
       } catch (err) {
         fallbackReason = `cloud_json_parse_error: ${(err as Error).message}`;
-        console.warn(`[link-suggest] issue→strategy: ${fallbackReason}`);
+        console.warn(`[link-suggest] suggestion→strategy: ${fallbackReason}`);
       }
     }
   } catch (err) {
     fallbackReason = `cloud_error: ${(err as Error).message}`;
-    logFallback("issue→strategy", fallbackReason);
+    logFallback("suggestion→strategy", fallbackReason);
   }
 
   if (cloud.length > 0) {
-    const covered = new Set(cloud.map((s) => s.issueId));
+    const covered = new Set(cloud.map((s) => s.suggestionId));
     const filled = [...cloud];
-    for (const i of targets) {
-      if (covered.has(i.id)) continue;
-      const h = heuristicIssueSuggestion(i, themes);
+    for (const s of targets) {
+      if (covered.has(s.id)) continue;
+      const h = heuristicSuggestionLink(s, themes);
       if (h) filled.push(h);
     }
     return { suggestions: filled, targetCount: targets.length, source: "cloud" };
   }
 
   const heuristic = targets
-    .map((i) => heuristicIssueSuggestion(i, themes))
-    .filter((s): s is IssueStrategyLinkSuggestion => !!s);
+    .map((s) => heuristicSuggestionLink(s, themes))
+    .filter((s): s is SuggestionStrategyLinkSuggestion => !!s);
   const reason = fallbackReason ?? "cloud_unavailable_unknown";
-  if (!fallbackReason) logFallback("issue→strategy", reason);
+  if (!fallbackReason) logFallback("suggestion→strategy", reason);
   return {
     suggestions: heuristic,
     targetCount: targets.length,

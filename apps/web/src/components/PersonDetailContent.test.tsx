@@ -38,10 +38,10 @@ describe("PersonDetailContent", () => {
                 factCount: 2,
                 isDirectReport: true,
                 isSelf: false,
-                hasConcerningIssue: false,
+                hasConcerningSuggestion: false,
                 facts: [],
                 interpretations: [],
-                relatedIssues: [],
+                relatedSuggestions: [],
               },
             }),
           };

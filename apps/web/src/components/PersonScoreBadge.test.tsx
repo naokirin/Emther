@@ -32,23 +32,23 @@ describe("PersonScoreBadge", () => {
     expect(screen.getByText("🟡")).toBeInTheDocument();
   });
 
-  it("hasConcerningIssueがtrueだと、Journalが良好・件数不足でも🟡（やや注意）以上に引き上げる", () => {
+  it("hasConcerningSuggestionがtrueだと、Journalが良好・件数不足でも🟡（やや注意）以上に引き上げる", () => {
     const { rerender } = render(
-      <PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningIssue />,
+      <PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningSuggestion />,
     );
     expect(screen.getByText("🟡")).toBeInTheDocument();
 
-    rerender(<PersonScoreBadge trend={{ positive: 0, negative: 0, neutral: 0 }} factCount={0} hasConcerningIssue />);
+    rerender(<PersonScoreBadge trend={{ positive: 0, negative: 0, neutral: 0 }} factCount={0} hasConcerningSuggestion />);
     expect(screen.getByText("🟡")).toBeInTheDocument();
   });
 
-  it("hasConcerningIssueがtrueでもネガティブ優勢（bad）は据え置く", () => {
-    render(<PersonScoreBadge trend={{ positive: 0, negative: 3, neutral: 0 }} factCount={3} hasConcerningIssue />);
+  it("hasConcerningSuggestionがtrueでもネガティブ優勢（bad）は据え置く", () => {
+    render(<PersonScoreBadge trend={{ positive: 0, negative: 3, neutral: 0 }} factCount={3} hasConcerningSuggestion />);
     expect(screen.getByText("🔴")).toBeInTheDocument();
   });
 
-  it("hasConcerningIssueがtrueのときdata-tooltipに注記を追加する", () => {
-    render(<PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningIssue />);
+  it("hasConcerningSuggestionがtrueのときdata-tooltipに注記を追加する", () => {
+    render(<PersonScoreBadge trend={{ positive: 3, negative: 0, neutral: 0 }} factCount={3} hasConcerningSuggestion />);
     expect(screen.getByText("🟡")).toHaveAttribute(
       "data-tooltip",
       "やや注意（Journal 3件）\nポジティブなJournalが優勢、または気になる兆候はありません（🙂3 🙁0） ／ 停滞・確認保留ありの関連提案があります",

@@ -49,16 +49,16 @@ describe("link-suggest live diagnose", () => {
   });
 
   it(
-    "実ストアで suggestIssueStrategyLinks を実行し source / fallbackReason を出す",
+    "実ストアで suggestSuggestionStrategyLinks を実行し source / fallbackReason を出す",
     async () => {
       if (process.env.EM_LIVE_DIAGNOSE !== "1") {
         expect(true).toBe(true);
         return;
       }
 
-      const { suggestIssueStrategyLinks } = await import("./link-suggest");
+      const { suggestSuggestionStrategyLinks } = await import("./link-suggest");
       const started = Date.now();
-      const result = await suggestIssueStrategyLinks();
+      const result = await suggestSuggestionStrategyLinks();
       const elapsedMs = Date.now() - started;
 
       console.warn(

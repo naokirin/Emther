@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { TeamsPage } from "./TeamsPage";
 
 // web/src/app/teams/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier2、teamsバッチ）。useTeams/useIssues/useJournal/useEntityHistoryが
+// （フェーズ3.5 tier2、teamsバッチ）。useTeams/useSuggestions/useJournal/useEntityHistoryが
 // TanStack Query化されたためQueryClientProviderで包む。
 function createWrapper(initialEntries: string[] = ["/teams"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -28,7 +28,7 @@ describe("TeamsPage", () => {
         if (url === "/api/teams") {
           return { ok: true, json: async () => ({ teams: [{ id: "t1", name: "Design", members: [], charter: { mission: "", constraints: "" }, managedByEm: true, aliases: [], archived: false, createdAt: 0, updatedAt: 0 }] }) };
         }
-        if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+        if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
         if (url === "/api/journal") return { ok: true, json: async () => ({ entries: [] }) };
         if (url.startsWith("/api/knowledge/events")) return { ok: true, json: async () => ({ events: [] }) };
         return { ok: true, json: async () => ({}) };

@@ -12,19 +12,25 @@ import { buildDailySituation } from "../../lib/daily-situation";
 import {
   useEmCheckins,
   useGoals,
-  useGoToRunIssue,
-  useIssues,
+  useGoToRunSuggestion,
   useJournal,
   useOrgStrategy,
   usePeople,
   useRuns,
   useSettingsRules,
+  useSuggestions,
   useTeams,
   useThemes,
   useVitals,
 } from "../../lib/queries";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
-import { isIssueStrategyUnlinked, isRunStale, type IssueStrategyLinkSuggestion, type PendingUnmaskedSend } from "@emther/core/types";
+import {
+  isSuggestionOpen,
+  isSuggestionStrategyUnlinked,
+  isRunStale,
+  type SuggestionStrategyLinkSuggestion,
+  type PendingUnmaskedSend,
+} from "@emther/core/types";
 
 // react-routerのuseSearchParamsを使わないため、元実装の<Suspense>ラッパーは不要（削除した）。
 export function DashboardPage() {
@@ -57,49 +63,49 @@ export function DashboardPage() {
   }, []);
 
   const { runs, pendingAgentStarts, pendingUnmaskedSends, runsLoaded, refreshRuns } = useRuns();
-  const { issues, issuesLoaded, refreshIssues } = useIssues();
-  const goToRunIssue = useGoToRunIssue(issues);
+  const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
+  const goToRunSuggestion = useGoToRunSuggestion(suggestions);
 
   // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
   // 対応。TodayActionsPanelはダッシュボード／書き連ねタブの切り替えでアンマウントされるため、
   // 生成中フラグ・結果をこのコンポーネント（タブ切り替えで不変）側に持たせる。
-  const [issueLinkSuggesting, setIssueLinkSuggesting] = useState(false);
-  const [issueLinkError, setIssueLinkError] = useState<string | null>(null);
-  const [issueLinkPreview, setIssueLinkPreview] = useState<{
-    suggestions: IssueStrategyLinkSuggestion[];
+  const [suggestionLinkSuggesting, setSuggestionLinkSuggesting] = useState(false);
+  const [suggestionLinkError, setSuggestionLinkError] = useState<string | null>(null);
+  const [suggestionLinkPreview, setSuggestionLinkPreview] = useState<{
+    suggestions: SuggestionStrategyLinkSuggestion[];
     source: "cloud" | "heuristic";
     fallbackReason?: string;
   } | null>(null);
-  const [issueLinkApplyingId, setIssueLinkApplyingId] = useState<string | null>(null);
+  const [suggestionLinkApplyingId, setSuggestionLinkApplyingId] = useState<string | null>(null);
 
-  async function handleSuggestIssueStrategyLinks() {
-    setIssueLinkSuggesting(true);
-    setIssueLinkError(null);
+  async function handleSuggestSuggestionStrategyLinks() {
+    setSuggestionLinkSuggesting(true);
+    setSuggestionLinkError(null);
     try {
-      const res = await fetch("/api/issues/link/suggest", {
+      const res = await fetch("/api/suggestions/link/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
-      setIssueLinkPreview({
+      setSuggestionLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
         source: data?.source === "cloud" ? "cloud" : "heuristic",
         fallbackReason: typeof data?.fallbackReason === "string" ? data.fallbackReason : undefined,
       });
     } catch (err) {
-      setIssueLinkError((err as Error).message);
+      setSuggestionLinkError((err as Error).message);
     } finally {
-      setIssueLinkSuggesting(false);
+      setSuggestionLinkSuggesting(false);
     }
   }
 
-  async function handleAdoptIssueStrategyLink(s: IssueStrategyLinkSuggestion) {
-    setIssueLinkApplyingId(s.issueId);
-    setIssueLinkError(null);
+  async function handleAdoptSuggestionStrategyLink(s: SuggestionStrategyLinkSuggestion) {
+    setSuggestionLinkApplyingId(s.suggestionId);
+    setSuggestionLinkError(null);
     try {
-      const res = await fetch(`/api/issues/${s.issueId}`, {
+      const res = await fetch(`/api/suggestions/${s.suggestionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,14 +116,14 @@ export function DashboardPage() {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "リンクの採用に失敗しました");
       }
-      await refreshIssues();
-      setIssueLinkPreview((prev) =>
-        prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== s.issueId) } : null,
+      await refreshSuggestions();
+      setSuggestionLinkPreview((prev) =>
+        prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.suggestionId !== s.suggestionId) } : null,
       );
     } catch (err) {
-      setIssueLinkError((err as Error).message);
+      setSuggestionLinkError((err as Error).message);
     } finally {
-      setIssueLinkApplyingId(null);
+      setSuggestionLinkApplyingId(null);
     }
   }
   const { vitals, vitalsLoaded } = useVitals();
@@ -135,7 +141,7 @@ export function DashboardPage() {
   // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
   // SettingsのrulesLoadedと同じ考え方（usePollingのloaded）。
   const setupLoaded = strategyLoaded && teamsLoaded && goalsLoaded;
-  const nextActionsLoaded = runsLoaded && issuesLoaded && vitalsLoaded && journalLoaded && peopleLoaded;
+  const nextActionsLoaded = runsLoaded && suggestionsLoaded && vitalsLoaded && journalLoaded && peopleLoaded;
 
   // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
   // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する。
@@ -161,11 +167,11 @@ export function DashboardPage() {
     });
   }
 
-  const watchingItems = selectWatchingItems(runs, issues);
+  const watchingItems = selectWatchingItems(runs, suggestions);
   const nextActions = buildNextActions({
     now,
     runs,
-    issues,
+    suggestions,
     journalEntries,
     people,
     vitals,
@@ -173,14 +179,14 @@ export function DashboardPage() {
     pendingUnmaskedSends,
     staleRunIds,
     watchingItems,
-    goToRunIssue,
+    goToRunSuggestion,
     push: (path) => navigate(path),
     prefillJournal,
     onConfirmUnmasked: setConfirmingUnmasked,
   });
 
   // docs/2nd_pivot_version.md Phase 1対応。pivot_policy.md「目指すUX」の6項目で
-  // 今日の状況をまとめる（Issue駆動ではなく Journal/Vitals/People 駆動）。
+  // 今日の状況をまとめる（提案駆動ではなく Journal/Vitals/People 駆動）。
   const dailySituation = buildDailySituation({
     now,
     journalEntries,
@@ -214,9 +220,7 @@ export function DashboardPage() {
     if (goals.length === 0) setupGaps.push(`Goal ${goals.length}件`);
   }
 
-  const unlinkedParentCount = issues.filter(
-    (i) => !i.archived && i.status !== "done" && !i.parentId && isIssueStrategyUnlinked(i),
-  ).length;
+  const unlinkedParentCount = suggestions.filter((s) => isSuggestionOpen(s) && isSuggestionStrategyUnlinked(s)).length;
 
   return (
     <div className={styles.screen}>
@@ -254,16 +258,16 @@ export function DashboardPage() {
         runs={runs}
         runsLoaded={runsLoaded}
         onNavigate={(path) => navigate(path)}
-        issueLinkSuggesting={issueLinkSuggesting}
-        issueLinkError={issueLinkError}
-        issueLinkPreview={issueLinkPreview}
-        issueLinkApplyingId={issueLinkApplyingId}
-        onSuggestIssueStrategyLinks={handleSuggestIssueStrategyLinks}
-        onAdoptIssueStrategyLink={handleAdoptIssueStrategyLink}
-        onDismissIssueLinkPreview={() => setIssueLinkPreview(null)}
-        onDismissIssueLinkOne={(issueId) =>
-          setIssueLinkPreview((prev) =>
-            prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.issueId !== issueId) } : null,
+        suggestionLinkSuggesting={suggestionLinkSuggesting}
+        suggestionLinkError={suggestionLinkError}
+        suggestionLinkPreview={suggestionLinkPreview}
+        suggestionLinkApplyingId={suggestionLinkApplyingId}
+        onSuggestSuggestionStrategyLinks={handleSuggestSuggestionStrategyLinks}
+        onAdoptSuggestionStrategyLink={handleAdoptSuggestionStrategyLink}
+        onDismissSuggestionLinkPreview={() => setSuggestionLinkPreview(null)}
+        onDismissSuggestionLinkOne={(suggestionId) =>
+          setSuggestionLinkPreview((prev) =>
+            prev ? { ...prev, suggestions: prev.suggestions.filter((x) => x.suggestionId !== suggestionId) } : null,
           )
         }
       />
@@ -273,7 +277,7 @@ export function DashboardPage() {
           ステータスチップに一本化する（1on1 Coverageもdaily-situation.ts側で統合済み）。 */}
       <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
 
-      {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
+      {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/提案/人が混在」への対処として、
           テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付ける。 */}
       <ThemesPanel
         themes={themes}

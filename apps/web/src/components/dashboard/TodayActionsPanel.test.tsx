@@ -54,14 +54,14 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof TodayActionsPa
     runs: [],
     runsLoaded: true,
     onNavigate: vi.fn(),
-    issueLinkSuggesting: false,
-    issueLinkError: null,
-    issueLinkPreview: null,
-    issueLinkApplyingId: null,
-    onSuggestIssueStrategyLinks: vi.fn(),
-    onAdoptIssueStrategyLink: vi.fn(),
-    onDismissIssueLinkPreview: vi.fn(),
-    onDismissIssueLinkOne: vi.fn(),
+    suggestionLinkSuggesting: false,
+    suggestionLinkError: null,
+    suggestionLinkPreview: null,
+    suggestionLinkApplyingId: null,
+    onSuggestSuggestionStrategyLinks: vi.fn(),
+    onAdoptSuggestionStrategyLink: vi.fn(),
+    onDismissSuggestionLinkPreview: vi.fn(),
+    onDismissSuggestionLinkOne: vi.fn(),
     ...overrides,
   };
 }
@@ -117,7 +117,7 @@ describe("TodayActionsPanel", () => {
   it("戦略未接続の親提案があれば警告バナーとAI見直しボタンを表示する", async () => {
     const onSuggest = vi.fn();
     const user = userEvent.setup();
-    render(<TodayActionsPanel {...baseProps({ unlinkedParentCount: 2, onSuggestIssueStrategyLinks: onSuggest })} />);
+    render(<TodayActionsPanel {...baseProps({ unlinkedParentCount: 2, onSuggestSuggestionStrategyLinks: onSuggest })} />);
     expect(screen.getByText(/戦略未接続の親 提案 が 2 件あります/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "AIで見直す" }));
     expect(onSuggest).toHaveBeenCalledTimes(1);

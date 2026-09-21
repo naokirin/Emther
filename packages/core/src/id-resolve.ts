@@ -1,10 +1,11 @@
 import { listRuns } from "./agent-runtime/index";
 import { findByIdPrefix, isHexIdPrefix, normalizeIdKey } from "./id-prefix";
-import { listIssues, type Issue } from "./issue-store";
+import { listSuggestions } from "./suggestion-store";
 import { listJournalEntries, type JournalEntry } from "./journal-store";
 import { unmaskNames } from "./people-directory";
+import type { Suggestion } from "./types";
 
-export type IdMatchKind = "issue" | "journal" | "run";
+export type IdMatchKind = "suggestion" | "journal" | "run";
 
 export type IdMatch = {
   kind: IdMatchKind;
@@ -20,19 +21,19 @@ function truncateLabel(text: string, max = 80): string {
 }
 
 // ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
-// listIssues/listJournalEntries/listRunsはいずれも保存時のマスク済み生データ（人名が
-// {{PERSON_n}}トークンのまま）を返す関数で、通常の一覧・詳細画面はtoIssueView/
+// listSuggestions/listJournalEntries/listRunsはいずれも保存時のマスク済み生データ（人名が
+// {{PERSON_n}}トークンのまま）を返す関数で、通常の一覧・詳細画面はtoSuggestionView/
 // toJournalEntryView/toRunViewを経由してunmaskNamesを適用してから表示している。
 // resolveIdPrefixはこれらのView関数を通さず生データを直接使っていたため、ここで
 // 作るlabel（IdFragmentLinkのクリック候補・カスタムツールチップの表示に使われる）に
 // 未解決のマスクトークンがそのまま出てしまっていた。
-function issueMatch(issue: Issue): IdMatch {
-  const title = unmaskNames(issue.title).trim();
+function suggestionMatch(suggestion: Suggestion): IdMatch {
+  const title = unmaskNames(suggestion.title).trim();
   return {
-    kind: "issue",
-    id: issue.id,
+    kind: "suggestion",
+    id: suggestion.id,
     label: title || "（無題の提案）",
-    href: `/suggestions/${issue.id}`,
+    href: `/suggestions/${suggestion.id}`,
   };
 }
 
@@ -57,23 +58,23 @@ function runMatch(run: { id: string; agentName: string; task: string }): IdMatch
   };
 }
 
-/** プレフィックス（またはフル ID）に一致する Issue / Journal / Run をすべて返す。 */
+/** プレフィックス（またはフル ID）に一致する Suggestion / Journal / Run をすべて返す。 */
 export function resolveIdPrefix(prefix: string): IdMatch[] {
   if (!isHexIdPrefix(prefix)) return [];
 
-  const issues = findByIdPrefix(listIssues(), (i) => i.id, prefix).map(issueMatch);
+  const suggestions = findByIdPrefix(listSuggestions(), (s) => s.id, prefix).map(suggestionMatch);
   const journals = findByIdPrefix(listJournalEntries(), (e) => e.id, prefix).map(journalMatch);
   const runs = findByIdPrefix(listRuns(), (r) => r.id, prefix).map(runMatch);
 
   // 完全一致を先頭に（短いプレフィックスでもフル ID 入力時は分かりやすく）
   const key = normalizeIdKey(prefix);
-  const all = [...issues, ...journals, ...runs];
+  const all = [...suggestions, ...journals, ...runs];
   all.sort((a, b) => {
     const aExact = normalizeIdKey(a.id) === key ? 0 : 1;
     const bExact = normalizeIdKey(b.id) === key ? 0 : 1;
     if (aExact !== bExact) return aExact - bExact;
     if (a.kind !== b.kind) {
-      const order = { issue: 0, journal: 1, run: 2 } as const;
+      const order = { suggestion: 0, journal: 1, run: 2 } as const;
       return order[a.kind] - order[b.kind];
     }
     return a.label.localeCompare(b.label, "ja");

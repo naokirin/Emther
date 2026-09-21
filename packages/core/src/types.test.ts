@@ -1,25 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  charterFilledCount,
-  compareIssuesByPriority,
-  isIssueActive,
-  isIssueStalled,
   isJournalEntryResolved,
   isSuggestionReviewOverdue,
   journalResolutionLabel,
   suggestionMatchesKeyword,
   isRunStale,
-  issueBacklogActionItems,
-  issueNextAction,
-  issueProgress,
   normalizeTeamName,
   personVitalStatus,
   teamDisplayName,
   teamPathSegments,
   truncateForTitle,
-  issueTitleFromConclusion,
-  type Issue,
-  type IssueCharter,
+  suggestionTitleFromConclusion,
   type JournalEntry,
 } from "./types";
 
@@ -143,139 +134,6 @@ describe("isRunStale", () => {
   });
 });
 
-describe("charterFilledCount", () => {
-  it("空文字のフィールドは数えない", () => {
-    const charter: IssueCharter = { why: "", what: "", how: "" };
-    expect(charterFilledCount(charter)).toBe(0);
-  });
-
-  it("空白のみのフィールドも未入力扱いにする", () => {
-    const charter: IssueCharter = { why: "  ", what: "x", how: "" };
-    expect(charterFilledCount(charter)).toBe(1);
-  });
-
-  it("全項目埋まっていれば3", () => {
-    const charter: IssueCharter = { why: "a", what: "b", how: "c" };
-    expect(charterFilledCount(charter)).toBe(3);
-  });
-});
-
-function baseIssue(overrides: Partial<Issue> = {}): Issue {
-  return {
-    id: "issue-1",
-    title: "Issue",
-    charter: { why: "", what: "", how: "" },
-    actionItems: [],
-    logEntries: [],
-    status: "not_started",
-    reviewStatus: "unreviewed",
-    priority: "normal",
-    archived: false,
-    tags: [],
-    createdAt: 0,
-    updatedAt: 0,
-    ...overrides,
-  };
-}
-
-describe("issueProgress", () => {
-  it("Action Itemの完了数を数える", () => {
-    const issue = baseIssue({
-      actionItems: [
-        { id: "1", text: "a", done: true },
-        { id: "2", text: "b", done: false },
-      ],
-    });
-    expect(issueProgress(issue)).toEqual({ done: 1, total: 2 });
-  });
-
-  it("子Issueの完了（status:done）を合算し、archivedな子は分母からも外す", () => {
-    const issue = baseIssue();
-    const children = [
-      baseIssue({ id: "c1", status: "done" }),
-      baseIssue({ id: "c2", archived: true, status: "in_progress" }),
-      baseIssue({ id: "c3" }),
-    ];
-    expect(issueProgress(issue, children)).toEqual({ done: 1, total: 2 });
-  });
-
-  it("項目が無ければ0/0", () => {
-    expect(issueProgress(baseIssue())).toEqual({ done: 0, total: 0 });
-  });
-});
-
-describe("isIssueActive", () => {
-  it("archivedまたはdoneなら非アクティブ", () => {
-    expect(isIssueActive(baseIssue())).toBe(true);
-    expect(isIssueActive(baseIssue({ archived: true }))).toBe(false);
-    expect(isIssueActive(baseIssue({ status: "done" }))).toBe(false);
-  });
-});
-
-describe("issueNextAction / issueBacklogActionItems", () => {
-  it("未完了の先頭が次の一手", () => {
-    const issue = baseIssue({
-      actionItems: [
-        { id: "1", text: "done", done: true },
-        { id: "2", text: "next", done: false },
-        { id: "3", text: "later", done: false },
-      ],
-    });
-    expect(issueNextAction(issue)).toEqual({ id: "2", text: "next", done: false });
-    expect(issueBacklogActionItems(issue)).toEqual([{ id: "3", text: "later", done: false }]);
-  });
-
-  it("未完了が無ければundefined / 空", () => {
-    const issue = baseIssue({ actionItems: [{ id: "1", text: "a", done: true }] });
-    expect(issueNextAction(issue)).toBeUndefined();
-    expect(issueBacklogActionItems(issue)).toEqual([]);
-  });
-});
-
-describe("compareIssuesByPriority", () => {
-  it("focus → normal → parked の順で並べる", () => {
-    const parked = baseIssue({ id: "p", priority: "parked", updatedAt: 100 });
-    const normal = baseIssue({ id: "n", priority: "normal", updatedAt: 50 });
-    const focus = baseIssue({ id: "f", priority: "focus", focusOrder: 0, updatedAt: 10 });
-    expect([parked, normal, focus].sort(compareIssuesByPriority).map((i) => i.id)).toEqual(["f", "n", "p"]);
-  });
-
-  it("focus同士はfocusOrder昇順", () => {
-    const a = baseIssue({ id: "a", priority: "focus", focusOrder: 2, updatedAt: 100 });
-    const b = baseIssue({ id: "b", priority: "focus", focusOrder: 0, updatedAt: 50 });
-    const c = baseIssue({ id: "c", priority: "focus", focusOrder: 1, updatedAt: 200 });
-    expect([a, b, c].sort(compareIssuesByPriority).map((i) => i.id)).toEqual(["b", "c", "a"]);
-  });
-});
-
-describe("isIssueStalled", () => {
-  const now = Date.now();
-  const staleDays = 14;
-
-  it("archived済みは対象外", () => {
-    const issue = baseIssue({ archived: true, updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
-    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
-  });
-
-  it("doneは対象外", () => {
-    const issue = baseIssue({ status: "done", updatedAt: now - 30 * 24 * 60 * 60 * 1000 });
-    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
-  });
-
-  it("閾値を超えていればtrue", () => {
-    const issue = baseIssue({
-      updatedAt: now - 30 * 24 * 60 * 60 * 1000,
-    });
-    expect(isIssueStalled(issue, now, staleDays)).toBe(true);
-  });
-
-  it("閾値以内ならfalse", () => {
-    const issue = baseIssue({
-      updatedAt: now - 1 * 24 * 60 * 60 * 1000,
-    });
-    expect(isIssueStalled(issue, now, staleDays)).toBe(false);
-  });
-});
 
 function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
   return {
@@ -294,12 +152,12 @@ function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
 }
 
 describe("isJournalEntryResolved", () => {
-  it("resolvedIssueIdもresolutionNoteも無ければ未対応", () => {
+  it("resolvedSuggestionIdもresolutionNoteも無ければ未対応", () => {
     expect(isJournalEntryResolved(baseEntry())).toBe(false);
   });
 
-  it("resolvedIssueIdがあれば対応済み", () => {
-    expect(isJournalEntryResolved(baseEntry({ resolvedIssueId: "issue-1" }))).toBe(true);
+  it("resolvedSuggestionIdがあれば対応済み", () => {
+    expect(isJournalEntryResolved(baseEntry({ resolvedSuggestionId: "suggestion-1" }))).toBe(true);
   });
 
   it("resolutionNoteがあれば対応済み", () => {
@@ -309,7 +167,7 @@ describe("isJournalEntryResolved", () => {
 
 describe("journalResolutionLabel", () => {
   it("提案化済みは対応済み/提案化済み", () => {
-    expect(journalResolutionLabel(baseEntry({ resolvedIssueId: "issue-1" }))).toBe("対応済み/提案化済み");
+    expect(journalResolutionLabel(baseEntry({ resolvedSuggestionId: "suggestion-1" }))).toBe("対応済み/提案化済み");
   });
 
   it("解決メモだけなら対応済み", () => {
@@ -368,14 +226,14 @@ describe("truncateForTitle", () => {
   });
 });
 
-describe("issueTitleFromConclusion", () => {
-  it("Issue化メタの接尾辞を除く", () => {
-    expect(issueTitleFromConclusion("五木さんの目標設定の悩みをIssue化して追跡すべきと判断します")).toBe(
+describe("suggestionTitleFromConclusion", () => {
+  it("提案化メタの接尾辞を除く", () => {
+    expect(suggestionTitleFromConclusion("五木さんの目標設定の悩みをIssue化して追跡すべきと判断します")).toBe(
       "五木さんの目標設定の悩み",
     );
   });
 
   it("短い結論はそのまま（末尾句点だけ除去）", () => {
-    expect(issueTitleFromConclusion("障害対応の属人化を解消する。")).toBe("障害対応の属人化を解消する");
+    expect(suggestionTitleFromConclusion("障害対応の属人化を解消する。")).toBe("障害対応の属人化を解消する");
   });
 });

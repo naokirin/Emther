@@ -58,7 +58,130 @@ async function insertRunWithProposal(id: string, proposal: Record<string, unknow
     .run(id, "Lead Agent", "方針を相談したい", "idle", proposal ? JSON.stringify(proposal) : null, 0, 1, 1, "manual", 0);
 }
 
+describe("GET /api/suggestions", () => {
+  it("一覧を実名復元済みで返す", async () => {
+    const peopleDirectory = await import("@emther/core/people-directory");
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    peopleDirectory.registerName("Aさん");
+    await suggestionStore.createSuggestion("Aさんの育成計画");
+
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/");
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.suggestions).toHaveLength(1);
+    expect(json.suggestions[0].title).toBe("Aさんの育成計画");
+  });
+});
+
 describe("POST /api/suggestions", () => {
+  it("titleが無ければ400を返す", async () => {
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/", post({ title: "  " }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("titleは必須です");
+  });
+
+  it("bodyがJSONでなくても400として扱う（クラッシュしない）", async () => {
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/", { method: "POST", body: "not json" });
+    expect(res.status).toBe(400);
+  });
+
+  it("最小限の入力で201を返す", async () => {
+    const runtime = await import("@emther/core/agent-runtime/index");
+    vi.spyOn(runtime, "startRun").mockResolvedValue({
+      id: "run-min",
+      agentName: "Lead Agent",
+      task: "x",
+      status: "active",
+      log: [],
+      totalCostUsd: 0,
+      createdAt: 1,
+      updatedAt: 1,
+      origin: "manual",
+      reviewed: true,
+    });
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/", post({ title: "新しい提案" }));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.suggestion.title).toBe("新しい提案");
+  });
+
+  it("why/what/howを渡すとメモへ折り込まれ、teamIdも反映される", async () => {
+    const runtime = await import("@emther/core/agent-runtime/index");
+    vi.spyOn(runtime, "startRun").mockResolvedValue({
+      id: "run-charter",
+      agentName: "Lead Agent",
+      task: "x",
+      status: "active",
+      log: [],
+      totalCostUsd: 0,
+      createdAt: 1,
+      updatedAt: 1,
+      origin: "manual",
+      reviewed: true,
+    });
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request(
+      "/",
+      post({ title: "詳細付き提案", why: "理由", what: "内容", how: "方法", teamId: "team-1" }),
+    );
+    const json = await res.json();
+    expect(json.suggestion.title).toBe("詳細付き提案");
+    expect(json.suggestion.memos.some((m: { text: string }) => m.text.includes("Why: 理由"))).toBe(true);
+    expect(json.suggestion.teamId).toBe("team-1");
+  });
+
+  it("agentRunIdを渡すとそのrunをreviewed済みにし、新規分析Runは起動しない", async () => {
+    await insertRun("run-1", 0);
+    const agentRuntime = await import("@emther/core/agent-runtime/index");
+    const startSpy = vi.spyOn(agentRuntime, "startRun");
+    expect(agentRuntime.getRun("run-1")?.reviewed).toBe(false);
+
+    const { suggestionsRoute } = await import("./suggestions");
+    await suggestionsRoute.request("/", post({ title: "AI起点の提案", agentRunId: "run-1" }));
+    expect(agentRuntime.getRun("run-1")?.reviewed).toBe(true);
+    expect(startSpy).not.toHaveBeenCalled();
+  });
+
+  it("相談のrunにsourceJournalIdがあれば提案へコピーしJournalも紐付ける", async () => {
+    const knowledgeStore = await import("@emther/core/knowledge-store");
+    knowledgeStore.recordEvent({
+      id: "j-fixed",
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [],
+      text: "現場の問題",
+      tags: [],
+      occurredAt: Date.now(),
+    });
+    await insertRun("run-src", 0);
+    const { getDb } = await import("@emther/core/db");
+    getDb().prepare("UPDATE agent_runs SET source_journal_id = ? WHERE id = ?").run("j-fixed", "run-src");
+
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/", post({ title: "AI起点の提案", agentRunId: "run-src" }));
+    const json = await res.json();
+    expect(json.suggestion.sourceJournalId).toBe("j-fixed");
+    expect(json.suggestion.sourceRunId).toBe("run-src");
+
+    const journalStore = await import("@emther/core/journal-store");
+    expect(journalStore.getCurrentJournalEntry("j-fixed")?.resolvedSuggestionId).toBe(json.suggestion.id);
+  });
+
+  it("AIチームの分析起動に失敗しても提案の起票自体は成功する", async () => {
+    const agentRuntime = await import("@emther/core/agent-runtime/index");
+    vi.spyOn(agentRuntime, "startRun").mockRejectedValueOnce(new Error("起動失敗"));
+
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/", post({ title: "起動失敗しても作られる提案" }));
+    expect(res.status).toBe(201);
+    expect((await res.json()).suggestion.title).toBe("起動失敗しても作られる提案");
+  });
+
   it("sourceRunIdのみのときは相談を吸収せず、新規分析Runも起動しない", async () => {
     await insertRun("run-consult", 0);
     const runtime = await import("@emther/core/agent-runtime/index");
@@ -90,7 +213,7 @@ describe("POST /api/suggestions", () => {
     const startSpy = vi.spyOn(runtime, "startRun").mockResolvedValue({
       id: "run-new",
       agentName: "Lead Agent",
-      task: "新しいIssueが起票されました",
+      task: "新しい提案が起票されました",
       status: "active",
       log: [],
       totalCostUsd: 0,
@@ -206,6 +329,73 @@ describe("PATCH /api/suggestions/:id reviewStatus=in_review", () => {
   });
 });
 
+describe("PATCH /api/suggestions/:id title/charter/teamId", () => {
+  it("存在しないIDは404", async () => {
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/missing", patch({ why: "x" }));
+    expect(res.status).toBe(404);
+  });
+
+  it("titleを空文字にしようとすると400", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const s = await suggestionStore.createSuggestion("提案");
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request(`/${s.id}`, patch({ title: "  " }));
+    expect(res.status).toBe(400);
+  });
+
+  it("why/title/teamIdをまとめて更新できる（why/what/howはメモへ写像）", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const s = await suggestionStore.createSuggestion("元のタイトル");
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request(
+      `/${s.id}`,
+      patch({ title: "新しいタイトル", why: "理由", teamId: "team-1" }),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.suggestion.title).toBe("新しいタイトル");
+    expect(json.suggestion.memos.some((m: { text: string }) => m.text.includes("理由"))).toBe(true);
+    expect(json.suggestion.teamId).toBe("team-1");
+  });
+
+  it("confirmPriorityとmoveFocusを更新できる", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const a = await suggestionStore.createSuggestion("A");
+    const b = await suggestionStore.createSuggestion("B");
+    const { suggestionsRoute } = await import("./suggestions");
+    const resA = await suggestionsRoute.request(`/${a.id}`, patch({ confirmPriority: "focus" }));
+    expect(resA.status).toBe(200);
+    expect((await resA.json()).suggestion.confirmPriority).toBe("focus");
+    await suggestionsRoute.request(`/${b.id}`, patch({ confirmPriority: "focus" }));
+    const moved = await suggestionsRoute.request(`/${b.id}`, patch({ moveFocus: "up" }));
+    expect(moved.status).toBe(200);
+    expect((await moved.json()).suggestion.focusOrder).toBe(0);
+  });
+
+  it("不正なconfirmPriorityは400", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const s = await suggestionStore.createSuggestion("提案");
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request(`/${s.id}`, patch({ confirmPriority: "urgent" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("teamIdにnullを渡すと解除できる（キー自体が無ければ変更しない）", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const s = await suggestionStore.createSuggestion("提案");
+    suggestionStore.setSuggestionTeam(s.id, "team-1");
+    const { suggestionsRoute } = await import("./suggestions");
+
+    const untouched = await suggestionsRoute.request(`/${s.id}`, patch({}));
+    expect((await untouched.json()).suggestion.teamId).toBe("team-1");
+
+    const cleared = await suggestionsRoute.request(`/${s.id}`, patch({ teamId: null }));
+    const json = await cleared.json();
+    expect(json.suggestion.teamId).toBeUndefined();
+  });
+});
+
 // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
 describe("PATCH /api/suggestions/:id refreshDetailFromRunId", () => {
   it("指定Runの現在のproposalで詳細を更新する", async () => {
@@ -283,6 +473,29 @@ describe("GET /api/suggestions/:id", () => {
     const res = await suggestionsRoute.request(`/${s.id}`);
     expect(res.status).toBe(200);
     expect((await res.json()).suggestion.title).toBe("既存提案");
+  });
+
+  it("先頭8桁の一意プレフィックスでも取得できる", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const s = await suggestionStore.createSuggestion("短いID");
+    const { suggestionsRoute } = await import("./suggestions");
+    const prefix = s.id.slice(0, 8);
+    const res = await suggestionsRoute.request(`/${prefix}`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).suggestion.id).toBe(s.id);
+  });
+
+  it("sourceJournalsにresolvedSuggestionIdで紐づくJournalを含める", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    const journalStore = await import("@emther/core/journal-store");
+    const s = await suggestionStore.createSuggestion("既存提案");
+    const entry = await journalStore.addJournalEntry("現場の問題");
+    await journalStore.updateJournalEntry(entry.id, { resolvedSuggestionId: s.id });
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request(`/${s.id}`);
+    const json = await res.json();
+    expect(json.sourceJournals).toHaveLength(1);
+    expect(json.sourceJournals[0].rawText).toBe("現場の問題");
   });
 });
 

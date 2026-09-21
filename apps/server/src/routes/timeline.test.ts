@@ -30,9 +30,9 @@ describe("GET /api/timeline", () => {
     expect(await res.json()).toEqual({ entries: [] });
   });
 
-  it("Issue作成などの変更履歴を実名復元済みで返す", async () => {
-    const issueStore = await import("@emther/core/issue-store");
-    await issueStore.createIssue("障害対応");
+  it("提案作成などの変更履歴を実名復元済みで返す", async () => {
+    const suggestionStore = await import("@emther/core/suggestion-store");
+    await suggestionStore.createSuggestion("障害対応");
     const { timelineRoute } = await import("./timeline");
     const res = await timelineRoute.request("/");
     const json = await res.json();

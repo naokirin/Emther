@@ -4,13 +4,13 @@ import { SuggestionLink } from "./SuggestionLink";
 import type { StrategyTrailNode } from "@emther/core/strategy-trail";
 
 const KIND_ICON: Record<StrategyTrailNode["kind"], string> = {
-  issue: "🗂",
+  suggestion: "🗂",
   journal: "📝",
 };
 
 function hrefFor(node: StrategyTrailNode): string {
   switch (node.kind) {
-    case "issue":
+    case "suggestion":
       return `/suggestions/${node.id}`;
     case "journal":
       return `/journal?focus=${encodeURIComponent(node.id)}`;
@@ -18,7 +18,7 @@ function hrefFor(node: StrategyTrailNode): string {
 }
 
 /**
- * Issue › Journal の縦の接続を1本のパンくずとして見せる。
+ * 提案 › Journal の縦の接続を1本のパンくずとして見せる。
  * currentKind に一致するノードだけリンクにせず「現在地」として強調する
  * （@/lib/strategy-trailの組み立てでは種別ごとに最大1ノードしか出ないため一意に定まる）。
  */
@@ -46,7 +46,7 @@ export function StrategyTrail({
               <span className={styles.strategyTrailCurrent}>
                 {KIND_ICON[node.kind]} {node.label}
               </span>
-            ) : node.kind === "issue" ? (
+            ) : node.kind === "suggestion" ? (
               <SuggestionLink id={node.id} className={styles.strategyTrailLink}>
                 {KIND_ICON[node.kind]} {node.label}
               </SuggestionLink>

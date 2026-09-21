@@ -2,17 +2,17 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { IdLinkedText } from "../IdLinkedText";
 import { IdFragmentLink } from "../IdFragmentLink";
-import { CONFIRM_PRIORITY_META, SUGGESTION_REVIEW_STATUS_META, type Issue } from "@emther/core/types";
+import { CONFIRM_PRIORITY_META, SUGGESTION_REVIEW_STATUS_META, type Suggestion } from "@emther/core/types";
 import type { SuggestionUpdate } from "../RunDetail";
 
 type FieldDiff = { label: string; before: string; after: string };
 
-function reviewStatusLabel(status: Issue["reviewStatus"]): string {
+function reviewStatusLabel(status: Suggestion["reviewStatus"]): string {
   const meta = SUGGESTION_REVIEW_STATUS_META[status];
   return `${meta.icon} ${meta.label}`;
 }
 
-function confirmPriorityLabel(priority: Issue["priority"]): string {
+function confirmPriorityLabel(priority: Suggestion["confirmPriority"]): string {
   const meta = CONFIRM_PRIORITY_META[priority];
   return `${meta.icon} ${meta.label}`;
 }
@@ -25,7 +25,7 @@ function formatDueAt(ts: number): string {
 // （ID・変更前後・理由）をEMが一度見て「まとめて反映」できるようにする。currentは
 // 取得できなかった場合（未読み込み・ID解決不能）は「不明」と表示するだけで、反映自体は
 // APIサイドの再解決に委ねる（表示上の不一致で採用をブロックしない）。
-function fieldDiffsFor(update: SuggestionUpdate, current: Issue | undefined): FieldDiff[] {
+function fieldDiffsFor(update: SuggestionUpdate, current: Suggestion | undefined): FieldDiff[] {
   const diffs: FieldDiff[] = [];
   if (update.reviewStatus !== undefined) {
     diffs.push({
@@ -37,7 +37,7 @@ function fieldDiffsFor(update: SuggestionUpdate, current: Issue | undefined): Fi
   if (update.confirmPriority !== undefined) {
     diffs.push({
       label: "確認優先度",
-      before: current ? confirmPriorityLabel(current.priority) : "不明",
+      before: current ? confirmPriorityLabel(current.confirmPriority) : "不明",
       after: confirmPriorityLabel(update.confirmPriority),
     });
   }
@@ -66,7 +66,7 @@ export function SuggestedSuggestionUpdatesBlock({
   submitting,
 }: {
   updates: SuggestionUpdate[];
-  currentSuggestions: Map<string, Issue>;
+  currentSuggestions: Map<string, Suggestion>;
   onAdopt?: (indices: number[]) => void;
   onDismiss?: (indices: number[]) => void;
   submitting?: boolean;

@@ -16,7 +16,7 @@ function wrapperWith(initialEntries: string[]) {
 function renderWithLocation(initialEntries: string[]) {
   return renderHook(
     () => {
-      const peek = usePeekParam("issue");
+      const peek = usePeekParam("suggestion");
       const [searchParams] = useSearchParams();
       return { peek, search: searchParams.toString() };
     },
@@ -26,29 +26,29 @@ function renderWithLocation(initialEntries: string[]) {
 
 describe("usePeekParam", () => {
   it("クエリパラメータが無ければidはnull", () => {
-    const { result } = renderWithLocation(["/issues"]);
+    const { result } = renderWithLocation(["/suggestions"]);
     expect(result.current.peek.id).toBeNull();
   });
 
   it("openはキーへidを設定する", async () => {
-    const { result } = renderWithLocation(["/issues"]);
-    act(() => result.current.peek.open("issue-1"));
-    await waitFor(() => expect(result.current.search).toBe("issue=issue-1"));
+    const { result } = renderWithLocation(["/suggestions"]);
+    act(() => result.current.peek.open("suggestion-1"));
+    await waitFor(() => expect(result.current.search).toBe("suggestion=suggestion-1"));
   });
 
   it("既存のクエリパラメータ（他のキー）は保ったままopenする", async () => {
-    const { result } = renderWithLocation(["/issues?tag=bug"]);
-    act(() => result.current.peek.open("issue-1"));
-    await waitFor(() => expect(result.current.search).toBe("tag=bug&issue=issue-1"));
+    const { result } = renderWithLocation(["/suggestions?tag=bug"]);
+    act(() => result.current.peek.open("suggestion-1"));
+    await waitFor(() => expect(result.current.search).toBe("tag=bug&suggestion=suggestion-1"));
   });
 
   it("既にクエリパラメータが有ればidを読み取る", () => {
-    const { result } = renderWithLocation(["/issues?issue=issue-1"]);
-    expect(result.current.peek.id).toBe("issue-1");
+    const { result } = renderWithLocation(["/suggestions?suggestion=suggestion-1"]);
+    expect(result.current.peek.id).toBe("suggestion-1");
   });
 
   it("closeはキーを外す（他のキーは残す）", async () => {
-    const { result } = renderWithLocation(["/issues?issue=issue-1&tag=bug"]);
+    const { result } = renderWithLocation(["/suggestions?suggestion=suggestion-1&tag=bug"]);
     act(() => result.current.peek.close());
     await waitFor(() => expect(result.current.search).toBe("tag=bug"));
   });

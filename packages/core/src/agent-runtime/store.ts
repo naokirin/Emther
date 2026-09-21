@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import { getDb } from "../db";
 import { findByIdPrefix } from "../id-prefix";
-import { addLogEntry, getIssue, listIssues } from "../issue-store";
 import { maskForStorage, unmaskNames } from "../people-directory";
 import { getRulesAndConstraints } from "../settings-store";
 import {
@@ -15,8 +14,9 @@ import {
   unarchiveSuggestion,
 } from "../suggestion-store";
 import { adoptTheme, createThemeCandidate } from "../theme-store";
-import { normalizeSuggestedSubIssues, parseSuggestedPriority } from "./extraction";
-import type { AgentRun, AgentStatus, LogLine } from "./types";
+import type { SuggestedTheme } from "../theme-store";
+import { normalizeSuggestedSubSuggestions, parseSuggestedPriority } from "./extraction";
+import type { AgentRun, AgentStatus, LogLine, SuggestedSuggestionNote } from "./types";
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
 // 全run・全ログを含む配列をベタ書きしており、標準出力1行ごと（appendLog呼び出しごと）に
@@ -38,11 +38,11 @@ type AgentRunRow = {
   yield_request_json: string | null;
   proposal_json: string | null;
   suggested_action_items_json: string | null;
-  suggested_sub_issues_json: string | null;
+  suggested_sub_suggestions_json: string | null;
   suggested_charter_json: string | null;
   suggested_priority_json: string | null;
   suggested_themes_json: string | null;
-  suggested_issue_notes_json: string | null;
+  suggested_suggestion_notes_json: string | null;
   suggested_suggestion_updates_json: string | null;
   period_review_json: string | null;
   source_report_id: string | null;
@@ -75,7 +75,7 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_issues_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_issue_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
@@ -85,11 +85,11 @@ function persistRunMeta(run: AgentRun): void {
          yield_request_json = excluded.yield_request_json,
          proposal_json = excluded.proposal_json,
          suggested_action_items_json = excluded.suggested_action_items_json,
-         suggested_sub_issues_json = excluded.suggested_sub_issues_json,
+         suggested_sub_suggestions_json = excluded.suggested_sub_suggestions_json,
          suggested_charter_json = excluded.suggested_charter_json,
          suggested_priority_json = excluded.suggested_priority_json,
          suggested_themes_json = excluded.suggested_themes_json,
-         suggested_issue_notes_json = excluded.suggested_issue_notes_json,
+         suggested_suggestion_notes_json = excluded.suggested_suggestion_notes_json,
          suggested_suggestion_updates_json = excluded.suggested_suggestion_updates_json,
          period_review_json = excluded.period_review_json,
          source_report_id = excluded.source_report_id,
@@ -111,11 +111,11 @@ function persistRunMeta(run: AgentRun): void {
       run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
       run.proposal ? JSON.stringify(run.proposal) : null,
       run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
-      run.suggestedSubIssues ? JSON.stringify(run.suggestedSubIssues) : null,
+      run.suggestedSubSuggestions ? JSON.stringify(run.suggestedSubSuggestions) : null,
       run.suggestedCharter ? JSON.stringify(run.suggestedCharter) : null,
       run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
       run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
-      run.suggestedIssueNotes ? JSON.stringify(run.suggestedIssueNotes) : null,
+      run.suggestedSuggestionNotes ? JSON.stringify(run.suggestedSuggestionNotes) : null,
       run.suggestedSuggestionUpdates ? JSON.stringify(run.suggestedSuggestionUpdates) : null,
       run.periodReview ? JSON.stringify(run.periodReview) : null,
       run.sourceReportId ?? null,
@@ -177,15 +177,25 @@ function loadRunsFromDb(): Map<string, AgentRun> {
           })()
         : undefined,
       suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
-      suggestedSubIssues: row.suggested_sub_issues_json
-        ? normalizeSuggestedSubIssues(JSON.parse(row.suggested_sub_issues_json))
+      suggestedSubSuggestions: row.suggested_sub_suggestions_json
+        ? normalizeSuggestedSubSuggestions(JSON.parse(row.suggested_sub_suggestions_json))
         : undefined,
       suggestedCharter: row.suggested_charter_json ? JSON.parse(row.suggested_charter_json) : undefined,
       suggestedPriority: row.suggested_priority_json
         ? parseSuggestedPriority(JSON.parse(row.suggested_priority_json))
         : undefined,
-      suggestedThemes: row.suggested_themes_json ? JSON.parse(row.suggested_themes_json) : undefined,
-      suggestedIssueNotes: row.suggested_issue_notes_json ? JSON.parse(row.suggested_issue_notes_json) : undefined,
+      // 旧DBはevidenceIssueIdsキーで永続化されているため、読み込み時に新キー名へ揃える。
+      suggestedThemes: row.suggested_themes_json
+        ? (JSON.parse(row.suggested_themes_json) as Array<SuggestedTheme & { evidenceIssueIds?: string[] }>).map(
+            (t) => ({ ...t, evidenceSuggestionIds: t.evidenceSuggestionIds ?? t.evidenceIssueIds }),
+          )
+        : undefined,
+      // 旧DBはキー名issueIdで永続化されているため、読み込み時に新キー名suggestionIdへ揃える。
+      suggestedSuggestionNotes: row.suggested_suggestion_notes_json
+        ? (JSON.parse(row.suggested_suggestion_notes_json) as Array<SuggestedSuggestionNote & { issueId?: string }>).map(
+            (n) => ({ suggestionId: n.suggestionId ?? n.issueId!, text: n.text }),
+          )
+        : undefined,
       suggestedSuggestionUpdates: row.suggested_suggestion_updates_json
         ? JSON.parse(row.suggested_suggestion_updates_json)
         : undefined,
@@ -315,10 +325,10 @@ export function toRunView(run: AgentRun): AgentRun {
           expansions: (run.proposal.expansions ?? []).map(unmaskNames),
           challenges: (run.proposal.challenges ?? []).map(unmaskNames),
           ...(run.proposal.recommendation ? { recommendation: run.proposal.recommendation } : {}),
-          ...(run.proposal.issueTitle ? { issueTitle: unmaskNames(run.proposal.issueTitle) } : {}),
-          ...(run.proposal.issueCandidates
+          ...(run.proposal.suggestionTitle ? { suggestionTitle: unmaskNames(run.proposal.suggestionTitle) } : {}),
+          ...(run.proposal.suggestionCandidates
             ? {
-                issueCandidates: run.proposal.issueCandidates.map((c) => ({
+                suggestionCandidates: run.proposal.suggestionCandidates.map((c) => ({
                   title: unmaskNames(c.title),
                   ...(c.rationale ? { rationale: unmaskNames(c.rationale) } : {}),
                 })),
@@ -328,7 +338,7 @@ export function toRunView(run: AgentRun): AgentRun {
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
-    suggestedSubIssues: run.suggestedSubIssues?.map((s) => ({
+    suggestedSubSuggestions: run.suggestedSubSuggestions?.map((s) => ({
       title: unmaskNames(s.title),
       priority: s.priority,
     })),
@@ -348,10 +358,10 @@ export function toRunView(run: AgentRun): AgentRun {
       rootCause: t.rootCause !== undefined ? unmaskNames(t.rootCause) : undefined,
       suggestedDirection: t.suggestedDirection !== undefined ? unmaskNames(t.suggestedDirection) : undefined,
       evidenceJournalIds: t.evidenceJournalIds,
-      evidenceIssueIds: t.evidenceIssueIds,
+      evidenceSuggestionIds: t.evidenceSuggestionIds,
     })),
-    suggestedIssueNotes: run.suggestedIssueNotes?.map((n) => ({
-      issueId: n.issueId,
+    suggestedSuggestionNotes: run.suggestedSuggestionNotes?.map((n) => ({
+      suggestionId: n.suggestionId,
       text: unmaskNames(n.text),
     })),
     suggestedSuggestionUpdates: run.suggestedSuggestionUpdates?.map((u) => ({
@@ -391,7 +401,7 @@ export function getRun(id: string): AgentRun | undefined {
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents（Inbox一覧）専用の
 // ページ取得。toRunView()はrun.logを全文含めて返すため一覧表示には過剰に重く、runの件数が
-// 増えるほどAPIレスポンスも線形に肥大化する。runFallbackTitle（「📌 Issueにする」クリック時の
+// 増えるほどAPIレスポンスも線形に肥大化する。runFallbackTitle（「📌 提案にする」クリック時の
 // タイトル自動生成の最終フォールバック）が「先頭の非systemログ行」だけを参照するため、
 // 全ログではなく最大1行だけに切り詰めて返す（表示にも自動生成にも必要十分）。
 export function listRunsPage(
@@ -409,7 +419,7 @@ export function listRunsPage(
 }
 
 // docs/first_implession 3.6対応。AI主導（origin !== "manual"）で起動されたrunをEMが
-// 開いた・Issue化した際に「確認済み」にする。手動起動のrunは常にreviewed=trueのため無害。
+// 開いた・提案化した際に「確認済み」にする。手動起動のrunは常にreviewed=trueのため無害。
 export function markRunReviewed(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run || run.reviewed) return run;
@@ -424,7 +434,7 @@ function applyTriageStatus(run: AgentRun, status: "watching" | "dismissed"): voi
   run.triageAt = Date.now();
 }
 
-// docs/memo.md「B. 何でも相談↔Issueの昇格物語」対応。「様子見」（追跡は続けるが緊急ではない）
+// docs/memo.md「B. 何でも相談↔提案の昇格物語」対応。「様子見」（追跡は続けるが緊急ではない）
 // と「却下」（対応不要）をEMに明示的に選ばせ、triageStatusへ記録する。どちらもreviewed=trueに
 // なるため「次にすべきこと」の緊急度からは外れるが、triageStatusで後から区別できる。
 export function setRunTriageStatus(id: string, status: "watching" | "dismissed"): AgentRun | undefined {
@@ -454,19 +464,19 @@ export function setRunArchived(id: string, archived: boolean): AgentRun | undefi
   return run;
 }
 
-// docs/memo.md「K」対応。AIが提案した子Issue分解案を、EMが採用した後（実際の作成は
-// 呼び出し側が/api/issuesを個別に叩く）または却下した後に、提案自体をrunから消す。
-export function clearSuggestedSubIssues(id: string): AgentRun | undefined {
+// docs/memo.md「K」対応。AIが提案した子提案分解案を、EMが採用した後（実際の作成は
+// 呼び出し側が/api/suggestionsを個別に叩く）または却下した後に、提案自体をrunから消す。
+export function clearSuggestedSubSuggestions(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
-  run.suggestedSubIssues = undefined;
+  run.suggestedSubSuggestions = undefined;
   persistRunMeta(run);
   return run;
 }
 
-// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
+// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
 // 対応。AIが提案したWhy/What/Howの埋め合わせ案を、EMが採用した後（実際の反映は
-// 呼び出し側が/api/issues/[id]を個別に叩く）または却下した後に、提案自体をrunから消す。
+// 呼び出し側が/api/suggestions/[id]を個別に叩く）または却下した後に、提案自体をrunから消す。
 export function clearSuggestedCharter(id: string): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
@@ -483,18 +493,18 @@ export function clearSuggestedThemes(id: string): AgentRun | undefined {
   return run;
 }
 
-// docs/memo.md「他Issueへの追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
-// 対応済みも」対応。indicesを指定するとsuggestedIssueNotes配列中の該当要素のみを対象にし、
+// docs/memo.md「他提案への追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
+// 対応済みも」対応。indicesを指定するとsuggestedSuggestionNotes配列中の該当要素のみを対象にし、
 // 残りは提案として残す（未指定時は従来どおり全件対象・全消去、後方互換を維持）。
 // reason:"handled"は「却下」（提案自体が誤り）ではなく「別口で対応済みなので追わない」ことを
 // runのログに残す——却下と違い何の記録も残らないと後から見分けがつかないため。
-export function clearSuggestedIssueNotes(
+export function clearSuggestedSuggestionNotes(
   id: string,
   opts?: { indices?: number[]; reason?: "dismissed" | "handled" },
 ): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
-  const notes = run.suggestedIssueNotes ?? [];
+  const notes = run.suggestedSuggestionNotes ?? [];
   const selected = opts?.indices ? new Set(opts.indices) : undefined;
   if (opts?.reason === "handled") {
     const targets = notes.filter((_, i) => !selected || selected.has(i));
@@ -503,60 +513,60 @@ export function clearSuggestedIssueNotes(
       run.log.push({
         ts,
         channel: "meta",
-        text: `📝 他Issueへの追記提案を対応済みとして却下しました（対象Issue: ${note.issueId.slice(0, 8)}）: ${note.text}`,
+        text: `📝 他提案への追記提案を対応済みとして却下しました（対象提案: ${note.suggestionId.slice(0, 8)}）: ${note.text}`,
       });
     }
   }
-  run.suggestedIssueNotes = selected
+  run.suggestedSuggestionNotes = selected
     ? notes.filter((_, i) => !selected.has(i))
     : undefined;
-  if (run.suggestedIssueNotes?.length === 0) run.suggestedIssueNotes = undefined;
+  if (run.suggestedSuggestionNotes?.length === 0) run.suggestedSuggestionNotes = undefined;
   persistRunMeta(run);
   return run;
 }
 
-// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-// suggestedIssueNotes を対象Issueのlog（IssueLogEntry）へ書き込んで確定する。issueIdは
+// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
+// suggestedSuggestionNotes を対象提案のメモへ書き込んで確定する。suggestionIdは
 // lookup結果由来のためフルID一致を優先し、無ければ8桁以上のプレフィックス一致（1件のみ）を
-// 許容する（Issue詳細のURL欄と同じ解決規則）。存在しない/曖昧なissueIdの要素は書き込まず
+// 許容する（提案詳細のURL欄と同じ解決規則）。存在しない/曖昧なsuggestionIdの要素は書き込まず
 // スキップする（作成・ステータス変更等は行わない——追記のみの安全側API）。indices未指定時は
 // 従来どおり全件を対象にする。
-export async function adoptSuggestedIssueNotesFromRun(
+export async function adoptSuggestedSuggestionNotesFromRun(
   id: string,
   indices?: number[],
-): Promise<{ run: AgentRun; written: { issueId: string; text: string }[]; skipped: string[] } | undefined> {
+): Promise<{ run: AgentRun; written: { suggestionId: string; text: string }[]; skipped: string[] } | undefined> {
   const run = runs.get(id);
-  if (!run?.suggestedIssueNotes?.length) return undefined;
+  if (!run?.suggestedSuggestionNotes?.length) return undefined;
   const selected = indices ? new Set(indices) : undefined;
-  const targetNotes = run.suggestedIssueNotes.filter((_, i) => !selected || selected.has(i));
+  const targetNotes = run.suggestedSuggestionNotes.filter((_, i) => !selected || selected.has(i));
   if (targetNotes.length === 0) return undefined;
-  const written: { issueId: string; text: string }[] = [];
+  const written: { suggestionId: string; text: string }[] = [];
   const skipped: string[] = [];
   for (const note of targetNotes) {
-    const exact = getIssue(note.issueId);
-    const target = exact ?? findByIdPrefix(listIssues(), (i) => i.id, note.issueId).at(0);
-    const matchCount = exact ? 1 : findByIdPrefix(listIssues(), (i) => i.id, note.issueId).length;
+    const exact = getSuggestion(note.suggestionId);
+    const target = exact ?? findByIdPrefix(listSuggestions(), (s) => s.id, note.suggestionId).at(0);
+    const matchCount = exact ? 1 : findByIdPrefix(listSuggestions(), (s) => s.id, note.suggestionId).length;
     if (!target || matchCount !== 1) {
-      skipped.push(note.issueId);
+      skipped.push(note.suggestionId);
       continue;
     }
-    await addLogEntry(target.id, note.text);
-    written.push({ issueId: target.id, text: note.text });
+    await addSuggestionMemo(target.id, note.text);
+    written.push({ suggestionId: target.id, text: note.text });
   }
-  run.suggestedIssueNotes = selected
-    ? run.suggestedIssueNotes.filter((_, i) => !selected.has(i))
+  run.suggestedSuggestionNotes = selected
+    ? run.suggestedSuggestionNotes.filter((_, i) => !selected.has(i))
     : undefined;
-  if (run.suggestedIssueNotes?.length === 0) run.suggestedIssueNotes = undefined;
+  if (run.suggestedSuggestionNotes?.length === 0) run.suggestedSuggestionNotes = undefined;
   persistRunMeta(run);
   return { run, written, skipped };
 }
 
 // docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。EMが「まとめて
 // 反映」を押したタイミングでのみ、suggestedSuggestionUpdates を実際のSuggestionへ書き込む。
-// suggestionIdの解決規則はadoptSuggestedIssueNotesFromRunと同じ（フルID一致優先、無ければ
+// suggestionIdの解決規則はadoptSuggestedSuggestionNotesFromRunと同じ（フルID一致優先、無ければ
 // プレフィックス一致1件のみ許容）。反映してよい変更種類は制限しない（reviewStatus/
 // confirmPriority/reviewDueAt/archived/noteのいずれも、指定されたものだけ順に適用する）。
-// noteの追記はaddMemoにonUpdatedを渡さない——auto-issue-update（reactToIssueUpdate）を
+// noteの追記はaddMemoにonUpdatedを渡さない——auto-suggestion-update（reactToSuggestionUpdate）を
 // 裏で起動させないため（「裏での自動書き換えはしない」という本方針の核）。indices未指定時は
 // 従来どおり全件を対象にする。
 export async function adoptSuggestionUpdatesFromRun(

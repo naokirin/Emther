@@ -22,7 +22,7 @@ describe("getRulesAndConstraints", () => {
     expect(rules.autoJournalBatchEnabled).toBe(false);
     expect(rules.autoJournalBatchHours).toEqual([7]);
     expect(rules.autoDistillationWeekdays).toEqual([1]);
-    expect(rules.autoIssueUpdateAnalysisEnabled).toBe(false);
+    expect(rules.autoSuggestionUpdateAnalysisEnabled).toBe(false);
     expect(rules.decisionQueueLimit).toBe(3);
     expect(rules.observationQueueLimit).toBe(3);
     expect(rules.staleInterventionDays).toBe(14);

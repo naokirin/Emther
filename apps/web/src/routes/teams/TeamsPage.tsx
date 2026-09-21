@@ -5,7 +5,7 @@ import { PageTitleRow } from "../../components/HelpLink";
 import { buildTeamTree, TeamTreeView } from "../../components/teams/TeamTree";
 import { TeamCreatePanel } from "../../components/teams/TeamCreatePanel";
 import { TeamEditPanel } from "../../components/teams/TeamEditPanel";
-import { useEntityHistory, useIssues, useJournal, useTeams } from "../../lib/queries";
+import { useEntityHistory, useSuggestions, useJournal, useTeams } from "../../lib/queries";
 import type { Team } from "@emther/core/types";
 
 // web/src/app/teams/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。react-routerの
@@ -16,7 +16,7 @@ export function TeamsPage() {
   const focusId = searchParams.get("focus");
 
   const { teams, teamsLoaded, refreshTeams } = useTeams();
-  const { issues } = useIssues();
+  const { suggestions } = useSuggestions();
   const { journalEntries } = useJournal();
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function TeamsPage() {
         <div className={styles.panel}>
           <TeamEditPanel
             selectedTeam={selectedTeam}
-            issues={issues}
+            suggestions={suggestions}
             journalEntries={journalEntries}
             teamHistory={teamHistory}
             refreshTeams={refreshTeams}

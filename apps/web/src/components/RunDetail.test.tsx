@@ -24,26 +24,26 @@ describe("runFallbackTitle", () => {
     expect(runFallbackTitle(baseRun({ task: "本来のタスク" }))).toBe("本来のタスク");
   });
 
-  it("proposal.issueTitleがあれば最優先する", () => {
+  it("proposal.suggestionTitleがあれば最優先する", () => {
     expect(
       runFallbackTitle(
         baseRun({
           task: "長いタスク文",
           proposal: {
-            conclusion: "五木さんの目標設定の悩みをIssue化して追跡すべきと判断します",
+            conclusion: "五木さんの目標設定の悩みを提案化して追跡すべきと判断します",
             facts: [],
             logic: "",
             rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-            issueTitle: "五木さんの目標設定の悩み",
+            suggestionTitle: "五木さんの目標設定の悩み",
           },
         }),
       ),
     ).toBe("五木さんの目標設定の悩み");
   });
 
-  it("issueTitleが無くissueCandidatesがあれば先頭を使う", () => {
+  it("suggestionTitleが無くsuggestionCandidatesがあれば先頭を使う", () => {
     expect(
       runFallbackTitle(
         baseRun({
@@ -55,20 +55,20 @@ describe("runFallbackTitle", () => {
             rejectedAlternatives: [],
         expansions: [],
         challenges: [],
-            issueCandidates: [{ title: "候補A" }, { title: "候補B" }],
+            suggestionCandidates: [{ title: "候補A" }, { title: "候補B" }],
           },
         }),
       ),
     ).toBe("候補A");
   });
 
-  it("proposal.conclusionがあればtaskより優先し、Issue化メタを除いた題名にする", () => {
+  it("proposal.conclusionがあればtaskより優先し、提案化メタを除いた題名にする", () => {
     expect(
       runFallbackTitle(
         baseRun({
-          task: "Journalに緊急度highのエントリが追加されました。内容を確認し、Issueとして追跡すべきか判断してください。",
+          task: "Journalに緊急度highのエントリが追加されました。内容を確認し、提案として追跡すべきか判断してください。",
           proposal: {
-            conclusion: "五木さんの目標設定の悩みをIssue化して追跡すべきと判断します",
+            conclusion: "五木さんの目標設定の悩みを提案化して追跡すべきと判断します",
             facts: [],
             logic: "",
             rejectedAlternatives: [],
@@ -134,22 +134,22 @@ describe("isDraftAwaitingTriage / draftKindLabel", () => {
 });
 
 describe("shouldOmitRunFromNextActions", () => {
-  it("consult子runと却下済みとアーカイブ済みIssue紐付けを除外する", () => {
-    const issues = [
-      { agentRunId: "run-archived", archived: true },
-      { agentRunId: "run-open", archived: false },
+  it("consult子runと却下済みとアーカイブ済み提案紐付けを除外する", () => {
+    const suggestions = [
+      { agentRunId: "run-archived", archivedAt: Date.now() },
+      { agentRunId: "run-open", archivedAt: undefined },
     ];
-    expect(shouldOmitRunFromNextActions(baseRun({ consultedBy: "lead-1" }), issues)).toBe(true);
-    expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "dismissed" }), issues)).toBe(true);
-    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-archived" }), issues)).toBe(true);
-    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-open" }), issues)).toBe(false);
-    expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "watching" }), issues)).toBe(false);
+    expect(shouldOmitRunFromNextActions(baseRun({ consultedBy: "lead-1" }), suggestions)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "dismissed" }), suggestions)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-archived" }), suggestions)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-open" }), suggestions)).toBe(false);
+    expect(shouldOmitRunFromNextActions(baseRun({ triageStatus: "watching" }), suggestions)).toBe(false);
   });
 
   it("相談自体がアーカイブ済み（archivedAt設定済み）のrunを除外する", () => {
-    const issues: { agentRunId?: string; archived: boolean }[] = [];
-    expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: Date.now() }), issues)).toBe(true);
-    expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: undefined }), issues)).toBe(false);
+    const suggestions: { agentRunId?: string; archivedAt?: number }[] = [];
+    expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: Date.now() }), suggestions)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: undefined }), suggestions)).toBe(false);
   });
 });
 

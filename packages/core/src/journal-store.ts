@@ -59,7 +59,7 @@ import {
 import { embedText } from "./embeddings";
 import { getRulesAndConstraints } from "./settings-store";
 import { parseBulkJournalText, parseDateMarkerLine } from "./journal-date-parser";
-import { getIssue, toIssueView } from "./issue-store";
+import { getSuggestion, toSuggestionView } from "./suggestion-store";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
@@ -92,10 +92,10 @@ export type JournalEntry = {
   // supersedesが無い＝記録直後のローカルモデル抽出そのまま、という目印になる。
   confirmed: boolean;
   // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは書き換えず、「今どこで管理
-  // されているか」を別軸で持たせる。resolvedIssueIdが設定されている場合、
-  // resolvedIssueTitleはtoJournalEntryView()が表示用に解決する（内部表現には無い）。
-  resolvedIssueId?: string;
-  resolvedIssueTitle?: string;
+  // されているか」を別軸で持たせる。resolvedSuggestionIdが設定されている場合、
+  // resolvedSuggestionTitleはtoJournalEntryView()が表示用に解決する（内部表現には無い）。
+  resolvedSuggestionId?: string;
+  resolvedSuggestionTitle?: string;
   resolutionNote?: string;
   // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
   sourceConsultRunId?: string;
@@ -142,7 +142,7 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     summary: e.summary ?? "",
     createdAt: e.occurredAt,
     confirmed: e.supersedes !== undefined,
-    resolvedIssueId: e.resolvedIssueId,
+    resolvedSuggestionId: e.resolvedSuggestionId,
     resolutionNote: e.resolutionNote,
     sourceDumpId: e.sourceDumpId,
     sourceChunkId: e.sourceChunkId,
@@ -164,7 +164,7 @@ function resolveTeamNames(teamIds: string[]): string[] {
 // （journal-store⇄agent-runtimeの循環参照を避けるため、journal-store自身はagent-runtimeを
 // 参照しない。呼び出し側がその橋渡しを担う）。載せる必要が無ければ空のMapを渡してよい。
 export function toJournalEntryView(entry: JournalEntry, consultIndex: Map<string, string>): JournalEntry {
-  const resolvedIssue = entry.resolvedIssueId ? getIssue(entry.resolvedIssueId) : undefined;
+  const resolvedSuggestion = entry.resolvedSuggestionId ? getSuggestion(entry.resolvedSuggestionId) : undefined;
   const teamIds = filterValidTeamIds(entry.teamIds ?? [], true);
   return {
     ...entry,
@@ -174,7 +174,7 @@ export function toJournalEntryView(entry: JournalEntry, consultIndex: Map<string
     tags: entry.tags.map(unmaskNames),
     teamIds,
     teamNames: resolveTeamNames(teamIds),
-    resolvedIssueTitle: resolvedIssue ? toIssueView(resolvedIssue).title : undefined,
+    resolvedSuggestionTitle: resolvedSuggestion ? toSuggestionView(resolvedSuggestion).title : undefined,
     resolutionNote: entry.resolutionNote ? unmaskNames(entry.resolutionNote) : undefined,
     sourceConsultRunId: consultIndex.get(entry.id),
     noActionNeededNote: entry.noActionNeededNote ? unmaskNames(entry.noActionNeededNote) : undefined,
@@ -700,8 +700,8 @@ export function getCurrentJournalEntry(id: string): JournalEntry | undefined {
   return eventToJournalEntry(event);
 }
 
-export function listSourceJournalsForIssue(issueId: string, sourceJournalId?: string): JournalEntry[] {
-  const byResolved = listJournalEntries().filter((e) => e.resolvedIssueId === issueId);
+export function listSourceJournalsForSuggestion(suggestionId: string, sourceJournalId?: string): JournalEntry[] {
+  const byResolved = listJournalEntries().filter((e) => e.resolvedSuggestionId === suggestionId);
   const fromId = sourceJournalId ? getCurrentJournalEntry(sourceJournalId) : undefined;
   const map = new Map<string, JournalEntry>();
   for (const entry of byResolved) map.set(entry.id, entry);
@@ -709,15 +709,15 @@ export function listSourceJournalsForIssue(issueId: string, sourceJournalId?: st
   return [...map.values()];
 }
 
-export async function linkJournalToIssue(
+export async function linkJournalToSuggestion(
   journalId: string,
-  issueId: string,
+  suggestionId: string,
   opts: MaskOptions = {},
 ): Promise<JournalEntry | undefined> {
   const current = getCurrentJournalEntry(journalId);
   if (!current) return undefined;
-  if (current.resolvedIssueId === issueId) return current;
-  return updateJournalEntry(current.id, { resolvedIssueId: issueId }, opts);
+  if (current.resolvedSuggestionId === suggestionId) return current;
+  return updateJournalEntry(current.id, { resolvedSuggestionId: suggestionId }, opts);
 }
 
 // docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、
@@ -742,7 +742,7 @@ export async function updateJournalEntry(
     // docs/em_human_story_and_ux.md 改修依頼対応。undefined=変更しない、null=解除、
     // string=設定、という3値の意味を持たせる（他フィールドと違い「未指定=既存値を保持」が
     // 「クリアできない」ことを意味してしまうため）。
-    resolvedIssueId?: string | null;
+    resolvedSuggestionId?: string | null;
     resolutionNote?: string | null;
   },
   opts: MaskOptions = {},
@@ -760,8 +760,8 @@ export async function updateJournalEntry(
   // 対応。まとめ入力から生成された（または単に日付を勘違いした）エントリの発生日を、
   // 校正のタイミングで直せるようにする。
   const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : original.occurredAt;
-  const resolvedIssueId =
-    patch.resolvedIssueId !== undefined ? (patch.resolvedIssueId ?? undefined) : original.resolvedIssueId;
+  const resolvedSuggestionId =
+    patch.resolvedSuggestionId !== undefined ? (patch.resolvedSuggestionId ?? undefined) : original.resolvedSuggestionId;
 
   let teamIds = original.teamIds ?? [];
   if (patch.teams !== undefined || patch.teamIds !== undefined) {
@@ -829,7 +829,7 @@ export async function updateJournalEntry(
     supersedes: id,
     sourceJournalId: original.sourceJournalId,
     embedding,
-    resolvedIssueId,
+    resolvedSuggestionId,
     resolutionNote,
     sourceDumpId: original.sourceDumpId,
     sourceChunkId: original.sourceChunkId,

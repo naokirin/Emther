@@ -42,7 +42,7 @@ describe("JournalPage", () => {
       if (url.startsWith("/api/journal/search")) {
         return { ok: true, json: async () => ({ entries: [ENTRY], total: 1, page: 1, pageSize: 10, facets: { tags: [], people: [] } }) };
       }
-      if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
       if (url === "/api/journal/dumps") return { ok: true, json: async () => ({ dumps: [] }) };
       return { ok: true, json: async () => ({}) };

@@ -23,15 +23,15 @@ afterEach(() => {
 
 describe("GET /api/id-resolve", () => {
   it("一意なプレフィックスを返す", async () => {
-    const issueStore = await import("@emther/core/issue-store");
+    const suggestionStore = await import("@emther/core/suggestion-store");
     const { idResolveRoute } = await import("./id-resolve");
-    const issue = await issueStore.createIssue("解決対象");
-    const res = await idResolveRoute.request(`/?q=${issue.id.slice(0, 8)}`);
+    const suggestion = await suggestionStore.createSuggestion("解決対象");
+    const res = await idResolveRoute.request(`/?q=${suggestion.id.slice(0, 8)}`);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.matches).toHaveLength(1);
-    expect(json.matches[0].id).toBe(issue.id);
-    expect(json.matches[0].kind).toBe("issue");
+    expect(json.matches[0].id).toBe(suggestion.id);
+    expect(json.matches[0].kind).toBe("suggestion");
   });
 
   it("不正なクエリは空配列", async () => {

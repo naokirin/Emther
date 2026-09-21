@@ -64,7 +64,7 @@ function baseProps(overrides: Partial<Parameters<typeof JournalEntryCard>[0]> = 
     onCancelEdit: noop,
     onStartEdit: noop,
     onResolveWithNote: noop,
-    onResolveWithNewIssue: asyncNoop,
+    onResolveWithNewSuggestion: asyncNoop,
     onClearResolution: noop,
     onAcknowledgeSentiment: noop,
     onClearSentimentAck: noop,
@@ -120,30 +120,30 @@ describe("JournalEntryCard（表示モード）", () => {
     await waitFor(() => expect(screen.getByTestId("location").textContent).toContain("/chat?prefill="));
   });
 
-  it("resolvedIssueIdがあれば「提案で追跡中」バッジを表示しクリックで提案をサイドピークで開く", async () => {
+  it("resolvedSuggestionIdがあれば「提案で追跡中」バッジを表示しクリックで提案をサイドピークで開く", async () => {
     const openSuggestionPeekMock = vi.fn();
     const user = userEvent.setup();
     renderCard(
-      baseProps({ entry: baseEntry({ resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }) }),
-      (children) => <IdResolveProvider openIssueInPeek={openSuggestionPeekMock}>{children}</IdResolveProvider>,
+      baseProps({ entry: baseEntry({ resolvedSuggestionId: "suggestion-1", resolvedSuggestionTitle: "追跡中の提案" }) }),
+      (children) => <IdResolveProvider openSuggestionInPeek={openSuggestionPeekMock}>{children}</IdResolveProvider>,
     );
     const badge = screen.getByRole("button", { name: "✅ 提案で追跡中" });
     expect(badge).toBeInTheDocument();
     await user.click(badge);
-    expect(openSuggestionPeekMock).toHaveBeenCalledWith("issue-1");
+    expect(openSuggestionPeekMock).toHaveBeenCalledWith("suggestion-1");
   });
 
-  it("resolvedIssueIdとissuesがあれば戦略のつながりパンくずを表示する", () => {
+  it("resolvedSuggestionIdとsuggestionsがあれば戦略のつながりパンくずを表示する", () => {
     renderCard(
       baseProps({
-        entry: baseEntry({ resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }),
-        issues: [{ id: "issue-1", title: "追跡中Issue" }],
+        entry: baseEntry({ resolvedSuggestionId: "suggestion-1", resolvedSuggestionTitle: "追跡中の提案" }),
+        suggestions: [{ id: "suggestion-1", title: "追跡中の提案" }],
       }),
     );
-    expect(screen.getByText(/追跡中Issue/)).toBeInTheDocument();
+    expect(screen.getByText(/追跡中の提案/)).toBeInTheDocument();
   });
 
-  it("resolvedIssueIdが無ければ戦略のつながりパンくずを表示しない", () => {
+  it("resolvedSuggestionIdが無ければ戦略のつながりパンくずを表示しない", () => {
     renderCard(baseProps());
     expect(screen.queryByRole("navigation", { name: "戦略のつながり" })).not.toBeInTheDocument();
   });
@@ -257,7 +257,7 @@ describe("JournalEntryCard（編集モード）", () => {
     renderCard(
       baseProps({
         editing: true,
-        entry: baseEntry({ sourceConsultRunId: "run-1", resolvedIssueId: "issue-1", resolvedIssueTitle: "追跡中Issue" }),
+        entry: baseEntry({ sourceConsultRunId: "run-1", resolvedSuggestionId: "suggestion-1", resolvedSuggestionTitle: "追跡中の提案" }),
       }),
     );
     expect(screen.getByText(/このJournalから相談が生まれています/)).toBeInTheDocument();
@@ -283,21 +283,21 @@ describe("JournalEntryCard（編集モード）", () => {
 
   it("「提案を起票してこの件を追跡する」で提案作成後にその提案をサイドピークで開く", async () => {
     const openSuggestionPeekMock = vi.fn();
-    const onResolveWithNewIssue = vi.fn(async () => "new-issue-id");
+    const onResolveWithNewSuggestion = vi.fn(async () => "new-suggestion-id");
     const user = userEvent.setup();
     renderCard(
-      baseProps({ editing: true, onResolveWithNewIssue }),
-      (children) => <IdResolveProvider openIssueInPeek={openSuggestionPeekMock}>{children}</IdResolveProvider>,
+      baseProps({ editing: true, onResolveWithNewSuggestion }),
+      (children) => <IdResolveProvider openSuggestionInPeek={openSuggestionPeekMock}>{children}</IdResolveProvider>,
     );
     await user.click(screen.getByRole("button", { name: "提案を起票してこの件を追跡する" }));
-    expect(onResolveWithNewIssue).toHaveBeenCalledTimes(1);
-    expect(openSuggestionPeekMock).toHaveBeenCalledWith("new-issue-id");
+    expect(onResolveWithNewSuggestion).toHaveBeenCalledTimes(1);
+    expect(openSuggestionPeekMock).toHaveBeenCalledWith("new-suggestion-id");
   });
 
   it("提案作成に失敗した場合（undefined）は遷移しない", async () => {
-    const onResolveWithNewIssue = vi.fn(async () => undefined);
+    const onResolveWithNewSuggestion = vi.fn(async () => undefined);
     const user = userEvent.setup();
-    renderCard(baseProps({ editing: true, onResolveWithNewIssue }));
+    renderCard(baseProps({ editing: true, onResolveWithNewSuggestion }));
     await user.click(screen.getByRole("button", { name: "提案を起票してこの件を追跡する" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/");
   });

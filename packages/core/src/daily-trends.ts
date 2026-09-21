@@ -1,9 +1,9 @@
 // 改修依頼「ふりかえりタブで日毎の変化をグラフで見たい」「先週・先月など時間を自由に
-// 移動したい」対応。EM自身のバイタル（チェックイン）と、Journal/Issueの日毎の件数を、
-// 既存の生データ（useEmCheckins / useJournal / useIssues が返す全件リスト）から
+// 移動したい」対応。EM自身のバイタル（チェックイン）と、Journal/提案の日毎の件数を、
+// 既存の生データ（useEmCheckins / useJournal / useSuggestions が返す全件リスト）から
 // 週／月カレンダーに揃えた期間で集計するだけの純粋関数群。新しい永続化エンティティは
 // 持たず、既存データを画面側で読みやすい形に畳むだけ（groupNotesByWeekと同じ考え方）。
-import type { EmCheckin, Issue, JournalEntry } from "./types";
+import type { EmCheckin, Suggestion, JournalEntry } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -101,25 +101,25 @@ export function buildCheckinDailyTrend(checkins: EmCheckin[], window: DateWindow
   });
 }
 
-export type JournalIssueDailyPoint = {
+export type JournalSuggestionDailyPoint = {
   dateKey: string;
   label: string;
   journalPositive: number;
   journalNeutral: number;
   journalNegative: number;
   journalTotal: number;
-  issueCreated: number;
+  suggestionCreated: number;
 };
 
-// Journalはsentiment別の件数、Issueは起票日ベースの件数を日毎に積む。
-// 「ネガティブ・ポジティブが多い/少ない」はJournal側、「業務状況」の量感はIssue側で見る。
+// Journalはsentiment別の件数、提案は起票日ベースの件数を日毎に積む。
+// 「ネガティブ・ポジティブが多い/少ない」はJournal側、「業務状況」の量感は提案側で見る。
 // docs/2nd_pivot_version.md Phase 5対応。issueDone（doneAtベースの日次解決件数）は、
 // Phase 2.4でstatus編集UI自体が廃止されdoneAtが書き込めなくなったため削除した。
-export function buildJournalIssueDailyTrend(
+export function buildJournalSuggestionDailyTrend(
   journalEntries: JournalEntry[],
-  issues: Issue[],
+  suggestions: Suggestion[],
   window: DateWindow,
-): JournalIssueDailyPoint[] {
+): JournalSuggestionDailyPoint[] {
   const journalByDay = new Map<string, { positive: number; neutral: number; negative: number }>();
   for (const e of journalEntries) {
     if (e.createdAt < window.start || e.createdAt >= window.end) continue;
@@ -129,9 +129,9 @@ export function buildJournalIssueDailyTrend(
     journalByDay.set(key, agg);
   }
   const createdByDay = new Map<string, number>();
-  for (const issue of issues) {
-    if (issue.createdAt >= window.start && issue.createdAt < window.end) {
-      const createdKey = dateKeyOf(issue.createdAt);
+  for (const suggestion of suggestions) {
+    if (suggestion.createdAt >= window.start && suggestion.createdAt < window.end) {
+      const createdKey = dateKeyOf(suggestion.createdAt);
       createdByDay.set(createdKey, (createdByDay.get(createdKey) ?? 0) + 1);
     }
   }
@@ -144,7 +144,7 @@ export function buildJournalIssueDailyTrend(
       journalNeutral: j?.neutral ?? 0,
       journalNegative: j?.negative ?? 0,
       journalTotal: (j?.positive ?? 0) + (j?.neutral ?? 0) + (j?.negative ?? 0),
-      issueCreated: createdByDay.get(key) ?? 0,
+      suggestionCreated: createdByDay.get(key) ?? 0,
     };
   });
 }

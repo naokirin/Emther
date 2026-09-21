@@ -1,27 +1,26 @@
 import {
   CONFIRM_PRIORITIES,
-  ISSUE_PRIORITIES,
   SUGGESTION_REVIEW_STATUSES,
-  type IssuePriority,
+  type ConfirmPriority,
   type YieldKind,
 } from "../types";
 import { dateStringToNoonTimestamp } from "../journal-date-parser";
-import type { IssueCharter } from "../issue-store";
+import type { SuggestionCharter } from "../types";
 import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
 import type { SuggestedTheme } from "../theme-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
   AgentRun,
   ConsultRequest,
-  IssueCandidate,
+  SuggestionCandidate,
   LensUsage,
   PeriodReview,
   PeriodReviewBlindSpot,
   PeriodReviewComparisonItem,
   Proposal,
   RejectedAlternative,
-  SuggestedIssueNote,
-  SuggestedSubIssue,
+  SuggestedSuggestionNote,
+  SuggestedSubSuggestion,
   SuggestionUpdate,
   YieldOption,
   YieldRequest,
@@ -29,18 +28,18 @@ import type {
 
 const PERIOD_REVIEW_ASSESSMENTS = ["improved", "worsened", "changed", "uncertain"] as const;
 
-/** proposal から起票用タイトル候補を返す。issueCandidates があればそれを使い、無ければ issueTitle 1件。 */
-export function listIssueCandidatesFromProposal(proposal?: Proposal | null): IssueCandidate[] {
+/** proposal から起票用タイトル候補を返す。suggestionCandidates があればそれを使い、無ければ suggestionTitle 1件。 */
+export function listSuggestionCandidatesFromProposal(proposal?: Proposal | null): SuggestionCandidate[] {
   if (!proposal) return [];
-  const fromArray = normalizeIssueCandidates(proposal.issueCandidates);
+  const fromArray = normalizeSuggestionCandidates(proposal.suggestionCandidates);
   if (fromArray && fromArray.length > 0) return fromArray;
-  const single = proposal.issueTitle?.trim();
+  const single = proposal.suggestionTitle?.trim();
   return single ? [{ title: single }] : [];
 }
 
-export function normalizeIssueCandidates(parsed: unknown): IssueCandidate[] | undefined {
+export function normalizeSuggestionCandidates(parsed: unknown): SuggestionCandidate[] | undefined {
   if (!Array.isArray(parsed)) return undefined;
-  const items: IssueCandidate[] = [];
+  const items: SuggestionCandidate[] = [];
   for (const entry of parsed) {
     if (typeof entry === "string" && entry.trim()) {
       items.push({ title: entry.trim() });
@@ -58,7 +57,7 @@ export function normalizeIssueCandidates(parsed: unknown): IssueCandidate[] | un
 }
 
 // docs/ai_ philosophy.md。Expand/Challengeの過程で使った哲学レンズ（任意）。壊れにくい
-// パースの考え方はnormalizeIssueCandidatesと同じ：不正な形式の要素は黙って除外する。
+// パースの考え方はnormalizeSuggestionCandidatesと同じ：不正な形式の要素は黙って除外する。
 export function normalizeLensUsage(parsed: unknown): LensUsage[] | undefined {
   if (!Array.isArray(parsed)) return undefined;
   const items: LensUsage[] = [];
@@ -121,12 +120,12 @@ export function extractProposal(resultText: string): Proposal | undefined {
     const parsed = JSON.parse(match[1].trim());
     if (parsed && typeof parsed.conclusion === "string" && typeof parsed.logic === "string") {
       const recommendation =
-        parsed.recommendation === "dismiss" || parsed.recommendation === "issue" || parsed.recommendation === "watch"
-          ? parsed.recommendation
+        parsed.recommendation === "dismiss" || parsed.recommendation === "issue" || parsed.recommendation === "suggestion" || parsed.recommendation === "watch"
+          ? (parsed.recommendation === "issue" ? "suggestion" : parsed.recommendation)
           : undefined;
-      const issueTitle =
-        typeof parsed.issueTitle === "string" && parsed.issueTitle.trim() ? parsed.issueTitle.trim() : undefined;
-      const issueCandidates = normalizeIssueCandidates(parsed.issueCandidates);
+      const suggestionTitle =
+        typeof parsed.suggestionTitle === "string" && parsed.suggestionTitle.trim() ? parsed.suggestionTitle.trim() : undefined;
+      const suggestionCandidates = normalizeSuggestionCandidates(parsed.suggestionCandidates);
       const advice = typeof parsed.advice === "string" && parsed.advice.trim() ? parsed.advice.trim() : undefined;
       const lensesUsed = normalizeLensUsage(parsed.lensesUsed);
       return {
@@ -142,8 +141,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
         expansions: normalizeStringList(parsed.expansions),
         challenges: normalizeStringList(parsed.challenges),
         ...(recommendation ? { recommendation } : {}),
-        ...(issueTitle ? { issueTitle } : {}),
-        ...(issueCandidates ? { issueCandidates } : {}),
+        ...(suggestionTitle ? { suggestionTitle } : {}),
+        ...(suggestionCandidates ? { suggestionCandidates } : {}),
         ...(advice ? { advice } : {}),
         ...(lensesUsed ? { lensesUsed } : {}),
       };
@@ -154,49 +153,54 @@ export function extractProposal(resultText: string): Proposal | undefined {
   return undefined;
 }
 
-// docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子Issue分解案。
+// docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子提案分解案。
 // extractYield/extractProposalと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
 // 要素は文字列、または { title, priority? }。旧DBの文字列配列も normalize で吸収する。
-export function extractSubIssues(resultText: string): SuggestedSubIssue[] | undefined {
+export function extractSubSuggestions(resultText: string): SuggestedSubSuggestion[] | undefined {
   const match = resultText.match(/```sub_issues\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
     const parsed = JSON.parse(match[1].trim());
-    return normalizeSuggestedSubIssues(parsed);
+    return normalizeSuggestedSubSuggestions(parsed);
   } catch {
     // 不正なsub_issuesブロックは「提案なし」として扱う
   }
   return undefined;
 }
 
-// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-// lookupで見つけた別Issueへの追記提案。extractSubIssuesと同じ
-// 壊れにくいパースの考え方（不正な形式・issueId/text欠落の要素は捨てるだけで、
+// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
+// lookupで見つけた別提案への追記提案。extractSubSuggestionsと同じ
+// 壊れにくいパースの考え方（不正な形式・suggestionId/text欠落の要素は捨てるだけで、
 // ブロック自体は「提案なし」として扱う）。
-export function extractIssueNotes(resultText: string): SuggestedIssueNote[] | undefined {
-  const match = resultText.match(/```issue_note\s*\n?([\s\S]*?)```/);
+export function extractSuggestionNotes(resultText: string): SuggestedSuggestionNote[] | undefined {
+  // 旧AI出力の ```issue_note``` / issueId も読み取り時に吸収する（プロンプトは suggestion_note へ移行済み）。
+  const match = resultText.match(/```(?:suggestion_note|issue_note)\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
     const parsed = JSON.parse(match[1].trim());
     if (!Array.isArray(parsed)) return undefined;
-    const items = parsed.filter(
-      (n: unknown): n is SuggestedIssueNote =>
-        !!n &&
-        typeof n === "object" &&
-        typeof (n as SuggestedIssueNote).issueId === "string" &&
-        (n as SuggestedIssueNote).issueId.trim().length > 0 &&
-        typeof (n as SuggestedIssueNote).text === "string" &&
-        (n as SuggestedIssueNote).text.trim().length > 0,
-    );
+    const items: SuggestedSuggestionNote[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") continue;
+      const raw = entry as { suggestionId?: unknown; issueId?: unknown; text?: unknown };
+      const suggestionId =
+        typeof raw.suggestionId === "string" && raw.suggestionId.trim()
+          ? raw.suggestionId.trim()
+          : typeof raw.issueId === "string" && raw.issueId.trim()
+            ? raw.issueId.trim()
+            : "";
+      if (!suggestionId || typeof raw.text !== "string" || !raw.text.trim()) continue;
+      items.push({ suggestionId, text: raw.text.trim() });
+    }
     return items.length > 0 ? items : undefined;
   } catch {
-    // 不正なissue_noteブロックは「提案なし」として扱う
+    // 不正なsuggestion_noteブロックは「提案なし」として扱う
   }
   return undefined;
 }
 
 // docs/suggestion_organize_via_consult.md。EMが相談で明示的に「提案を整理して」等と
-// 依頼したときだけ、AIが提案する既存提案（実在ID）の状態変更下書き。extractIssueNotesと
+// 依頼したときだけ、AIが提案する既存提案（実在ID）の状態変更下書き。extractSuggestionNotesと
 // 同じ壊れにくいパースの考え方（要素単位で不正な値は捨て、有効な変更が1つも残らない
 // 要素は捨てる。ブロック自体が不正なら「提案なし」として扱う）。reasonは必須（差分表示・
 // 監査用の根拠を必ず持たせる方針のため）。
@@ -269,15 +273,15 @@ export function extractSuggestionUpdates(resultText: string): SuggestionUpdate[]
   return undefined;
 }
 
-export function parseSuggestedPriority(value: unknown): IssuePriority | undefined {
-  return typeof value === "string" && (ISSUE_PRIORITIES as string[]).includes(value)
-    ? (value as IssuePriority)
+export function parseSuggestedPriority(value: unknown): ConfirmPriority | undefined {
+  return typeof value === "string" && (CONFIRM_PRIORITIES as string[]).includes(value)
+    ? (value as ConfirmPriority)
     : undefined;
 }
 
-export function normalizeSuggestedSubIssues(parsed: unknown): SuggestedSubIssue[] | undefined {
+export function normalizeSuggestedSubSuggestions(parsed: unknown): SuggestedSubSuggestion[] | undefined {
   if (!Array.isArray(parsed)) return undefined;
-  const items: SuggestedSubIssue[] = [];
+  const items: SuggestedSubSuggestion[] = [];
   for (const entry of parsed) {
     if (typeof entry === "string" && entry.trim()) {
       items.push({ title: entry.trim() });
@@ -325,10 +329,11 @@ export function extractThemes(resultText: string): SuggestedTheme[] | undefined 
             (id): id is string => typeof id === "string",
           ) as string[])
         : undefined;
-      const evidenceIssueIds = Array.isArray((entry as { evidenceIssueIds?: unknown }).evidenceIssueIds)
-        ? ((entry as { evidenceIssueIds: unknown[] }).evidenceIssueIds.filter(
-            (id): id is string => typeof id === "string",
-          ) as string[])
+      const evidenceSuggestionIdsRaw =
+        (entry as { evidenceSuggestionIds?: unknown }).evidenceSuggestionIds ??
+        (entry as { evidenceIssueIds?: unknown }).evidenceIssueIds;
+      const evidenceSuggestionIds = Array.isArray(evidenceSuggestionIdsRaw)
+        ? (evidenceSuggestionIdsRaw.filter((id): id is string => typeof id === "string") as string[])
         : undefined;
       items.push({
         title: title.trim(),
@@ -338,7 +343,7 @@ export function extractThemes(resultText: string): SuggestedTheme[] | undefined 
         ...(rootCause ? { rootCause } : {}),
         ...(suggestedDirection ? { suggestedDirection } : {}),
         ...(evidenceJournalIds ? { evidenceJournalIds } : {}),
-        ...(evidenceIssueIds ? { evidenceIssueIds } : {}),
+        ...(evidenceSuggestionIds ? { evidenceSuggestionIds } : {}),
       });
     }
     return items.length > 0 ? items : undefined;
@@ -426,17 +431,17 @@ export function extractPeriodReview(resultText: string): PeriodReview | undefine
   }
 }
 
-// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。AIが提案するWhy/What/Howの埋め合わせ案。extractActionItems/extractSubIssuesと
+// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。AIが提案するWhy/What/Howの埋め合わせ案。extractActionItems/extractSubSuggestionsと
 // 同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。why/what/how以外の
 // キー・空文字列の値は無視し、1つも有効な値が残らなければ「提案なし」とする。
-export function extractCharter(resultText: string): Partial<IssueCharter> | undefined {
+export function extractCharter(resultText: string): Partial<SuggestionCharter> | undefined {
   const match = resultText.match(/```charter\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
   try {
     const parsed = JSON.parse(match[1].trim());
     if (!parsed || typeof parsed !== "object") return undefined;
-    const result: Partial<IssueCharter> = {};
+    const result: Partial<SuggestionCharter> = {};
     for (const key of ["why", "what", "how"] as const) {
       const value = (parsed as Record<string, unknown>)[key];
       if (typeof value === "string" && value.trim()) result[key] = value.trim();

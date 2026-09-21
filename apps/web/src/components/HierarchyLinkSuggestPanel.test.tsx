@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { GoalLinkSuggestPanel, IssueStrategyLinkSuggestPanel } from "./HierarchyLinkSuggestPanel";
-import type { GoalLinkSuggestion, IssueStrategyLinkSuggestion } from "@emther/core/types";
+import { GoalLinkSuggestPanel, SuggestionStrategyLinkSuggestPanel } from "./HierarchyLinkSuggestPanel";
+import type { GoalLinkSuggestion, SuggestionStrategyLinkSuggestion } from "@emther/core/types";
 
 // web/src/components/HierarchyLinkSuggestPanel.tsx（Next.js版）には専用テストが元々
 // 無かったため新規に追加する（フェーズ3.5 tier5 dashboardバッチ）。
@@ -19,10 +19,10 @@ function goalSuggestion(overrides: Partial<GoalLinkSuggestion> = {}): GoalLinkSu
   };
 }
 
-function issueSuggestion(overrides: Partial<IssueStrategyLinkSuggestion> = {}): IssueStrategyLinkSuggestion {
+function suggestionLink(overrides: Partial<SuggestionStrategyLinkSuggestion> = {}): SuggestionStrategyLinkSuggestion {
   return {
-    issueId: "issue-1",
-    issueTitle: "提案A",
+    suggestionId: "suggestion-1",
+    suggestionTitle: "提案A",
     themeId: null,
     rationale: "理由",
     labels: {},
@@ -91,11 +91,11 @@ describe("GoalLinkSuggestPanel", () => {
   });
 });
 
-describe("IssueStrategyLinkSuggestPanel", () => {
+describe("SuggestionStrategyLinkSuggestPanel", () => {
   it("提案内容とラベルを表示する", () => {
     render(
-      <IssueStrategyLinkSuggestPanel
-        suggestions={[issueSuggestion({ labels: { theme: "テーマX" } })]}
+      <SuggestionStrategyLinkSuggestPanel
+        suggestions={[suggestionLink({ labels: { theme: "テーマX" } })]}
         source="heuristic"
         fallbackReason="AI呼び出し失敗"
         applyingId={null}
@@ -112,9 +112,9 @@ describe("IssueStrategyLinkSuggestPanel", () => {
   it("採用ボタンでonAdoptを呼ぶ", async () => {
     const onAdopt = vi.fn();
     const user = userEvent.setup();
-    const suggestion = issueSuggestion();
+    const suggestion = suggestionLink();
     render(
-      <IssueStrategyLinkSuggestPanel
+      <SuggestionStrategyLinkSuggestPanel
         suggestions={[suggestion]}
         source="cloud"
         applyingId={null}

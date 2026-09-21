@@ -55,7 +55,7 @@ describe("theme-store", () => {
           rationale: "根拠",
           facts: [],
           evidenceJournalIds: [],
-          evidenceIssueIds: [],
+          evidenceSuggestionIds: [],
           objectiveIds: [],
           keyResultIds: [],
           status: "adopted",

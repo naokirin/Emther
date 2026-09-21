@@ -106,8 +106,8 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}>
         <input
           type="checkbox"
-          checked={draft.autoIssueUpdateAnalysisEnabled}
-          onChange={(e) => onChange({ autoIssueUpdateAnalysisEnabled: e.target.checked })}
+          checked={draft.autoSuggestionUpdateAnalysisEnabled}
+          onChange={(e) => onChange({ autoSuggestionUpdateAnalysisEnabled: e.target.checked })}
         />
         タイトルやメモを更新したら、Lead Agentが自動で再分析する（同一提案は約45秒デバウンス）
       </label>

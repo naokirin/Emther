@@ -53,8 +53,8 @@ async function loadModules() {
   const vitals = await import("./vitals");
   const orgStore = await import("./org-context-store/index");
   const journalStore = await import("./journal-store");
-  const issueStore = await import("./issue-store");
-  return { vitals, orgStore, journalStore, issueStore };
+  const suggestionStore = await import("./suggestion-store");
+  return { vitals, orgStore, journalStore, suggestionStore };
 }
 
 describe("computeOrgVitals", () => {
@@ -153,40 +153,40 @@ describe("computeOrgVitals", () => {
     expect(result.teams[0].managedByEm).toBe(true);
   });
 
-  // ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
-  it("チームに紐づくブロッカーIssueが1件あれば、Journalが良好でもwarn以上に引き上げる", async () => {
-    const { vitals, orgStore, journalStore, issueStore } = await loadModules();
+  // ユーザー指摘「バイタルが提案の状況(停滞・確認保留)に対して問題無いように見える」対応。
+  it("チームに紐づく確認保留の提案が1件あれば、Journalが良好でもwarn以上に引き上げる", async () => {
+    const { vitals, orgStore, journalStore, suggestionStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("Aさんが好調");
     await journalStore.addJournalEntry("Aさんがまた好調");
-    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, team.id);
-    issueStore.setIssueStatus(issue.id, "blocked");
+    const suggestion = await suggestionStore.createSuggestion("障害対応", { teamId: team.id });
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
 
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("warn");
     expect(result.teams[0].reason).toContain("確認保留");
   });
 
-  it("チームに紐づくブロッカーIssueがあっても、既にbad判定なら据え置く", async () => {
-    const { vitals, orgStore, journalStore, issueStore } = await loadModules();
+  it("チームに紐づく確認保留の提案があっても、既にbad判定なら据え置く", async () => {
+    const { vitals, orgStore, journalStore, suggestionStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "negative",  };
     await journalStore.addJournalEntry("Aさんが不満");
     await journalStore.addJournalEntry("Aさんがまた不満");
-    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, team.id);
-    issueStore.setIssueStatus(issue.id, "blocked");
+    const suggestion = await suggestionStore.createSuggestion("障害対応", { teamId: team.id });
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
 
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("bad");
   });
 
-  it("アーカイブ済みのブロッカーIssueは無視する", async () => {
-    const { vitals, orgStore, issueStore } = await loadModules();
+  it("アーカイブ済みの確認保留提案は無視する", async () => {
+    const { vitals, orgStore, suggestionStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("障害対応", undefined, undefined, undefined, undefined, team.id);
-    issueStore.setIssueStatus(issue.id, "blocked");
-    issueStore.setIssueArchived(issue.id, true);
+    const suggestion = await suggestionStore.createSuggestion("障害対応", { teamId: team.id });
+    suggestionStore.setReviewStatus(suggestion.id, "deferred");
+    suggestionStore.archiveSuggestion(suggestion.id);
 
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("unknown");
@@ -229,72 +229,57 @@ describe("computeOrgVitals", () => {
   });
 });
 
-describe("computeIssueImpact", () => {
-  it("チームに紐づいていないIssueはundefinedを返す", async () => {
-    const { vitals, issueStore } = await loadModules();
-    const issue = await issueStore.createIssue("チーム未紐付けIssue");
-    expect(vitals.computeIssueImpact(issue)).toBeUndefined();
+describe("computeSuggestionImpact", () => {
+  it("チームに紐づいていない提案はundefinedを返す", async () => {
+    const { vitals, suggestionStore } = await loadModules();
+    const suggestion = await suggestionStore.createSuggestion("チーム未紐付け提案");
+    expect(vitals.computeSuggestionImpact(suggestion)).toBeUndefined();
   });
 
   it("チームにメンバーが居なくてもImpact構造を返す（明示紐付けJournal用・方針A）", async () => {
-    const { vitals, issueStore, orgStore } = await loadModules();
+    const { vitals, suggestionStore, orgStore } = await loadModules();
     const team = orgStore.addTeam("Team A", []);
-    const issue = await issueStore.createIssue("Issue", undefined, undefined, undefined, undefined, team.id);
-    const impact = vitals.computeIssueImpact(issue);
+    const suggestion = await suggestionStore.createSuggestion("提案", { teamId: team.id });
+    const impact = vitals.computeSuggestionImpact(suggestion);
     expect(impact).toBeDefined();
     expect(impact?.inProgress).toBe(true);
     expect(impact?.after.total).toBe(0);
   });
 
   it("メンバー無しでも明示teamIdsのJournalは介入効果に含まれる", async () => {
-    const { vitals, issueStore, orgStore, journalStore } = await loadModules();
+    const { vitals, suggestionStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("コアチーム", []);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
+    const suggestion = await suggestionStore.createSuggestion("介入提案", { teamId: team.id });
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("コアチームの雰囲気が改善した");
-    const impact = vitals.computeIssueImpact(issue);
+    const impact = vitals.computeSuggestionImpact(suggestion);
     expect(impact?.after.total).toBe(1);
   });
 
-  it("未完了のIssueはinProgress:trueで、Issue作成〜現在を観測窓にする", async () => {
-    const { vitals, issueStore, orgStore, journalStore } = await loadModules();
+  it("未完了の提案はinProgress:trueで、提案作成〜現在を観測窓にする", async () => {
+    const { vitals, suggestionStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
+    const suggestion = await suggestionStore.createSuggestion("介入提案", { teamId: team.id });
 
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("介入後の様子");
 
-    const impact = vitals.computeIssueImpact(issue);
+    const impact = vitals.computeSuggestionImpact(suggestion);
     expect(impact?.inProgress).toBe(true);
     expect(impact?.after.total).toBe(1);
   });
 
-  it("アーカイブ（確認済み）は完了扱いの効果窓になる", async () => {
-    const { vitals, issueStore, orgStore, journalStore } = await loadModules();
+  it("reviewStatus=doneの提案はinProgress:falseで、reviewedAt以降windowDays日間を観測窓にする", async () => {
+    const { vitals, suggestionStore, orgStore, journalStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
-    issueStore.setIssueArchived(issue.id, true);
+    const suggestion = await suggestionStore.createSuggestion("介入提案", { teamId: team.id });
+    suggestionStore.setReviewStatus(suggestion.id, "done");
 
     mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
     await journalStore.addJournalEntry("介入後の様子");
 
-    const archivedIssue = issueStore.getIssue(issue.id)!;
-    expect(archivedIssue.status).toBe("done");
-    const impact = vitals.computeIssueImpact(archivedIssue);
-    expect(impact?.inProgress).toBe(false);
-  });
-
-  it("status=doneのIssueはinProgress:falseで、doneAt以降windowDays日間を観測窓にする", async () => {
-    const { vitals, issueStore, orgStore, journalStore } = await loadModules();
-    const team = orgStore.addTeam("Team A", ["Aさん"]);
-    const issue = await issueStore.createIssue("介入Issue", undefined, undefined, undefined, undefined, team.id);
-    issueStore.setIssueStatus(issue.id, "done");
-
-    mockExtraction = { summary: "", tags: [], people: ["Aさん"], urgency: "mid", sentiment: "positive",  };
-    await journalStore.addJournalEntry("介入後の様子");
-
-    const doneIssue = issueStore.getIssue(issue.id)!;
-    const impact = vitals.computeIssueImpact(doneIssue);
+    const doneSuggestion = suggestionStore.getSuggestion(suggestion.id)!;
+    const impact = vitals.computeSuggestionImpact(doneSuggestion);
     expect(impact?.inProgress).toBe(false);
     expect(impact?.after.total).toBe(1);
   });

@@ -1,8 +1,9 @@
 import { getTeam, listActiveTeams, type Team } from "./org-context-store/index";
 import { getRulesAndConstraints, getSelfPersonId } from "./settings-store";
 import { listJournalEntries, type JournalEntry, isJournalRelatedToTeam } from "./journal-store";
-import { isIssueStalled, teamDisplayName } from "./types";
-import { listIssues, type Issue } from "./issue-store";
+import { isSuggestionStalled, teamDisplayName } from "./types";
+import { listSuggestions } from "./suggestion-store";
+import type { Suggestion } from "./types";
 
 // docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
 // 重要: データが足りない場合に「良好」や「要注意」へ寄せず、必ず"unknown"として
@@ -52,24 +53,27 @@ function sentimentScore(s: JournalEntry["sentiment"]): number {
 
 const STATUS_LABEL: Record<VitalStatus, string> = { good: "安定", warn: "やや注意", bad: "要注意", unknown: "評価不能" };
 
-// ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
-// Journalのsentimentだけで判定すると、Issueが停滞・ブロックしていても穏やかに見えてしまう。
-// このチームに紐づく（Issue.teamId一致）未アーカイブIssueに、ブロッカーあり・停滞中のものが
+// ユーザー指摘「バイタルが提案の状況(停滞・確認保留)に対して問題無いように見える」対応。
+// Journalのsentimentだけで判定すると、提案が停滞・確認保留していても穏やかに見えてしまう。
+// このチームに紐づく（Suggestion.teamId一致）未アーカイブ提案に、確認保留・停滞中のものが
 // 1件でもあるかを見る。
-function hasConcerningTeamIssue(teamId: string, now: number, staleDays: number): boolean {
-  return listIssues().some(
-    (i) => i.teamId === teamId && !i.archived && (i.status === "blocked" || isIssueStalled(i, now, staleDays)),
+function hasConcerningTeamSuggestion(teamId: string, now: number, staleDays: number): boolean {
+  return listSuggestions().some(
+    (s) =>
+      s.teamId === teamId &&
+      !s.archivedAt &&
+      (s.reviewStatus === "deferred" || isSuggestionStalled(s, now, staleDays)),
   );
 }
 
 function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType<typeof getRulesAndConstraints>): TeamVital {
-  const concerning = hasConcerningTeamIssue(team.id, Date.now(), rules.staleInterventionDays);
+  const concerning = hasConcerningTeamSuggestion(team.id, Date.now(), rules.staleInterventionDays);
   // 1on1記録CTA向け。利用者本人は「EMが1on1を実施すべき相手」ではないので除外する。
   const selfPersonId = getSelfPersonId();
   const membersForAction = selfPersonId ? team.members.filter((m) => m !== selfPersonId) : team.members;
-  // hasConcerningIssueがtrueの場合、Journal起因の判定が"good"/"unknown"でも"warn"以上に
-  // 引き上げる（"warn"/"bad"は据え置き＝Issueの状況で評価を下げることはあっても甘くはしない）。
-  function withIssueEscalation(status: VitalStatus, reason: string): { status: VitalStatus; label: string; reason: string } {
+  // hasConcerningSuggestionがtrueの場合、Journal起因の判定が"good"/"unknown"でも"warn"以上に
+  // 引き上げる（"warn"/"bad"は据え置き＝提案の状況で評価を下げることはあっても甘くはしない）。
+  function withSuggestionEscalation(status: VitalStatus, reason: string): { status: VitalStatus; label: string; reason: string } {
     if (concerning && (status === "good" || status === "unknown")) {
       return {
         status: "warn",
@@ -89,7 +93,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
       return {
         teamId: team.id,
         teamName: teamDisplayName(team.name),
-        ...withIssueEscalation(
+        ...withSuggestionEscalation(
           "unknown",
           linkedOnly.length === 0
             ? "メンバーが登録されていません。メンバータブでチームにメンバーを追加してください。"
@@ -112,7 +116,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
     return {
       teamId: team.id,
       teamName: teamDisplayName(team.name),
-      ...withIssueEscalation(
+      ...withSuggestionEscalation(
         "unknown",
         `直近${rules.teamWindowDays}日間に${teamDisplayName(team.name)}のメンバーに関するジャーナルが${relevant.length}件しかなく、判定に必要な材料が不足しています（情報不足）。`,
       ),
@@ -137,7 +141,7 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   return {
     teamId: team.id,
     teamName: teamDisplayName(team.name),
-    ...withIssueEscalation(
+    ...withSuggestionEscalation(
       status,
       `直近${rules.teamWindowDays}日間のジャーナル${relevant.length}件（ポジティブ${positive}件 / ネガティブ${negative}件）に基づく簡易判定です。件数が少ないうちは参考程度に見てください。`,
     ),
@@ -214,15 +218,15 @@ export function computeOrgVitals(): OrgVitals {
 }
 
 // docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
-// 「感覚」ではなく観測（Journalのsentiment集計）に基づいて、介入（チームに紐づくIssue）の
+// 「感覚」ではなく観測（Journalのsentiment集計）に基づいて、介入（チームに紐づく提案）の
 // 前後でチームの状態がどう変化したかを見せる。新しいVitalsのロジックは作らず、
 // computeTeamVitalと同じ「直近teamWindowDays日間のJournal」という考え方を、
-// 「解決（done）前のteamWindowDays日間」と「doneAt以降のteamWindowDays日間」の
+// 「解決（done）前のteamWindowDays日間」と「reviewedAt以降のteamWindowDays日間」の
 // 2つの窓に分けて適用するだけ（docs/issue_tracker_contract.md §6 案α）。
 // docs/em_human_story_and_ux.md P2-15「介入効果の『進行中』版」対応。未完了でも
 // before窓（介入開始前）と「介入開始〜現在」窓の比較を返す（inProgressで文言を出し分け）。
 export type ImpactWindow = { total: number; positive: number; negative: number };
-export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };
+export type SuggestionImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };
 
 function summarizeWindow(entries: JournalEntry[]): ImpactWindow {
   return {
@@ -232,11 +236,11 @@ function summarizeWindow(entries: JournalEntry[]): ImpactWindow {
   };
 }
 
-// チームに紐づいていないIssueには「介入の前後比較」という概念自体が成立しないため、
+// チームに紐づいていない提案には「介入の前後比較」という概念自体が成立しないため、
 // その場合はundefinedを返す（呼び出し側はCTAを出し分ける）。
-export function computeIssueImpact(issue: Issue): IssueImpact | undefined {
-  if (!issue.teamId) return undefined;
-  const team = getTeam(issue.teamId);
+export function computeSuggestionImpact(suggestion: Suggestion): SuggestionImpact | undefined {
+  if (!suggestion.teamId) return undefined;
+  const team = getTeam(suggestion.teamId);
   if (!team) return undefined;
 
   const rules = getRulesAndConstraints();
@@ -245,15 +249,19 @@ export function computeIssueImpact(issue: Issue): IssueImpact | undefined {
   // 方針A: 明示 teamIds またはメンバー一致。メンバー0人でも明示紐付けがあれば比較できる。
   const relevant = entries.filter((e) => isJournalRelatedToTeam(e, team));
 
-  const beforeEntries = relevant.filter((e) => e.createdAt >= issue.createdAt - windowMs && e.createdAt < issue.createdAt);
+  const beforeEntries = relevant.filter(
+    (e) => e.createdAt >= suggestion.createdAt - windowMs && e.createdAt < suggestion.createdAt,
+  );
 
-  if (issue.status === "done" && issue.doneAt) {
-    const afterEntries = relevant.filter((e) => e.createdAt >= issue.doneAt! && e.createdAt < issue.doneAt! + windowMs);
+  if (suggestion.reviewStatus === "done" && suggestion.reviewedAt) {
+    const afterEntries = relevant.filter(
+      (e) => e.createdAt >= suggestion.reviewedAt! && e.createdAt < suggestion.reviewedAt! + windowMs,
+    );
     return { windowDays: rules.teamWindowDays, before: summarizeWindow(beforeEntries), after: summarizeWindow(afterEntries), inProgress: false };
   }
 
   // 進行中: 「解決後の固定windowDays日間」がまだ存在しないため、代わりに
-  // 「介入開始（Issue作成）〜現在」を観測窓とする。
-  const sinceStartEntries = relevant.filter((e) => e.createdAt >= issue.createdAt && e.createdAt <= Date.now());
+  // 「介入開始（提案作成）〜現在」を観測窓とする。
+  const sinceStartEntries = relevant.filter((e) => e.createdAt >= suggestion.createdAt && e.createdAt <= Date.now());
   return { windowDays: rules.teamWindowDays, before: summarizeWindow(beforeEntries), after: summarizeWindow(sinceStartEntries), inProgress: true };
 }

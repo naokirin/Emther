@@ -1,13 +1,13 @@
 import { IdLinkedText } from "../IdLinkedText";
 import type { Proposal } from "../RunDetail";
-import { listIssueCandidatesFromProposal } from "./run-view-helpers";
+import { listSuggestionCandidatesFromProposal } from "./run-view-helpers";
 
-// 結論・参照ファクト・Expand/Challenge・判断ロジック・棄却した代替案・Issue化候補の表示。
+// 結論・参照ファクト・Expand/Challenge・判断ロジック・棄却した代替案・提案化候補の表示。
 // 呼び出し側（ExecutionState）が`<div className={styles.proposalBlock}>`で囲み、
 // このコンポーネントの直後に各種「AIが提案するX」ブロックを並べるDOM構造を保つため、
 // ここでは外側のdivは持たずFragmentのみ返す。
 export function ProposalBlock({ proposal }: { proposal: Proposal }) {
-  const candidates = listIssueCandidatesFromProposal(proposal);
+  const candidates = listSuggestionCandidatesFromProposal(proposal);
   const expansions = proposal.expansions ?? [];
   const challenges = proposal.challenges ?? [];
   const lensesUsed = proposal.lensesUsed ?? [];

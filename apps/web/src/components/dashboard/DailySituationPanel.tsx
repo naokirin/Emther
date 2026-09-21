@@ -32,8 +32,8 @@ const STATUS_ICON: Record<VitalStatus, string> = { good: "🟢", warn: "🟡", b
 const STATUS_ORDER: Record<VitalStatus, number> = { bad: 0, warn: 1, unknown: 2, good: 3 };
 
 // ユーザー指摘「ツールチップを全体的にカスタムのものにしてほしい」対応。ネイティブ
-// title（表示が遅い・改行やスタイルを制御できない）ではなく、IssueStatus.tsxの
-// AxisTooltipと同じ.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）に揃える。
+// title（表示が遅い・改行やスタイルを制御できない）ではなく、他画面のAxisTooltipと
+// 同じ.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）に揃える。
 function StatusChip({ item }: { item: SituationItem }) {
   const status = item.status ?? "unknown";
   const className = `${styles.situationChip} ${styles[`situationChip-${status}`]} ${styles.axisTooltip}`;

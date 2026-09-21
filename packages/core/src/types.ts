@@ -1,4 +1,4 @@
-// 複数ページ（Dashboard / Issues / Issue詳細 / Organization Context）から共有する型定義。
+// 複数ページ（Dashboard / Suggestions / Suggestion詳細 / Organization Context）から共有する型定義。
 
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を画面表示するための
 // クライアント向け型。サーバー側の実体（@/lib/knowledge-store）とは意図的に型を分離している
@@ -29,8 +29,8 @@ export type JournalEntry = {
   confirmed: boolean;
   // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは書き換えず、「今どこで管理
   // されているか」を別軸で持たせる。
-  resolvedIssueId?: string;
-  resolvedIssueTitle?: string;
+  resolvedSuggestionId?: string;
+  resolvedSuggestionTitle?: string;
   resolutionNote?: string;
   // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
   sourceConsultRunId?: string;
@@ -47,38 +47,40 @@ export type JournalEntry = {
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {
-  if (entry.resolvedIssueId) return "対応済み/提案化済み";
+  if (entry.resolvedSuggestionId) return "対応済み/提案化済み";
   if (entry.resolutionNote) return "対応済み";
   return "";
 }
 
-// JournalEntryCard.tsxの解決表示と同じ判定基準（Issueで追跡中、または
+// JournalEntryCard.tsxの解決表示と同じ判定基準（提案で追跡中、または
 // 対応メモが残っている）。/journal一覧の「対応済みを除外」フィルタと表示ラベルの
 // 両方でこの1箇所を参照し、判定基準がずれないようにする。
 export function isJournalEntryResolved(entry: JournalEntry): boolean {
-  return !!(entry.resolvedIssueId || entry.resolutionNote);
+  return !!(entry.resolvedSuggestionId || entry.resolutionNote);
 }
 
-// 結論文からIssueタイトル候補を作る。AIが「〜をIssue化して追跡すべきと判断します」のような
+// 結論文から提案タイトル候補を作る。AIが「〜を提案化して追跡すべきと判断します」のような
 // 判断メタを conclusion に書くことが多く、そのままタイトルにすると途中で切れて見える。
-// issueTitle フィールドが無い旧出力・フォールバック向けのヒューリスティック。
+// suggestionTitle フィールドが無い旧出力・フォールバック向けのヒューリスティック。
+// 旧プロンプト（"Issue化"表記）で生成済みの過去テキストにも同じ整形を適用できるよう、
+// 新旧両方の表記パターンを残す。
 const CONCLUSION_TITLE_META_SUFFIXES = [
-  /を?Issue化して追跡すべきだ?と?判断します[。．.]?$/u,
-  /を?Issueとして追跡すべきだ?と?判断します[。．.]?$/u,
-  /を?Issue化して追跡すべきです[。．.]?$/u,
-  /を?Issueとして追跡すべきです[。．.]?$/u,
-  /を?Issue化すべきだ?と?判断します[。．.]?$/u,
-  /を?Issue化を検討すべきだ?と?判断します[。．.]?$/u,
-  /Issue化を検討すべきだ?と?判断します[。．.]?$/u,
-  /Issue化を検討します[。．.]?$/u,
-  /を?Issue化して追跡すべきだ?$/u,
-  /を?Issueとして追跡すべきだ?$/u,
-  /を?Issue化すべきだ?$/u,
+  /を?(?:提案|Issue)化して追跡すべきだ?と?判断します[。．.]?$/u,
+  /を?(?:提案|Issue)として追跡すべきだ?と?判断します[。．.]?$/u,
+  /を?(?:提案|Issue)化して追跡すべきです[。．.]?$/u,
+  /を?(?:提案|Issue)として追跡すべきです[。．.]?$/u,
+  /を?(?:提案|Issue)化すべきだ?と?判断します[。．.]?$/u,
+  /を?(?:提案|Issue)化を検討すべきだ?と?判断します[。．.]?$/u,
+  /(?:提案|Issue)化を検討すべきだ?と?判断します[。．.]?$/u,
+  /(?:提案|Issue)化を検討します[。．.]?$/u,
+  /を?(?:提案|Issue)化して追跡すべきだ?$/u,
+  /を?(?:提案|Issue)として追跡すべきだ?$/u,
+  /を?(?:提案|Issue)化すべきだ?$/u,
   /と判断します[。．.]?$/u,
   /と考えます[。．.]?$/u,
 ];
 
-export function issueTitleFromConclusion(conclusion: string): string {
+export function suggestionTitleFromConclusion(conclusion: string): string {
   let text = conclusion.trim().replace(/\s+/g, " ");
   if (!text) return text;
   for (const re of CONCLUSION_TITLE_META_SUFFIXES) {
@@ -89,9 +91,9 @@ export function issueTitleFromConclusion(conclusion: string): string {
 }
 
 // ユーザー指摘対応: 異常検知runなど、EMが書いた短い文ではなく定型の指示文＋本文という
-// 長いtaskをそのままIssueタイトルに使うと、単純なslice(0, n)では文の途中（しかも
+// 長いtaskをそのまま提案タイトルに使うと、単純なslice(0, n)では文の途中（しかも
 // 肝心の本文へ辿り着く前）でちぎれ、省略されたことも分からない見た目になっていた。
-// Issueタイトルを作る全箇所でこの1箇所を通し、上限超過時は句読点付近で切って「…」を付ける。
+// 提案タイトルを作る全箇所でこの1箇所を通し、上限超過時は句読点付近で切って「…」を付ける。
 // （句点で自然に終わった場合は「…」を付けない。）
 export function truncateForTitle(text: string, maxLength = 80): string {
   const trimmed = text.trim().replace(/\s+/g, " ");
@@ -244,15 +246,15 @@ export const CLI_LABELS: Record<CliName, string> = {
 
 // デバウンス待ちの自動エージェント起動予定（提案更新分析など）。
 // agent-runtimeが発行し、GET /api/agents経由でUIへ公開する。
-export type PendingAgentStartKind = "issue-update";
+export type PendingAgentStartKind = "suggestion-update";
 export type PendingAgentStart = {
   id: string;
   kind: PendingAgentStartKind;
   /** UI向け短い説明（例: 「課題の更新分析」） */
   label: string;
   firesAt: number;
-  issueId?: string;
-  issueTitle?: string;
+  suggestionId?: string;
+  suggestionTitle?: string;
   detail?: string;
 };
 
@@ -263,21 +265,21 @@ export type PendingUnmaskedSend = {
   kind: PendingUnmaskedSendKind;
   candidates: string[];
   label: string;
-  issueId?: string;
-  issueTitle?: string;
+  suggestionId?: string;
+  suggestionTitle?: string;
   agentName?: string;
   task?: string;
   origin?:
     | "manual"
     | "auto-anomaly"
     | "auto-summary"
-    | "auto-issue-update"
+    | "auto-suggestion-update"
     | "auto-distill"
     | "auto-grow"
     | "auto-journal-batch"
     | "auto-weekly-report"
     | "auto-monthly-report";
-  linkedIssueId?: string;
+  linkedSuggestionId?: string;
   sourceJournalId?: string;
   /** 何でも相談で経営／役員目線レビューを必須consultするとき */
   requiredConsultAgents?: string[];
@@ -298,8 +300,8 @@ export type RulesAndConstraints = {
   agentStaleAfterSeconds: number;
   agentKillAfterSeconds: number;
   journalFactTtlDays: number;
-  // 提案のタイトル・メモ更新時の自動分析（既定OFF）。設定キー名は互換のため維持。
-  autoIssueUpdateAnalysisEnabled: boolean;
+  // 提案のタイトル・メモ更新時の自動分析（既定OFF）。
+  autoSuggestionUpdateAnalysisEnabled: boolean;
   autoMorningSummaryEnabled: boolean;
   autoMorningSummaryHour: number;
   // Journalをまとめて解釈するバッチ（settings-storeと同義）。既定OFF。
@@ -543,180 +545,19 @@ export function compareSuggestionsByConfirmPriority(a: Suggestion, b: Suggestion
   return b.updatedAt - a.updatedAt;
 }
 
-export type ActionItem = {
-  id: string;
-  text: string;
-  done: boolean;
-};
-
-// Action Items進行管理（Next Action）: 未完了のうち配列先頭が「次の一手」。
-// 残り未完了は backlog、完了済みは完了リスト。タスクトラッカー化せず、介入の焦点を1件に絞る。
-export function issueNextAction(issue: Issue): ActionItem | undefined {
-  return issue.actionItems.find((a) => !a.done);
-}
-
-export function issueBacklogActionItems(issue: Issue): ActionItem[] {
-  const next = issueNextAction(issue);
-  return issue.actionItems.filter((a) => !a.done && a.id !== next?.id);
-}
-
-// Dashboard横断表示の上限。朝キューを増やしすぎない（docs/em_ui_ux_issue.md §2）。
-export const INTERVENTION_NEXT_ACTION_LIMIT = 3;
-
-// Action Item（この介入の一手）と子Issue（別の介入物語）の境界。UIヘルプとAIプロンプトで共有する。
-export const ACTION_ITEM_VS_SUB_ISSUE_HELP =
-  "判断の目安: 「この介入の次の一手か？」→ Action Item。「独自の Why/What/How を持つ別の介入か？」→ 子Issue。";
-
-// docs/em_ui_ux_issue.md 4節「ステータス管理の導入」対応。archived（2値）だけでは
-// 「進行中」と「ブロッカーあり」を区別できないため、別軸のステータスを持たせる。
-// blocked/doneへの遷移はEMの明示操作を主とし、not_started→in_progressだけは
-// 事実（Action Item追加・経過ログ追加）から機械的に自動昇格させる（issue-store.ts参照）。
-export type IssueStatus = "not_started" | "in_progress" | "blocked" | "done";
-
-export const ISSUE_STATUSES: IssueStatus[] = ["not_started", "in_progress", "blocked", "done"];
-
-export const ISSUE_STATUS_META: Record<IssueStatus, { icon: string; label: string }> = {
-  not_started: { icon: "⚪️", label: "未着手" },
-  in_progress: { icon: "🔵", label: "進行中" },
-  blocked: { icon: "🟡", label: "ブロッカーあり(Waiting)" },
-  done: { icon: "✅", label: "完了（解決）" },
-};
-
-// ユーザー依頼「EMがIssueに対して考えたこと・取ったアクション・結果を反映する」対応。
-// 進行中に思いついた時点でひとこと書き足すだけの自由記述ログ（種別を分けない）。
-export type IssueLogEntry = {
-  id: string;
-  text: string;
-  createdAt: number;
-};
-
-// Issueの計画・実行前に明らかにしておくべき3要素。各項目は空文字列（＝未整理）を許容する。
-export type IssueCharter = {
+// 提案の計画・実行前に明らかにしておくべき3要素。各項目は空文字列（＝未整理）を許容する。
+// AIが提案の起票時・更新時にWhy/What/Howの下書きを出すためだけに使う（Suggestion本体は
+// この形で構造化して保持しない。採用時はメモへ折り込む）。
+export type SuggestionCharter = {
   why: string;
   what: string;
   how: string;
 };
 
-export type IssuePriority = "focus" | "normal" | "parked";
-
-export const ISSUE_PRIORITIES: IssuePriority[] = ["focus", "normal", "parked"];
-
-export const ISSUE_PRIORITY_META: Record<IssuePriority, { icon: string; label: string; hint: string }> = {
-  focus: { icon: "🔥", label: "フォーカス", hint: "今週〜今月で進める介入。朝の次の一手の主対象" },
-  normal: { icon: "➖", label: "通常", hint: "進行中だが、いまの主戦場ではない" },
-  parked: { icon: "🅿️", label: "保留", hint: "様子見・後回し。朝キューには載せない" },
-};
-
-// docs/value_hierarchy_and_flow.md §4。帯付けの内部根拠。
-export type IssueTriageScores = {
-  costOfDelay: number;
-  effort: number;
-  blastRadius: number;
-  confidence: number;
-  score: number;
-  suggestedPriority: IssuePriority;
-  scoredAt: number;
-  /** 採点手段。旧データは未設定。 */
-  source?: "ai" | "heuristic";
-};
-
-export type Issue = {
-  id: string;
-  title: string;
-  agentRunId?: string;
-  // 相談から昇格したときの元 Run。agentRunId は更新分析で差し替わるため、生成元は別フィールドで残す。
-  sourceRunId?: string;
-  // Journal から直接起票、または Journal 由来の相談から昇格したときの元エントリ。
-  sourceJournalId?: string;
-  charter: IssueCharter;
-  actionItems: ActionItem[];
-  logEntries: IssueLogEntry[];
-  parentId?: string;
-  status: IssueStatus;
-  // docs/memo.md「つながりを見るで提案の横に謎の『進行中』が出る」対応。statusは旧Issue
-  // ワークフロー互換のため in_progress/blocked/done の3値しか取らず、未確認(unreviewed)の
-  // 提案も一律「進行中」に見えてしまう。EMが実際に確認した状態を出したい画面向けに、
-  // Suggestion.reviewStatusをそのまま持たせておく。
-  reviewStatus: SuggestionReviewStatus;
-  // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
-  // 対応。Suggestion.reviewDueAtをそのまま持たせ、朝キューでの期日超過判定に使う。
-  reviewDueAt?: number;
-  // 介入ポートフォリオの優先帯。focus=今週〜今月の主戦場、parked=朝キュー外。
-  // 未設定の旧データは normal 扱い（issue-store の読み込み補完）。
-  priority: IssuePriority;
-  // focus 同士の順序（小さいほど先）。priority !== "focus" のときは未定義。
-  focusOrder?: number;
-  archived: boolean;
-  // docs/issue_tracker_contract.md §3。archived=追わない（一覧退避）。効果測定には使わない。
-  archivedAt?: number;
-  // docs/issue_tracker_contract.md §3／案α。status=done になった時刻。介入効果の起点。
-  doneAt?: number;
-  tags: string[];
-  // docs/value_hierarchy_and_flow.md §2。採用済みテーマへの任意リンク（EM介入線）。
-  themeId?: string;
-  // docs/memo.md「I. チーム単位の憲法」対応。このIssueがどのチームに関するものかの
-  // 紐付け（任意）。Agent Runtimeへの動的ロードで、そのチームのMission/制約だけを
-  // 絶対の前提として注入するために使う。
-  teamId?: string;
-  triage?: IssueTriageScores;
-  createdAt: number;
-  updatedAt: number;
-};
-
-/** 戦略線（テーマ）に未接続か。警告表示用。必須ではない。 */
-export function isIssueStrategyUnlinked(issue: Pick<Issue, "themeId">): boolean {
-  return !issue.themeId;
-}
-
-// 一覧・Dashboard横断の並び: focus（focusOrder）→ normal（更新新しい順）→ parked。
-export function compareIssuesByPriority(a: Issue, b: Issue): number {
-  const rank: Record<IssuePriority, number> = { focus: 0, normal: 1, parked: 2 };
-  const pa = a.priority ?? "normal";
-  const pb = b.priority ?? "normal";
-  if (rank[pa] !== rank[pb]) return rank[pa] - rank[pb];
-  if (pa === "focus" && pb === "focus") {
-    const oa = a.focusOrder ?? Number.MAX_SAFE_INTEGER;
-    const ob = b.focusOrder ?? Number.MAX_SAFE_INTEGER;
-    if (oa !== ob) return oa - ob;
-  }
-  return b.updatedAt - a.updatedAt;
-}
-
-export function charterFilledCount(charter: IssueCharter): number {
-  return [charter.why, charter.what, charter.how].filter((v) => v.trim().length > 0).length;
-}
-
-// docs/memo.md「Issue/Journalリンク等について、ツールチップ等で概要が表示されると嬉しい」対応。
-// 互換レイヤー経由のIssueは charter が空のため、メモ要約は suggestionOverviewFromLogs を使う。
-export function issueOverviewText(charter: IssueCharter, maxLength = 140): string {
-  const text = charter.why.trim() || charter.what.trim() || charter.how.trim();
-  if (!text) return "メモはまだありません";
-  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
-}
-
 export function suggestionOverviewFromLogs(logEntries: { text: string }[], maxLength = 140): string {
   const text = logEntries.at(-1)?.text.trim() ?? "";
   if (!text) return "メモはまだありません";
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
-}
-
-// docs/issue_tracker_contract.md §3。朝キュー・ボード・停滞の共通定義。
-export function isIssueActive(issue: Pick<Issue, "archived" | "status">): boolean {
-  return !issue.archived && issue.status !== "done";
-}
-
-// docs/2nd_pivot_version.md Phase 7。確認済み以外で、閾値日数より長く更新が無いものを停滞とする。
-export function isIssueStalled(issue: Issue, now: number, staleDays: number): boolean {
-  if (!isIssueActive(issue)) return false;
-  return now - issue.updatedAt > staleDays * 24 * 60 * 60 * 1000;
-}
-
-// 互換用。Action Items / 子Issue進捗。Suggestion 写像では常に 0/0 になりうる。
-export function issueProgress(issue: Issue, childIssues: Issue[] = []): { done: number; total: number } {
-  const actionDone = issue.actionItems.filter((a) => a.done).length;
-  const activeChildren = childIssues.filter((c) => !c.archived);
-  const childDone = activeChildren.filter((c) => c.status === "done").length;
-  return { done: actionDone + childDone, total: issue.actionItems.length + activeChildren.length };
 }
 
 // docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。§2.3のDecide/Inform/Commitの区別を
@@ -824,7 +665,7 @@ export const URGENCY_LABEL: Record<JournalEntry["urgency"], string> = {
 };
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
-// 既存のpeople-directory／Journal fact・解釈／チーム所属／関連Issueを人物軸で束ねた
+// 既存のpeople-directory／Journal fact・解釈／チーム所属／関連提案を人物軸で束ねた
 // 集約ビュー（@/lib/people-hub.tsのサーバー側の型と対応）。
 export type PersonTrend = { positive: number; negative: number; neutral: number };
 
@@ -833,21 +674,21 @@ export type PersonTrend = { positive: number; negative: number; neutral: number 
 // 「ネガティブ優勢→bad／件数不足→unknown」という判定思想を踏襲するが、こちらは
 // 一覧カードの軽量な視覚表示用なので、Team Vitalsのような設定可能な閾値
 // （RulesAndConstraints）は持たない単純な多数決にする。
-// ユーザー指摘「バイタルがIssueの状況(停滞・ブロッカー)に対して問題無いように見える」対応。
-// hasConcerningIssue（ブロッカーあり・停滞中の関連Issueが1件でもあるか）がtrueの場合、
+// ユーザー指摘「バイタルが提案の状況(停滞・確認保留)に対して問題無いように見える」対応。
+// hasConcerningSuggestion（確認保留・停滞中の関連提案が1件でもあるか）がtrueの場合、
 // Journalのsentimentだけでは"good"/"unknown"に見えていても、少なくとも"warn"へ引き上げる
-// （"warn"/"bad"は据え置き＝Issueの状況で評価を下げることはあっても甘くはしない）。
-export function personVitalStatus(trend: PersonTrend, hasConcerningIssue = false): VitalStatus {
+// （"warn"/"bad"は据え置き＝提案の状況で評価を下げることはあっても甘くはしない）。
+export function personVitalStatus(trend: PersonTrend, hasConcerningSuggestion = false): VitalStatus {
   const total = trend.positive + trend.negative + trend.neutral;
   const base: VitalStatus = total < 2 ? "unknown" : trend.negative > trend.positive ? "bad" : trend.negative === trend.positive && trend.negative > 0 ? "warn" : "good";
-  if (hasConcerningIssue && (base === "good" || base === "unknown")) return "warn";
+  if (hasConcerningSuggestion && (base === "good" || base === "unknown")) return "warn";
   return base;
 }
 
 // ユーザー指摘「気にかけるべき度合いがなぜ高いのかメンバー詳細を見てもわかりにくい」対応。
-// personVitalStatusの判定根拠（Journalのsentiment内訳／関連Issueの停滞・ブロッカー）を、
+// personVitalStatusの判定根拠（Journalのsentiment内訳／関連提案の停滞・確認保留）を、
 // バッジのtitleツールチップ頼みにせず、詳細画面に文章として表示できるようにする。
-export function personVitalReason(trend: PersonTrend, hasConcerningIssue = false): string {
+export function personVitalReason(trend: PersonTrend, hasConcerningSuggestion = false): string {
   const total = trend.positive + trend.negative + trend.neutral;
   const reasons: string[] = [];
   if (total < 2) {
@@ -859,7 +700,7 @@ export function personVitalReason(trend: PersonTrend, hasConcerningIssue = false
   } else {
     reasons.push(`ポジティブなJournalが優勢、または気になる兆候はありません（🙂${trend.positive} 🙁${trend.negative}）`);
   }
-  if (hasConcerningIssue) {
+  if (hasConcerningSuggestion) {
     reasons.push("停滞・確認保留ありの関連提案があります");
   }
   return reasons.join(" ／ ");
@@ -887,7 +728,7 @@ export type PersonSummary = {
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   // settings.selfPersonId と一致する人物。本人は部下一覧・1on1 Coverageから除外する。
   isSelf: boolean;
-  hasConcerningIssue: boolean;
+  hasConcerningSuggestion: boolean;
 };
 
 export type PersonFact = {
@@ -902,11 +743,11 @@ export type PersonFact = {
   noActionNeededNote?: string;
 };
 
-export type PersonRelatedIssue = {
+export type PersonRelatedSuggestion = {
   id: string;
   title: string;
   archived: boolean;
-  // docs/2nd_pivot_version.md Phase 2.3対応。IssueCharterそのものではなく要約テキスト。
+  // docs/2nd_pivot_version.md Phase 2.3対応。charterそのものではなく要約テキスト。
   overview: string;
   // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
   concerning: boolean;
@@ -917,7 +758,7 @@ export type PersonRelatedIssue = {
 export type PersonProfile = PersonSummary & {
   facts: PersonFact[];
   interpretations: { id: string; text: string; occurredAt: number }[];
-  relatedIssues: PersonRelatedIssue[];
+  relatedSuggestions: PersonRelatedSuggestion[];
 };
 
 // docs/value_hierarchy_and_flow.md §5。日常の評価ログ（A/B）。
@@ -954,7 +795,7 @@ export type OrgTheme = {
   rootCause?: string;
   suggestedDirection?: string;
   evidenceJournalIds: string[];
-  evidenceIssueIds: string[];
+  evidenceSuggestionIds: string[];
   // Goalへの明示リンク。
   goalIds?: string[];
   status: ThemeStatus;
@@ -970,10 +811,10 @@ export function isThemeGoalUnlinked(theme: Pick<OrgTheme, "status" | "goalIds">)
   return theme.status === "adopted" && !(theme.goalIds?.length);
 }
 
-/** POST /api/issues/link/suggest の1件。HITL 用（未適用）。 */
-export type IssueStrategyLinkSuggestion = {
-  issueId: string;
-  issueTitle: string;
+/** POST /api/suggestions/link/suggest の1件。HITL 用（未適用）。 */
+export type SuggestionStrategyLinkSuggestion = {
+  suggestionId: string;
+  suggestionTitle: string;
   themeId: string | null;
   rationale: string;
   labels: { theme?: string };
@@ -987,17 +828,17 @@ export type SuggestedTheme = {
   rootCause?: string;
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
-  evidenceIssueIds?: string[];
+  evidenceSuggestionIds?: string[];
   goalIds?: string[];
 };
 
 // docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
 // docs/em_human_story_and_ux.md P2-15対応でinProgressを追加（アーカイブ前の暫定値かどうか）。
 export type ImpactWindow = { total: number; positive: number; negative: number };
-export type IssueImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };
+export type SuggestionImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。
-export type TimelineEntityType = "journal" | "person" | "team" | "issue" | "org";
+export type TimelineEntityType = "journal" | "person" | "team" | "suggestion" | "org";
 
 export type TimelineEntry = {
   id: string;
@@ -1010,7 +851,7 @@ export type TimelineEntry = {
 };
 
 export const TIMELINE_ENTITY_TYPE_LABEL: Record<TimelineEntityType, string> = {
-  issue: "Issue",
+  suggestion: "提案",
   team: "Team",
   org: "Org",
   journal: "Journal",
@@ -1032,7 +873,7 @@ export type ReportJournalStats = {
   notableEntries: { id: string; summary: string; urgency: string; sentiment: string; occurredAt: number }[];
 };
 
-export type ReportIssueStats = {
+export type ReportSuggestionStats = {
   createdCount: number;
   archivedCount: number;
   createdTitles: { id: string; title: string }[];
@@ -1046,7 +887,7 @@ export type ReportEventStats = {
 
 export type ReportStats = {
   journal: ReportJournalStats;
-  issues: ReportIssueStats;
+  suggestions: ReportSuggestionStats;
   events: ReportEventStats;
 };
 

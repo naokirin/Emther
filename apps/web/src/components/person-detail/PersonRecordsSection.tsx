@@ -4,7 +4,7 @@ import styles from "../../styles/page.module.css";
 import { PersonJournalComposer } from "./PersonJournalComposer";
 import { PersonProfileComposer } from "./PersonProfileComposer";
 import { SuggestionLink } from "../SuggestionLink";
-import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedIssue } from "@emther/core/types";
+import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedSuggestion } from "@emther/core/types";
 
 // ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブの強調を減らせない」対応。
 // sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した場合だけ、
@@ -74,17 +74,17 @@ function FactSentimentAction({ fact, onChanged }: { fact: PersonFact; onChanged:
   );
 }
 
-// ユーザー指摘「メンバーのアラート表示（関連Issueの停滞・ブロッカー）を確認したが
-// 対応不要だった、を示せず強調を減らせない」対応。Issue自体の状態は書き換えず、
-// 「この人物にとって対応不要と確認済み」を人物×Issue単位で記録する
-// （PATCH /api/people/[id]/concern-acks/[issueId]）。
-function IssueConcernTag({
+// ユーザー指摘「メンバーのアラート表示（関連提案の停滞・確認保留）を確認したが
+// 対応不要だった、を示せず強調を減らせない」対応。提案自体の状態は書き換えず、
+// 「この人物にとって対応不要と確認済み」を人物×提案単位で記録する
+// （PATCH /api/people/[id]/concern-acks/[suggestionId]）。
+function SuggestionConcernTag({
   personId,
-  issue,
+  suggestion,
   onChanged,
 }: {
   personId: string;
-  issue: PersonRelatedIssue;
+  suggestion: PersonRelatedSuggestion;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -92,7 +92,7 @@ function IssueConcernTag({
   async function toggle(acknowledged: boolean) {
     setBusy(true);
     try {
-      await fetch(`/api/people/${personId}/concern-acks/${issue.id}`, {
+      await fetch(`/api/people/${personId}/concern-acks/${suggestion.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acknowledged }),
@@ -103,14 +103,14 @@ function IssueConcernTag({
     }
   }
 
-  if (!issue.concerning) return null;
+  if (!suggestion.concerning) return null;
 
-  if (issue.concernAcknowledgedAt) {
+  if (suggestion.concernAcknowledgedAt) {
     return (
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
         <span
           className={`${styles.tableMuted} ${styles.axisTooltip}`}
-          data-tooltip={issue.concernAcknowledgedNote ? `確認済み（対応不要と判断）: ${issue.concernAcknowledgedNote}` : "確認済み（対応不要と判断）"}
+          data-tooltip={suggestion.concernAcknowledgedNote ? `確認済み（対応不要と判断）: ${suggestion.concernAcknowledgedNote}` : "確認済み（対応不要と判断）"}
           tabIndex={0}
         >
           ✓ 停滞・確認保留（確認済み）
@@ -236,7 +236,7 @@ export function PersonRecordsSection({
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
         名前がタイトル・メモに含まれる提案を表示しています（厳密な紐付けではなく名前の一致による簡易抽出です）。
       </p>
-      {person.relatedIssues.length === 0 ? (
+      {person.relatedSuggestions.length === 0 ? (
         <p className={styles.subtitle}>関連する提案は見つかりませんでした。</p>
       ) : (
         <div className={styles.tableWrap}>
@@ -248,16 +248,16 @@ export function PersonRecordsSection({
               </tr>
             </thead>
             <tbody>
-              {person.relatedIssues.map((issue) => (
-                <tr key={issue.id}>
+              {person.relatedSuggestions.map((suggestion) => (
+                <tr key={suggestion.id}>
                   <td>
-                    <SuggestionLink id={issue.id} className={styles.tableRowLink}>
-                      {issue.title}
+                    <SuggestionLink id={suggestion.id} className={styles.tableRowLink}>
+                      {suggestion.title}
                     </SuggestionLink>
-                    {issue.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
-                    <IssueConcernTag personId={person.id} issue={issue} onChanged={() => void onRecordChanged()} />
+                    {suggestion.archived && <div className={styles.tableMuted}>🗄 アーカイブ済み</div>}
+                    <SuggestionConcernTag personId={person.id} suggestion={suggestion} onChanged={() => void onRecordChanged()} />
                   </td>
-                  <td className={styles.tableMuted}>{issue.overview}</td>
+                  <td className={styles.tableMuted}>{suggestion.overview}</td>
                 </tr>
               ))}
             </tbody>

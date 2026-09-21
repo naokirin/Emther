@@ -1,5 +1,5 @@
 import styles from "../styles/page.module.css";
-import type { GoalLinkSuggestion, IssueStrategyLinkSuggestion } from "@emther/core/types";
+import type { GoalLinkSuggestion, SuggestionStrategyLinkSuggestion } from "@emther/core/types";
 
 // Theme(採用済み)へのGoal紐づけAI提案のHITL表示。
 export function GoalLinkSuggestPanel({
@@ -95,7 +95,7 @@ export function GoalLinkSuggestPanel({
   );
 }
 
-export function IssueStrategyLinkSuggestPanel({
+export function SuggestionStrategyLinkSuggestPanel({
   suggestions,
   source,
   fallbackReason,
@@ -104,13 +104,13 @@ export function IssueStrategyLinkSuggestPanel({
   onDismiss,
   onDismissOne,
 }: {
-  suggestions: IssueStrategyLinkSuggestion[];
+  suggestions: SuggestionStrategyLinkSuggestion[];
   source: "cloud" | "heuristic";
   fallbackReason?: string;
   applyingId: string | null;
-  onAdopt: (s: IssueStrategyLinkSuggestion) => void;
+  onAdopt: (s: SuggestionStrategyLinkSuggestion) => void;
   onDismiss: () => void;
-  onDismissOne: (issueId: string) => void;
+  onDismissOne: (suggestionId: string) => void;
 }) {
   return (
     <div
@@ -144,14 +144,14 @@ export function IssueStrategyLinkSuggestPanel({
         <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
           {suggestions.map((s) => (
             <li
-              key={s.issueId}
+              key={s.suggestionId}
               style={{
                 marginBottom: 10,
                 paddingBottom: 10,
                 borderBottom: "1px solid var(--border)",
               }}
             >
-              <div style={{ fontWeight: 600 }}>{s.issueTitle}</div>
+              <div style={{ fontWeight: 600 }}>{s.suggestionTitle}</div>
               <p className={styles.subtitle} style={{ margin: "2px 0 4px" }}>
                 {s.rationale}
               </p>
@@ -161,17 +161,17 @@ export function IssueStrategyLinkSuggestPanel({
                   type="button"
                   className={styles.primaryBtn}
                   style={{ width: "auto", fontSize: "0.75rem" }}
-                  disabled={applyingId === s.issueId}
+                  disabled={applyingId === s.suggestionId}
                   onClick={() => onAdopt(s)}
                 >
-                  {applyingId === s.issueId ? "採用中…" : "採用してリンク"}
+                  {applyingId === s.suggestionId ? "採用中…" : "採用してリンク"}
                 </button>
                 <button
                   type="button"
                   className={styles.btnOutline}
                   style={{ fontSize: "0.75rem" }}
                   disabled={!!applyingId}
-                  onClick={() => onDismissOne(s.issueId)}
+                  onClick={() => onDismissOne(s.suggestionId)}
                 >
                   スキップ
                 </button>

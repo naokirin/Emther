@@ -21,7 +21,6 @@ import { journalRoute } from "./routes/journal";
 import { settingsRulesRoute } from "./routes/settings-rules";
 import { themesRoute } from "./routes/themes";
 import { agentsRoute, agentsInboxRoute, agentsPendingUnmaskedRoute } from "./routes/agents";
-import { issuesRoute } from "./routes/issues";
 import { suggestionsRoute } from "./routes/suggestions";
 import { themesDistillRoute } from "./routes/themes-distill";
 import { growthGenerateRoute } from "./routes/growth-generate";
@@ -33,7 +32,7 @@ import { settingsDataBackupRoute } from "./routes/settings-data-backup";
 import { settingsDataResetRoute } from "./routes/settings-data-reset";
 import { settingsDataRestoreRoute } from "./routes/settings-data-restore";
 import { journalDumpsRoute } from "./routes/journal-dumps";
-import { issuesLinkSuggestRoute } from "./routes/issues-link-suggest";
+import { suggestionsLinkSuggestRoute } from "./routes/suggestions-link-suggest";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -78,8 +77,7 @@ export function createApp(options?: { clientDir?: string }) {
   app.route("/api/agents/inbox", agentsInboxRoute);
   app.route("/api/agents/pending-unmasked", agentsPendingUnmaskedRoute);
   app.route("/api/agents", agentsRoute);
-  app.route("/api/issues/link/suggest", issuesLinkSuggestRoute);
-  app.route("/api/issues", issuesRoute);
+  app.route("/api/suggestions/link/suggest", suggestionsLinkSuggestRoute);
   app.route("/api/suggestions", suggestionsRoute);
   app.route("/api/growth/generate", growthGenerateRoute);
   app.route("/api/models/status", modelsStatusRoute);

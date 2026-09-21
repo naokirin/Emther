@@ -178,7 +178,7 @@ function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: st
 // 生成型チェックに弾かれるため、コンポーネントファイルへ分離している。
 //
 // docs/memo.md「J. Peopleを第一級ハブに」対応。人物軸でJournal fact・長期プロファイル
-// （解釈）・チーム所属・関連Issueを横断して見せる詳細画面。新規の永続化エンティティは
+// （解釈）・チーム所属・関連提案を横断して見せる詳細画面。新規の永続化エンティティは
 // 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ。辿る入口に加え、
 // この人物に紐づくJournalをその場で追加できる（作成時にpeopleへ本人を明示付与）。
 export function PersonDetailContent({ id }: { id: string }) {

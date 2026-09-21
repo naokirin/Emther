@@ -22,7 +22,7 @@ import {
 import { buildSourceConsultIndex } from "@emther/core/journal-consult-index";
 import { resolveJournalOccurredAtFromDateInput } from "@emther/core/journal-date-parser";
 import { resolveUniqueByPrefix } from "@emther/core/id-resolve";
-import { listIssues } from "@emther/core/issue-store";
+import { listSuggestions } from "@emther/core/suggestion-store";
 import { requestJournalAnalysis } from "@emther/core/journal-analysis";
 import { startJournalBatchAnalysis, toRunView } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
@@ -70,9 +70,9 @@ const journalPatchBodySchema = z
     urgency: z.enum(["low", "mid", "high"]).optional().catch(undefined),
     sentiment: z.enum(["positive", "negative", "neutral"]).optional().catch(undefined),
     occurredAtDate: z.string().optional().catch(undefined),
-    // resolvedIssueId/resolutionNoteは「未指定=変更しない」「null=解除」「文字列=設定」の
+    // resolvedSuggestionId/resolutionNoteは「未指定=変更しない」「null=解除」「文字列=設定」の
     // 3値。不正な型（数値・オブジェクト等）は「未指定」と同じ扱いに落とす（.catch(undefined)）。
-    resolvedIssueId: z.string().nullable().optional().catch(undefined),
+    resolvedSuggestionId: z.string().nullable().optional().catch(undefined),
     resolutionNote: z.string().nullable().optional().catch(undefined),
   })
   .catch({});
@@ -244,17 +244,17 @@ export const journalRoute = new Hono()
 
     // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない」
     // 対応。未指定（キー自体が無い）=変更しない、null=解除、文字列=設定、の3値。
-    // docs/2nd_pivot_version.md Phase 3対応。既存Issueへの手動紐付けUIは廃止し、現在この経路を
-    // 呼ぶのは「Issueを起票してこの件を追跡する」（作成直後のIssueへの自動紐付け、常にissue.id
+    // docs/2nd_pivot_version.md Phase 3対応。既存提案への手動紐付けUIは廃止し、現在この経路を
+    // 呼ぶのは「提案を起票してこの件を追跡する」（作成直後の提案への自動紐付け、常にsuggestion.id
     // 自体を渡すため完全一致でヒットする）のみ。プレフィックス解決は他のID参照
     // （/go/<fragment>等）と共通の汎用ロジックのため、そのまま残している。
-    let resolvedIssueId: string | null | undefined;
-    if (parsed.resolvedIssueId === undefined) {
-      resolvedIssueId = undefined;
-    } else if (parsed.resolvedIssueId === null) {
-      resolvedIssueId = null;
+    let resolvedSuggestionId: string | null | undefined;
+    if (parsed.resolvedSuggestionId === undefined) {
+      resolvedSuggestionId = undefined;
+    } else if (parsed.resolvedSuggestionId === null) {
+      resolvedSuggestionId = null;
     } else {
-      const resolved = resolveUniqueByPrefix(listIssues(), (i) => i.id, parsed.resolvedIssueId);
+      const resolved = resolveUniqueByPrefix(listSuggestions(), (s) => s.id, parsed.resolvedSuggestionId);
       if (resolved.status === "none") {
         return c.json({ error: "指定された提案が見つかりません" }, 400);
       }
@@ -262,12 +262,12 @@ export const journalRoute = new Hono()
         return c.json(
           {
             error: "ambiguous",
-            candidates: resolved.items.map((i) => ({ id: i.id, label: i.title, href: `/issues/${i.id}` })),
+            candidates: resolved.items.map((s) => ({ id: s.id, label: s.title, href: `/suggestions/${s.id}` })),
           },
           409,
         );
       }
-      resolvedIssueId = resolved.item.id;
+      resolvedSuggestionId = resolved.item.id;
     }
     const resolutionNote = parsed.resolutionNote;
 
@@ -283,7 +283,7 @@ export const journalRoute = new Hono()
           urgency: parsed.urgency,
           sentiment: parsed.sentiment,
           occurredAt,
-          resolvedIssueId,
+          resolvedSuggestionId,
           resolutionNote,
         },
         maskOptionsFromBodyStrict(body),

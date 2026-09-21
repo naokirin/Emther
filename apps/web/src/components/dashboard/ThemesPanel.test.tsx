@@ -15,7 +15,7 @@ function theme(overrides: Partial<OrgTheme> & { id: string }): OrgTheme {
     rationale: "なぜこの結果に至ったか",
     facts: [],
     evidenceJournalIds: [],
-    evidenceIssueIds: [],
+    evidenceSuggestionIds: [],
     goalIds: [],
     status: "adopted",
     createdAt: 0,

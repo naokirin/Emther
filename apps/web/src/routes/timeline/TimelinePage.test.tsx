@@ -30,7 +30,7 @@ describe("TimelinePage", () => {
     expect(await screen.findByText(/まだ変更履歴はありません/)).toBeInTheDocument();
   });
 
-  it("日付ごとにグルーピングして表示し、Issueエントリをクリックするとサイドピークが開く", async () => {
+  it("日付ごとにグルーピングして表示し、提案エントリをクリックするとサイドピークが開く", async () => {
     const sameDay = new Date("2026-01-15T09:00:00+09:00").getTime();
     vi.stubGlobal(
       "fetch",
@@ -38,7 +38,7 @@ describe("TimelinePage", () => {
         ok: true,
         json: async () => ({
           entries: [
-            { id: "e1", entityType: "issue", entityId: "sug-1", entityLabel: "サンプル提案", text: "確認状態を変更", occurredAt: sameDay },
+            { id: "e1", entityType: "suggestion", entityId: "sug-1", entityLabel: "サンプル提案", text: "確認状態を変更", occurredAt: sameDay },
           ],
         }),
       }),
@@ -54,18 +54,18 @@ describe("TimelinePage", () => {
     expect(screen.getByRole("link", { name: "詳細画面で開く" })).toHaveAttribute("href", "/suggestions/sug-1");
   });
 
-  it("?issue=<id>が既にあれば初期表示からサイドピークが開いた状態になる", async () => {
+  it("?suggestion=<id>が既にあれば初期表示からサイドピークが開いた状態になる", async () => {
     const sameDay = Date.now();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          entries: [{ id: "e1", entityType: "issue", entityId: "sug-1", entityLabel: "サンプル提案", text: "更新", occurredAt: sameDay }],
+          entries: [{ id: "e1", entityType: "suggestion", entityId: "sug-1", entityLabel: "サンプル提案", text: "更新", occurredAt: sameDay }],
         }),
       }),
     );
-    render(<TimelinePage />, { wrapper: createWrapper(["/timeline?issue=sug-1"]) });
+    render(<TimelinePage />, { wrapper: createWrapper(["/timeline?suggestion=sug-1"]) });
     await waitFor(() => expect(screen.getByRole("dialog", { name: "サンプル提案" })).toBeInTheDocument());
   });
 });

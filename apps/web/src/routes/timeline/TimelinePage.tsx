@@ -30,14 +30,14 @@ function groupByDate(entries: TimelineEntry[]): { date: string; items: TimelineE
 export function TimelinePage() {
   const { entries, timelineLoaded } = useTimeline();
   const groups = groupByDate(entries);
-  // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。TimelineのIssueエントリだけ、
+  // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。Timelineの提案エントリだけ、
   // 一覧・詳細の他画面と同じ仕組みでスライドオーバー表示にする。Team/Goalは
   // Goal は /org で詳細を開ける。Team は /teams?focus=。
-  const peek = usePeekParam("issue");
-  const peekedEntry = peek.id ? entries.find((e) => e.entityType === "issue" && e.entityId === peek.id) : undefined;
+  const peek = usePeekParam("suggestion");
+  const peekedEntry = peek.id ? entries.find((e) => e.entityType === "suggestion" && e.entityId === peek.id) : undefined;
 
   return (
-    <IdResolveProvider openIssueInPeek={peek.open}>
+    <IdResolveProvider openSuggestionInPeek={peek.open}>
       <div className={styles.screen}>
         <PageTitleRow title="タイムライン" helpAnchor="reflection" />
         <div className={styles.panel}>
@@ -56,7 +56,7 @@ export function TimelinePage() {
                     <li key={entry.id} className={styles.field} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
                       <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                         <span className={styles.badge}>{TIMELINE_ENTITY_TYPE_LABEL[entry.entityType]}</span>
-                        {entry.entityType === "issue" && entry.entityId ? (
+                        {entry.entityType === "suggestion" && entry.entityId ? (
                           <button
                             type="button"
                             className={styles.tableRowLink}

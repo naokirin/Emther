@@ -84,7 +84,7 @@ export function PersonHeader({
 
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-      <PersonScoreBadge trend={person.trend} factCount={person.factCount} hasConcerningIssue={person.hasConcerningIssue} />
+      <PersonScoreBadge trend={person.trend} factCount={person.factCount} hasConcerningSuggestion={person.hasConcerningSuggestion} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           {renaming ? (
@@ -154,11 +154,11 @@ export function PersonHeader({
           {person.teamNames.length > 0 ? ` 所属: ${person.teamNames.join(", ")}` : " 所属チームなし"} ／ 直近Journal {person.factCount}件
         </p>
         <p className={styles.subtitle}>
-          気にかけるべき度合い: <strong>{PERSON_VITAL_LABEL[personVitalStatus(person.trend, person.hasConcerningIssue)]}</strong>
+          気にかけるべき度合い: <strong>{PERSON_VITAL_LABEL[personVitalStatus(person.trend, person.hasConcerningSuggestion)]}</strong>
           {" — "}
-          {personVitalReason(person.trend, person.hasConcerningIssue)}
+          {personVitalReason(person.trend, person.hasConcerningSuggestion)}
         </p>
-        {person.hasConcerningIssue && (
+        {person.hasConcerningSuggestion && (
           <p className={styles.subtitle}>
             確認のうえ対応不要と判断した場合は、下の「関連提案」一覧の該当行から「確認済み/対応不要とする」を押すとこの強調は消えます。
           </p>

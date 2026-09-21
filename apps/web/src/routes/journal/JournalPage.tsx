@@ -6,7 +6,7 @@ import { JournalInputSwitcher } from "../../components/JournalInputSwitcher";
 import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls, paginationMeta } from "../../components/Pagination";
 import { Select } from "../../components/Select";
-import { useIssues, useJournalSearch } from "../../lib/queries";
+import { useSuggestions, useJournalSearch } from "../../lib/queries";
 import type { JournalEntry } from "@emther/core/types";
 import { useJournalEditing } from "../../lib/useJournalEditing";
 
@@ -102,7 +102,7 @@ export function JournalPage() {
     activeFocusId,
   );
   const editing = useJournalEditing(entries, setEntries);
-  const { issues } = useIssues();
+  const { suggestions } = useSuggestions();
   const pagination = paginationMeta(total, activeFocusId ? resolvedPage : page, PAGE_SIZE);
 
   if (activeFocusId) {
@@ -236,7 +236,7 @@ export function JournalPage() {
             <div key={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
               <JournalEntryCard
                 entry={entry}
-                issues={issues}
+                suggestions={suggestions}
                 editing={editing.editingEntryId === entry.id}
                 editRawText={editing.editRawText}
                 editTags={editing.editTags}
@@ -265,7 +265,7 @@ export function JournalPage() {
                 onCancelEdit={editing.cancelEditing}
                 onStartEdit={() => editing.startEditing(entry)}
                 onResolveWithNote={() => editing.resolveWithNote(entry.id)}
-                onResolveWithNewIssue={() => editing.resolveWithNewIssue(entry)}
+                onResolveWithNewSuggestion={() => editing.resolveWithNewSuggestion(entry)}
                 onClearResolution={() => editing.clearResolution(entry.id)}
                 onAcknowledgeSentiment={() => editing.acknowledgeSentiment(entry.id)}
                 onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}

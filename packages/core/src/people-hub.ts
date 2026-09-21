@@ -8,14 +8,15 @@ import {
   type KnowledgeEvent,
 } from "./knowledge-store";
 import { listActiveTeams, reassignPersonIdInTeams } from "./org-context-store/index";
-import { listIssues, toIssueView, type Issue } from "./issue-store";
+import { listSuggestions, toSuggestionView } from "./suggestion-store";
+import type { Suggestion } from "./types";
 import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from "./settings-store";
-import { isIssueStalled, suggestionOverviewFromLogs } from "./types";
-import { listPersonIssueConcernAcks, toPersonIssueConcernAckView } from "./person-concern-ack-store";
+import { isSuggestionStalled, suggestionOverviewFromLogs } from "./types";
+import { listPersonSuggestionConcernAcks, toPersonSuggestionConcernAckView } from "./person-concern-ack-store";
 
 // docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
 // 既存のpeople-directory（誰がいるか）・knowledge-store（Journal fact／長期解釈）・
-// org-context-store（チーム所属）・issue-store（関連Issue、org/page.tsxの関連Issue抽出と
+// org-context-store（チーム所属）・suggestion-store（関連提案、org/page.tsxの関連提案抽出と
 // 同じ名前一致の簡易ヒューリスティック）を人物軸で束ねて見せるだけの集約レイヤー。
 
 export type PersonTrend = { positive: number; negative: number; neutral: number };
@@ -35,11 +36,11 @@ export type PersonSummary = {
   // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   // settings.selfPersonId と一致する人物。
   isSelf: boolean;
-  // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。この人物名を
-  // 含む未アーカイブIssueに、ブロッカーあり(status:"blocked")または停滞中(isIssueStalled)の
+  // ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。この人物名を
+  // 含む未アーカイブ提案に、確認保留(reviewStatus:"deferred")または停滞中(isSuggestionStalled)の
   // ものが1件でもあればtrue。personVitalStatusでJournalのsentimentが穏やかでも
   // 「やや注意」以上に引き上げるためのシグナル。
-  hasConcerningIssue: boolean;
+  hasConcerningSuggestion: boolean;
 };
 
 export type PersonFact = {
@@ -54,18 +55,18 @@ export type PersonFact = {
   noActionNeededNote?: string;
 };
 
-export type PersonRelatedIssue = {
+export type PersonRelatedSuggestion = {
   id: string;
   title: string;
   archived: boolean;
-  // docs/2nd_pivot_version.md Phase 2.3対応。IssueCharterをまるごと渡すと、UI側が
+  // docs/2nd_pivot_version.md Phase 2.3対応。charterをまるごと渡すと、UI側が
   // 「Why/What/Howの充足度」のような管理指標を組み立てやすくなってしまうため、
-  // 要約テキスト1本（issueOverviewText）だけを渡す。
+  // 要約テキスト1本（suggestionOverviewFromLogs）だけを渡す。
   overview: string;
   // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
-  // このIssue単体が、hasConcerningIssueの根拠（停滞・ブロッカーあり、未アーカイブ）に
+  // この提案単体が、hasConcerningSuggestionの根拠（停滞・確認保留、未アーカイブ）に
   // 該当するか。確認済み(concernAcknowledgedAt)であっても実際の状態はconcerning=trueの
-  // まま返し、UI側は「確認済みだから強調を弱める」判断に使う（Issue自体の状態は隠さない）。
+  // まま返し、UI側は「確認済みだから強調を弱める」判断に使う（提案自体の状態は隠さない）。
   concerning: boolean;
   concernAcknowledgedAt?: number;
   concernAcknowledgedNote?: string;
@@ -74,13 +75,13 @@ export type PersonRelatedIssue = {
 export type PersonProfile = PersonSummary & {
   facts: PersonFact[];
   interpretations: { id: string; text: string; occurredAt: number }[];
-  relatedIssues: PersonRelatedIssue[];
+  relatedSuggestions: PersonRelatedSuggestion[];
 };
 
 const FACTS_LIMIT = 20;
 
 // ユーザー指摘「確認済み（対応不要）の所見があってもバイタルのアラート色が落ちない」対応。
-// hasConcerningRelatedIssue（Issue側）と同様、noActionNeededAt済みのfactはtrend（バイタルの
+// hasConcerningRelatedSuggestion（提案側）と同様、noActionNeededAt済みのfactはtrend（バイタルの
 // 強調トリガー）の集計から除外する。fact自体はfacts一覧にconfirmed済みとして残り続ける。
 function computeTrend(facts: KnowledgeEvent[]): PersonTrend {
   const trend: PersonTrend = { positive: 0, negative: 0, neutral: 0 };
@@ -106,35 +107,37 @@ function toPersonFact(e: KnowledgeEvent): PersonFact {
   };
 }
 
-// org/page.tsxの関連Issue抽出（selectedTeam.members.some(m => haystack.includes(m))）と
-// 同じ考え方。issue-store側は既にtoIssueViewで実名復元済みなので、実名同士の単純な
+// org/page.tsxの関連提案抽出（selectedTeam.members.some(m => haystack.includes(m))）と
+// 同じ考え方。suggestion-store側は既にtoSuggestionViewで実名復元済みなので、実名同士の単純な
 // 部分一致で十分（厳密な紐付けではない簡易抽出）。
-function findRelatedIssues(personName: string): Issue[] {
-  return listIssues()
-    .map(toIssueView)
-    .filter((i) => {
-      const memoText = i.logEntries.map((e) => e.text).join(" ");
-      return `${i.title} ${memoText}`.includes(personName);
+function findRelatedSuggestions(personName: string): Suggestion[] {
+  return listSuggestions()
+    .map(toSuggestionView)
+    .filter((s) => {
+      const memoText = s.memos.map((m) => m.text).join(" ");
+      return `${s.title} ${memoText}`.includes(personName);
     });
 }
 
-// ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。未アーカイブの
-// 関連Issueに、ブロッカーあり・停滞中のものが1件でもあるかどうか。
+// ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。未アーカイブの
+// 関連提案に、確認保留・停滞中のものが1件でもあるかどうか。
 // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
-// EMが確認済み（対応不要）と判断したIssue（acknowledgedIssueIds）は、Issue自体は
-// concerning=trueのまま関連Issue一覧に出しつつ、hasConcerningIssue（一覧・バイタルの
+// EMが確認済み（対応不要）と判断した提案（acknowledgedSuggestionIds）は、提案自体は
+// concerning=trueのまま関連提案一覧に出しつつ、hasConcerningSuggestion（一覧・バイタルの
 // 強調トリガー）の判定からは除外する。
-function isConcerningIssue(i: Issue, now: number, staleDays: number): boolean {
-  return !i.archived && (i.status === "blocked" || isIssueStalled(i, now, staleDays));
+function isConcerningSuggestion(s: Suggestion, now: number, staleDays: number): boolean {
+  return !s.archivedAt && (s.reviewStatus === "deferred" || isSuggestionStalled(s, now, staleDays));
 }
 
-function hasConcerningRelatedIssue(
-  relatedIssues: Issue[],
+function hasConcerningRelatedSuggestion(
+  relatedSuggestions: Suggestion[],
   now: number,
   staleDays: number,
-  acknowledgedIssueIds: Set<string>,
+  acknowledgedSuggestionIds: Set<string>,
 ): boolean {
-  return relatedIssues.some((i) => isConcerningIssue(i, now, staleDays) && !acknowledgedIssueIds.has(i.id));
+  return relatedSuggestions.some(
+    (s) => isConcerningSuggestion(s, now, staleDays) && !acknowledgedSuggestionIds.has(s.id),
+  );
 }
 
 export function listPersonSummaries(): PersonSummary[] {
@@ -146,7 +149,7 @@ export function listPersonSummaries(): PersonSummary[] {
   return listPeople().map((p) => {
     const facts = listActiveFactsForPerson(p.id, FACTS_LIMIT);
     const isSelf = selfPersonId !== null && p.id === selfPersonId;
-    const acknowledgedIssueIds = new Set(listPersonIssueConcernAcks(p.id).map((a) => a.issueId));
+    const acknowledgedSuggestionIds = new Set(listPersonSuggestionConcernAcks(p.id).map((a) => a.suggestionId));
     return {
       id: p.id,
       name: p.name,
@@ -157,7 +160,12 @@ export function listPersonSummaries(): PersonSummary[] {
       isSelf,
       // 本人は「部下」に含めない（1on1 Coverage対象外と同じ考え方）。
       isDirectReport: !isSelf && managedTeams.some((t) => t.members.includes(p.id)),
-      hasConcerningIssue: hasConcerningRelatedIssue(findRelatedIssues(p.name), now, staleInterventionDays, acknowledgedIssueIds),
+      hasConcerningSuggestion: hasConcerningRelatedSuggestion(
+        findRelatedSuggestions(p.name),
+        now,
+        staleInterventionDays,
+        acknowledgedSuggestionIds,
+      ),
     };
   });
 }
@@ -176,20 +184,20 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     .map(toEventView)
     .map((e) => ({ id: e.id, text: e.text, occurredAt: e.occurredAt }));
 
-  const relatedIssuesRaw = findRelatedIssues(person.name);
+  const relatedSuggestionsRaw = findRelatedSuggestions(person.name);
   const now = Date.now();
   const { staleInterventionDays } = getRulesAndConstraints();
   const acks = new Map(
-    listPersonIssueConcernAcks(id).map((a) => [a.issueId, toPersonIssueConcernAckView(a)] as const),
+    listPersonSuggestionConcernAcks(id).map((a) => [a.suggestionId, toPersonSuggestionConcernAckView(a)] as const),
   );
-  const relatedIssues = relatedIssuesRaw.map((i) => {
-    const ack = acks.get(i.id);
+  const relatedSuggestions = relatedSuggestionsRaw.map((s) => {
+    const ack = acks.get(s.id);
     return {
-      id: i.id,
-      title: i.title,
-      archived: i.archived,
-      overview: suggestionOverviewFromLogs(i.logEntries),
-      concerning: isConcerningIssue(i, now, staleInterventionDays),
+      id: s.id,
+      title: s.title,
+      archived: !!s.archivedAt,
+      overview: suggestionOverviewFromLogs(s.memos),
+      concerning: isConcerningSuggestion(s, now, staleInterventionDays),
       concernAcknowledgedAt: ack?.createdAt,
       concernAcknowledgedNote: ack?.note,
     };
@@ -206,11 +214,11 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
     factCount: facts.length,
     facts: facts.map(toPersonFact),
     interpretations,
-    relatedIssues,
+    relatedSuggestions,
     isSelf,
     isDirectReport: !isSelf && teams.some((t) => t.managedByEm),
-    hasConcerningIssue: hasConcerningRelatedIssue(
-      relatedIssuesRaw,
+    hasConcerningSuggestion: hasConcerningRelatedSuggestion(
+      relatedSuggestionsRaw,
       now,
       staleInterventionDays,
       new Set(acks.keys()),

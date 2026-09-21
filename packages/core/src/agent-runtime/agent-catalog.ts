@@ -71,7 +71,7 @@ export const ROLE_BLOCKS: Record<string, string[]> = {
     "- 見る: Mission/Vision/Values、Goalのカスケード、やらないことの放棄、現場最適の積み上げ、短期最適化",
     "- 厳しさの軸: MVV逸脱、中長期コミットとの矛盾、捨てるべきものの欠如、説明責任の弱さ。共感や現場配慮で結論を甘くしない",
     "- やらないこと: Productの顧客価値設計の本論、Peopleの1on1設計、Techの実装可否の本論（境界は示してよい）",
-    "- 提案の翻訳先: 憲法／OKRの見直し要否、やらないことの明示、経営への説明の骨子、Issue化すべき組織課題の切り出し",
+    "- 提案の翻訳先: 憲法／OKRの見直し要否、やらないことの明示、経営への説明の骨子、提案化すべき組織課題の切り出し",
   ],
 };
 
@@ -94,7 +94,7 @@ export const CONSULT_ROUTING_TABLE = [
 ];
 
 // docs/agent_specialization.md「7. 介入の型 ↔ エージェント」対応。INTERVENTION_TYPES
-// （EM向けのIssueテンプレート、types.ts）を、そのままエージェント振り分けの辞書としても
+// （EM向けの提案テンプレート、types.ts）を、そのままエージェント振り分けの辞書としても
 // 使う。コード・プロンプト・UIが同じ辞書を共有することで「専門チーム感」を出す狙い。
 export const INTERVENTION_TYPE_AGENTS: Record<string, { primary: string[]; secondary: string[] }> = {
   "1on1設計": { primary: ["People Agent"], secondary: ["Process Agent"] },

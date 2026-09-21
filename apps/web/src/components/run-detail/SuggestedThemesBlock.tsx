@@ -55,12 +55,12 @@ export function SuggestedThemesBlock({
               <IdLinkedText text={theme.suggestedDirection} />
             </p>
           )}
-          {(theme.evidenceIssueIds?.length || theme.evidenceJournalIds?.length) ? (
+          {(theme.evidenceSuggestionIds?.length || theme.evidenceJournalIds?.length) ? (
             <div style={{ marginTop: 6 }}>
-              {theme.evidenceIssueIds && theme.evidenceIssueIds.length > 0 && (
+              {theme.evidenceSuggestionIds && theme.evidenceSuggestionIds.length > 0 && (
                 <p style={{ margin: "2px 0" }}>
                   <strong>根拠 提案: </strong>
-                  {theme.evidenceIssueIds.map((id, ii) => (
+                  {theme.evidenceSuggestionIds.map((id, ii) => (
                     <span key={id}>
                       {ii > 0 ? "、" : ""}
                       <IdFragmentLink fragment={id} className={styles.idFragmentLink}>

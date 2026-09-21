@@ -15,11 +15,12 @@ import {
   setSuggestionTitle,
   toSuggestionView,
   unarchiveSuggestion,
+  updateSuggestionCharter,
   updateSuggestionDetail,
 } from "@emther/core/suggestion-store";
-import { buildIssueDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, reactToIssueUpdate, startRun } from "@emther/core/agent-runtime/index";
+import { buildSuggestionDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
-import { linkJournalToIssue, listSourceJournalsForIssue, toJournalEntryViews } from "@emther/core/journal-store";
+import { linkJournalToSuggestion, listSourceJournalsForSuggestion, toJournalEntryViews } from "@emther/core/journal-store";
 import { buildSourceConsultIndex } from "@emther/core/journal-consult-index";
 import { resolveUniqueByPrefix } from "@emther/core/id-resolve";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@emther/core/types";
@@ -57,6 +58,11 @@ export const suggestionsRoute = new Hono()
 
     const themeId = typeof body?.themeId === "string" && body.themeId ? body.themeId : undefined;
     const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
+    const charter = {
+      why: typeof body?.why === "string" ? body.why : undefined,
+      what: typeof body?.what === "string" ? body.what : undefined,
+      how: typeof body?.how === "string" ? body.how : undefined,
+    };
     const confirmPriority =
       typeof body?.confirmPriority === "string" && CONFIRM_PRIORITIES.includes(body.confirmPriority as ConfirmPriority)
         ? (body.confirmPriority as ConfirmPriority)
@@ -95,10 +101,17 @@ export const suggestionsRoute = new Hono()
         confirmPriority,
         detail,
       });
+      const why = charter.why?.trim() ?? "";
+      const what = charter.what?.trim() ?? "";
+      const how = charter.how?.trim() ?? "";
+      if (why || what || how) {
+        const parts = [why ? `Why: ${why}` : "", what ? `What: ${what}` : "", how ? `How: ${how}` : ""].filter(Boolean);
+        await addMemo(suggestion.id, `（旧 Why/What/How）\n${parts.join("\n")}`, opts);
+      }
       if (agentRunId) {
         markRunReviewed(agentRunId);
         if (sourceJournalId) {
-          await linkJournalToIssue(sourceJournalId, suggestion.id, opts).catch(() => {
+          await linkJournalToSuggestion(sourceJournalId, suggestion.id, opts).catch(() => {
             // Journal 紐付け失敗で提案作成自体は失敗させない。
           });
         }
@@ -106,12 +119,12 @@ export const suggestionsRoute = new Hono()
         // 相談からの提案化: 相談 Run を提案の主分析に吸収せず、履歴・続きの壁打ちを残す。
         markRunReviewed(sourceRunId);
         if (sourceJournalId) {
-          await linkJournalToIssue(sourceJournalId, suggestion.id, opts).catch(() => {
+          await linkJournalToSuggestion(sourceJournalId, suggestion.id, opts).catch(() => {
             // Journal 紐付け失敗で提案作成自体は失敗させない。
           });
         }
       } else {
-        const task = buildIssueDraftTask(title, {});
+        const task = buildSuggestionDraftTask(title, charter);
         try {
           await startRun("Lead Agent", task, "manual", suggestion.id, { ...opts, sourceJournalId });
         } catch (err) {
@@ -121,12 +134,12 @@ export const suggestionsRoute = new Hono()
               kind: "start-run",
               candidates: err.candidates,
               label: "提案作成直後の分析送信確認",
-              issueId: suggestion.id,
-              issueTitle: title,
+              suggestionId: suggestion.id,
+              suggestionTitle: title,
               agentName: "Lead Agent",
               task,
               origin: "manual",
-              linkedIssueId: suggestion.id,
+              linkedSuggestionId: suggestion.id,
               sourceJournalId,
             });
           }
@@ -152,7 +165,7 @@ export const suggestionsRoute = new Hono()
     const suggestion = resolved.item;
     return c.json({
       suggestion: toSuggestionView(suggestion),
-      sourceJournals: toJournalEntryViews(listSourceJournalsForIssue(suggestion.id, suggestion.sourceJournalId), await buildSourceConsultIndex()),
+      sourceJournals: toJournalEntryViews(listSourceJournalsForSuggestion(suggestion.id, suggestion.sourceJournalId), await buildSourceConsultIndex()),
     });
   })
   .patch("/:id", async (c) => {
@@ -210,8 +223,24 @@ export const suggestionsRoute = new Hono()
         suggestion =
           (await setSuggestionTitle(suggestionId, body.title, {
             ...opts,
-            onUpdated: (sid, _trigger, detail) => reactToIssueUpdate(sid, "charter", detail),
+            onUpdated: (sid, _trigger, detail) => reactToSuggestionUpdate(sid, "charter", detail),
           })) ?? suggestion;
+      }
+      if (
+        typeof body?.why === "string" ||
+        typeof body?.what === "string" ||
+        typeof body?.how === "string"
+      ) {
+        suggestion =
+          (await updateSuggestionCharter(
+            suggestionId,
+            {
+              why: typeof body?.why === "string" ? body.why : undefined,
+              what: typeof body?.what === "string" ? body.what : undefined,
+              how: typeof body?.how === "string" ? body.how : undefined,
+            },
+            { ...opts, onUpdated: (sid, _trigger, detail) => reactToSuggestionUpdate(sid, "charter", detail) },
+          )) ?? suggestion;
       }
       if ("reviewStatus" in (body ?? {})) {
         suggestion = setReviewStatus(suggestionId, body.reviewStatus as SuggestionReviewStatus) ?? suggestion;
@@ -297,7 +326,7 @@ export const suggestionsRoute = new Hono()
     try {
       const suggestion = await addMemo(resolved.item.id, text, {
         ...maskOptionsFromBody(body),
-        onUpdated: (sid, _trigger, detail) => reactToIssueUpdate(sid, "log", detail),
+        onUpdated: (sid, _trigger, detail) => reactToSuggestionUpdate(sid, "log", detail),
       });
       if (!suggestion) {
         return c.json({ error: "not found" }, 404);

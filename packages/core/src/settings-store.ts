@@ -29,7 +29,7 @@ export type RulesAndConstraints = {
   journalFactTtlDays: number;
   // 提案のタイトル・メモが更新されたとき、紐付きRunの継続分析 or 新規Lead起動。
   // 既定OFF（コスト発生のopt-in）。
-  autoIssueUpdateAnalysisEnabled: boolean;
+  autoSuggestionUpdateAnalysisEnabled: boolean;
   // バッチ駆動: 毎日この時刻（EMのブラウザではなくサーバーのローカル時刻）以降、最初のwatchdog
   // tickで一度だけLead Agentへ朝のサマリー作成タスクを投げる。
   autoMorningSummaryEnabled: boolean;
@@ -135,7 +135,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
-  autoIssueUpdateAnalysisEnabled: false,
+  autoSuggestionUpdateAnalysisEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
   autoJournalBatchEnabled: false,
@@ -204,16 +204,26 @@ export function normalizeWeekdayList(value: unknown, fallback: number[] = [1]): 
   return fb.length > 0 ? fb : [1];
 }
 
-// 旧キー autoJournalBatchHour / autoDistillationWeekday からの移行を含む。
+// 旧キー autoJournalBatchHour / autoDistillationWeekday / autoIssueUpdateAnalysisEnabled
+// （Issue→Suggestion統合の命名統一）からの移行を含む。
 type LegacyRulesFile = Partial<RulesAndConstraints> & {
   autoJournalBatchHour?: number;
   autoDistillationWeekday?: number;
+  autoIssueUpdateAnalysisEnabled?: boolean;
 };
 
 function hydrateRules(raw: LegacyRulesFile): RulesAndConstraints {
-  // 旧キーは配列へ寄せたあと残さない（settings-rules.json へ書き戻さないため）。
-  const { autoJournalBatchHour: legacyHour, autoDistillationWeekday: legacyWeekday, ...rest } = raw;
+  // 旧キーは新キーへ寄せたあと残さない（settings-rules.json へ書き戻さないため）。
+  const {
+    autoJournalBatchHour: legacyHour,
+    autoDistillationWeekday: legacyWeekday,
+    autoIssueUpdateAnalysisEnabled: legacyAutoIssueUpdateEnabled,
+    ...rest
+  } = raw;
   const merged: RulesAndConstraints = { ...DEFAULT_RULES, ...(rest as Partial<RulesAndConstraints>) };
+  if (raw.autoSuggestionUpdateAnalysisEnabled === undefined && legacyAutoIssueUpdateEnabled !== undefined) {
+    merged.autoSuggestionUpdateAnalysisEnabled = legacyAutoIssueUpdateEnabled;
+  }
   if (Array.isArray(raw.autoJournalBatchHours) && raw.autoJournalBatchHours.length > 0) {
     merged.autoJournalBatchHours = normalizeHourList(raw.autoJournalBatchHours);
   } else if (typeof legacyHour === "number" && Number.isFinite(legacyHour)) {

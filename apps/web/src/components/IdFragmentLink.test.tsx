@@ -17,7 +17,7 @@ describe("IdFragmentLink", () => {
       "fetch",
       vi.fn(async () => ({
         json: async () => ({
-          matches: [{ kind: "issue", id: "aaaaaaaa-1111-4111-8111-111111111111", label: "対象Issue", href: "/issues/aaaaaaaa-1111-4111-8111-111111111111" }],
+          matches: [{ kind: "suggestion", id: "aaaaaaaa-1111-4111-8111-111111111111", label: "対象提案", href: "/suggestions/aaaaaaaa-1111-4111-8111-111111111111" }],
         }),
       })),
     );
@@ -27,18 +27,18 @@ describe("IdFragmentLink", () => {
     vi.unstubAllGlobals();
   });
 
-  it("サイドピーク向けコールバックがあれば Issue をピークで開く", async () => {
-    const openIssueInPeek = vi.fn();
+  it("サイドピーク向けコールバックがあれば提案をピークで開く", async () => {
+    const openSuggestionInPeek = vi.fn();
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <IdResolveProvider openIssueInPeek={openIssueInPeek}>
+        <IdResolveProvider openSuggestionInPeek={openSuggestionInPeek}>
           <IdFragmentLink fragment="aaaaaaaa">aaaaaaaa</IdFragmentLink>
         </IdResolveProvider>
       </MemoryRouter>,
     );
     await user.click(screen.getByRole("link", { name: "aaaaaaaa" }));
-    expect(openIssueInPeek).toHaveBeenCalledWith("aaaaaaaa-1111-4111-8111-111111111111");
+    expect(openSuggestionInPeek).toHaveBeenCalledWith("aaaaaaaa-1111-4111-8111-111111111111");
   });
 
   it("ピーク外では解決先へ遷移する", async () => {
@@ -50,7 +50,7 @@ describe("IdFragmentLink", () => {
       </MemoryRouter>,
     );
     await user.click(screen.getByRole("link", { name: "aaaaaaaa" }));
-    expect(await screen.findByTestId("location")).toHaveTextContent("/issues/aaaaaaaa-1111-4111-8111-111111111111");
+    expect(await screen.findByTestId("location")).toHaveTextContent("/suggestions/aaaaaaaa-1111-4111-8111-111111111111");
   });
 
   it("ホバー時に解決先のタイトルをカスタムツールチップ（data-tooltip）として表示する", async () => {
@@ -64,7 +64,7 @@ describe("IdFragmentLink", () => {
     expect(link).not.toHaveAttribute("data-tooltip");
 
     await user.hover(link);
-    expect(await screen.findByText((_, el) => el?.getAttribute("data-tooltip") === "対象Issue")).toBeTruthy();
+    expect(await screen.findByText((_, el) => el?.getAttribute("data-tooltip") === "対象提案")).toBeTruthy();
   });
 
   it("複数候補がある場合はタイトルを改行区切りで並べる", async () => {
@@ -73,7 +73,7 @@ describe("IdFragmentLink", () => {
       vi.fn(async () => ({
         json: async () => ({
           matches: [
-            { kind: "issue", id: "aaaaaaaa-1111-4111-8111-111111111111", label: "候補1", href: "/issues/aaaaaaaa-1111-4111-8111-111111111111" },
+            { kind: "suggestion", id: "aaaaaaaa-1111-4111-8111-111111111111", label: "候補1", href: "/suggestions/aaaaaaaa-1111-4111-8111-111111111111" },
             { kind: "journal", id: "aaaaaaaa-2222-4111-8111-111111111111", label: "候補2", href: "/journal?focus=aaaaaaaa-2222-4111-8111-111111111111" },
           ],
         }),

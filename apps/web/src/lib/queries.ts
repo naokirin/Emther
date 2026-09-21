@@ -28,7 +28,6 @@ import type {
   EmReflectionNote,
   Goal,
   GrowSuggestion,
-  Issue,
   JournalEntry,
   KnowledgeEvent,
   OrgBackgroundEntry,
@@ -106,18 +105,6 @@ export function useTeams(intervalMs = 5000) {
     // TeamCreatePanel/TeamEditPanelは`refreshTeams: () => Promise<void>`という
     // 素朴な型で受け取るため、`refetch`の戻り値（QueryObserverResult）は握りつぶす。
     refreshTeams: async () => {
-      await query.refetch();
-    },
-  };
-}
-
-// 旧: web/src/lib/hooks.ts useIssues。
-export function useIssues(intervalMs = 3000) {
-  const query = usePolledQuery<{ issues: Issue[] }>(["api", "issues"], "/api/issues", intervalMs);
-  return {
-    issues: query.data?.issues ?? [],
-    issuesLoaded: !query.isPending,
-    refreshIssues: async () => {
       await query.refetch();
     },
   };
@@ -215,7 +202,7 @@ const SETTINGS_RULES_FALLBACK: RulesAndConstraints = {
   agentStaleAfterSeconds: 120,
   agentKillAfterSeconds: 600,
   journalFactTtlDays: 90,
-  autoIssueUpdateAnalysisEnabled: false,
+  autoSuggestionUpdateAnalysisEnabled: false,
   autoMorningSummaryEnabled: false,
   autoMorningSummaryHour: 7,
   autoJournalBatchEnabled: false,
@@ -424,11 +411,11 @@ export function useRuns(intervalMs = 1500) {
 // 旧: web/src/lib/hooks.ts useGoToRunIssue。既に提案化されていればその提案へ、まだなら
 // その場で提案として残してから遷移する。TanStack Query化の対象ではない（ポーリングを
 // 持たないコールバックのみのフック）ため、他フックと異なりuseQueryClient等は使わない。
-export function useGoToRunIssue(issues: Issue[]) {
+export function useGoToRunSuggestion(suggestions: Suggestion[]) {
   const peek = useSuggestionPeek();
   return useCallback(
     async (run: AgentRun) => {
-      const existing = issues.find((i) => i.agentRunId === run.id);
+      const existing = suggestions.find((s) => s.agentRunId === run.id);
       if (existing) {
         peek.open(existing.id);
         return;
@@ -445,7 +432,7 @@ export function useGoToRunIssue(issues: Issue[]) {
         // 失敗時は提案一覧から手動で紐づけられる
       }
     },
-    [issues, peek],
+    [suggestions, peek],
   );
 }
 
@@ -534,7 +521,7 @@ export function useSuggestion(id: string, intervalMs = 2000) {
 }
 
 // 旧: web/src/lib/hooks.ts useEntityHistory。entityIdが未確定（null）の間はfetchしない。
-export function useEntityHistory(entityType: "issue" | "team" | "org", entityId: string | null, intervalMs = 5000) {
+export function useEntityHistory(entityType: "suggestion" | "team" | "org", entityId: string | null, intervalMs = 5000) {
   const url = `/api/knowledge/events?entityType=${entityType}&entityId=${entityId ?? ""}`;
   const query = usePolledQuery<{ events: KnowledgeEvent[] }>(
     ["api", "knowledge", "events", entityType, entityId],

@@ -9,7 +9,7 @@ import type { IdMatch, IdMatchKind } from "@emther/core/id-resolve";
 // クライアントSPAのためDB直読みはできず、フェーズ2.3で移植済みの
 // `GET /api/id-resolve?q=`（同じresolveIdPrefix()を内部で呼ぶ）経由に置き換えた。
 const KIND_LABEL: Record<IdMatchKind, string> = {
-  issue: "Issue",
+  suggestion: "提案",
   journal: "Journal",
   run: "相談 / Agent Run",
 };

@@ -19,8 +19,8 @@ const STATUS_CLS: Record<string, string> = {
 // 内訳はツールチップに残す（呼び出し側でラベルを併記する場合はPERSON_VITAL_LABELを
 // 直接参照する）。
 // ユーザー指摘「気にかけるべき度合いがなぜ高いのかわかりにくい」対応。ネイティブ
-// title（表示が遅い・改行やスタイルを制御できない）ではなく、IssueStatus.tsxの
-// AxisTooltipと同じ.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）に
+// title（表示が遅い・改行やスタイルを制御できない）ではなく、他画面のAxisTooltipと
+// 同じ.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）に
 // 揃え、判定根拠（personVitalReason）をそのまま見せる。
 // ユーザー指摘「サイドピークで開いたときにツールチップがヘッダーに隠れる」対応。
 // このバッジは常にPersonHeaderの先頭（.slideOverBodyの一番上）に置かれ、上向きに
@@ -29,15 +29,15 @@ const STATUS_CLS: Record<string, string> = {
 export function PersonScoreBadge({
   trend,
   factCount,
-  hasConcerningIssue = false,
+  hasConcerningSuggestion = false,
 }: {
   trend: PersonTrend;
   factCount: number;
-  // ユーザー指摘「バイタルがIssueの状況に対して問題無いように見える」対応。
-  hasConcerningIssue?: boolean;
+  // ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。
+  hasConcerningSuggestion?: boolean;
 }) {
-  const status = personVitalStatus(trend, hasConcerningIssue);
-  const tooltip = `${PERSON_VITAL_LABEL[status]}（Journal ${factCount}件）\n${personVitalReason(trend, hasConcerningIssue)}`;
+  const status = personVitalStatus(trend, hasConcerningSuggestion);
+  const tooltip = `${PERSON_VITAL_LABEL[status]}（Journal ${factCount}件）\n${personVitalReason(trend, hasConcerningSuggestion)}`;
   return (
     <div
       className={`${styles.personScoreBadge} ${STATUS_CLS[status]} ${styles.axisTooltip} ${styles.axisTooltipDown}`}

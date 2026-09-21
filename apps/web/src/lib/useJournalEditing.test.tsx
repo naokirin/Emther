@@ -99,13 +99,13 @@ describe("useJournalEditing", () => {
     });
   });
 
-  it("resolveWithNewIssueは提案を作成してからJournalへ紐付ける", async () => {
+  it("resolveWithNewSuggestionは提案を作成してからJournalへ紐付ける", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/suggestions") {
         return { ok: true, json: async () => ({ suggestion: { id: "sug-1" } }) };
       }
       if (url === "/api/journal/e1") {
-        return { ok: true, json: async () => ({ entry: baseEntry({ resolvedIssueId: "sug-1" }) }) };
+        return { ok: true, json: async () => ({ entry: baseEntry({ resolvedSuggestionId: "sug-1" }) }) };
       }
       throw new Error(`unexpected: ${url}`);
     });
@@ -113,13 +113,13 @@ describe("useJournalEditing", () => {
     const { result } = setup([baseEntry()]);
     let suggestionId: string | undefined;
     await act(async () => {
-      suggestionId = await result.current.resolveWithNewIssue(baseEntry());
+      suggestionId = await result.current.resolveWithNewSuggestion(baseEntry());
     });
     expect(suggestionId).toBe("sug-1");
     expect(fetchMock).toHaveBeenCalledWith("/api/suggestions", expect.objectContaining({ method: "POST" }));
   });
 
-  it("clearResolutionはresolvedIssueId/resolutionNoteをnullにしてPATCHする", async () => {
+  it("clearResolutionはresolvedSuggestionId/resolutionNoteをnullにしてPATCHする", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entry: baseEntry() }) });
     vi.stubGlobal("fetch", fetchMock);
     const { result } = setup([baseEntry()]);
@@ -128,7 +128,7 @@ describe("useJournalEditing", () => {
       await result.current.clearResolution("e1");
     });
     const call = fetchMock.mock.calls[0];
-    expect(JSON.parse(String(call[1]?.body))).toEqual(expect.objectContaining({ resolvedIssueId: null, resolutionNote: null }));
+    expect(JSON.parse(String(call[1]?.body))).toEqual(expect.objectContaining({ resolvedSuggestionId: null, resolutionNote: null }));
   });
 
   it("archiveEntryはpending状態を経てエントリを差し替える", async () => {

@@ -1,7 +1,7 @@
-// Journal → 相談 → Issue の生成元を、画面とフォールバック判定で同じ規則に揃える。
+// Journal → 相談 → 提案 の生成元を、画面とフォールバック判定で同じ規則に揃える。
 // ストアには依存せず、保存済みの ID / task 文字列だけを見る。
 
-export const ISSUE_DRAFT_TASK_PREFIX = "新しいIssueが起票されました";
+export const SUGGESTION_DRAFT_TASK_PREFIX = "新しい提案が起票されました";
 export const JOURNAL_ENTRY_TASK_MARKER = '対象のJournalエントリ: "';
 
 export function journalExcerptFromTask(task: string): string | undefined {
@@ -13,12 +13,12 @@ export function journalExcerptFromTask(task: string): string | undefined {
   return excerpt || undefined;
 }
 
-export function isIssueDraftAnalysisTask(task: string): boolean {
-  return task.startsWith(ISSUE_DRAFT_TASK_PREFIX);
+export function isSuggestionDraftAnalysisTask(task: string): boolean {
+  return task.startsWith(SUGGESTION_DRAFT_TASK_PREFIX);
 }
 
-export function issueDraftTitleFromTask(task: string): string | undefined {
-  if (!isIssueDraftAnalysisTask(task)) return undefined;
+export function suggestionDraftTitleFromTask(task: string): string | undefined {
+  if (!isSuggestionDraftAnalysisTask(task)) return undefined;
   const m = task.match(/^タイトル:\s*(.+)$/m);
   const title = m?.[1]?.trim();
   return title || undefined;
@@ -37,7 +37,7 @@ export function truncateExcerpt(text: string, maxLength = 160): string {
 const AUTO_ORIGIN_LABEL: Record<string, string> = {
   "auto-anomaly": "Journal自動分析",
   "auto-summary": "朝のサマリー",
-  "auto-issue-update": "提案更新分析",
+  "auto-suggestion-update": "提案更新分析",
   "auto-distill": "状況蒸留",
   "auto-journal-batch": "Journal集約解釈",
 };
@@ -55,7 +55,7 @@ export function consultListTitle(run: ConsultListContentRun): string {
   const journal = journalExcerptFromTask(run.task);
   if (journal) return journal;
 
-  const draftTitle = issueDraftTitleFromTask(run.task);
+  const draftTitle = suggestionDraftTitleFromTask(run.task);
   if (draftTitle) return draftTitle;
 
   // 状況蒸留は task に材料全文を載せない（短い定型＋システム側コンテキスト）。
@@ -91,17 +91,17 @@ export function consultListSecondary(run: ConsultListContentRun): string | undef
   return conclusion;
 }
 
-// Issueの現在の agentRunId は更新分析で上書きされるため、生成時に残した sourceRunId を優先する。
-// 旧データは「起票直後の分析Runでも Issue更新分析でもない」linked run を相談元とみなす。
+// 提案の現在の agentRunId は更新分析で上書きされるため、生成時に残した sourceRunId を優先する。
+// 旧データは「起票直後の分析Runでも 提案更新分析でもない」linked run を相談元とみなす。
 export function resolveSourceConsultRun<T extends { id: string; task: string; origin: string }>(
-  issue: { sourceRunId?: string; agentRunId?: string },
+  suggestion: { sourceRunId?: string; agentRunId?: string },
   runs: T[],
 ): T | undefined {
-  if (issue.sourceRunId) return runs.find((r) => r.id === issue.sourceRunId);
-  const linked = issue.agentRunId ? runs.find((r) => r.id === issue.agentRunId) : undefined;
+  if (suggestion.sourceRunId) return runs.find((r) => r.id === suggestion.sourceRunId);
+  const linked = suggestion.agentRunId ? runs.find((r) => r.id === suggestion.agentRunId) : undefined;
   if (!linked) return undefined;
-  if (linked.origin === "auto-issue-update") return undefined;
-  if (isIssueDraftAnalysisTask(linked.task)) return undefined;
+  if (linked.origin === "auto-suggestion-update") return undefined;
+  if (isSuggestionDraftAnalysisTask(linked.task)) return undefined;
   return linked;
 }
 
@@ -113,7 +113,7 @@ export function isConsultHistoryRun(run: {
   task: string;
 }): boolean {
   if (run.agentName !== "Lead Agent") return false;
-  if (run.origin === "auto-issue-update") return false;
-  if (isIssueDraftAnalysisTask(run.task)) return false;
+  if (run.origin === "auto-suggestion-update") return false;
+  if (isSuggestionDraftAnalysisTask(run.task)) return false;
   return true;
 }

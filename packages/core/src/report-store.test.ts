@@ -104,30 +104,30 @@ describe("generateReport", () => {
     expect(report.stats.journal.notableEntries).toHaveLength(0);
   });
 
-  it("期間内に作成・アーカイブされたIssueを分けて集計する", async () => {
-    const issueStore = await import("./issue-store");
+  it("期間内に作成・アーカイブされた提案を分けて集計する", async () => {
+    const suggestionStore = await import("./suggestion-store");
     const store = await loadModule();
     const now = Date.now();
 
-    const archivedIssue = await issueStore.createIssue("アーカイブIssue");
-    issueStore.setIssueArchived(archivedIssue.id, true);
-    await issueStore.createIssue("もう1件のIssue");
+    const archivedSuggestion = await suggestionStore.createSuggestion("アーカイブ提案");
+    suggestionStore.archiveSuggestion(archivedSuggestion.id);
+    await suggestionStore.createSuggestion("もう1件の提案");
 
     const report = store.generateReport("week", now + 1000);
-    expect(report.stats.issues.createdCount).toBe(2);
-    expect(report.stats.issues.archivedCount).toBe(1);
+    expect(report.stats.suggestions.createdCount).toBe(2);
+    expect(report.stats.suggestions.archivedCount).toBe(1);
   });
 
   it("知識イベント(context:official)を種別ごとに集計する", async () => {
     const knowledgeStore = await import("./knowledge-store");
     const store = await loadModule();
     const now = Date.now();
-    knowledgeStore.recordChangeEvent("issue", "issue-1", "変更履歴1");
+    knowledgeStore.recordChangeEvent("suggestion", "suggestion-1", "変更履歴1");
     knowledgeStore.recordChangeEvent("team", "team-1", "変更履歴2");
 
     const report = store.generateReport("week", now + 1000);
     expect(report.stats.events.total).toBe(2);
-    expect(report.stats.events.byEntityType).toEqual({ issue: 1, team: 1 });
+    expect(report.stats.events.byEntityType).toEqual({ suggestion: 1, team: 1 });
   });
 });
 
@@ -157,13 +157,13 @@ describe("listReports / getReport / updateReportNote", () => {
 describe("toReportView", () => {
   it("PERSON_n IDを実名に復元する", async () => {
     const peopleDirectory = await import("./people-directory");
-    const issueStore = await import("./issue-store");
+    const suggestionStore = await import("./suggestion-store");
     const store = await loadModule();
     peopleDirectory.registerName("Aさん");
 
-    await issueStore.createIssue("Aさんの育成Issue");
+    await suggestionStore.createSuggestion("Aさんの育成提案");
     const report = store.generateReport("week");
     const view = store.toReportView(report);
-    expect(view.stats.issues.createdTitles[0].title).toBe("Aさんの育成Issue");
+    expect(view.stats.suggestions.createdTitles[0].title).toBe("Aさんの育成提案");
   });
 });

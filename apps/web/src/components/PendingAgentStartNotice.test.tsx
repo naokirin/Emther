@@ -42,16 +42,16 @@ describe("PendingAgentStartNotice", () => {
 });
 
 describe("formatPendingAgentStartText", () => {
-  it("issueTitleがあればタイトル付きで整形する", () => {
+  it("suggestionTitleがあればタイトル付きで整形する", () => {
     const now = 1_000_000;
     const text = formatPendingAgentStartText(
-      pending({ label: "分析", firesAt: now + 4000, issueTitle: "五木さんの目標設定" }),
+      pending({ label: "分析", firesAt: now + 4000, suggestionTitle: "五木さんの目標設定" }),
       now,
     );
     expect(text).toBe("あと4秒で分析（「五木さんの目標設定」）");
   });
 
-  it("issueTitleが無ければタイトル部分を省く", () => {
+  it("suggestionTitleが無ければタイトル部分を省く", () => {
     const now = 1_000_000;
     const text = formatPendingAgentStartText(pending({ label: "分析", firesAt: now + 2000 }), now);
     expect(text).toBe("あと2秒で分析");

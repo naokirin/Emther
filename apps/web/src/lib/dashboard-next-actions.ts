@@ -2,14 +2,14 @@
 // すぐに分かり、詳細に遷移できる状態にする」への対応。Yield/Error/Team Vitals不調などの
 // シグナルを、EMが今すぐ対応すべき順（urgent→warn）に束ねて1箇所に見せるための、JSXを
 // 持たない純粋なデータ組み立てロジック（app/page.tsxから分離）。
-// docs/2nd_pivot_version.md Phase 2.1対応。「Issue未整理」「次の一手未設定」のような、
-// EMにIssueの構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
+// docs/2nd_pivot_version.md Phase 2.1対応。「提案未整理」「次の一手未設定」のような、
+// EMに提案の構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions, type AgentRun } from "../components/RunDetail";
 import { formatPendingAgentStartText } from "../components/PendingAgentStartNotice";
 import { truncateExcerpt } from "@emther/core/origin-trace";
 import {
   isJournalEntryResolved,
-  type Issue,
+  type Suggestion,
   type JournalEntry,
   type OrgVitals,
   type PendingAgentStart,
@@ -80,10 +80,10 @@ const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 // docs/em_human_story_and_ux.md P1-10対応。進行中（未アーカイブ）の介入のうち、着手は
 // されているのに長期間動きが無いものは「やりっぱなし」になりやすい。観測不足として
-// 朝キューに載せる（status:not_startedの未着手Issueは対象外）。
+// 朝キューに載せる（reviewStatus:doneの提案は対象外）。
 // docs/2nd_pivot_version.md Phase 2.3対応。以前はcharter充足・Action Item有無を
 // 「着手済みかどうか」のシグナルにしていたが、両方とも人間に管理させたくないフィールド
-// なので、既に持っているstatus（ワークフロー状態）で判定する形に変えた。
+// なので、既に持っているreviewStatus（確認状態）で判定する形に変えた。
 const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
 
 // docs/em_human_story_and_ux.md P0-4対応。並列consult(M)や自動検知の連続起動で、AIの
@@ -95,14 +95,14 @@ const AUTO_DRAFT_BUNDLE_THRESHOLD = 3;
 // docs/em_human_story_and_ux.md P0-3対応。「様子見」のまま一定期間が過ぎたrunは
 // 判断待ちレーンへ再浮上させ、「様子見＝忘れられる」にしない。期限内のものは
 // watchingItemsとして別途一覧できるようにする（新画面は増やさない）。
-export function selectWatchingItems(runs: AgentRun[], issues: Issue[]): AgentRun[] {
-  return runs.filter((r) => r.triageStatus === "watching" && !shouldOmitRunFromNextActions(r, issues));
+export function selectWatchingItems(runs: AgentRun[], suggestions: Suggestion[]): AgentRun[] {
+  return runs.filter((r) => r.triageStatus === "watching" && !shouldOmitRunFromNextActions(r, suggestions));
 }
 
 export type BuildNextActionsParams = {
   now: number;
   runs: AgentRun[];
-  issues: Issue[];
+  suggestions: Suggestion[];
   journalEntries: JournalEntry[];
   people: PersonSummary[];
   vitals: OrgVitals;
@@ -110,7 +110,7 @@ export type BuildNextActionsParams = {
   pendingUnmaskedSends: PendingUnmaskedSend[];
   staleRunIds: Set<string>;
   watchingItems: AgentRun[];
-  goToRunIssue: (run: AgentRun) => void;
+  goToRunSuggestion: (run: AgentRun) => void;
   push: (path: string) => void;
   prefillJournal: (text: string) => void;
   onConfirmUnmasked: (pending: PendingUnmaskedSend) => void;
@@ -120,7 +120,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   const {
     now,
     runs,
-    issues,
+    suggestions,
     journalEntries,
     people,
     vitals,
@@ -128,7 +128,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     pendingUnmaskedSends,
     staleRunIds,
     watchingItems,
-    goToRunIssue,
+    goToRunSuggestion,
     push,
     prefillJournal,
     onConfirmUnmasked,
@@ -137,17 +137,17 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
-    // docs/usage_issues U4/U5。consult子run・却下済み・アーカイブ済みIssueに紐づくrunは出さない。
-    if (shouldOmitRunFromNextActions(run, issues)) continue;
+    // docs/usage_issues U4/U5。consult子run・却下済み・アーカイブ済み提案に紐づくrunは出さない。
+    if (shouldOmitRunFromNextActions(run, suggestions)) continue;
     if (run.triageStatus === "watching") continue;
 
     // AI主導（イベント駆動・バッチ駆動）で自動起動されたrunは、EMがまだ内容を確認して
-    // いない間は「ドラフトIssue（起票待ち）」としてここに残す。クリック先は即Issue化せず
-    // /chat（起票／様子見／却下）へ。Issue更新分析だけは紐付くIssue Workspaceへ。
+    // いない間は「ドラフト提案（起票待ち）」としてここに残す。クリック先は即提案化せず
+    // /chat（起票／様子見／却下）へ。提案更新分析だけは紐付く提案詳細へ。
     const isDraft = isDraftAwaitingTriage(run);
     const onSelectDraft = () => {
-      if (run.origin === "auto-issue-update") {
-        const linked = issues.find((i) => i.agentRunId === run.id);
+      if (run.origin === "auto-suggestion-update") {
+        const linked = suggestions.find((s) => s.agentRunId === run.id);
         if (linked) {
           push(`/suggestions/${linked.id}`);
           return;
@@ -156,9 +156,9 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       push(`/chat?runId=${run.id}`);
     };
     // docs/em_human_story_and_ux.md P0-2対応（修正）。自動検知draftsだけでなく、
-    // まだIssueに紐付いていないLead Agent run全般も、クリックしたらgoToRunIssueで
-    // 即Issue化せず/chatへ寄せる。
-    const isLeadUnlinked = run.agentName === "Lead Agent" && !issues.some((i) => i.agentRunId === run.id);
+    // まだ提案に紐付いていないLead Agent run全般も、クリックしたらgoToRunSuggestionで
+    // 即提案化せず/chatへ寄せる。
+    const isLeadUnlinked = run.agentName === "Lead Agent" && !suggestions.some((s) => s.agentRunId === run.id);
 
     if (staleRunIds.has(run.id)) {
       const minutes = Math.round((now - run.updatedAt) / 60000);
@@ -169,7 +169,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         icon: "❔",
         kindLabel: isDraft ? draftKindLabel(run) : "実行異常",
         text: `${run.agentName}が${minutes}分応答していません（動いているように見えて止まっている可能性）: ${truncateExcerpt(run.task, 30)}`,
-        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
+        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunSuggestion(run),
         since: run.updatedAt,
         ctaLabel: "確認する",
       });
@@ -181,7 +181,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         icon: "🟡",
         kindLabel: isDraft ? draftKindLabel(run) : `Yield · ${run.agentName}`,
         text: `${isDraft ? "ドラフト: " : ""}${truncateExcerpt(run.yieldRequest?.reason ?? run.task, 44)}`,
-        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
+        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunSuggestion(run),
         since: run.updatedAt,
         ctaLabel: "判断する",
       });
@@ -193,7 +193,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         icon: "🔴",
         kindLabel: isDraft ? draftKindLabel(run) : "実行異常",
         text: `${isDraft ? "ドラフト（エラー）: " : `${run.agentName}でエラーが発生しました: `}${truncateExcerpt(run.task, 44)}`,
-        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunIssue(run),
+        onSelect: isDraft || isLeadUnlinked ? onSelectDraft : () => goToRunSuggestion(run),
         since: run.updatedAt,
         ctaLabel: "確認する",
       });
@@ -231,7 +231,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   for (const entry of journalEntries) {
     if (now - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
     // バグ修正（docs/memo.md「観測不足に解決済みJournalが残り続ける」）対応。表示ウィンドウ
-    // （24時間）だけで自然に外れる設計だったため、対応済み/Issue化済みのJournalも
+    // （24時間）だけで自然に外れる設計だったため、対応済み/提案化済みのJournalも
     // ウィンドウ内は「観測不足」レーンに載り続けていた。すでに解決済みなら観測を
     // 増やす必要はないため、ここで除外する。
     if (isJournalEntryResolved(entry)) continue;
@@ -277,8 +277,8 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     }
   }
 
-  // docs/2nd_pivot_version.md Phase 2.1対応。「Issue未整理」（Why/What/Howの充足を
-  // 埋めるよう促すカード）は、pivot_policy.mdの方針（EMにIssueの構造を手入れさせない）
+  // docs/2nd_pivot_version.md Phase 2.1対応。「提案未整理」（Why/What/Howの充足を
+  // 埋めるよう促すカード）は、pivot_policy.mdの方針（EMに提案の構造を手入れさせない）
   // と衝突するため廃止した。
 
   // docs/em_human_story_and_ux.md P1-10対応。要注目人物（ネガティブ傾向が優勢）を
@@ -305,20 +305,20 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
-  const staleInterventions = issues
-    .filter((i) => !i.archived && i.status !== "not_started" && now - i.updatedAt > STALE_INTERVENTION_MS)
+  const staleInterventions = suggestions
+    .filter((s) => !s.archivedAt && s.reviewStatus !== "done" && now - s.updatedAt > STALE_INTERVENTION_MS)
     .sort((a, b) => a.updatedAt - b.updatedAt)
     .slice(0, 3);
-  for (const issue of staleInterventions) {
-    const days = Math.round((now - issue.updatedAt) / (24 * 60 * 60 * 1000));
+  for (const suggestion of staleInterventions) {
+    const days = Math.round((now - suggestion.updatedAt) / (24 * 60 * 60 * 1000));
     nextActions.push({
-      id: `stale-issue-${issue.id}`,
+      id: `stale-suggestion-${suggestion.id}`,
       severity: "warn",
       lane: "observation",
       icon: "🧊",
       kindLabel: "提案の停滞",
-      text: `「${issue.title}」が${days}日間動いていません。確認の優先度を見直しますか？`,
-      onSelect: () => push(`/suggestions/${issue.id}`),
+      text: `「${suggestion.title}」が${days}日間動いていません。確認の優先度を見直しますか？`,
+      onSelect: () => push(`/suggestions/${suggestion.id}`),
       // 停滞検知自体が「長期間動きが無いこと」なので、常に新着扱いにはしない。
       since: 0,
     });
@@ -328,27 +328,30 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   // （「いつまでに確認したいか」）を自ら設定した提案が、その期日を過ぎても未確認・確認中・
   // 確認保留のままなら、様子見の期限切れ（watch-expired、下記）と同じ考え方で判断待ち
   // レーンへ出す。archived（確認済みdoneを含む）は対象外。
-  const overdueReviews = issues
-    .filter((i): i is typeof i & { reviewDueAt: number } => !i.archived && i.reviewDueAt !== undefined && now > i.reviewDueAt)
+  const overdueReviews = suggestions
+    .filter((s): s is typeof s & { reviewDueAt: number } => !s.archivedAt && s.reviewDueAt !== undefined && now > s.reviewDueAt)
     .sort((a, b) => a.reviewDueAt - b.reviewDueAt)
     .slice(0, 3);
-  for (const issue of overdueReviews) {
-    const days = Math.floor((now - issue.reviewDueAt) / (24 * 60 * 60 * 1000));
+  for (const suggestion of overdueReviews) {
+    const days = Math.floor((now - suggestion.reviewDueAt) / (24 * 60 * 60 * 1000));
     nextActions.push({
-      id: `review-due-${issue.id}`,
+      id: `review-due-${suggestion.id}`,
       severity: "warn",
       lane: "decision",
       icon: "⏰",
       kindLabel: "確認期日超過",
-      text: days > 0 ? `「${issue.title}」の確認期日（${days}日前）を過ぎています` : `「${issue.title}」の確認期日を過ぎています`,
-      onSelect: () => push(`/suggestions/${issue.id}`),
+      text:
+        days > 0
+          ? `「${suggestion.title}」の確認期日（${days}日前）を過ぎています`
+          : `「${suggestion.title}」の確認期日を過ぎています`,
+      onSelect: () => push(`/suggestions/${suggestion.id}`),
       // 期限切れ自体は「以前からの期日設定」なので新着扱いにはしない（watch-expiredと同じ）。
       since: 0,
     });
   }
 
   // docs/2nd_pivot_version.md Phase 2.1対応。「次の一手未設定」（Action Itemを設定する
-  // よう促すカード）も、Issue未整理と同じ理由（EMにIssueの構造を手入れさせない）で廃止した。
+  // よう促すカード）も、提案未整理と同じ理由（EMに提案の構造を手入れさせない）で廃止した。
 
   // docs/memo.md「今日タブの今日やるべきに『チームリスク』が表示されるが『チームの状態』と
   // 内容的には被っている」対応。bad/warnは同じダッシュボード上のDailySituationPanel
@@ -416,7 +419,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       kindLabel: "起動予定",
       text: formatPendingAgentStartText(pending, now),
       onSelect: () => {
-        if (pending.issueId) push(`/suggestions/${pending.issueId}`);
+        if (pending.suggestionId) push(`/suggestions/${pending.suggestionId}`);
       },
       since: pending.firesAt,
     });

@@ -1,12 +1,13 @@
 import { cosineSimilarity, embedText } from "./embeddings";
 import { listJournalEntriesPage } from "./journal-store";
-import { getIssue, listIssues, type Issue } from "./issue-store";
+import { getSuggestion, listSuggestions } from "./suggestion-store";
+import type { Suggestion } from "./types";
 import { findByIdPrefix } from "./id-prefix";
 import { maskNames, maskNamesSearchForms, unmaskNames } from "./people-directory";
 import {
   RELATED_SIMILARITY_THRESHOLD,
-  searchSimilarOpenIssues,
-  type SimilarIssue,
+  searchSimilarOpenSuggestions,
+  type SimilarSuggestion,
 } from "./related-context";
 import { searchSimilarEvents } from "./knowledge-store";
 
@@ -24,13 +25,13 @@ export const LOOKUP_HARD_LIMIT = 20;
 
 export type LookupQuery =
   | {
-      type: "issues";
+      type: "suggestions";
       query: string;
       includeDone?: boolean;
       includeArchived?: boolean;
       limit?: number;
     }
-  | { type: "issue"; id: string }
+  | { type: "suggestion"; id: string }
   | { type: "journals"; query: string; limit?: number }
   | { type: "similar"; query: string; limit?: number };
 
@@ -55,15 +56,16 @@ function parseLookupQuery(raw: unknown): LookupQuery | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const obj = raw as Record<string, unknown>;
   const type = obj.type;
-  if (type === "issue") {
+  // 旧プロンプト（"issue"/"issues"）で応答したモデルとの後方互換。
+  if (type === "suggestion" || type === "issue") {
     const id = normalizeQueryText(obj.id);
-    return id ? { type: "issue", id } : undefined;
+    return id ? { type: "suggestion", id } : undefined;
   }
-  if (type === "issues") {
+  if (type === "suggestions" || type === "issues") {
     const query = normalizeQueryText(obj.query);
     if (!query) return undefined;
     return {
-      type: "issues",
+      type: "suggestions",
       query,
       includeDone: obj.includeDone === true,
       includeArchived: obj.includeArchived === true,
@@ -109,28 +111,20 @@ export function extractLookup(resultText: string): LookupRequest | undefined {
   }
 }
 
-function issueMatchesKeyword(issue: Issue, needles: string[]): boolean {
-  const hay = [
-    issue.id,
-    issue.title,
-    ...issue.logEntries.map((e) => e.text),
-    issue.tags.join(" "),
-  ]
-    .join("\n")
-    .toLowerCase();
+function suggestionMatchesKeyword(suggestion: Suggestion, needles: string[]): boolean {
+  const hay = [suggestion.id, suggestion.title, ...suggestion.memos.map((m) => m.text)].join("\n").toLowerCase();
   return needles.some((needle) => hay.includes(needle.toLowerCase()));
 }
 
-function formatIssueBrief(issue: Issue, extra?: string): string {
-  const recent = issue.logEntries.at(-1)?.text;
+function formatSuggestionBrief(suggestion: Suggestion, extra?: string): string {
+  const recent = suggestion.memos.at(-1)?.text;
   const memo = recent ? ` / メモ: ${recent.slice(0, 80)}` : "";
-  const tags = issue.tags.length > 0 ? ` / タグ: ${issue.tags.join(", ")}` : "";
-  const arch = issue.archived ? " / archived" : "";
+  const arch = suggestion.archivedAt ? " / archived" : "";
   const suffix = extra ? ` ${extra}` : "";
-  return `- [${issue.id}] ${issue.title}${memo}${tags}（${issue.status}${arch}）${suffix}`;
+  return `- [${suggestion.id}] ${suggestion.title}${memo}（${suggestion.reviewStatus}${arch}）${suffix}`;
 }
 
-function searchIssuesByKeyword(opts: {
+function searchSuggestionsByKeyword(opts: {
   query: string;
   includeDone: boolean;
   includeArchived: boolean;
@@ -140,52 +134,52 @@ function searchIssuesByKeyword(opts: {
   if (needles.length === 0) return { lines: ["- （検索語が空です）"], totalMatched: 0 };
   const displayNeedle = needles[0];
 
-  const matched = listIssues().filter((i) => {
-    // Phase 7: archived ⇔ 確認済み(done)。includeDone / includeArchived のどちらかで拾う。
-    if (i.archived || i.status === "done") {
+  const matched = listSuggestions().filter((s) => {
+    // Phase 7: archivedAt ⇔ 確認済み(done)。includeDone / includeArchived のどちらかで拾う。
+    if (s.archivedAt || s.reviewStatus === "done") {
       if (!opts.includeDone && !opts.includeArchived) return false;
     }
-    return issueMatchesKeyword(i, needles);
+    return suggestionMatchesKeyword(s, needles);
   });
   const sliced = matched.slice(0, opts.limit);
   if (matched.length === 0) {
     return {
       lines: [
-        `- （キーワード「${displayNeedle}」に一致するIssueはありません。includeDone/includeArchived を true にすると範囲が広がります）`,
+        `- （キーワード「${displayNeedle}」に一致する提案はありません。includeDone/includeArchived を true にすると範囲が広がります）`,
       ],
       totalMatched: 0,
     };
   }
-  const lines = sliced.map((i) => formatIssueBrief(i));
+  const lines = sliced.map((s) => formatSuggestionBrief(s));
   if (matched.length > sliced.length) {
     lines.push(`- …他 ${matched.length - sliced.length} 件（limit=${opts.limit}）`);
   }
   return { lines, totalMatched: matched.length };
 }
 
-function getIssueByIdLine(id: string): string[] {
+function getSuggestionByIdLine(id: string): string[] {
   const trimmed = id.trim();
-  const exact = getIssue(trimmed);
+  const exact = getSuggestion(trimmed);
   if (exact) {
-    return formatIssueDetailLines(exact);
+    return formatSuggestionDetailLines(exact);
   }
-  const matched = findByIdPrefix(listIssues(), (i) => i.id, trimmed);
+  const matched = findByIdPrefix(listSuggestions(), (s) => s.id, trimmed);
   if (matched.length === 1) {
-    return formatIssueDetailLines(matched[0]);
+    return formatSuggestionDetailLines(matched[0]);
   }
   if (matched.length > 1) {
     return [
-      `- プレフィックス [${trimmed}] に複数の Issue が一致します:`,
-      ...matched.map((i) => formatIssueBrief(i)),
+      `- プレフィックス [${trimmed}] に複数の提案が一致します:`,
+      ...matched.map((s) => formatSuggestionBrief(s)),
     ];
   }
-  return [`- Issue [${trimmed}] は見つかりませんでした`];
+  return [`- 提案 [${trimmed}] は見つかりませんでした`];
 }
 
-function formatIssueDetailLines(issue: Issue): string[] {
-  const recentMemos = issue.logEntries.slice(-3);
+function formatSuggestionDetailLines(suggestion: Suggestion): string[] {
+  const recentMemos = suggestion.memos.slice(-3);
   const parts = [
-    formatIssueBrief(issue),
+    formatSuggestionBrief(suggestion),
     ...recentMemos.map((m) => `  メモ: ${m.text.slice(0, 200)}`),
   ].filter(Boolean);
   return parts;
@@ -212,7 +206,7 @@ function searchJournalsByKeyword(opts: { query: string; limit: number }): { line
 async function searchSimilarBundle(opts: { query: string; limit: number }): Promise<string[]> {
   const trimmed = opts.query.trim();
   if (!trimmed) return ["- （検索語が空です）"];
-  // Journal/Issue の embedding は実名テキストから生成されている。Agent は PERSON_n で
+  // Journal/提案 の embedding は実名テキストから生成されている。Agent は PERSON_n で
   // 問い合わせることが多いため、embed 直前だけ実名へ戻す（返却行は下位の format がマスク済み）。
   const embedQuery = unmaskNames(trimmed);
 
@@ -223,18 +217,18 @@ async function searchSimilarBundle(opts: { query: string; limit: number }): Prom
     return ["- （埋め込み生成に失敗したため類似検索できませんでした）"];
   }
 
-  const issues = searchSimilarOpenIssues(queryEmbedding, {
+  const suggestions = searchSimilarOpenSuggestions(queryEmbedding, {
     limit: opts.limit,
     threshold: RELATED_SIMILARITY_THRESHOLD,
   });
   // done/archived も含めて広めに見る（不在確認用）。embedding があるものだけ。
-  const allScored: SimilarIssue[] = listIssues()
-    .filter((i) => i.embedding)
-    .map((i) => ({
-      ...i,
-      similarity: cosineSimilarity(queryEmbedding, i.embedding!),
+  const allScored: SimilarSuggestion[] = listSuggestions()
+    .filter((s) => s.embedding)
+    .map((s) => ({
+      ...s,
+      similarity: cosineSimilarity(queryEmbedding, s.embedding!),
     }))
-    .filter((i) => i.similarity >= RELATED_SIMILARITY_THRESHOLD)
+    .filter((s) => s.similarity >= RELATED_SIMILARITY_THRESHOLD)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, opts.limit);
 
@@ -243,18 +237,18 @@ async function searchSimilarBundle(opts: { query: string; limit: number }): Prom
   );
 
   const lines: string[] = [];
-  lines.push("【類似・未完了Issue】");
-  if (issues.length === 0) {
-    lines.push("- （閾値以上の未完了Issueなし）");
+  lines.push("【類似・未完了の提案】");
+  if (suggestions.length === 0) {
+    lines.push("- （閾値以上の未完了提案なし）");
   } else {
-    lines.push(...issues.map((i) => formatIssueBrief(i, `（類似度: ${i.similarity.toFixed(2)}）`)));
+    lines.push(...suggestions.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
   }
 
-  lines.push("【類似・状態不問のIssue（done/archived含む）】");
+  lines.push("【類似・状態不問の提案（done/archived含む）】");
   if (allScored.length === 0) {
-    lines.push("- （閾値以上のIssueなし）");
+    lines.push("- （閾値以上の提案なし）");
   } else {
-    lines.push(...allScored.map((i) => formatIssueBrief(i, `（類似度: ${i.similarity.toFixed(2)}）`)));
+    lines.push(...allScored.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
   }
 
   lines.push("【類似Journal】");
@@ -271,8 +265,8 @@ async function searchSimilarBundle(opts: { query: string; limit: number }): Prom
 
 async function runOneQuery(q: LookupQuery, index: number): Promise<string> {
   const header = `### 照会 ${index + 1}: ${q.type}`;
-  if (q.type === "issues") {
-    const { lines, totalMatched } = searchIssuesByKeyword({
+  if (q.type === "suggestions") {
+    const { lines, totalMatched } = searchSuggestionsByKeyword({
       query: q.query,
       includeDone: q.includeDone === true,
       includeArchived: q.includeArchived === true,
@@ -284,8 +278,8 @@ async function runOneQuery(q: LookupQuery, index: number): Promise<string> {
       ...lines,
     ].join("\n");
   }
-  if (q.type === "issue") {
-    return [header, `id: ${q.id}`, ...getIssueByIdLine(q.id)].join("\n");
+  if (q.type === "suggestion") {
+    return [header, `id: ${q.id}`, ...getSuggestionByIdLine(q.id)].join("\n");
   }
   if (q.type === "journals") {
     const { lines, total } = searchJournalsByKeyword({

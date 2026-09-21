@@ -2,9 +2,9 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { consultListMetaParts } from "../ConsultHistoryItem";
 import type { AgentRun } from "../RunDetail";
-import { IssueStrategyLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
+import { SuggestionStrategyLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@emther/core/origin-trace";
-import type { IssueStrategyLinkSuggestion } from "@emther/core/types";
+import type { SuggestionStrategyLinkSuggestion } from "@emther/core/types";
 import { LANE_META, rankActions, type Lane, type NextAction } from "../../lib/dashboard-next-actions";
 import { AgentStatusSection } from "./AgentStatusSection";
 
@@ -58,18 +58,18 @@ type Props = {
   // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
   // 対応。生成中／結果はこのパネル自身のstateではなく、タブ切り替えでは不変な親
   // （DashboardPageInner）側のstateとして持ち、propsで受け取るだけにする。
-  issueLinkSuggesting: boolean;
-  issueLinkError: string | null;
-  issueLinkPreview: {
-    suggestions: IssueStrategyLinkSuggestion[];
+  suggestionLinkSuggesting: boolean;
+  suggestionLinkError: string | null;
+  suggestionLinkPreview: {
+    suggestions: SuggestionStrategyLinkSuggestion[];
     source: "cloud" | "heuristic";
     fallbackReason?: string;
   } | null;
-  issueLinkApplyingId: string | null;
-  onSuggestIssueStrategyLinks: () => void;
-  onAdoptIssueStrategyLink: (s: IssueStrategyLinkSuggestion) => void;
-  onDismissIssueLinkPreview: () => void;
-  onDismissIssueLinkOne: (issueId: string) => void;
+  suggestionLinkApplyingId: string | null;
+  onSuggestSuggestionStrategyLinks: () => void;
+  onAdoptSuggestionStrategyLink: (s: SuggestionStrategyLinkSuggestion) => void;
+  onDismissSuggestionLinkPreview: () => void;
+  onDismissSuggestionLinkOne: (suggestionId: string) => void;
 };
 
 export function TodayActionsPanel({
@@ -85,14 +85,14 @@ export function TodayActionsPanel({
   runs = [],
   runsLoaded = true,
   onNavigate,
-  issueLinkSuggesting,
-  issueLinkError,
-  issueLinkPreview,
-  issueLinkApplyingId,
-  onSuggestIssueStrategyLinks,
-  onAdoptIssueStrategyLink,
-  onDismissIssueLinkPreview,
-  onDismissIssueLinkOne,
+  suggestionLinkSuggesting,
+  suggestionLinkError,
+  suggestionLinkPreview,
+  suggestionLinkApplyingId,
+  onSuggestSuggestionStrategyLinks,
+  onAdoptSuggestionStrategyLink,
+  onDismissSuggestionLinkPreview,
+  onDismissSuggestionLinkOne,
 }: Props) {
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
   // レーンごとの「もっと見る」で追加表示した件数。初期上限（設定 or MAINTENANCE_LANE_LIMIT）
@@ -141,31 +141,31 @@ export function TodayActionsPanel({
           <button
             className={`${styles.detailToggle} ${styles.axisTooltip}`}
             style={{ marginLeft: 6 }}
-            disabled={issueLinkSuggesting}
-            onClick={onSuggestIssueStrategyLinks}
+            disabled={suggestionLinkSuggesting}
+            onClick={onSuggestSuggestionStrategyLinks}
             data-tooltip="戦略未接続の親 提案 へ、テーマ / KR の紐付けをAIが提案します"
           >
-            {issueLinkSuggesting ? "提案中…" : "AIで見直す"}
+            {suggestionLinkSuggesting ? "提案中…" : "AIで見直す"}
           </button>
-          <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => onNavigate("/issues")}>
+          <button className={styles.detailToggle} style={{ marginLeft: 6 }} onClick={() => onNavigate("/suggestions")}>
             一覧へ
           </button>
         </p>
       )}
-      {issueLinkError && (
+      {suggestionLinkError && (
         <p className={styles.errorText} role="alert" style={{ marginBottom: 8 }}>
-          {issueLinkError}
+          {suggestionLinkError}
         </p>
       )}
-      {issueLinkPreview && (
-        <IssueStrategyLinkSuggestPanel
-          suggestions={issueLinkPreview.suggestions}
-          source={issueLinkPreview.source}
-          fallbackReason={issueLinkPreview.fallbackReason}
-          applyingId={issueLinkApplyingId}
-          onAdopt={onAdoptIssueStrategyLink}
-          onDismiss={onDismissIssueLinkPreview}
-          onDismissOne={onDismissIssueLinkOne}
+      {suggestionLinkPreview && (
+        <SuggestionStrategyLinkSuggestPanel
+          suggestions={suggestionLinkPreview.suggestions}
+          source={suggestionLinkPreview.source}
+          fallbackReason={suggestionLinkPreview.fallbackReason}
+          applyingId={suggestionLinkApplyingId}
+          onAdopt={onAdoptSuggestionStrategyLink}
+          onDismiss={onDismissSuggestionLinkPreview}
+          onDismissOne={onDismissSuggestionLinkOne}
         />
       )}
 

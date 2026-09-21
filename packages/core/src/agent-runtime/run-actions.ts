@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getIssueByRunId, linkIssueRun } from "../issue-store";
+import { getSuggestionByRunId, linkSuggestionRun } from "../suggestion-store";
 import type { MaskOptions } from "../name-candidate-confirmation";
 import { ensureNameCandidatesAllowed } from "../people-directory";
 import { getRulesAndConstraints } from "../settings-store";
@@ -45,7 +45,7 @@ export async function confirmPendingUnmaskedSend(
       pending.agentName,
       pending.task,
       pending.origin ?? "manual",
-      pending.linkedIssueId,
+      pending.linkedSuggestionId,
       {
         ...allow,
         sourceJournalId: pending.sourceJournalId,
@@ -60,18 +60,18 @@ export async function confirmPendingUnmaskedSend(
 // 前に必ずマスクする（クラウド送信の直前ではなく、保存の直前にマスクするという設計に
 // 変更した）。runをrunsマップへ登録するのは、マスクが完了した後にする——マスク完了前に
 // 登録すると、その一瞬だけtaskが空文字列で見えるが、実名が見える瞬間は無い（安全側）。
-// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。linkedIssueIdを渡すと、実際にClaudeを起動する（runClaudeTurn）前に同期的に
-// Issue.agentRunIdを紐づける。buildSystemPrompt内のgetIssueByRunId（issueContext/
+// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。linkedSuggestionIdを渡すと、実際にClaudeを起動する（runClaudeTurn）前に同期的に
+// Suggestion.agentRunIdを紐づける。buildSystemPrompt内のgetSuggestionByRunId（issueContext/
 // actionItemsRule/subIssuesRule/charterRuleが参照する）が、最初のターンから
 // 紐付き済みの状態を見られるようにするための順序保証（先にrunClaudeTurnを起動して
-// 後から紐づけると、非同期処理のタイミング次第で最初のターンにIssueの前提が
+// 後から紐づけると、非同期処理のタイミング次第で最初のターンに提案の前提が
 // 渡らないレースが起き得る）。
 export async function startRun(
   agentName: string,
   rawTask: string,
   origin: AgentRun["origin"] = "manual",
-  linkedIssueId?: string,
+  linkedSuggestionId?: string,
   opts: MaskOptions & { sourceJournalId?: string; requiredConsultAgents?: string[] } = {},
 ): Promise<AgentRun> {
   const { sourceJournalId, requiredConsultAgents, ...maskOpts } = opts;
@@ -100,7 +100,7 @@ export async function startRun(
   const maskedTask = await sanitizeForCloud(run, rawTask);
   run.task = maskedTask;
   runs.set(run.id, run);
-  if (linkedIssueId) linkIssueRun(linkedIssueId, run.id);
+  if (linkedSuggestionId) linkSuggestionRun(linkedSuggestionId, run.id);
   appendLog(
     run,
     "meta",
@@ -108,29 +108,29 @@ export async function startRun(
   );
   const shouldTeamKickoff =
     agentName === "Lead Agent" &&
-    !!linkedIssueId &&
+    !!linkedSuggestionId &&
     getRulesAndConstraints().teamParallelKickoffEnabled;
-  if (shouldTeamKickoff && linkedIssueId) {
-    void runTeamParallelKickoff(run, rawTask, maskedTask, linkedIssueId);
+  if (shouldTeamKickoff && linkedSuggestionId) {
+    void runTeamParallelKickoff(run, rawTask, maskedTask, linkedSuggestionId);
   } else {
     void runClaudeTurn(run, rawTask, true, maskedTask);
   }
   return run;
 }
 
-// ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。/api/issues・/api/issues/[id]/parentの両方（＝「素のIssue作成」の全経路）から
+// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
+// 対応。/api/suggestions・/api/suggestions/[id]/parentの両方（＝「素の提案作成」の全経路）から
 // 同じ文面でLead Agentへタスクを渡すための共通ビルダー。issueContext（buildIssueContextBlock）
 // が既に紐付き済みのWhy/What/Howをブロックとして注入するが、それが省略されるケース
-// （タイトルのみでWhy/What/How・タグが全て空のIssue）でもタイトルだけは確実に伝わるよう、
+// （タイトルのみでWhy/What/How・タグが全て空の提案）でもタイトルだけは確実に伝わるよう、
 // ここでも明示的に含める。
-export function buildIssueDraftTask(title: string, charter: { why?: string; what?: string; how?: string }): string {
-  const lines = ["新しいIssueが起票されました。EMが次の一手を判断できるよう、チームとして分析してください。", `タイトル: ${title}`];
+export function buildSuggestionDraftTask(title: string, charter: { why?: string; what?: string; how?: string }): string {
+  const lines = ["新しい提案が起票されました。EMが次の一手を判断できるよう、チームとして分析してください。", `タイトル: ${title}`];
   if (charter.why) lines.push(`Why（記録時点）: ${charter.why}`);
   if (charter.what) lines.push(`What（記録時点）: ${charter.what}`);
   if (charter.how) lines.push(`How（記録時点）: ${charter.how}`);
   lines.push(
-    "Why/What/Howのうち未整理な項目があれば埋める提案をし、そのうえで改善の方向性を判断してください。課題が抽象的な場合は子Issueへの分解案も、必要に応じて提案してください。",
+    "Why/What/Howのうち未整理な項目があれば埋める提案をし、そのうえで改善の方向性を判断してください。課題が抽象的な場合は子提案への分解案も、必要に応じて提案してください。",
   );
   return lines.join("\n");
 }
@@ -151,9 +151,9 @@ export async function decideRun(
   appendLog(run, "meta", `EMからの入力: ${maskedMessage}`);
 
   if (teamParallelKickoff && run.agentName === "Lead Agent") {
-    const linkedIssue = getIssueByRunId(id);
-    if (linkedIssue) {
-      void runTeamParallelKickoff(run, rawMessage, maskedMessage, linkedIssue.id);
+    const linkedSuggestion = getSuggestionByRunId(id);
+    if (linkedSuggestion) {
+      void runTeamParallelKickoff(run, rawMessage, maskedMessage, linkedSuggestion.id);
       return run;
     }
   }

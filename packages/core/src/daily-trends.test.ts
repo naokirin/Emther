@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "./daily-trends";
-import type { EmCheckin, Issue, JournalEntry } from "./types";
+import { buildCheckinDailyTrend, buildJournalSuggestionDailyTrend, periodWindow } from "./daily-trends";
+import type { EmCheckin, Suggestion, JournalEntry } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 固定の「今日」。2026-09-13は日曜日。ローカルタイムゾーンでの日付境界ズレを避けるため正午に置く。
@@ -82,27 +82,22 @@ function journalEntry(daysAgo: number, sentiment: JournalEntry["sentiment"]): Jo
   };
 }
 
-function issue(daysAgo: number): Issue {
+function suggestion(daysAgo: number): Suggestion {
   return {
     id: `i-${daysAgo}-${Math.random()}`,
     title: "",
-    charter: { why: "", what: "", how: "" },
-    actionItems: [],
-    logEntries: [],
-    status: "not_started",
     reviewStatus: "unreviewed",
-    priority: "normal",
-    archived: false,
-    tags: [],
+    confirmPriority: "normal",
+    memos: [],
     createdAt: TODAY - daysAgo * DAY_MS,
     updatedAt: TODAY - daysAgo * DAY_MS,
   };
 }
 
-describe("buildJournalIssueDailyTrend", () => {
+describe("buildJournalSuggestionDailyTrend", () => {
   it("Journalをsentiment別に日毎集計する", () => {
     const window = { start: TODAY - DAY_MS, end: TODAY + DAY_MS };
-    const points = buildJournalIssueDailyTrend(
+    const points = buildJournalSuggestionDailyTrend(
       [journalEntry(0, "positive"), journalEntry(0, "positive"), journalEntry(0, "negative"), journalEntry(1, "neutral")],
       [],
       window,
@@ -111,16 +106,16 @@ describe("buildJournalIssueDailyTrend", () => {
     expect(points[1]).toMatchObject({ journalPositive: 2, journalNegative: 1, journalNeutral: 0, journalTotal: 3 });
   });
 
-  it("Issueは起票日ごとに数える", () => {
+  it("提案は起票日ごとに数える", () => {
     const window = { start: TODAY - DAY_MS, end: TODAY + DAY_MS };
-    const points = buildJournalIssueDailyTrend([], [issue(1), issue(1)], window);
-    expect(points[0]).toMatchObject({ issueCreated: 2 });
-    expect(points[1]).toMatchObject({ issueCreated: 0 });
+    const points = buildJournalSuggestionDailyTrend([], [suggestion(1), suggestion(1)], window);
+    expect(points[0]).toMatchObject({ suggestionCreated: 2 });
+    expect(points[1]).toMatchObject({ suggestionCreated: 0 });
   });
 
-  it("ウィンドウ外のIssue/Journalは数えない", () => {
+  it("ウィンドウ外の提案/Journalは数えない", () => {
     const window = { start: TODAY, end: TODAY + DAY_MS };
-    const points = buildJournalIssueDailyTrend([journalEntry(2, "positive")], [issue(2)], window);
-    expect(points[0]).toMatchObject({ journalTotal: 0, issueCreated: 0 });
+    const points = buildJournalSuggestionDailyTrend([journalEntry(2, "positive")], [suggestion(2)], window);
+    expect(points[0]).toMatchObject({ journalTotal: 0, suggestionCreated: 0 });
   });
 });

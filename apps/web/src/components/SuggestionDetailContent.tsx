@@ -30,7 +30,7 @@ import {
 } from "@emther/core/types";
 import { journalExcerptFromTask, resolveSourceConsultRun } from "@emther/core/origin-trace";
 import { StrategyTrail } from "./StrategyTrail";
-import { buildIssueStrategyTrail } from "@emther/core/strategy-trail";
+import { buildSuggestionStrategyTrail } from "@emther/core/strategy-trail";
 
 // docs/2nd_pivot_version.md Phase 7。提案詳細: 確認状態・確認優先度・メモ・壁打ちに絞る。
 export function SuggestionDetailContent({ id }: { id: string }) {
@@ -57,7 +57,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
         runs,
       )
     : undefined;
-  const pendingStart = pendingAgentStarts.find((p) => p.issueId === id) ?? null;
+  const pendingStart = pendingAgentStarts.find((p) => p.suggestionId === id) ?? null;
 
   // docs/memo.md「判断・提案（Agent）／壁打ちにも元の相談の内容を反映し、やり取りを継続
   // できるようにしたい」対応。提案に専用のAgent Run（linkedRun）がまだ無い場合が多く
@@ -195,7 +195,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
         ? [{ id: suggestion.sourceJournalId, rawText: journalExcerptFromTask(sourceConsult?.task ?? linkedRun?.task ?? "") ?? "" }]
         : [];
 
-  const trail = buildIssueStrategyTrail({ id: suggestion.id, title: suggestion.title });
+  const trail = buildSuggestionStrategyTrail({ id: suggestion.id, title: suggestion.title });
 
   return (
     <>
@@ -322,7 +322,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       {isSuggestionStrategyUnlinked(suggestion) && (
         <p className={styles.subtitle}>テーマ 未接続（任意）。方針の縦糸につなぐ場合は下で設定できます。</p>
       )}
-      <StrategyTrail nodes={trail} currentKind="issue" />
+      <StrategyTrail nodes={trail} currentKind="suggestion" />
 
       <div className={styles.panel} style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <label className={styles.field} style={{ margin: 0, minWidth: 160 }}>

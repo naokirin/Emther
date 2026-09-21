@@ -29,7 +29,7 @@ const PERSON_A = {
   factCount: 2,
   isDirectReport: true,
   isSelf: false,
-  hasConcerningIssue: false,
+  hasConcerningSuggestion: false,
 };
 
 describe("PeoplePage", () => {
@@ -54,7 +54,7 @@ describe("PeoplePage", () => {
           return {
             ok: true,
             json: async () => ({
-              person: { ...person, facts: [], interpretations: [], relatedIssues: [] },
+              person: { ...person, facts: [], interpretations: [], relatedSuggestions: [] },
             }),
           };
         }

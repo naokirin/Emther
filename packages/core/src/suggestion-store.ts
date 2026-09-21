@@ -8,6 +8,7 @@ import type { MaskOptions } from "./name-candidate-confirmation";
 import type {
   ConfirmPriority,
   Suggestion,
+  SuggestionCharter,
   SuggestionDetail,
   SuggestionMemo,
   SuggestionReviewStatus,
@@ -461,6 +462,21 @@ export async function addMemo(
     // 通知失敗で本体更新は落とさない
   }
   return s;
+}
+
+// docs/2nd_pivot_version.md Phase 7。SuggestionはIssue時代のcharter（why/what/how）を
+// 構造化フィールドとして持たない。AIが提案するWhy/What/Howの下書きをEMが採用したときは、
+// メモへ整形して残す（addMemoと同じHuman-in-the-Loop）。
+export async function updateSuggestionCharter(
+  id: string,
+  patch: Partial<SuggestionCharter>,
+  opts: MaskOptions & SuggestionUpdateReactionOptions = {},
+): Promise<Suggestion | undefined> {
+  const parts = (["why", "what", "how"] as const)
+    .filter((k) => patch[k] !== undefined && patch[k]!.trim())
+    .map((k) => `${k === "why" ? "Why" : k === "what" ? "What" : "How"}: ${patch[k]!.trim()}`);
+  if (parts.length === 0) return getSuggestion(id);
+  return addMemo(id, `（Charter更新）\n${parts.join("\n")}`, opts);
 }
 
 export function setSuggestionTheme(id: string, themeId: string | null): Suggestion | undefined {

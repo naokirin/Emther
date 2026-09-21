@@ -92,15 +92,15 @@ describe("createApp() のマウント順（静的サブパス vs 親の:idワイ
     expect(await res.json()).toEqual({ goals: [] });
   });
 
-  it("POST /api/issues/link/suggest は issuesLinkSuggestRoute に届く（issuesRouteに飲まれない）", async () => {
+  it("POST /api/suggestions/link/suggest は suggestionsLinkSuggestRoute に届く（suggestionsRouteに飲まれない）", async () => {
     const { app } = await import("./app");
-    const res = await app.request("/api/issues/link/suggest", {
+    const res = await app.request("/api/suggestions/link/suggest", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ suggestions: [], targetCount: 0, source: "heuristic", fallbackReason: "no_unlinked_parent_issues" });
+    expect(await res.json()).toEqual({ suggestions: [], targetCount: 0, source: "heuristic", fallbackReason: "no_unlinked_suggestions" });
   });
 
   it("POST /api/themes/link/suggest-goal は themeGoalLinkSuggestRoute に届く（themesRouteに飲まれない）", async () => {

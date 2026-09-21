@@ -5,9 +5,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { Chart, ChartData } from "chart.js";
-import { CheckinTrendChart, jitterPointsPlugin, JournalIssueTrendChart } from "./DailyTrendChart";
-import { buildCheckinDailyTrend, buildJournalIssueDailyTrend, periodWindow } from "@emther/core/daily-trends";
-import type { EmCheckin, Issue, JournalEntry } from "@emther/core/types";
+import { CheckinTrendChart, jitterPointsPlugin, JournalSuggestionTrendChart } from "./DailyTrendChart";
+import { buildCheckinDailyTrend, buildJournalSuggestionDailyTrend, periodWindow } from "@emther/core/daily-trends";
+import type { EmCheckin, JournalEntry, Suggestion } from "@emther/core/types";
 
 vi.mock("react-chartjs-2", () => ({
   Line: ({ data }: { data: ChartData<"line"> }) => <div data-testid="line-chart" data-chart={JSON.stringify(data)} />,
@@ -97,26 +97,21 @@ function journalEntry(ts: number, sentiment: JournalEntry["sentiment"]): Journal
   };
 }
 
-function issue(createdAt: number): Issue {
+function suggestion(createdAt: number): Suggestion {
   return {
-    id: `i-${Math.random()}`,
+    id: `s-${Math.random()}`,
     title: "",
-    charter: { why: "", what: "", how: "" },
-    actionItems: [],
-    logEntries: [],
-    status: "not_started",
     reviewStatus: "unreviewed",
-    priority: "normal",
-    archived: false,
-    tags: [],
+    confirmPriority: "normal",
+    memos: [],
     createdAt,
     updatedAt: createdAt,
   };
 }
 
-describe("JournalIssueTrendChart", () => {
-  it("記録が無い期間はJournal/Issue両方の空状態メッセージを出す", () => {
-    render(<JournalIssueTrendChart points={buildJournalIssueDailyTrend([], [], WEEK)} />);
+describe("JournalSuggestionTrendChart", () => {
+  it("記録が無い期間はJournal/提案両方の空状態メッセージを出す", () => {
+    render(<JournalSuggestionTrendChart points={buildJournalSuggestionDailyTrend([], [], WEEK)} />);
     expect(screen.getByText("この期間のJournalはまだありません。")).toBeInTheDocument();
     expect(screen.getByText("この期間の提案の起票はまだありません。")).toBeInTheDocument();
   });
@@ -128,19 +123,19 @@ describe("JournalIssueTrendChart", () => {
       journalEntry(WEEK.start, "negative"),
       journalEntry(WEEK.start + DAY_MS, "neutral"),
     ];
-    render(<JournalIssueTrendChart points={buildJournalIssueDailyTrend(journalEntries, [], WEEK)} />);
+    render(<JournalSuggestionTrendChart points={buildJournalSuggestionDailyTrend(journalEntries, [], WEEK)} />);
     const chart = JSON.parse(screen.getAllByTestId("bar-chart")[0]!.getAttribute("data-chart")!) as ChartData<"bar">;
     expect(chart.datasets.map((d) => d.label)).toEqual(["ネガティブ", "ニュートラル", "ポジティブ"]);
     expect(chart.datasets[0]!.data[0]).toBe(1);
     expect(chart.datasets[2]!.data[0]).toBe(2);
   });
 
-  it("Issueは起票の日次件数を渡す", () => {
-    const issues: Issue[] = [issue(WEEK.start), issue(WEEK.start)];
-    render(<JournalIssueTrendChart points={buildJournalIssueDailyTrend([], issues, WEEK)} />);
+  it("提案は起票の日次件数を渡す", () => {
+    const suggestions: Suggestion[] = [suggestion(WEEK.start), suggestion(WEEK.start)];
+    render(<JournalSuggestionTrendChart points={buildJournalSuggestionDailyTrend([], suggestions, WEEK)} />);
     const bars = screen.getAllByTestId("bar-chart");
-    const issueChart = JSON.parse(bars[0]!.getAttribute("data-chart")!) as ChartData<"bar">;
-    expect(issueChart.datasets.map((d) => d.label)).toEqual(["起票"]);
-    expect(issueChart.datasets[0]!.data[0]).toBe(2);
+    const suggestionChart = JSON.parse(bars[0]!.getAttribute("data-chart")!) as ChartData<"bar">;
+    expect(suggestionChart.datasets.map((d) => d.label)).toEqual(["起票"]);
+    expect(suggestionChart.datasets[0]!.data[0]).toBe(2);
   });
 });

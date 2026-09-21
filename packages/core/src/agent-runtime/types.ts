@@ -1,12 +1,11 @@
-import type { IssueCharter } from "../issue-store";
 import type { SuggestedTheme } from "../theme-store";
 import type { LookupRequest } from "../agent-knowledge-tools";
 import type {
   ConfirmPriority,
-  IssuePriority,
   PendingAgentStart,
   PendingAgentStartKind,
   PendingUnmaskedSend,
+  SuggestionCharter,
   SuggestionReviewStatus,
   YieldKind,
 } from "../types";
@@ -41,7 +40,7 @@ export type RejectedAlternative = {
   reason: string;
 };
 
-export type ProposalRecommendation = "issue" | "dismiss" | "watch";
+export type ProposalRecommendation = "suggestion" | "dismiss" | "watch";
 
 // docs/ai_ philosophy.md。Expand/Challengeの過程で実際に使った哲学レンズ（Agile/Lean/
 // Systems Thinking等）と、そのレンズで見て気づいたことの短い要約。任意（使わなかった/
@@ -51,9 +50,9 @@ export type LensUsage = {
   insight: string;
 };
 
-// Intake（相談／Journal）から親なしの独立Issueを複数切る候補。
-// 子Issue（sub_issues）とは別：こちらは最初から別介入として並列起票する。
-export type IssueCandidate = {
+// Intake（相談／Journal）から親なしの独立提案を複数切る候補。
+// 子提案（sub_issues）とは別：こちらは最初から別介入として並列起票する。
+export type SuggestionCandidate = {
   title: string;
   rationale?: string;
 };
@@ -74,11 +73,11 @@ export type Proposal = {
   // 未指定の従来出力は手動トリアージのまま。
   // 「次に観測・確認すべき」が主眼で介入の起票まで不要なら watch を使う（解決策必須ではない）。
   recommendation?: ProposalRecommendation;
-  // Issue化時に使う短い課題名。conclusion（判断の一文）とは別に持たせ、タイトルの途中切れを抑える。
-  // 単一課題のとき。複数なら issueCandidates を優先（issueTitleは代表名として任意）。
-  issueTitle?: string;
+  // 提案化時に使う短い課題名。conclusion（判断の一文）とは別に持たせ、タイトルの途中切れを抑える。
+  // 単一課題のとき。複数なら suggestionCandidates を優先（suggestionTitleは代表名として任意）。
+  suggestionTitle?: string;
   // 別責任・別KR・別チームになりうる介入が同居するとき、親なしの複数候補。
-  issueCandidates?: IssueCandidate[];
+  suggestionCandidates?: SuggestionCandidate[];
   // docs/memo.md「提案自体の詳細を残す単一の場所」対応。結論そのものではなく、この提案を
   // 実際に計画・進行・検証するうえで漏らさないほうがよい実務的なポイント（任意）。
   // 3rd pivot: 次に観測・確認・考えるべき点もここに書いてよい（解決策でなくてよい）。
@@ -101,24 +100,24 @@ export type ConsultRequest = {
   questions?: Record<string, string>;
 };
 
-// 子Issue分解案。文字列のみの旧形式もパース時に { title } へ正規化する。
-export type SuggestedSubIssue = {
+// 子提案分解案。文字列のみの旧形式もパース時に { title } へ正規化する。
+export type SuggestedSubSuggestion = {
   title: string;
-  priority?: IssuePriority;
+  priority?: ConfirmPriority;
 };
 
 // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-// lookupで見つけた「このタスクとは別の」Issueへの追記提案。EMが「採用」するまで
-// 対象Issueのlog（IssueLogEntry）へは反映しない（action_items等と同じHuman-in-the-Loop）。
+// lookupで見つけた「このタスクとは別の」提案への追記提案。EMが「採用」するまで
+// 対象提案のメモへは反映しない（action_items等と同じHuman-in-the-Loop）。
 // 作成・ステータス変更等の破壊的操作は含めず、追記のみに限定する。
-export type SuggestedIssueNote = {
-  issueId: string;
+export type SuggestedSuggestionNote = {
+  suggestionId: string;
   text: string;
 };
 
 // docs/suggestion_organize_via_consult.md。EMが相談で「提案を整理して」等と明示的に
 // 依頼したときだけ、AIが既存提案（実在ID）の状態変更をまとめて提案する。EMが「まとめて
-// 反映」するまで、Suggestion本体には一切書き込まない（issue_noteと同じHuman-in-the-Loop）。
+// 反映」するまで、Suggestion本体には一切書き込まない（suggestion_noteと同じHuman-in-the-Loop）。
 // 「基本すべて可」（種類の制限を設けない）方針のため、フィールドはすべて任意。ただし
 // reasonのみ必須（差分表示・監査のため、なぜその変更かを必ず添えさせる）。
 export type SuggestionUpdate = {
@@ -185,21 +184,21 @@ export type AgentRun = {
   yieldRequest?: YieldRequest;
   proposal?: Proposal;
   // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの
-  // 下書き。EMが個別に「採用」するまでIssue.actionItemsには反映されない。
+  // 下書き。EMが個別に「採用」するまで反映されない。
   suggestedActionItems?: string[];
-  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルIssueが
-  // 抽象的すぎると判断した場合にAIが提案する、具体的な子Issue案の下書き。EMが個別に
-  // 「採用」するまで実際のサブIssueは作られない（action_itemsと同じHuman-in-the-Loop）。
-  suggestedSubIssues?: SuggestedSubIssue[];
-  // ユーザー依頼「Journal等からIssueを生成する際、AIエージェントチームに内容を埋めさせる」
-  // 対応。紐づくIssueのWhy/What/Howのうち未整理の項目をAIが埋める提案の下書き。
-  // suggestedActionItems/suggestedSubIssuesと同じくEMが「採用」するまでIssue.charterへは
-  // 反映しない（Human-in-the-Loopを維持）。埋める提案がある項目のみキーを持つ。
-  suggestedCharter?: Partial<IssueCharter>;
-  // 介入の優先帯（focus/normal/parked）の提案。採用までIssue.priorityへは反映しない。
-  suggestedPriority?: IssuePriority;
-  // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-  suggestedIssueNotes?: SuggestedIssueNote[];
+  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルの提案が
+  // 抽象的すぎると判断した場合にAIが提案する、具体的な子提案案の下書き。EMが個別に
+  // 「採用」するまで実際の子提案は作られない（action_itemsと同じHuman-in-the-Loop）。
+  suggestedSubSuggestions?: SuggestedSubSuggestion[];
+  // ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
+  // 対応。紐づく提案のWhy/What/Howのうち未整理の項目をAIが埋める提案の下書き。
+  // suggestedActionItems/suggestedSubSuggestionsと同じくEMが「採用」するまで反映
+  // しない（Human-in-the-Loopを維持）。埋める提案がある項目のみキーを持つ。
+  suggestedCharter?: Partial<SuggestionCharter>;
+  // 介入の優先帯（focus/normal/parked）の提案。採用まで確認優先度へは反映しない。
+  suggestedPriority?: ConfirmPriority;
+  // docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
+  suggestedSuggestionNotes?: SuggestedSuggestionNote[];
   // docs/suggestion_organize_via_consult.md。EMが相談で明示的に依頼したときだけ、AIが
   // 提案する既存提案（実在ID）の状態変更下書き（reviewStatus/confirmPriority/
   // reviewDueAt/archived/メモ）。EMが「まとめて反映」するまでSuggestion本体には反映しない。
@@ -226,10 +225,10 @@ export type AgentRun = {
   pendingLookup?: LookupRequest;
   lookupRounds?: number;
   // docs/first_implession 3.6「トリガー（起動条件）: イベント駆動・バッチ駆動・人間駆動」対応。
-  // 既定の"manual"はこれまで通りEM/Issue経由での起動。"auto-anomaly"はEMが明示的に依頼した
+  // 既定の"manual"はこれまで通りEM/提案経由での起動。"auto-anomaly"はEMが明示的に依頼した
   // Journal個別分析（POST /api/journal/[id]/analyze。かつてはJournal校正時の自動即時分析にも
   // 使われていたが、その事前フィルタ駆動の即時発火は廃止し"auto-journal-batch"へ一本化した）、
-  // "auto-summary"は朝のバッチサマリー、"auto-issue-update"はIssueのWhy/What/How・経過ログ
+  // "auto-summary"は朝のバッチサマリー、"auto-suggestion-update"は提案のWhy/What/How・経過ログ
   // 更新をきっかけにした再分析、"auto-distill"は週次／手動の状況蒸留（テーマ解釈候補）、
   // "auto-journal-batch"は直近のJournalをまとめて日次で解釈するバッチ。
   // reviewedはAI主導（"manual"以外）のrunに限り意味を持つ——EMがまだ内容を確認していない
@@ -240,7 +239,7 @@ export type AgentRun = {
     | "manual"
     | "auto-anomaly"
     | "auto-summary"
-    | "auto-issue-update"
+    | "auto-suggestion-update"
     | "auto-distill"
     | "auto-grow"
     | "auto-journal-batch"
@@ -271,7 +270,7 @@ export type AgentRun = {
 export function originLabel(origin: AgentRun["origin"]): string {
   if (origin === "auto-anomaly") return "Journal自動分析";
   if (origin === "auto-summary") return "朝のサマリー";
-  if (origin === "auto-issue-update") return "提案更新分析";
+  if (origin === "auto-suggestion-update") return "提案更新分析";
   if (origin === "auto-distill") return "状況蒸留";
   if (origin === "auto-grow") return "学びの提案";
   if (origin === "auto-journal-batch") return "Journal集約解釈";

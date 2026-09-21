@@ -3,25 +3,24 @@ import styles from "../styles/page.module.css";
 import { IdLinkedText } from "./IdLinkedText";
 import { MarkdownView } from "./MarkdownView";
 import {
-  issueTitleFromConclusion,
+  suggestionTitleFromConclusion,
   YIELD_KIND_META,
   type ConfirmPriority,
-  type IssuePriority,
   type SuggestionReviewStatus,
   type YieldKind,
 } from "@emther/core/types";
-import { listIssueCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
+import { listSuggestionCandidatesFromProposal, resolveYieldKind } from "./run-detail/run-view-helpers";
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
 import { PeriodReviewBlock } from "./run-detail/PeriodReviewBlock";
-import { SuggestedSubIssuesBlock } from "./run-detail/SuggestedSubIssuesBlock";
+import { SuggestedSubSuggestionsBlock } from "./run-detail/SuggestedSubSuggestionsBlock";
 import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
-import { SuggestedIssueNotesBlock } from "./run-detail/SuggestedIssueNotesBlock";
+import { SuggestedSuggestionNotesBlock } from "./run-detail/SuggestedSuggestionNotesBlock";
 import { SuggestedSuggestionUpdatesBlock } from "./run-detail/SuggestedSuggestionUpdatesBlock";
-import type { Issue } from "@emther/core/types";
+import type { Suggestion } from "@emther/core/types";
 
-export { listIssueCandidatesFromProposal, resolveYieldKind };
+export { listSuggestionCandidatesFromProposal, resolveYieldKind };
 
 // "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
 // CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
@@ -61,18 +60,18 @@ export type Proposal = {
   challenges: string[];
   // docs/ai_ philosophy.md。Expand/Challengeで実際に使った哲学レンズ（任意）。
   lensesUsed?: LensUsage[];
-  recommendation?: "issue" | "dismiss" | "watch";
-  // Issue化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
-  issueTitle?: string;
-  // 親なしの独立Issue候補（複数）。ある場合は issueTitle より優先して起票UIに出す。
-  issueCandidates?: { title: string; rationale?: string }[];
+  recommendation?: "suggestion" | "dismiss" | "watch";
+  // 提案化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
+  suggestionTitle?: string;
+  // 親なしの独立提案候補（複数）。ある場合は suggestionTitle より優先して起票UIに出す。
+  suggestionCandidates?: { title: string; rationale?: string }[];
   // 進め方の助言。次に観測・確認すべき点も含めてよい（解決策でなくてよい）。
   advice?: string;
 };
 
-export type SuggestedSubIssue = {
+export type SuggestedSubSuggestion = {
   title: string;
-  priority?: IssuePriority;
+  priority?: ConfirmPriority;
 };
 
 export type SuggestedTheme = {
@@ -83,7 +82,7 @@ export type SuggestedTheme = {
   rootCause?: string;
   suggestedDirection?: string;
   evidenceJournalIds?: string[];
-  evidenceIssueIds?: string[];
+  evidenceSuggestionIds?: string[];
 };
 
 // docs/new_reporting.md。週次・月次レビューの構造化出力（@emther/core/agent-runtimeの
@@ -111,9 +110,9 @@ export type PeriodReview = {
   nextQuestions: string[];
 };
 
-// docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
-export type SuggestedIssueNote = {
-  issueId: string;
+// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
+export type SuggestedSuggestionNote = {
+  suggestionId: string;
   text: string;
 };
 
@@ -139,11 +138,11 @@ export type AgentRun = {
   yieldRequest?: { reason: string; options: YieldOption[]; kind?: YieldKind };
   proposal?: Proposal;
   suggestedActionItems?: string[];
-  suggestedSubIssues?: SuggestedSubIssue[];
+  suggestedSubSuggestions?: SuggestedSubSuggestion[];
   suggestedCharter?: { why?: string; what?: string; how?: string };
-  suggestedPriority?: IssuePriority;
+  suggestedPriority?: ConfirmPriority;
   suggestedThemes?: SuggestedTheme[];
-  suggestedIssueNotes?: SuggestedIssueNote[];
+  suggestedSuggestionNotes?: SuggestedSuggestionNote[];
   suggestedSuggestionUpdates?: SuggestionUpdate[];
   periodReview?: PeriodReview;
   totalCostUsd: number;
@@ -154,7 +153,7 @@ export type AgentRun = {
     | "manual"
     | "auto-anomaly"
     | "auto-summary"
-    | "auto-issue-update"
+    | "auto-suggestion-update"
     | "auto-distill"
     | "auto-journal-batch"
     | "auto-weekly-report"
@@ -177,15 +176,15 @@ export type AgentRun = {
 // ユーザー指摘対応（続報）: auto-anomaly/auto-summaryのrunはrun.task自体が「〜を判断
 // してください」という定型の指示文＋本文という長い文字列で、EMが書いた短い文ではない。
 // これをそのままタイトルにすると（呼び出し側でtruncateForTitleしても）本文へ辿り着く
-// 前の定型句だけが残ってしまう。proposal.issueTitle（短い課題名）があれば最優先。
+// 前の定型句だけが残ってしまう。proposal.suggestionTitle（短い課題名）があれば最優先。
 // 無ければ conclusion から判断メタを除いた候補を使い、それも無ければ task 等へ落ちる。
 export function runFallbackTitle(run: AgentRun): string {
-  const issueTitle = run.proposal?.issueTitle?.trim();
-  if (issueTitle) return issueTitle;
-  const firstCandidate = listIssueCandidatesFromProposal(run.proposal)[0]?.title;
+  const suggestionTitle = run.proposal?.suggestionTitle?.trim();
+  if (suggestionTitle) return suggestionTitle;
+  const firstCandidate = listSuggestionCandidatesFromProposal(run.proposal)[0]?.title;
   if (firstCandidate) return firstCandidate;
   const conclusion = run.proposal?.conclusion.trim();
-  if (conclusion) return issueTitleFromConclusion(conclusion);
+  if (conclusion) return suggestionTitleFromConclusion(conclusion);
   const task = run.task.trim();
   if (task) return task;
   const yieldReason = run.yieldRequest?.reason.trim();
@@ -230,7 +229,7 @@ export function runKindLabel(run: AgentRun): string {
   }
   if (run.origin === "auto-anomaly") return "Journal自動分析";
   if (run.origin === "auto-summary") return "朝のサマリー";
-  if (run.origin === "auto-issue-update") return "提案更新分析";
+  if (run.origin === "auto-suggestion-update") return "提案更新分析";
   if (run.origin === "auto-distill") return "状況蒸留";
   if (run.origin === "auto-journal-batch") return "Journal集約解釈";
   if (run.origin === "auto-weekly-report") return "週次レビュー";
@@ -242,17 +241,17 @@ export function runKindLabel(run: AgentRun): string {
 /**
  * ダッシュボードの「次の1手」から外す run。
  * 専門Agentへの相談子run、EMが却下したもの、相談自体がアーカイブ済みのもの、
- * 紐づくIssueがアーカイブ済みのもの。
+ * 紐づく提案がアーカイブ済みのもの。
  * 様子見は呼び出し側で別扱い（期限内は非表示、期限切れは再浮上）。
  */
 export function shouldOmitRunFromNextActions(
   run: Pick<AgentRun, "id" | "consultedBy" | "triageStatus" | "archivedAt">,
-  issues: { agentRunId?: string; archived: boolean }[],
+  suggestions: { agentRunId?: string; archivedAt?: number }[],
 ): boolean {
   if (run.consultedBy) return true;
   if (run.triageStatus === "dismissed") return true;
   if (run.archivedAt) return true;
-  return issues.some((i) => i.agentRunId === run.id && i.archived);
+  return suggestions.some((s) => s.agentRunId === run.id && !!s.archivedAt);
 }
 
 /** 自動起動かつ未トリアージ（起票／様子見／却下前）のドラフト。Issue行ではなく AgentRun が正。 */
@@ -280,7 +279,7 @@ export function draftKindLabel(run: AgentRun): string {
 
 // docs/first_implession/em_ui_wireframe_v5.html の Issue Workspace「Execution State」に対応。
 // Context（このrunが何のタスクか）＋ Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）＋
-// 通常完了時のProposalを表示する。Action Itemsは呼び出し側（Issueがある場合のみ）で追加する。
+// 通常完了時のProposalを表示する。Action Itemsは呼び出し側（提案がある場合のみ）で追加する。
 export function ExecutionState({
   run,
   selectedOptionId,
@@ -290,19 +289,19 @@ export function ExecutionState({
   deciding,
   stale,
   onRetry,
-  onAdoptSubIssues,
-  onDismissSubIssues,
-  subIssuesSubmitting,
+  onAdoptSubSuggestions,
+  onDismissSubSuggestions,
+  subSuggestionsSubmitting,
   onAdoptCharter,
   onDismissCharter,
   charterSubmitting,
   onAdoptThemes,
   onDismissThemes,
   themesSubmitting,
-  onAdoptIssueNotes,
-  onDismissIssueNotes,
-  onMarkHandledIssueNotes,
-  issueNotesSubmitting,
+  onAdoptSuggestionNotes,
+  onDismissSuggestionNotes,
+  onMarkHandledSuggestionNotes,
+  suggestionNotesSubmitting,
   onAdoptSuggestionUpdates,
   onDismissSuggestionUpdates,
   suggestionUpdatesSubmitting,
@@ -316,26 +315,26 @@ export function ExecutionState({
   deciding: boolean;
   stale?: boolean;
   onRetry?: () => void;
-  onAdoptSubIssues?: (items: SuggestedSubIssue[]) => void;
-  onDismissSubIssues?: () => void;
-  subIssuesSubmitting?: boolean;
+  onAdoptSubSuggestions?: (items: SuggestedSubSuggestion[]) => void;
+  onDismissSubSuggestions?: () => void;
+  subSuggestionsSubmitting?: boolean;
   onAdoptCharter?: (charter: { why?: string; what?: string; how?: string }) => void;
   onDismissCharter?: () => void;
   charterSubmitting?: boolean;
   onAdoptThemes?: () => void;
   onDismissThemes?: () => void;
   themesSubmitting?: boolean;
-  onAdoptIssueNotes?: (indices: number[]) => void;
-  onDismissIssueNotes?: (indices: number[]) => void;
-  onMarkHandledIssueNotes?: (indices: number[]) => void;
-  issueNotesSubmitting?: boolean;
+  onAdoptSuggestionNotes?: (indices: number[]) => void;
+  onDismissSuggestionNotes?: (indices: number[]) => void;
+  onMarkHandledSuggestionNotes?: (indices: number[]) => void;
+  suggestionNotesSubmitting?: boolean;
   onAdoptSuggestionUpdates?: (indices: number[]) => void;
   onDismissSuggestionUpdates?: (indices: number[]) => void;
   suggestionUpdatesSubmitting?: boolean;
   // docs/suggestion_organize_via_consult.md。差分のbefore値表示用。呼び出し側
-  // （ConsultReviewPanel）が保持済みのIssue（Suggestion互換ビュー）一覧から作る
+  // （ConsultReviewPanel）が保持済みのSuggestion一覧から作る
   // （未指定時はbefore値を「不明」として表示するだけで、反映自体には影響しない）。
-  currentSuggestions?: Map<string, Issue>;
+  currentSuggestions?: Map<string, Suggestion>;
 }) {
   return (
     <>
@@ -366,12 +365,12 @@ export function ExecutionState({
           {run.proposal && <ProposalBlock proposal={run.proposal} />}
           {run.periodReview && <PeriodReviewBlock review={run.periodReview} />}
 
-          {onAdoptSubIssues && run.suggestedSubIssues && run.suggestedSubIssues.length > 0 && (
-            <SuggestedSubIssuesBlock
-              items={run.suggestedSubIssues}
-              onAdopt={onAdoptSubIssues}
-              onDismiss={onDismissSubIssues}
-              submitting={subIssuesSubmitting}
+          {onAdoptSubSuggestions && run.suggestedSubSuggestions && run.suggestedSubSuggestions.length > 0 && (
+            <SuggestedSubSuggestionsBlock
+              items={run.suggestedSubSuggestions}
+              onAdopt={onAdoptSubSuggestions}
+              onDismiss={onDismissSubSuggestions}
+              submitting={subSuggestionsSubmitting}
             />
           )}
 
@@ -394,13 +393,13 @@ export function ExecutionState({
             />
           )}
 
-          {onAdoptIssueNotes && run.suggestedIssueNotes && run.suggestedIssueNotes.length > 0 && (
-            <SuggestedIssueNotesBlock
-              notes={run.suggestedIssueNotes}
-              onAdopt={onAdoptIssueNotes}
-              onDismiss={onDismissIssueNotes}
-              onMarkHandled={onMarkHandledIssueNotes}
-              submitting={issueNotesSubmitting}
+          {onAdoptSuggestionNotes && run.suggestedSuggestionNotes && run.suggestedSuggestionNotes.length > 0 && (
+            <SuggestedSuggestionNotesBlock
+              notes={run.suggestedSuggestionNotes}
+              onAdopt={onAdoptSuggestionNotes}
+              onDismiss={onDismissSuggestionNotes}
+              onMarkHandled={onMarkHandledSuggestionNotes}
+              submitting={suggestionNotesSubmitting}
             />
           )}
 

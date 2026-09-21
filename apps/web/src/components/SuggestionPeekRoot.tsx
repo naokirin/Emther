@@ -13,7 +13,7 @@ import { usePeekParam } from "../lib/usePeekParam";
 export function SuggestionPeekRoot({ children }: { children: ReactNode }) {
   const peek = usePeekParam("suggestion");
   return (
-    <IdResolveProvider openIssueInPeek={peek.open} suggestionPeekId={peek.id} closeSuggestionPeek={peek.close}>
+    <IdResolveProvider openSuggestionInPeek={peek.open} suggestionPeekId={peek.id} closeSuggestionPeek={peek.close}>
       {children}
       {peek.id && (
         <SlideOver title="提案の詳細" detailHref={`/suggestions/${peek.id}`} onClose={peek.close}>

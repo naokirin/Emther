@@ -39,7 +39,7 @@ function createWrapper(onPeekOpen?: (id: string) => void) {
     return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
-          <IdResolveProvider openIssueInPeek={onPeekOpen}>
+          <IdResolveProvider openSuggestionInPeek={onPeekOpen}>
             {children}
             <LocationProbe />
           </IdResolveProvider>
@@ -68,11 +68,11 @@ describe("AgentsPage", () => {
       if (url.startsWith("/api/agents/inbox")) {
         return { ok: true, json: async () => ({ runs, total: runs.length, page: 1, pageSize: 5 }) };
       }
-      if (url === "/api/issues") return { ok: true, json: async () => ({ issues: [] }) };
-      if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: { agentStaleAfterSeconds: 120 } }) };
       if (url === "/api/suggestions" && init?.method === "POST") {
         return { ok: true, json: async () => ({ suggestion: { id: "sug-new" } }) };
       }
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
+      if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: { agentStaleAfterSeconds: 120 } }) };
       return { ok: true, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);

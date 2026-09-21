@@ -3,8 +3,8 @@ import {
   consultExcerpt,
   consultListSecondary,
   consultListTitle,
-  isIssueDraftAnalysisTask,
-  issueDraftTitleFromTask,
+  isSuggestionDraftAnalysisTask,
+  suggestionDraftTitleFromTask,
   journalExcerptFromTask,
   isConsultHistoryRun,
   resolveSourceConsultRun,
@@ -26,19 +26,19 @@ describe("journalExcerptFromTask", () => {
   });
 });
 
-describe("isIssueDraftAnalysisTask", () => {
+describe("isSuggestionDraftAnalysisTask", () => {
   it("起票直後の分析タスクだけを真にする", () => {
-    expect(isIssueDraftAnalysisTask("新しいIssueが起票されました。EMが次の一手を判断できるよう")).toBe(true);
-    expect(isIssueDraftAnalysisTask("方針を相談したい")).toBe(false);
+    expect(isSuggestionDraftAnalysisTask("新しい提案が起票されました。EMが次の一手を判断できるよう")).toBe(true);
+    expect(isSuggestionDraftAnalysisTask("方針を相談したい")).toBe(false);
   });
 });
 
-describe("issueDraftTitleFromTask", () => {
+describe("suggestionDraftTitleFromTask", () => {
   it("起票分析タスクからタイトル行を取り出す", () => {
     expect(
-      issueDraftTitleFromTask("新しいIssueが起票されました。\nタイトル: テスト追加\nWhy/What/Howのうち未整理な項目"),
+      suggestionDraftTitleFromTask("新しい提案が起票されました。\nタイトル: テスト追加\nWhy/What/Howのうち未整理な項目"),
     ).toBe("テスト追加");
-    expect(issueDraftTitleFromTask("方針を相談したい")).toBeUndefined();
+    expect(suggestionDraftTitleFromTask("方針を相談したい")).toBeUndefined();
   });
 });
 
@@ -75,10 +75,10 @@ describe("consultListTitle / consultListSecondary", () => {
     );
   });
 
-  it("起票分析は定型文ではなくIssueタイトルを使う", () => {
+  it("起票分析は定型文ではなく提案タイトルを使う", () => {
     expect(
       consultListTitle({
-        task: "新しいIssueが起票されました。\nタイトル: テスト追加\nWhy/What/Howのうち未整理な項目",
+        task: "新しい提案が起票されました。\nタイトル: テスト追加\nWhy/What/Howのうち未整理な項目",
         origin: "manual",
       }),
     ).toBe("テスト追加");
@@ -108,9 +108,9 @@ describe("consultListTitle / consultListSecondary", () => {
       consultListSecondary({
         task: journalTask,
         origin: "auto-anomaly",
-        proposal: { conclusion: "Issue化を検討する。現場の負荷が続いている" },
+        proposal: { conclusion: "提案化を検討する。現場の負荷が続いている" },
       }),
-    ).toBe("Issue化を検討する。現場の負荷が続いている");
+    ).toBe("提案化を検討する。現場の負荷が続いている");
   });
 
   it("タイトルが結論そのものなら補助行は出さない", () => {
@@ -126,8 +126,8 @@ describe("consultListTitle / consultListSecondary", () => {
 
 describe("resolveSourceConsultRun", () => {
   const consult = { id: "run-consult", task: "方針を相談したい", origin: "manual" };
-  const draft = { id: "run-draft", task: "新しいIssueが起票されました。タイトル: x", origin: "manual" };
-  const update = { id: "run-update", task: "更新分析", origin: "auto-issue-update" };
+  const draft = { id: "run-draft", task: "新しい提案が起票されました。タイトル: x", origin: "manual" };
+  const update = { id: "run-update", task: "更新分析", origin: "auto-suggestion-update" };
 
   it("sourceRunIdがあればそれを優先する", () => {
     expect(
@@ -155,10 +155,10 @@ describe("isConsultHistoryRun", () => {
       isConsultHistoryRun({
         agentName: "Lead Agent",
         origin: "manual",
-        task: "新しいIssueが起票されました。タイトル: x",
+        task: "新しい提案が起票されました。タイトル: x",
       }),
     ).toBe(false);
-    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "auto-issue-update", task: "更新" })).toBe(false);
+    expect(isConsultHistoryRun({ agentName: "Lead Agent", origin: "auto-suggestion-update", task: "更新" })).toBe(false);
     expect(isConsultHistoryRun({ agentName: "Exec Agent", origin: "manual", task: "相談" })).toBe(false);
   });
 });

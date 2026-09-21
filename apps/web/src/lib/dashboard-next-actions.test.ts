@@ -1,21 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { buildNextActions, type BuildNextActionsParams } from "./dashboard-next-actions";
-import type { Issue, JournalEntry, OrgVitals, PersonSummary } from "@emther/core/types";
+import type { JournalEntry, OrgVitals, PersonSummary, Suggestion } from "@emther/core/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(2026, 8, 13, 12, 0, 0).getTime();
 
-function issue(overrides: Partial<Issue> & { id: string }): Issue {
+function suggestion(overrides: Partial<Suggestion> & { id: string }): Suggestion {
   return {
     title: "テスト提案",
-    charter: { why: "", what: "", how: "" },
-    actionItems: [],
-    logEntries: [],
-    status: "in_progress",
     reviewStatus: "unreviewed",
-    priority: "normal",
-    archived: false,
-    tags: [],
+    confirmPriority: "normal",
+    memos: [],
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -35,7 +30,7 @@ function person(overrides: Partial<PersonSummary> & { id: string; name: string }
     factCount: 0,
     isDirectReport: true,
     isSelf: false,
-    hasConcerningIssue: false,
+    hasConcerningSuggestion: false,
     ...overrides,
   };
 }
@@ -61,7 +56,7 @@ function baseParams(overrides: Partial<BuildNextActionsParams> = {}): BuildNextA
   return {
     now: NOW,
     runs: [],
-    issues: [],
+    suggestions: [],
     journalEntries: [],
     people: [],
     vitals: EMPTY_VITALS,
@@ -69,7 +64,7 @@ function baseParams(overrides: Partial<BuildNextActionsParams> = {}): BuildNextA
     pendingUnmaskedSends: [],
     staleRunIds: new Set(),
     watchingItems: [],
-    goToRunIssue: noop,
+    goToRunSuggestion: noop,
     push: noop,
     prefillJournal: noop,
     onConfirmUnmasked: noop,
@@ -102,11 +97,11 @@ describe("buildNextActions の要注目人物（観測不足レーン）", () =>
 // ユーザー要望「期日超過の提案を朝キューにも自動で出してほしい」対応。
 describe("buildNextActions の確認期日超過（判断待ちレーン）", () => {
   it("reviewDueAtを過ぎている提案を判断待ちレーンへ出す", () => {
-    const issues: Issue[] = [
-      issue({ id: "i-overdue", title: "期日超過の提案", reviewDueAt: NOW - 2 * DAY_MS }),
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-overdue", title: "期日超過の提案", reviewDueAt: NOW - 2 * DAY_MS }),
     ];
-    const actions = buildNextActions(baseParams({ issues }));
-    const card = actions.find((a) => a.id === "review-due-i-overdue");
+    const actions = buildNextActions(baseParams({ suggestions }));
+    const card = actions.find((a) => a.id === "review-due-s-overdue");
     expect(card).toBeDefined();
     expect(card?.lane).toBe("decision");
     expect(card?.text).toContain("期日超過の提案");
@@ -114,19 +109,19 @@ describe("buildNextActions の確認期日超過（判断待ちレーン）", ()
   });
 
   it("reviewDueAtが未来、または未設定なら出さない", () => {
-    const issues: Issue[] = [
-      issue({ id: "i-future", reviewDueAt: NOW + DAY_MS }),
-      issue({ id: "i-none" }),
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-future", reviewDueAt: NOW + DAY_MS }),
+      suggestion({ id: "s-none" }),
     ];
-    const actions = buildNextActions(baseParams({ issues }));
+    const actions = buildNextActions(baseParams({ suggestions }));
     expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
   });
 
-  it("確認済み(done)またはアーカイブ済みの提案は期日を過ぎていても出さない", () => {
-    const issues: Issue[] = [
-      issue({ id: "i-done", reviewDueAt: NOW - DAY_MS, status: "done", reviewStatus: "done", archived: true }),
+  it("アーカイブ済みの提案は期日を過ぎていても出さない", () => {
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-done", reviewDueAt: NOW - DAY_MS, reviewStatus: "done", archivedAt: NOW - DAY_MS }),
     ];
-    const actions = buildNextActions(baseParams({ issues }));
+    const actions = buildNextActions(baseParams({ suggestions }));
     expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
   });
 });

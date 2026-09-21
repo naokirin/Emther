@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db";
 import { listEvents, type KnowledgeEntityType } from "./knowledge-store";
-import { listIssues } from "./issue-store";
+import { listSuggestions } from "./suggestion-store";
 import { listJournalEntries } from "./journal-store";
 import { maskForStorage, unmaskNames } from "./people-directory";
 
@@ -26,7 +26,7 @@ export type ReportJournalStats = {
   notableEntries: { id: string; summary: string; urgency: string; sentiment: string; occurredAt: number }[];
 };
 
-export type ReportIssueStats = {
+export type ReportSuggestionStats = {
   createdCount: number;
   archivedCount: number;
   createdTitles: { id: string; title: string }[];
@@ -40,7 +40,7 @@ export type ReportEventStats = {
 
 export type ReportStats = {
   journal: ReportJournalStats;
-  issues: ReportIssueStats;
+  suggestions: ReportSuggestionStats;
   events: ReportEventStats;
 };
 
@@ -64,6 +64,17 @@ type Row = {
   note: string;
 };
 
+// Issue→Suggestion統合の命名統一。reportsテーブルのstats_jsonは生成時点のスナップショットで
+// 二度と再計算しないため、旧レポート（キー名"issues"のまま保存されたもの）を読むときだけ
+// 新キー名"suggestions"へ読み替える。
+function normalizeReportStats(raw: unknown): ReportStats {
+  const stats = raw as ReportStats & { issues?: ReportSuggestionStats };
+  if (!stats.suggestions && stats.issues) {
+    return { ...stats, suggestions: stats.issues };
+  }
+  return stats;
+}
+
 function rowToReport(row: Row): Report {
   return {
     id: row.id,
@@ -71,7 +82,7 @@ function rowToReport(row: Row): Report {
     periodStart: row.period_start,
     periodEnd: row.period_end,
     generatedAt: row.generated_at,
-    stats: JSON.parse(row.stats_json) as ReportStats,
+    stats: normalizeReportStats(JSON.parse(row.stats_json)),
     note: row.note,
   };
 }
@@ -121,23 +132,23 @@ function computeJournalStats(periodStart: number, periodEnd: number): ReportJour
 }
 
 // docs/2nd_pivot_version.md Phase 2.3対応。以前はopenIncompleteCount（parentId・charter
-// 充足度に依存する「Why/What/How未整理のIssue数」）も含んでいたが、EMにIssueの構造を
+// 充足度に依存する「Why/What/How未整理の提案数」）も含んでいたが、EMに提案の構造を
 // 手入れさせない方針と衝突するため廃止した。作成・アーカイブの件数のみ扱う。
 // docs/2nd_pivot_version.md Phase 5対応。doneCount/doneTitles（status=doneの集計）は
 // Phase 2.4でstatus編集UI自体が廃止されdoneAtが書き込めなくなったため削除した
-// （常に0になる指標を表示し続けるのは実害があるバグのため）。Issueの「観測された状態変化」は
-// 代わりにReportEventStats.byEntityType.issue（KnowledgeEventベース、起票/アーカイブ/
+// （常に0になる指標を表示し続けるのは実害があるバグのため）。提案の「観測された状態変化」は
+// 代わりにReportEventStats.byEntityType.suggestion（KnowledgeEventベース、起票/アーカイブ/
 // タイトル変更等あらゆる変化を捉える）で見る。
-function computeIssueStats(periodStart: number, periodEnd: number): ReportIssueStats {
-  const issues = listIssues();
-  const created = issues.filter((i) => i.createdAt >= periodStart && i.createdAt < periodEnd);
-  const archived = issues.filter((i) => i.archivedAt && i.archivedAt >= periodStart && i.archivedAt < periodEnd);
+function computeSuggestionStats(periodStart: number, periodEnd: number): ReportSuggestionStats {
+  const suggestions = listSuggestions();
+  const created = suggestions.filter((s) => s.createdAt >= periodStart && s.createdAt < periodEnd);
+  const archived = suggestions.filter((s) => s.archivedAt && s.archivedAt >= periodStart && s.archivedAt < periodEnd);
 
   return {
     createdCount: created.length,
     archivedCount: archived.length,
-    createdTitles: created.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
-    archivedTitles: archived.slice(0, 10).map((i) => ({ id: i.id, title: i.title })),
+    createdTitles: created.slice(0, 10).map((s) => ({ id: s.id, title: s.title })),
+    archivedTitles: archived.slice(0, 10).map((s) => ({ id: s.id, title: s.title })),
   };
 }
 
@@ -160,7 +171,7 @@ function computeEventStats(periodStart: number, periodEnd: number): ReportEventS
 export function computeReportStats(periodStart: number, periodEnd: number): ReportStats {
   return {
     journal: computeJournalStats(periodStart, periodEnd),
-    issues: computeIssueStats(periodStart, periodEnd),
+    suggestions: computeSuggestionStats(periodStart, periodEnd),
     events: computeEventStats(periodStart, periodEnd),
   };
 }
@@ -234,10 +245,10 @@ export function toReportView(report: Report): Report {
         topTags: report.stats.journal.topTags.map((t) => ({ ...t, tag: unmaskNames(t.tag) })),
         notableEntries: report.stats.journal.notableEntries.map((e) => ({ ...e, summary: unmaskNames(e.summary) })),
       },
-      issues: {
-        ...report.stats.issues,
-        createdTitles: report.stats.issues.createdTitles.map((i) => ({ ...i, title: unmaskNames(i.title) })),
-        archivedTitles: report.stats.issues.archivedTitles.map((i) => ({ ...i, title: unmaskNames(i.title) })),
+      suggestions: {
+        ...report.stats.suggestions,
+        createdTitles: report.stats.suggestions.createdTitles.map((s) => ({ ...s, title: unmaskNames(s.title) })),
+        archivedTitles: report.stats.suggestions.archivedTitles.map((s) => ({ ...s, title: unmaskNames(s.title) })),
       },
     },
     note: unmaskNames(report.note),

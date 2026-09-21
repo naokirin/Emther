@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { TeamEditPanel } from "./TeamEditPanel";
-import type { Issue, JournalEntry, Team } from "@emther/core/types";
+import type { Suggestion, JournalEntry, Team } from "@emther/core/types";
 
 // web/src/components/teams/TeamEditPanel.tsx（Next.js版）には専用テストが元々無かったため
 // 新規に追加する（フェーズ3.5 tier2、teamsバッチ）。
@@ -24,7 +24,7 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof TeamEditPane
     <MemoryRouter>
       <TeamEditPanel
         selectedTeam={team}
-        issues={[]}
+        suggestions={[]}
         journalEntries={[]}
         teamHistory={[]}
         refreshTeams={vi.fn().mockResolvedValue(undefined)}
@@ -43,7 +43,7 @@ describe("TeamEditPanel", () => {
   it("未選択のときは案内文だけを表示する", () => {
     render(
       <MemoryRouter>
-        <TeamEditPanel selectedTeam={null} issues={[]} journalEntries={[]} teamHistory={[]} refreshTeams={vi.fn()} onRemoved={vi.fn()} />
+        <TeamEditPanel selectedTeam={null} suggestions={[]} journalEntries={[]} teamHistory={[]} refreshTeams={vi.fn()} onRemoved={vi.fn()} />
       </MemoryRouter>,
     );
     expect(screen.getByText("左のツリーからチームを選択してください。")).toBeInTheDocument();
@@ -88,13 +88,12 @@ describe("TeamEditPanel", () => {
   });
 
   it("メンバー名一致で関連提案・関連Journalを抽出して表示する", () => {
-    const issues: Issue[] = [
+    const suggestions: Suggestion[] = [
       {
         id: "i1",
         title: "Aさんの評価面談",
-        charter: { why: "", what: "", how: "" },
-        logEntries: [],
-      } as unknown as Issue,
+        memos: [],
+      } as unknown as Suggestion,
     ];
     const journalEntries: JournalEntry[] = [
       {
@@ -108,7 +107,7 @@ describe("TeamEditPanel", () => {
         createdAt: 1,
       } as unknown as JournalEntry,
     ];
-    renderPanel({ issues, journalEntries });
+    renderPanel({ suggestions, journalEntries });
     expect(screen.getByText("Aさんの評価面談")).toBeInTheDocument();
     expect(screen.getByText("Aさんと1on1")).toBeInTheDocument();
   });

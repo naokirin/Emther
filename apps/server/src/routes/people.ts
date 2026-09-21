@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { deletePerson, registerName, renamePerson } from "@emther/core/people-directory";
 import { addPersonAlias, getPersonProfile, listPersonSummaries, mergePersons, removePersonAlias } from "@emther/core/people-hub";
 import { reassignSelfPersonId } from "@emther/core/settings-store";
-import { acknowledgePersonIssueConcern, clearPersonIssueConcernAck } from "@emther/core/person-concern-ack-store";
+import { acknowledgePersonSuggestionConcern, clearPersonSuggestionConcernAck } from "@emther/core/person-concern-ack-store";
 import {
   bundleEvaluationLogs,
   clearEvaluationLogNoActionNeeded,
@@ -18,7 +18,7 @@ import {
 
 // docs/2nd_architecture/plan.md フェーズ2.5:
 // web/src/app/api/people/{route,[id]/route,[id]/merge/route,
-// [id]/concern-acks/[issueId]/route,[id]/evaluation-logs/route,
+// [id]/concern-acks/[suggestionId]/route,[id]/evaluation-logs/route,
 // [id]/evaluation-logs/[logId]/route}.ts の移植。
 
 function parseAliases(body: Record<string, unknown> | null): string[] {
@@ -125,24 +125,24 @@ export const peopleRoute = new Hono()
     if (!profile) return c.json({ error: "not found" }, 404);
     return c.json({ person: profile });
   })
-  // ユーザー指摘「メンバーのアラート表示（関連Issueの停滞・ブロッカー）を確認したが
-  // 対応不要だった、を示せず強調を減らせない」対応。Issue自体の状態（停滞・ブロッカー）は
-  // 書き換えず、「この人物にとってこのIssueは対応不要と確認済み」という人物×Issue単位の
+  // ユーザー指摘「メンバーのアラート表示（関連提案の停滞・確認保留）を確認したが
+  // 対応不要だった、を示せず強調を減らせない」対応。提案自体の状態（停滞・確認保留）は
+  // 書き換えず、「この人物にとってこの提案は対応不要と確認済み」という人物×提案単位の
   // 判断だけを記録する。
-  .patch("/:id/concern-acks/:issueId", async (c) => {
+  .patch("/:id/concern-acks/:suggestionId", async (c) => {
     const id = c.req.param("id");
-    const issueId = c.req.param("issueId");
+    const suggestionId = c.req.param("suggestionId");
     const profile = getPersonProfile(id);
     if (!profile) return c.json({ error: "not found" }, 404);
 
     const body = await c.req.json().catch(() => null);
     if (body?.acknowledged === true) {
       const note = typeof body?.note === "string" ? body.note : undefined;
-      const ack = await acknowledgePersonIssueConcern(profile.id, issueId, note);
+      const ack = await acknowledgePersonSuggestionConcern(profile.id, suggestionId, note);
       return c.json({ ack });
     }
     if (body?.acknowledged === false) {
-      clearPersonIssueConcernAck(profile.id, issueId);
+      clearPersonSuggestionConcernAck(profile.id, suggestionId);
       return c.json({ ok: true });
     }
     return c.json({ error: "acknowledged（true/false）を指定してください" }, 400);
