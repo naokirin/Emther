@@ -71,7 +71,8 @@ describe("ReportsPage", () => {
 
     const user = userEvent.setup();
     render(<ReportsPage />, { wrapper: createWrapper() });
-    await user.click(await screen.findByRole("button", { name: "詳細を見る" }));
+    // フルスイート並行実行時は初回フェッチが遅延しうる
+    await user.click(await screen.findByRole("button", { name: "詳細を見る" }, { timeout: 5000 }));
 
     const noteInput = screen.getByLabelText("EMの所感・コメント");
     await user.type(noteInput, "順調");

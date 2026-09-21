@@ -96,7 +96,7 @@ describe("detectSensitiveByRules", () => {
   });
 });
 
-describe("detectNameCandidates", () => {
+describe("detectNameCandidates", { timeout: 30000 }, () => {
   it("未登録の敬称付き人名を列挙し、登録済みは除外する", async () => {
     const pd = await import("./people-directory");
     pd.registerName("田中さん");
@@ -196,7 +196,7 @@ describe("filterNameCandidatesWithLocalAi", () => {
   });
 });
 
-describe("buildTextHighlights", () => {
+describe("buildTextHighlights", { timeout: 30000 }, () => {
   it("機微 match と人名をハイライト区間にする", async () => {
     const {
       detectSensitiveByRules,
@@ -217,7 +217,7 @@ describe("buildTextHighlights", () => {
   });
 });
 
-describe("runMaskCheckQuick", () => {
+describe("runMaskCheckQuick", { timeout: 30000 }, () => {
   it("登録済み人名をマスクし、未登録人名と機微キーワードも即時返す", async () => {
     const pd = await import("./people-directory");
     pd.registerName("田中さん");
@@ -243,7 +243,7 @@ describe("runMaskCheckQuick", () => {
   });
 });
 
-describe("runMaskCheckAi", () => {
+describe("runMaskCheckAi", { timeout: 30000 }, () => {
   it("ローカルAIの findings / people を返し、人名を登録しない", async () => {
     mockChatResponse = JSON.stringify({
       findings: [{ category: "health", excerpt: "体調不良で休み", match: "体調不良" }],

@@ -24,9 +24,11 @@ vi.mock("@emther/core/embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-// 元テストの一部（web/src/app/api/journal/route.test.ts）は実際の辞書・形態素解析による
-// 未登録名検出に依存していたため、ここでは name-candidate-detect をモックしない
-// （他のdescribeブロックは元々このモック無しでも通っていたテスト群と同等の入力しか使わない）。
+// 敬称ルール＋抽出peopleの合流でゲートを検証する。kuromoji 辞書ロードはしない。
+vi.mock("@emther/core/mask-check-morph", () => ({
+  ensureNameMorphReady: async () => {},
+  detectMorphPersonNames: () => [] as string[],
+}));
 
 const startJournalAnalysisMock = vi.hoisted(() =>
   vi.fn(async (rawText: string, journalId?: string) => ({

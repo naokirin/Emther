@@ -4,6 +4,11 @@ vi.mock("@emther/core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ findings: [], people: [] })),
   extractFirstJsonObject: (text: string) => text,
 }));
+// ルートの phase 分岐・レスポンス形を見るテスト。kuromoji 辞書ロードはしない。
+vi.mock("@emther/core/mask-check-morph", () => ({
+  ensureNameMorphReady: async () => {},
+  detectMorphPersonNames: () => [] as string[],
+}));
 
 function post(body: unknown) {
   return { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };

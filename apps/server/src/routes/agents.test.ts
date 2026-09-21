@@ -12,6 +12,11 @@ vi.mock("@emther/core/embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
+// ルートの起動/409ゲートはルールベース候補で足りる。kuromoji 辞書ロードはしない。
+vi.mock("@emther/core/mask-check-morph", () => ({
+  ensureNameMorphReady: async () => {},
+  detectMorphPersonNames: () => [] as string[],
+}));
 
 const spawnRef = vi.hoisted(() => ({
   impl: (() => {

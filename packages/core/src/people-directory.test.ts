@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
 // maskForStorage()は候補検出を経由せず既知名のマスクのみ行う。
-// 候補検出（detectUnregisteredNameCandidates）は name-candidate-detect（ルール＋形態素）を使う。
+// 候補検出の敬称ルールは実コードを通し、kuromoji 辞書ロードだけ避ける
+// （形態素POSの検証は mask-check*.test.ts 側）。
 vi.mock("./local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
@@ -11,6 +12,11 @@ vi.mock("./local-model", () => ({
 vi.mock("./embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
+}));
+
+vi.mock("./mask-check-morph", () => ({
+  ensureNameMorphReady: async () => {},
+  detectMorphPersonNames: () => [] as string[],
 }));
 
 let dir: string;

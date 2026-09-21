@@ -212,6 +212,7 @@ describe("addJournalEntry", () => {
 
   it("ローカル抽出のtags/people/teamsに重複があっても保存前に除去する", async () => {
     mockExtraction = {
+      summary: "",
       tags: ["1on1", "1on1", "振り返り"],
       people: ["Aさん", "Aさん"],
       teams: ["コアチーム", "コアチーム"],

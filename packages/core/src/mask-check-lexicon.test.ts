@@ -37,8 +37,9 @@ afterEach(() => {
 /**
  * TUNING 縮小後の回帰。
  * 機微キーワードは CORE 核に寄せ、人名まわりの stopword / lookahead は TUNING に残す。
+ * 実 kuromoji ロードを含むため、並列時のコールドロード遅延に備えて timeout を延ばす。
  */
-describe("mask-check TUNING lexicon (shrunk keywords)", () => {
+describe("mask-check TUNING lexicon (shrunk keywords)", { timeout: 30000 }, () => {
   it("長いインシデント言い回しはキーワードとして検出しない（CORE 核のみ）", async () => {
     const { detectSensitiveByRules } = await import("./mask-check");
     const findings = detectSensitiveByRules(
