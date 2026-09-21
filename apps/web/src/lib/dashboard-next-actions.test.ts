@@ -168,3 +168,32 @@ describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => 
     expect(actions.some((a) => a.id === "journal-unconfirmed-j-noaction-high")).toBe(false);
   });
 });
+
+describe("urgencyMeter", () => {
+  it("urgent の判断待ちは high、整備は low 寄り", async () => {
+    const { urgencyMeter } = await import("./dashboard-next-actions");
+    const high = urgencyMeter({
+      id: "error-1",
+      severity: "urgent",
+      lane: "decision",
+      icon: "!",
+      kindLabel: "実行異常",
+      text: "x",
+      onSelect: () => {},
+      since: NOW,
+    });
+    const low = urgencyMeter({
+      id: "maint-1",
+      severity: "warn",
+      lane: "maintenance",
+      icon: ".",
+      kindLabel: "整備",
+      text: "y",
+      onSelect: () => {},
+      since: NOW,
+    });
+    expect(high.tone).toBe("high");
+    expect(high.ratio).toBeGreaterThan(low.ratio);
+    expect(low.tone).toBe("low");
+  });
+});

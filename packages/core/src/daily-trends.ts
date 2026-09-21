@@ -158,3 +158,52 @@ export function buildJournalSuggestionDailyTrend(
     };
   });
 }
+
+export type WeeklyJournalTonePoint = {
+  /** periodWindow("week", offset) の start（月曜0時） */
+  weekStart: number;
+  /** 表示ラベル（3週前 / 前々週 / 前週 / 今週） */
+  label: string;
+  positive: number;
+  neutral: number;
+  negative: number;
+  total: number;
+};
+
+const WEEKLY_TONE_LABELS = ["3週前", "前々週", "前週", "今週"] as const;
+
+// docs/design/dashboard/today-tab.pen 改善案A対応。今日タブ「過去との比較」用に、
+// 直近4週のJournal感情トーン件数を週単位で積む（さっと見る用途の狭い棒グラフ向け）。
+export function buildWeeklyJournalToneTrend(
+  journalEntries: JournalEntry[],
+  weeks = 4,
+  base = Date.now(),
+): WeeklyJournalTonePoint[] {
+  const count = Math.max(1, Math.floor(weeks));
+  const points: WeeklyJournalTonePoint[] = [];
+  // i=0 → 最古、i=count-1 → 今週。weekOffset は 0=今週、負=過去。
+  for (let i = 0; i < count; i++) {
+    const weekOffset = -(count - 1 - i);
+    const window = periodWindow("week", weekOffset, base);
+    let positive = 0;
+    let neutral = 0;
+    let negative = 0;
+    for (const e of journalEntries) {
+      if (e.createdAt < window.start || e.createdAt >= window.end) continue;
+      if (e.sentiment === "positive") positive += 1;
+      else if (e.sentiment === "negative") negative += 1;
+      else neutral += 1;
+    }
+    const label =
+      count === WEEKLY_TONE_LABELS.length ? WEEKLY_TONE_LABELS[i] : window.label;
+    points.push({
+      weekStart: window.start,
+      label,
+      positive,
+      neutral,
+      negative,
+      total: positive + neutral + negative,
+    });
+  }
+  return points;
+}

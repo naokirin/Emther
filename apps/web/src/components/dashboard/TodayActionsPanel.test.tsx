@@ -1,14 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodayActionsPanel } from "./TodayActionsPanel";
 import type { NextAction } from "../../lib/dashboard-next-actions";
 import type { AgentRun } from "../RunDetail";
-
-// web/src/components/dashboard/TodayActionsPanel.tsx（Next.js版）には専用テストが元々
-// 無かったため新規に追加する（フェーズ3.5 tier5 dashboardバッチ）。AgentStatusSectionの
-// 内部動作は別テストで検証済みのため、ここでは今日やるべき3つ・残り一覧・様子見一覧の
-// 表示/操作に絞る。
 
 function action(overrides: Partial<NextAction> & { id: string }): NextAction {
   return {
@@ -18,7 +13,8 @@ function action(overrides: Partial<NextAction> & { id: string }): NextAction {
     kindLabel: "実行異常",
     text: "テスト項目",
     onSelect: vi.fn(),
-    since: Date.now(),
+    since: Date.now() - 5 * 24 * 60 * 60 * 1000,
+    ctaLabel: "確認する",
     ...overrides,
   };
 }
@@ -50,9 +46,6 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof TodayActionsPa
     watchingItems: [],
     lastSeenAt: null,
     unlinkedParentCount: 0,
-    autoRunsToday: 0,
-    runs: [],
-    runsLoaded: true,
     onNavigate: vi.fn(),
     suggestionLinkSuggesting: false,
     suggestionLinkError: null,
@@ -67,6 +60,16 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof TodayActionsPa
 }
 
 describe("TodayActionsPanel", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ items: [], source: "heuristic" }),
+      }),
+    );
+  });
+
   it("未ロード中は読み込み中を見出しにする", () => {
     render(<TodayActionsPanel {...baseProps({ nextActionsLoaded: false })} />);
     expect(screen.getByRole("heading", { name: "読み込み中…" })).toBeInTheDocument();
@@ -86,12 +89,12 @@ describe("TodayActionsPanel", () => {
       action({ id: "a3", text: "3件目" }),
     ];
     render(<TodayActionsPanel {...baseProps({ nextActions: actions })} />);
-    expect(screen.getByRole("heading", { name: "🎯 今日やるべき3つ" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "今日やるべき3つ" })).toBeInTheDocument();
     await user.click(screen.getByText(/1件目/));
     expect(onSelect1).toHaveBeenCalledTimes(1);
   });
 
-  it("4件目以降は「ほかに」ボタンでレーン別に開ける", async () => {
+  it("4件目以降は「ほか」ボタンでレーン別に開ける", async () => {
     const user = userEvent.setup();
     const actions = [
       action({ id: "a1" }),
@@ -100,26 +103,62 @@ describe("TodayActionsPanel", () => {
       action({ id: "a4", text: "4件目", lane: "observation" }),
     ];
     render(<TodayActionsPanel {...baseProps({ nextActions: actions })} />);
-    const moreButton = screen.getByText(/ほかに 1 件/);
-    await user.click(moreButton);
-    await user.click(screen.getByRole("button", { name: /観測不足（1）/ }));
-    expect(screen.getByText("4件目")).toBeInTheDocument();
+    await user.click(screen.getByText(/ほか 1 件をレーン別に見る/));
+    await user.click(screen.getByRole("button", { name: /観測不足/ }));
+    expect(screen.getByText(/4件目/)).toBeInTheDocument();
   });
 
-  it("様子見中の一覧をトグルできる", async () => {
-    const user = userEvent.setup();
-    render(<TodayActionsPanel {...baseProps({ watchingItems: [run()] })} />);
-    expect(screen.queryByText("様子見中のタスク")).not.toBeInTheDocument();
-    await user.click(screen.getByText(/様子見中（1件）を見る/));
-    expect(screen.getByText("様子見中のタスク")).toBeInTheDocument();
+  it("なぜ今APIを呼び、結果を表示する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          items: [{ actionId: "a1", whyNow: "放置すると影響が広がる" }],
+          source: "cloud",
+        }),
+      }),
+    );
+    render(
+      <TodayActionsPanel
+        {...baseProps({
+          nextActions: [action({ id: "a1", text: "負荷が続いている" })],
+        })}
+      />,
+    );
+    expect(await screen.findByText(/なぜ今: 放置すると影響が広がる/)).toBeInTheDocument();
   });
 
-  it("戦略未接続の親提案があれば警告バナーとAI見直しボタンを表示する", async () => {
-    const onSuggest = vi.fn();
+  it("様子見リンクを出せる", async () => {
     const user = userEvent.setup();
-    render(<TodayActionsPanel {...baseProps({ unlinkedParentCount: 2, onSuggestSuggestionStrategyLinks: onSuggest })} />);
-    expect(screen.getByText(/戦略未接続の親 提案 が 2 件あります/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "AIで見直す" }));
-    expect(onSuggest).toHaveBeenCalledTimes(1);
+    const actions = [
+      action({ id: "a1" }),
+      action({ id: "a2" }),
+      action({ id: "a3" }),
+      action({ id: "a4", text: "4件目" }),
+    ];
+    render(
+      <TodayActionsPanel
+        {...baseProps({
+          nextActions: actions,
+          watchingItems: [run()],
+        })}
+      />,
+    );
+    expect(screen.getByText(/様子見 1件/)).toBeInTheDocument();
+    await user.click(screen.getByText(/様子見 1件/));
+    expect(screen.getByRole("heading", { name: /様子見中（1件）/ })).toBeInTheDocument();
+    expect(screen.getByText(/様子見.*にした相談/)).toBeInTheDocument();
+  });
+
+  it("緊急度バーを表示する", () => {
+    render(
+      <TodayActionsPanel
+        {...baseProps({
+          nextActions: [action({ id: "a1", text: "負荷が続いている", severity: "urgent" })],
+        })}
+      />,
+    );
+    expect(screen.getByText("緊急度")).toBeInTheDocument();
   });
 });

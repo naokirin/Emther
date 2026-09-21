@@ -5,10 +5,14 @@ import { NameCandidateConfirmDialog } from "../../components/NameCandidateConfir
 import { SetupGapsBanner } from "../../components/dashboard/SetupGapsBanner";
 import { DailySituationPanel } from "../../components/dashboard/DailySituationPanel";
 import { EveningReviewCard } from "../../components/dashboard/EveningReviewCard";
+import { NowStatePanel } from "../../components/dashboard/NowStatePanel";
+import { ReportNudgeBanner } from "../../components/dashboard/ReportNudgeBanner";
 import { ThemesPanel } from "../../components/dashboard/ThemesPanel";
 import { TodayActionsPanel } from "../../components/dashboard/TodayActionsPanel";
 import { buildNextActions, selectWatchingItems } from "../../lib/dashboard-next-actions";
 import { buildDailySituation } from "../../lib/daily-situation";
+import { buildTodayStateMeters } from "../../lib/today-state";
+import { selectReportNudges } from "../../lib/report-nudge";
 import {
   useEmCheckins,
   useGoals,
@@ -158,15 +162,6 @@ export function DashboardPage() {
     navigate(`/journal?prefill=${encodeURIComponent(text)}`);
   }
 
-  // ユーザー指摘「『判断待ちがN件あります』の確認先がわからない」対応。今日の状況の
-  // 「判断する価値がありそうなこと」から、実際にその件数の内訳が並ぶ「今日やるべき3つ」
-  // まで確実に辿れるようにする。
-  function scrollToTodayActions() {
-    requestAnimationFrame(() => {
-      document.getElementById("today-actions")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    });
-  }
-
   const watchingItems = selectWatchingItems(runs, suggestions);
   const nextActions = buildNextActions({
     now,
@@ -198,6 +193,19 @@ export function DashboardPage() {
   });
   const dailySituationLoaded = nextActionsLoaded;
 
+  // docs/design/dashboard/today-tab.pen 改善案A対応。「いまの状態」メーターと健全度内訳。
+  const todayMeters = buildTodayStateMeters({
+    now,
+    journalEntries,
+    vitals,
+    people,
+    nextActions,
+    decisionQueueLimit: rules.decisionQueueLimit,
+    observationQueueLimit: rules.observationQueueLimit,
+    push: (path) => navigate(path),
+    prefillJournal,
+  });
+
   // docs/em_human_story_and_ux.md P0-4対応。「1日の上限感」をUIで示す（ハード制限はせず、
   // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）。
   const todayStart = new Date(now);
@@ -207,6 +215,9 @@ export function DashboardPage() {
   // 改修依頼「今日の振り返りは、今日記録されていない場合のアラート表示」対応。
   // 入力フォーム自体はここには置かず、未記録のときだけ気づかせて /evening-review → /checkin へ誘導する。
   const hasCheckinToday = checkins.some((c) => c.createdAt >= todayStart.getTime());
+
+  // docs/design/dashboard/today-tab.pen 改善案B対応。週次・月次レポートの弱い案内。
+  const reportNudges = selectReportNudges({ now, runs });
 
   // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
   // 走らないよう、MVV/Team/Goalが揃うまでセットアップ導線を出す。新規ウィザード画面は
@@ -231,19 +242,32 @@ export function DashboardPage() {
         onNavigate={(path) => navigate(path)}
       />
 
-      {/* docs/em_ui_ux_issue.md 3節「Evening Mode」対応。ユーザー指摘「午前で1日の仕事を
-          終える可能性もあるので、時間で出し分けるのはやめたい」対応。1日の終業は時刻で
-          決まらないため、時間帯によるゲーティングはせず常に表示する。随時メモへの導線
-          （旧・夜の書き連ね）は、1日の締めくくりフローと役割が重複するため廃止した。 */}
+      {/* docs/design/dashboard/today-tab.pen 改善案B: 主問を奪わない薄いレポート案内 */}
+      <ReportNudgeBanner
+        primary={reportNudges.primary}
+        secondary={reportNudges.secondary}
+        onOpenReport={(runId) => navigate(`/chat?runId=${encodeURIComponent(runId)}`)}
+      />
+
+      {/* docs/design/dashboard/today-tab.pen 改善案A: 未記録時のみ薄い帯 */}
       <EveningReviewCard
         checkinsLoaded={checkinsLoaded}
         hasCheckinToday={hasCheckinToday}
         onStart={() => navigate("/evening-review")}
       />
 
-      {/* ユーザー指摘「今日やるべき3つを上に持ってきたことで、一言診断バナー（判断待ちが
-          N件あります）がほぼ意味をなさない」対応。一言診断バナーは廃止し、「今日やるべき
-          3つ」をファーストビューの先頭として直接出す。 */}
+      {/* docs/design/dashboard/today-tab.pen 改善案A: 状態の量化を先頭へ */}
+      <NowStatePanel
+        meters={todayMeters}
+        loaded={dailySituationLoaded}
+        runs={runs}
+        runsLoaded={runsLoaded}
+        autoRunsToday={autoRunsToday}
+        coverageWindowDays={rules.coverageWindowDays}
+        onNavigate={(path) => navigate(path)}
+        now={now}
+      />
+
       <TodayActionsPanel
         now={now}
         nextActions={nextActions}
@@ -253,9 +277,6 @@ export function DashboardPage() {
         watchingItems={watchingItems}
         lastSeenAt={lastSeenAt}
         unlinkedParentCount={unlinkedParentCount}
-        autoRunsToday={autoRunsToday}
-        runs={runs}
-        runsLoaded={runsLoaded}
         onNavigate={(path) => navigate(path)}
         suggestionLinkSuggesting={suggestionLinkSuggesting}
         suggestionLinkError={suggestionLinkError}
@@ -271,13 +292,6 @@ export function DashboardPage() {
         }
       />
 
-      {/* ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。
-          独立パネル（旧TeamStatePanel）は廃止し、チーム/メンバーの状態は今日の状況の
-          ステータスチップに一本化する（1on1 Coverageもdaily-situation.ts側で統合済み）。 */}
-      <DailySituationPanel situation={dailySituation} loaded={dailySituationLoaded} onSeeAllDecisions={scrollToTodayActions} />
-
-      {/* UI/UX見直し（今日タブ）対応。「状態/テーマ/提案/人が混在」への対処として、
-          テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付ける。 */}
       <ThemesPanel
         themes={themes}
         themesLoaded={themesLoaded}
@@ -285,6 +299,14 @@ export function DashboardPage() {
         refreshThemes={refreshThemes}
         refreshRuns={refreshRuns}
         onNavigate={(path) => navigate(path)}
+      />
+
+      {/* docs/design/dashboard/today-tab.pen 改善案A: 材料は下部。状態チップはいまの状態へ。 */}
+      <DailySituationPanel
+        situation={dailySituation}
+        loaded={dailySituationLoaded}
+        weeklyTone={todayMeters.weeklyTone}
+        attentionChips={todayMeters.attentionChips}
       />
 
       {nameCandidateDialog}

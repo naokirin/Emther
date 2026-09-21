@@ -41,8 +41,10 @@ describe("DashboardPage", () => {
         if (url === "/api/org/strategy") return { ok: true, json: async () => ({ strategy: { mission: "使命", vision: "", values: "" } }) };
         if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [{ id: "t1", name: "チームA" }] }) };
         if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [{ id: "o1", title: "目標A", keyResults: [], progress: [] }] }) };
+        if (url === "/api/org/goals") return { ok: true, json: async () => ({ goals: [{ id: "g1", title: "目標A" }] }) };
         if (url === "/api/people") return { ok: true, json: async () => ({ people: [] }) };
         if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
+        if (url === "/api/dashboard/why-now") return { ok: true, json: async () => ({ items: [], source: "heuristic" }) };
         return { ok: true, json: async () => ({}) };
       }),
     );
@@ -52,12 +54,13 @@ describe("DashboardPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("今日やるべき3つ・今日の状況・テーマの見直しの各パネルを表示する", async () => {
+  it("いまの状態・今日やるべき3つ・材料・テーマの各パネルを表示する", async () => {
     render(<DashboardPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByRole("heading", { name: /今日、判断待ちの組織課題はありません/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "今日の状況" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "1日の締めくくり" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "いまの状態" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "材料（判断はEMがする）" })).toBeInTheDocument();
+    expect(screen.getByText(/まだ今日のチェックイン未記録/)).toBeInTheDocument();
     expect(await screen.findByText(/採用中の優先テーマはまだありません/)).toBeInTheDocument();
   });
 
@@ -67,6 +70,7 @@ describe("DashboardPage", () => {
       vi.fn(async (url: string) => {
         if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
         if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
+        if (url === "/api/org/goals") return { ok: true, json: async () => ({ goals: [] }) };
         if (url === "/api/org/strategy") return { ok: true, json: async () => ({ strategy: { mission: "", vision: "", values: "" } }) };
         if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
         if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
@@ -78,6 +82,7 @@ describe("DashboardPage", () => {
         if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: { decisionQueueLimit: 3, observationQueueLimit: 3, agentStaleAfterSeconds: 120 } }) };
         if (url === "/api/people") return { ok: true, json: async () => ({ people: [] }) };
         if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
+        if (url === "/api/dashboard/why-now") return { ok: true, json: async () => ({ items: [], source: "heuristic" }) };
         return { ok: true, json: async () => ({}) };
       }),
     );

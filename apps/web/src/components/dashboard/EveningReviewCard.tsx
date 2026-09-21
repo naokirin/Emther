@@ -6,30 +6,21 @@ type Props = {
   onStart: () => void;
 };
 
-// ユーザー指摘「AI対話での振り返り→バイタル→KPTの流れが画面ごとに途切れているのは
-// UXとして不自然」対応。ドメイン（Journal Entry / EmCheckin / EmReflectionNote）は
-// 分離したまま、1日の締めくくりという体験だけを/evening-reviewの1本道でつなぐ。
+// docs/design/dashboard/today-tab.pen 改善案A対応。リッチな「1日の締めくくり」カードを
+// やめ、未記録時だけ上部の薄い帯にする（記録済みなら何も出さない）。
 export function EveningReviewCard({ checkinsLoaded, hasCheckinToday, onStart }: Props) {
+  if (!checkinsLoaded) return null;
+  if (hasCheckinToday) return null;
+
   return (
-    <div className={styles.panel}>
-      <h2 style={{ margin: 0, fontSize: "1rem" }}>1日の締めくくり</h2>
-      <p className={styles.subtitle} style={{ marginTop: 4 }}>
-        AIとの対話でその日を振り返り、バイタルとKPTをまとめて記録します。
-      </p>
-      {!checkinsLoaded ? (
-        <p className={styles.subtitle}>読み込み中…</p>
-      ) : (
-        !hasCheckinToday && (
-          <div className={styles.charterWarnBanner}>
-            ⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス・心の余裕）を記録していません。
-          </div>
-        )
-      )}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-        <button className={styles.primaryBtn} style={{ width: "auto" }} onClick={onStart}>
-          はじめる
-        </button>
+    <div className={styles.checkinMissBanner} role="status">
+      <div className={styles.checkinMissBannerBody}>
+        <span className={styles.checkinMissBannerTitle}>まだ今日のチェックイン未記録</span>
+        <span className={styles.checkinMissBannerHint}>・気分 / エネルギー / ストレス</span>
       </div>
+      <button type="button" className={styles.checkinMissBannerCta} onClick={onStart}>
+        はじめる
+      </button>
     </div>
   );
 }

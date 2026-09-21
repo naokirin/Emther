@@ -1,46 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "../../styles/page.module.css";
 import { consultListMetaParts } from "../ConsultHistoryItem";
 import type { AgentRun } from "../RunDetail";
 import { SuggestionStrategyLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@emther/core/origin-trace";
 import type { SuggestionStrategyLinkSuggestion } from "@emther/core/types";
-import { LANE_META, rankActions, type Lane, type NextAction } from "../../lib/dashboard-next-actions";
-import { AgentStatusSection } from "./AgentStatusSection";
+import { LANE_META, rankActions, urgencyMeter, type Lane, type NextAction } from "../../lib/dashboard-next-actions";
+import { elapsedDays, formatElapsedLabel } from "../../lib/today-state";
 
-// 整備レーンの初期表示件数。判断待ち・観測不足は設定（decisionQueueLimit /
-// observationQueueLimit）で変えられるが、整備は設定項目が無いため定数で揃える。
 const MAINTENANCE_LANE_LIMIT = 3;
-// 「もっと見る」を押すたびに追加で前面に出す件数。
 const LANE_EXPAND_STEP = 3;
-// UI/UX見直し（今日タブ）対応。「何をすべきか不明瞭」への対処として、単一のヒーロー＋
-// 残り一覧ではなく「今日やるべき3つ」を明示する。
 const TOP_ACTIONS_LIMIT = 3;
 
-/** 「今日やるべき3つ」「進める次の一手」の各カード先頭に付ける順位バッジ。 */
-function RankBadge({ n }: { n: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        flexShrink: 0,
-        width: 26,
-        height: 26,
-        marginTop: 1,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 800,
-        fontSize: "0.875rem",
-        background: "var(--panel)",
-        border: "1px solid var(--border)",
-      }}
-    >
-      {n}
-    </span>
-  );
-}
+type WhyNowMap = Record<string, string>;
 
 type Props = {
   now: number;
@@ -51,13 +23,7 @@ type Props = {
   watchingItems: AgentRun[];
   lastSeenAt: number | null;
   unlinkedParentCount: number;
-  autoRunsToday: number;
-  runs?: AgentRun[];
-  runsLoaded?: boolean;
   onNavigate: (path: string) => void;
-  // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
-  // 対応。生成中／結果はこのパネル自身のstateではなく、タブ切り替えでは不変な親
-  // （DashboardPageInner）側のstateとして持ち、propsで受け取るだけにする。
   suggestionLinkSuggesting: boolean;
   suggestionLinkError: string | null;
   suggestionLinkPreview: {
@@ -81,9 +47,6 @@ export function TodayActionsPanel({
   watchingItems,
   lastSeenAt,
   unlinkedParentCount,
-  autoRunsToday,
-  runs = [],
-  runsLoaded = true,
   onNavigate,
   suggestionLinkSuggesting,
   suggestionLinkError,
@@ -95,21 +58,16 @@ export function TodayActionsPanel({
   onDismissSuggestionLinkOne,
 }: Props) {
   const [laneFilter, setLaneFilter] = useState<Lane>("decision");
-  // レーンごとの「もっと見る」で追加表示した件数。初期上限（設定 or MAINTENANCE_LANE_LIMIT）
-  // を超えた分だけをここに積む。
   const [laneExtraVisible, setLaneExtraVisible] = useState<Record<Lane, number>>({
     decision: 0,
     observation: 0,
     maintenance: 0,
   });
-  // UI/UX見直し（今日タブ）対応。既定は「今日やるべき3つ」だけを見せ、残りは
-  // EMが明示的に開いたときだけ表示する（重要度が埋もれない密度に抑える）。
   const [restActionsOpen, setRestActionsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [whyNowById, setWhyNowById] = useState<WhyNowMap>({});
+  const [whyNowLoading, setWhyNowLoading] = useState(false);
 
-  // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。レーンごとに
-  // 初期上限を分ける。超過分は非表示にせず、「もっと見る」で +LANE_EXPAND_STEP 件ずつ
-  // 同じリストに追加表示する（情報を失わない）。
   const LANE_LIMITS: Record<Lane, number> = {
     decision: decisionQueueLimit,
     observation: observationQueueLimit,
@@ -124,17 +82,79 @@ export function TodayActionsPanel({
   const laneLimit = LANE_LIMITS[laneFilter] + laneExtraVisible[laneFilter];
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   const hiddenActionCount = Math.max(0, laneActionsForFilter.length - laneLimit);
-  // 未ロード中は「課題はありません」と断定しない（空fallbackを実データと誤認させない）。
-  const headline = !nextActionsLoaded
-    ? "読み込み中…"
-    : top3Actions.length > 0
-      ? "🎯 今日やるべき3つ"
-      : "✅ 今日、判断待ちの組織課題はありません。";
   const restCount = overflowActions.length;
+
+  const top3Key = top3Actions.map((a) => a.id).join("|");
+
+  useEffect(() => {
+    if (!nextActionsLoaded || top3Actions.length === 0) {
+      setWhyNowById({});
+      return;
+    }
+    let cancelled = false;
+    const payload = top3Actions.map((a) => ({
+      id: a.id,
+      text: a.text,
+      lane: a.lane,
+      severity: a.severity,
+      kindLabel: a.kindLabel,
+      elapsedDays: elapsedDays(a.since, now),
+    }));
+    setWhyNowLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/dashboard/why-now", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actions: payload }),
+        });
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        const map: WhyNowMap = {};
+        if (Array.isArray(data?.items)) {
+          for (const item of data.items) {
+            if (item && typeof item.actionId === "string" && typeof item.whyNow === "string") {
+              map[item.actionId] = item.whyNow;
+            }
+          }
+        }
+        setWhyNowById(map);
+      } catch {
+        if (!cancelled) setWhyNowById({});
+      } finally {
+        if (!cancelled) setWhyNowLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // top3 の中身が変わったときだけ再取得（now の微小差では飛ばない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- top3Key で内容を代表させる
+  }, [nextActionsLoaded, top3Key]);
 
   return (
     <div id="today-actions" className={`${styles.panel} ${styles.heroPanel}`}>
-      <h2 className={styles.heroHeadline}>{headline}</h2>
+      <div className={styles.todayActionsHeroHead}>
+        <div>
+          <h2 className={styles.heroHeadline}>
+            {!nextActionsLoaded
+              ? "読み込み中…"
+              : top3Actions.length > 0
+                ? "今日やるべき3つ"
+                : "今日、判断待ちの組織課題はありません"}
+          </h2>
+          {top3Actions.length > 0 && (
+            <p className={styles.todayActionsHeroSub}>いま決めると、組織が前に進むものだけを並べています</p>
+          )}
+        </div>
+        {restCount > 0 && (
+          <div className={styles.todayActionsQueueBadge} aria-label={`残り ${restCount} 件`}>
+            <span className={styles.todayActionsQueueCount}>+{restCount}</span>
+            <span className={styles.todayActionsQueueLabel}>残り</span>
+          </div>
+        )}
+      </div>
+
       {unlinkedParentCount > 0 && (
         <p className={styles.subtitle} style={{ margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
           ⚠ 戦略未接続の親 提案 が {unlinkedParentCount} 件あります
@@ -169,68 +189,86 @@ export function TodayActionsPanel({
         />
       )}
 
-      {/* 4th Pivot: 相談タブのエージェント以下に埋もれていたエージェント状態・直近の動きを可視化 */}
-      <AgentStatusSection
-        runs={runs}
-        runsLoaded={runsLoaded}
-        autoRunsToday={autoRunsToday}
-        onNavigate={onNavigate}
-        now={now}
-      />
-
-      <>
-          {!nextActionsLoaded ? (
-            <p className={styles.subtitle}>読み込み中…</p>
-          ) : top3Actions.length === 0 ? (
-            <p className={styles.subtitle}>✅ 今すぐ決めるべきことはありません。</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-              {top3Actions.map((a, i) => (
-                <div
-                  key={a.id}
-                  className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer" }}
-                  onClick={a.onSelect}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      a.onSelect();
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <RankBadge n={i + 1} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                      <span className={styles.badge}>{a.kindLabel}</span>
-                      {((lastSeenAt !== null && a.since > lastSeenAt) || (lastSeenAt === null && now - a.since < 24 * 60 * 60 * 1000)) && (
-                        <span className={styles.newBadge}>新着</span>
-                      )}
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{LANE_META[a.lane].label}</span>
-                    </div>
-                    <div className={styles.runItemTask} style={{ whiteSpace: "normal", fontSize: "0.9375rem" }}>
-                      {a.icon} {a.text}
+      {!nextActionsLoaded ? (
+        <p className={styles.subtitle}>読み込み中…</p>
+      ) : top3Actions.length === 0 ? (
+        <p className={styles.subtitle}>今すぐ決めるべきことはありません。</p>
+      ) : (
+        <div className={styles.todayActionCardList}>
+          {top3Actions.map((a, i) => {
+            const whyNow = whyNowById[a.id];
+            const elapsed = formatElapsedLabel(a.since, now);
+            const urgency = urgencyMeter(a);
+            return (
+              <div
+                key={a.id}
+                className={`${styles.todayActionCard} ${a.severity === "urgent" ? styles.todayActionCardUrgent : styles.todayActionCardWarn}`}
+                onClick={a.onSelect}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    a.onSelect();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div className={styles.todayActionRank}>
+                  <span className={styles.todayActionRankNum}>{i + 1}</span>
+                  {elapsed && <span className={styles.todayActionElapsed}>{elapsed}</span>}
+                </div>
+                <div className={styles.todayActionBody}>
+                  <div className={styles.todayActionTitleRow}>
+                    <span className={styles.todayActionTitle}>{a.text}</span>
+                    {((lastSeenAt !== null && a.since > lastSeenAt) ||
+                      (lastSeenAt === null && now - a.since < 24 * 60 * 60 * 1000)) && (
+                      <span className={styles.newBadge}>新着</span>
+                    )}
+                  </div>
+                  <p className={styles.todayActionWhyNow}>
+                    {whyNowLoading && !whyNow
+                      ? "なぜ今: 考えています…"
+                      : whyNow
+                        ? `なぜ今: ${whyNow}`
+                        : null}
+                  </p>
+                  <p className={styles.todayActionMeta}>
+                    {LANE_META[a.lane].label} · {a.kindLabel}
+                    {a.ctaLabel ? ` · ${a.ctaLabel.replace(/する$/, "")}` : ""}
+                  </p>
+                  <div
+                    className={styles.todayActionUrgency}
+                    title="この順番で上がっている目安（優先度・緊急度から算出）"
+                  >
+                    <span className={styles.todayActionUrgencyLabel}>緊急度</span>
+                    <div className={styles.todayActionUrgencyTrack}>
+                      <div
+                        className={`${styles.todayActionUrgencyFill} ${styles[`todayActionUrgencyFill-${urgency.tone}`]}`}
+                        style={{ width: `${Math.round(urgency.ratio * 100)}%` }}
+                      />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className={styles.primaryBtn}
-                    style={{ width: "auto", flexShrink: 0 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      a.onSelect();
-                    }}
-                  >
-                    {a.ctaLabel ?? "開く"}
-                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+                <button
+                  type="button"
+                  className={styles.todayActionCta}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    a.onSelect();
+                  }}
+                >
+                  {a.ctaLabel ?? "開く"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-          {restCount > 0 && (
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+      {(restCount > 0 || watchingItems.length > 0) && (
+        <div className={styles.todayActionsRest}>
+          <div className={styles.todayActionsRestToggles}>
+            {restCount > 0 && (
               <button
                 type="button"
                 className={`${styles.detailToggle} ${styles.detailToggleButton}`}
@@ -238,107 +276,119 @@ export function TodayActionsPanel({
               >
                 {restActionsOpen
                   ? "閉じる"
-                  : `ほかに ${restCount} 件（判断待ち${restLaneCounts.decision}・観測${restLaneCounts.observation}・整備${restLaneCounts.maintenance}）をすべて見る`}
+                  : `ほか ${restCount} 件をレーン別に見る（判断${restLaneCounts.decision} · 観測${restLaneCounts.observation} · 整備${restLaneCounts.maintenance}）`}
               </button>
-              {restActionsOpen && (
+            )}
+            {watchingItems.length > 0 && (
+              <button
+                type="button"
+                className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                onClick={() => setWatchlistOpen(!watchlistOpen)}
+              >
+                {watchlistOpen ? "様子見を隠す" : `様子見 ${watchingItems.length}件`}
+              </button>
+            )}
+          </div>
+
+          {restActionsOpen && restCount > 0 && (
+            <div className={styles.todayActionsRestBody}>
+              <div className={styles.tabs}>
+                {(Object.keys(LANE_META) as Lane[]).map((lane) => (
+                  <button
+                    key={lane}
+                    className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""} ${styles.axisTooltip}`}
+                    onClick={() => setLaneFilter(lane)}
+                    data-tooltip={LANE_META[lane].hint}
+                  >
+                    {LANE_META[lane].label}（{restLaneCounts[lane]}）
+                  </button>
+                ))}
+              </div>
+              {visibleActions.length === 0 ? (
+                <p className={styles.subtitle}>このレーンの残りはありません。</p>
+              ) : (
                 <>
-                  <div className={styles.tabs} style={{ margin: "10px 0 10px" }}>
-                    {(Object.keys(LANE_META) as Lane[]).map((lane) => (
+                  <div className={styles.runList} style={{ maxHeight: "none" }}>
+                    {visibleActions.map((a) => (
                       <button
-                        key={lane}
-                        className={`${styles.tabBtn} ${laneFilter === lane ? styles.tabBtnActive : ""} ${styles.axisTooltip}`}
-                        onClick={() => setLaneFilter(lane)}
-                        data-tooltip={LANE_META[lane].hint}
+                        key={a.id}
+                        className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
+                        onClick={a.onSelect}
                       >
-                        {LANE_META[lane].label}（{restLaneCounts[lane]}）
+                        <span className={styles.badge}>{a.kindLabel}</span>
+                        {((lastSeenAt !== null && a.since > lastSeenAt) ||
+                          (lastSeenAt === null && now - a.since < 24 * 60 * 60 * 1000)) && (
+                          <span className={styles.newBadge}>新着</span>
+                        )}
+                        <div className={styles.runItemTask}>{a.text}</div>
                       </button>
                     ))}
                   </div>
-                  {visibleActions.length === 0 ? (
-                    <p className={styles.subtitle}>このレーンの残りはありません。</p>
-                  ) : (
-                    <>
-                      <div className={styles.runList} style={{ maxHeight: "none" }}>
-                        {visibleActions.map((a) => (
-                          <button
-                            key={a.id}
-                            className={`${styles.runItem} ${a.severity === "urgent" ? styles.nextActionUrgent : styles.nextActionWarn}`}
-                            onClick={a.onSelect}
-                          >
-                            <span className={styles.badge}>{a.kindLabel}</span>
-                            {((lastSeenAt !== null && a.since > lastSeenAt) || (lastSeenAt === null && now - a.since < 24 * 60 * 60 * 1000)) && (
-                              <span className={styles.newBadge}>新着</span>
-                            )}
-                            <div className={styles.runItemTask}>{a.text}</div>
-                          </button>
-                        ))}
-                      </div>
-                      {hiddenActionCount > 0 && (
-                        <button
-                          className={`${styles.detailToggle} ${styles.detailToggleButton}`}
-                          style={{ marginTop: 8 }}
-                          onClick={() =>
-                            setLaneExtraVisible((prev) => ({
-                              ...prev,
-                              [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
-                            }))
-                          }
-                        >
-                          もっと見る（残り{hiddenActionCount}件）
-                        </button>
-                      )}
-                    </>
+                  {hiddenActionCount > 0 && (
+                    <button
+                      className={`${styles.detailToggle} ${styles.detailToggleButton}`}
+                      style={{ marginTop: 8 }}
+                      onClick={() =>
+                        setLaneExtraVisible((prev) => ({
+                          ...prev,
+                          [laneFilter]: prev[laneFilter] + LANE_EXPAND_STEP,
+                        }))
+                      }
+                    >
+                      もっと見る（残り{hiddenActionCount}件）
+                    </button>
                   )}
                 </>
               )}
             </div>
           )}
-      </>
 
-      {watchingItems.length > 0 && (
-        <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-          <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={() => setWatchlistOpen(!watchlistOpen)}>
-            👀 様子見中（{watchingItems.length}件）{watchlistOpen ? "を隠す" : "を見る"}
-          </button>
-          {watchlistOpen && (
-            <div className={styles.tableWrap} style={{ marginTop: 8 }}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>経過</th>
-                    <th>内容</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {watchingItems.map((run) => {
-                    const days = Math.round((now - (run.triageAt ?? run.updatedAt)) / (24 * 60 * 60 * 1000));
-                    // 相談履歴(U12)と同じく、定型の指示文ではなく Journal 本文／結論を主役にする。
-                    const title = truncateExcerpt(consultListTitle(run), 100);
-                    const secondary = consultListSecondary(run);
-                    const meta = consultListMetaParts(run, { omitTime: true, omitTriage: true }).join(" · ");
-                    return (
-                      <tr key={run.id}>
-                        <td className={styles.tableMuted}>{days === 0 ? "今日から" : `${days}日前から`}</td>
-                        <td>
-                          <button className={styles.tableRowLink} onClick={() => onNavigate(`/chat?runId=${run.id}`)}>
-                            {title}
-                          </button>
-                          {secondary && (
-                            <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
-                              {truncateExcerpt(secondary, 120)}
-                            </div>
-                          )}
-                          {meta && (
-                            <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
-                              {meta}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {watchlistOpen && watchingItems.length > 0 && (
+            <div className={styles.todayActionsWatchBlock}>
+              <h3 className={styles.todayActionsWatchHeading}>
+                様子見中（{watchingItems.length}件）
+              </h3>
+              <p className={styles.todayActionsWatchHint}>
+                「様子見」にした相談です。一定期間たつと判断待ちへ再浮上します。
+              </p>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>経過</th>
+                      <th>内容</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {watchingItems.map((run) => {
+                      const days = Math.round((now - (run.triageAt ?? run.updatedAt)) / (24 * 60 * 60 * 1000));
+                      const title = truncateExcerpt(consultListTitle(run), 100);
+                      const secondary = consultListSecondary(run);
+                      const meta = consultListMetaParts(run, { omitTime: true, omitTriage: true }).join(" · ");
+                      return (
+                        <tr key={run.id}>
+                          <td className={styles.tableMuted}>{days === 0 ? "今日から" : `${days}日前から`}</td>
+                          <td>
+                            <button className={styles.tableRowLink} onClick={() => onNavigate(`/chat?runId=${run.id}`)}>
+                              {title}
+                            </button>
+                            {secondary && (
+                              <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
+                                {truncateExcerpt(secondary, 120)}
+                              </div>
+                            )}
+                            {meta && (
+                              <div className={styles.tableMuted} style={{ marginTop: 2, fontSize: "0.75rem" }}>
+                                {meta}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

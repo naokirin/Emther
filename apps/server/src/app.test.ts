@@ -92,6 +92,19 @@ describe("createApp() のマウント順（静的サブパス vs 親の:idワイ
     expect(await res.json()).toEqual({ goals: [] });
   });
 
+  it("POST /api/dashboard/why-now は dashboardWhyNowRoute に届く", async () => {
+    const { createApp } = await import("./app");
+    const app = createApp();
+    // why-now は cloud 呼び出しを含むため、空 actions なら即 heuristic で返る
+    const res = await app.request("/api/dashboard/why-now", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actions: [] }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ items: [], source: "heuristic", fallbackReason: "no_actions" });
+  });
+
   it("POST /api/suggestions/link/suggest は suggestionsLinkSuggestRoute に届く（suggestionsRouteに飲まれない）", async () => {
     const { app } = await import("./app");
     const res = await app.request("/api/suggestions/link/suggest", {

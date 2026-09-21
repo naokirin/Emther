@@ -33,6 +33,7 @@ import { settingsDataResetRoute } from "./routes/settings-data-reset";
 import { settingsDataRestoreRoute } from "./routes/settings-data-restore";
 import { journalDumpsRoute } from "./routes/journal-dumps";
 import { suggestionsLinkSuggestRoute } from "./routes/suggestions-link-suggest";
+import { dashboardWhyNowRoute } from "./routes/dashboard-why-now";
 
 // docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
 // ルート追加のたびに、対応する web/src/app/api/**/route.ts を
@@ -79,6 +80,7 @@ export function createApp(options?: { clientDir?: string }) {
   app.route("/api/agents", agentsRoute);
   app.route("/api/suggestions/link/suggest", suggestionsLinkSuggestRoute);
   app.route("/api/suggestions", suggestionsRoute);
+  app.route("/api/dashboard/why-now", dashboardWhyNowRoute);
   app.route("/api/growth/generate", growthGenerateRoute);
   app.route("/api/models/status", modelsStatusRoute);
   app.route("/api/mask-check", maskCheckRoute);

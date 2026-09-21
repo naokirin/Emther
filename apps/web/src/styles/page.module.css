@@ -3109,6 +3109,662 @@ button.situationChip:hover {
   margin-bottom: 2px;
 }
 
+/* ---------- docs/design/dashboard/today-tab.pen 改善案A/B ---------- */
+
+.checkinMissBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--yellow-border, #d99a1b);
+  background: var(--yellow-bg, #2a2008);
+}
+
+.checkinMissBannerBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.checkinMissBannerTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--yellow-fg, #fbbf24);
+}
+
+.checkinMissBannerHint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.checkinMissBannerCta {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--blue, #3b6fd6);
+  cursor: pointer;
+}
+
+.reportNudgeStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.reportNudgeBanner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel, var(--gray-bg));
+}
+
+.reportNudgeBannerThin {
+  padding: 6px 12px;
+  opacity: 0.92;
+}
+
+.reportNudgeBannerBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.reportNudgeEyebrow {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.reportNudgeText {
+  color: var(--text-muted);
+}
+
+.reportNudgeLink {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--blue-text, var(--blue));
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.reportNudgeDismiss {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.nowStateHeading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.nowStateHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.nowStateDialRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .nowStateDialRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.nowStateDialCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg, #1b1e26);
+}
+
+/* docs/design/dashboard/today-tab.pen: 点リング dial（conic ではなく tick の円） */
+.nowStateDotDial {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nowStateDotDial svg {
+  display: block;
+}
+
+.nowStateDotDial .nowStateDialValue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.nowStateDialValue {
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.nowStateDialCaption {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.35;
+}
+
+.nowStateHealthRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .nowStateHealthRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.nowStateHealthCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg, #1b1e26);
+}
+
+.nowStateHealthContent {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.nowStateHealthPie {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nowStateHealthPieInner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--panel, #12141a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nowStateHealthTotal {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.nowStateHealthSide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nowStateHealthTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.nowStateHealthLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.nowStateHealthSwatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.nowStatePulse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle, transparent);
+  font-size: 0.8125rem;
+}
+
+.nowStatePulseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-border, #22c55e);
+  flex-shrink: 0;
+}
+
+.nowStatePulseDot[data-active="1"] {
+  background: var(--blue, #3b6fd6);
+}
+
+.nowStatePulseText {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.nowStatePulseLink {
+  border: none;
+  background: none;
+  color: var(--blue-text, var(--blue));
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.todayActionsHeroHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.todayActionsHeroSub {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.todayActionsQueueBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.todayActionsQueueCount {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.todayActionsQueueLabel {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.todayActionCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.todayActionCard {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  cursor: pointer;
+  background: var(--panel);
+}
+
+.todayActionCardUrgent {
+  border-left-color: var(--red-border, #e5534b);
+  background: var(--red-bg, #2c1210);
+  border-color: var(--red-border, #e5534b);
+}
+
+.todayActionCardWarn {
+  border-left-color: var(--yellow-border, #eab308);
+}
+
+.todayActionRank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 40px;
+  padding-top: 2px;
+}
+
+.todayActionRankNum {
+  font-size: 1.75rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.todayActionCardUrgent .todayActionRankNum {
+  color: var(--red-fg, #f87171);
+}
+
+.todayActionElapsed {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.todayActionBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.todayActionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.todayActionTitle {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.todayActionWhyNow {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.todayActionMeta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.todayActionUrgency {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 120px;
+  margin-top: 2px;
+}
+
+.todayActionUrgencyLabel {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.todayActionUrgencyTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border, #2c2f3a);
+  overflow: hidden;
+}
+
+.todayActionUrgencyFill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.todayActionUrgencyFill-high {
+  background: var(--red-border, #e5534b);
+}
+
+.todayActionUrgencyFill-mid {
+  background: var(--yellow-border, #d99a1b);
+}
+
+.todayActionUrgencyFill-low {
+  background: var(--gray-border, #686e7d);
+}
+
+.todayActionCta {
+  align-self: center;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--blue, #3b6fd6);
+  cursor: pointer;
+}
+
+.todayActionsRest {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.todayActionsRestToggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.todayActionsRestBody {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.todayActionsWatchBlock {
+  width: 100%;
+  padding-top: 4px;
+}
+
+.todayActionsWatchHeading {
+  margin: 0 0 2px;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.todayActionsWatchHint {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.situationMaterialsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 1000px) {
+  .situationMaterialsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.situationConcernCard {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--red-border, #e5534b);
+  background: var(--red-bg, rgba(229, 83, 75, 0.12));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+}
+
+.situationConcernLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--red-fg, #f87171);
+}
+
+.situationAttentionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.situationAttentionLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.weeklyToneChart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weeklyToneBars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 100px;
+}
+
+.weeklyToneCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.weeklyToneStack {
+  width: 28px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 3px 3px 0 0;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.weeklyTonePos {
+  width: 100%;
+  background: var(--green-border, #22c55e);
+}
+
+.weeklyToneNeu {
+  width: 100%;
+  background: var(--gray-border, #686e7d);
+}
+
+.weeklyToneNeg {
+  width: 100%;
+  background: var(--red-border, #e5534b);
+}
+
+.weeklyToneLabel {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.weeklyToneLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.weeklyToneLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.weeklyToneLegend i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.weeklyToneLegendNeg {
+  background: var(--red-border, #e5534b);
+}
+
+.weeklyToneLegendNeu {
+  background: var(--gray-border, #686e7d);
+}
+
+.weeklyToneLegendPos {
+  background: var(--green-border, #22c55e);
+}
+
+.weeklyToneReadout {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* docs/design/journal/journal-tab.pen 改善案A: 役割分離 + 段階開示 */
 
 .journalTitleHint {

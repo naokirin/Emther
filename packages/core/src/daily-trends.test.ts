@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCheckinDailyTrend, buildJournalSuggestionDailyTrend, periodWindow } from "./daily-trends";
+import { buildCheckinDailyTrend, buildJournalSuggestionDailyTrend, buildWeeklyJournalToneTrend, periodWindow } from "./daily-trends";
 import type { EmCheckin, Suggestion, JournalEntry } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -107,6 +107,28 @@ function suggestion(daysAgo: number): Suggestion {
     updatedAt: TODAY - daysAgo * DAY_MS,
   };
 }
+
+describe("buildWeeklyJournalToneTrend", () => {
+  it("直近4週のJournalトーンを週単位で積む", () => {
+    const points = buildWeeklyJournalToneTrend(
+      [
+        journalEntry(0, "negative"),
+        journalEntry(0, "negative"),
+        journalEntry(7, "positive"),
+        journalEntry(14, "neutral"),
+        journalEntry(21, "negative"),
+      ],
+      4,
+      TODAY,
+    );
+    expect(points).toHaveLength(4);
+    expect(points.map((p) => p.label)).toEqual(["3週前", "前々週", "前週", "今週"]);
+    expect(points[3]).toMatchObject({ negative: 2, positive: 0 });
+    expect(points[2]).toMatchObject({ positive: 1 });
+    expect(points[1]).toMatchObject({ neutral: 1 });
+    expect(points[0]).toMatchObject({ negative: 1 });
+  });
+});
 
 describe("buildJournalSuggestionDailyTrend", () => {
   it("Journalをsentiment別に日毎集計する", () => {

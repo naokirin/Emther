@@ -57,6 +57,24 @@ export function heroRank(a: NextAction): number {
   return 8;
 }
 
+export type UrgencyMeter = {
+  /** 0..1 の緊急度（バーの埋まり） */
+  ratio: number;
+  tone: "high" | "mid" | "low";
+};
+
+// docs/design/dashboard/today-tab.pen 改善案A対応。順位付けの目安として緊急度バーを出す。
+// heroRank（小さいほど優先）と severity から視覚的な度合いを決める。
+export function urgencyMeter(a: NextAction): UrgencyMeter {
+  const rank = heroRank(a);
+  // rank 0 → 0.95、rank 8 → 0.25 程度に線形マップし、urgent なら底上げ。
+  let ratio = Math.max(0.2, 0.95 - rank * 0.08);
+  if (a.severity === "urgent") ratio = Math.min(1, ratio + 0.08);
+  if (a.severity === "warn" && a.lane === "maintenance") ratio = Math.min(ratio, 0.35);
+  const tone: UrgencyMeter["tone"] = ratio >= 0.75 ? "high" : ratio >= 0.45 ? "mid" : "low";
+  return { ratio, tone };
+}
+
 // UI/UX見直し（今日タブ）対応。「次の1手」を単一のヒーローだけでなく「今日やるべき3つ」
 // として上位N件をまとめて取り出せるよう、単一ピック関数をランキング関数に一般化する。
 export function rankActions(actions: NextAction[]): NextAction[] {
