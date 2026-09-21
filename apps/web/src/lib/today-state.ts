@@ -27,8 +27,8 @@ export type EntityHealthBreakdown = {
 };
 
 export type TodayStateMeters = {
-  /** 判断負荷: 今日キューに載っている件数 / 朝の上限感 */
-  decisionLoad: { current: number; max: number };
+  /** EM負荷: 朝キュー全件数 / ソフト上限（判断+観測+整備1）。超過しても current は実数のまま。 */
+  emLoad: { current: number; max: number };
   /** 組織健全度（良/注/危の加重平均％）。材料が無ければ null */
   orgHealthPercent: number | null;
   /** 1on1カバレッジ％ */
@@ -104,8 +104,10 @@ export function buildTodayStateMeters(params: BuildTodayStateMetersParams): Toda
   } = params;
   const people = allPeople.filter((p) => p.isDirectReport);
 
+  // ソフト上限 = 判断待ち初期上限 + 観測不足初期上限 + 整備の目安1。
+  // 表示用の目安であり、current は nextActions の実数（キャップしない）。
   const softMax = Math.max(1, decisionQueueLimit + observationQueueLimit + 1);
-  const loadCurrent = Math.min(nextActions.length, softMax);
+  const loadCurrent = nextActions.length;
 
   const teamMap = new Map<VitalStatus, { count: number; examples: string[] }>();
   const personMap = new Map<VitalStatus, { count: number; examples: string[] }>();
@@ -167,7 +169,7 @@ export function buildTodayStateMeters(params: BuildTodayStateMetersParams): Toda
   }
 
   return {
-    decisionLoad: { current: loadCurrent, max: softMax },
+    emLoad: { current: loadCurrent, max: softMax },
     orgHealthPercent: weightedHealthPercent(scored),
     oneOnOneCoveragePercent: coveragePercent,
     oneOnOneCoverage: {

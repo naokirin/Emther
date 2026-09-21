@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { coverageTone, healthTone, loadTone } from "./NowStatePanel";
 
 describe("dial tones", () => {
-  it("判断負荷は高いほど bad", () => {
+  it("EM負荷は高いほど bad", () => {
     expect(loadTone(0.2)).toBe("good");
     expect(loadTone(0.5)).toBe("warn");
     expect(loadTone(0.8)).toBe("bad");

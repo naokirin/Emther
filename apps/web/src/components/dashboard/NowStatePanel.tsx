@@ -42,7 +42,7 @@ const DIAL_TONE_COLOR: Record<DialTone, string> = {
   unknown: "#686e7d",
 };
 
-/** 判断負荷: 低いほど良い。 */
+/** EM負荷: 低いほど良い。 */
 export function loadTone(ratio: number): DialTone {
   if (ratio >= 0.75) return "bad";
   if (ratio >= 0.4) return "warn";
@@ -70,12 +70,14 @@ function DotDial({
   ticks,
   filled,
   tone,
+  title,
 }: {
   valueLabel: string;
   caption: string;
   ticks: number;
   filled: number;
   tone: DialTone;
+  title?: string;
 }) {
   const color = DIAL_TONE_COLOR[tone];
   const onCount = Math.max(0, Math.min(ticks, Math.round(filled)));
@@ -94,7 +96,7 @@ function DotDial({
   });
 
   return (
-    <div className={styles.nowStateDialCard}>
+    <div className={styles.nowStateDialCard} title={title}>
       <div className={styles.nowStateDotDial} style={{ width: size, height: size }} aria-hidden>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           {dots.map((d, i) => (
@@ -181,16 +183,27 @@ export function NowStatePanel({
       ? `エージェント実行中 ${activeCount}件${latest ? ` · 最終巡回 ${latest.timeLabel}` : ""}${autoRunsToday > 0 ? ` · 本日自動 ${autoRunsToday}件` : ""}`
       : `エージェント待機中${latest ? ` · 最終巡回 ${latest.timeLabel}` : ""}${autoRunsToday > 0 ? ` · 本日自動 ${autoRunsToday}件` : ""}`;
 
-  const loadRatio = meters.decisionLoad.max > 0 ? meters.decisionLoad.current / meters.decisionLoad.max : 0;
+  // 超過時も比率は 1 で頭打ち（色・点リングは満杯）。数値ラベルは実数のまま。
+  const loadRatio =
+    meters.emLoad.max > 0 ? Math.min(1, meters.emLoad.current / meters.emLoad.max) : 0;
   const healthRatio = meters.orgHealthPercent === null ? null : meters.orgHealthPercent / 100;
   const coverageRatio =
     meters.oneOnOneCoveragePercent === null ? null : meters.oneOnOneCoveragePercent / 100;
 
-  // 判断負荷は上限目盛（max）をそのまま tick 数に。健全度・カバレッジは 12 目盛。
-  const loadTicks = Math.max(1, meters.decisionLoad.max);
-  const loadFilled = Math.min(loadTicks, meters.decisionLoad.current);
+  // EM負荷の目盛はソフト上限。健全度・カバレッジは 12 目盛。
+  const loadTicks = Math.max(1, meters.emLoad.max);
+  const loadFilled = Math.min(loadTicks, meters.emLoad.current);
   const healthFilled = healthRatio === null ? 0 : Math.round(healthRatio * 12);
   const coverageFilled = coverageRatio === null ? 0 : Math.round(coverageRatio * 12);
+  // 超過時は実数をキャップせず、分母側に「+」を付けてソフト上限超えを示す（例: 7+/7）。
+  // ホバーで実件数を確認できるようにする。
+  const emLoadOver = meters.emLoad.current > meters.emLoad.max;
+  const emLoadLabel = emLoadOver
+    ? `${meters.emLoad.max}+/${meters.emLoad.max}`
+    : `${meters.emLoad.current}/${meters.emLoad.max}`;
+  const emLoadTitle = emLoadOver
+    ? `朝キュー ${meters.emLoad.current} 件（ソフト上限 ${meters.emLoad.max} を超過）`
+    : `朝キュー ${meters.emLoad.current} / ソフト上限 ${meters.emLoad.max}`;
 
   return (
     <div className={styles.panel} data-testid="now-state-panel">
@@ -203,11 +216,12 @@ export function NowStatePanel({
 
       <div className={styles.nowStateDialRow}>
         <DotDial
-          valueLabel={`${meters.decisionLoad.current}/${meters.decisionLoad.max}`}
-          caption="判断負荷（今日の上限感）"
+          valueLabel={emLoadLabel}
+          caption="EM負荷（今日の上限感）"
           ticks={loadTicks}
           filled={loadFilled}
           tone={loadTone(loadRatio)}
+          title={emLoadTitle}
         />
         <DotDial
           valueLabel={meters.orgHealthPercent === null ? "—" : `${meters.orgHealthPercent}%`}

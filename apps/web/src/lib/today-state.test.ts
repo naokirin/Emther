@@ -53,7 +53,7 @@ function person(overrides: Partial<PersonSummary> & { id: string; name: string }
 }
 
 describe("buildTodayStateMeters", () => {
-  it("判断負荷・健全度・カバレッジ・内訳・4週トーンを返す", () => {
+  it("EM負荷・健全度・カバレッジ・内訳・4週トーンを返す", () => {
     const nextActions: NextAction[] = [
       {
         id: "a1",
@@ -105,7 +105,7 @@ describe("buildTodayStateMeters", () => {
       prefillJournal: vi.fn(),
     });
 
-    expect(meters.decisionLoad).toEqual({ current: 2, max: 7 });
+    expect(meters.emLoad).toEqual({ current: 2, max: 7 });
     expect(meters.oneOnOneCoveragePercent).toBe(60);
     expect(meters.teamHealth.total).toBe(2);
     expect(meters.teamHealth.buckets.every((b) => !b.examples.includes("1on1カバレッジ"))).toBe(true);
@@ -113,6 +113,31 @@ describe("buildTodayStateMeters", () => {
     expect(meters.weeklyTone).toHaveLength(4);
     expect(meters.attentionChips.length).toBeGreaterThan(0);
     expect(meters.orgHealthPercent).not.toBeNull();
+  });
+
+  it("EM負荷の current はソフト上限でキャップしない", () => {
+    const nextActions: NextAction[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `a${i}`,
+      severity: "warn" as const,
+      lane: "decision" as const,
+      icon: "!",
+      kindLabel: "判断",
+      text: `x${i}`,
+      onSelect: vi.fn(),
+      since: NOW,
+    }));
+    const meters = buildTodayStateMeters({
+      now: NOW,
+      journalEntries: [],
+      vitals: vitals(),
+      people: [],
+      nextActions,
+      decisionQueueLimit: 3,
+      observationQueueLimit: 3,
+      push: vi.fn(),
+      prefillJournal: vi.fn(),
+    });
+    expect(meters.emLoad).toEqual({ current: 10, max: 7 });
   });
 });
 
