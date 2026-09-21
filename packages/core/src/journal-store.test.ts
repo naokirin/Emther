@@ -210,6 +210,41 @@ describe("addJournalEntry", () => {
     expect(entry.teamIds.sort()).toEqual([a.id, b.id].sort());
   });
 
+  it("ローカル抽出のtags/people/teamsに重複があっても保存前に除去する", async () => {
+    mockExtraction = {
+      tags: ["1on1", "1on1", "振り返り"],
+      people: ["Aさん", "Aさん"],
+      teams: ["コアチーム", "コアチーム"],
+      urgency: "mid",
+      sentiment: "neutral",
+    };
+    const peopleDirectory = await import("./people-directory");
+    peopleDirectory.registerName("Aさん");
+    const org = await import("./org-context-store/index");
+    const team = org.addTeam("コアチーム", []);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("Aさんとコアチームで1on1した");
+    expect(entry.tags).toEqual(["1on1", "振り返り"]);
+    expect(entry.people).toEqual([peopleDirectory.getPersonId("Aさん")]);
+    expect(entry.teamIds).toEqual([team.id]);
+  });
+
+  it("optsのpeople/teams/teamIdsに重複があっても保存前に除去する", async () => {
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral" };
+    const peopleDirectory = await import("./people-directory");
+    const personId = peopleDirectory.registerName("花子さん");
+    const org = await import("./org-context-store/index");
+    const team = org.addTeam("基盤", []);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("進捗メモ", Date.now(), {
+      people: ["花子さん", "花子さん"],
+      teams: ["基盤", "基盤"],
+      teamIds: [team.id, team.id],
+    });
+    expect(entry.people).toEqual([personId]);
+    expect(entry.teamIds).toEqual([team.id]);
+  });
+
   it("updateJournalEntryでteamsを校正できる", async () => {
     mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral",  };
     const org = await import("./org-context-store/index");
@@ -546,6 +581,25 @@ describe("updateJournalEntry", () => {
   it("存在しないIDはundefinedを返す", async () => {
     const store = await loadModule();
     expect(await store.updateJournalEntry("missing", { tags: ["x"] })).toBeUndefined();
+  });
+
+  it("校正のtags/people/teamsに重複があっても保存前に除去する", async () => {
+    mockExtraction = { summary: "", tags: [], people: [], urgency: "mid", sentiment: "neutral" };
+    const peopleDirectory = await import("./people-directory");
+    peopleDirectory.registerName("Aさん");
+    const org = await import("./org-context-store/index");
+    const team = org.addTeam("コアチーム", []);
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("メモ");
+    const updated = await store.updateJournalEntry(entry.id, {
+      tags: ["確認済み", "確認済み", "振り返り"],
+      people: ["Aさん", "Aさん"],
+      teams: ["コアチーム", "コアチーム"],
+      teamIds: [team.id, team.id],
+    });
+    expect(updated?.tags).toEqual(["確認済み", "振り返り"]);
+    expect(updated?.people).toEqual([peopleDirectory.getPersonId("Aさん")]);
+    expect(updated?.teamIds).toEqual([team.id]);
   });
 
   it("校正後はconfirmed:trueになる", async () => {

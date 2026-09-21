@@ -287,6 +287,11 @@ const FEW_SHOT_EXAMPLES: Array<{ user: string; assistant: string }> = [
   },
 ];
 
+/** 出現順を保ったまま重複を除く（AI抽出・明示指定・校正のいずれでも保存前に通す）。 */
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
 /** ローカル抽出の teams 配列＋本文中の登録済みチーム名言及＋明示指定を Team.id に統合する。 */
 function resolveJournalTeamIds(
   rawText: string,
@@ -300,7 +305,7 @@ function resolveJournalTeamIds(
   const fromLabels = resolveTeamIdsByLabels([...extractedLabels, ...explicitLabels]);
   const fromText = findMentionedTeamIds(rawText);
   const fromIds = filterValidTeamIds(opts.teamIds ?? [], true);
-  return [...new Set([...fromLabels, ...fromText, ...fromIds])];
+  return uniqueStrings([...fromLabels, ...fromText, ...fromIds]);
 }
 
 function isUrgency(v: unknown): v is Urgency {
@@ -428,7 +433,7 @@ async function createJournalEventFromText(
   const explicitPeople = (opts.people ?? [])
     .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
     .map((p) => registerName(p.trim()));
-  const people = [...new Set([...mentionedPeople, ...extractedPeople, ...explicitPeople])];
+  const people = uniqueStrings([...mentionedPeople, ...extractedPeople, ...explicitPeople]);
   const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
   const profileCandidate = extractProfileCandidate(structured);
 
@@ -453,10 +458,11 @@ async function createJournalEventFromText(
   // tagsに人物名そのもの（例: 本来peopleに入るべき「花子さん」を含む文字列）が
   // 紛れ込むことがある。tags自体は新規検出（NER）は不要だが、既知の登録済み名前を
   // 部分一致で置換するmaskNames（同期・軽量）は必ず通す。
+  // ローカル抽出が同一タグを複数返すことがあるため、保存前に重複除去する。
   const rawTags: string[] = Array.isArray(structured.tags)
     ? structured.tags.filter((t: unknown): t is string => typeof t === "string")
     : [];
-  const maskedTags = rawTags.map((t) => maskNames(t));
+  const maskedTags = uniqueStrings(rawTags.map((t) => maskNames(t)));
 
   // 「一時的な感情・発言」というJournalの性質上、既定ではkind:"fact"・
   // ttlDaysをSettings（journalFactTtlDays）から適用する。公式方針や長期プロファイルの
@@ -751,8 +757,11 @@ export async function updateJournalEntry(
   if (!original || original.entityType !== "journal") return undefined;
 
   // EMが校正フォームで明示した人物名は登録してよい（ローカルLLMの自動登録とは別経路）。
-  const people = patch.people !== undefined ? patch.people.map((p) => registerName(p)) : original.people;
-  const tags = patch.tags !== undefined ? patch.tags.map((t) => maskNames(t)) : original.tags;
+  // 校正入力・既存値のいずれも保存前に重複除去する（AI抽出の重複が残っている場合も含む）。
+  const people = uniqueStrings(
+    patch.people !== undefined ? patch.people.map((p) => registerName(p)) : original.people,
+  );
+  const tags = uniqueStrings(patch.tags !== undefined ? patch.tags.map((t) => maskNames(t)) : original.tags);
   const urgency = patch.urgency !== undefined && isUrgency(patch.urgency) ? patch.urgency : original.urgency ?? "mid";
   const sentiment =
     patch.sentiment !== undefined && isSentiment(patch.sentiment) ? patch.sentiment : original.sentiment ?? "neutral";
@@ -763,18 +772,18 @@ export async function updateJournalEntry(
   const resolvedSuggestionId =
     patch.resolvedSuggestionId !== undefined ? (patch.resolvedSuggestionId ?? undefined) : original.resolvedSuggestionId;
 
-  let teamIds = original.teamIds ?? [];
+  let teamIds = uniqueStrings(original.teamIds ?? []);
   if (patch.teams !== undefined || patch.teamIds !== undefined) {
     const fromLabels = patch.teams !== undefined ? resolveTeamIdsByLabels(patch.teams) : [];
     const fromIds = patch.teamIds !== undefined ? filterValidTeamIds(patch.teamIds, true) : [];
     // teams / teamIds のどちらか一方だけ渡された場合は、渡された側だけで置き換える
     // （people と同様「校正フォームの現在値が正」）。両方あるときは和集合。
     if (patch.teams !== undefined && patch.teamIds !== undefined) {
-      teamIds = [...new Set([...fromLabels, ...fromIds])];
+      teamIds = uniqueStrings([...fromLabels, ...fromIds]);
     } else if (patch.teams !== undefined) {
-      teamIds = fromLabels;
+      teamIds = uniqueStrings(fromLabels);
     } else {
-      teamIds = fromIds;
+      teamIds = uniqueStrings(fromIds);
     }
   }
 
