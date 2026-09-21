@@ -4,8 +4,9 @@
 // 持たない純粋なデータ組み立てロジック（app/page.tsxから分離）。
 // docs/2nd_pivot_version.md Phase 2.1対応。「提案未整理」「次の一手未設定」のような、
 // EMに提案の構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
-import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions, type AgentRun } from "../components/RunDetail";
-import { formatPendingAgentStartText } from "../components/PendingAgentStartNotice";
+import type { AgentRun } from "../components/RunDetail";
+import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "../components/runDetailMeta";
+import { formatPendingAgentStartText } from "../components/pendingAgentStart";
 import { truncateExcerpt } from "@emther/core/origin-trace";
 import {
   isJournalEntryResolved,

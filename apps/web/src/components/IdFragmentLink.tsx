@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useContext, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { IdResolveContext } from "./idResolveContext";
 import { useNavigate } from "react-router";
 import { Modal } from "./Modal";
 import { goHrefForIdFragment } from "@emther/core/id-prefix";
@@ -10,16 +11,6 @@ const KIND_LABEL: Record<IdMatchKind, string> = {
   journal: "Journal",
   run: "相談 / Agent Run",
 };
-
-type IdResolveContextValue = {
-  /** サイドピーク内なら提案をピークで開き直す。未指定時は通常のページ遷移。 */
-  openSuggestionInPeek?: (id: string) => void;
-  /** 提案の全画面共通サイドピークの現在の対象id（useSuggestionPeek向け）。 */
-  suggestionPeekId?: string | null;
-  closeSuggestionPeek?: () => void;
-};
-
-const IdResolveContext = createContext<IdResolveContextValue>({});
 
 export function IdResolveProvider({
   openSuggestionInPeek,
@@ -37,19 +28,6 @@ export function IdResolveProvider({
       {children}
     </IdResolveContext.Provider>
   );
-}
-
-// docs/memo.md「各画面で提案のリンクを踏んだときのデフォルト挙動をサイドピークにする」対応。
-// SuggestionPeekRoot（app/layout.tsx）がIdResolveProviderをアプリ全体へ被せるため、
-// どの画面のコンポーネントからでもこのhookで同じ提案サイドピークを開ける
-// （そのページが独自のIdResolveProviderを持っていればそちらが優先される——timeline/page.tsx等）。
-export function useSuggestionPeek(): { id: string | null; open: (id: string) => void; close: () => void } {
-  const { openSuggestionInPeek, suggestionPeekId, closeSuggestionPeek } = useContext(IdResolveContext);
-  return {
-    id: suggestionPeekId ?? null,
-    open: openSuggestionInPeek ?? (() => {}),
-    close: closeSuggestionPeek ?? (() => {}),
-  };
 }
 
 function useIdResolveNav() {

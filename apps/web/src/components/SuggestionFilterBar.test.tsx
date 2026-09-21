@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  DEFAULT_SUGGESTION_STATUS_FILTER,
-  SuggestionFilterBar,
-  type SuggestionFilterState,
-} from "./SuggestionFilterBar";
+import { DEFAULT_SUGGESTION_STATUS_FILTER, type SuggestionFilterState } from "./suggestionFilter";
+import { SuggestionFilterBar } from "./SuggestionFilterBar";
 
 function state(overrides: Partial<SuggestionFilterState> = {}): SuggestionFilterState {
   return {

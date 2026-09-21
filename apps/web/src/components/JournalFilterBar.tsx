@@ -47,9 +47,10 @@ export function JournalFilterBar({
   const [draft, setDraft] = useState<JournalFilterState>(value);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (open) setDraft(value);
-  }, [open, value]);
+  function toggleOpen() {
+    if (!open) setDraft(value);
+    setOpen(!open);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -97,13 +98,18 @@ export function JournalFilterBar({
   }
 
   function removeChip(key: keyof JournalFilterState) {
-    if (key === "periodDays") onChange("periodDays", "all");
-    else if (key === "excludeResolved" || key === "includeArchived" || key === "quarantinedOnly") {
+    if (key === "periodDays") {
+      onChange("periodDays", "all");
+      setDraftField("periodDays", "all");
+    } else if (key === "excludeResolved" || key === "includeArchived" || key === "quarantinedOnly") {
       onChange(key, false);
+      setDraftField(key, false);
     } else if (key === "query") {
       onChange("query", "");
+      setDraftField("query", "");
     } else {
       onChange(key, "" as JournalFilterState[typeof key]);
+      setDraftField(key, "" as JournalFilterState[typeof key]);
     }
   }
 
@@ -123,7 +129,7 @@ export function JournalFilterBar({
           className={`${styles.journalFilterTrigger} ${open ? styles.journalFloatingTriggerOpen : ""}`}
           aria-expanded={open}
           aria-haspopup="dialog"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
         >
           絞り込み
           {chips.length > 0 && <span className={styles.journalFilterBadge}>{chips.length}</span>}

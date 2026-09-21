@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageTone, healthTone, loadTone } from "./NowStatePanel";
+import { coverageTone, healthTone, loadTone } from "./dialTones";
 
 describe("dial tones", () => {
   it("EM負荷は高いほど bad", () => {

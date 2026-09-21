@@ -2,15 +2,16 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../../styles/page.module.css";
 import { PageTitleRow } from "../../components/HelpLink";
-import { PaginationControls, usePagination } from "../../components/Pagination";
+import { PaginationControls } from "../../components/Pagination";
+import { usePagination } from "../../components/usePagination";
 import { StatusBadge } from "../../components/RunDetail";
-import { useSuggestionPeek } from "../../components/IdFragmentLink";
+import { useSuggestionPeek } from "../../components/useSuggestionPeek";
+import { SuggestionFilterBar } from "../../components/SuggestionFilterBar";
 import {
   DEFAULT_SUGGESTION_STATUS_FILTER,
-  SuggestionFilterBar,
   type SuggestionFilterState,
   type SuggestionSortKey,
-} from "../../components/SuggestionFilterBar";
+} from "../../components/suggestionFilter";
 import {
   SUGGESTION_THEME_ALL,
   SUGGESTION_THEME_UNLINKED,
@@ -42,7 +43,7 @@ function matchesThemeFilter(s: Suggestion, themeKey: string): boolean {
   return s.themeId === themeKey;
 }
 
-function compareByDue(a: Suggestion, b: Suggestion, now: number): number {
+function compareByDue(a: Suggestion, b: Suggestion): number {
   const aDue = a.reviewDueAt;
   const bDue = b.reviewDueAt;
   if (aDue == null && bDue == null) return compareSuggestionsByConfirmPriority(a, b);
@@ -57,9 +58,9 @@ function compareByUpdated(a: Suggestion, b: Suggestion): number {
   return compareSuggestionsByConfirmPriority(a, b);
 }
 
-function sortSuggestions(list: Suggestion[], sort: SuggestionSortKey, now: number): Suggestion[] {
+function sortSuggestions(list: Suggestion[], sort: SuggestionSortKey): Suggestion[] {
   const next = list.slice();
-  if (sort === "due") next.sort((a, b) => compareByDue(a, b, now));
+  if (sort === "due") next.sort(compareByDue);
   else if (sort === "updated") next.sort(compareByUpdated);
   else next.sort(compareSuggestionsByConfirmPriority);
   return next;
@@ -226,8 +227,8 @@ export function SuggestionsPage() {
         return true;
       })
       .filter((s) => filters.priorityFilter.size === 0 || filters.priorityFilter.has(s.confirmPriority));
-    return sortSuggestions(list, filters.sort, now);
-  }, [themeScoped, filters, now]);
+    return sortSuggestions(list, filters.sort);
+  }, [themeScoped, filters]);
 
   const pagination = usePagination(filtered, PAGE_SIZE);
   const doneCount = suggestions.filter((s) => s.reviewStatus === "done").length;

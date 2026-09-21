@@ -5,7 +5,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { Chart, ChartData } from "chart.js";
-import { CheckinTrendChart, jitterPointsPlugin, JournalSuggestionTrendChart } from "./DailyTrendChart";
+import { CheckinTrendChart, JournalSuggestionTrendChart } from "./DailyTrendChart";
+import { jitterPointsPlugin } from "./jitterPointsPlugin";
 import { buildCheckinDailyTrend, buildJournalSuggestionDailyTrend, periodWindow } from "@emther/core/daily-trends";
 import type { EmCheckin, JournalEntry, Suggestion } from "@emther/core/types";
 

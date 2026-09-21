@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { consultListMetaParts, ConsultHistoryItem, formatConsultListTime } from "./ConsultHistoryItem";
+import { ConsultHistoryItem } from "./ConsultHistoryItem";
+import { consultListMetaParts, formatConsultListTime } from "./consultListMeta";
 import type { AgentRun } from "./RunDetail";
 
 // web/src/components/ConsultHistoryItem.tsx（Next.js版）には専用テストが元々無かったため

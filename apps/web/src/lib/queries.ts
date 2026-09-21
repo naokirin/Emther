@@ -20,8 +20,9 @@
 import { useCallback } from "react";
 import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { fetchJson } from "./api";
-import { runFallbackTitle, type AgentRun } from "../components/RunDetail";
-import { useSuggestionPeek } from "../components/IdFragmentLink";
+import type { AgentRun } from "../components/RunDetail";
+import { runFallbackTitle } from "../components/runDetailMeta";
+import { useSuggestionPeek } from "../components/useSuggestionPeek";
 import { truncateForTitle } from "@emther/core/types";
 import type {
   EmCheckin,

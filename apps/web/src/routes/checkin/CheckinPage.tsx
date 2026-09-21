@@ -1,6 +1,8 @@
 import styles from "../../styles/page.module.css";
-import { EmCheckinForm, EmCheckinHistory, useEmCheckinController } from "../../components/EmCheckinWidget";
-import { CheckinTrendChart, PeriodNavigator, usePeriodNavigator } from "../../components/DailyTrendChart";
+import { EmCheckinForm, EmCheckinHistory } from "../../components/EmCheckinWidget";
+import { useEmCheckinController } from "../../components/useEmCheckinController";
+import { CheckinTrendChart, PeriodNavigator } from "../../components/DailyTrendChart";
+import { usePeriodNavigator } from "../../components/usePeriodNavigator";
 import { PageTitleRow } from "../../components/HelpLink";
 import { buildCheckinDailyTrend } from "@emther/core/daily-trends";
 

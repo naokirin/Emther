@@ -1,9 +1,7 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import styles from "../styles/page.module.css";
-import { PaginationControls, usePagination } from "./Pagination";
-import { RecordDateField, todayDateInputValue } from "./RecordDateField";
-import { emCheckinsQueryKey, useEmCheckins } from "../lib/queries";
+import { PaginationControls } from "./Pagination";
+import { RecordDateField } from "./RecordDateField";
+import { useEmCheckinController, type EmCheckinController } from "./useEmCheckinController";
 import {
   METRIC_LABEL,
   METER_ENDPOINTS,
@@ -11,18 +9,11 @@ import {
   scaleLabel,
   type CheckinMetricKey,
 } from "../lib/checkin-scale";
-import type { EmCheckin } from "@emther/core/types";
 
 // web/src/components/EmCheckinWidget.tsx（Next.js版）からの移植（フェーズ3.5
 // evening-reviewバッチ）。フェーズ3.2の方針どおり、旧`useEmCheckins`の`setCheckins`
 // （楽観的ローカル更新）は`queryClient.setQueryData(emCheckinsQueryKey, ...)`に
 // 置き換えた。振り返りタブ改善案で数値チップ→メーター位置、headroom追加。
-const CHECKIN_PAGE_SIZE = 10;
-
-function average(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
@@ -68,102 +59,6 @@ function MeterPicker({
       </div>
     </div>
   );
-}
-
-export type EmCheckinController = ReturnType<typeof useEmCheckinController>;
-
-// /checkin では入力と履歴を別パネルに置くため、同じ状態をフォーム／履歴で共有する。
-export function useEmCheckinController(onSubmitted?: (checkin: EmCheckin) => void) {
-  const { checkins, checkinsLoaded } = useEmCheckins();
-  const queryClient = useQueryClient();
-
-  const [mood, setMood] = useState(3);
-  const [energy, setEnergy] = useState(3);
-  const [stress, setStress] = useState(3);
-  const [headroom, setHeadroom] = useState(3);
-  const [note, setNote] = useState("");
-  const [dateOpen, setDateOpen] = useState(false);
-  const [createdAtDate, setCreatedAtDate] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const recentCheckins = checkins.slice(0, 7);
-  const avgMood = average(recentCheckins.map((c) => c.mood));
-  const avgEnergy = average(recentCheckins.map((c) => c.energy));
-  const avgStress = average(recentCheckins.map((c) => c.stress));
-  const avgHeadroom = average(
-    recentCheckins.map((c) => c.headroom).filter((v): v is number => typeof v === "number"),
-  );
-  const checkinPagination = usePagination(checkins, CHECKIN_PAGE_SIZE);
-
-  function resetDate() {
-    setCreatedAtDate("");
-    setDateOpen(false);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/em-self/checkins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mood,
-          energy,
-          stress,
-          headroom,
-          note,
-          ...(createdAtDate ? { createdAtDate } : {}),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
-      queryClient.setQueryData<{ checkins: EmCheckin[] }>(emCheckinsQueryKey, () => ({
-        checkins: [data.checkin, ...checkins],
-      }));
-      setNote("");
-      resetDate();
-      onSubmitted?.(data.checkin);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return {
-    mood,
-    setMood,
-    energy,
-    setEnergy,
-    stress,
-    setStress,
-    headroom,
-    setHeadroom,
-    note,
-    setNote,
-    dateOpen,
-    createdAtDate,
-    openDate: () => {
-      setCreatedAtDate((prev) => prev || todayDateInputValue());
-      setDateOpen(true);
-    },
-    setCreatedAtDate,
-    resetDate,
-    submitting,
-    error,
-    handleSubmit,
-    recentCheckins,
-    avgMood,
-    avgEnergy,
-    avgStress,
-    avgHeadroom,
-    checkinPagination,
-    checkins,
-    checkinsLoaded,
-  };
 }
 
 export function EmCheckinForm({ controller }: { controller: EmCheckinController }) {

@@ -9,29 +9,9 @@ import {
   type ConfirmPriority,
   type SuggestionReviewStatus,
 } from "@emther/core/types";
+import { SUGGESTION_SORT_OPTIONS, type SuggestionFilterState, type SuggestionSortKey } from "./suggestionFilter";
 
-export type SuggestionSortKey = "due" | "priority" | "updated";
-
-export type SuggestionFilterState = {
-  query: string;
-  sort: SuggestionSortKey;
-  statusFilter: Set<SuggestionReviewStatus>;
-  priorityFilter: Set<ConfirmPriority>;
-  showDone: boolean;
-  showArchived: boolean;
-};
-
-export const DEFAULT_SUGGESTION_STATUS_FILTER: SuggestionReviewStatus[] = [
-  "unreviewed",
-  "in_review",
-  "deferred",
-];
-
-export const SUGGESTION_SORT_OPTIONS: { value: SuggestionSortKey; label: string }[] = [
-  { value: "due", label: "期日が近い順" },
-  { value: "priority", label: "確認優先度順" },
-  { value: "updated", label: "最終更新順" },
-];
+export type { SuggestionFilterState, SuggestionSortKey } from "./suggestionFilter";
 
 type Props = {
   value: SuggestionFilterState;
@@ -61,13 +41,17 @@ export function SuggestionFilterBar({
   const [draftShowArchived, setDraftShowArchived] = useState(value.showArchived);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
+  function syncDraftFromValue() {
     setDraftStatus(new Set(value.statusFilter));
     setDraftPriority(new Set(value.priorityFilter));
     setDraftShowDone(value.showDone);
     setDraftShowArchived(value.showArchived);
-  }, [open, value.statusFilter, value.priorityFilter, value.showDone, value.showArchived]);
+  }
+
+  function toggleOpen() {
+    if (!open) syncDraftFromValue();
+    setOpen(!open);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +76,12 @@ export function SuggestionFilterBar({
     };
   }, [open]);
 
-  const chips = buildActiveChips(value, onChange);
+  const chips = buildActiveChips(value, onChange, {
+    setDraftStatus,
+    setDraftPriority,
+    setDraftShowDone,
+    setDraftShowArchived,
+  });
   const draftFilterCount =
     (draftStatus.size > 0 ? 1 : 0) +
     (draftPriority.size > 0 ? 1 : 0) +
@@ -149,7 +138,7 @@ export function SuggestionFilterBar({
           className={`${styles.journalFilterTrigger} ${open ? styles.journalFloatingTriggerOpen : ""}`}
           aria-expanded={open}
           aria-haspopup="dialog"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
         >
           絞り込み
           {appliedFilterCount > 0 && (
@@ -253,7 +242,16 @@ function toggleInSet<T>(set: Set<T>, value: T): Set<T> {
   return next;
 }
 
-function buildActiveChips(value: SuggestionFilterState, onChange: Props["onChange"]): Chip[] {
+function buildActiveChips(
+  value: SuggestionFilterState,
+  onChange: Props["onChange"],
+  draft: {
+    setDraftStatus: (next: Set<SuggestionReviewStatus>) => void;
+    setDraftPriority: (next: Set<ConfirmPriority>) => void;
+    setDraftShowDone: (next: boolean) => void;
+    setDraftShowArchived: (next: boolean) => void;
+  },
+): Chip[] {
   const chips: Chip[] = [];
   if (value.statusFilter.size > 0) {
     const labels = SUGGESTION_REVIEW_STATUSES.filter((s) => value.statusFilter.has(s)).map(
@@ -262,7 +260,10 @@ function buildActiveChips(value: SuggestionFilterState, onChange: Props["onChang
     chips.push({
       key: "status",
       label: `確認状態: ${labels.join("・")}`,
-      clear: () => onChange("statusFilter", new Set()),
+      clear: () => {
+        onChange("statusFilter", new Set());
+        draft.setDraftStatus(new Set());
+      },
     });
   }
   if (value.priorityFilter.size > 0) {
@@ -272,21 +273,30 @@ function buildActiveChips(value: SuggestionFilterState, onChange: Props["onChang
     chips.push({
       key: "priority",
       label: `確認優先度: ${labels.join("・")}`,
-      clear: () => onChange("priorityFilter", new Set()),
+      clear: () => {
+        onChange("priorityFilter", new Set());
+        draft.setDraftPriority(new Set());
+      },
     });
   }
   if (!value.showDone) {
     chips.push({
       key: "hideDone",
       label: "確認済みを隠す",
-      clear: () => onChange("showDone", true),
+      clear: () => {
+        onChange("showDone", true);
+        draft.setDraftShowDone(true);
+      },
     });
   }
   if (value.showArchived) {
     chips.push({
       key: "archived",
       label: "アーカイブ含む",
-      clear: () => onChange("showArchived", false),
+      clear: () => {
+        onChange("showArchived", false);
+        draft.setDraftShowArchived(false);
+      },
     });
   }
   return chips;

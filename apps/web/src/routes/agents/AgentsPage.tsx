@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../../styles/page.module.css";
-import { STATUS_META, StatusBadge, runKindLabel, type AgentRun, type AgentStatus } from "../../components/RunDetail";
-import { PaginationControls, paginationMeta } from "../../components/Pagination";
+import { StatusBadge, type AgentRun, type AgentStatus } from "../../components/RunDetail";
+import { STATUS_META, runKindLabel } from "../../components/runDetailMeta";
+import { PaginationControls } from "../../components/Pagination";
+import { paginationMeta } from "../../components/usePagination";
 import { Select } from "../../components/Select";
-import { useSuggestionPeek } from "../../components/IdFragmentLink";
+import { useSuggestionPeek } from "../../components/useSuggestionPeek";
 import { useGoToRunSuggestion, useSuggestions, useRuns, useRunsInbox, useSettingsRules } from "../../lib/queries";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@emther/core/types";

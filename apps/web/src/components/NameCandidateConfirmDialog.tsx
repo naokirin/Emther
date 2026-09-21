@@ -1,5 +1,5 @@
 import styles from "../styles/page.module.css";
-import { openPersonQuickAdd } from "./PersonQuickAdd";
+import { openPersonQuickAdd } from "./personQuickAddEvents";
 
 export type NameCandidateDecision = "allow" | "register";
 

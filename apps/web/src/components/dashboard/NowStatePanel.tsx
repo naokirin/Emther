@@ -1,7 +1,8 @@
 import styles from "../../styles/page.module.css";
 import type { VitalStatus } from "@emther/core/types";
 import type { EntityHealthBreakdown, TodayStateMeters } from "../../lib/today-state";
-import { extractRecentActivities } from "./AgentStatusSection";
+import { extractRecentActivities } from "./agentActivity";
+import { coverageTone, healthTone, loadTone, type DialTone } from "./dialTones";
 import type { AgentRun } from "../RunDetail";
 
 type Props = {
@@ -32,8 +33,6 @@ const BUCKET_COLOR: Record<VitalStatus, string> = {
 
 const DIAL_IDLE = "#3a3f4b";
 
-type DialTone = "good" | "warn" | "bad" | "accent" | "unknown";
-
 const DIAL_TONE_COLOR: Record<DialTone, string> = {
   good: "#4ade80",
   warn: "#fbbf24",
@@ -41,28 +40,6 @@ const DIAL_TONE_COLOR: Record<DialTone, string> = {
   accent: "#7fb0ff",
   unknown: "#686e7d",
 };
-
-/** EM負荷: 低いほど良い。 */
-export function loadTone(ratio: number): DialTone {
-  if (ratio >= 0.75) return "bad";
-  if (ratio >= 0.4) return "warn";
-  return "good";
-}
-
-/** 健全度・カバレッジ: 高いほど良い。カバレッジは良いとき accent。 */
-export function healthTone(ratio: number | null): DialTone {
-  if (ratio === null) return "unknown";
-  if (ratio >= 0.7) return "good";
-  if (ratio >= 0.4) return "warn";
-  return "bad";
-}
-
-export function coverageTone(ratio: number | null): DialTone {
-  if (ratio === null) return "unknown";
-  if (ratio >= 0.7) return "accent";
-  if (ratio >= 0.4) return "warn";
-  return "bad";
-}
 
 function DotDial({
   valueLabel,

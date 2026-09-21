@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import { formatPendingAgentStartText, PendingAgentStartNotice } from "./PendingAgentStartNotice";
+import { formatPendingAgentStartText } from "./pendingAgentStart";
+import { PendingAgentStartNotice } from "./PendingAgentStartNotice";
 import type { PendingAgentStart } from "@emther/core/types";
 
 // web/src/components/PendingAgentStartNotice.tsx（Next.js版）には専用テストが元々無かった

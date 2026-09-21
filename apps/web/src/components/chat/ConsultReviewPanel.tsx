@@ -1,9 +1,11 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
-import { CopilotChat, ExecutionState, listSuggestionCandidatesFromProposal, runFallbackTitle, type AgentRun } from "../RunDetail";
+import { CopilotChat, ExecutionState, type AgentRun } from "../RunDetail";
+import { listSuggestionCandidatesFromProposal } from "../run-detail/run-view-helpers";
+import { runFallbackTitle } from "../runDetailMeta";
 import { OriginTrace, type OriginTraceJournal } from "../OriginTrace";
 import { IdLinkedText } from "../IdLinkedText";
-import { useSuggestionPeek } from "../IdFragmentLink";
+import { useSuggestionPeek } from "../useSuggestionPeek";
 import type { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { truncateForTitle } from "@emther/core/types";
 import { journalExcerptFromTask } from "@emther/core/origin-trace";

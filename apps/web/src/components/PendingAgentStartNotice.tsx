@@ -42,9 +42,3 @@ export function PendingAgentStartNotice({
     </div>
   );
 }
-
-export function formatPendingAgentStartText(pending: PendingAgentStart, now = Date.now()): string {
-  const secs = secondsUntil(pending.firesAt, now);
-  const title = pending.suggestionTitle ? `「${pending.suggestionTitle}」` : "";
-  return `あと${secs}秒で${pending.label}${title ? `（${title}）` : ""}`;
-}

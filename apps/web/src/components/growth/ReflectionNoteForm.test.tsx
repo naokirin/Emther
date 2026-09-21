@@ -3,7 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { ReflectionNoteForm, useReflectionNoteController } from "./ReflectionNoteForm";
+import { ReflectionNoteForm } from "./ReflectionNoteForm";
+import { useReflectionNoteController } from "./useReflectionNoteController";
 
 // web/src/components/growth/ReflectionNoteForm.test.tsx（Next.js版）からの移植
 // （フェーズ3.5 evening-reviewバッチ）。EmCheckinWidget.test.tsxと同じ理由でQueryClientProvider

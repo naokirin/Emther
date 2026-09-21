@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, renderHook, screen, act } from "@testing-library/react";
-import { PaginationControls, usePagination } from "./Pagination";
+import { PaginationControls } from "./Pagination";
+import { usePagination } from "./usePagination";
 
 describe("usePagination", () => {
   it("ページサイズごとに分割する", () => {

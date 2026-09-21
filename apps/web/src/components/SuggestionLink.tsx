@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
-import { useSuggestionPeek } from "./IdFragmentLink";
+import { useSuggestionPeek } from "./useSuggestionPeek";
 
 // web/src/components/SuggestionLink.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
 // docs/memo.md「各画面で提案のリンクを踏んだときのデフォルト挙動をサイドピークにする」対応。

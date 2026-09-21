@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { buildTeamTree, TeamTreeView } from "./TeamTree";
+import { buildTeamTree } from "./buildTeamTree";
+import { TeamTreeView } from "./TeamTree";
 import type { Team } from "@emther/core/types";
 
 // web/src/components/teams/TeamTree.tsx（Next.js版）には専用テストが元々無かったため

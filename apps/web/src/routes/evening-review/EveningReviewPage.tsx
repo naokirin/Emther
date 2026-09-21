@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../../styles/page.module.css";
 import { DailyReflectionForm } from "../../components/DailyReflectionForm";
-import { EmCheckinForm, useEmCheckinController } from "../../components/EmCheckinWidget";
-import { ReflectionNoteForm, useReflectionNoteController } from "../../components/growth/ReflectionNoteForm";
+import { EmCheckinForm } from "../../components/EmCheckinWidget";
+import { useEmCheckinController } from "../../components/useEmCheckinController";
+import { ReflectionNoteForm } from "../../components/growth/ReflectionNoteForm";
+import { useReflectionNoteController } from "../../components/growth/useReflectionNoteController";
 import { PageTitleRow } from "../../components/HelpLink";
 
 // web/src/app/evening-review/page.tsx（Next.js版）からの移植（フェーズ3.5 tier1

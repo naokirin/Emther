@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
-import { PaginationControls, usePagination } from "../../components/Pagination";
+import { PaginationControls } from "../../components/Pagination";
+import { usePagination } from "../../components/usePagination";
 import { PageTitleRow } from "../../components/HelpLink";
 import { GrowSuggestionsPanel } from "../../components/growth/GrowSuggestionsPanel";
-import { ReflectionNoteForm, useReflectionNoteController } from "../../components/growth/ReflectionNoteForm";
+import { ReflectionNoteForm } from "../../components/growth/ReflectionNoteForm";
+import { useReflectionNoteController } from "../../components/growth/useReflectionNoteController";
 import { reflectionNotesQueryKey } from "../../lib/queries";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
 

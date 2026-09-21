@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   BarElement,
   CategoryScale,
@@ -10,11 +9,12 @@ import {
   Tooltip,
   type ChartData,
   type ChartOptions,
-  type Plugin,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import styles from "../styles/page.module.css";
-import { periodWindow, type CheckinDailyPoint, type JournalSuggestionDailyPoint, type PeriodUnit } from "@emther/core/daily-trends";
+import type { CheckinDailyPoint, JournalSuggestionDailyPoint, PeriodUnit } from "@emther/core/daily-trends";
+import { jitterPointsPlugin } from "./jitterPointsPlugin";
+import { type PeriodNavigatorState } from "./usePeriodNavigator";
 import { scaleLabel, toChartValue, type CheckinMetricKey } from "../lib/checkin-scale";
 
 // 改修依頼「マウスオーバーで数値を確認したい／先週・先月など時間を自由に移動したい」対応。
@@ -55,23 +55,6 @@ const LEGEND_LABEL_STYLE = {
 } as const;
 
 const AXIS_TICK_STYLE = { color: CHART_COLORS.textMuted, font: { size: 11 } } as const;
-
-// ---------- 期間ナビゲーション（週／月をカレンダー単位で前後に移動） ----------
-
-export function usePeriodNavigator(defaultUnit: PeriodUnit = "week") {
-  const [unit, setUnitRaw] = useState<PeriodUnit>(defaultUnit);
-  const [offset, setOffset] = useState(0);
-  const window = periodWindow(unit, offset);
-
-  function setUnit(next: PeriodUnit) {
-    setUnitRaw(next);
-    setOffset(0);
-  }
-
-  return { unit, setUnit, offset, setOffset, window, label: window.label, isLatest: offset === 0 };
-}
-
-export type PeriodNavigatorState = ReturnType<typeof usePeriodNavigator>;
 
 const UNIT_LABEL: Record<PeriodUnit, string> = { week: "週", month: "月" };
 
@@ -186,24 +169,6 @@ function checkinChartOptions(pointCount: number): ChartOptions<"line"> {
 // しまう。相対加算ではなくscale（x軸のCategoryScale）からindexごとの本来のpixel位置を
 // 毎回算出し、そこへoffsetを足した絶対値で上書きすることで、何回描画が呼ばれても
 // （アニメーション中・ホバー再描画のどちらでも）常に同じ結果になるようにする。
-const POINT_JITTER_PX = 3;
-
-export const jitterPointsPlugin: Plugin<"line"> = {
-  id: "jitterPoints",
-  beforeDatasetsDraw(chart) {
-    const xScale = chart.scales.x;
-    if (!xScale) return;
-    const count = chart.data.datasets.length;
-    chart.data.datasets.forEach((_dataset, datasetIndex) => {
-      const offset = (datasetIndex - (count - 1) / 2) * POINT_JITTER_PX;
-      const meta = chart.getDatasetMeta(datasetIndex).data;
-      meta.forEach((point, index) => {
-        point.x = xScale.getPixelForValue(index) + offset;
-      });
-    });
-  },
-};
-
 // 自己チェックイン: 日次推移。記録が無い日はnull。ストレスは描画時に反転して「上＝良い」に揃える。
 export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
   const hasAnyData = points.some((p) => p.count > 0);

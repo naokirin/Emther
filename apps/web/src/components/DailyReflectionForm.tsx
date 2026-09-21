@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "../styles/page.module.css";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
-import { RecordDateField, todayDateInputValue } from "./RecordDateField";
+import { RecordDateField } from "./RecordDateField";
+import { todayDateInputValue } from "./recordDate";
 import type { ReflectionTurn } from "@emther/core/local-summarizer";
 
 // web/src/components/DailyReflectionForm.tsx（Next.js版）からの移植（フェーズ3.5

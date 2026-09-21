@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PersonQuickAdd, PERSON_REGISTERED_EVENT } from "./PersonQuickAdd";
+import { PERSON_REGISTERED_EVENT } from "./personQuickAddEvents";
+import { PersonQuickAdd } from "./PersonQuickAdd";
 
 // web/src/components/PersonQuickAdd.tsx（Next.js版）はNextに依存しない実装（stylesの
 // importパスのみ変更）のため移植は単純だが、専用テストが元々無かったため新規に追加する

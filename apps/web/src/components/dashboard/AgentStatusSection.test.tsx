@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AgentStatusSection, extractRecentActivities, formatActivityTime } from "./AgentStatusSection";
+import { extractRecentActivities, formatActivityTime } from "./agentActivity";
+import { AgentStatusSection } from "./AgentStatusSection";
 import type { AgentRun } from "../RunDetail";
 
 function createRun(overrides: Partial<AgentRun> = {}): AgentRun {

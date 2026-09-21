@@ -3,7 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { EmCheckinForm, EmCheckinWidget, useEmCheckinController } from "./EmCheckinWidget";
+import { EmCheckinForm, EmCheckinWidget } from "./EmCheckinWidget";
+import { useEmCheckinController } from "./useEmCheckinController";
 
 // web/src/components/EmCheckinWidget.test.tsx（Next.js版）からの移植（フェーズ3.5
 // evening-reviewバッチ）。useEmCheckinsがTanStack Query化された（フェーズ3.2の方針）ため

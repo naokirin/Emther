@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import styles from "../styles/page.module.css";
 import { MarkdownView } from "./MarkdownView";
 import { StrategyTrail } from "./StrategyTrail";
-import { useSuggestionPeek } from "./IdFragmentLink";
+import { useSuggestionPeek } from "./useSuggestionPeek";
 import { buildJournalStrategyTrail } from "@emther/core/strategy-trail";
 import {
   isJournalEntryResolved,
