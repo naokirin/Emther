@@ -49,14 +49,14 @@ describe("OrgPage", () => {
 
   it("初期表示では左ツリーからの選択を促すメッセージを表示する", () => {
     render(<OrgPage />, { wrapper: createWrapper() });
-    expect(screen.getByText(/左のツリーからStrategy・Standing Background/)).toBeInTheDocument();
+    expect(screen.getByText(/左のツリーからMVV・Goal/)).toBeInTheDocument();
   });
 
-  it("Strategyを選ぶと値を読み込み、編集して保存できる", async () => {
+  it("MVVを選ぶと値を読み込み、編集して保存できる", async () => {
     const user = userEvent.setup();
     render(<OrgPage />, { wrapper: createWrapper() });
 
-    await user.click(screen.getByText("📄 Strategy"));
+    await user.click(screen.getByText("📄 MVV"));
     const missionInput = await screen.findByDisplayValue("m");
 
     await user.clear(missionInput);

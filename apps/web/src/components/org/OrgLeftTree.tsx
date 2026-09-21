@@ -47,21 +47,21 @@ export function OrgLeftTree({
   return (
     <div className={styles.panel}>
       <div className={styles.tree}>
-        <div className={styles.treeFolder}>📁 Strategy（MVV）</div>
+        <div className={styles.treeFolder}>📁 MVV</div>
         <div
           className={`${styles.treeFile} ${selection?.kind === "strategy" ? styles.treeFileSelected : ""}`}
           onClick={onSelectStrategy}
         >
-          📄 Strategy
+          📄 MVV
         </div>
 
-        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Standing Background</div>
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Goal（到達したい状態）</div>
         <div
-          className={`${styles.treeFile} ${selection?.kind === "backgrounds" ? styles.treeFileSelected : ""}`}
-          onClick={onSelectBackgrounds}
+          className={`${styles.treeFile} ${selection?.kind === "goals" ? styles.treeFileSelected : ""}`}
+          onClick={onSelectGoals}
         >
-          📄 Standing Background
-          {backgroundsLoaded && activeBackgroundsCount > 0 ? `（${activeBackgroundsCount}件）` : ""}
+          📄 Goal
+          {goalsLoaded && activeGoalsCount > 0 ? `（${activeGoalsCount}件）` : ""}
         </div>
 
         <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Policy（判断原則）</div>
@@ -73,16 +73,7 @@ export function OrgLeftTree({
           {policiesLoaded && activePoliciesCount > 0 ? `（${activePoliciesCount}件）` : ""}
         </div>
 
-        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Goal</div>
-        <div
-          className={`${styles.treeFile} ${selection?.kind === "goals" ? styles.treeFileSelected : ""}`}
-          onClick={onSelectGoals}
-        >
-          📄 Goal
-          {goalsLoaded && activeGoalsCount > 0 ? `（${activeGoalsCount}件）` : ""}
-        </div>
-
-        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Themes</div>
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Themes（今期の焦点）</div>
         <div
           className={`${styles.treeFile} ${selection?.kind === "themes" ? styles.treeFileSelected : ""}`}
           onClick={onSelectThemes}
@@ -91,12 +82,21 @@ export function OrgLeftTree({
           {themesLoaded && adoptedThemesCount > 0 ? `（採用 ${adoptedThemesCount}件）` : ""}
         </div>
 
-        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 社内用語（辞書）</div>
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Standing Background（長期の背景事実）</div>
+        <div
+          className={`${styles.treeFile} ${selection?.kind === "backgrounds" ? styles.treeFileSelected : ""}`}
+          onClick={onSelectBackgrounds}
+        >
+          📄 Standing Background
+          {backgroundsLoaded && activeBackgroundsCount > 0 ? `（${activeBackgroundsCount}件）` : ""}
+        </div>
+
+        <div className={styles.treeFolder} style={{ marginTop: 10 }}>📁 Glossary（社内用語・辞書）</div>
         <div
           className={`${styles.treeFile} ${selection?.kind === "glossary" ? styles.treeFileSelected : ""}`}
           onClick={onSelectGlossary}
         >
-          📄 Glossary（社内用語）
+          📄 Glossary
         </div>
       </div>
     </div>

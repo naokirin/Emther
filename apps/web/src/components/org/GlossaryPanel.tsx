@@ -105,7 +105,7 @@ export function GlossaryPanel() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h3 style={{ margin: 0, fontSize: "1rem" }}>社内用語・コンテキスト辞書（Glossary）</h3>
+        <h3 style={{ margin: 0, fontSize: "1rem" }}>Glossary（社内用語・コンテキスト辞書）</h3>
         {!creating && (
           <button
             type="button"

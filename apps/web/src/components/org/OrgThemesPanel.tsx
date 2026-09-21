@@ -79,7 +79,7 @@ export function OrgThemesPanel({
     return (
       <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: "1rem" }}>組織テーマ</h3>
+          <h3 style={{ margin: 0, fontSize: "1rem" }}>Themes（組織テーマ）</h3>
           {!creating && (
             <div style={{ display: "flex", gap: 8 }}>
               <button

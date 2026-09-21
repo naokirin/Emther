@@ -87,7 +87,7 @@ export function OrgPage() {
         <div className={styles.panel}>
           {!selection && (
             <p className={styles.emptyState}>
-              左のツリーからStrategy・Standing Background・Policy・Goal・Themes・Glossaryを選択してください。
+              左のツリーからMVV・Goal・Policy・Themes・Standing Background・Glossaryを選択してください。
             </p>
           )}
 
@@ -102,19 +102,6 @@ export function OrgPage() {
             />
           )}
 
-          {selection?.kind === "backgrounds" && (
-            <StandingBackgroundPanel
-              key={navToken}
-              backgrounds={backgrounds}
-              backgroundsLoaded={backgroundsLoaded}
-              refreshBackgrounds={refreshBackgrounds}
-            />
-          )}
-
-          {selection?.kind === "policies" && (
-            <PolicyPanel key={navToken} policies={policies} policiesLoaded={policiesLoaded} refreshPolicies={refreshPolicies} />
-          )}
-
           {selection?.kind === "goals" && (
             <GoalsPanel
               key={navToken}
@@ -126,6 +113,10 @@ export function OrgPage() {
             />
           )}
 
+          {selection?.kind === "policies" && (
+            <PolicyPanel key={navToken} policies={policies} policiesLoaded={policiesLoaded} refreshPolicies={refreshPolicies} />
+          )}
+
           {selection?.kind === "themes" && (
             <OrgThemesPanel
               themes={themes}
@@ -135,6 +126,15 @@ export function OrgPage() {
               editingThemeId={editingThemeId}
               onSelectTheme={(theme) => setEditingThemeId(theme.id)}
               onBack={() => setEditingThemeId(null)}
+            />
+          )}
+
+          {selection?.kind === "backgrounds" && (
+            <StandingBackgroundPanel
+              key={navToken}
+              backgrounds={backgrounds}
+              backgroundsLoaded={backgroundsLoaded}
+              refreshBackgrounds={refreshBackgrounds}
             />
           )}
 

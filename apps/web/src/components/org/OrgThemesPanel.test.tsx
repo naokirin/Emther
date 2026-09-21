@@ -60,7 +60,7 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof OrgThemesPan
 describe("OrgThemesPanel", () => {
   it("renders adopted and candidate themes without errors", () => {
     renderPanel();
-    expect(screen.getByText("組織テーマ")).toBeInTheDocument();
+    expect(screen.getByText("Themes（組織テーマ）")).toBeInTheDocument();
     expect(screen.getByText("技術的負債の解消と開発者体験の向上")).toBeInTheDocument();
     expect(screen.getByText("採用とオンボーディングの強化")).toBeInTheDocument();
   });
