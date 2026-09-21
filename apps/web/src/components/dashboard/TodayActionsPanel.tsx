@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { consultListMetaParts } from "../ConsultHistoryItem";
 import type { AgentRun } from "../RunDetail";
@@ -6,13 +6,11 @@ import { SuggestionStrategyLinkSuggestPanel } from "../HierarchyLinkSuggestPanel
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@emther/core/origin-trace";
 import type { SuggestionStrategyLinkSuggestion } from "@emther/core/types";
 import { LANE_META, rankActions, urgencyMeter, type Lane, type NextAction } from "../../lib/dashboard-next-actions";
-import { elapsedDays, formatElapsedLabel } from "../../lib/today-state";
+import { formatElapsedLabel } from "../../lib/today-state";
 
 const MAINTENANCE_LANE_LIMIT = 3;
 const LANE_EXPAND_STEP = 3;
 const TOP_ACTIONS_LIMIT = 3;
-
-type WhyNowMap = Record<string, string>;
 
 type Props = {
   now: number;
@@ -65,8 +63,6 @@ export function TodayActionsPanel({
   });
   const [restActionsOpen, setRestActionsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
-  const [whyNowById, setWhyNowById] = useState<WhyNowMap>({});
-  const [whyNowLoading, setWhyNowLoading] = useState(false);
 
   const LANE_LIMITS: Record<Lane, number> = {
     decision: decisionQueueLimit,
@@ -83,54 +79,6 @@ export function TodayActionsPanel({
   const visibleActions = laneActionsForFilter.slice(0, laneLimit);
   const hiddenActionCount = Math.max(0, laneActionsForFilter.length - laneLimit);
   const restCount = overflowActions.length;
-
-  const top3Key = top3Actions.map((a) => a.id).join("|");
-
-  useEffect(() => {
-    if (!nextActionsLoaded || top3Actions.length === 0) {
-      setWhyNowById({});
-      return;
-    }
-    let cancelled = false;
-    const payload = top3Actions.map((a) => ({
-      id: a.id,
-      text: a.text,
-      lane: a.lane,
-      severity: a.severity,
-      kindLabel: a.kindLabel,
-      elapsedDays: elapsedDays(a.since, now),
-    }));
-    setWhyNowLoading(true);
-    void (async () => {
-      try {
-        const res = await fetch("/api/dashboard/why-now", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ actions: payload }),
-        });
-        const data = await res.json().catch(() => null);
-        if (cancelled) return;
-        const map: WhyNowMap = {};
-        if (Array.isArray(data?.items)) {
-          for (const item of data.items) {
-            if (item && typeof item.actionId === "string" && typeof item.whyNow === "string") {
-              map[item.actionId] = item.whyNow;
-            }
-          }
-        }
-        setWhyNowById(map);
-      } catch {
-        if (!cancelled) setWhyNowById({});
-      } finally {
-        if (!cancelled) setWhyNowLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // top3 の中身が変わったときだけ再取得（now の微小差では飛ばない）
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- top3Key で内容を代表させる
-  }, [nextActionsLoaded, top3Key]);
 
   return (
     <div id="today-actions" className={`${styles.panel} ${styles.heroPanel}`}>
@@ -196,7 +144,6 @@ export function TodayActionsPanel({
       ) : (
         <div className={styles.todayActionCardList}>
           {top3Actions.map((a, i) => {
-            const whyNow = whyNowById[a.id];
             const elapsed = formatElapsedLabel(a.since, now);
             const urgency = urgencyMeter(a);
             return (
@@ -225,13 +172,6 @@ export function TodayActionsPanel({
                       <span className={styles.newBadge}>新着</span>
                     )}
                   </div>
-                  <p className={styles.todayActionWhyNow}>
-                    {whyNowLoading && !whyNow
-                      ? "なぜ今: 考えています…"
-                      : whyNow
-                        ? `なぜ今: ${whyNow}`
-                        : null}
-                  </p>
                   <p className={styles.todayActionMeta}>
                     {LANE_META[a.lane].label} · {a.kindLabel}
                     {a.ctaLabel ? ` · ${a.ctaLabel.replace(/する$/, "")}` : ""}

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodayActionsPanel } from "./TodayActionsPanel";
@@ -60,16 +60,6 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof TodayActionsPa
 }
 
 describe("TodayActionsPanel", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ items: [], source: "heuristic" }),
-      }),
-    );
-  });
-
   it("未ロード中は読み込み中を見出しにする", () => {
     render(<TodayActionsPanel {...baseProps({ nextActionsLoaded: false })} />);
     expect(screen.getByRole("heading", { name: "読み込み中…" })).toBeInTheDocument();
@@ -106,27 +96,6 @@ describe("TodayActionsPanel", () => {
     await user.click(screen.getByText(/ほか 1 件をレーン別に見る/));
     await user.click(screen.getByRole("button", { name: /観測不足/ }));
     expect(screen.getByText(/4件目/)).toBeInTheDocument();
-  });
-
-  it("なぜ今APIを呼び、結果を表示する", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          items: [{ actionId: "a1", whyNow: "放置すると影響が広がる" }],
-          source: "cloud",
-        }),
-      }),
-    );
-    render(
-      <TodayActionsPanel
-        {...baseProps({
-          nextActions: [action({ id: "a1", text: "負荷が続いている" })],
-        })}
-      />,
-    );
-    expect(await screen.findByText(/なぜ今: 放置すると影響が広がる/)).toBeInTheDocument();
   });
 
   it("様子見リンクを出せる", async () => {

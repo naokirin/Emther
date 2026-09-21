@@ -44,7 +44,6 @@ describe("DashboardPage", () => {
         if (url === "/api/org/goals") return { ok: true, json: async () => ({ goals: [{ id: "g1", title: "目標A" }] }) };
         if (url === "/api/people") return { ok: true, json: async () => ({ people: [] }) };
         if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
-        if (url === "/api/dashboard/why-now") return { ok: true, json: async () => ({ items: [], source: "heuristic" }) };
         return { ok: true, json: async () => ({}) };
       }),
     );
@@ -82,7 +81,6 @@ describe("DashboardPage", () => {
         if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: { decisionQueueLimit: 3, observationQueueLimit: 3, agentStaleAfterSeconds: 120 } }) };
         if (url === "/api/people") return { ok: true, json: async () => ({ people: [] }) };
         if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
-        if (url === "/api/dashboard/why-now") return { ok: true, json: async () => ({ items: [], source: "heuristic" }) };
         return { ok: true, json: async () => ({}) };
       }),
     );

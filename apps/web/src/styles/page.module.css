@@ -3526,13 +3526,6 @@ button.situationChip:hover {
   line-height: 1.35;
 }
 
-.todayActionWhyNow {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
 .todayActionMeta {
   margin: 0;
   font-size: 0.75rem;
