@@ -150,6 +150,16 @@ Emtherの価値は大量の情報を蓄積することそのものではない�
 
 ## 6. 主要概念
 
+### MVV / Goal / Policy
+
+組織方針・目標の扱いの正本は `docs/goal_policy_model.md`（設計思想）と `docs/goal_policy_model_plan.md`（実装計画）。要点のみここに記す。
+
+- **MVV**（Mission/Vision/Values）: 組織として長期的に大切にする価値観・方向性。比較的安定した情報で、日々の判断の背景として常時注入する。
+- **Goal**: EMとして見据えている「到達したい状態」。SMARTである必要はなく、曖昧な段階から登録してよい。OKR（Objective/Key Result）は、Goalを具体化したい場合に任意で使う手段の一つであり、必須の構造ではない（GoalとObjectiveは別エンティティで、Objective側から任意にGoalへリンクする）。
+- **Policy**: Goalに向かう際にEMが守りたい判断原則（大切にすること・優先すること・やらないこと・判断に迷ったときの原則、など）。固定欄ではなく自由記述の複数エントリとして持つ（方針4「入力項目を埋めることを目的にしない」に合わせるため）。
+
+MVV → Goal/Policy/Theme → 日々の観測・判断、という緩やかな構造が基本であり、OKRなどの具体的な管理手法は必要に応じてその中に持ち込める設計にする。
+
 ### Journal
 
 事実の感知の起点。EMが1日を振り返りながら必要なことを記録する場所であり、イベントごとの逐一記録は求めない。AIによる問いかけを通じて振り返りを支援する。チャットログ等の外部テキストは Observation Dump として取り込み、AIが意味のある事実のかたまりに分割したうえで、採用分だけ通常のJournalにする（分割はIssue化を意味しない）。
@@ -178,7 +188,7 @@ EM自身の学びを促す軸。日次・週次の振り返り（チェックイ
 
 ### Theme / 蒸留（Knowledge Distillation）
 
-Journal自動分析や壁打ちを個別の類似度検索だけに任せず、明示的な蒸留成果物（テーマ解釈）を持ち、EMが採用したものだけを以降の壁打ちの前提として注入する。情報を増やすのではなく蒸留するという原則（§5.5）の実装面での現れ。
+Journal自動分析や壁打ちを個別の類似度検索だけに任せず、明示的な蒸留成果物（テーマ解釈）を持ち、EMが採用したものだけを以降の壁打ちの前提として注入する。情報を増やすのではなく蒸留するという原則（§5.5）の実装面での現れ。テーマの生成経路は観測からの後追い（週次蒸留）だけでなく、Goalから先に候補を置く経路も持つ（`docs/goal_policy_model_plan.md` Decision 3）。
 
 ### プライバシー・機微情報の扱い
 
@@ -229,6 +239,6 @@ Emtherはこの思想に一度で到達したわけではなく、複数回の�
 
 ## 関連ドキュメント
 
-- 現行の機能仕様: `docs/knowledge_distillation.md` / `docs/observation_dump_journal.md` / `docs/suggestion_organize_via_consult.md` / `docs/privacy_check.md`
+- 現行の機能仕様: `docs/goal_policy_model.md` / `docs/goal_policy_model_plan.md` / `docs/knowledge_distillation.md` / `docs/observation_dump_journal.md` / `docs/suggestion_organize_via_consult.md` / `docs/privacy_check.md`
 - 運用・配布: `docs/packaging.md` / `docs/docker.md`
 - 過去の検討過程・完了済み移行計画: `docs/archive/`
