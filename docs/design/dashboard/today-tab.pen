@@ -1,0 +1,5115 @@
+{
+  "version": "2.18",
+  "children": [
+    {
+      "type": "frame",
+      "id": "ZpqdE",
+      "x": 0,
+      "y": 0,
+      "name": "現状: 今日タブ",
+      "clip": true,
+      "width": 1200,
+      "fill": "#14161c",
+      "layout": "vertical",
+      "gap": 16,
+      "padding": [
+        24,
+        28,
+        48,
+        28
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "Q1qZUC",
+          "name": "ヘッダー",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "aIT97",
+              "name": "ブランド",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mvAQN",
+                  "name": "アプリ名",
+                  "fill": "#e7e9ee",
+                  "content": "Emther",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 28,
+                  "fontWeight": "900"
+                },
+                {
+                  "type": "text",
+                  "id": "RHIiQ",
+                  "name": "サブタイトル",
+                  "fill": "#9aa1af",
+                  "content": "EM Support System",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GehCy",
+              "name": "ヘッダー操作",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QRGIT",
+                  "name": "ヘルプ",
+                  "fill": "#9aa1af",
+                  "content": "ヘルプ",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "S3fv5B",
+                  "name": "人を追加",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 6,
+                  "stroke": "#686e7d",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    6,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ioXGu",
+                      "name": "人を追加ラベル",
+                      "fill": "#e7e9ee",
+                      "content": "＋ 人を追加",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "aUvXS",
+          "name": "グローバルナビ",
+          "width": "fill_container",
+          "fill": "#1b1e26",
+          "cornerRadius": 10,
+          "stroke": "#2c2f3a",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": 4,
+          "padding": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "PGg98",
+              "name": "タブ 今日",
+              "fill": "#16233d",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "F7kmy8",
+                  "name": "今日",
+                  "fill": "#7fb0ff",
+                  "content": "今日",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RhVzP",
+              "name": "タブ ジャーナル",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OQWJx",
+                  "name": "ジャーナル",
+                  "fill": "#9aa1af",
+                  "content": "ジャーナル",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VZGqV",
+              "name": "タブ 提案",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "V7vbH",
+                  "name": "提案",
+                  "fill": "#9aa1af",
+                  "content": "提案",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OxfMv",
+              "name": "タブ 相談",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pJWzp",
+                  "name": "相談",
+                  "fill": "#9aa1af",
+                  "content": "相談",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "UBoPN",
+              "name": "タブ 振り返り・レポート",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "J7pwF",
+                  "name": "振り返り・レポート",
+                  "fill": "#9aa1af",
+                  "content": "振り返り・レポート",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GY69B",
+              "name": "タブ チーム・メンバー",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "L4SJW",
+                  "name": "チーム・メンバー",
+                  "fill": "#9aa1af",
+                  "content": "チーム・メンバー",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "YtsLA",
+              "name": "タブ 方針・目標",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QJQvB",
+                  "name": "方針・目標",
+                  "fill": "#9aa1af",
+                  "content": "方針・目標",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RykRn",
+              "name": "タブ 設定",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZVnro",
+                  "name": "設定",
+                  "fill": "#9aa1af",
+                  "content": "設定",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "K2uaI",
+          "name": "1日の締めくくり",
+          "width": "fill_container",
+          "fill": "#1b1e26",
+          "cornerRadius": 10,
+          "stroke": "#2c2f3a",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "XdbwR",
+              "name": "締めくくり見出し",
+              "fill": "#e7e9ee",
+              "content": "1日の締めくくり",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 16,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "yIfWE",
+              "name": "締めくくり説明",
+              "fill": "#9aa1af",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "AIとの対話でその日を振り返り、バイタルとKPTをまとめて記録します。",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "WBUas",
+              "name": "未記録の警告",
+              "width": "fill_container",
+              "fill": "#2a2008",
+              "cornerRadius": 8,
+              "stroke": "#d99a1b",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "padding": [
+                10,
+                12
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RP2oL",
+                  "name": "警告文",
+                  "fill": "#fbbf24",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "⚠️ まだ今日のチェックイン（気分・エネルギー・ストレス）を記録していません。",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "A6rZFO",
+              "name": "はじめる",
+              "fill": "#3b6fd6",
+              "cornerRadius": 6,
+              "padding": [
+                9,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "higVU",
+                  "name": "はじめるラベル",
+                  "fill": "#ffffff",
+                  "content": "はじめる",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FLcv9",
+          "name": "今日やるべき3つ",
+          "width": "fill_container",
+          "fill": "#16233d",
+          "cornerRadius": 10,
+          "stroke": "#3b6fd6",
+          "strokeWidth": 2,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "VCRes",
+              "name": "ヒーロー見出し",
+              "fill": "#e7e9ee",
+              "content": "🎯 今日やるべき3つ",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 24,
+              "fontWeight": "900"
+            },
+            {
+              "type": "frame",
+              "id": "TF3Oq",
+              "name": "戦略未接続",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uBePC",
+                  "name": "未接続文",
+                  "fill": "#fbbf24",
+                  "content": "⚠ 戦略未接続の親 提案 が 2 件あります",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "PbcrX",
+                  "name": "AIで見直す",
+                  "fill": "#7fb0ff",
+                  "content": "AIで見直す",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "jEQlz",
+                  "name": "一覧へ",
+                  "fill": "#7fb0ff",
+                  "content": "一覧へ",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VtNjo",
+              "name": "エージェント稼働状態",
+              "width": "fill_container",
+              "fill": "#1b1e26",
+              "cornerRadius": 8,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "KfnaH",
+                  "name": "稼働ヘッダー",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "UXkb7",
+                      "name": "稼働サマリー",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "is3E0",
+                          "name": "稼働ラベル",
+                          "fill": "#e7e9ee",
+                          "content": "🤖 エージェント稼働状態:",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "tslPx",
+                          "name": "待機中",
+                          "fill": "#4ade80",
+                          "content": "🟢 待機中（正常稼働）",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "j4oFAP",
+                          "name": "最終巡回",
+                          "fill": "#9aa1af",
+                          "content": "（最終巡回: 09:12） · 本日自動起動: 1件",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f5TtYg",
+                      "name": "稼働リンク",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "l1m3dU",
+                          "name": "折りたたむ",
+                          "fill": "#7fb0ff",
+                          "content": "折りたたむ",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nkR17",
+                          "name": "エージェント一覧",
+                          "fill": "#7fb0ff",
+                          "content": "エージェント一覧・全ログ →",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "jFTma",
+                  "name": "動き見出し",
+                  "fill": "#9aa1af",
+                  "content": "直近の自律的な動き:",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "FGijF",
+                  "name": "動き 09:12",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "F4gD5",
+                      "name": "時刻 09:12",
+                      "fill": "#9aa1af",
+                      "content": "09:12",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "G44AB",
+                      "name": "バッジ 状況蒸留",
+                      "fill": "#22252e",
+                      "cornerRadius": 4,
+                      "stroke": "#3a3f4b",
+                      "strokeWidth": {
+                        "top": 1,
+                        "right": 1,
+                        "bottom": 1,
+                        "left": 3
+                      },
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        2,
+                        6
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lgjUJ",
+                          "name": "バッジ文字 状況蒸留",
+                          "fill": "#9aa1af",
+                          "content": "状況蒸留",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "c4OFR",
+                      "name": "動き本文 09:12",
+                      "fill": "#e7e9ee",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "テーマ候補を3件に絞った",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "EjCXS",
+                  "name": "動き 08:41",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nB3fO",
+                      "name": "時刻 08:41",
+                      "fill": "#9aa1af",
+                      "content": "08:41",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "I31RC4",
+                      "name": "バッジ 観測",
+                      "fill": "#22252e",
+                      "cornerRadius": 4,
+                      "stroke": "#3a3f4b",
+                      "strokeWidth": {
+                        "top": 1,
+                        "right": 1,
+                        "bottom": 1,
+                        "left": 3
+                      },
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        2,
+                        6
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "zcKfO",
+                          "name": "バッジ文字 観測",
+                          "fill": "#9aa1af",
+                          "content": "観測",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "h83Vn",
+                      "name": "動き本文 08:41",
+                      "fill": "#e7e9ee",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Journal 2件を解釈した",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VT1qb",
+                  "name": "動き 08:05",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "upvLN",
+                      "name": "時刻 08:05",
+                      "fill": "#9aa1af",
+                      "content": "08:05",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "o3A2d",
+                      "name": "バッジ 提案",
+                      "fill": "#22252e",
+                      "cornerRadius": 4,
+                      "stroke": "#3a3f4b",
+                      "strokeWidth": {
+                        "top": 1,
+                        "right": 1,
+                        "bottom": 1,
+                        "left": 3
+                      },
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        2,
+                        6
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lKEAO",
+                          "name": "バッジ文字 提案",
+                          "fill": "#9aa1af",
+                          "content": "提案",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "h8TrN",
+                      "name": "動き本文 08:05",
+                      "fill": "#e7e9ee",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "1on1の論点を下書きした",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "CZ4zA",
+              "name": "アクション 1",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#2c1210",
+              "cornerRadius": 8,
+              "stroke": "#e5534b",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "P2Gx7",
+                  "name": "アクセント 1",
+                  "width": 4,
+                  "height": 72,
+                  "fill": "#e5534b"
+                },
+                {
+                  "type": "frame",
+                  "id": "ivuPN",
+                  "name": "本文 1",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "F7ynQ",
+                      "name": "順位 1",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#1b1e26",
+                      "cornerRadius": 13,
+                      "stroke": "#2c2f3a",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "E2So4H",
+                          "name": "順位数字 1",
+                          "fill": "#e7e9ee",
+                          "content": "1",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "q0jElO",
+                      "name": "コピー 1",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ykjPA",
+                          "name": "メタ 1",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "OJcva",
+                              "name": "種別 1",
+                              "fill": "#22252e",
+                              "cornerRadius": 4,
+                              "stroke": "#3a3f4b",
+                              "strokeWidth": {
+                                "top": 1,
+                                "right": 1,
+                                "bottom": 1,
+                                "left": 3
+                              },
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                3,
+                                9
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "RjdiO",
+                                  "name": "種別文字 1",
+                                  "fill": "#e7e9ee",
+                                  "content": "判断待ち",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "CHk3B",
+                              "name": "新着 1",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "M3TOO",
+                                  "name": "新着ドット 1",
+                                  "fill": "#7fb0ff",
+                                  "width": 6,
+                                  "height": 6
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "E0lPK0",
+                                  "name": "新着文字 1",
+                                  "fill": "#7fb0ff",
+                                  "content": "新着",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "QoRS2",
+                              "name": "レーン 1",
+                              "fill": "#9aa1af",
+                              "content": "判断待ち",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "Mp15G",
+                          "name": "本文テキスト 1",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "🔴 Aさんの負荷が2週続いている。1on1で聞く論点を決める",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "onJFx",
+                      "name": "CTA 1",
+                      "fill": "#3b6fd6",
+                      "cornerRadius": 6,
+                      "padding": [
+                        9,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "H4Kylt",
+                          "name": "CTA文字 1",
+                          "fill": "#ffffff",
+                          "content": "開く",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "opXno",
+              "name": "アクション 2",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#1b1e26",
+              "cornerRadius": 8,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "s0nhKy",
+                  "name": "アクセント 2",
+                  "width": 4,
+                  "height": 72,
+                  "fill": "#d99a1b"
+                },
+                {
+                  "type": "frame",
+                  "id": "wi6JV",
+                  "name": "本文 2",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "s6mVeT",
+                      "name": "順位 2",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#1b1e26",
+                      "cornerRadius": 13,
+                      "stroke": "#2c2f3a",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wjeo2",
+                          "name": "順位数字 2",
+                          "fill": "#e7e9ee",
+                          "content": "2",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FhNwa",
+                      "name": "コピー 2",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HOL59",
+                          "name": "メタ 2",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "yv1o2",
+                              "name": "種別 2",
+                              "fill": "#22252e",
+                              "cornerRadius": 4,
+                              "stroke": "#3a3f4b",
+                              "strokeWidth": {
+                                "top": 1,
+                                "right": 1,
+                                "bottom": 1,
+                                "left": 3
+                              },
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                3,
+                                9
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "kfFeM",
+                                  "name": "種別文字 2",
+                                  "fill": "#e7e9ee",
+                                  "content": "提案の確認",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Skc6A",
+                              "name": "新着 2",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "c9SZe",
+                                  "name": "新着ドット 2",
+                                  "fill": "#7fb0ff",
+                                  "width": 6,
+                                  "height": 6
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "lunUl",
+                                  "name": "新着文字 2",
+                                  "fill": "#7fb0ff",
+                                  "content": "新着",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "C5bhb",
+                              "name": "レーン 2",
+                              "fill": "#9aa1af",
+                              "content": "判断待ち",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "dF12z",
+                          "name": "本文テキスト 2",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "🟡 Bチームの割り込みが増えている。今期の焦点をずらすか判断する",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZJLCj",
+                      "name": "CTA 2",
+                      "fill": "#3b6fd6",
+                      "cornerRadius": 6,
+                      "padding": [
+                        9,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "k8g89",
+                          "name": "CTA文字 2",
+                          "fill": "#ffffff",
+                          "content": "確認する",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LwA9x",
+              "name": "アクション 3",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#1b1e26",
+              "cornerRadius": 8,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AsuST",
+                  "name": "アクセント 3",
+                  "width": 4,
+                  "height": 72,
+                  "fill": "#d99a1b"
+                },
+                {
+                  "type": "frame",
+                  "id": "KCT79",
+                  "name": "本文 3",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "TziyU",
+                      "name": "順位 3",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#1b1e26",
+                      "cornerRadius": 13,
+                      "stroke": "#2c2f3a",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "N2fhJY",
+                          "name": "順位数字 3",
+                          "fill": "#e7e9ee",
+                          "content": "3",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Z6zuvK",
+                      "name": "コピー 3",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "W4GIFa",
+                          "name": "メタ 3",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "WI9e2",
+                              "name": "種別 3",
+                              "fill": "#22252e",
+                              "cornerRadius": 4,
+                              "stroke": "#3a3f4b",
+                              "strokeWidth": {
+                                "top": 1,
+                                "right": 1,
+                                "bottom": 1,
+                                "left": 3
+                              },
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                3,
+                                9
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "MUNvB",
+                                  "name": "種別文字 3",
+                                  "fill": "#e7e9ee",
+                                  "content": "観測不足",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "UM1nm",
+                              "name": "レーン 3",
+                              "fill": "#9aa1af",
+                              "content": "観測不足",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "cdoDF",
+                          "name": "本文テキスト 3",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "🟡 Cさんのバイタルが未更新。直近の様子を記録する",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wwCEK",
+                      "name": "CTA 3",
+                      "fill": "#3b6fd6",
+                      "cornerRadius": 6,
+                      "padding": [
+                        9,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "IsGmt",
+                          "name": "CTA文字 3",
+                          "fill": "#ffffff",
+                          "content": "記録する",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LBUGH",
+              "name": "残りを見る",
+              "width": "fill_container",
+              "stroke": "#2c2f3a",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                10,
+                0,
+                0,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OJCen",
+                  "name": "残りリンク",
+                  "fill": "#7fb0ff",
+                  "content": "ほかに 4 件（判断待ち2・観測1・整備1）をすべて見る",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "rvzIj",
+              "name": "様子見",
+              "width": "fill_container",
+              "stroke": "#2c2f3a",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "padding": [
+                10,
+                0,
+                0,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZwM9T",
+                  "name": "様子見リンク",
+                  "fill": "#7fb0ff",
+                  "content": "👀 様子見中（2件）を見る",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "V0gEi",
+          "name": "今日の状況",
+          "width": "fill_container",
+          "fill": "#1b1e26",
+          "cornerRadius": 10,
+          "stroke": "#2c2f3a",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "pyGfq",
+              "name": "状況見出し",
+              "fill": "#e7e9ee",
+              "content": "今日の状況",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 17,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "bBUJu",
+              "name": "状況説明",
+              "fill": "#9aa1af",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "AIが観測・解釈した材料です。判断はEM自身が行ってください。",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "efpzt",
+              "name": "判断する価値がありそうなこと",
+              "width": "fill_container",
+              "fill": "#2a2008",
+              "cornerRadius": 8,
+              "stroke": "#d99a1b",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                12
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OsQ1U",
+                  "name": "ティーザー見出し",
+                  "fill": "#e7e9ee",
+                  "content": "判断する価値がありそうなこと",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "NMU6C",
+                  "name": "ティーザー本文",
+                  "fill": "#e7e9ee",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Aさんの負荷が2週続いている。1on1で聞く論点を決める",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "R1kqVj",
+                  "name": "ほか件数",
+                  "fill": "#7fb0ff",
+                  "content": "ほか2件 → 今日やるべきことへ",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ZaCda",
+              "name": "状態ヒント",
+              "fill": "#9aa1af",
+              "content": "チーム・メンバーの状態（気になる・良い・評価できない）",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "zhCCA",
+              "name": "チーム行",
+              "width": "fill_container",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "p3c8vG",
+                  "name": "チームラベル",
+                  "fill": "#9aa1af",
+                  "content": "チーム",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "xSDF4",
+                  "name": "チームチップ",
+                  "width": "fill_container",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "bsU4T",
+                      "name": "カバレッジ",
+                      "fill": "#2a2008",
+                      "cornerRadius": 999,
+                      "stroke": "#d99a1b",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "P5xrn",
+                          "name": "カバレッジ印",
+                          "fill": "#e7e9ee",
+                          "content": "🟡",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "y2ug5",
+                          "name": "カバレッジ文字",
+                          "fill": "#fbbf24",
+                          "content": "1on1 直近2週 60%",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rd9uo",
+                      "name": "プラットフォーム",
+                      "fill": "#2c1210",
+                      "cornerRadius": 999,
+                      "stroke": "#e5534b",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VL31B",
+                          "name": "プラットフォーム印",
+                          "fill": "#e7e9ee",
+                          "content": "🔴",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "rCNq5",
+                          "name": "プラットフォーム文字",
+                          "fill": "#f87171",
+                          "content": "プラットフォーム",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "m6lDy",
+                      "name": "プロダクト",
+                      "fill": "#10261a",
+                      "cornerRadius": 999,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "N5eTJD",
+                          "name": "プロダクト印",
+                          "fill": "#e7e9ee",
+                          "content": "🟢",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "FtiCt",
+                          "name": "プロダクト文字",
+                          "fill": "#4ade80",
+                          "content": "プロダクト",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WRhy4",
+              "name": "メンバー行",
+              "width": "fill_container",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "b0QUk6",
+                  "name": "メンバーラベル",
+                  "fill": "#9aa1af",
+                  "content": "メンバー",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "YTUtN",
+                  "name": "メンバーチップ",
+                  "width": "fill_container",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CVE74",
+                      "name": "Aさん",
+                      "fill": "#2c1210",
+                      "cornerRadius": 999,
+                      "stroke": "#e5534b",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "gKYzA",
+                          "name": "Aさん印",
+                          "fill": "#e7e9ee",
+                          "content": "🔴",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "wgujf",
+                          "name": "Aさん文字",
+                          "fill": "#f87171",
+                          "content": "Aさん 負荷",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XIxF7",
+                      "name": "Bさん",
+                      "fill": "#2a2008",
+                      "cornerRadius": 999,
+                      "stroke": "#d99a1b",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ZBbmL",
+                          "name": "Bさん印",
+                          "fill": "#e7e9ee",
+                          "content": "🟡",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "T5M45",
+                          "name": "Bさん文字",
+                          "fill": "#fbbf24",
+                          "content": "Bさん 連携",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "R2Wp88",
+                      "name": "Cさん",
+                      "fill": "#22252e",
+                      "cornerRadius": 999,
+                      "stroke": "#3a3f4b",
+                      "strokeWidth": 1.5,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Qv4NR",
+                          "name": "Cさん印",
+                          "fill": "#e7e9ee",
+                          "content": "⚪",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "MFmtK",
+                          "name": "Cさん文字",
+                          "fill": "#9aa1af",
+                          "content": "Cさん 未観測",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "H52dSz",
+                      "name": "Dさん",
+                      "fill": "#10261a",
+                      "cornerRadius": 999,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 4,
+                      "padding": [
+                        4,
+                        9
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "z7IcLu",
+                          "name": "Dさん印",
+                          "fill": "#e7e9ee",
+                          "content": "🟢",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "hq0Zq",
+                          "name": "Dさん文字",
+                          "fill": "#4ade80",
+                          "content": "Dさん 安定",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mXepL",
+              "name": "過去との比較",
+              "width": "fill_container",
+              "stroke": "#2c2f3a",
+              "strokeWidth": {
+                "top": 1
+              },
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                0,
+                0,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "u6mZji",
+                  "name": "比較見出し",
+                  "fill": "#e7e9ee",
+                  "content": "過去との比較",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "BPgQY",
+                  "name": "比較本文",
+                  "fill": "#e7e9ee",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "先週比で負荷の警告が 1件 → 3件 に増えている",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z39Dx",
+              "name": "状況2カラム",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Sp8BV",
+                  "name": "昨日から変わったこと",
+                  "width": "fill_container",
+                  "fill": "#22252e",
+                  "cornerRadius": 8,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "x89YbT",
+                      "name": "昨日から変わったことヘッダー",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "d8B5A",
+                          "name": "昨日から変わったこと見出し",
+                          "fill": "#e7e9ee",
+                          "content": "昨日から変わったこと",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "gEk8a",
+                          "name": "昨日から変わったことヒント",
+                          "fill": "#9aa1af",
+                          "content": "直近24時間の記録",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "y7HdG",
+                      "name": "昨日から変わったこと Aさんとの1on",
+                      "fill": "#e7e9ee",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Aさんとの1on1で、割り込みタスクへの不満を記録した",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "BI9EB",
+                      "name": "昨日から変わったこと プラットフォーム",
+                      "fill": "#e7e9ee",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "プラットフォームのバイタルが good から bad に変わった",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "LBING",
+                  "name": "気になる兆候（出来事）",
+                  "width": "fill_container",
+                  "fill": "#22252e",
+                  "cornerRadius": 8,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "N3suX",
+                      "name": "気になる兆候（出来事）ヘッダー",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "i6PRh",
+                          "name": "気になる兆候（出来事）見出し",
+                          "fill": "#e7e9ee",
+                          "content": "気になる兆候（出来事）",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "pP1Fu",
+                          "name": "気になる兆候（出来事）ヒント",
+                          "fill": "#9aa1af",
+                          "content": "緊急度high・未対応のJournal",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "zWWfc",
+                      "name": "気になる兆候（出来事） リリース前のレビ",
+                      "fill": "#e7e9ee",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "リリース前のレビューが滞り、本番障害の不安が出ている",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cLIq9",
+          "name": "優先テーマ",
+          "width": "fill_container",
+          "fill": "#1b1e26",
+          "cornerRadius": 10,
+          "stroke": "#2c2f3a",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": 12,
+          "padding": [
+            16,
+            18
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "M2doE3",
+              "name": "テーマ要約",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "klsz4",
+                  "name": "テーマ見出し",
+                  "fill": "#e7e9ee",
+                  "content": "🎯 優先テーマ（4）",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "aLoaY",
+                  "name": "焦点行",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A2IEI",
+                      "name": "焦点文",
+                      "fill": "#9aa1af",
+                      "content": "今期の焦点: 負荷の偏り / 割り込みの増加 / 1on1の空白  他1",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "j0MGWv",
+                      "name": "未リンク",
+                      "fill": "#fbbf24",
+                      "content": "⚠ Goal未リンク 1件",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "Gqwzp",
+              "name": "詳細を見る",
+              "fill": "#7fb0ff",
+              "content": "詳細を見る",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "cTYZ1",
+      "x": 1280,
+      "y": 0,
+      "name": "改善案A: 状態の量化 + 行動の立体化",
+      "clip": true,
+      "width": 1200,
+      "fill": "#14161c",
+      "layout": "vertical",
+      "gap": 16,
+      "padding": [
+        24,
+        28,
+        48,
+        28
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "gJHv2",
+          "name": "ヘッダー",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "HqSqI",
+              "name": "ブランド",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mgmgX",
+                  "name": "アプリ名",
+                  "fill": "#e7e9ee",
+                  "content": "Emther",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 28,
+                  "fontWeight": "900"
+                },
+                {
+                  "type": "text",
+                  "id": "izLgg",
+                  "name": "サブタイトル",
+                  "fill": "#9aa1af",
+                  "content": "EM Support System",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qd64b",
+              "name": "ヘッダー操作",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TgObs",
+                  "name": "ヘルプ",
+                  "fill": "#9aa1af",
+                  "content": "ヘルプ",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "Yg5ga",
+                  "name": "人を追加",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 6,
+                  "stroke": "#686e7d",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    6,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Tagz4",
+                      "name": "人を追加ラベル",
+                      "fill": "#e7e9ee",
+                      "content": "＋ 人を追加",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "z4MCpP",
+          "name": "グローバルナビ",
+          "width": "fill_container",
+          "fill": "#1b1e26",
+          "cornerRadius": 10,
+          "stroke": "#2c2f3a",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": 4,
+          "padding": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "dWJPp",
+              "name": "タブ 今日",
+              "fill": "#16233d",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RxfKx",
+                  "name": "今日",
+                  "fill": "#7fb0ff",
+                  "content": "今日",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "CdjRy",
+              "name": "タブ ジャーナル",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "C39NUZ",
+                  "name": "ジャーナル",
+                  "fill": "#9aa1af",
+                  "content": "ジャーナル",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HL5uW",
+              "name": "タブ 提案",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Oz4yF",
+                  "name": "提案",
+                  "fill": "#9aa1af",
+                  "content": "提案",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZUcSi",
+              "name": "タブ 相談",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "DfEYx",
+                  "name": "相談",
+                  "fill": "#9aa1af",
+                  "content": "相談",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jIe8v",
+              "name": "タブ 振り返り・レポート",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lvIbt",
+                  "name": "振り返り・レポート",
+                  "fill": "#9aa1af",
+                  "content": "振り返り・レポート",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "A929E",
+              "name": "タブ チーム・メンバー",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QlLED",
+                  "name": "チーム・メンバー",
+                  "fill": "#9aa1af",
+                  "content": "チーム・メンバー",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XC4Gq",
+              "name": "タブ 方針・目標",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uSZCp",
+                  "name": "方針・目標",
+                  "fill": "#9aa1af",
+                  "content": "方針・目標",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LLW8w",
+              "name": "タブ 設定",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "padding": [
+                8,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QXDd9",
+                  "name": "設定",
+                  "fill": "#9aa1af",
+                  "content": "設定",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qHN5a",
+          "name": "チェックイン未記録",
+          "width": "fill_container",
+          "fill": "#2a2008",
+          "cornerRadius": 8,
+          "stroke": "#d99a1b",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": 12,
+          "padding": [
+            10,
+            14
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "EOU6f",
+              "name": "未記録左",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pHgMt",
+                  "name": "未記録文",
+                  "fill": "#fbbf24",
+                  "content": "まだ今日のチェックイン未記録",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "F1vsNE",
+                  "name": "未記録補足",
+                  "fill": "#9aa1af",
+                  "content": "・気分 / エネルギー / ストレス",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DKSjx",
+              "name": "はじめる",
+              "fill": "#3b6fd6",
+              "cornerRadius": 6,
+              "padding": [
+                7,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "R8qyG6",
+                  "name": "はじめる文字",
+                  "fill": "#ffffff",
+                  "content": "はじめる",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "zlEri",
+          "name": "いまの状態",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 10,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Z3m5eq",
+              "name": "いまヘッダー",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RlxD7",
+                  "name": "いま見出し",
+                  "fill": "#e7e9ee",
+                  "content": "いまの状態",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "zsghC",
+                  "name": "いま補足",
+                  "fill": "#9aa1af",
+                  "content": "程度で掴む · 詳細は下へ",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "L1h4g2",
+              "name": "メーター行",
+              "width": "fill_container",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FHnrH",
+                  "name": "判断負荷",
+                  "width": "fill_container",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 10,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "DHlzV",
+                      "name": "判断負荷 dial",
+                      "width": 96,
+                      "height": 96,
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "clGMJ",
+                          "x": 43,
+                          "y": 5,
+                          "name": "判断負荷 tick 0",
+                          "fill": "#fbbf24",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "w5dPT",
+                          "x": 72.70959633378513,
+                          "y": 19.30738752936813,
+                          "name": "判断負荷 tick 1",
+                          "fill": "#fbbf24",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "NVWK5",
+                          "x": 80.0472606629093,
+                          "y": 51.45579549033995,
+                          "name": "判断負荷 tick 2",
+                          "fill": "#fbbf24",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "oZiAC",
+                          "x": 59.487582086467214,
+                          "y": 77.23681698029192,
+                          "name": "判断負荷 tick 3",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "D9uk8",
+                          "x": 26.51241791353278,
+                          "y": 77.23681698029192,
+                          "name": "判断負荷 tick 4",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "w1EL34",
+                          "x": 5.952739337090705,
+                          "y": 51.45579549033995,
+                          "name": "判断負荷 tick 5",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "cUuOd",
+                          "x": 13.290403666214864,
+                          "y": 19.307387529368132,
+                          "name": "判断負荷 tick 6",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "text",
+                          "id": "q0LSK",
+                          "x": 8,
+                          "y": 32,
+                          "name": "判断負荷 value",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": 80,
+                          "content": "3/7",
+                          "textAlign": "center",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 22,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "b8Gwok",
+                      "name": "判断負荷 caption",
+                      "fill": "#9aa1af",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "判断負荷（今日の上限感）",
+                      "textAlign": "center",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "B90dUp",
+                  "name": "組織健全度",
+                  "width": "fill_container",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 10,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "nr5Y0",
+                      "name": "組織健全度 dial",
+                      "width": 96,
+                      "height": 96,
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "UIZ14",
+                          "x": 43,
+                          "y": 5,
+                          "name": "組織健全度 tick 0",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "w6g5hL",
+                          "x": 62,
+                          "y": 10.091034656191333,
+                          "name": "組織健全度 tick 1",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "kigOY",
+                          "x": 75.90896534380867,
+                          "y": 24.000000000000004,
+                          "name": "組織健全度 tick 2",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "xXRJI",
+                          "x": 81,
+                          "y": 43,
+                          "name": "組織健全度 tick 3",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "KYW0T",
+                          "x": 75.90896534380867,
+                          "y": 62,
+                          "name": "組織健全度 tick 4",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "t54Z82",
+                          "x": 62,
+                          "y": 75.90896534380866,
+                          "name": "組織健全度 tick 5",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "tDSqb",
+                          "x": 43,
+                          "y": 81,
+                          "name": "組織健全度 tick 6",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "V4FQZE",
+                          "x": 24.000000000000007,
+                          "y": 75.90896534380867,
+                          "name": "組織健全度 tick 7",
+                          "fill": "#4ade80",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "mpkGz",
+                          "x": 10.091034656191326,
+                          "y": 62,
+                          "name": "組織健全度 tick 8",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "cXQBI",
+                          "x": 5,
+                          "y": 43.00000000000001,
+                          "name": "組織健全度 tick 9",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "U6U1t",
+                          "x": 10.091034656191333,
+                          "y": 23.999999999999996,
+                          "name": "組織健全度 tick 10",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "gCYva",
+                          "x": 23.999999999999982,
+                          "y": 10.09103465619134,
+                          "name": "組織健全度 tick 11",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "text",
+                          "id": "mmUx7",
+                          "x": 8,
+                          "y": 32,
+                          "name": "組織健全度 value",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": 80,
+                          "content": "62%",
+                          "textAlign": "center",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 22,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "U3S0cr",
+                      "name": "組織健全度 caption",
+                      "fill": "#9aa1af",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "組織健全度（良/注/危の加重）",
+                      "textAlign": "center",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IQUl5",
+                  "name": "1on1カバレッジ",
+                  "width": "fill_container",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 10,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "k37o9",
+                      "name": "1on1カバレッジ dial",
+                      "width": 96,
+                      "height": 96,
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "uJTFX",
+                          "x": 43,
+                          "y": 5,
+                          "name": "1on1カバレッジ tick 0",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "WlO1s",
+                          "x": 62,
+                          "y": 10.091034656191333,
+                          "name": "1on1カバレッジ tick 1",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "djSjR",
+                          "x": 75.90896534380867,
+                          "y": 24.000000000000004,
+                          "name": "1on1カバレッジ tick 2",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "GEtCa",
+                          "x": 81,
+                          "y": 43,
+                          "name": "1on1カバレッジ tick 3",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "I4XQC",
+                          "x": 75.90896534380867,
+                          "y": 62,
+                          "name": "1on1カバレッジ tick 4",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "Oek8Y",
+                          "x": 62,
+                          "y": 75.90896534380866,
+                          "name": "1on1カバレッジ tick 5",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "zgom5",
+                          "x": 43,
+                          "y": 81,
+                          "name": "1on1カバレッジ tick 6",
+                          "fill": "#7fb0ff",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "q0BPVJ",
+                          "x": 24.000000000000007,
+                          "y": 75.90896534380867,
+                          "name": "1on1カバレッジ tick 7",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "JEvhj",
+                          "x": 10.091034656191326,
+                          "y": 62,
+                          "name": "1on1カバレッジ tick 8",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "Pck90",
+                          "x": 5,
+                          "y": 43.00000000000001,
+                          "name": "1on1カバレッジ tick 9",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "DCTqk",
+                          "x": 10.091034656191333,
+                          "y": 23.999999999999996,
+                          "name": "1on1カバレッジ tick 10",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "sSc2I",
+                          "x": 23.999999999999982,
+                          "y": 10.09103465619134,
+                          "name": "1on1カバレッジ tick 11",
+                          "fill": "#3a3f4b",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "text",
+                          "id": "XJGqi",
+                          "x": 8,
+                          "y": 32,
+                          "name": "1on1カバレッジ value",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": 80,
+                          "content": "60%",
+                          "textAlign": "center",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 22,
+                          "fontWeight": "800"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "RKKHW",
+                      "name": "1on1カバレッジ caption",
+                      "fill": "#9aa1af",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "1on1カバレッジ（直近2週）",
+                      "textAlign": "center",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bIxUh",
+              "name": "健全度内訳（分離）",
+              "width": "fill_container",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "u9nRfj",
+                  "name": "チーム",
+                  "width": "fill_container",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 10,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 14,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Knzxj",
+                      "name": "チーム content",
+                      "gap": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ujcQ4",
+                          "name": "チーム pie",
+                          "width": 96,
+                          "height": 96,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "path",
+                              "id": "oTCxa",
+                              "x": 0,
+                              "y": 0,
+                              "name": "チーム 良い",
+                              "geometry": "M48 48l0-44a44 44 0 0 1 38.10512 66z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#22c55e",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "path",
+                              "id": "qRim3",
+                              "x": 0,
+                              "y": 0,
+                              "name": "チーム 要注意",
+                              "geometry": "M48 48l38.10512 22a44 44 0 0 1-76.21024 0z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#d99a1b",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "path",
+                              "id": "jLyNa",
+                              "x": 0,
+                              "y": 0,
+                              "name": "チーム 危険",
+                              "geometry": "M48 48l-38.10512 22a44 44 0 0 1 38.10512-66z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#e5534b",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "ellipse",
+                              "id": "ero0l",
+                              "x": 28,
+                              "y": 28,
+                              "name": "チーム hole",
+                              "fill": "#1b1e26",
+                              "width": 40,
+                              "height": 40
+                            },
+                            {
+                              "type": "text",
+                              "id": "V2ZrFM",
+                              "x": 28,
+                              "y": 38,
+                              "name": "チーム total",
+                              "fill": "#e7e9ee",
+                              "textGrowth": "fixed-width",
+                              "width": 40,
+                              "content": "3",
+                              "textAlign": "center",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 16,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "s9MIz",
+                          "name": "チーム side",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Zld5T",
+                              "name": "チーム title",
+                              "fill": "#e7e9ee",
+                              "content": "チーム",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 14,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "OFk78",
+                              "name": "チーム legend",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "iO2in",
+                                  "name": "チーム 良い row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "nev2o",
+                                      "name": "チーム 良いdot",
+                                      "fill": "#22c55e",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "S60UQ",
+                                      "name": "チーム 良いt",
+                                      "fill": "#9aa1af",
+                                      "content": "良い 1 · プロダクト",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "uu02o",
+                                  "name": "チーム 要注意 row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "HQ48l",
+                                      "name": "チーム 要注意dot",
+                                      "fill": "#d99a1b",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "c1es44",
+                                      "name": "チーム 要注意t",
+                                      "fill": "#9aa1af",
+                                      "content": "要注意 1 · 1on1カバレッジ",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tci4T",
+                                  "name": "チーム 危険 row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "rp4sF",
+                                      "name": "チーム 危険dot",
+                                      "fill": "#e5534b",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "e6QxG",
+                                      "name": "チーム 危険t",
+                                      "fill": "#9aa1af",
+                                      "content": "危険 1 · プラットフォーム",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Ekd4c",
+                  "name": "メンバー",
+                  "width": "fill_container",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 10,
+                  "stroke": "#2c2f3a",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 14,
+                  "padding": [
+                    12,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "dLKHi",
+                      "name": "メンバー content",
+                      "gap": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "BeJJi",
+                          "name": "メンバー pie",
+                          "width": 96,
+                          "height": 96,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "path",
+                              "id": "de2hv",
+                              "x": 0,
+                              "y": 0,
+                              "name": "メンバー 良い",
+                              "geometry": "M48 48l0-44a44 44 0 0 1 44 44z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#22c55e",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "path",
+                              "id": "sjGx7",
+                              "x": 0,
+                              "y": 0,
+                              "name": "メンバー 要注意",
+                              "geometry": "M48 48l44 0a44 44 0 0 1-44 44z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#d99a1b",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "path",
+                              "id": "Njdnw",
+                              "x": 0,
+                              "y": 0,
+                              "name": "メンバー 危険",
+                              "geometry": "M48 48l0 44a44 44 0 0 1-44-44z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#e5534b",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "path",
+                              "id": "SxlvE",
+                              "x": 0,
+                              "y": 0,
+                              "name": "メンバー 未観測",
+                              "geometry": "M48 48l-44 0a44 44 0 0 1 44-44z",
+                              "viewBox": [
+                                0,
+                                0,
+                                96,
+                                96
+                              ],
+                              "fill": "#3a3f4b",
+                              "width": 96,
+                              "height": 96
+                            },
+                            {
+                              "type": "ellipse",
+                              "id": "NT04A",
+                              "x": 28,
+                              "y": 28,
+                              "name": "メンバー hole",
+                              "fill": "#1b1e26",
+                              "width": 40,
+                              "height": 40
+                            },
+                            {
+                              "type": "text",
+                              "id": "ghOVv",
+                              "x": 28,
+                              "y": 38,
+                              "name": "メンバー total",
+                              "fill": "#e7e9ee",
+                              "textGrowth": "fixed-width",
+                              "width": 40,
+                              "content": "4",
+                              "textAlign": "center",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 16,
+                              "fontWeight": "800"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KjSAS",
+                          "name": "メンバー side",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "V8jKS",
+                              "name": "メンバー title",
+                              "fill": "#e7e9ee",
+                              "content": "メンバー",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 14,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "i2shsw",
+                              "name": "メンバー legend",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "d8jco",
+                                  "name": "メンバー 良い row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "YOlib",
+                                      "name": "メンバー 良いdot",
+                                      "fill": "#22c55e",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "leAT4",
+                                      "name": "メンバー 良いt",
+                                      "fill": "#9aa1af",
+                                      "content": "良い 1 · Dさん",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "L5zDXa",
+                                  "name": "メンバー 要注意 row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "Rt3Xg",
+                                      "name": "メンバー 要注意dot",
+                                      "fill": "#d99a1b",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "ReTAl",
+                                      "name": "メンバー 要注意t",
+                                      "fill": "#9aa1af",
+                                      "content": "要注意 1 · Bさん",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "c0E6I",
+                                  "name": "メンバー 危険 row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "xXpBY",
+                                      "name": "メンバー 危険dot",
+                                      "fill": "#e5534b",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "gqtY3",
+                                      "name": "メンバー 危険t",
+                                      "fill": "#9aa1af",
+                                      "content": "危険 1 · Aさん",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "jzjTc",
+                                  "name": "メンバー 未観測 row",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "Zp2x1",
+                                      "name": "メンバー 未観測dot",
+                                      "fill": "#3a3f4b",
+                                      "width": 7,
+                                      "height": 7
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "WpJ3l",
+                                      "name": "メンバー 未観測t",
+                                      "fill": "#9aa1af",
+                                      "content": "未観測 1 · Cさん",
+                                      "fontFamily": "Zen Kaku Gothic New",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "U8pRq",
+              "name": "エージェントパルス",
+              "width": "fill_container",
+              "fill": "#16233d",
+              "cornerRadius": 8,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 12,
+              "padding": [
+                10,
+                14
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IPKAf",
+                  "name": "パルス左",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "HC7wr",
+                      "name": "稼働ドット",
+                      "fill": "#4ade80",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "A5wNA",
+                      "name": "パルス文",
+                      "fill": "#9aa1af",
+                      "content": "エージェント待機中 · 最終巡回 09:12 · 本日自動 1件",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "fDEYN",
+                  "name": "パルスリンク",
+                  "fill": "#7fb0ff",
+                  "content": "動きを見る →",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "SexAZ",
+          "name": "今日やるべき3つ",
+          "width": "fill_container",
+          "fill": "#16233d",
+          "cornerRadius": 12,
+          "stroke": "#3b6fd6",
+          "strokeWidth": 2,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 14,
+          "padding": 18,
+          "children": [
+            {
+              "type": "frame",
+              "id": "A4Hu4",
+              "name": "ヒーローヘッダー",
+              "width": "fill_container",
+              "gap": 12,
+              "justifyContent": "space_between",
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ZAmGJ",
+                  "name": "ヒーロー見出し群",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "oVzvY",
+                      "name": "ヒーロー見出し",
+                      "fill": "#e7e9ee",
+                      "content": "今日やるべき3つ",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 24,
+                      "fontWeight": "900"
+                    },
+                    {
+                      "type": "text",
+                      "id": "H10ihq",
+                      "name": "ヒーロー副題",
+                      "fill": "#9aa1af",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "いま決めると、組織が前に進むものだけを並べています",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ZVFdM",
+                  "name": "キュー残",
+                  "fill": "#1b1e26",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    8,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "N6FuJ",
+                      "name": "キュー数",
+                      "fill": "#fbbf24",
+                      "content": "+4",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 18,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NrQPD",
+                      "name": "キューラベル",
+                      "fill": "#9aa1af",
+                      "content": "残り",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RrhOD",
+              "name": "行動カード 1",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#2c1210",
+              "cornerRadius": 12,
+              "stroke": "#e5534b",
+              "strokeWidth": 2,
+              "strokeAlignment": "inner",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EILdj",
+                  "name": "緊急レール 1",
+                  "width": 6,
+                  "height": 120,
+                  "fill": "#e5534b"
+                },
+                {
+                  "type": "frame",
+                  "id": "alFLE",
+                  "name": "カード本体 1",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "d569iB",
+                      "name": "順位ブロック 1",
+                      "width": 56,
+                      "layout": "vertical",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "LT4Wb",
+                          "name": "順位 1",
+                          "fill": "#f87171",
+                          "content": "1",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 40,
+                          "fontWeight": "900"
+                        },
+                        {
+                          "type": "text",
+                          "id": "IWo5x",
+                          "name": "経過 1",
+                          "fill": "#9aa1af",
+                          "content": "14日",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ygsEJ",
+                      "name": "文章 1",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "YQJjg",
+                          "name": "タイトル 1",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Aさんの負荷が2週続いている",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 18,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "bSaji",
+                          "name": "なぜ今 1",
+                          "fill": "#9aa1af",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "なぜ今: 先週と同パターン。放置すると離職リスクの仮説が強まる",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "GlVW2",
+                          "name": "フッター 1",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "vaVMe",
+                              "name": "メタ 1",
+                              "fill": "#9aa1af",
+                              "content": "判断待ち · 1on1論点を決める",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FdRul",
+                              "name": "緊急度 1",
+                              "width": 120,
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "R7sFLp",
+                                  "name": "緊急度ラベル 1",
+                                  "fill": "#9aa1af",
+                                  "content": "緊急度",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "aaf8d",
+                                  "name": "緊急度トラック 1",
+                                  "clip": true,
+                                  "width": "fill_container",
+                                  "height": 6,
+                                  "fill": "#2c2f3a",
+                                  "cornerRadius": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "m0qycr",
+                                      "name": "緊急度埋 1",
+                                      "width": 108,
+                                      "height": "fill_container",
+                                      "fill": "#e5534b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "s21D9",
+                      "name": "CTA 1",
+                      "fill": "#3b6fd6",
+                      "cornerRadius": 8,
+                      "padding": [
+                        12,
+                        18
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "PjDAU",
+                          "name": "CTA文字 1",
+                          "fill": "#ffffff",
+                          "content": "論点を決める",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 15,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z6DF6",
+              "name": "行動カード 2",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#1b1e26",
+              "cornerRadius": 10,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AcwSl",
+                  "name": "緊急レール 2",
+                  "width": 4,
+                  "height": 108,
+                  "fill": "#d99a1b"
+                },
+                {
+                  "type": "frame",
+                  "id": "A4kx7",
+                  "name": "カード本体 2",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "pY9Zk",
+                      "name": "順位ブロック 2",
+                      "width": 56,
+                      "layout": "vertical",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "iOheG",
+                          "name": "順位 2",
+                          "fill": "#e7e9ee",
+                          "content": "2",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 32,
+                          "fontWeight": "900"
+                        },
+                        {
+                          "type": "text",
+                          "id": "EfNHX",
+                          "name": "経過 2",
+                          "fill": "#9aa1af",
+                          "content": "5日",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mQlTg",
+                      "name": "文章 2",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Qka5H",
+                          "name": "タイトル 2",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Bチームの割り込みが増えている",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 16,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "igHtg",
+                          "name": "なぜ今 2",
+                          "fill": "#9aa1af",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "なぜ今: 今週の割り込みが先月比 +40%。今期焦点の見直し候補",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "N9Cim",
+                          "name": "フッター 2",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "rdzRr",
+                              "name": "メタ 2",
+                              "fill": "#9aa1af",
+                              "content": "提案の確認 · 焦点をずらすか判断",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "s5VNq4",
+                              "name": "緊急度 2",
+                              "width": 120,
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "MTLfP",
+                                  "name": "緊急度ラベル 2",
+                                  "fill": "#9aa1af",
+                                  "content": "緊急度",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "SQFkp",
+                                  "name": "緊急度トラック 2",
+                                  "clip": true,
+                                  "width": "fill_container",
+                                  "height": 6,
+                                  "fill": "#2c2f3a",
+                                  "cornerRadius": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "TPPci",
+                                      "name": "緊急度埋 2",
+                                      "width": 66,
+                                      "height": "fill_container",
+                                      "fill": "#d99a1b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "hzUAg",
+                      "name": "CTA 2",
+                      "fill": "#3b6fd6",
+                      "cornerRadius": 8,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Gcn8G",
+                          "name": "CTA文字 2",
+                          "fill": "#ffffff",
+                          "content": "提案を確認",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "T1XAo",
+              "name": "行動カード 3",
+              "clip": true,
+              "width": "fill_container",
+              "fill": "#1b1e26",
+              "cornerRadius": 10,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "aZONK",
+                  "name": "緊急レール 3",
+                  "width": 4,
+                  "height": 108,
+                  "fill": "#d99a1b"
+                },
+                {
+                  "type": "frame",
+                  "id": "BQISB",
+                  "name": "カード本体 3",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "q5yafT",
+                      "name": "順位ブロック 3",
+                      "width": 56,
+                      "layout": "vertical",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FnDzJ",
+                          "name": "順位 3",
+                          "fill": "#e7e9ee",
+                          "content": "3",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 32,
+                          "fontWeight": "900"
+                        },
+                        {
+                          "type": "text",
+                          "id": "wZ5OT",
+                          "name": "経過 3",
+                          "fill": "#9aa1af",
+                          "content": "3日",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "G72EA",
+                      "name": "文章 3",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "v1ibWW",
+                          "name": "タイトル 3",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Cさんのバイタルが未更新",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 16,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xHZmD",
+                          "name": "なぜ今 3",
+                          "fill": "#9aa1af",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "なぜ今: 判断材料が欠けている。決める前に事実を足す",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ZzPwF",
+                          "name": "フッター 3",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "fedFj",
+                              "name": "メタ 3",
+                              "fill": "#9aa1af",
+                              "content": "観測不足 · 直近の様子を記録",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "AV3O5",
+                              "name": "緊急度 3",
+                              "width": 120,
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "TDkVC",
+                                  "name": "緊急度ラベル 3",
+                                  "fill": "#9aa1af",
+                                  "content": "緊急度",
+                                  "fontFamily": "Zen Kaku Gothic New",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "a13pH",
+                                  "name": "緊急度トラック 3",
+                                  "clip": true,
+                                  "width": "fill_container",
+                                  "height": 6,
+                                  "fill": "#2c2f3a",
+                                  "cornerRadius": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "ODtYU",
+                                      "name": "緊急度埋 3",
+                                      "width": 42,
+                                      "height": "fill_container",
+                                      "fill": "#d99a1b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "pz9r2",
+                      "name": "CTA 3",
+                      "fill": "#3b6fd6",
+                      "cornerRadius": 8,
+                      "padding": [
+                        10,
+                        14
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QB1nK",
+                          "name": "CTA文字 3",
+                          "fill": "#ffffff",
+                          "content": "様子を記録",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "tXjWi",
+              "name": "残り導線",
+              "width": "fill_container",
+              "padding": [
+                4,
+                0,
+                0,
+                0
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "py0vs",
+                  "name": "残りリンク",
+                  "fill": "#7fb0ff",
+                  "content": "ほか 4 件をレーン別に見る（判断2 · 観測1 · 整備1）",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "OFX2d",
+                  "name": "様子見リンク",
+                  "fill": "#9aa1af",
+                  "content": "様子見 2件",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "AN7qx",
+          "name": "優先テーマ行",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "hQMHV",
+              "name": "優先テーマ",
+              "width": "fill_container",
+              "fill": "#1b1e26",
+              "cornerRadius": 10,
+              "stroke": "#2c2f3a",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                14,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "W9f0md",
+                  "name": "テーマ頭",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "UCdSz",
+                      "name": "テーマ見出し",
+                      "fill": "#e7e9ee",
+                      "content": "優先テーマ · 4",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "WCstj",
+                      "name": "テーマ詳細",
+                      "fill": "#7fb0ff",
+                      "content": "詳細",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "EMGAe",
+                  "name": "テーマ焦点",
+                  "fill": "#9aa1af",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "負荷の偏り / 割り込みの増加 / 1on1の空白",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "yUzxU",
+                  "name": "Goal未リンク",
+                  "fill": "#fbbf24",
+                  "content": "⚠ Goal未リンク 1件",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qJJpb",
+          "name": "状況サマリー",
+          "width": "fill_container",
+          "fill": "#1b1e26",
+          "cornerRadius": 10,
+          "stroke": "#2c2f3a",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": [
+            16,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "FiWT9",
+              "name": "状況見出し",
+              "fill": "#e7e9ee",
+              "content": "材料（判断はEMがする）",
+              "fontFamily": "Zen Kaku Gothic New",
+              "fontSize": 16,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "enQTJ",
+              "name": "状況2カラム",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "hLIse",
+                  "name": "変化カラム",
+                  "width": "fill_container",
+                  "fill": "#22252e",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "TBxaS",
+                      "name": "変化見出し",
+                      "fill": "#e7e9ee",
+                      "content": "昨日から変わったこと",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "IpavP",
+                      "name": "変化 Aさん1on",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "dJ576",
+                          "name": "変化dot",
+                          "fill": "#7fb0ff",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "w8mtn",
+                          "name": "変化文 Aさん1on",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Aさん1on1: 割り込みへの不満を記録",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tI5SC",
+                      "name": "変化 プラットフォ",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "smjaK",
+                          "name": "変化dot",
+                          "fill": "#7fb0ff",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "guRvr",
+                          "name": "変化文 プラットフォ",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "プラットフォーム: good → bad",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "i3Of6",
+                  "name": "兆候カラム",
+                  "width": "fill_container",
+                  "fill": "#22252e",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "a6MUf",
+                      "name": "兆候見出し",
+                      "fill": "#e7e9ee",
+                      "content": "気になる兆候",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xSvWD",
+                      "name": "兆候カード",
+                      "width": "fill_container",
+                      "fill": "#2c1210",
+                      "cornerRadius": 8,
+                      "stroke": "#e5534b",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "HD86e",
+                          "name": "兆候ラベル",
+                          "fill": "#f87171",
+                          "content": "緊急 · Journal",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "u4I5Ab",
+                          "name": "兆候本文",
+                          "fill": "#e7e9ee",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "リリース前レビュー滞り → 本番障害の不安",
+                          "fontFamily": "Zen Kaku Gothic New",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Sgq4j",
+                  "name": "比較カラム",
+                  "width": "fill_container",
+                  "fill": "#22252e",
+                  "cornerRadius": 8,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nEHPV",
+                      "name": "比較見出し",
+                      "fill": "#e7e9ee",
+                      "content": "過去との比較",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Rp4aO",
+                      "name": "比較定義",
+                      "fill": "#9aa1af",
+                      "content": "週次Journalトーン · 4週",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "hCsFB",
+                      "name": "4週積み上げ",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "padding": [
+                        2,
+                        0,
+                        0,
+                        0
+                      ],
+                      "alignItems": "end",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "g6k7CK",
+                          "name": "3週前",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "gHrEE",
+                              "name": "3週前 stack",
+                              "clip": true,
+                              "width": 28,
+                              "height": 84,
+                              "cornerRadius": 3,
+                              "layout": "vertical",
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "FYICh",
+                                  "name": "3週前 pos",
+                                  "width": "fill_container",
+                                  "height": 30,
+                                  "fill": "#22c55e"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "bSvX6",
+                                  "name": "3週前 neu",
+                                  "width": "fill_container",
+                                  "height": 36,
+                                  "fill": "#686e7d"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "w9zhrd",
+                                  "name": "3週前 neg",
+                                  "width": "fill_container",
+                                  "height": 6,
+                                  "fill": "#e5534b"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "DhPgp",
+                              "name": "3週前 label",
+                              "fill": "#9aa1af",
+                              "content": "3週前",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 11
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "A9Eimz",
+                          "name": "2週前",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "aCpvJ",
+                              "name": "2週前 stack",
+                              "clip": true,
+                              "width": 28,
+                              "height": 84,
+                              "cornerRadius": 3,
+                              "layout": "vertical",
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "lQvn8",
+                                  "name": "2週前 pos",
+                                  "width": "fill_container",
+                                  "height": 24,
+                                  "fill": "#22c55e"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "W4jRHb",
+                                  "name": "2週前 neu",
+                                  "width": "fill_container",
+                                  "height": 36,
+                                  "fill": "#686e7d"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "yO5B4",
+                                  "name": "2週前 neg",
+                                  "width": "fill_container",
+                                  "height": 12,
+                                  "fill": "#e5534b"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "TgA0K",
+                              "name": "2週前 label",
+                              "fill": "#9aa1af",
+                              "content": "前々週",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 11
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eBft7",
+                          "name": "先週",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "x91C5",
+                              "name": "先週 stack",
+                              "clip": true,
+                              "width": 28,
+                              "height": 84,
+                              "cornerRadius": 3,
+                              "layout": "vertical",
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "FPt9D",
+                                  "name": "先週 pos",
+                                  "width": "fill_container",
+                                  "height": 30,
+                                  "fill": "#22c55e"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tccdW",
+                                  "name": "先週 neu",
+                                  "width": "fill_container",
+                                  "height": 42,
+                                  "fill": "#686e7d"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "n0sJH",
+                                  "name": "先週 neg",
+                                  "width": "fill_container",
+                                  "height": 12,
+                                  "fill": "#e5534b"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "T7xVKL",
+                              "name": "先週 label",
+                              "fill": "#9aa1af",
+                              "content": "前週",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 11
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vdOiO",
+                          "name": "今週",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "l3XE7",
+                              "name": "今週 stack",
+                              "clip": true,
+                              "width": 28,
+                              "height": 84,
+                              "cornerRadius": 3,
+                              "layout": "vertical",
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "dUceO",
+                                  "name": "今週 pos",
+                                  "width": "fill_container",
+                                  "height": 18,
+                                  "fill": "#22c55e"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tpBPC",
+                                  "name": "今週 neu",
+                                  "width": "fill_container",
+                                  "height": 36,
+                                  "fill": "#686e7d"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "UNWr6",
+                                  "name": "今週 neg",
+                                  "width": "fill_container",
+                                  "height": 30,
+                                  "fill": "#e5534b"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "iuhTN",
+                              "name": "今週 label",
+                              "fill": "#e7e9ee",
+                              "content": "今週",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "BD66z",
+                      "name": "トーン凡例",
+                      "width": "fill_container",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "YEFbJ",
+                          "name": "ネガ",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "HJpPw",
+                              "name": "ネガd",
+                              "fill": "#e5534b",
+                              "width": 6,
+                              "height": 6
+                            },
+                            {
+                              "type": "text",
+                              "id": "tCcqD",
+                              "name": "ネガt",
+                              "fill": "#9aa1af",
+                              "content": "ネガ",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "xLXWk",
+                          "name": "ニュート",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "ffMzY",
+                              "name": "ニュートd",
+                              "fill": "#686e7d",
+                              "width": 6,
+                              "height": 6
+                            },
+                            {
+                              "type": "text",
+                              "id": "lPGMq",
+                              "name": "ニュートt",
+                              "fill": "#9aa1af",
+                              "content": "ニュート",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "mWmkf",
+                          "name": "ポジ",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "y7qdNt",
+                              "name": "ポジd",
+                              "fill": "#22c55e",
+                              "width": 6,
+                              "height": 6
+                            },
+                            {
+                              "type": "text",
+                              "id": "IomOh",
+                              "name": "ポジt",
+                              "fill": "#9aa1af",
+                              "content": "ポジ",
+                              "fontFamily": "Zen Kaku Gothic New",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "zyQl1",
+                      "name": "比較読み",
+                      "fill": "#fbbf24",
+                      "content": "ネガ 1→2→2→5",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uqzwM",
+              "name": "注目チップ",
+              "width": "fill_container",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "FpRpO",
+                  "name": "注目ラベル",
+                  "fill": "#9aa1af",
+                  "content": "注目",
+                  "fontFamily": "Zen Kaku Gothic New",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "Q1bRT",
+                  "name": "プラットフォーム",
+                  "fill": "#2c1210",
+                  "cornerRadius": 999,
+                  "stroke": "#e5534b",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "xx9ps",
+                      "name": "プラットフォームt",
+                      "fill": "#f87171",
+                      "content": "プラットフォーム",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "v0pWw",
+                  "name": "Aさん 負荷",
+                  "fill": "#2c1210",
+                  "cornerRadius": 999,
+                  "stroke": "#e5534b",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mg0gw",
+                      "name": "Aさん 負荷t",
+                      "fill": "#f87171",
+                      "content": "Aさん 負荷",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fdoZL",
+                  "name": "Bさん 連携",
+                  "fill": "#2a2008",
+                  "cornerRadius": 999,
+                  "stroke": "#d99a1b",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "e6fX6Y",
+                      "name": "Bさん 連携t",
+                      "fill": "#fbbf24",
+                      "content": "Bさん 連携",
+                      "fontFamily": "Zen Kaku Gothic New",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "MsANn",
+      "x": 1280,
+      "y": -220,
+      "name": "改善案Aの意図",
+      "width": 720,
+      "fill": "#1b1e26",
+      "cornerRadius": 10,
+      "stroke": "#3b6fd6",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 16,
+      "children": [
+        {
+          "type": "text",
+          "id": "AbvcG",
+          "name": "意図タイトル",
+          "fill": "#7fb0ff",
+          "content": "改善案A — 設計意図",
+          "fontFamily": "Zen Kaku Gothic New",
+          "fontSize": 18,
+          "fontWeight": "800"
+        },
+        {
+          "type": "text",
+          "id": "yG2bX",
+          "name": "意図1",
+          "fill": "#9aa1af",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "1. 状態の内訳はチーム／メンバーを分離（個人課題とチーム課題を混同しない）",
+          "fontFamily": "Zen Kaku Gothic New",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "cE4UM",
+          "name": "意図2",
+          "fill": "#9aa1af",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "2. 過去比較は週次Journal感情トーンの件数を4週積み上げ棒で。さっと見る用途なので3列目の狭い枠に置く",
+          "fontFamily": "Zen Kaku Gothic New",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "J2h7pL",
+          "name": "意図3",
+          "fill": "#9aa1af",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "3. チェックイン未記録は上部の薄い帯。リッチな締めくくりカードは朝の主問いから外す",
+          "fontFamily": "Zen Kaku Gothic New",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "FVsVo",
+          "name": "意図4",
+          "fill": "#9aa1af",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "4. 今日やるべき3つは順位・なぜ今・緊急度・動詞CTAで立体化",
+          "fontFamily": "Zen Kaku Gothic New",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "background": {
+      "type": "color",
+      "value": "#14161c"
+    },
+    "panel": {
+      "type": "color",
+      "value": "#1b1e26"
+    },
+    "foreground": {
+      "type": "color",
+      "value": "#e7e9ee"
+    },
+    "text-muted": {
+      "type": "color",
+      "value": "#9aa1af"
+    },
+    "border": {
+      "type": "color",
+      "value": "#2c2f3a"
+    },
+    "input-border": {
+      "type": "color",
+      "value": "#686e7d"
+    },
+    "gray-bg": {
+      "type": "color",
+      "value": "#22252e"
+    },
+    "gray-border": {
+      "type": "color",
+      "value": "#3a3f4b"
+    },
+    "blue": {
+      "type": "color",
+      "value": "#3b6fd6"
+    },
+    "blue-bg": {
+      "type": "color",
+      "value": "#16233d"
+    },
+    "blue-text": {
+      "type": "color",
+      "value": "#7fb0ff"
+    },
+    "green-bg": {
+      "type": "color",
+      "value": "#10261a"
+    },
+    "green-fg": {
+      "type": "color",
+      "value": "#4ade80"
+    },
+    "green-border": {
+      "type": "color",
+      "value": "#22c55e"
+    },
+    "yellow-bg": {
+      "type": "color",
+      "value": "#2a2008"
+    },
+    "yellow-fg": {
+      "type": "color",
+      "value": "#fbbf24"
+    },
+    "red-bg": {
+      "type": "color",
+      "value": "#2c1210"
+    },
+    "red-fg": {
+      "type": "color",
+      "value": "#f87171"
+    },
+    "font-sans": {
+      "type": "string",
+      "value": "Zen Kaku Gothic New"
+    },
+    "font-mono": {
+      "type": "string",
+      "value": "JetBrains Mono"
+    },
+    "radius-panel": {
+      "type": "number",
+      "value": 10
+    },
+    "radius-btn": {
+      "type": "number",
+      "value": 6
+    },
+    "radius-tag": {
+      "type": "number",
+      "value": 12
+    },
+    "gap-section": {
+      "type": "number",
+      "value": 16
+    }
+  },
+  "fileToken": "03a105b4-0861-4107-9f70-9933f037c4ce"
+}
