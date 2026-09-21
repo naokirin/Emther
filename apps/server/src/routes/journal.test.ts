@@ -512,6 +512,18 @@ describe("POST /api/journal/:id/analyze", () => {
 });
 
 // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」対応。
+describe("GET /api/journal/batch", () => {
+  it("前回解釈以降の未解釈件数を返す", async () => {
+    const journalStore = await import("@emther/core/journal-store");
+    await journalStore.addJournalEntry("未解釈メモ");
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request("/batch", { method: "GET" });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.pendingCount).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe("POST /api/journal/batch", () => {
   it("Lead Agentの分析Runを起動して201を返す", async () => {
     const { journalRoute } = await import("./journal");

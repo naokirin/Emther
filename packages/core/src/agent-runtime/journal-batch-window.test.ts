@@ -37,6 +37,17 @@ describe("journal-batch-window", () => {
     expect(mod.isJournalInBatchWindow(later + 1, later + 10)).toBe(false);
   });
 
+  it("次バッチ候補は lastCoveredAt 以降を数え、固定窓の外側も候補に含む", async () => {
+    const mod = await import("./journal-batch-window");
+    const now = Date.now();
+    mod.beginJournalBatchWindow(now);
+    const later = now + 60_000;
+    // 固定窓の外側（begin後に書いたメモ）は isJournalInBatchWindow=false だが次バッチ候補
+    expect(mod.isJournalInBatchWindow(later + 1, later + 10)).toBe(false);
+    expect(mod.isPendingForNextJournalBatch(later + 1, later + 10)).toBe(true);
+    expect(mod.countPendingForNextJournalBatch([{ createdAt: later + 1 }, { createdAt: now - 1000 }], later + 10)).toBe(1);
+  });
+
   it("アクティブ窓は永続化され、モジュール再読込後も同じ範囲を返す", async () => {
     const mod1 = await import("./journal-batch-window");
     const t0 = Date.now();

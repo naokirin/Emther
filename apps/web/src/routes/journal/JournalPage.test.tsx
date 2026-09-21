@@ -42,6 +42,7 @@ describe("JournalPage", () => {
       if (url.startsWith("/api/journal/search")) {
         return { ok: true, json: async () => ({ entries: [ENTRY], total: 1, page: 1, pageSize: 10, facets: { tags: [], people: [] } }) };
       }
+      if (url === "/api/journal/batch") return { ok: true, json: async () => ({ pendingCount: 0 }) };
       if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
       if (url === "/api/journal/dumps") return { ok: true, json: async () => ({ dumps: [] }) };
@@ -60,7 +61,7 @@ describe("JournalPage", () => {
 
     expect(await screen.findByText("Aさんと1on1した")).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("キーワード検索（本文・要約・タグ・人物）"), "リファクタ");
+    await user.type(screen.getByLabelText("本文・人物・タグで検索"), "リファクタ");
     await waitFor(() => {
       const called = fetchMock.mock.calls.some((call: unknown[]) => {
         const url = call[0] as string;
@@ -78,11 +79,35 @@ describe("JournalPage", () => {
         if (url.startsWith("/api/journal/search")) {
           return { ok: true, json: async () => ({ entries: [], total: 0, page: 1, pageSize: 10, facets: { tags: [], people: [] } }) };
         }
+        if (url === "/api/journal/batch") return { ok: true, json: async () => ({ pendingCount: 0 }) };
         return { ok: true, json: async () => ({}) };
       }),
     );
     render(<JournalPage />, { wrapper: createWrapper() });
     expect(await screen.findByText("条件に一致するJournalはありません。")).toBeInTheDocument();
+  });
+
+  it("未解釈件数があるときだけ集約解釈ストリップを出す", async () => {
+    fetchMock = vi.fn(async (url: string) => {
+      if (url.startsWith("/api/journal/search")) {
+        return { ok: true, json: async () => ({ entries: [ENTRY], total: 1, page: 1, pageSize: 10, facets: { tags: [], people: [] } }) };
+      }
+      if (url === "/api/journal/batch") return { ok: true, json: async () => ({ pendingCount: 3 }) };
+      if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
+      if (url === "/api/journal/dumps") return { ok: true, json: async () => ({ dumps: [] }) };
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<JournalPage />, { wrapper: createWrapper() });
+    expect(await screen.findByText("前回解釈から 3件の未解釈があります")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "集約解釈する" })).toBeInTheDocument();
+  });
+
+  it("未解釈が0件なら集約解釈ストリップを出さない", async () => {
+    render(<JournalPage />, { wrapper: createWrapper() });
+    expect(await screen.findByText("Aさんと1on1した")).toBeInTheDocument();
+    expect(screen.queryByText(/未解釈があります/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "集約解釈する" })).not.toBeInTheDocument();
   });
 
   it("?focus= 指定時は対象Journalへ scrollIntoView する", async () => {
@@ -108,6 +133,7 @@ describe("JournalPage", () => {
       if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
       if (url === "/api/journal/dumps") return { ok: true, json: async () => ({ dumps: [] }) };
+      if (url === "/api/journal/batch") return { ok: true, json: async () => ({ pendingCount: 0 }) };
       return { ok: true, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);

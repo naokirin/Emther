@@ -2982,3 +2982,470 @@ button.situationChip:hover {
   margin-bottom: 2px;
 }
 
+/* docs/design/journal/journal-tab.pen 改善案A: 役割分離 + 段階開示 */
+
+.journalTitleHint {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.journalSectionLabel {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.journalWriteHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.journalWriteModeHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.journalModeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--gray-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.journalImportMenu {
+  position: relative;
+}
+
+.journalImportTrigger,
+.journalFilterTrigger,
+.journalMoreTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.journalImportTrigger:hover,
+.journalFilterTrigger:hover,
+.journalMoreTrigger:hover {
+  border-color: var(--input-border);
+  color: var(--foreground);
+}
+
+.journalFloatingTriggerOpen {
+  border-color: var(--blue);
+  color: var(--blue-text);
+  background: var(--blue-bg);
+}
+
+.journalFloatingMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.journalImportMenuItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--foreground);
+}
+
+.journalImportMenuItem:hover {
+  background: var(--gray-bg);
+}
+
+.journalImportMenuIcon {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.journalImportMenuText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.journalImportMenuTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.journalImportMenuDesc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.journalReviewHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.journalReviewCount {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.journalBatchStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--blue);
+  background: var(--blue-bg);
+}
+
+.journalBatchCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.journalBatchTitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.journalBatchHint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.journalFilterBar {
+  margin-bottom: 14px;
+}
+
+.journalSearchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.journalSearchInput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: var(--panel);
+  color: var(--foreground);
+}
+
+.journalFilterBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.journalFilterPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: min(360px, calc(100vw - 48px));
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journalFilterPopoverHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.journalFilterPopoverHead strong {
+  font-size: 0.875rem;
+}
+
+.journalFilterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.journalFilterCheck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.journalFilterPopoverFoot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.journalFilterChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.journalFilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
+  color: var(--foreground);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.journalFilterChip:hover {
+  border-color: var(--input-border);
+}
+
+.journalEntryList {
+  margin-top: 4px;
+}
+
+.journalCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.journalCardHeadLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.journalStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 5px;
+  padding: 3px 9px;
+}
+
+.journalStatusUnconfirmed {
+  background: var(--yellow-bg);
+  color: var(--yellow-fg);
+  border: 1px solid var(--yellow-border);
+}
+
+.journalStatusConfirmed {
+  background: var(--gray-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.journalStatusResolved {
+  background: var(--green-bg);
+  color: var(--green-fg);
+  border: 1px solid var(--green-border);
+}
+
+.journalCardMeta {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.journalCardMetaBtn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.journalCardMetaBtn:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+.journalMoreMenu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.journalMoreTrigger {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.journalMoreMenuPanel {
+  min-width: 220px;
+  padding: 4px;
+}
+
+.journalMoreItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.journalMoreItem:hover {
+  background: var(--gray-bg);
+}
+
+.journalMoreItemDanger {
+  color: var(--red-fg);
+}
+
+.journalMoreDivider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+.journalCardSignals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.journalCardSignalsLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.journalSentiment {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.journalCardTags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.journalCardTagBtn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.journalCardTagBtn:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+.journalCardAction {
+  width: auto;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 4px 12px;
+  font-size: 0.8125rem;
+}
+

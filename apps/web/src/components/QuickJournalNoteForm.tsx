@@ -77,7 +77,9 @@ export function QuickJournalNoteForm({
           style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}
         >
           <input type="checkbox" checked={isImpression} onChange={(e) => setIsImpression(e.target.checked)} />
-          感想を含む（事実と分けて記録したい単なる印象・感想のときにチェック）
+          <span className={styles.axisTooltip} data-tooltip="事実と分けて記録したい単なる印象・感想のときにチェック">
+            感想を含む
+          </span>
         </label>
         {dateOpen ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
@@ -103,7 +105,7 @@ export function QuickJournalNoteForm({
             style={{ marginTop: 6 }}
             onClick={() => setDateOpen(true)}
           >
-            📅 今日の話じゃない（発生日を変える）
+            📅 発生日を変える
           </button>
         )}
         <div style={{ marginTop: 8 }}>

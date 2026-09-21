@@ -2,19 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import { JournalEntryCard } from "../../components/JournalEntryCard";
+import { JournalFilterBar, type JournalFilterState } from "../../components/JournalFilterBar";
 import { JournalInputSwitcher } from "../../components/JournalInputSwitcher";
 import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls, paginationMeta } from "../../components/Pagination";
-import { Select } from "../../components/Select";
-import { useSuggestions, useJournalSearch } from "../../lib/queries";
+import { useSuggestions, useJournalSearch, useJournalBatchStatus } from "../../lib/queries";
 import type { JournalEntry } from "@emther/core/types";
 import { useJournalEditing } from "../../lib/useJournalEditing";
 
 // web/src/app/journal/page.tsx（Next.js版）からの移植（フェーズ3.5 tier4）。
-// react-routerのuseSearchParamsはSuspenseを要求しないため、元実装の<Suspense>ラッパーは
-// 不要（削除した）。stylesのimportパス・`@core/*`のbare specifier化・`next/navigation`の
-// useRouter/useSearchParams→react-routerのuseNavigate/useSearchParams以外はロジックを
-// 変更していない。
+// docs/design/journal/journal-tab.pen 改善案A「役割分離 + 段階開示」に合わせて
+// 書く／見返すの二層構成・集約解釈ストリップ・絞り込みポップオーバーへ再編。
 const PAGE_SIZE = 10;
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -37,6 +35,17 @@ const SENTIMENT_FILTER_OPTIONS = [
   { value: "neutral", label: "ニュートラル" },
   { value: "negative", label: "ネガティブ" },
 ];
+
+const EMPTY_FILTERS: Omit<JournalFilterState, "query"> = {
+  periodDays: "all",
+  personFilter: "",
+  tagFilter: "",
+  urgencyFilter: "",
+  sentimentFilter: "",
+  excludeResolved: false,
+  includeArchived: false,
+  quarantinedOnly: false,
+};
 
 export function JournalPage() {
   const navigate = useNavigate();
@@ -75,11 +84,61 @@ export function JournalPage() {
   const [quarantinedOnly, setQuarantinedOnly] = useState(false);
   const [page, setPage] = useState(1);
 
-  function updateFilter<T>(setter: (v: T) => void) {
-    return (v: T) => {
-      setter(v);
-      setPage(1);
-    };
+  const filterState: JournalFilterState = {
+    query,
+    periodDays,
+    personFilter,
+    tagFilter,
+    urgencyFilter,
+    sentimentFilter,
+    excludeResolved,
+    includeArchived,
+    quarantinedOnly,
+  };
+
+  function handleFilterChange<K extends keyof JournalFilterState>(key: K, next: JournalFilterState[K]) {
+    setPage(1);
+    switch (key) {
+      case "query":
+        setQuery(next as string);
+        break;
+      case "periodDays":
+        setPeriodDays(next as string);
+        break;
+      case "personFilter":
+        setPersonFilter(next as string);
+        break;
+      case "tagFilter":
+        setTagFilter(next as string);
+        break;
+      case "urgencyFilter":
+        setUrgencyFilter(next as JournalEntry["urgency"] | "");
+        break;
+      case "sentimentFilter":
+        setSentimentFilter(next as JournalEntry["sentiment"] | "");
+        break;
+      case "excludeResolved":
+        setExcludeResolved(next as boolean);
+        break;
+      case "includeArchived":
+        setIncludeArchived(next as boolean);
+        break;
+      case "quarantinedOnly":
+        setQuarantinedOnly(next as boolean);
+        break;
+    }
+  }
+
+  function clearFilters() {
+    setPage(1);
+    setPeriodDays(EMPTY_FILTERS.periodDays);
+    setPersonFilter(EMPTY_FILTERS.personFilter);
+    setTagFilter(EMPTY_FILTERS.tagFilter);
+    setUrgencyFilter(EMPTY_FILTERS.urgencyFilter);
+    setSentimentFilter(EMPTY_FILTERS.sentimentFilter);
+    setExcludeResolved(EMPTY_FILTERS.excludeResolved);
+    setIncludeArchived(EMPTY_FILTERS.includeArchived);
+    setQuarantinedOnly(EMPTY_FILTERS.quarantinedOnly);
   }
 
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
@@ -103,6 +162,7 @@ export function JournalPage() {
   );
   const editing = useJournalEditing(entries, setEntries);
   const { suggestions } = useSuggestions();
+  const { pendingCount, batchStatusLoaded, refreshBatchStatus } = useJournalBatchStatus();
   const pagination = paginationMeta(total, activeFocusId ? resolvedPage : page, PAGE_SIZE);
 
   if (activeFocusId) {
@@ -136,12 +196,19 @@ export function JournalPage() {
     return () => window.clearTimeout(timer);
   }, [appliedFocusId, entries]);
 
+  // 集約解釈は「見返す」冒頭の文脈ストリップ。未解釈があるときだけ出す。
+  const showBatchStrip = batchStatusLoaded && pendingCount > 0;
+
   return (
     <div className={styles.screen}>
-      <PageTitleRow title="ジャーナル" helpAnchor="journal" />
+      <div style={{ marginBottom: 12 }}>
+        <PageTitleRow title="ジャーナル" helpAnchor="journal" />
+        <p className={styles.journalTitleHint}>感知のメモを残し、あとから見返す</p>
+      </div>
 
       <JournalInputSwitcher
         onSaved={() => {
+          void refreshBatchStatus();
           if (page === 1) refreshSearch();
           else setPage(1);
         }}
@@ -149,149 +216,89 @@ export function JournalPage() {
         prefill={prefill}
       />
 
-      <div className={styles.panel} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <p className={styles.subtitle} style={{ margin: 0, flex: "1 1 auto" }}>
-          前回解釈以降のJournalをまとめて解釈します（最大7日。日次バッチとは別に、今すぐ実行できます）。
-        </p>
-        <button className={styles.btnOutline} disabled={batchSubmitting} onClick={handleRunJournalBatch}>
-          {batchSubmitting ? "解釈中…" : "🧭 Journalを集約解釈する"}
-        </button>
-      </div>
-      {batchError && (
-        <p className={styles.errorText} role="alert">
-          {batchError}
-        </p>
-      )}
-
       <div className={styles.panel}>
-        <div className={styles.field}>
-          <label>キーワード検索（本文・要約・タグ・人物）
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => updateFilter(setQuery)(e.target.value)}
-            placeholder="例: リファクタリング"
-          /></label>
+        <div className={styles.journalReviewHeader}>
+          <h3 className={styles.journalSectionLabel}>見返す</h3>
+          <span className={styles.journalReviewCount}>{total}件</span>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            期間:
-            <Select value={periodDays} onChange={updateFilter(setPeriodDays)} options={PERIOD_OPTIONS} style={{ minWidth: 140 }} />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            人物:
-            <Select
-              value={personFilter}
-              onChange={updateFilter(setPersonFilter)}
-              options={[{ value: "", label: "すべて" }, ...facets.people.map((p) => ({ value: p, label: p }))]}
-              style={{ minWidth: 140 }}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            タグ:
-            <Select
-              value={tagFilter}
-              onChange={updateFilter(setTagFilter)}
-              options={[{ value: "", label: "すべて" }, ...facets.tags.map((t) => ({ value: t, label: `#${t}` }))]}
-              style={{ minWidth: 140 }}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            Urgency:
-            <Select
-              value={urgencyFilter}
-              onChange={updateFilter((v: string) => setUrgencyFilter(v as JournalEntry["urgency"] | ""))}
-              options={URGENCY_FILTER_OPTIONS}
-              style={{ minWidth: 120 }}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            感情:
-            <Select
-              value={sentimentFilter}
-              onChange={updateFilter((v: string) => setSentimentFilter(v as JournalEntry["sentiment"] | ""))}
-              options={SENTIMENT_FILTER_OPTIONS}
-              style={{ minWidth: 140 }}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            <input
-              type="checkbox"
-              checked={excludeResolved}
-              onChange={(e) => updateFilter(setExcludeResolved)(e.target.checked)}
-            />
-            ✅ 対応済み/提案化済みを除外
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            <input
-              type="checkbox"
-              checked={includeArchived}
-              onChange={(e) => updateFilter(setIncludeArchived)(e.target.checked)}
-            />
-            🗄 アーカイブ済みも表示する
-          </label>
-          <label
-            className={styles.axisTooltip}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", color: "var(--text-muted)" }}
-            data-tooltip="実名を含んでいたため自動で隔離（アーカイブ）されたJournalだけに絞り込みます"
-          >
-            <input
-              type="checkbox"
-              checked={quarantinedOnly}
-              onChange={(e) => updateFilter(setQuarantinedOnly)(e.target.checked)}
-            />
-            🔒 実名隔離のみ表示する
-          </label>
-        </div>
-      </div>
 
-      <div className={styles.panel} style={{ marginTop: 16 }}>
-        {entries.length === 0 ? (
-          <p className={styles.subtitle}>{!searchLoaded ? "読み込み中…" : "条件に一致するJournalはありません。"}</p>
-        ) : (
-          entries.map((entry) => (
-            <div key={entry.id} data-journal-id={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
-              <JournalEntryCard
-                entry={entry}
-                suggestions={suggestions}
-                editing={editing.editingEntryId === entry.id}
-                editRawText={editing.editRawText}
-                editTags={editing.editTags}
-                editPeople={editing.editPeople}
-                editTeams={editing.editTeams}
-                editUrgency={editing.editUrgency}
-                editSentiment={editing.editSentiment}
-                editDate={editing.editDate}
-                editSubmitting={editing.editSubmitting}
-                editError={editing.editError}
-                resolutionNoteDraft={editing.resolutionNoteDraft}
-                pending={editing.isEntryPending(entry.id)}
-                pendingError={editing.pendingEntryErrors[entry.id]}
-                onDismissPendingError={() => editing.dismissPendingError(entry.id)}
-                onChangeEditRawText={editing.setEditRawText}
-                onChangeEditTags={editing.setEditTags}
-                onChangeEditPeople={editing.setEditPeople}
-                onChangeEditTeams={editing.setEditTeams}
-                onChangeEditUrgency={editing.setEditUrgency}
-                onChangeEditSentiment={editing.setEditSentiment}
-                onChangeEditDate={editing.setEditDate}
-                onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
-                onConfirmEdit={() => editing.confirmEdit(entry.id)}
-                onConfirmAsIs={() => editing.confirmAsIs(entry)}
-                onStartAnalysis={() => editing.startAnalysis(entry)}
-                onCancelEdit={editing.cancelEditing}
-                onStartEdit={() => editing.startEditing(entry)}
-                onResolveWithNote={() => editing.resolveWithNote(entry.id)}
-                onResolveWithNewSuggestion={() => editing.resolveWithNewSuggestion(entry)}
-                onClearResolution={() => editing.clearResolution(entry.id)}
-                onAcknowledgeSentiment={() => editing.acknowledgeSentiment(entry.id)}
-                onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}
-                onArchive={() => editing.archiveEntry(entry.id)}
-                onUnarchive={() => editing.unarchiveEntry(entry.id)}
-              />
+        {showBatchStrip && (
+          <div className={styles.journalBatchStrip}>
+            <div className={styles.journalBatchCopy}>
+              <p className={styles.journalBatchTitle}>前回解釈から {pendingCount}件の未解釈があります</p>
+              <p className={styles.journalBatchHint}>まとめて Lead Agent に渡します（最大7日）</p>
             </div>
-          ))
+            <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={batchSubmitting} onClick={handleRunJournalBatch}>
+              {batchSubmitting ? "解釈中…" : "集約解釈する"}
+            </button>
+          </div>
         )}
+        {batchError && (
+          <p className={styles.errorText} role="alert">
+            {batchError}
+          </p>
+        )}
+
+        <JournalFilterBar
+          value={filterState}
+          onChange={handleFilterChange}
+          onClear={clearFilters}
+          periodOptions={PERIOD_OPTIONS}
+          urgencyOptions={URGENCY_FILTER_OPTIONS}
+          sentimentOptions={SENTIMENT_FILTER_OPTIONS}
+          people={facets.people}
+          tags={facets.tags}
+        />
+
+        <div className={styles.journalEntryList}>
+          {entries.length === 0 ? (
+            <p className={styles.subtitle}>{!searchLoaded ? "読み込み中…" : "条件に一致するJournalはありません。"}</p>
+          ) : (
+            entries.map((entry) => (
+              <div key={entry.id} data-journal-id={entry.id} ref={entry.id === focusId ? focusedEntryRef : undefined}>
+                <JournalEntryCard
+                  entry={entry}
+                  suggestions={suggestions}
+                  editing={editing.editingEntryId === entry.id}
+                  editRawText={editing.editRawText}
+                  editTags={editing.editTags}
+                  editPeople={editing.editPeople}
+                  editTeams={editing.editTeams}
+                  editUrgency={editing.editUrgency}
+                  editSentiment={editing.editSentiment}
+                  editDate={editing.editDate}
+                  editSubmitting={editing.editSubmitting}
+                  editError={editing.editError}
+                  resolutionNoteDraft={editing.resolutionNoteDraft}
+                  pending={editing.isEntryPending(entry.id)}
+                  pendingError={editing.pendingEntryErrors[entry.id]}
+                  onDismissPendingError={() => editing.dismissPendingError(entry.id)}
+                  onChangeEditRawText={editing.setEditRawText}
+                  onChangeEditTags={editing.setEditTags}
+                  onChangeEditPeople={editing.setEditPeople}
+                  onChangeEditTeams={editing.setEditTeams}
+                  onChangeEditUrgency={editing.setEditUrgency}
+                  onChangeEditSentiment={editing.setEditSentiment}
+                  onChangeEditDate={editing.setEditDate}
+                  onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
+                  onConfirmEdit={() => editing.confirmEdit(entry.id)}
+                  onConfirmAsIs={() => editing.confirmAsIs(entry)}
+                  onStartAnalysis={() => editing.startAnalysis(entry)}
+                  onCancelEdit={editing.cancelEditing}
+                  onStartEdit={() => editing.startEditing(entry)}
+                  onResolveWithNote={() => editing.resolveWithNote(entry.id)}
+                  onResolveWithNewSuggestion={() => editing.resolveWithNewSuggestion(entry)}
+                  onClearResolution={() => editing.clearResolution(entry.id)}
+                  onAcknowledgeSentiment={() => editing.acknowledgeSentiment(entry.id)}
+                  onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}
+                  onArchive={() => editing.archiveEntry(entry.id)}
+                  onUnarchive={() => editing.unarchiveEntry(entry.id)}
+                  onTagClick={(tag) => handleFilterChange("tagFilter", tag)}
+                />
+              </div>
+            ))
+          )}
+        </div>
         <PaginationControls
           page={pagination.page}
           totalPages={pagination.totalPages}

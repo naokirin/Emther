@@ -25,6 +25,7 @@ import { resolveUniqueByPrefix } from "@emther/core/id-resolve";
 import { listSuggestions } from "@emther/core/suggestion-store";
 import { requestJournalAnalysis } from "@emther/core/journal-analysis";
 import { startJournalBatchAnalysis, toRunView } from "@emther/core/agent-runtime/index";
+import { countPendingForNextJournalBatch } from "@emther/core/agent-runtime/journal-batch-window";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
 
@@ -193,6 +194,28 @@ export const journalRoute = new Hono()
       facets,
     });
   })
+  // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
+  // 対応。/api/themes/distillと同型のオンデマンド起動。
+  // GET は docs/design/journal/journal-tab.pen 改善案A「未解釈があるときだけストリップ表示」用。
+  // /:id より前に置く（"batch" が id として解釈されないようにする）。
+  .get("/batch", (c) => {
+    const pendingCount = countPendingForNextJournalBatch(listJournalEntries());
+    return c.json({ pendingCount });
+  })
+  .post("/batch", async (c) => {
+    try {
+      const run = await startJournalBatchAnalysis({ manual: true });
+      if (!run) {
+        return c.json({ pendingUnmasked: true }, 202);
+      }
+      return c.json({ run: toRunView(run) }, 201);
+    } catch (err) {
+      if (isUnconfirmedNameCandidatesError(err)) {
+        return c.json({ error: err.message, candidates: err.candidates }, 409);
+      }
+      return c.json({ error: (err as Error).message }, 500);
+    }
+  })
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const exact = getCurrentJournalEntry(id);
@@ -360,21 +383,5 @@ export const journalRoute = new Hono()
       );
     } catch (err) {
       return jsonFromUnknownError(err);
-    }
-  })
-  // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
-  // 対応。/api/themes/distillと同型のオンデマンド起動。
-  .post("/batch", async (c) => {
-    try {
-      const run = await startJournalBatchAnalysis({ manual: true });
-      if (!run) {
-        return c.json({ pendingUnmasked: true }, 202);
-      }
-      return c.json({ run: toRunView(run) }, 201);
-    } catch (err) {
-      if (isUnconfirmedNameCandidatesError(err)) {
-        return c.json({ error: err.message, candidates: err.candidates }, 409);
-      }
-      return c.json({ error: (err as Error).message }, 500);
     }
   });

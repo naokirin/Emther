@@ -84,17 +84,26 @@ function renderCard(props: ReturnType<typeof baseProps>, wrap?: (children: React
 }
 
 describe("JournalEntryCard（表示モード）", () => {
-  it("本文・タグ・人物・Urgencyを表示する", () => {
+  it("本文・人物・Urgencyを表示する", () => {
     renderCard(baseProps());
     expect(screen.getByText("Aさんと1on1した")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "@Aさん" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "#1on1" })).toBeInTheDocument();
-    expect(screen.getByText("Urgency: Mid")).toBeInTheDocument();
+    expect(screen.getByText("#1on1")).toBeInTheDocument();
+    expect(screen.getByText("Mid")).toBeInTheDocument();
+  });
+
+  it("onTagClickがあればタグクリックで呼び、提案画面へは遷移しない", async () => {
+    const onTagClick = vi.fn();
+    const user = userEvent.setup();
+    renderCard(baseProps({ onTagClick }));
+    await user.click(screen.getByRole("button", { name: "#1on1" }));
+    expect(onTagClick).toHaveBeenCalledWith("1on1");
+    expect(screen.getByTestId("location")).toHaveTextContent("/");
   });
 
   it("関連チーム名を表示する", () => {
     renderCard(baseProps({ entry: baseEntry({ teamIds: ["t1"], teamNames: ["コアチーム"] }) }));
-    expect(screen.getByRole("button", { name: "👥 コアチーム" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "コアチーム" })).toBeInTheDocument();
   });
 
   it("今日の発生日は「今日」と表示する", () => {
@@ -108,9 +117,9 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(screen.getByText(/昨日/)).toBeInTheDocument();
   });
 
-  it("未確認(confirmed:false)のエントリには🤖未確認バッジを出す", () => {
+  it("未確認(confirmed:false)のエントリには未確認バッジを出す", () => {
     renderCard(baseProps({ entry: baseEntry({ confirmed: false }) }));
-    expect(screen.getByText(/未確認/)).toBeInTheDocument();
+    expect(screen.getByText("未確認")).toBeInTheDocument();
   });
 
   it("人物タグをクリックすると/chatへ遷移する", async () => {
@@ -120,16 +129,15 @@ describe("JournalEntryCard（表示モード）", () => {
     await waitFor(() => expect(screen.getByTestId("location").textContent).toContain("/chat?prefill="));
   });
 
-  it("resolvedSuggestionIdがあれば「提案で追跡中」バッジを表示しクリックで提案をサイドピークで開く", async () => {
+  it("resolvedSuggestionIdがあれば「提案で追跡中」バッジを表示し、主アクションから提案を開く", async () => {
     const openSuggestionPeekMock = vi.fn();
     const user = userEvent.setup();
     renderCard(
       baseProps({ entry: baseEntry({ resolvedSuggestionId: "suggestion-1", resolvedSuggestionTitle: "追跡中の提案" }) }),
       (children) => <IdResolveProvider openSuggestionInPeek={openSuggestionPeekMock}>{children}</IdResolveProvider>,
     );
-    const badge = screen.getByRole("button", { name: "✅ 提案で追跡中" });
-    expect(badge).toBeInTheDocument();
-    await user.click(badge);
+    expect(screen.getByText("提案で追跡中")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "提案を開く" }));
     expect(openSuggestionPeekMock).toHaveBeenCalledWith("suggestion-1");
   });
 
@@ -148,26 +156,28 @@ describe("JournalEntryCard（表示モード）", () => {
     expect(screen.queryByRole("navigation", { name: "戦略のつながり" })).not.toBeInTheDocument();
   });
 
-  it("sourceConsultRunIdがあれば「相談を開く」を表示しクリックで相談へ遷移する", async () => {
+  it("sourceConsultRunIdがあれば⋯メニューから「相談を開く」で相談へ遷移する", async () => {
     const user = userEvent.setup();
     renderCard(baseProps({ entry: baseEntry({ sourceConsultRunId: "run-1" }) }));
-    await user.click(screen.getByRole("button", { name: "💬 相談を開く" }));
+    await user.click(screen.getByRole("button", { name: "その他の操作" }));
+    await user.click(screen.getByRole("menuitem", { name: "💬 相談を開く" }));
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/chat?runId=run-1"));
   });
 
-  it("編集ボタンでonStartEditを呼ぶ", async () => {
+  it("⋯メニューの編集でonStartEditを呼ぶ", async () => {
     const onStartEdit = vi.fn();
     const user = userEvent.setup();
     renderCard(baseProps({ onStartEdit }));
-    await user.click(screen.getByRole("button", { name: "編集" }));
+    await user.click(screen.getByRole("button", { name: "その他の操作" }));
+    await user.click(screen.getByRole("menuitem", { name: "編集" }));
     expect(onStartEdit).toHaveBeenCalledTimes(1);
   });
 
-  it("未確認なら「この内容で確定」ショートカットを出し、onConfirmAsIsを呼ぶ", async () => {
+  it("未確認なら「確定する」ショートカットを出し、onConfirmAsIsを呼ぶ", async () => {
     const onConfirmAsIs = vi.fn();
     const user = userEvent.setup();
     renderCard(baseProps({ entry: baseEntry({ confirmed: false }), onConfirmAsIs }));
-    await user.click(screen.getByRole("button", { name: "この内容で確定" }));
+    await user.click(screen.getByRole("button", { name: "確定する" }));
     expect(onConfirmAsIs).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "分析する" })).not.toBeInTheDocument();
   });
@@ -181,15 +191,17 @@ describe("JournalEntryCard（表示モード）", () => {
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/chat?runId=run-42"));
   });
 
-  it("相談があるときは「分析する」を出さず「相談を開く」を優先する", () => {
+  it("相談があるときは「分析する」を出さず、⋯メニューに「相談を開く」を置く", async () => {
+    const user = userEvent.setup();
     renderCard(
       baseProps({
         entry: baseEntry({ sourceConsultRunId: "run-1" }),
         onStartAnalysis: async () => "run-x",
       }),
     );
-    expect(screen.getByRole("button", { name: "💬 相談を開く" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "分析する" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "その他の操作" }));
+    expect(screen.getByRole("menuitem", { name: "💬 相談を開く" })).toBeInTheDocument();
   });
 });
 

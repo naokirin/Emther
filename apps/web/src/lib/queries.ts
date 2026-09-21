@@ -189,6 +189,22 @@ export function useJournalSearch(
   };
 }
 
+/** docs/design/journal/journal-tab.pen 改善案A: 未解釈件数で集約解釈ストリップを出し分け */
+export const journalBatchStatusQueryKey = ["api", "journal", "batch"] as const;
+
+export function useJournalBatchStatus(intervalMs = 15000) {
+  const query = usePolledQuery<{ pendingCount: number }>(
+    journalBatchStatusQueryKey,
+    "/api/journal/batch",
+    intervalMs,
+  );
+  return {
+    pendingCount: query.data?.pendingCount ?? 0,
+    batchStatusLoaded: !query.isPending,
+    refreshBatchStatus: query.refetch,
+  };
+}
+
 // 旧: web/src/lib/hooks.ts useSettingsRules。settings画面はロード完了前にdraftを
 // 初期化する必要があるため、旧実装と同じ既定値のfallbackを維持する。
 const SETTINGS_RULES_FALLBACK: RulesAndConstraints = {

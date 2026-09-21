@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../styles/page.module.css";
 import { MarkdownView } from "./MarkdownView";
@@ -8,10 +8,15 @@ import { buildJournalStrategyTrail } from "@emther/core/strategy-trail";
 import {
   isJournalEntryResolved,
   journalResolutionLabel,
-  URGENCY_LABEL,
   type JournalEntry,
   type Suggestion,
 } from "@emther/core/types";
+
+const URGENCY_SHORT: Record<JournalEntry["urgency"], string> = {
+  low: "Low",
+  mid: "Mid",
+  high: "High",
+};
 
 // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
 // 訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、常に
@@ -72,6 +77,7 @@ export function JournalEntryCard({
   onArchive,
   onUnarchive,
   onDismissPendingError,
+  onTagClick,
 }: {
   entry: JournalEntry;
   suggestions?: Pick<Suggestion, "id" | "title">[];
@@ -118,6 +124,8 @@ export function JournalEntryCard({
   onArchive?: () => void;
   onUnarchive?: () => void;
   onDismissPendingError: () => void;
+  /** タグクリックで Journal 一覧を絞り込む（未指定ならタグは表示のみ） */
+  onTagClick?: (tag: string) => void;
 }) {
   const navigate = useNavigate();
   const suggestionPeek = useSuggestionPeek();
@@ -128,6 +136,28 @@ export function JournalEntryCard({
   // 明示的に開始する（うっかり本文を書き換えてしまう事故も減らせる）。
   const [rawTextRevealed, setRawTextRevealed] = useState(false);
   const [analysisStarting, setAnalysisStarting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    }
+    function onKeyDownCapture(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDownCapture, true);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDownCapture, true);
+    };
+  }, [menuOpen]);
 
   async function handleCreateSuggestion() {
     const suggestionId = await onResolveWithNewSuggestion();
@@ -390,187 +420,261 @@ export function JournalEntryCard({
     );
   }
 
+  const statusLabel = !entry.confirmed
+    ? "未確認"
+    : entry.resolvedSuggestionId
+      ? "提案で追跡中"
+      : entry.resolutionNote
+        ? journalResolutionLabel(entry) || "対応済み"
+        : entry.confirmed
+          ? "確定済"
+          : null;
+
+  const statusClass = !entry.confirmed
+    ? styles.journalStatusUnconfirmed
+    : entry.resolvedSuggestionId || entry.resolutionNote
+      ? styles.journalStatusResolved
+      : styles.journalStatusConfirmed;
+
+  const primaryAction: {
+    label: string;
+    onClick: () => void;
+    primary: boolean;
+    tooltip: string;
+    disabled?: boolean;
+  } | null = !entry.confirmed && onConfirmAsIs
+    ? {
+        label: "確定する",
+        onClick: onConfirmAsIs,
+        primary: true,
+        tooltip: "修正なしで内容を確定します。設定の条件に合う場合は自動分析が起動します。",
+      }
+    : entry.resolvedSuggestionId
+      ? {
+          label: "提案を開く",
+          onClick: () => suggestionPeek.open(entry.resolvedSuggestionId!),
+          primary: false,
+          tooltip: `提案「${entry.resolvedSuggestionTitle ?? "(不明)"}」で追跡中です`,
+        }
+      : entry.confirmed && !entry.sourceConsultRunId && onStartAnalysis
+        ? {
+            label: analysisStarting ? "起動中…" : "分析する",
+            onClick: () => void handleStartAnalysis(),
+            primary: false,
+            tooltip: "設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。",
+            disabled: analysisStarting,
+          }
+        : null;
+
   return (
     <div className={`${styles.journalEntry} ${isResolved ? styles.journalEntryResolved : ""}`}>
-      {/* 改修依頼「対応済みラベルを本文前につけることでより『対応済み』がわかりやすい
-          ようにする」対応。tagRow内の✅チップ（提案へのリンク・メモの詳細）とは別に、
-          本文を読み始める前に一目で分かるよう先頭に軽量なラベルを添える。 */}
-      {isResolved && (
-        <span className={`${styles.tag} ${styles.tagPos}`} style={{ marginRight: 6 }}>
-          {journalResolutionLabel(entry)}
-        </span>
-      )}
-      {/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。本文はMarkdownで
-          描画し、クリックでも編集モードへ入れるようにする（アクセシブルな入口は下の
-          「編集」ボタン）。 */}
+      {/* docs/design/journal/journal-tab.pen 改善案A「カードのごちゃつき」対応。
+          層を分ける: ①状態＋誰・いつ ②本文 ③シグナル ④主アクション1つ。
+          編集・アーカイブ・対応不要・相談などは ⋯ メニューへ。 */}
+      <div className={styles.journalCardHead}>
+        <div className={styles.journalCardHeadLeft}>
+          {statusLabel && (
+            <span
+              className={`${styles.journalStatusBadge} ${statusClass} ${styles.axisTooltip}`}
+              data-tooltip={
+                !entry.confirmed
+                  ? "AIの自動抽出のままです。正しければ「確定する」、直すなら「編集」してください。"
+                  : entry.resolvedSuggestionId
+                    ? `提案「${entry.resolvedSuggestionTitle ?? "(不明)"}」で追跡中です`
+                    : entry.resolutionNote
+                      ? entry.resolutionNote
+                      : undefined
+              }
+              tabIndex={0}
+            >
+              {statusLabel}
+            </span>
+          )}
+          <span className={`${styles.journalCardMeta} ${styles.axisTooltip}`} data-tooltip="出来事の発生日" tabIndex={0}>
+            {formatEntryDate(entry.createdAt)}
+          </span>
+          {entry.people.map((p) => (
+            <button
+              key={p}
+              className={`${styles.journalCardMetaBtn} ${styles.tagBtn}`}
+              onClick={() => navigate(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
+            >
+              @{p}
+            </button>
+          ))}
+          {(entry.teamNames ?? []).map((name, i) => (
+            <button
+              key={entry.teamIds[i] ?? name}
+              className={`${styles.journalCardMetaBtn} ${styles.tagBtn} ${styles.axisTooltip}`}
+              data-tooltip="関連チーム"
+              onClick={() => navigate("/teams")}
+            >
+              {name}
+            </button>
+          ))}
+          {entry.archivedAt && (
+            <span className={`${styles.journalCardMeta} ${styles.axisTooltip}`} data-tooltip="一覧・AIの判断材料からは除外されています" tabIndex={0}>
+              アーカイブ済み
+            </span>
+          )}
+        </div>
+        <div className={styles.journalMoreMenu} ref={menuRef}>
+          <button
+            type="button"
+            className={`${styles.journalMoreTrigger} ${menuOpen ? styles.journalFloatingTriggerOpen : ""}`}
+            aria-label="その他の操作"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            ⋯
+          </button>
+          {menuOpen && (
+            <div className={`${styles.journalFloatingMenu} ${styles.journalMoreMenuPanel}`} role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.journalMoreItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onStartEdit();
+                }}
+              >
+                編集
+              </button>
+              {entry.sentiment === "negative" &&
+                (entry.noActionNeededAt ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={styles.journalMoreItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onClearSentimentAck();
+                    }}
+                  >
+                    確認を取り消す
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={styles.journalMoreItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAcknowledgeSentiment();
+                    }}
+                  >
+                    確認済み/対応不要とする
+                  </button>
+                ))}
+              {entry.sourceConsultRunId && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.journalMoreItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate(`/chat?runId=${entry.sourceConsultRunId}`);
+                  }}
+                >
+                  💬 相談を開く
+                </button>
+              )}
+              {entry.sourceDumpId && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.journalMoreItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate(`/journal?dump=${encodeURIComponent(entry.sourceDumpId!)}`);
+                  }}
+                >
+                  📥 取り込み元
+                </button>
+              )}
+              {(entry.archivedAt ? onUnarchive : onArchive) && (
+                <>
+                  <div className={styles.journalMoreDivider} role="separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${styles.journalMoreItem} ${styles.journalMoreItemDanger}`}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      (entry.archivedAt ? onUnarchive : onArchive)?.();
+                    }}
+                  >
+                    {entry.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className={styles.editableTextView} onClick={onStartEdit}>
         <MarkdownView text={entry.rawText} />
       </div>
       {entry.resolvedSuggestionId && (
         <StrategyTrail nodes={buildJournalStrategyTrail(entry, suggestions)} currentKind="journal" />
       )}
-      <div className={styles.tagRow}>
-        <span className={`${styles.subtitle} ${styles.axisTooltip}`} data-tooltip="出来事の発生日" tabIndex={0}>
-          🗓 {formatEntryDate(entry.createdAt)}
-        </span>
-        {entry.people.map((p) => (
-          <button
-            key={p}
-            className={`${styles.tag} ${styles.tagPerson} ${styles.tagBtn}`}
-            onClick={() => navigate(`/chat?prefill=${encodeURIComponent(`${p}について最近の懸念を整理して`)}`)}
-          >
-            @{p}
-          </button>
-        ))}
-        {(entry.teamNames ?? []).map((name, i) => (
-          <button
-            key={entry.teamIds[i] ?? name}
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn} ${styles.axisTooltip}`}
-            data-tooltip="関連チーム"
-            onClick={() => navigate("/teams")}
-          >
-            👥 {name}
-          </button>
-        ))}
-        {entry.tags.map((t) => (
-          <button
-            key={t}
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn}`}
-            onClick={() => navigate(`/suggestions?tag=${encodeURIComponent(t)}`)}
-          >
-            #{t}
-          </button>
-        ))}
-        {/* ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブ等の強調を減らせない」
-            対応。sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した
-            場合だけ、#ネガティブの赤い強調を中立色に弱める（別途取り消しもできる）。 */}
-        {entry.sentiment !== "neutral" &&
-          (entry.sentiment === "negative" && entry.noActionNeededAt ? (
-            <span
-              className={`${styles.tag} ${styles.tagPerson} ${styles.axisTooltip}`}
-              data-tooltip={
-                entry.noActionNeededNote
-                  ? `確認済み（対応不要と判断）: ${entry.noActionNeededNote}`
-                  : "確認済み（対応不要と判断）"
-              }
-              tabIndex={0}
-            >
-              ✓ ネガティブ（確認済み）
+
+      <div className={styles.journalCardSignals}>
+        <div className={styles.journalCardSignalsLeft}>
+          <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_SHORT[entry.urgency]}</span>
+          {entry.sentiment !== "neutral" &&
+            (entry.sentiment === "negative" && entry.noActionNeededAt ? (
+              <span
+                className={`${styles.journalSentiment} ${styles.tagPerson} ${styles.axisTooltip}`}
+                data-tooltip={
+                  entry.noActionNeededNote
+                    ? `確認済み（対応不要と判断）: ${entry.noActionNeededNote}`
+                    : "確認済み（対応不要と判断）"
+                }
+                tabIndex={0}
+              >
+                ネガティブ（確認済み）
+              </span>
+            ) : (
+              <span
+                className={`${styles.journalSentiment} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}
+              >
+                {entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
+              </span>
+            ))}
+          {entry.tags.length > 0 && (
+            <span className={styles.journalCardTags}>
+              {entry.tags.map((t) =>
+                onTagClick ? (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`${styles.journalCardTagBtn} ${styles.tagBtn}`}
+                    onClick={() => onTagClick(t)}
+                  >
+                    #{t}
+                  </button>
+                ) : (
+                  <span key={t} className={styles.journalCardTagBtn}>
+                    #{t}
+                  </span>
+                ),
+              )}
             </span>
-          ) : (
-            <span className={`${styles.tag} ${entry.sentiment === "positive" ? styles.tagPos : styles.tagNeg}`}>
-              #{entry.sentiment === "positive" ? "ポジティブ" : "ネガティブ"}
-            </span>
-          ))}
-        <span className={`${styles.urgencyLabel} ${styles[`urgency${entry.urgency}`]}`}>{URGENCY_LABEL[entry.urgency]}</span>
-        {/* docs/em_human_story_and_ux.md 改修依頼対応。urgencyは記録のまま変えないため、
-            「今どこで管理されているか」をurgencyバッジとは別に見せる。 */}
-        {entry.sourceConsultRunId && (
+          )}
+        </div>
+        {primaryAction && (
           <button
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn} ${styles.axisTooltip}`}
-            data-tooltip="このJournalから生まれた相談"
-            onClick={() => navigate(`/chat?runId=${entry.sourceConsultRunId}`)}
+            type="button"
+            className={`${primaryAction.primary ? styles.primaryBtn : styles.btnOutline} ${styles.journalCardAction} ${styles.axisTooltip}`}
+            disabled={primaryAction.disabled}
+            onClick={primaryAction.onClick}
+            data-tooltip={primaryAction.tooltip}
           >
-            💬 相談を開く
-          </button>
-        )}
-        {entry.sourceDumpId && (
-          <button
-            className={`${styles.tag} ${styles.tagTopic} ${styles.tagBtn} ${styles.axisTooltip}`}
-            data-tooltip="観測ログ取り込みから採用されたJournal"
-            onClick={() => navigate(`/journal?dump=${encodeURIComponent(entry.sourceDumpId!)}`)}
-          >
-            📥 取り込み元
-          </button>
-        )}
-        {entry.resolvedSuggestionId ? (
-          <button
-            className={`${styles.tag} ${styles.tagPos} ${styles.tagBtn} ${styles.axisTooltip}`}
-            data-tooltip={`提案「${entry.resolvedSuggestionTitle ?? "(不明)"}」で追跡中です`}
-            onClick={() => suggestionPeek.open(entry.resolvedSuggestionId!)}
-          >
-            ✅ 提案で追跡中
-          </button>
-        ) : (
-          entry.resolutionNote && (
-            <span className={`${styles.tag} ${styles.tagPos} ${styles.axisTooltip}`} data-tooltip={entry.resolutionNote} tabIndex={0}>
-              ✅ 対応済み
-            </span>
-          )
-        )}
-        {!entry.confirmed && (
-          <span
-            className={`${styles.subtitle} ${styles.axisTooltip}`}
-            data-tooltip="AIの自動抽出のままです。正しければ「この内容で確定」、直すなら「編集」してください。投稿直後は分析しません。"
-            tabIndex={0}
-          >
-            🤖 未確認
-          </span>
-        )}
-        {!entry.confirmed && onConfirmAsIs && (
-          <button
-            className={`${styles.primaryBtn} ${styles.axisTooltip}`}
-            style={{ width: "auto", padding: "2px 10px", fontSize: "0.75rem" }}
-            onClick={onConfirmAsIs}
-            data-tooltip="修正なしで内容を確定します。設定の条件に合う場合は自動分析が起動します。"
-          >
-            この内容で確定
-          </button>
-        )}
-        {entry.confirmed && !entry.sourceConsultRunId && onStartAnalysis && (
-          <button
-            className={`${styles.btnOutline} ${styles.axisTooltip}`}
-            style={{ padding: "2px 10px", fontSize: "0.75rem" }}
-            disabled={analysisStarting}
-            onClick={() => void handleStartAnalysis()}
-            data-tooltip="設定の自動条件に関係なく、Lead AgentにこのJournalの分析を依頼します。"
-          >
-            {analysisStarting ? "起動中…" : "分析する"}
-          </button>
-        )}
-        {/* ユーザー指摘「タグやステータスの情報のところにアクションを混ぜてしまっているのが
-            問題。一般的なアクションと同様、行の右端のほうに分けて配置してほしい」対応。
-            #ネガティブ等のタグ・ステータス表示のすぐ隣ではなく、編集・アーカイブするなど
-            他のアクションと同じ行末のクラスタへ移す。 */}
-        {entry.sentiment === "negative" &&
-          (entry.noActionNeededAt ? (
-            <button
-              className={`${styles.btnOutline} ${styles.axisTooltip}`}
-              style={{ padding: "2px 10px", fontSize: "0.75rem" }}
-              onClick={onClearSentimentAck}
-              data-tooltip="確認済み（対応不要）を取り消し、通常の強調表示に戻します"
-            >
-              確認を取り消す
-            </button>
-          ) : (
-            <button
-              className={`${styles.btnOutline} ${styles.axisTooltip}`}
-              style={{ padding: "2px 10px", fontSize: "0.75rem" }}
-              onClick={onAcknowledgeSentiment}
-              data-tooltip="確認したが対応は不要だった場合に押してください。ネガティブの強調を弱めます（出来事の記録自体は変わりません）"
-            >
-              確認済み/対応不要とする
-            </button>
-          ))}
-        {entry.archivedAt && (
-          <span className={`${styles.tag} ${styles.tagTopic} ${styles.axisTooltip}`} data-tooltip="一覧・AIの判断材料からは除外されています" tabIndex={0}>
-            🗄 アーカイブ済み
-          </span>
-        )}
-        <button className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={onStartEdit}>
-          編集
-        </button>
-        {(entry.archivedAt ? onUnarchive : onArchive) && (
-          <button
-            className={`${styles.detailToggle} ${styles.detailToggleButton} ${styles.axisTooltip}`}
-            onClick={entry.archivedAt ? onUnarchive : onArchive}
-            data-tooltip={
-              entry.archivedAt
-                ? "アーカイブを解除します"
-                : "重複記録・誤入力等のとき、一覧・AIの判断材料から除外します（記録自体は削除しません）"
-            }
-          >
-            {entry.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+            {primaryAction.label}
           </button>
         )}
       </div>

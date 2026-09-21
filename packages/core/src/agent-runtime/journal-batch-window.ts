@@ -136,3 +136,23 @@ export function isJournalInBatchWindow(createdAt: number, now = Date.now()): boo
   if (lastCoveredAt != null) return createdAt > lastCoveredAt;
   return createdAt >= now - JOURNAL_BATCH_FALLBACK_WINDOW_MS;
 }
+
+/**
+ * Journal が「次の集約解釈」の対象かどうか。
+ * isJournalInBatchWindow は進行中/直近の固定窓を見ますが、UIの「未解釈件数」は
+ * lastCoveredAt 以降（最大7日）を次バッチ候補として数える。
+ */
+export function isPendingForNextJournalBatch(createdAt: number, now = Date.now()): boolean {
+  const floor = now - JOURNAL_BATCH_MAX_WINDOW_MS;
+  if (createdAt < floor) return false;
+  const { lastCoveredAt } = loadJournalBatchPersisted();
+  if (lastCoveredAt != null) return createdAt > lastCoveredAt;
+  return createdAt >= now - JOURNAL_BATCH_FALLBACK_WINDOW_MS;
+}
+
+export function countPendingForNextJournalBatch(
+  entries: ReadonlyArray<{ createdAt: number }>,
+  now = Date.now(),
+): number {
+  return entries.filter((e) => isPendingForNextJournalBatch(e.createdAt, now)).length;
+}
