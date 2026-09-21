@@ -5,7 +5,6 @@ import {
   type YieldKind,
 } from "../types";
 import { dateStringToNoonTimestamp } from "../journal-date-parser";
-import type { SuggestionCharter } from "../types";
 import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
 import type { SuggestedTheme } from "../theme-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
@@ -20,7 +19,6 @@ import type {
   Proposal,
   RejectedAlternative,
   SuggestedSuggestionNote,
-  SuggestedSubSuggestion,
   SuggestionUpdate,
   YieldOption,
   YieldRequest,
@@ -153,23 +151,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
   return undefined;
 }
 
-// docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子提案分解案。
-// extractYield/extractProposalと同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。
-// 要素は文字列、または { title, priority? }。旧DBの文字列配列も normalize で吸収する。
-export function extractSubSuggestions(resultText: string): SuggestedSubSuggestion[] | undefined {
-  const match = resultText.match(/```sub_issues\s*\n?([\s\S]*?)```/);
-  if (!match) return undefined;
-  try {
-    const parsed = JSON.parse(match[1].trim());
-    return normalizeSuggestedSubSuggestions(parsed);
-  } catch {
-    // 不正なsub_issuesブロックは「提案なし」として扱う
-  }
-  return undefined;
-}
-
 // docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
-// lookupで見つけた別提案への追記提案。extractSubSuggestionsと同じ
+// lookupで見つけた別提案への追記提案。extractYield/extractProposalと同じ
 // 壊れにくいパースの考え方（不正な形式・suggestionId/text欠落の要素は捨てるだけで、
 // ブロック自体は「提案なし」として扱う）。
 export function extractSuggestionNotes(resultText: string): SuggestedSuggestionNote[] | undefined {
@@ -277,23 +260,6 @@ export function parseSuggestedPriority(value: unknown): ConfirmPriority | undefi
   return typeof value === "string" && (CONFIRM_PRIORITIES as string[]).includes(value)
     ? (value as ConfirmPriority)
     : undefined;
-}
-
-export function normalizeSuggestedSubSuggestions(parsed: unknown): SuggestedSubSuggestion[] | undefined {
-  if (!Array.isArray(parsed)) return undefined;
-  const items: SuggestedSubSuggestion[] = [];
-  for (const entry of parsed) {
-    if (typeof entry === "string" && entry.trim()) {
-      items.push({ title: entry.trim() });
-      continue;
-    }
-    if (!entry || typeof entry !== "object") continue;
-    const title = (entry as { title?: unknown }).title;
-    if (typeof title !== "string" || !title.trim()) continue;
-    const priority = parseSuggestedPriority((entry as { priority?: unknown }).priority);
-    items.push(priority ? { title: title.trim(), priority } : { title: title.trim() });
-  }
-  return items.length > 0 ? items : undefined;
 }
 
 // docs/knowledge_distillation.md。状況蒸留のテーマ候補。
@@ -429,28 +395,6 @@ export function extractPeriodReview(resultText: string): PeriodReview | undefine
   } catch {
     return undefined;
   }
-}
-
-// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。AIが提案するWhy/What/Howの埋め合わせ案。extractActionItems/extractSubSuggestionsと
-// 同じ壊れにくいパースの考え方（不正な形式は「提案なし」として扱う）。why/what/how以外の
-// キー・空文字列の値は無視し、1つも有効な値が残らなければ「提案なし」とする。
-export function extractCharter(resultText: string): Partial<SuggestionCharter> | undefined {
-  const match = resultText.match(/```charter\s*\n?([\s\S]*?)```/);
-  if (!match) return undefined;
-  try {
-    const parsed = JSON.parse(match[1].trim());
-    if (!parsed || typeof parsed !== "object") return undefined;
-    const result: Partial<SuggestionCharter> = {};
-    for (const key of ["why", "what", "how"] as const) {
-      const value = (parsed as Record<string, unknown>)[key];
-      if (typeof value === "string" && value.trim()) result[key] = value.trim();
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
-  } catch {
-    // 不正なcharterブロックは「提案なし」として扱う
-  }
-  return undefined;
 }
 
 // docs 3.3「階層型マルチエージェント」/ docs/memo.md「M」: Lead Agentが1体以上の

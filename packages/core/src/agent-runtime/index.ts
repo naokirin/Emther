@@ -30,7 +30,6 @@ export type {
   ProposalRecommendation,
   RejectedAlternative,
   SuggestedSuggestionNote,
-  SuggestedSubSuggestion,
   SuggestionUpdate,
   YieldOption,
   YieldRequest,
@@ -40,20 +39,17 @@ export { originLabel } from "./types";
 export {
   consultQuestionFor,
   ensureRequiredConsult,
-  extractCharter,
   extractConsult,
   extractGrowSuggestions,
   extractSuggestionNotes,
   extractJournalAutoAnalysisText,
   extractPeriodReview,
   extractProposal,
-  extractSubSuggestions,
   extractSuggestionUpdates,
   extractThemes,
   extractYield,
   listSuggestionCandidatesFromProposal,
   normalizeSuggestionCandidates,
-  normalizeSuggestedSubSuggestions,
 } from "./extraction";
 
 export {
@@ -61,9 +57,7 @@ export {
   adoptSuggestedThemesFromRun,
   adoptSuggestionUpdatesFromRun,
   checkStaleRuns,
-  clearSuggestedCharter,
   clearSuggestedSuggestionNotes,
-  clearSuggestedSubSuggestions,
   clearSuggestedThemes,
   clearSuggestedSuggestionUpdates,
   getRun,

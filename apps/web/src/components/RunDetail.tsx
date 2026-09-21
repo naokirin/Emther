@@ -13,8 +13,6 @@ import { listSuggestionCandidatesFromProposal, resolveYieldKind } from "./run-de
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
 import { PeriodReviewBlock } from "./run-detail/PeriodReviewBlock";
-import { SuggestedSubSuggestionsBlock } from "./run-detail/SuggestedSubSuggestionsBlock";
-import { SuggestedCharterBlock } from "./run-detail/SuggestedCharterBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
 import { SuggestedSuggestionNotesBlock } from "./run-detail/SuggestedSuggestionNotesBlock";
 import { SuggestedSuggestionUpdatesBlock } from "./run-detail/SuggestedSuggestionUpdatesBlock";
@@ -67,11 +65,6 @@ export type Proposal = {
   suggestionCandidates?: { title: string; rationale?: string }[];
   // 進め方の助言。次に観測・確認すべき点も含めてよい（解決策でなくてよい）。
   advice?: string;
-};
-
-export type SuggestedSubSuggestion = {
-  title: string;
-  priority?: ConfirmPriority;
 };
 
 export type SuggestedTheme = {
@@ -138,8 +131,6 @@ export type AgentRun = {
   yieldRequest?: { reason: string; options: YieldOption[]; kind?: YieldKind };
   proposal?: Proposal;
   suggestedActionItems?: string[];
-  suggestedSubSuggestions?: SuggestedSubSuggestion[];
-  suggestedCharter?: { why?: string; what?: string; how?: string };
   suggestedPriority?: ConfirmPriority;
   suggestedThemes?: SuggestedTheme[];
   suggestedSuggestionNotes?: SuggestedSuggestionNote[];
@@ -289,12 +280,6 @@ export function ExecutionState({
   deciding,
   stale,
   onRetry,
-  onAdoptSubSuggestions,
-  onDismissSubSuggestions,
-  subSuggestionsSubmitting,
-  onAdoptCharter,
-  onDismissCharter,
-  charterSubmitting,
   onAdoptThemes,
   onDismissThemes,
   themesSubmitting,
@@ -315,12 +300,6 @@ export function ExecutionState({
   deciding: boolean;
   stale?: boolean;
   onRetry?: () => void;
-  onAdoptSubSuggestions?: (items: SuggestedSubSuggestion[]) => void;
-  onDismissSubSuggestions?: () => void;
-  subSuggestionsSubmitting?: boolean;
-  onAdoptCharter?: (charter: { why?: string; what?: string; how?: string }) => void;
-  onDismissCharter?: () => void;
-  charterSubmitting?: boolean;
   onAdoptThemes?: () => void;
   onDismissThemes?: () => void;
   themesSubmitting?: boolean;
@@ -364,24 +343,6 @@ export function ExecutionState({
         <div className={styles.proposalBlock}>
           {run.proposal && <ProposalBlock proposal={run.proposal} />}
           {run.periodReview && <PeriodReviewBlock review={run.periodReview} />}
-
-          {onAdoptSubSuggestions && run.suggestedSubSuggestions && run.suggestedSubSuggestions.length > 0 && (
-            <SuggestedSubSuggestionsBlock
-              items={run.suggestedSubSuggestions}
-              onAdopt={onAdoptSubSuggestions}
-              onDismiss={onDismissSubSuggestions}
-              submitting={subSuggestionsSubmitting}
-            />
-          )}
-
-          {onAdoptCharter && run.suggestedCharter && Object.keys(run.suggestedCharter).length > 0 && (
-            <SuggestedCharterBlock
-              charter={run.suggestedCharter}
-              onAdopt={onAdoptCharter}
-              onDismiss={onDismissCharter}
-              submitting={charterSubmitting}
-            />
-          )}
 
           {run.suggestedThemes && run.suggestedThemes.length > 0 && (
             <SuggestedThemesBlock
@@ -447,7 +408,7 @@ type ChatTurn = { kind: "user" | "ai" | "note"; text: string };
 // yield/proposal/consultの機械可読ブロックはExecution State側で構造化表示するので、
 // チャット吹き出しでは自然文の説明部分だけを見せて二重表示を避ける。
 function stripStructuredBlocks(text: string): string {
-  return text.replace(/```(?:yield|proposal|consult|action_items|charter)\s*\n?[\s\S]*?```/g, "").trim();
+  return text.replace(/```(?:yield|proposal|consult|action_items|charter|sub_issues)\s*\n?[\s\S]*?```/g, "").trim();
 }
 
 function buildChatTurns(log: LogLine[]): ChatTurn[] {

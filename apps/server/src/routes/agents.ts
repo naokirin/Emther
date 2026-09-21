@@ -3,9 +3,7 @@ import {
   adoptSuggestedSuggestionNotesFromRun,
   adoptSuggestedThemesFromRun,
   adoptSuggestionUpdatesFromRun,
-  clearSuggestedCharter,
   clearSuggestedSuggestionNotes,
-  clearSuggestedSubSuggestions,
   clearSuggestedSuggestionUpdates,
   clearSuggestedThemes,
   confirmPendingUnmaskedSend,
@@ -183,22 +181,6 @@ export const agentsRoute = new Hono()
     const indices = parseIndices(body);
     const run = clearSuggestedSuggestionUpdates(id, { indices });
     if (!run) return c.json({ error: "not found" }, 404);
-    return c.json({ run: toRunView(run) });
-  })
-  .post("/:id/charter/dismiss", (c) => {
-    const id = c.req.param("id");
-    const run = clearSuggestedCharter(id);
-    if (!run) {
-      return c.json({ error: "not found" }, 404);
-    }
-    return c.json({ run: toRunView(run) });
-  })
-  .post("/:id/sub-suggestions/dismiss", (c) => {
-    const id = c.req.param("id");
-    const run = clearSuggestedSubSuggestions(id);
-    if (!run) {
-      return c.json({ error: "not found" }, 404);
-    }
     return c.json({ run: toRunView(run) });
   })
   // docs/memo.md「Agentが相談などから他提案などへ記録することができない」「他提案への追記提案で

@@ -15,7 +15,7 @@ import {
 } from "../suggestion-store";
 import { adoptTheme, createThemeCandidate } from "../theme-store";
 import type { SuggestedTheme } from "../theme-store";
-import { normalizeSuggestedSubSuggestions, parseSuggestedPriority } from "./extraction";
+import { parseSuggestedPriority } from "./extraction";
 import type { AgentRun, AgentStatus, LogLine, SuggestedSuggestionNote } from "./types";
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
@@ -111,8 +111,8 @@ function persistRunMeta(run: AgentRun): void {
       run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
       run.proposal ? JSON.stringify(run.proposal) : null,
       run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
-      run.suggestedSubSuggestions ? JSON.stringify(run.suggestedSubSuggestions) : null,
-      run.suggestedCharter ? JSON.stringify(run.suggestedCharter) : null,
+      null,
+      null,
       run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
       run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
       run.suggestedSuggestionNotes ? JSON.stringify(run.suggestedSuggestionNotes) : null,
@@ -177,10 +177,6 @@ function loadRunsFromDb(): Map<string, AgentRun> {
           })()
         : undefined,
       suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
-      suggestedSubSuggestions: row.suggested_sub_suggestions_json
-        ? normalizeSuggestedSubSuggestions(JSON.parse(row.suggested_sub_suggestions_json))
-        : undefined,
-      suggestedCharter: row.suggested_charter_json ? JSON.parse(row.suggested_charter_json) : undefined,
       suggestedPriority: row.suggested_priority_json
         ? parseSuggestedPriority(JSON.parse(row.suggested_priority_json))
         : undefined,
@@ -338,17 +334,6 @@ export function toRunView(run: AgentRun): AgentRun {
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),
-    suggestedSubSuggestions: run.suggestedSubSuggestions?.map((s) => ({
-      title: unmaskNames(s.title),
-      priority: s.priority,
-    })),
-    suggestedCharter: run.suggestedCharter
-      ? {
-          why: run.suggestedCharter.why !== undefined ? unmaskNames(run.suggestedCharter.why) : undefined,
-          what: run.suggestedCharter.what !== undefined ? unmaskNames(run.suggestedCharter.what) : undefined,
-          how: run.suggestedCharter.how !== undefined ? unmaskNames(run.suggestedCharter.how) : undefined,
-        }
-      : run.suggestedCharter,
     suggestedPriority: run.suggestedPriority,
     suggestedThemes: run.suggestedThemes?.map((t) => ({
       title: unmaskNames(t.title),
@@ -460,27 +445,6 @@ export function setRunArchived(id: string, archived: boolean): AgentRun | undefi
   const run = runs.get(id);
   if (!run) return undefined;
   run.archivedAt = archived ? Date.now() : undefined;
-  persistRunMeta(run);
-  return run;
-}
-
-// docs/memo.md「K」対応。AIが提案した子提案分解案を、EMが採用した後（実際の作成は
-// 呼び出し側が/api/suggestionsを個別に叩く）または却下した後に、提案自体をrunから消す。
-export function clearSuggestedSubSuggestions(id: string): AgentRun | undefined {
-  const run = runs.get(id);
-  if (!run) return undefined;
-  run.suggestedSubSuggestions = undefined;
-  persistRunMeta(run);
-  return run;
-}
-
-// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。AIが提案したWhy/What/Howの埋め合わせ案を、EMが採用した後（実際の反映は
-// 呼び出し側が/api/suggestions/[id]を個別に叩く）または却下した後に、提案自体をrunから消す。
-export function clearSuggestedCharter(id: string): AgentRun | undefined {
-  const run = runs.get(id);
-  if (!run) return undefined;
-  run.suggestedCharter = undefined;
   persistRunMeta(run);
   return run;
 }

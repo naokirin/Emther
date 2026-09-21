@@ -78,8 +78,6 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       };
       run.proposal = undefined;
       run.suggestedActionItems = undefined;
-      run.suggestedSubSuggestions = undefined;
-      run.suggestedCharter = undefined;
       run.suggestedPriority = undefined;
       run.suggestedThemes = undefined;
       run.suggestedSuggestionNotes = undefined;
@@ -127,8 +125,6 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.yieldRequest = yieldRequest;
     run.proposal = undefined;
     run.suggestedActionItems = undefined;
-    run.suggestedSubSuggestions = undefined;
-    run.suggestedCharter = undefined;
     run.suggestedPriority = undefined;
     run.suggestedThemes = undefined;
     run.suggestedSuggestionNotes = undefined;
@@ -140,8 +136,6 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
     run.suggestedActionItems = undefined;
-    run.suggestedSubSuggestions = undefined;
-    run.suggestedCharter = undefined;
     // docs/2nd_pivot_version.md Phase 7: charter/sub_issues 提案は生成しない。
     run.suggestedPriority = undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;

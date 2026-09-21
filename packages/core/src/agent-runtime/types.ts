@@ -5,7 +5,6 @@ import type {
   PendingAgentStart,
   PendingAgentStartKind,
   PendingUnmaskedSend,
-  SuggestionCharter,
   SuggestionReviewStatus,
   YieldKind,
 } from "../types";
@@ -100,12 +99,6 @@ export type ConsultRequest = {
   questions?: Record<string, string>;
 };
 
-// 子提案分解案。文字列のみの旧形式もパース時に { title } へ正規化する。
-export type SuggestedSubSuggestion = {
-  title: string;
-  priority?: ConfirmPriority;
-};
-
 // docs/memo.md「Agentが相談などから他Issueなどへ記録することができない」対応。
 // lookupで見つけた「このタスクとは別の」提案への追記提案。EMが「採用」するまで
 // 対象提案のメモへは反映しない（action_items等と同じHuman-in-the-Loop）。
@@ -186,15 +179,6 @@ export type AgentRun = {
   // docs/first_implession 3.8「壁打ちによるState更新」対応。AIが提案するAction Itemsの
   // 下書き。EMが個別に「採用」するまで反映されない。
   suggestedActionItems?: string[];
-  // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。トップレベルの提案が
-  // 抽象的すぎると判断した場合にAIが提案する、具体的な子提案案の下書き。EMが個別に
-  // 「採用」するまで実際の子提案は作られない（action_itemsと同じHuman-in-the-Loop）。
-  suggestedSubSuggestions?: SuggestedSubSuggestion[];
-  // ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
-  // 対応。紐づく提案のWhy/What/Howのうち未整理の項目をAIが埋める提案の下書き。
-  // suggestedActionItems/suggestedSubSuggestionsと同じくEMが「採用」するまで反映
-  // しない（Human-in-the-Loopを維持）。埋める提案がある項目のみキーを持つ。
-  suggestedCharter?: Partial<SuggestionCharter>;
   // 介入の優先帯（focus/normal/parked）の提案。採用まで確認優先度へは反映しない。
   suggestedPriority?: ConfirmPriority;
   // docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。

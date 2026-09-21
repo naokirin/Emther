@@ -132,7 +132,7 @@ async function loadModule() {
   return import("./agent-runtime/index");
 }
 
-describe("extractYield / extractProposal / extractActionItems / extractSubSuggestions / extractConsult", () => {
+describe("extractYield / extractProposal / extractActionItems / extractConsult", () => {
   it("extractYieldはfenced yieldブロックをパースする", async () => {
     const rt = await loadModule();
     const text = [
@@ -354,21 +354,6 @@ describe("extractYield / extractProposal / extractActionItems / extractSubSugges
     const proposal = rt.extractProposal(text);
     expect(proposal?.facts).toEqual(["ok"]);
     expect(proposal?.rejectedAlternatives).toEqual([{ option: "ok" }]);
-  });
-
-  it("extractSubSuggestionsも同様にパースする", async () => {
-    const rt = await loadModule();
-    const text = '```sub_issues\n["子課題A", "子課題B"]\n```';
-    expect(rt.extractSubSuggestions(text)).toEqual([{ title: "子課題A" }, { title: "子課題B" }]);
-  });
-
-  it("extractSubSuggestionsはpriority付きオブジェクトもパースする", async () => {
-    const rt = await loadModule();
-    const text = '```sub_issues\n[{ "title": "子A", "priority": "focus" }, { "title": "子B" }]\n```';
-    expect(rt.extractSubSuggestions(text)).toEqual([
-      { title: "子A", priority: "focus" },
-      { title: "子B" },
-    ]);
   });
 
   it("extractSuggestionNotesはsuggestionId/textが揃った要素だけをパースする", async () => {
@@ -659,18 +644,6 @@ describe("extractYield / extractProposal / extractActionItems / extractSubSugges
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true, undefined, undefined, undefined, "関連束テスト");
     expect(prompt).toContain("関連束テスト");
-  });
-
-  it("extractCharterはwhy/what/howのうち有効な値だけをパースする", async () => {
-    const rt = await loadModule();
-    const text = '```charter\n{ "why": "価値", "what": "", "how": 123 }\n```';
-    expect(rt.extractCharter(text)).toEqual({ why: "価値" });
-  });
-
-  it("extractCharterは1件も有効な値が無ければundefined", async () => {
-    const rt = await loadModule();
-    expect(rt.extractCharter('```charter\n{ "what": "" }\n```')).toBeUndefined();
-    expect(rt.extractCharter("ブロックなし")).toBeUndefined();
   });
 
   it("extractConsultはagents/questionをパースする", async () => {
@@ -1290,18 +1263,6 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("run-1")?.archivedAt).toBeUndefined();
   });
 
-  it("clearSuggestedSubSuggestionsは提案を消す", async () => {
-    const { getDb } = await import("./db");
-    insertRunRow(getDb(), {
-      id: "run-1",
-      suggested_sub_suggestions_json: JSON.stringify(["b"]),
-    });
-    const rt = await loadModule();
-    expect(rt.getRun("run-1")?.suggestedSubSuggestions).toEqual([{ title: "b" }]);
-    rt.clearSuggestedSubSuggestions("run-1");
-    expect(rt.getRun("run-1")?.suggestedSubSuggestions).toBeUndefined();
-  });
-
   it("clearSuggestedSuggestionNotesは提案を消す", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), {
@@ -1461,7 +1422,6 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.markRunReviewed("missing")).toBeUndefined();
     expect(rt.setRunTriageStatus("missing", "dismissed")).toBeUndefined();
     expect(rt.setRunArchived("missing", true)).toBeUndefined();
-    expect(rt.clearSuggestedSubSuggestions("missing")).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();
   });
 

@@ -319,41 +319,6 @@ describe("POST/DELETE /api/agents/:id/themes", () => {
   });
 });
 
-describe("POST /api/agents/:id/charter/dismiss", () => {
-  it("存在しないIDは404", async () => {
-    const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/missing/charter/dismiss", { method: "POST" });
-    expect(res.status).toBe(404);
-  });
-
-  it("提案を消す", async () => {
-    const { getDb } = await import("@emther/core/db");
-    insertRunRow(getDb(), { suggested_charter_json: JSON.stringify({ why: "価値" }) });
-    const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/charter/dismiss", { method: "POST" });
-    expect(res.status).toBe(200);
-    expect((await res.json()).run.suggestedCharter).toBeUndefined();
-  });
-});
-
-describe("POST /api/agents/:id/sub-suggestions/dismiss", () => {
-  it("存在しないIDは404", async () => {
-    const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/missing/sub-suggestions/dismiss", { method: "POST" });
-    expect(res.status).toBe(404);
-  });
-
-  it("提案を消す", async () => {
-    const { getDb } = await import("@emther/core/db");
-    insertRunRow(getDb(), { suggested_sub_suggestions_json: JSON.stringify(["子提案案1"]) });
-    const { agentsRoute } = await import("./agents");
-    const res = await agentsRoute.request("/run-1/sub-suggestions/dismiss", { method: "POST" });
-    expect(res.status).toBe(200);
-    expect((await res.json()).run.suggestedSubSuggestions).toBeUndefined();
-  });
-});
-
-// docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。
 describe("POST/DELETE /api/agents/:id/suggestion-updates", () => {
   it("対象Suggestionへ変更を反映し、差分を消す", async () => {
     const suggestionStore = await import("@emther/core/suggestion-store");
