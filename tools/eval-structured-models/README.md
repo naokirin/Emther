@@ -8,22 +8,22 @@
 
 ```bash
 # Phase1 (cosine + japanese tiny rerank) + Phase2 (mDeBERTa)
-npm exec tsx -- scripts/eval-structured-models/run.mts
+npm exec tsx -- tools/eval-structured-models/run.mts
 
 # rerank を試さず cosine / Phase2 のみ
-npm exec tsx -- scripts/eval-structured-models/run.mts --skip-rerank
+npm exec tsx -- tools/eval-structured-models/run.mts --skip-rerank
 
 # Phase1 をスキップ
-npm exec tsx -- scripts/eval-structured-models/run.mts --skip-phase1
+npm exec tsx -- tools/eval-structured-models/run.mts --skip-phase1
 
 # Phase2 仮説を英語テンプレに
-npm exec tsx -- scripts/eval-structured-models/run.mts --phase2-en
+npm exec tsx -- tools/eval-structured-models/run.mts --phase2-en
 
 # tiny に加えて bge-reranker-v2-m3 ONNX も比較
-npm exec tsx -- scripts/eval-structured-models/run.mts --with-bge
+npm exec tsx -- tools/eval-structured-models/run.mts --with-bge
 
 # Phase2 をスキップ
-npm exec tsx -- scripts/eval-structured-models/run.mts --skip-phase2
+npm exec tsx -- tools/eval-structured-models/run.mts --skip-phase2
 ```
 
 初回はモデルダウンロードが発生します（XDG キャッシュ: `~/.cache/emther/transformers` 等）。

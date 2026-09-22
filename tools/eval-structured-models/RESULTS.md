@@ -1,7 +1,7 @@
 # Phase1 / Phase2 軽量検証結果
 
 実行日: 2026-09-22  
-ハーネス: `scripts/eval-structured-models/`  
+ハーネス: `tools/eval-structured-models/`  
 フィクスチャ: 匿名の EM ドメイン寄り日本語（pairs 24 / search 6×14 / urgency・recommendation・themeLink 各 24）
 
 ## 判定サマリー
@@ -85,9 +85,9 @@
 
 ```bash
 # 引数は npm に吸われないよう `--` の後に書く
-npm exec tsx -- scripts/eval-structured-models/run.mts
-npm exec tsx -- scripts/eval-structured-models/run.mts --phase2-en
-npm exec tsx -- scripts/eval-structured-models/run.mts --with-bge
+npm exec tsx -- tools/eval-structured-models/run.mts
+npm exec tsx -- tools/eval-structured-models/run.mts --phase2-en
+npm exec tsx -- tools/eval-structured-models/run.mts --with-bge
 ```
 
-生レポートは `scripts/eval-structured-models/out/report-*.json`（gitignore）。
+生レポートは `tools/eval-structured-models/out/report-*.json`（gitignore）。

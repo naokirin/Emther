@@ -10,7 +10,7 @@ import { withTransformersInferenceLock } from "./transformers-inference-lock";
 
 // Phase1 opt-in: 関連束・紐づけ heuristic などの候補並べ替え用クロスエンコーダ。
 // 既定 OFF（localRerankEnabled）。ON 時のみ遅延ロード。失敗時は呼び出し側が cosine 順にフォールバック。
-// モデルは scripts/eval-structured-models/RESULTS.md の軽量検証で選定。
+// モデルは tools/eval-structured-models/RESULTS.md の軽量検証で選定。
 //
 // hotchpotch/japanese-reranker-tiny-v2 の HF onnx/ は model.onnx（fp32）のみで、
 // Transformers.js の dtype=q8 が要求する model_quantized.onnx は無い。

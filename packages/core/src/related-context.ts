@@ -12,7 +12,7 @@ import { maybeRerankByText, RERANK_CANDIDATE_LIMIT } from "./reranker";
 // 側にある（related-context⇄suggestion-storeの循環参照を避けるため）。
 //
 // localRerankEnabled（既定OFF）時は、cosine で足切りした候補を tiny reranker で並べ替えてから
-// 上位を取る（scripts/eval-structured-models/RESULTS.md）。繰り返しカウントは cosine のまま。
+// 上位を取る（tools/eval-structured-models/RESULTS.md）。繰り返しカウントは cosine のまま。
 
 export const RELATED_SIMILARITY_THRESHOLD = 0.4;
 const RELATED_JOURNAL_LIMIT = 5;

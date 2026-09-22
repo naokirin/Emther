@@ -25,4 +25,4 @@ tools/privacy_check_bench/.venv/
 tools/privacy_check_bench/out_*.json
 
 # structured-model 軽量検証の実行成果
-scripts/eval-structured-models/out/
+tools/eval-structured-models/out/

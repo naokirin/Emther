@@ -6,9 +6,9 @@
  * 製品コードには接続しない。フィクスチャのみでオフライン評価。
  *
  * 実行:
- *   pnpm exec tsx scripts/eval-structured-models/run.mts
- *   pnpm exec tsx scripts/eval-structured-models/run.mts --skip-rerank
- *   pnpm exec tsx scripts/eval-structured-models/run.mts --with-bge
+ *   pnpm exec tsx tools/eval-structured-models/run.mts
+ *   pnpm exec tsx tools/eval-structured-models/run.mts --skip-rerank
+ *   pnpm exec tsx tools/eval-structured-models/run.mts --with-bge
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
