@@ -249,7 +249,8 @@ describe("POST /api/suggestions", () => {
     expect(json.suggestion.detail?.facts).toEqual(["ファクトA"]);
     expect(json.suggestion.detail?.expansions).toEqual(["別の問題設定もあり得る"]);
     expect(json.suggestion.detail?.challenges).toEqual(["本当に発言量が問題か"]);
-    expect(json.suggestion.detail?.advice).toBe("計画のアドバイス");
+    expect(json.suggestion.detail?.adviceStructured?.overview).toBe("計画のアドバイス");
+    expect(json.suggestion.detail?.advice).toBeUndefined();
   });
 
   it("sourceRunにproposalが無ければdetailは付かない", async () => {
@@ -440,7 +441,7 @@ describe("PATCH /api/suggestions/:id detail", () => {
     const json = await res.json();
     expect(json.suggestion.detail.conclusion).toBe("EMの結論");
     expect(json.suggestion.detail.facts).toEqual(["事実A"]);
-    expect(json.suggestion.detail.advice).toBe("EMの助言");
+    expect(json.suggestion.detail.adviceOverride).toBe("EMの助言");
   });
 
   it("conclusion/logicを空にする更新は400になる", async () => {

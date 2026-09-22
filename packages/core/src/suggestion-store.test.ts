@@ -154,7 +154,7 @@ describe("createSuggestion detail / setSuggestionDetail", () => {
     });
     expect(s.detail?.conclusion).toBe("結論文");
     expect(s.detail?.facts).toEqual(["根拠1"]);
-    expect(s.detail?.advice).toBe("助言");
+    expect(s.detail?.adviceStructured?.overview).toBe("助言");
     expect(s.detail?.updatedAt).toBeTypeOf("number");
     const view = store.toSuggestionView(store.getSuggestion(s.id)!);
     expect(view.detail?.conclusion).toBe("結論文");
@@ -196,7 +196,63 @@ describe("updateSuggestionDetail", () => {
     });
     expect(updated?.detail?.conclusion).toBe("EMの結論");
     expect(updated?.detail?.facts).toEqual(["事実1", "事実2"]);
-    expect(updated?.detail?.advice).toBe("EMの助言");
+    expect(updated?.detail?.adviceOverride).toBe("EMの助言");
+  });
+
+  it("advice編集はadviceOverrideに保存し、adviceStructuredは保持する", async () => {
+    const store = await import("./suggestion-store");
+    const s = await store.createSuggestion("構造あり提案", {
+      detail: {
+        conclusion: "c",
+        facts: [],
+        logic: "l",
+        adviceStructured: {
+          overview: "AI版",
+          groups: [{ nextActions: ["動く"] }],
+        },
+      },
+    });
+    const updated = await store.updateSuggestionDetail(s.id, { advice: "EMの版" });
+    expect(updated?.detail?.adviceOverride).toBe("EMの版");
+    expect(updated?.detail?.adviceStructured?.overview).toBe("AI版");
+  });
+
+  it("setSuggestionDetailはadviceOverrideを保持する（案A）", async () => {
+    const store = await import("./suggestion-store");
+    const s = await store.createSuggestion("override保持", {
+      detail: {
+        conclusion: "c",
+        facts: [],
+        logic: "l",
+        adviceStructured: { overview: "旧AI", groups: [] },
+      },
+    });
+    await store.updateSuggestionDetail(s.id, { advice: "EM編集" });
+    const refreshed = store.setSuggestionDetail(s.id, {
+      conclusion: "c2",
+      facts: [],
+      logic: "l2",
+      adviceStructured: { overview: "新AI", groups: [{ nextActions: ["確認"] }] },
+    });
+    expect(refreshed?.detail?.adviceOverride).toBe("EM編集");
+    expect(refreshed?.detail?.adviceStructured?.overview).toBe("新AI");
+    expect(refreshed?.detail?.conclusion).toBe("c2");
+  });
+
+  it("adviceを空文字で保存するとoverrideを消し構造表示に戻る", async () => {
+    const store = await import("./suggestion-store");
+    const s = await store.createSuggestion("クリア", {
+      detail: {
+        conclusion: "c",
+        facts: [],
+        logic: "l",
+        adviceStructured: { overview: "AI", groups: [] },
+      },
+    });
+    await store.updateSuggestionDetail(s.id, { advice: "EM" });
+    const cleared = await store.updateSuggestionDetail(s.id, { advice: "" });
+    expect(cleared?.detail?.adviceOverride).toBeUndefined();
+    expect(cleared?.detail?.adviceStructured?.overview).toBe("AI");
   });
 
   it("一部フィールドだけの部分更新では、他のフィールドの現在値を保つ", async () => {

@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import {
+  mapAdviceStructuredStrings,
+  normalizeAdviceStructured,
+  type AdviceStructured,
+} from "./advice";
 import { dataFilePath, loadJSON, peekJSON, saveJSON } from "./persistence";
 import { embedText } from "./embeddings";
 import { recordChangeEvent } from "./knowledge-store";
@@ -17,6 +22,17 @@ import type {
 
 export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionMemoSource, SuggestionDetail } from "./types";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES } from "./types";
+
+/** Proposal / API から detail へ載せるアドバイス欄を組み立てる。 */
+export function adviceFieldsFromProposal(proposal: {
+  advice?: string;
+  adviceStructured?: AdviceStructured;
+}): Pick<SuggestionDetail, "adviceStructured"> {
+  const structured =
+    proposal.adviceStructured ??
+    (proposal.advice ? normalizeAdviceStructured(proposal.advice) : undefined);
+  return structured ? { adviceStructured: structured } : {};
+}
 
 const SUGGESTION_MEMO_SOURCES: SuggestionMemoSource[] = ["user", "agent"];
 
@@ -164,6 +180,10 @@ export function toSuggestionView(s: Suggestion): Suggestion {
             ? { challenges: s.detail.challenges.map(unmaskNames) }
             : {}),
           ...(s.detail.advice ? { advice: unmaskNames(s.detail.advice) } : {}),
+          ...(s.detail.adviceOverride ? { adviceOverride: unmaskNames(s.detail.adviceOverride) } : {}),
+          ...(s.detail.adviceStructured
+            ? { adviceStructured: mapAdviceStructuredStrings(s.detail.adviceStructured, unmaskNames) }
+            : {}),
         }
       : s.detail,
     embedding: undefined,
@@ -240,7 +260,9 @@ export type SuggestionDetailInput = {
   logic: string;
   expansions?: string[];
   challenges?: string[];
+  /** @deprecated 新規は adviceStructured */
   advice?: string;
+  adviceStructured?: AdviceStructured;
 };
 
 export async function createSuggestion(
@@ -276,15 +298,20 @@ export async function createSuggestion(
   // sourceRunのproposal（既にマスク済みの内部表現）由来のため、ここでは再マスクしない。
   const detail: SuggestionDetail | undefined =
     detailInput && detailInput.conclusion.trim() && detailInput.logic.trim()
-      ? {
-          conclusion: detailInput.conclusion,
-          facts: detailInput.facts,
-          logic: detailInput.logic,
-          ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
-          ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
-          ...(detailInput.advice ? { advice: detailInput.advice } : {}),
-          updatedAt: now,
-        }
+      ? (() => {
+          const adviceStructured =
+            detailInput.adviceStructured ??
+            (detailInput.advice ? normalizeAdviceStructured(detailInput.advice) : undefined);
+          return {
+            conclusion: detailInput.conclusion,
+            facts: detailInput.facts,
+            logic: detailInput.logic,
+            ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
+            ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
+            ...(adviceStructured ? { adviceStructured } : {}),
+            updatedAt: now,
+          };
+        })()
       : undefined;
   const suggestion: Suggestion = {
     id: forcedId ?? randomUUID(),
@@ -513,13 +540,21 @@ export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInp
   const s = getSuggestion(id);
   if (!s) return undefined;
   if (!detailInput.conclusion.trim() || !detailInput.logic.trim()) return s;
+  // 案A: AI からの更新は adviceStructured のみ差し替え。adviceOverride は保持する。
+  const preservedOverride = s.detail?.adviceOverride?.trim()
+    ? s.detail.adviceOverride
+    : undefined;
+  const adviceStructured =
+    detailInput.adviceStructured ??
+    (detailInput.advice ? normalizeAdviceStructured(detailInput.advice) : undefined);
   s.detail = {
     conclusion: detailInput.conclusion,
     facts: detailInput.facts,
     logic: detailInput.logic,
     ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
     ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
-    ...(detailInput.advice ? { advice: detailInput.advice } : {}),
+    ...(adviceStructured ? { adviceStructured } : {}),
+    ...(preservedOverride ? { adviceOverride: preservedOverride } : {}),
     updatedAt: Date.now(),
   };
   s.updatedAt = Date.now();
@@ -533,6 +568,7 @@ export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInp
 // 同じくensureNameCandidatesAllowed＋maskForStorageを通す（AI由来のsetSuggestionDetailは
 // 既にマスク済みのAgentRun内部表現をそのまま使うため通さない）。未指定のフィールドは
 // 現在の値を保持する（部分更新）。詳細が無い状態からEMが新規に書き起こすこともできる。
+// advice パッチは adviceOverride に保存し、adviceStructured は保持する。
 export async function updateSuggestionDetail(
   id: string,
   patch: { conclusion?: string; facts?: string[]; logic?: string; advice?: string },
@@ -545,27 +581,51 @@ export async function updateSuggestionDetail(
   const logic = (patch.logic !== undefined ? patch.logic : (current?.logic ?? "")).trim();
   if (!conclusion || !logic) throw new Error("結論と判断ロジックは必須です");
   const facts = (patch.facts !== undefined ? patch.facts : (current?.facts ?? [])).map((f) => f.trim()).filter(Boolean);
-  const advice = (patch.advice !== undefined ? patch.advice : (current?.advice ?? "")).trim();
 
-  await ensureNameCandidatesAllowed([conclusion, logic, ...facts, ...(advice ? [advice] : [])], opts);
+  // advice 未指定 → 既存 override / 旧 advice を維持。空文字 → override クリア（構造表示に戻る）。
+  let nextOverride: string | undefined;
+  let clearOverride = false;
+  if (patch.advice !== undefined) {
+    const trimmed = patch.advice.trim();
+    if (trimmed) nextOverride = trimmed;
+    else clearOverride = true;
+  } else if (current?.adviceOverride?.trim()) {
+    nextOverride = current.adviceOverride;
+  } else if (current?.advice?.trim() && !current.adviceStructured) {
+    // 旧データ: 構造が無く plain advice だけのとき、編集していないなら advice のまま残す
+    // （update で他フィールドだけ触った場合）。advice フィールドは下で保持。
+  }
 
-  const [maskedConclusion, maskedLogic, maskedFacts, maskedAdvice] = await Promise.all([
+  const textsForMask = [conclusion, logic, ...facts, ...(nextOverride ? [nextOverride] : [])];
+  await ensureNameCandidatesAllowed(textsForMask, opts);
+
+  const [maskedConclusion, maskedLogic, maskedFacts, maskedOverride] = await Promise.all([
     maskForStorage(conclusion),
     maskForStorage(logic),
     Promise.all(facts.map((f) => maskForStorage(f))),
-    advice ? maskForStorage(advice) : Promise.resolve(undefined),
+    nextOverride ? maskForStorage(nextOverride) : Promise.resolve(undefined),
   ]);
 
-  // EM編集UIは結論・ファクト・ロジック・adviceのみ。expansions/challengesはAI由来のため保持する。
+  // EM編集UIは結論・ファクト・ロジック・advice(→override)のみ。expansions/challenges/structuredはAI由来のため保持。
+  const keepLegacyAdvice =
+    patch.advice === undefined && !current?.adviceOverride && Boolean(current?.advice?.trim()) && !current?.adviceStructured;
+
   s.detail = {
     conclusion: maskedConclusion,
     facts: maskedFacts,
     logic: maskedLogic,
     ...(current?.expansions?.length ? { expansions: current.expansions } : {}),
     ...(current?.challenges?.length ? { challenges: current.challenges } : {}),
-    ...(maskedAdvice ? { advice: maskedAdvice } : {}),
+    ...(current?.adviceStructured ? { adviceStructured: current.adviceStructured } : {}),
+    ...(maskedOverride ? { adviceOverride: maskedOverride } : {}),
+    ...(keepLegacyAdvice && current?.advice ? { advice: current.advice } : {}),
+    // clearOverride 時は adviceOverride も旧 advice も載せない
     updatedAt: Date.now(),
   };
+  // clearOverride で structured が無い場合、編集ドラフトが空ならアドバイス無しになる
+  if (clearOverride && !current?.adviceStructured) {
+    // nothing else
+  }
   s.updatedAt = Date.now();
   persist();
   recordChangeEvent("suggestion", s.id, "提案の詳細を編集しました");

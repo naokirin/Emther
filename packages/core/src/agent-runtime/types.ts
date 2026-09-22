@@ -1,5 +1,6 @@
 import type { SuggestedTheme } from "../theme-store";
 import type { LookupRequest } from "../agent-knowledge-tools";
+import type { AdviceStructured } from "../advice";
 import type {
   ConfirmPriority,
   PendingAgentStart,
@@ -80,8 +81,10 @@ export type Proposal = {
   // docs/memo.md「提案自体の詳細を残す単一の場所」対応。結論そのものではなく、この提案を
   // 実際に計画・進行・検証するうえで漏らさないほうがよい実務的なポイント（任意）。
   // 3rd pivot: 次に観測・確認・考えるべき点もここに書いてよい（解決策でなくてよい）。
-  // Suggestion作成時にdetailへコピーされ、判断・提案（Agent）パネルの外でも残る。
+  // Suggestion作成時にdetail.adviceStructuredへコピーされる。
+  // 旧 string 形式の advice も抽出時に互換で読む（structured へ正規化）。
   advice?: string;
+  adviceStructured?: AdviceStructured;
 };
 
 // docs/memo.md「M. AIエージェント“チーム”の本格協働」対応。以前は専門エージェント

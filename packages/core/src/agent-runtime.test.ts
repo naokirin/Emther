@@ -238,17 +238,42 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     expect(rt.extractProposal(text)?.suggestionTitle).toBe("短い課題名");
   });
 
-  it("extractProposalはadviceを拾う", async () => {
+  it("extractProposalはadvice文字列をadviceStructuredに正規化する", async () => {
     const rt = await loadModule();
     const text =
       '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "advice": "計画のコツ" }\n```';
-    expect(rt.extractProposal(text)?.advice).toBe("計画のコツ");
+    const p = rt.extractProposal(text);
+    expect(p?.adviceStructured?.overview).toBe("計画のコツ");
+    expect(p?.advice).toBeUndefined();
   });
 
   it("extractProposalは空文字のadviceを無視する", async () => {
     const rt = await loadModule();
     const text = '```proposal\n{ "conclusion": "c", "logic": "l", "facts": [], "rejectedAlternatives": [], "advice": "  " }\n```';
-    expect(rt.extractProposal(text)?.advice).toBeUndefined();
+    expect(rt.extractProposal(text)?.adviceStructured).toBeUndefined();
+  });
+
+  it("extractProposalはadviceオブジェクトを拾う", async () => {
+    const rt = await loadModule();
+    const text = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        advice: {
+          overview: "全体",
+          groups: [{ title: "第一歩", nextActions: ["話す"], watchOuts: ["急がない"] }],
+          followUps: [{ label: "分解して", message: "タスクに分解して" }],
+        },
+      }),
+      "```",
+    ].join("\n");
+    const p = rt.extractProposal(text);
+    expect(p?.adviceStructured?.overview).toBe("全体");
+    expect(p?.adviceStructured?.groups[0]?.title).toBe("第一歩");
+    expect(p?.adviceStructured?.followUps?.[0]?.label).toBe("分解して");
   });
 
   it("extractProposalはlensesUsedを拾う", async () => {

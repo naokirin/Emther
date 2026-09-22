@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import styles from "../styles/page.module.css";
 import { CopilotChat, ExecutionState, type AgentRun } from "./RunDetail";
+import { AdviceBlock } from "./AdviceBlock";
 import { IdLinkedText } from "./IdLinkedText";
 import { OriginTrace } from "./OriginTrace";
 import { PendingAgentStartNotice } from "./PendingAgentStartNotice";
@@ -20,6 +21,7 @@ import { downloadTextFile } from "../lib/downloadTextFile";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { dateStringToNoonTimestamp, timestampToDateInputValue } from "@emther/core/journal-date-parser";
 import { formatSuggestionMarkdown, agentSourceFromRun } from "@emther/core/suggestion-export";
+import { effectiveAdviceText, type AdviceFollowUp } from "@emther/core/advice";
 import {
   CONFIRM_PRIORITIES,
   CONFIRM_PRIORITY_META,
@@ -81,6 +83,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [detailRefreshing, setDetailRefreshing] = useState(false);
   const [detailRefreshError, setDetailRefreshError] = useState<string | null>(null);
+  const [detailRefreshKeptOverride, setDetailRefreshKeptOverride] = useState(false);
   const [detailEditing, setDetailEditing] = useState(false);
   const [detailDraftConclusion, setDetailDraftConclusion] = useState("");
   const [detailDraftFactsText, setDetailDraftFactsText] = useState("");
@@ -93,6 +96,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [mdDownloaded, setMdDownloaded] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const chatPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -160,10 +164,13 @@ export function SuggestionDetailContent({ id }: { id: string }) {
 
   // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
   // 判断・提案（Agent）の内容が起票時から変わった場合に、現在の内容で詳細を更新し直す。
+  // 案A: adviceOverride がある場合は structured のみ更新され、表示は編集版のまま。
   async function handleRefreshDetail() {
     if (!suggestion || !activeRun) return;
+    const hadOverride = Boolean(suggestion.detail?.adviceOverride?.trim());
     setDetailRefreshing(true);
     setDetailRefreshError(null);
+    setDetailRefreshKeptOverride(false);
     try {
       const { res, data } = await fetchWithNameConfirm(
         `/api/suggestions/${suggestion.id}`,
@@ -172,6 +179,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "詳細の更新に失敗しました");
       await refreshSuggestion();
+      if (hadOverride) setDetailRefreshKeptOverride(true);
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setDetailRefreshError((err as Error).message);
@@ -182,14 +190,25 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   }
 
   // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
+  // アドバイス欄は override 優先、無ければ構造化の平坦化テキストを初期値にする。
   function handleStartDetailEdit() {
     if (!suggestion) return;
     setDetailDraftConclusion(suggestion.detail?.conclusion ?? "");
     setDetailDraftFactsText((suggestion.detail?.facts ?? []).join("\n"));
     setDetailDraftLogic(suggestion.detail?.logic ?? "");
-    setDetailDraftAdvice(suggestion.detail?.advice ?? "");
+    setDetailDraftAdvice(suggestion.detail ? effectiveAdviceText(suggestion.detail) : "");
     setDetailSaveError(null);
     setDetailEditing(true);
+  }
+
+  function handleAdviceFollowUp(followUp: AdviceFollowUp) {
+    if (!activeRun || deciding) return;
+    setColumnsMode("chat");
+    window.setTimeout(() => {
+      chatPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("suggestion-chat-input")?.focus();
+    }, 50);
+    void sendDecision(followUp.message);
   }
 
   async function handleSaveDetail() {
@@ -504,12 +523,17 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               />
             </label>
             <label className={styles.field}>
-              <span className={styles.fieldCaption}>進め方のアドバイス（任意）</span>
+              <span className={styles.fieldCaption}>進め方のアドバイス（任意・編集するとあなたの版として表示）</span>
               <textarea
-                rows={3}
+                rows={6}
                 value={detailDraftAdvice}
                 onChange={(e) => setDetailDraftAdvice(e.target.value)}
                 disabled={detailSaving}
+                placeholder={
+                  suggestion.detail?.adviceStructured
+                    ? "空にして保存すると AI の構造化アドバイス表示に戻ります"
+                    : undefined
+                }
               />
             </label>
             {detailSaveError && (
@@ -557,20 +581,27 @@ export function SuggestionDetailContent({ id }: { id: string }) {
                 <IdLinkedText text={suggestion.detail.conclusion} />
               </p>
 
-              {suggestion.detail.advice && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    paddingTop: 10,
-                    borderTop: "1px dashed var(--border)",
-                    fontSize: "0.85rem",
-                    color: "var(--fg)",
+              {suggestion.detail.adviceOverride ||
+              suggestion.detail.advice ||
+              suggestion.detail.adviceStructured ? (
+                <AdviceBlock
+                  presentation="summary"
+                  fields={{
+                    advice: suggestion.detail.advice,
+                    adviceStructured: suggestion.detail.adviceStructured,
+                    adviceOverride: suggestion.detail.adviceOverride,
                   }}
-                >
-                  <strong style={{ color: "var(--accent)" }}>💡 進め方のアドバイス: </strong>
-                  <IdLinkedText text={suggestion.detail.advice} />
-                </div>
-              )}
+                  overrideNote={
+                    detailRefreshKeptOverride && suggestion.detail.adviceOverride
+                      ? "AI版のアドバイスは更新済みです。表示はあなたの編集のままです（空にして保存するとAI版に戻れます）。"
+                      : suggestion.detail.adviceOverride
+                        ? "あなたの編集版を表示しています。"
+                        : null
+                  }
+                  onFollowUp={activeRun ? handleAdviceFollowUp : undefined}
+                  followUpsDisabled={deciding || !activeRun}
+                />
+              ) : null}
             </div>
 
             {(suggestion.detail.facts.length > 0 ||
@@ -777,7 +808,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
           </div>
         )}
         {(columnsMode === "split" || columnsMode === "chat") && (
-          <div className={styles.panel}>
+          <div className={styles.panel} id="suggestion-chat-panel" ref={chatPanelRef}>
             <h2>壁打ち</h2>
             {activeRun ? (
               <CopilotChat

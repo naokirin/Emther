@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { getDb } from "../db";
 import { findByIdPrefix } from "../id-prefix";
+import { mapAdviceStructuredStrings, normalizeAdviceStructured } from "../advice";
 import { maskForStorage, unmaskNames } from "../people-directory";
 import { getRulesAndConstraints } from "../settings-store";
 import {
@@ -335,6 +336,14 @@ export function toRunView(run: AgentRun): AgentRun {
               }
             : {}),
           ...(run.proposal.advice ? { advice: unmaskNames(run.proposal.advice) } : {}),
+          ...(() => {
+            const structured =
+              run.proposal.adviceStructured ??
+              (run.proposal.advice ? normalizeAdviceStructured(run.proposal.advice) : undefined);
+            return structured
+              ? { adviceStructured: mapAdviceStructuredStrings(structured, unmaskNames) }
+              : {};
+          })(),
         }
       : run.proposal,
     suggestedActionItems: run.suggestedActionItems?.map(unmaskNames),

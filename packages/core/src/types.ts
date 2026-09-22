@@ -1,5 +1,9 @@
 // 複数ページ（Dashboard / Suggestions / Suggestion詳細 / Organization Context）から共有する型定義。
 
+import { effectiveAdviceText, type AdviceStructured } from "./advice";
+
+export type { AdviceStructured, AdviceGroup, AdviceFollowUp } from "./advice";
+
 // docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を画面表示するための
 // クライアント向け型。サーバー側の実体（@/lib/knowledge-store）とは意図的に型を分離している
 // （TeamやIssue等、他の型とも同じ既存の慣習に合わせている）。
@@ -460,8 +464,10 @@ export type SuggestionMemo = {
 // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。メモ（EMが自由に書き足す
 // 経過記録）とは別に、AIが提案時点で示した結論・根拠・ロジックと、この提案を実際に計画・
 // 進行・検証するうえでの実務的なアドバイスを、判断・提案（Agent）パネル（紐づくAgent Runが
-// 差し替わると内容も変わりうる）とは独立に、提案自体に1件だけ残す。EMが編集するものではなく
-// AIが書いたものをそのまま残す記録のため、メモのような追記リストにはしない（上書きのみ）。
+// 差し替わると内容も変わりうる）とは独立に、提案自体に1件だけ残す。
+// アドバイスは AI の半構造化（adviceStructured）と、EM 編集の非構造（adviceOverride）を分ける。
+// 表示は adviceOverride → 旧 advice → adviceStructured の順。AI 更新（refresh）は structured
+// のみ差し替え、override は保持する（案A）。
 export type SuggestionDetail = {
   conclusion: string;
   facts: string[];
@@ -469,7 +475,11 @@ export type SuggestionDetail = {
   // docs/3rd_pivot_version/pivot.md。起票時点の Expand / Challenge（無い旧detailは未定義）。
   expansions?: string[];
   challenges?: string[];
+  /** @deprecated 旧フリーテキスト。新規は adviceStructured / adviceOverride を使う */
   advice?: string;
+  adviceStructured?: AdviceStructured;
+  /** EMが編集した非構造テキスト。あれば表示は常にこちらを優先 */
+  adviceOverride?: string;
   updatedAt: number;
 };
 
@@ -535,7 +545,8 @@ export function suggestionMatchesKeyword(
     haystacks.push(s.detail.conclusion, s.detail.logic, ...s.detail.facts);
     if (s.detail.expansions?.length) haystacks.push(...s.detail.expansions);
     if (s.detail.challenges?.length) haystacks.push(...s.detail.challenges);
-    if (s.detail.advice) haystacks.push(s.detail.advice);
+    const adviceText = effectiveAdviceText(s.detail);
+    if (adviceText) haystacks.push(adviceText);
   }
   return haystacks.some((h) => h.toLowerCase().includes(q));
 }

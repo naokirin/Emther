@@ -1,4 +1,5 @@
 import type { Proposal } from "./agent-runtime/types";
+import { effectiveAdviceText, flattenAdviceStructured } from "./advice";
 import {
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUS_META,
@@ -78,7 +79,7 @@ export type SuggestionExportAgentSource = {
   agentName?: string;
   proposal?: Pick<
     Proposal,
-    "conclusion" | "facts" | "logic" | "advice" | "expansions" | "challenges" | "rejectedAlternatives"
+    "conclusion" | "facts" | "logic" | "advice" | "adviceStructured" | "expansions" | "challenges" | "rejectedAlternatives"
   >;
   /** Agent Run のログ（壁打ち用）。channel は agent / meta 等。 */
   log?: Array<{ channel: string; text: string }>;
@@ -186,8 +187,12 @@ function appendProposalSections(
   if (proposal.challenges?.length) {
     lines.push(`${headingPrefix}前提への問い（Challenge）`, ...proposal.challenges.map((c) => `- ${c}`), "");
   }
-  if (proposal.advice) {
-    lines.push(`${headingPrefix}進め方のアドバイス`, proposal.advice, "");
+  if (proposal.adviceStructured || proposal.advice) {
+    const text =
+      (proposal.adviceStructured ? flattenAdviceStructured(proposal.adviceStructured) : "") ||
+      proposal.advice ||
+      "";
+    if (text) lines.push(`${headingPrefix}進め方のアドバイス`, text, "");
   }
   if (proposal.rejectedAlternatives?.length) {
     lines.push(
@@ -255,8 +260,9 @@ export function formatSuggestionMarkdown(
   if (s.detail?.challenges?.length) {
     lines.push("## 前提への問い（Challenge）", ...s.detail.challenges.map((c) => `- ${c}`), "");
   }
-  if (s.detail?.advice) {
-    lines.push("## 進め方のアドバイス", s.detail.advice, "");
+  const adviceText = s.detail ? effectiveAdviceText(s.detail) : "";
+  if (adviceText) {
+    lines.push("## 進め方のアドバイス", adviceText, "");
   }
   if (s.memos.length > 0) {
     lines.push("## メモ", ...s.memos.map((m) => `- ${formatMemoForExport(m)}`), "");
@@ -339,7 +345,7 @@ function cellValue(
     case "logic":
       return s.detail?.logic ?? "";
     case "advice":
-      return s.detail?.advice ?? "";
+      return s.detail ? effectiveAdviceText(s.detail) : "";
     case "memos":
       return joinList(s.memos.map((m) => formatMemoForExport(m)));
     case "theme":
@@ -363,7 +369,13 @@ function cellValue(
     case "aiLogic":
       return ai?.proposal?.logic ?? "";
     case "aiAdvice":
-      return ai?.proposal?.advice ?? "";
+      return (
+        (ai?.proposal?.adviceStructured
+          ? flattenAdviceStructured(ai.proposal.adviceStructured)
+          : "") ||
+        ai?.proposal?.advice ||
+        ""
+      );
     case "aiChat":
       return formatAiChatCell(ai);
     default: {

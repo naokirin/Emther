@@ -1,4 +1,5 @@
 import { IdLinkedText } from "../IdLinkedText";
+import { AdviceBlock } from "../AdviceBlock";
 import type { Proposal } from "../RunDetail";
 import { listSuggestionCandidatesFromProposal } from "./run-view-helpers";
 
@@ -38,21 +39,14 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
           <IdLinkedText text={proposal.conclusion} />
         </p>
 
-        {proposal.advice && (
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: "1px dashed var(--border)",
-              fontSize: "0.85rem",
-              color: "var(--fg)",
-            }}
-          >
-            <strong style={{ color: "var(--accent)" }}>💡 進め方のアドバイス: </strong>
-            <IdLinkedText text={proposal.advice} />
-          </div>
-        )}
+        <AdviceBlock
+          fields={{
+            advice: proposal.advice,
+            adviceStructured: proposal.adviceStructured,
+          }}
+        />
       </div>
+
 
       {hasDetails && (
         <details

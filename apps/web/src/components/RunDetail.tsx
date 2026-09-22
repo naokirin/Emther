@@ -7,6 +7,7 @@ import {
   type SuggestionReviewStatus,
   type YieldKind,
 } from "@emther/core/types";
+import type { AdviceStructured } from "@emther/core/advice";
 import { STATUS_META } from "./runDetailMeta";
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
@@ -61,6 +62,7 @@ export type Proposal = {
   suggestionCandidates?: { title: string; rationale?: string }[];
   // 進め方の助言。次に観測・確認すべき点も含めてよい（解決策でなくてよい）。
   advice?: string;
+  adviceStructured?: AdviceStructured;
 };
 
 export type SuggestedTheme = {

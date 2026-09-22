@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   addMemo,
+  adviceFieldsFromProposal,
   archiveSuggestion,
   createSuggestion,
   getSuggestion,
@@ -86,7 +87,7 @@ export const suggestionsRoute = new Hono()
           logic: sourceRun.proposal.logic,
           ...(sourceRun.proposal.expansions?.length ? { expansions: sourceRun.proposal.expansions } : {}),
           ...(sourceRun.proposal.challenges?.length ? { challenges: sourceRun.proposal.challenges } : {}),
-          ...(sourceRun.proposal.advice ? { advice: sourceRun.proposal.advice } : {}),
+          ...adviceFieldsFromProposal(sourceRun.proposal),
         }
       : undefined;
 
@@ -296,7 +297,7 @@ export const suggestionsRoute = new Hono()
             logic: run.proposal.logic,
             ...(run.proposal.expansions?.length ? { expansions: run.proposal.expansions } : {}),
             ...(run.proposal.challenges?.length ? { challenges: run.proposal.challenges } : {}),
-            ...(run.proposal.advice ? { advice: run.proposal.advice } : {}),
+            ...adviceFieldsFromProposal(run.proposal),
           }) ?? suggestion;
       }
 

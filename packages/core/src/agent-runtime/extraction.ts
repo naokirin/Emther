@@ -4,6 +4,7 @@ import {
   type ConfirmPriority,
   type YieldKind,
 } from "../types";
+import { normalizeAdviceStructured } from "../advice";
 import { dateStringToNoonTimestamp } from "../journal-date-parser";
 import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
 import type { SuggestedTheme } from "../theme-store";
@@ -124,7 +125,10 @@ export function extractProposal(resultText: string): Proposal | undefined {
       const suggestionTitle =
         typeof parsed.suggestionTitle === "string" && parsed.suggestionTitle.trim() ? parsed.suggestionTitle.trim() : undefined;
       const suggestionCandidates = normalizeSuggestionCandidates(parsed.suggestionCandidates);
-      const advice = typeof parsed.advice === "string" && parsed.advice.trim() ? parsed.advice.trim() : undefined;
+      // 新形式（オブジェクト）・旧形式（string）どちらも adviceStructured に正規化。
+      const adviceStructured = normalizeAdviceStructured(
+        parsed.advice !== undefined ? parsed.advice : parsed.adviceStructured,
+      );
       const lensesUsed = normalizeLensUsage(parsed.lensesUsed);
       return {
         conclusion: parsed.conclusion,
@@ -141,7 +145,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         ...(recommendation ? { recommendation } : {}),
         ...(suggestionTitle ? { suggestionTitle } : {}),
         ...(suggestionCandidates ? { suggestionCandidates } : {}),
-        ...(advice ? { advice } : {}),
+        ...(adviceStructured ? { adviceStructured } : {}),
         ...(lensesUsed ? { lensesUsed } : {}),
       };
     }
