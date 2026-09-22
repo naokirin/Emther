@@ -46,14 +46,22 @@ describe("DailySituationPanel", () => {
     expect(screen.getByText("過去との比較")).toBeInTheDocument();
   });
 
-  it("statusを持たないconcernsは気になる兆候として表示する", () => {
+  it("signalKind付きconcernsは気になる兆候として表示する", () => {
     const situation = baseSituation({
-      concerns: [item({ id: "event-1", text: "緊急の出来事" })],
+      concerns: [item({ id: "event-1", text: "要注意のチームが2つ", signalKind: "vitals" })],
     });
     render(
       <DailySituationPanel situation={situation} loaded={true} weeklyTone={emptyTone} attentionChips={[]} />,
     );
-    expect(screen.getByText("緊急の出来事")).toBeInTheDocument();
+    expect(screen.getByText("要注意のチームが2つ")).toBeInTheDocument();
+    expect(screen.getByText("チーム状態")).toBeInTheDocument();
+  });
+
+  it("兆候が空のとき組織レベル向けのempty文を出す", () => {
+    render(
+      <DailySituationPanel situation={baseSituation()} loaded={true} weeklyTone={emptyTone} attentionChips={[]} />,
+    );
+    expect(screen.getByText("組織レベルの気になる兆候は見当たりません")).toBeInTheDocument();
   });
 
   it("昨日から変わったことをクリックするとonSelectが呼ばれる", async () => {

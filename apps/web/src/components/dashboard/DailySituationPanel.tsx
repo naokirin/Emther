@@ -1,10 +1,14 @@
 import styles from "../../styles/page.module.css";
-import type { DailySituation, SituationItem } from "../../lib/daily-situation";
+import {
+  CONCERN_SIGNAL_LABEL,
+  type DailySituation,
+  type SituationItem,
+} from "../../lib/daily-situation";
 import type { WeeklyJournalTonePoint } from "@emther/core/daily-trends";
 
 // docs/design/dashboard/today-tab.pen 改善案A対応。
 // 「材料（判断はEMがする）」として、変化・兆候・4週トーン比較の3カラム + 注目チップ。
-// 状態チップ／判断ティーザーは「いまの状態」「今日やるべき3つ」へ移した。
+// 気になる兆候は組織レベルのパターン材料（個体ナビは「注目」チップ側）。
 
 function NarrativeList({ items, emptyText }: { items: SituationItem[]; emptyText: string }) {
   if (items.length === 0) return <p className={styles.situationEmpty}>{emptyText}</p>;
@@ -85,7 +89,7 @@ export function DailySituationPanel({ situation, loaded, weeklyTone, attentionCh
     );
   }
 
-  const concerningEvents = situation.concerns.filter((item) => item.status === undefined);
+  const concernSignals = situation.concerns.filter((item) => item.signalKind);
 
   return (
     <div className={styles.panel}>
@@ -103,13 +107,15 @@ export function DailySituationPanel({ situation, loaded, weeklyTone, attentionCh
           <div className={styles.situationCardHead}>
             <span className={styles.situationCardTitle}>気になる兆候</span>
           </div>
-          {concerningEvents.length === 0 ? (
-            <p className={styles.situationEmpty}>気になる出来事の記録はありません</p>
+          {concernSignals.length === 0 ? (
+            <p className={styles.situationEmpty}>組織レベルの気になる兆候は見当たりません</p>
           ) : (
             <ul className={styles.situationList}>
-              {concerningEvents.map((item) => (
+              {concernSignals.map((item) => (
                 <li key={item.id} className={styles.situationConcernCard}>
-                  <span className={styles.situationConcernLabel}>緊急 · Journal</span>
+                  <span className={styles.situationConcernLabel}>
+                    {item.signalKind ? CONCERN_SIGNAL_LABEL[item.signalKind] : "兆候"}
+                  </span>
                   {item.onSelect ? (
                     <button type="button" className={styles.situationItemBtn} onClick={item.onSelect}>
                       {item.text}

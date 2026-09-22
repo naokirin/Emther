@@ -182,12 +182,15 @@ export function DashboardPage() {
 
   // docs/2nd_pivot_version.md Phase 1対応。pivot_policy.md「目指すUX」の6項目で
   // 今日の状況をまとめる（提案駆動ではなく Journal/Vitals/People 駆動）。
+  // 気になる兆候は組織レベルのパターン（停滞提案含む）なので suggestions も渡す。
   const dailySituation = buildDailySituation({
     now,
     journalEntries,
     vitals,
     people,
     nextActions,
+    suggestions,
+    staleInterventionDays: rules.staleInterventionDays,
     push: (path: string) => navigate(path),
     prefillJournal,
   });
