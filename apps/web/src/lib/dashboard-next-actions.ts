@@ -10,6 +10,7 @@ import { formatPendingAgentStartText } from "../components/pendingAgentStart";
 import { truncateExcerpt } from "@emther/core/origin-trace";
 import {
   isJournalEntryResolved,
+  isSuggestionReviewOverdue,
   type Suggestion,
   type JournalEntry,
   type OrgVitals,
@@ -346,9 +347,9 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   // ユーザー要望「期日超過の提案を朝キューにも自動で出してほしい」対応。EMがreviewDueAt
   // （「いつまでに確認したいか」）を自ら設定した提案が、その期日を過ぎても未確認・確認中・
   // 確認保留のままなら、様子見の期限切れ（watch-expired、下記）と同じ考え方で判断待ち
-  // レーンへ出す。archived（確認済みdoneを含む）は対象外。
+  // レーンへ出す。確認済み(done)・アーカイブ済みは対象外（isSuggestionReviewOverdue）。
   const overdueReviews = suggestions
-    .filter((s): s is typeof s & { reviewDueAt: number } => !s.archivedAt && s.reviewDueAt !== undefined && now > s.reviewDueAt)
+    .filter((s): s is typeof s & { reviewDueAt: number } => isSuggestionReviewOverdue(s, now))
     .sort((a, b) => a.reviewDueAt - b.reviewDueAt)
     .slice(0, 3);
   for (const suggestion of overdueReviews) {

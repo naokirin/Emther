@@ -191,6 +191,64 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
   });
 });
 
+describe("ConsultReviewPanel - 様子見の継続", () => {
+  const proposalRun = baseRun({
+    proposal: {
+      conclusion: "結論です",
+      facts: [],
+      logic: "ロジック",
+      rejectedAlternatives: [],
+      expansions: [],
+      challenges: [],
+      suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
+    },
+  });
+
+  const baseProps = {
+    sourceJournal: null,
+    suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
+    candidatePick: null,
+    setCandidatePick: vi.fn(),
+    stale: false,
+    fetchWithNameConfirm: vi.fn(),
+    refreshRuns: vi.fn().mockResolvedValue(undefined),
+    refreshSuggestions: vi.fn().mockResolvedValue(undefined),
+    suggestions: [],
+  };
+
+  it("未トリアージなら「様子見する」と表示する", () => {
+    renderPanel(<ConsultReviewPanel {...baseProps} selectedRun={proposalRun} />);
+    expect(screen.getByRole("button", { name: "👀 様子見する" })).toBeInTheDocument();
+  });
+
+  it("様子見中なら「継続して様子見する」と表示し、押すとwatchingを再設定できる", async () => {
+    const watchingRun = { ...proposalRun, triageStatus: "watching" as const, triageAt: 1000, reviewed: true };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    vi.stubGlobal("fetch", mockFetch);
+    const refreshRuns = vi.fn().mockResolvedValue(undefined);
+
+    renderPanel(
+      <ConsultReviewPanel {...baseProps} selectedRun={watchingRun} refreshRuns={refreshRuns} />,
+    );
+
+    const button = screen.getByRole("button", { name: "👀 継続して様子見する" });
+    button.click();
+
+    await vi.waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/agents/run-consult-1/review",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ triageStatus: "watching" }),
+        }),
+      );
+      expect(refreshRuns).toHaveBeenCalled();
+    });
+
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
   it("sourceJournalIdがない手動相談でもstatusがerrorならリセットボタンを表示する", () => {
     const errorRun = baseRun({

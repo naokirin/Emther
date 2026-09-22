@@ -119,7 +119,15 @@ describe("buildNextActions の確認期日超過（判断待ちレーン）", ()
 
   it("アーカイブ済みの提案は期日を過ぎていても出さない", () => {
     const suggestions: Suggestion[] = [
-      suggestion({ id: "s-done", reviewDueAt: NOW - DAY_MS, reviewStatus: "done", archivedAt: NOW - DAY_MS }),
+      suggestion({ id: "s-archived", reviewDueAt: NOW - DAY_MS, archivedAt: NOW - DAY_MS }),
+    ];
+    const actions = buildNextActions(baseParams({ suggestions }));
+    expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
+  });
+
+  it("確認済み(done)の提案はアーカイブしていなくても期日超過として出さない", () => {
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-done", title: "確認済みの提案", reviewDueAt: NOW - DAY_MS, reviewStatus: "done" }),
     ];
     const actions = buildNextActions(baseParams({ suggestions }));
     expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);

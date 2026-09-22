@@ -588,7 +588,7 @@ export function ConsultReviewPanel({
                   : "📌 提案として残す"}
             </button>
             <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
-              👀 様子見する
+              {selectedRun.triageStatus === "watching" ? "👀 継続して様子見する" : "👀 様子見する"}
             </button>
             <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
               却下する（対応不要）
