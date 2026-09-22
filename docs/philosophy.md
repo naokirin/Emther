@@ -115,7 +115,7 @@ Observe → Remember → Interpret → Lens Selection → Expand → Challenge �
 
 ### 5.1 Issueを中心概念にしない
 
-AIが観測・解釈した結果として現れる「状況」や「判断材料」の一つ（Suggestion）を最終成果物として管理し続ける設計は避ける。細かな階層化・Action Item・Priority・Why/What/Howを人間が延々と管理する仕組みは持たない。実際のタスク管理はJira・Notion等の既存ツールに委ね、Emtherは「Issueになりうる」という提案までに留める。
+AIが観測・解釈した結果として現れる「状況」や「判断材料」の一つ（Suggestion）を最終成果物として管理し続ける設計は避ける。細かな階層化・Action Item・Priority・Why/What/Howを人間が延々と管理する仕組みは持たない。実際のタスク管理はJira・Notion等の既存ツールに委ね、Emtherは「Issueになりうる」という提案までに留める。外部ツールへの受け渡しは [`suggestion_export.md`](suggestion_export.md) を参照。
 
 ### 5.2 EMによる入力は「管理のため」ではなく「重要な情報を残すため」
 

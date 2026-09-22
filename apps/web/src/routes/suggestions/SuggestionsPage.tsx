@@ -17,7 +17,18 @@ import {
   SUGGESTION_THEME_UNLINKED,
   SuggestionThemeSwitcher,
 } from "../../components/SuggestionThemeSwitcher";
-import { useRuns, useSettingsRules, useSuggestions, useThemes } from "../../lib/queries";
+import {
+  SuggestionExportColumnEditor,
+  useSuggestionExportColumns,
+} from "../../components/SuggestionExportColumnEditor";
+import { useRuns, useSettingsRules, useSuggestions, useTeams, useThemes } from "../../lib/queries";
+import { copyTextToClipboard } from "../../lib/clipboard";
+import {
+  formatSuggestionsMarkdownTable,
+  formatSuggestionsTsv,
+  agentSourceFromRun,
+} from "@emther/core/suggestion-export";
+import { resolveSourceConsultRun } from "@emther/core/origin-trace";
 import {
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUS_META,
@@ -148,6 +159,7 @@ export function SuggestionsPage() {
   const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
   const { runs, refreshRuns } = useRuns();
   const { themes } = useThemes();
+  const { teams } = useTeams();
   const { rules } = useSettingsRules();
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
@@ -164,6 +176,29 @@ export function SuggestionsPage() {
     [themes],
   );
 
+  const exportLookups = useMemo(() => {
+    const agentSourceBySuggestionId: Record<string, ReturnType<typeof agentSourceFromRun>> = {};
+    for (const s of suggestions) {
+      const linkedRun = s.agentRunId ? runs.find((r) => r.id === s.agentRunId) : undefined;
+      const sourceConsult = resolveSourceConsultRun(
+        { sourceRunId: s.sourceRunId, agentRunId: s.agentRunId },
+        runs,
+      );
+      const activeRun = linkedRun ?? sourceConsult;
+      if (!activeRun) continue;
+      agentSourceBySuggestionId[s.id] = agentSourceFromRun(
+        activeRun,
+        !linkedRun && sourceConsult ? "元の相談" : "判断・提案（Agent）",
+      );
+    }
+    return {
+      themeTitleById: Object.fromEntries(themes.map((t) => [t.id, t.title])),
+      teamNameById: Object.fromEntries(teams.map((t) => [t.id, t.name])),
+      appOrigin: typeof window !== "undefined" ? window.location.origin : undefined,
+      agentSourceBySuggestionId,
+    };
+  }, [themes, teams, suggestions, runs]);
+
   const [themeKey, setThemeKey] = useState(SUGGESTION_THEME_ALL);
   const [filters, setFilters] = useState<SuggestionFilterState>(() => ({
     query: "",
@@ -174,6 +209,10 @@ export function SuggestionsPage() {
     showArchived: false,
   }));
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [showColumnEditor, setShowColumnEditor] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const { columnIds, setColumnIds } = useSuggestionExportColumns();
 
   function handleFilterChange<K extends keyof SuggestionFilterState>(key: K, next: SuggestionFilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: next }));
@@ -234,6 +273,58 @@ export function SuggestionsPage() {
   const doneCount = suggestions.filter((s) => s.reviewStatus === "done").length;
   const archivedCount = suggestions.filter((s) => s.archivedAt).length;
 
+  const exportTargets = useMemo(() => {
+    if (selectedIds.size === 0) return filtered;
+    return filtered.filter((s) => selectedIds.has(s.id));
+  }, [filtered, selectedIds]);
+
+  const pageIds = pagination.pageItems.map((s) => s.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectPage() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        for (const id of pageIds) next.delete(id);
+      } else {
+        for (const id of pageIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function selectAllFiltered() {
+    setSelectedIds(new Set(filtered.map((s) => s.id)));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function copyExport(kind: "tsv" | "md") {
+    if (exportTargets.length === 0) {
+      setCopyFeedback("コピーする提案がありません");
+      window.setTimeout(() => setCopyFeedback(null), 2000);
+      return;
+    }
+    const text =
+      kind === "tsv"
+        ? formatSuggestionsTsv(exportTargets, columnIds, exportLookups)
+        : formatSuggestionsMarkdownTable(exportTargets, columnIds, exportLookups);
+    const ok = await copyTextToClipboard(text);
+    setCopyFeedback(ok ? `${exportTargets.length}件をコピーしました` : "コピーに失敗しました");
+    window.setTimeout(() => setCopyFeedback(null), 2000);
+  }
+
   async function moveFocus(id: string, direction: "up" | "down") {
     setFocusMovingId(id);
     try {
@@ -273,10 +364,79 @@ export function SuggestionsPage() {
             archivedCount={archivedCount}
           />
 
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 10,
+              fontSize: "0.85rem",
+            }}
+          >
+            <span className={styles.tableMuted}>
+              外部へ渡す:{" "}
+              {selectedIds.size > 0
+                ? `選択 ${selectedIds.size}件（フィルタ内）`
+                : `フィルタ結果 ${filtered.length}件`}
+            </span>
+            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={selectAllFiltered}>
+              フィルタ全選択
+            </button>
+            <button
+              type="button"
+              className={styles.btnOutline}
+              style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+              disabled={selectedIds.size === 0}
+              onClick={clearSelection}
+            >
+              選択解除
+            </button>
+            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => void copyExport("tsv")}>
+              表をコピー（TSV）
+            </button>
+            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => void copyExport("md")}>
+              表をコピー（Markdown）
+            </button>
+            <button
+              type="button"
+              className={styles.btnOutline}
+              style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+              onClick={() => setShowColumnEditor((v) => !v)}
+            >
+              {showColumnEditor ? "列設定を閉じる" : "列の順・表示"}
+            </button>
+            {copyFeedback && <span className={styles.tableMuted}>{copyFeedback}</span>}
+          </div>
+          {showColumnEditor && (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: "10px 12px",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                background: "var(--bg-subtle, transparent)",
+              }}
+            >
+              <p className={styles.subtitle} style={{ marginTop: 0, marginBottom: 8 }}>
+                Notion DB / Sheets などに合わせ、出す列と順番だけ変えられます（列名のリネームは未対応）。根拠・判断ロジック・メモ・AI* 列も追加できます。この端末にだけ保存します。
+              </p>
+              <SuggestionExportColumnEditor value={columnIds} onChange={setColumnIds} />
+            </div>
+          )}
+
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>
+                    <input
+                      type="checkbox"
+                      aria-label="このページを全選択"
+                      checked={allPageSelected}
+                      onChange={toggleSelectPage}
+                    />
+                  </th>
                   <th>タイトル</th>
                   <th>確認状態</th>
                   <th>確認優先度</th>
@@ -286,7 +446,7 @@ export function SuggestionsPage() {
               <tbody>
                 {pagination.total === 0 && (
                   <tr>
-                    <td colSpan={4} className={styles.tableEmpty}>
+                    <td colSpan={5} className={styles.tableEmpty}>
                       {!suggestionsLoaded ? "読み込み中…" : "条件に一致する提案はありません。"}
                     </td>
                   </tr>
@@ -297,6 +457,14 @@ export function SuggestionsPage() {
                   const priMeta = CONFIRM_PRIORITY_META[s.confirmPriority];
                   return (
                     <tr key={s.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`${s.title}を選択`}
+                          checked={selectedIds.has(s.id)}
+                          onChange={() => toggleSelect(s.id)}
+                        />
+                      </td>
                       <td>
                         <button className={styles.tableRowLink} onClick={() => peek.open(s.id)}>
                           {s.title}

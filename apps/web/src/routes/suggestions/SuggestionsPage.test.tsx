@@ -7,6 +7,11 @@ import type { ReactNode } from "react";
 import { SuggestionsPage } from "./SuggestionsPage";
 import { IdResolveProvider } from "../../components/IdFragmentLink";
 import type { Suggestion } from "@emther/core/types";
+import { copyTextToClipboard } from "../../lib/clipboard";
+
+vi.mock("../../lib/clipboard", () => ({
+  copyTextToClipboard: vi.fn(async () => true),
+}));
 
 // docs/design/suggestion/suggestion-tab.pen 改善案C対応後の一覧UIを検証する。
 // テーマメニュー・絞り込みポップオーバー・4列表・デフォルトの確認済み非表示に絞る。
@@ -49,6 +54,7 @@ describe("SuggestionsPage", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    window.localStorage.clear();
     fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/suggestions") {
         return {
@@ -88,6 +94,7 @@ describe("SuggestionsPage", () => {
           }),
         };
       }
+      if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
       if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
       if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: { agentStaleAfterSeconds: 120 } }) };
       return { ok: true, json: async () => ({}) };
@@ -97,6 +104,8 @@ describe("SuggestionsPage", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    window.localStorage.clear();
+    vi.mocked(copyTextToClipboard).mockClear();
   });
 
   it("デフォルトでは確認済み（done）の提案を表示しない", async () => {
@@ -148,6 +157,7 @@ describe("SuggestionsPage", () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
+      if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
       if (url === "/api/agents") {
         return {
           ok: true,
@@ -178,5 +188,46 @@ describe("SuggestionsPage", () => {
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await user.click(await screen.findByText("Lead Agent"));
     expect(screen.getByTestId("location")).toHaveTextContent("/chat?runId=run-lead-1");
+  });
+
+  it("未選択時はフィルタ結果をTSVでコピーする", async () => {
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: "表をコピー（TSV）" }));
+    expect(await screen.findByText(/2件をコピーしました/)).toBeInTheDocument();
+    expect(copyTextToClipboard).toHaveBeenCalled();
+    const text = vi.mocked(copyTextToClipboard).mock.calls[0]![0];
+    expect(text).toContain("タイトル\t結論\tテーマ\t確認優先度\tEmther ID");
+    expect(text).toContain("未確認の提案");
+    expect(text).toContain("テーマ付き提案");
+    expect(text).not.toContain("確認済みの提案");
+  });
+
+  it("列設定でidだけにしてからコピーするとヘッダーが変わる", async () => {
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: "列の順・表示" }));
+    for (const name of ["タイトルを外す", "結論を外す", "テーマを外す", "確認優先度を外す"]) {
+      const btn = screen.queryByRole("button", { name });
+      if (btn) await user.click(btn);
+    }
+    await user.click(screen.getByRole("button", { name: "表をコピー（TSV）" }));
+    expect(await screen.findByText(/2件をコピーしました/)).toBeInTheDocument();
+    const text = vi.mocked(copyTextToClipboard).mock.calls.at(-1)![0];
+    expect(text.split("\n")[0]).toBe("Emther ID");
+  });
+
+  it("すべての列を選択すると未選択列が消える", async () => {
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: "列の順・表示" }));
+    expect(screen.getByText(/未選択 \d+ 列/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "すべての列を選択" }));
+    expect(screen.queryByText(/未選択 \d+ 列/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "すべての列を選択" })).toBeDisabled();
+    expect(screen.queryByText("追加できる列")).not.toBeInTheDocument();
   });
 });

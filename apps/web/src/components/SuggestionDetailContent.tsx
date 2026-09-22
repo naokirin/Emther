@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import styles from "../styles/page.module.css";
 import { CopilotChat, ExecutionState, type AgentRun } from "./RunDetail";
@@ -15,8 +15,10 @@ import {
   useTeams,
   useThemes,
 } from "../lib/queries";
+import { copyTextToClipboard } from "../lib/clipboard";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { dateStringToNoonTimestamp, timestampToDateInputValue } from "@emther/core/journal-date-parser";
+import { formatSuggestionMarkdown, agentSourceFromRun } from "@emther/core/suggestion-export";
 import {
   CONFIRM_PRIORITIES,
   CONFIRM_PRIORITY_META,
@@ -86,6 +88,28 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
+  const [mdCopied, setMdCopied] = useState(false);
+
+  const exportLookups = useMemo(
+    () => ({
+      themeTitleById: Object.fromEntries(themes.map((t) => [t.id, t.title])),
+      teamNameById: Object.fromEntries(teams.map((t) => [t.id, t.name])),
+      appOrigin: typeof window !== "undefined" ? window.location.origin : undefined,
+    }),
+    [themes, teams],
+  );
+
+  async function handleCopyMarkdown() {
+    if (!suggestion) return;
+    const agentSource = activeRun
+      ? agentSourceFromRun(activeRun, showingSourceConsult ? "元の相談" : "判断・提案（Agent）")
+      : undefined;
+    const text = formatSuggestionMarkdown(suggestion, { ...exportLookups, agentSource });
+    const ok = await copyTextToClipboard(text);
+    if (!ok) return;
+    setMdCopied(true);
+    window.setTimeout(() => setMdCopied(false), 2000);
+  }
 
   async function patchSuggestion(body: Record<string, unknown>) {
     if (!suggestion) return;
@@ -251,6 +275,14 @@ export function SuggestionDetailContent({ id }: { id: string }) {
                 onClick={() => void patchSuggestion({ archived: !suggestion.archivedAt })}
               >
                 {suggestion.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+              </button>{" "}
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                onClick={() => void handleCopyMarkdown()}
+              >
+                {mdCopied ? "コピーしました" : "Markdown をコピー"}
               </button>
             </h1>
           )}

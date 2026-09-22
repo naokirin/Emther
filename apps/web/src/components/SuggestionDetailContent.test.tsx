@@ -6,6 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { SuggestionDetailContent } from "./SuggestionDetailContent";
 import type { Suggestion } from "@emther/core/types";
+import { copyTextToClipboard } from "../lib/clipboard";
+
+vi.mock("../lib/clipboard", () => ({
+  copyTextToClipboard: vi.fn(async () => true),
+}));
 
 // web/src/components/SuggestionDetailContent.tsx（Next.js版）には専用テストが元々無かった
 // ため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。確認状態のPATCH（ミューテーション
@@ -69,11 +74,33 @@ describe("SuggestionDetailContent", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.mocked(copyTextToClipboard).mockClear();
   });
 
   it("提案のタイトルを表示する", async () => {
     render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
     expect(await screen.findByText("提案タイトル")).toBeInTheDocument();
+  });
+
+  it("Markdown をコピーすると提案本文をクリップボードへ書く", async () => {
+    suggestion = baseSuggestion({
+      detail: {
+        conclusion: "結論",
+        facts: ["事実"],
+        logic: "ロジック",
+        updatedAt: 1,
+      },
+    });
+    const user = userEvent.setup();
+    render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "Markdown をコピー" }));
+    expect(await screen.findByRole("button", { name: "コピーしました" })).toBeInTheDocument();
+    expect(copyTextToClipboard).toHaveBeenCalled();
+    const text = vi.mocked(copyTextToClipboard).mock.calls[0]![0];
+    expect(text).toContain("# 提案タイトル");
+    expect(text).toContain("## 結論\n結論");
+    expect(text).toContain("Emther ID: sug-1");
+    expect(text).toMatch(/Emther URL: https?:\/\/.+\/suggestions\/sug-1/);
   });
 
   it("Agent Runが無ければその旨を表示する", async () => {
