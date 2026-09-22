@@ -5,6 +5,7 @@ import { getTheme, listAdoptedThemes, toThemeView, type OrgTheme } from "./theme
 import { listGoals } from "./org-context-store/index";
 import { unmaskNames } from "./people-directory";
 import { isSuggestionStrategyUnlinked, type GoalLinkSuggestion, type Suggestion, type SuggestionStrategyLinkSuggestion } from "./types";
+import { isLocalRerankEnabled, scoreQueryDocuments } from "./reranker";
 
 export type { GoalLinkSuggestion, SuggestionStrategyLinkSuggestion };
 
@@ -90,14 +91,28 @@ function labelSuggestionLink(
   };
 }
 
-function heuristicSuggestionLink(suggestion: Suggestion, themes: OrgTheme[]): SuggestionStrategyLinkSuggestion | null {
+async function scoreHeuristicPairs(query: string, candidates: string[]): Promise<number[] | null> {
+  if (!isLocalRerankEnabled() || candidates.length === 0) return null;
+  try {
+    return await scoreQueryDocuments(query, candidates);
+  } catch {
+    return null;
+  }
+}
+
+async function heuristicSuggestionLink(
+  suggestion: Suggestion,
+  themes: OrgTheme[],
+): Promise<SuggestionStrategyLinkSuggestion | null> {
   const hay = suggestionContentHaystack(suggestion);
+  const themeTexts = themes.map((t) => [t.title, t.summary, t.rationale].join(" "));
+  const rerankScores = await scoreHeuristicPairs(hay, themeTexts);
   const rankedThemes = themes
-    .map((t) => ({
+    .map((t, i) => ({
       t,
-      score: overlapScore(hay, [t.title, t.summary, t.rationale].join(" ")),
+      score: rerankScores ? (rerankScores[i] ?? Number.NEGATIVE_INFINITY) : overlapScore(hay, themeTexts[i]),
     }))
-    .filter((x) => x.score > 0.08)
+    .filter((x) => (rerankScores ? Number.isFinite(x.score) : x.score > 0.08))
     .sort((a, b) => b.score - a.score);
 
   const themeId: string | null = rankedThemes[0]?.t.id ?? null;
@@ -115,7 +130,10 @@ function heuristicSuggestionLink(suggestion: Suggestion, themes: OrgTheme[]): Su
     return null;
   }
 
-  return labelSuggestionLink(suggestion, themeId, "提案内容とテーマ文言の類似から候補を選びました", themes);
+  const rationale = rerankScores
+    ? "提案内容とテーマの関連スコアから候補を選びました"
+    : "提案内容とテーマ文言の類似から候補を選びました";
+  return labelSuggestionLink(suggestion, themeId, rationale, themes);
 }
 
 function parseSuggestionCloud(
@@ -218,15 +236,15 @@ export async function suggestSuggestionStrategyLinks(opts?: {
     const filled = [...cloud];
     for (const s of targets) {
       if (covered.has(s.id)) continue;
-      const h = heuristicSuggestionLink(s, themes);
+      const h = await heuristicSuggestionLink(s, themes);
       if (h) filled.push(h);
     }
     return { suggestions: filled, targetCount: targets.length, source: "cloud" };
   }
 
-  const heuristic = targets
-    .map((s) => heuristicSuggestionLink(s, themes))
-    .filter((s): s is SuggestionStrategyLinkSuggestion => !!s);
+  const heuristic = (
+    await Promise.all(targets.map((s) => heuristicSuggestionLink(s, themes)))
+  ).filter((s): s is SuggestionStrategyLinkSuggestion => !!s);
   const reason = fallbackReason ?? "cloud_unavailable_unknown";
   if (!fallbackReason) logFallback("suggestion→strategy", reason);
   return {
@@ -296,10 +314,18 @@ function labelGoalSuggestion(
   };
 }
 
-function heuristicGoalSuggestion(src: GoalLinkSourceRaw, catalog: GoalCatalogEntry[]): GoalLinkSuggestion | null {
+async function heuristicGoalSuggestion(
+  src: GoalLinkSourceRaw,
+  catalog: GoalCatalogEntry[],
+): Promise<GoalLinkSuggestion | null> {
+  const texts = catalog.map((g) => g.text);
+  const rerankScores = await scoreHeuristicPairs(src.hay, texts);
   const ranked = catalog
-    .map((g) => ({ g, score: overlapScore(src.hay, g.text) }))
-    .filter((x) => x.score > 0.08)
+    .map((g, i) => ({
+      g,
+      score: rerankScores ? (rerankScores[i] ?? Number.NEGATIVE_INFINITY) : overlapScore(src.hay, g.text),
+    }))
+    .filter((x) => (rerankScores ? Number.isFinite(x.score) : x.score > 0.08))
     .sort((a, b) => b.score - a.score);
   const goalIds = ranked.slice(0, 2).map((x) => x.g.id);
   if (goalIds.length === 0) {
@@ -313,7 +339,10 @@ function heuristicGoalSuggestion(src: GoalLinkSourceRaw, catalog: GoalCatalogEnt
     }
     return null;
   }
-  return labelGoalSuggestion(src.id, goalIds, "内容の類似からGoal候補を選びました", catalog);
+  const rationale = rerankScores
+    ? "内容の関連スコアからGoal候補を選びました"
+    : "内容の類似からGoal候補を選びました";
+  return labelGoalSuggestion(src.id, goalIds, rationale, catalog);
 }
 
 function parseGoalCloud(
@@ -393,15 +422,15 @@ export async function suggestThemeGoalLinks(opts?: { ids?: string[] }): Promise<
     const filled = [...cloud];
     for (const s of sources) {
       if (covered.has(s.id)) continue;
-      const h = heuristicGoalSuggestion(s, catalog);
+      const h = await heuristicGoalSuggestion(s, catalog);
       if (h) filled.push(h);
     }
     return { suggestions: filled, targetCount: sources.length, source: "cloud" };
   }
 
-  const heuristic = sources
-    .map((s) => heuristicGoalSuggestion(s, catalog))
-    .filter((s): s is GoalLinkSuggestion => !!s);
+  const heuristic = (
+    await Promise.all(sources.map((s) => heuristicGoalSuggestion(s, catalog)))
+  ).filter((s): s is GoalLinkSuggestion => !!s);
   const reason = fallbackReason ?? "cloud_unavailable_unknown";
   if (!fallbackReason) logFallback(scopeLabel, reason);
   return { suggestions: heuristic, targetCount: sources.length, source: "heuristic", fallbackReason: reason };

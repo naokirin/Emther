@@ -275,4 +275,18 @@ describe("PATCH /api/settings/rules", () => {
       expect((await res.json()).rules.localChatModelPreset).toBe("1.2b-jp");
     });
   });
+
+  describe("localRerankEnabled", () => {
+    it("既定は false", async () => {
+      const { settingsRulesRoute } = await import("./settings-rules");
+      const res = await settingsRulesRoute.request("/");
+      expect((await res.json()).rules.localRerankEnabled).toBe(false);
+    });
+
+    it("true に更新できる", async () => {
+      const { settingsRulesRoute } = await import("./settings-rules");
+      const res = await settingsRulesRoute.request("/", patch({ localRerankEnabled: true }));
+      expect((await res.json()).rules.localRerankEnabled).toBe(true);
+    });
+  });
 });

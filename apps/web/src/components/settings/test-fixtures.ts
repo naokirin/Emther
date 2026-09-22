@@ -45,6 +45,7 @@ export function makeRules(overrides: Partial<RulesAndConstraints> = {}): RulesAn
     cliOrder: ["claude"],
     selfPersonId: null,
     localChatModelPreset: "1.2b-jp",
+    localRerankEnabled: false,
     ...overrides,
   };
 }

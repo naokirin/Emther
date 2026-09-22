@@ -43,6 +43,7 @@ const settingsRulesPatchSchema = z
     autoGrowWeekday: numberField,
     autoGrowHour: numberField,
     teamParallelKickoffEnabled: booleanField,
+    localRerankEnabled: booleanField,
   })
   .catch({});
 
@@ -239,6 +240,7 @@ export const settingsRulesRoute = new Hono()
       cliOrder: cliOrder(body?.cliOrder),
       selfPersonId: selfPersonParsed?.ok ? selfPersonParsed.value : undefined,
       localChatModelPreset: localChatModelPreset(body?.localChatModelPreset),
+      localRerankEnabled: parsed.localRerankEnabled,
     };
     const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
     const rules = updateRulesAndConstraints(filtered);

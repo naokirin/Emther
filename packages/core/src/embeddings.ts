@@ -1,6 +1,7 @@
 import "./transformers-env";
 import { pipeline, type ProgressCallback } from "@huggingface/transformers";
 import { getTransformersCacheDir } from "./transformers-env";
+import { withTransformersInferenceLock } from "./transformers-inference-lock";
 
 // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索。埋め込みも外部送信せず、
 // local-model.ts（チャット生成）とは別に、文埋め込み専用の小さなモデルをロードする。
@@ -70,9 +71,11 @@ export async function embedText(text: string): Promise<number[]> {
   if (isEmbedderBusyOrFailed()) {
     throw new Error("local embedding model is not ready");
   }
-  const embedder = await getEmbedder();
-  const output = await embedder(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data as Float32Array);
+  return withTransformersInferenceLock(async () => {
+    const embedder = await getEmbedder();
+    const output = await embedder(text, { pooling: "mean", normalize: true });
+    return Array.from(output.data as Float32Array);
+  });
 }
 
 // 埋め込みはembedText()内でnormalize:trueにより単位ベクトル化しているため、

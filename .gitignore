@@ -23,3 +23,6 @@ dist/
 # privacy_check GiNZA ベンチ（ローカル venv / 実行成果）
 tools/privacy_check_bench/.venv/
 tools/privacy_check_bench/out_*.json
+
+# structured-model 軽量検証の実行成果
+scripts/eval-structured-models/out/

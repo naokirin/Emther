@@ -80,8 +80,10 @@ emther restart --host 127.0.0.1 --port 3001
 
 ```bash
 npm install
-npm run dev -w @emther/server   # 既定 http://127.0.0.1:8787
+npm run dev -w @emther/server   # 既定 http://127.0.0.1:8787（ファイル監視なし。コード変更後は再起動）
 npm run dev -w @emther/web      # 既定 http://localhost:5173（/api は上記へプロキシ）
+# サーバーの自動リロードが必要なときだけ:
+# npm run dev:watch -w @emther/server
 ```
 
 ブラウザで http://localhost:5173 を開きます。設計思想は [`docs/philosophy.md`](docs/philosophy.md)、アーキテクチャ移行の経緯・過去の実装メモは [`docs/archive/2nd_architecture.md`](docs/archive/2nd_architecture.md) と [`docs/archive/web_mvp_devlog.md`](docs/archive/web_mvp_devlog.md)（旧 Next.js 実装のMVP開発ログ）を参照してください。

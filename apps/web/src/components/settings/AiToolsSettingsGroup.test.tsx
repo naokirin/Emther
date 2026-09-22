@@ -36,4 +36,12 @@ describe("AiToolsSettingsGroup", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Autoは指定できません");
     expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ referenceLookupCursorModel: "auto" }));
   });
+
+  it("ローカル再ランキングのチェックを切り替える", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<AiToolsSettingsGroup draft={makeRules({ localRerankEnabled: false })} onChange={onChange} />);
+    await user.click(screen.getByRole("checkbox", { name: /ローカル再ランキング/ }));
+    expect(onChange).toHaveBeenCalledWith({ localRerankEnabled: true });
+  });
 });

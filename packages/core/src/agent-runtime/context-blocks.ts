@@ -13,6 +13,7 @@ import {
 } from "../org-context-store/index";
 import { listPeople, maskNames } from "../people-directory";
 import { buildRelatedBundleBlock } from "../related-context";
+import { maybeRerankByText } from "../reranker";
 import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "../agent-knowledge-tools";
 import { getRulesAndConstraints, getSelfPersonId } from "../settings-store";
 import { listAdoptedThemes } from "../theme-store";
@@ -366,7 +367,13 @@ export async function buildJournalContextBlock(
     if (scored.some((s) => s.similarity !== null)) {
       scored.sort((a, b) => (b.similarity ?? -1) - (a.similarity ?? -1));
     }
-    for (const { event: e, similarity } of scored.slice(0, factLimit)) {
+    // localRerankEnabled 時は cosine 順の候補を tiny reranker で並べ替え（失敗時は cosine のまま）。
+    const rankedFacts = await maybeRerankByText(
+      rawText,
+      scored,
+      (s) => s.event.text,
+    );
+    for (const { event: e, similarity } of rankedFacts.slice(0, factLimit)) {
       seenIds.add(e.id);
       const similarityNote = similarity !== null ? ` / 話題との類似度: ${similarity.toFixed(2)}` : "";
       factLines.push(

@@ -111,11 +111,27 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
           </select>
         </label>
       </div>
-      <p style={{ fontSize: "0.75rem", marginTop: 0, marginBottom: 16, maxWidth: 420, color: "var(--text-muted)" }}>
+      <p style={{ fontSize: "0.75rem", marginTop: 0, marginBottom: 12, maxWidth: 420, color: "var(--text-muted)" }}>
         {LOCAL_CHAT_MODEL_PRESETS[draft.localChatModelPreset ?? "1.2b-jp"]?.hint ?? ""}
         {" "}
         保存後、未取得ならダウンロードが始まります。大きいモデルはメモリ不足でプロセスが落ちることがあります。
       </p>
+      <div className={styles.field} style={{ maxWidth: 480, marginBottom: 16 }}>
+        <label
+          className={styles.axisTooltip}
+          data-tooltip="関連束・人物ファクト・紐づけ候補の並べ替えに使います。埋め込み（MiniLM）の後段です。初回利用時にモデルを取得します"
+        >
+          <input
+            type="checkbox"
+            checked={draft.localRerankEnabled === true}
+            onChange={(e) => onChange({ localRerankEnabled: e.target.checked })}
+          />{" "}
+          ローカル再ランキング（関連候補の精度向上・既定OFF）
+        </label>
+        <p style={{ fontSize: "0.75rem", margin: "4px 0 0", color: "var(--text-muted)" }}>
+          ONにすると、Agentへ渡す関連Journal/提案や、クラウド失敗時のテーマ・Goal紐づけ候補を、日本語向けの小さな再ランクモデルで並べ替えます。採用操作はこれまでどおり手動です。
+        </p>
+      </div>
 
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
       {(() => {

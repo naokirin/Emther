@@ -122,6 +122,9 @@ export type RulesAndConstraints = {
   // Journal抽出・人物名検出など Transformers.js のチャット用ローカルモデルのプリセット。
   // 既定 "350m"。埋め込みモデルは対象外。
   localChatModelPreset: LocalChatModelPresetId;
+  // 関連束・紐づけ heuristic 等で、MiniLM cosine 後段に日本語 tiny reranker を使う（既定 OFF）。
+  // ON 時のみ遅延ロード。失敗時は従来の cosine / overlap にフォールバック。
+  localRerankEnabled: boolean;
 };
 
 const DEFAULT_RULES: RulesAndConstraints = {
@@ -166,6 +169,7 @@ const DEFAULT_RULES: RulesAndConstraints = {
   cliOrder: ["claude"],
   selfPersonId: null,
   localChatModelPreset: "1.2b-jp",
+  localRerankEnabled: false,
 };
 
 /** 0〜23 の時刻配列を重複除去・昇順・最低1件に正規化する。 */

@@ -10,6 +10,7 @@ import {
   type SimilarSuggestion,
 } from "./related-context";
 import { searchSimilarEvents } from "./knowledge-store";
+import { maybeRerankByText, RERANK_CANDIDATE_LIMIT } from "./reranker";
 
 // docs/usage_issues U19 / U14-C。
 // CLI のネイティブツールは無効のまま、アプリ側の読み取り専用照会を
@@ -218,9 +219,16 @@ async function searchSimilarBundle(opts: { query: string; limit: number }): Prom
   }
 
   const suggestions = searchSimilarOpenSuggestions(queryEmbedding, {
-    limit: opts.limit,
+    limit: Math.max(opts.limit, RERANK_CANDIDATE_LIMIT),
     threshold: RELATED_SIMILARITY_THRESHOLD,
   });
+  const rankedSuggestions = (
+    await maybeRerankByText(embedQuery, suggestions, (s) => {
+      const memo = s.memos.at(-1)?.text ?? "";
+      return [s.title, memo].filter(Boolean).join(" ");
+    })
+  ).slice(0, opts.limit);
+
   // done/archived も含めて広めに見る（不在確認用）。embedding があるものだけ。
   const allScored: SimilarSuggestion[] = listSuggestions()
     .filter((s) => s.embedding)
@@ -230,32 +238,42 @@ async function searchSimilarBundle(opts: { query: string; limit: number }): Prom
     }))
     .filter((s) => s.similarity >= RELATED_SIMILARITY_THRESHOLD)
     .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, opts.limit);
+    .slice(0, Math.max(opts.limit, RERANK_CANDIDATE_LIMIT));
+  const rankedAll = (
+    await maybeRerankByText(embedQuery, allScored, (s) => {
+      const memo = s.memos.at(-1)?.text ?? "";
+      return [s.title, memo].filter(Boolean).join(" ");
+    })
+  ).slice(0, opts.limit);
 
-  const journals = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: opts.limit }).filter(
-    (e) => e.entityType === "journal" && e.similarity >= RELATED_SIMILARITY_THRESHOLD,
-  );
+  const journals = searchSimilarEvents(queryEmbedding, {
+    kind: "fact",
+    limit: Math.max(opts.limit, RERANK_CANDIDATE_LIMIT),
+  }).filter((e) => e.entityType === "journal" && e.similarity >= RELATED_SIMILARITY_THRESHOLD);
+  const rankedJournals = (
+    await maybeRerankByText(embedQuery, journals, (e) => e.summary || e.text)
+  ).slice(0, opts.limit);
 
   const lines: string[] = [];
   lines.push("【類似・未完了の提案】");
-  if (suggestions.length === 0) {
+  if (rankedSuggestions.length === 0) {
     lines.push("- （閾値以上の未完了提案なし）");
   } else {
-    lines.push(...suggestions.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
+    lines.push(...rankedSuggestions.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
   }
 
   lines.push("【類似・状態不問の提案（done/archived含む）】");
-  if (allScored.length === 0) {
+  if (rankedAll.length === 0) {
     lines.push("- （閾値以上の提案なし）");
   } else {
-    lines.push(...allScored.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
+    lines.push(...rankedAll.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
   }
 
   lines.push("【類似Journal】");
-  if (journals.length === 0) {
+  if (rankedJournals.length === 0) {
     lines.push("- （閾値以上のJournalなし）");
   } else {
-    for (const e of journals) {
+    for (const e of rankedJournals) {
       const snippet = (e.summary || e.text).slice(0, 140);
       lines.push(`- [${e.id}] ${snippet}（類似度: ${e.similarity.toFixed(2)}）`);
     }

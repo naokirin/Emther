@@ -3,12 +3,16 @@ import { listSuggestions } from "./suggestion-store";
 import type { Suggestion } from "./types";
 import { searchSimilarEvents, type KnowledgeEvent } from "./knowledge-store";
 import { getRulesAndConstraints } from "./settings-store";
+import { maybeRerankByText, RERANK_CANDIDATE_LIMIT } from "./reranker";
 
 // docs/knowledge_distillation.md 後続 1・2。
 // 提案の embedding と、Journal/提案 横断の「関連束」＋繰り返しカウントを組み立て、
 // Agent プロンプトへ注入する。巨大な本文を run.task に載せない（U13 と同じ方針）。
 // 提案自身のembedding計算・永続化（refreshSuggestionEmbedding）はsuggestion-store.ts
 // 側にある（related-context⇄suggestion-storeの循環参照を避けるため）。
+//
+// localRerankEnabled（既定OFF）時は、cosine で足切りした候補を tiny reranker で並べ替えてから
+// 上位を取る（scripts/eval-structured-models/RESULTS.md）。繰り返しカウントは cosine のまま。
 
 export const RELATED_SIMILARITY_THRESHOLD = 0.4;
 const RELATED_JOURNAL_LIMIT = 5;
@@ -57,9 +61,12 @@ export async function gatherRelatedBundle(opts: {
   // 表示用（上位5件）と繰り返しカウント（上位50件）を1回の検索にまとめる。
   const scoredFacts = searchSimilarEvents(queryEmbedding, { kind: "fact", limit: RELATED_FACT_SCAN_LIMIT });
 
-  const journals = scoredFacts
-    .slice(0, RELATED_JOURNAL_LIMIT)
-    .filter((e) => e.entityType === "journal" && e.similarity >= RELATED_SIMILARITY_THRESHOLD);
+  const journalPool = scoredFacts
+    .filter((e) => e.entityType === "journal" && e.similarity >= RELATED_SIMILARITY_THRESHOLD)
+    .slice(0, RERANK_CANDIDATE_LIMIT);
+  const journals = (
+    await maybeRerankByText(query, journalPool, (e) => e.summary || e.text)
+  ).slice(0, RELATED_JOURNAL_LIMIT);
 
   const recurrenceWindowDays = getRulesAndConstraints().journalFactTtlDays;
   const since = Date.now() - recurrenceWindowDays * 24 * 60 * 60 * 1000;
@@ -70,7 +77,16 @@ export async function gatherRelatedBundle(opts: {
       e.occurredAt >= since,
   ).length;
 
-  const suggestions = searchSimilarOpenSuggestions(queryEmbedding, { excludeId: opts.excludeSuggestionId });
+  const suggestionPool = searchSimilarOpenSuggestions(queryEmbedding, {
+    excludeId: opts.excludeSuggestionId,
+    limit: RERANK_CANDIDATE_LIMIT,
+  });
+  const suggestions = (
+    await maybeRerankByText(query, suggestionPool, (s) => {
+      const memo = s.memos.at(-1)?.text ?? "";
+      return [s.title, memo].filter(Boolean).join(" ");
+    })
+  ).slice(0, RELATED_SUGGESTION_LIMIT);
 
   return { journals, suggestions, recurrenceCount };
 }
