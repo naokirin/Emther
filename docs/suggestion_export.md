@@ -76,6 +76,8 @@ API 経由の Suggestion 表示は既に実名（`unmaskNames` 後）である�
 ## メモ
 - {memos…}
 
+メモに出所（`source`）がある場合は `- 〔AI〕…` / `- 〔自分〕…` とする（未設定は従来どおり本文のみ）。
+
 ---
 Theme: {themeTitle}
 Team: {teamName}

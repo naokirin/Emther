@@ -11,6 +11,7 @@ import {
   formatSuggestionsMarkdownBundle,
   formatSuggestionsMarkdownTable,
   formatSuggestionsTsv,
+  formatMemoForExport,
   moveExportColumn,
   normalizeExportColumnIds,
   reorderExportColumn,
@@ -45,6 +46,14 @@ function sug(overrides: Partial<Suggestion> = {}): Suggestion {
   };
 }
 
+describe("formatMemoForExport", () => {
+  it("source に応じて接頭辞を付ける", () => {
+    expect(formatMemoForExport({ text: "本文" })).toBe("本文");
+    expect(formatMemoForExport({ text: "本文", source: "user" })).toBe("〔自分〕本文");
+    expect(formatMemoForExport({ text: "本文", source: "agent" })).toBe("〔AI〕本文");
+  });
+});
+
 describe("sanitizeExportCell", () => {
   it("タブと改行を空白にする", () => {
     expect(sanitizeExportCell("a\tb\nc\r\nd")).toBe("a b c d");
@@ -78,6 +87,19 @@ describe("formatSuggestionMarkdown", () => {
     expect(md).toContain("Confirm: 今すぐ確認 / 確認中");
     expect(md).toContain("Emther ID: sug-1");
     expect(md).toContain("Emther URL: http://127.0.0.1:3000/suggestions/sug-1");
+  });
+
+  it("メモの source を Markdown に反映する", () => {
+    const md = formatSuggestionMarkdown(
+      sug({
+        memos: [
+          { id: "a", text: "手入力", createdAt: 1, source: "user" },
+          { id: "b", text: "AI追記", createdAt: 2, source: "agent" },
+        ],
+      }),
+    );
+    expect(md).toContain("- 〔自分〕手入力");
+    expect(md).toContain("- 〔AI〕AI追記");
   });
 
   it("detail が無いときは結論セクションを出さない", () => {

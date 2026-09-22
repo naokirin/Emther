@@ -446,10 +446,15 @@ export const CONFIRM_PRIORITY_META: Record<ConfirmPriority, { icon: string; labe
   parked: { icon: "🅿️", label: "後で", hint: "確認を後回しにする" },
 };
 
+// メモの出所。user=詳細画面の手入力、agent=AI追記案の採用・整理 note・Charter 折り込み。
+// 未設定は既存データ（バッジ非表示）。
+export type SuggestionMemoSource = "user" | "agent";
+
 export type SuggestionMemo = {
   id: string;
   text: string;
   createdAt: number;
+  source?: SuggestionMemoSource;
 };
 
 // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。メモ（EMが自由に書き足す

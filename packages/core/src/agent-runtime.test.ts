@@ -1302,6 +1302,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("run-1")?.suggestedSuggestionNotes).toBeUndefined();
     const updated = suggestionStore.getSuggestion(issue.id);
     expect(updated?.memos.map((l) => l.text)).toEqual(["見つけた事実"]);
+    expect(updated?.memos.map((l) => l.source)).toEqual(["agent"]);
   });
 
   it("adoptSuggestedSuggestionNotesFromRunは存在しないsuggestionIdをスキップする", async () => {
@@ -1365,6 +1366,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(updated?.reviewStatus).toBe("done");
     expect(updated?.confirmPriority).toBe("parked");
     expect(updated?.memos.map((m) => m.text)).toEqual(["整理済み"]);
+    expect(updated?.memos.map((m) => m.source)).toEqual(["agent"]);
   });
 
   it("adoptSuggestionUpdatesFromRunはarchived/reviewDueAtも反映する", async () => {

@@ -11,11 +11,20 @@ import type {
   SuggestionCharter,
   SuggestionDetail,
   SuggestionMemo,
+  SuggestionMemoSource,
   SuggestionReviewStatus,
 } from "./types";
 
-export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionDetail } from "./types";
+export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionMemoSource, SuggestionDetail } from "./types";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES } from "./types";
+
+const SUGGESTION_MEMO_SOURCES: SuggestionMemoSource[] = ["user", "agent"];
+
+function normalizeMemoSource(raw: unknown): SuggestionMemoSource | undefined {
+  return typeof raw === "string" && SUGGESTION_MEMO_SOURCES.includes(raw as SuggestionMemoSource)
+    ? (raw as SuggestionMemoSource)
+    : undefined;
+}
 
 // docs/2nd_pivot_version.md Phase 7。Issue を廃し Suggestion を第一級エンティティにする。
 // 既存 issues.json は suggestions.json が無い初回起動時に一度だけ移行し、以降は suggestions のみ書き込む。
@@ -62,6 +71,7 @@ export function migrateLegacyIssueToSuggestion(raw: LegacyIssueRecord): Suggesti
       id: randomUUID(),
       text: `（旧 Why/What/How）\n${parts.join("\n")}`,
       createdAt: raw.createdAt,
+      source: "agent",
     });
   }
 
@@ -95,11 +105,15 @@ function normalizeSuggestion(raw: Suggestion): Suggestion {
   const confirmPriority: ConfirmPriority = CONFIRM_PRIORITIES.includes(raw.confirmPriority)
     ? raw.confirmPriority
     : "normal";
+  const memos = (raw.memos ?? []).map((m) => {
+    const source = normalizeMemoSource(m.source);
+    return source ? { ...m, source } : { ...m, source: undefined };
+  });
   return {
     ...raw,
     reviewStatus,
     confirmPriority,
-    memos: raw.memos ?? [],
+    memos,
     focusOrder: confirmPriority === "focus" ? (raw.focusOrder ?? 0) : undefined,
   };
 }
@@ -444,7 +458,7 @@ export function moveFocusSuggestion(id: string, direction: "up" | "down"): Sugge
 export async function addMemo(
   id: string,
   text: string,
-  opts: MaskOptions & SuggestionUpdateReactionOptions = {},
+  opts: MaskOptions & SuggestionUpdateReactionOptions & { source?: SuggestionMemoSource } = {},
 ): Promise<Suggestion | undefined> {
   const s = getSuggestion(id);
   if (!s) return undefined;
@@ -452,7 +466,8 @@ export async function addMemo(
   if (!trimmed) return s;
   await ensureNameCandidatesAllowed([trimmed], opts);
   const masked = await maskForStorage(trimmed);
-  s.memos.push({ id: randomUUID(), text: masked, createdAt: Date.now() });
+  const source = opts.source ?? "user";
+  s.memos.push({ id: randomUUID(), text: masked, createdAt: Date.now(), source });
   s.updatedAt = Date.now();
   persist();
   recordChangeEvent("suggestion", s.id, `メモを追加: 「${masked}」`);
@@ -476,7 +491,7 @@ export async function updateSuggestionCharter(
     .filter((k) => patch[k] !== undefined && patch[k]!.trim())
     .map((k) => `${k === "why" ? "Why" : k === "what" ? "What" : "How"}: ${patch[k]!.trim()}`);
   if (parts.length === 0) return getSuggestion(id);
-  return addMemo(id, `（Charter更新）\n${parts.join("\n")}`, opts);
+  return addMemo(id, `（Charter更新）\n${parts.join("\n")}`, { ...opts, source: "agent" });
 }
 
 export function setSuggestionTheme(id: string, themeId: string | null): Suggestion | undefined {

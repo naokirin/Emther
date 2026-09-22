@@ -131,6 +131,7 @@ describe("POST /api/suggestions", () => {
     const json = await res.json();
     expect(json.suggestion.title).toBe("詳細付き提案");
     expect(json.suggestion.memos.some((m: { text: string }) => m.text.includes("Why: 理由"))).toBe(true);
+    expect(json.suggestion.memos.find((m: { text: string; source?: string }) => m.text.includes("Why: 理由"))?.source).toBe("agent");
     expect(json.suggestion.teamId).toBe("team-1");
   });
 
@@ -522,5 +523,11 @@ describe("POST /api/suggestions/:id/memo", () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.suggestion.memos.some((m: { text: string }) => m.text.includes("追記メモ"))).toBe(true);
+    expect(json.suggestion.memos.find((m: { text: string; source?: string }) => m.text.includes("追記メモ"))?.source).toBe("user");
+    // body の source を偽っても user 固定
+    const res2 = await suggestionsRoute.request(`/${s.id}/memo`, post({ text: "もう一件", source: "agent" }));
+    expect(res2.status).toBe(201);
+    const json2 = await res2.json();
+    expect(json2.suggestion.memos.find((m: { text: string; source?: string }) => m.text.includes("もう一件"))?.source).toBe("user");
   });
 });

@@ -532,7 +532,7 @@ export async function adoptSuggestedSuggestionNotesFromRun(
       skipped.push(note.suggestionId);
       continue;
     }
-    await addSuggestionMemo(target.id, note.text);
+    await addSuggestionMemo(target.id, note.text, { source: "agent" });
     written.push({ suggestionId: target.id, text: note.text });
   }
   run.suggestedSuggestionNotes = selected
@@ -576,7 +576,7 @@ export async function adoptSuggestionUpdatesFromRun(
     if (update.archived === true) archiveSuggestion(target.id);
     if (update.archived === false) unarchiveSuggestion(target.id);
     if (update.note) {
-      await addSuggestionMemo(target.id, update.note);
+      await addSuggestionMemo(target.id, update.note, { source: "agent" });
     }
     applied.push({ suggestionId: target.id, reason: update.reason });
   }

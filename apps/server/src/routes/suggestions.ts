@@ -106,7 +106,7 @@ export const suggestionsRoute = new Hono()
       const how = charter.how?.trim() ?? "";
       if (why || what || how) {
         const parts = [why ? `Why: ${why}` : "", what ? `What: ${what}` : "", how ? `How: ${how}` : ""].filter(Boolean);
-        await addMemo(suggestion.id, `（旧 Why/What/How）\n${parts.join("\n")}`, opts);
+        await addMemo(suggestion.id, `（旧 Why/What/How）\n${parts.join("\n")}`, { ...opts, source: "agent" });
       }
       if (agentRunId) {
         markRunReviewed(agentRunId);
@@ -326,6 +326,7 @@ export const suggestionsRoute = new Hono()
     try {
       const suggestion = await addMemo(resolved.item.id, text, {
         ...maskOptionsFromBody(body),
+        source: "user",
         onUpdated: (sid, _trigger, detail) => reactToSuggestionUpdate(sid, "log", detail),
       });
       if (!suggestion) {

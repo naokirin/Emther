@@ -57,6 +57,7 @@ describe("migrateLegacyIssueToSuggestion", () => {
     expect(s.sourceJournalId).toBe("j-1");
     expect(s.teamId).toBe("t-1");
     expect(s.memos.some((m) => m.text.includes("（旧 Why/What/How）") && m.text.includes("Why: 理由"))).toBe(true);
+    expect(s.memos.find((m) => m.text.includes("（旧 Why/What/How）"))?.source).toBe("agent");
     expect(s.memos.some((m) => m.text === "既存ログ")).toBe(true);
   });
 
@@ -126,6 +127,10 @@ describe("createSuggestion / review / memo", () => {
     expect(store.getSuggestion(s.id)?.reviewStatus).toBe("deferred");
     await store.addMemo(s.id, "壁打ちメモ");
     expect(store.getSuggestion(s.id)?.memos.at(-1)?.text).toBe("壁打ちメモ");
+    expect(store.getSuggestion(s.id)?.memos.at(-1)?.source).toBe("user");
+    await store.updateSuggestionCharter(s.id, { why: "なぜ" });
+    expect(store.getSuggestion(s.id)?.memos.at(-1)?.source).toBe("agent");
+    expect(store.getSuggestion(s.id)?.memos.at(-1)?.text).toContain("（Charter更新）");
     store.setReviewStatus(s.id, "done");
     expect(store.getSuggestion(s.id)?.reviewStatus).toBe("done");
   });

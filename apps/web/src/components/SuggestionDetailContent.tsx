@@ -686,7 +686,17 @@ export function SuggestionDetailContent({ id }: { id: string }) {
           <ul style={{ margin: "12px 0 0", paddingLeft: 18 }}>
             {[...suggestion.memos].reverse().map((m) => (
               <li key={m.id} style={{ marginBottom: 8 }}>
-                <span className={styles.tableMuted}>{new Date(m.createdAt).toLocaleString("ja-JP")} — </span>
+                <span className={styles.tableMuted}>{new Date(m.createdAt).toLocaleString("ja-JP")}</span>
+                {m.source === "agent" ? (
+                  <span className={`${styles.badge} ${styles.idle}`} style={{ marginLeft: 6, fontSize: "0.7rem", padding: "1px 6px" }}>
+                    AI
+                  </span>
+                ) : m.source === "user" ? (
+                  <span className={`${styles.badge} ${styles.idle}`} style={{ marginLeft: 6, fontSize: "0.7rem", padding: "1px 6px" }}>
+                    自分
+                  </span>
+                ) : null}
+                <span className={styles.tableMuted}> — </span>
                 {m.text}
               </li>
             ))}

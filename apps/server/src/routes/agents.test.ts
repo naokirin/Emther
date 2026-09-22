@@ -408,6 +408,7 @@ describe("POST/DELETE /api/agents/:id/suggestion-notes", () => {
     expect(json.written).toEqual([{ suggestionId: suggestion.id, text: "見つけた事実" }]);
     expect(json.run.suggestedSuggestionNotes).toBeUndefined();
     expect(suggestionStore.getSuggestion(suggestion.id)?.memos.map((m) => m.text)).toEqual(["見つけた事実"]);
+    expect(suggestionStore.getSuggestion(suggestion.id)?.memos.map((m) => m.source)).toEqual(["agent"]);
   });
 
   it("提案が無ければ400", async () => {

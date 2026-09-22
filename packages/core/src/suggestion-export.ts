@@ -259,7 +259,7 @@ export function formatSuggestionMarkdown(
     lines.push("## 進め方のアドバイス", s.detail.advice, "");
   }
   if (s.memos.length > 0) {
-    lines.push("## メモ", ...s.memos.map((m) => `- ${m.text}`), "");
+    lines.push("## メモ", ...s.memos.map((m) => `- ${formatMemoForExport(m)}`), "");
   }
 
   const meta: string[] = [];
@@ -302,6 +302,13 @@ function joinList(items: string[], sep = " / "): string {
   return items.map((t) => t.trim()).filter(Boolean).join(sep);
 }
 
+/** メモの出所をエクスポート文言に載せる（source 未設定は本文のみ）。 */
+export function formatMemoForExport(m: { text: string; source?: "user" | "agent" }): string {
+  if (m.source === "agent") return `〔AI〕${m.text}`;
+  if (m.source === "user") return `〔自分〕${m.text}`;
+  return m.text;
+}
+
 function formatAiChatCell(source: SuggestionExportAgentSource | undefined): string {
   if (!source?.log?.length) return "";
   const turns = buildExportChatTurns(source.log).filter((t) => t.kind === "user" || t.kind === "ai");
@@ -334,7 +341,7 @@ function cellValue(
     case "advice":
       return s.detail?.advice ?? "";
     case "memos":
-      return joinList(s.memos.map((m) => m.text));
+      return joinList(s.memos.map((m) => formatMemoForExport(m)));
     case "theme":
       return s.themeId ? (lookups.themeTitleById?.[s.themeId] ?? s.themeId) : "";
     case "team":

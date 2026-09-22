@@ -58,7 +58,7 @@ describe("SuggestionDetailContent", () => {
       }
       if (url === "/api/suggestions/sug-1/memo" && init?.method === "POST") {
         const body = JSON.parse(String(init.body));
-        suggestion = { ...suggestion, memos: [...suggestion.memos, { id: "m1", text: body.text, createdAt: 1 }] };
+        suggestion = { ...suggestion, memos: [...suggestion.memos, { id: "m1", text: body.text, createdAt: 1, source: "user" as const }] };
         return { ok: true, json: async () => ({ suggestion }) };
       }
       if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
@@ -135,6 +135,22 @@ describe("SuggestionDetailContent", () => {
     await user.click(screen.getByRole("button", { name: "追記" }));
 
     expect(await screen.findByText("来週の1on1で触れる")).toBeInTheDocument();
+    expect(screen.getByText("自分")).toBeInTheDocument();
     expect(screen.queryByText("まだメモはありません。")).not.toBeInTheDocument();
+  });
+
+  it("出所バッジをAIと自分で出し分ける", async () => {
+    suggestion = baseSuggestion({
+      memos: [
+        { id: "m-user", text: "手入力メモ", createdAt: 2, source: "user" },
+        { id: "m-agent", text: "AI追記メモ", createdAt: 1, source: "agent" },
+        { id: "m-legacy", text: "旧メモ", createdAt: 0 },
+      ],
+    });
+    render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
+    await screen.findByText("手入力メモ");
+    expect(screen.getByText("自分")).toBeInTheDocument();
+    expect(screen.getByText("AI")).toBeInTheDocument();
+    expect(screen.getByText("旧メモ")).toBeInTheDocument();
   });
 });
