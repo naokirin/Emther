@@ -42,6 +42,12 @@ const settingsRulesPatchSchema = z
     autoGrowEnabled: booleanField,
     autoGrowWeekday: numberField,
     autoGrowHour: numberField,
+    autoWeeklyReportEnabled: booleanField,
+    autoWeeklyReportWeekday: numberField,
+    autoWeeklyReportHour: numberField,
+    autoMonthlyReportEnabled: booleanField,
+    autoMonthlyReportDay: numberField,
+    autoMonthlyReportHour: numberField,
     teamParallelKickoffEnabled: booleanField,
     localRerankEnabled: booleanField,
   })
@@ -226,6 +232,24 @@ export const settingsRulesRoute = new Hono()
         parsed.autoGrowWeekday !== undefined ? Math.min(6, Math.max(0, Math.round(parsed.autoGrowWeekday))) : undefined,
       autoGrowHour:
         parsed.autoGrowHour !== undefined ? Math.min(23, Math.max(0, Math.round(parsed.autoGrowHour))) : undefined,
+      autoWeeklyReportEnabled: parsed.autoWeeklyReportEnabled,
+      autoWeeklyReportWeekday:
+        parsed.autoWeeklyReportWeekday !== undefined
+          ? Math.min(6, Math.max(0, Math.round(parsed.autoWeeklyReportWeekday)))
+          : undefined,
+      autoWeeklyReportHour:
+        parsed.autoWeeklyReportHour !== undefined
+          ? Math.min(23, Math.max(0, Math.round(parsed.autoWeeklyReportHour)))
+          : undefined,
+      autoMonthlyReportEnabled: parsed.autoMonthlyReportEnabled,
+      autoMonthlyReportDay:
+        parsed.autoMonthlyReportDay !== undefined
+          ? Math.min(28, Math.max(1, Math.round(parsed.autoMonthlyReportDay)))
+          : undefined,
+      autoMonthlyReportHour:
+        parsed.autoMonthlyReportHour !== undefined
+          ? Math.min(23, Math.max(0, Math.round(parsed.autoMonthlyReportHour)))
+          : undefined,
       maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
       perTurnBudgetUsd: positiveUsd(body?.perTurnBudgetUsd),
       teamParallelKickoffEnabled: parsed.teamParallelKickoffEnabled,

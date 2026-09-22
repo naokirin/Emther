@@ -88,6 +88,36 @@ describe("PATCH /api/settings/rules", () => {
     expect(json.rules.autoSuggestionUpdateAnalysisEnabled).toBe(true);
   });
 
+  it("週次・月次レビューの自動起動フラグと曜日・日・時刻を更新できる", async () => {
+    const { settingsRulesRoute } = await import("./settings-rules");
+    const res = await settingsRulesRoute.request(
+      "/",
+      patch({
+        autoWeeklyReportEnabled: true,
+        autoWeeklyReportWeekday: 5,
+        autoWeeklyReportHour: 9,
+        autoMonthlyReportEnabled: true,
+        autoMonthlyReportDay: 15,
+        autoMonthlyReportHour: 10,
+      }),
+    );
+    const json = await res.json();
+    expect(json.rules.autoWeeklyReportEnabled).toBe(true);
+    expect(json.rules.autoWeeklyReportWeekday).toBe(5);
+    expect(json.rules.autoWeeklyReportHour).toBe(9);
+    expect(json.rules.autoMonthlyReportEnabled).toBe(true);
+    expect(json.rules.autoMonthlyReportDay).toBe(15);
+    expect(json.rules.autoMonthlyReportHour).toBe(10);
+  });
+
+  it("月次レビューの起動日は1〜28にクランプする", async () => {
+    const { settingsRulesRoute } = await import("./settings-rules");
+    const high = await settingsRulesRoute.request("/", patch({ autoMonthlyReportDay: 31 }));
+    expect((await high.json()).rules.autoMonthlyReportDay).toBe(28);
+    const low = await settingsRulesRoute.request("/", patch({ autoMonthlyReportDay: 0 }));
+    expect((await low.json()).rules.autoMonthlyReportDay).toBe(1);
+  });
+
   it("旧キー autoJournalBatchHour / autoDistillationWeekday も配列へ移行して受け付ける", async () => {
     const { settingsRulesRoute } = await import("./settings-rules");
     const res = await settingsRulesRoute.request("/", patch({ autoJournalBatchHour: 9, autoDistillationWeekday: 3 }));
