@@ -140,10 +140,16 @@ describe("formatSuggestionsTsv / MarkdownTable", () => {
   it("既定列で TSV を出す", () => {
     const tsv = formatSuggestionsTsv([sug()], DEFAULT_SUGGESTION_EXPORT_COLUMN_IDS, {
       themeTitleById: { "th-1": "テーマX" },
+      teamNameById: { "tm-1": "チームY" },
     });
     const lines = tsv.trimEnd().split("\n");
-    expect(lines[0]).toBe("タイトル\t結論\tテーマ\t確認優先度\tEmther ID");
-    expect(lines[1]).toBe("提案A\t結論です\tテーマX\t今すぐ確認\tsug-1");
+    expect(lines[0]).toBe(
+      "タイトル\t結論\t根拠\t判断ロジック\t進め方のアドバイス\tメモ\tテーマ\tチーム\t確認優先度\t確認状態\t確認期日\tEmther ID\tEmther URL",
+    );
+    expect(lines[1]).toContain("提案A\t結論です\t");
+    expect(lines[1]).toContain("テーマX\tチームY\t");
+    expect(lines[1]).toContain("今すぐ確認");
+    expect(lines[1]).toContain("sug-1");
   });
 
   it("url 列は appOrigin 付きで出す", () => {

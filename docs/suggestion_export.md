@@ -123,7 +123,8 @@ URL の origin はブラウザの `location.origin`（例: `http://127.0.0.1:300
 | `aiAdvice` | AI進め方のアドバイス |
 | `aiChat` | AI壁打ち |
 
-既定の有効列と順: `title`, `conclusion`, `theme`, `confirmPriority`, `id`
+既定の有効列と順（AI* 以外・Phase A Markdown に近い）:  
+`title`, `conclusion`, `facts`, `logic`, `advice`, `memos`, `theme`, `team`, `confirmPriority`, `reviewStatus`, `reviewDueAt`, `id`, `url`
 
 AI* 列は紐づく Agent Run（専用 Run が無ければ元の相談）の proposal／壁打ちログから埋める。無い場合は空欄。
 セル内の改行・タブは TSV 用に空白へ正規化する。複数項目（根拠・メモ等）は ` / ` 区切り。

@@ -209,7 +209,9 @@ describe("SuggestionsPage", () => {
     expect(await screen.findByText(/2件をコピーしました/)).toBeInTheDocument();
     expect(copyTextToClipboard).toHaveBeenCalled();
     const text = vi.mocked(copyTextToClipboard).mock.calls[0]![0];
-    expect(text).toContain("タイトル\t結論\tテーマ\t確認優先度\tEmther ID");
+    expect(text.split("\n")[0]).toBe(
+      "タイトル\t結論\t根拠\t判断ロジック\t進め方のアドバイス\tメモ\tテーマ\tチーム\t確認優先度\t確認状態\t確認期日\tEmther ID\tEmther URL",
+    );
     expect(text).toContain("未確認の提案");
     expect(text).toContain("テーマ付き提案");
     expect(text).not.toContain("確認済みの提案");
@@ -221,9 +223,12 @@ describe("SuggestionsPage", () => {
     await screen.findByText("未確認の提案");
     await user.click(screen.getByRole("button", { name: /^エクスポート/ }));
     await user.click(screen.getByRole("button", { name: "列の順・表示" }));
-    for (const name of ["タイトルを外す", "結論を外す", "テーマを外す", "確認優先度を外す"]) {
-      const btn = screen.queryByRole("button", { name });
-      if (btn) await user.click(btn);
+    for (;;) {
+      const removers = screen
+        .getAllByRole("button", { name: /を外す$/ })
+        .filter((b) => b.getAttribute("aria-label") !== "Emther IDを外す");
+      if (removers.length === 0) break;
+      await user.click(removers[0]!);
     }
     await user.click(screen.getByRole("button", { name: "‹ エクスポート" }));
     await user.click(screen.getByRole("button", { name: "表をコピー（TSV）" }));
@@ -239,6 +244,7 @@ describe("SuggestionsPage", () => {
     await user.click(screen.getByRole("button", { name: /^エクスポート/ }));
     await user.click(screen.getByRole("button", { name: "列の順・表示" }));
     expect(screen.getByText("追加できる列")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "＋ AI結論" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "すべての列を追加" }));
     expect(screen.queryByText("追加できる列")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "すべての列を追加" })).toBeDisabled();
@@ -255,6 +261,8 @@ describe("SuggestionsPage", () => {
     const [fileName, body] = vi.mocked(downloadTextFile).mock.calls[0]!;
     expect(fileName).toMatch(/^emther-suggestions-\d{8}-\d{6}\.csv$/);
     expect(String(body).startsWith("\uFEFF")).toBe(true);
-    expect(String(body)).toContain("タイトル,結論,テーマ,確認優先度,Emther ID");
+    expect(String(body)).toContain(
+      "タイトル,結論,根拠,判断ロジック,進め方のアドバイス,メモ,テーマ,チーム,確認優先度,確認状態,確認期日,Emther ID,Emther URL",
+    );
   });
 });

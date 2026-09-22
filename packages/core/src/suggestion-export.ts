@@ -54,13 +54,21 @@ export const SUGGESTION_EXPORT_COLUMNS: SuggestionExportColumnDef[] = [
   { id: "aiChat", header: "AI壁打ち" },
 ];
 
-/** βの既定: よく貼る列だけ・Notion DB / Sheets 向けの短い並び。 */
+/** βの既定: AI* 以外の全列。順は Phase A Markdown（詳細コピー）に近い。 */
 export const DEFAULT_SUGGESTION_EXPORT_COLUMN_IDS: SuggestionExportColumnId[] = [
   "title",
   "conclusion",
+  "facts",
+  "logic",
+  "advice",
+  "memos",
   "theme",
+  "team",
   "confirmPriority",
+  "reviewStatus",
+  "reviewDueAt",
   "id",
+  "url",
 ];
 
 /** Markdown 1件コピー時／表の AI* 列で使う、判断・提案／壁打ちの AI 側参照。 */
