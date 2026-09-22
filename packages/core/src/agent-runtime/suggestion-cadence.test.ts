@@ -6,7 +6,7 @@ import {
   listWeeklyAwarenessSuggestions,
   SIMILAR_THEME_COOLDOWN_MS,
 } from "./suggestion-cadence";
-import type { AgentRun } from "./types";
+import type { AgentRun, Proposal } from "./types";
 import type { Suggestion } from "../types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -24,9 +24,20 @@ function suggestion(overrides: Partial<Suggestion> & { id: string }): Suggestion
   };
 }
 
+function proposal(conclusion: string): Proposal {
+  return {
+    conclusion,
+    facts: [],
+    logic: "",
+    rejectedAlternatives: [],
+    expansions: [],
+    challenges: [],
+    recommendation: "suggestion",
+  };
+}
+
 function run(overrides: Partial<AgentRun> & { id: string }): AgentRun {
   return {
-    id: overrides.id,
     agentName: "Lead Agent",
     task: "task",
     status: "idle",
@@ -51,18 +62,18 @@ describe("suggestion-cadence", () => {
         run({
           id: "r-new",
           createdAt: NOW - 2 * DAY_MS,
-          proposal: { conclusion: "新しい結論", facts: [], logic: "", recommendation: "suggestion" },
+          proposal: proposal("新しい結論"),
         }),
         run({
           id: "r-old",
           createdAt: NOW - 10 * DAY_MS,
-          proposal: { conclusion: "古い結論", facts: [], logic: "", recommendation: "suggestion" },
+          proposal: proposal("古い結論"),
         }),
         run({
           id: "r-manual",
           origin: "manual",
           createdAt: NOW - DAY_MS,
-          proposal: { conclusion: "手動", facts: [], logic: "", recommendation: "suggestion" },
+          proposal: proposal("手動"),
         }),
       ],
       NOW,

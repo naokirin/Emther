@@ -62,13 +62,25 @@ function run(overrides: Partial<AgentRun> & { id: string }): AgentRun {
     agentName: "Lead Agent",
     task: "task",
     status: "idle",
-    sessionId: null,
     log: [],
+    totalCostUsd: 0,
     createdAt: NOW,
     updatedAt: NOW,
     origin: "auto-summary",
     reviewed: false,
     ...overrides,
+  };
+}
+
+function proposal(conclusion: string) {
+  return {
+    conclusion,
+    facts: [] as string[],
+    logic: "",
+    rejectedAlternatives: [] as { option: string; reason: string }[],
+    expansions: [] as string[],
+    challenges: [] as string[],
+    recommendation: "suggestion" as const,
   };
 }
 
@@ -232,12 +244,12 @@ describe("buildNextActions のバッチ系ドラフト束ねと優先度", () =>
       run({
         id: "r1",
         origin: "auto-summary",
-        proposal: { conclusion: "A", facts: [], logic: "", recommendation: "suggestion" },
+        proposal: proposal("A"),
       }),
       run({
         id: "r2",
         origin: "auto-journal-batch",
-        proposal: { conclusion: "B", facts: [], logic: "", recommendation: "suggestion" },
+        proposal: proposal("B"),
       }),
     ];
     const actions = buildNextActions(baseParams({ runs }));
