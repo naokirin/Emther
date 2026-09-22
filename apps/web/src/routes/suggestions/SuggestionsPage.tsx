@@ -23,7 +23,10 @@ import {
 } from "../../components/SuggestionExportColumnEditor";
 import { useRuns, useSettingsRules, useSuggestions, useTeams, useThemes } from "../../lib/queries";
 import { copyTextToClipboard } from "../../lib/clipboard";
+import { downloadTextFile, suggestionExportFileName } from "../../lib/downloadTextFile";
 import {
+  formatSuggestionsCsv,
+  formatSuggestionsMarkdownBundle,
   formatSuggestionsMarkdownTable,
   formatSuggestionsTsv,
   agentSourceFromRun,
@@ -325,6 +328,26 @@ export function SuggestionsPage() {
     window.setTimeout(() => setCopyFeedback(null), 2000);
   }
 
+  function downloadExport(kind: "csv" | "md") {
+    if (exportTargets.length === 0) {
+      setCopyFeedback("出力する提案がありません");
+      window.setTimeout(() => setCopyFeedback(null), 2000);
+      return;
+    }
+    const fileName = suggestionExportFileName(kind);
+    let ok: boolean;
+    if (kind === "csv") {
+      // Excel が UTF-8 を認識しやすいよう BOM 付き
+      const body = "\uFEFF" + formatSuggestionsCsv(exportTargets, columnIds, exportLookups);
+      ok = downloadTextFile(fileName, body, "text/csv;charset=utf-8");
+    } else {
+      const body = formatSuggestionsMarkdownBundle(exportTargets, exportLookups);
+      ok = downloadTextFile(fileName, body, "text/markdown;charset=utf-8");
+    }
+    setCopyFeedback(ok ? `${exportTargets.length}件を ${fileName} に保存しました` : "ファイル出力に失敗しました");
+    window.setTimeout(() => setCopyFeedback(null), 2500);
+  }
+
   async function moveFocus(id: string, direction: "up" | "down") {
     setFocusMovingId(id);
     try {
@@ -397,6 +420,12 @@ export function SuggestionsPage() {
             </button>
             <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => void copyExport("md")}>
               表をコピー（Markdown）
+            </button>
+            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => downloadExport("csv")}>
+              CSV を保存
+            </button>
+            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => downloadExport("md")}>
+              Markdown を保存
             </button>
             <button
               type="button"

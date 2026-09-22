@@ -30,7 +30,7 @@ MCP / API による直接作成は将来（一方向・明示操作のみ）。�
 | --- | --- | --- |
 | A | 1 件 Markdown コピー（詳細パネル） | 実装済み |
 | B | 選択範囲の表コピー。列の表示オン／オフと並び替え（β） | 実装済み |
-| C | 同範囲の `.md` / `.csv` ファイルダウンロード | 未着手（件数・貼り付け上限が出てから） |
+| C | 同範囲の `.md` / `.csv` ファイルダウンロード | 実装済み |
 | D | MCP 等で外部へ 1 件 create（一方向） | 後回し |
 
 ### β（列設定）の意味
@@ -128,6 +128,18 @@ URL の origin はブラウザの `location.origin`（例: `http://127.0.0.1:300
 AI* 列は紐づく Agent Run（専用 Run が無ければ元の相談）の proposal／壁打ちログから埋める。無い場合は空欄。
 セル内の改行・タブは TSV 用に空白へ正規化する。複数項目（根拠・メモ等）は ` / ` 区切り。
 
+### 6.3 ファイル出力（Phase C）
+
+コピーと同じ選択範囲（チェック／未選択時はフィルタ結果）を対象にする。
+
+| 形式 | 内容 | 用途 |
+| --- | --- | --- |
+| `.csv` | 列設定どおりの CSV（UTF-8 BOM・CRLF） | Excel / Sheets / Notion DB インポート |
+| `.md` | 各提案を Phase A 形式で連結（`---` 区切り、AI 参照含む） | Notion ページ・文書としての取り込み |
+
+ファイル名例: `emther-suggestions-YYYYMMDD-HHmmss.csv` / `.md`  
+提案詳細からは 1 件の `.md`（`emther-suggestion-{id先頭8桁}.md`）も保存できる。
+
 ## 7. やらないこと
 
 - Emther 上の「エクスポート済み」必須フラグや外部ステータス同期
@@ -136,7 +148,8 @@ AI* 列は紐づく Agent Run（専用 Run が無ければ元の相談）の pro
 
 ## 8. UI 配置
 
-- **A**: 提案詳細（`SuggestionDetailContent`）のタイトル行付近に「Markdown をコピー」
-- **B**: 提案一覧（`SuggestionsPage`）に行チェック・列設定・「表をコピー（TSV / Markdown）」
+- **A**: 提案詳細に「Markdown をコピー」「Markdown を保存」
+- **B**: 提案一覧に行チェック・列設定・「表をコピー（TSV / Markdown）」
+- **C**: 提案一覧に「CSV を保存」「Markdown を保存」
 
-整形ロジックは `@emther/core`（`suggestion-export`）に置き、UI はクリップボード書き込みのみ担う。
+整形ロジックは `@emther/core`（`suggestion-export`）に置き、UI はクリップボード／ダウンロードのみ担う。

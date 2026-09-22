@@ -372,6 +372,51 @@ export function formatSuggestionsTsv(
   return [header, ...rows].join("\n") + (rows.length > 0 || header ? "\n" : "");
 }
 
+/** CSV セル用。カンマ・引用符・改行を含む場合はダブルクォートで囲む。 */
+export function escapeCsvCell(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/** Phase C: 列設定どおりの CSV（Excel / Sheets / Notion DB インポート向け）。 */
+export function formatSuggestionsCsv(
+  suggestions: Suggestion[],
+  enabledOrderedIds: SuggestionExportColumnId[],
+  lookups: SuggestionExportLookups = {},
+): string {
+  const cols = resolveExportColumns(enabledOrderedIds);
+  if (cols.length === 0) return "";
+  const header = cols.map((c) => escapeCsvCell(c.header)).join(",");
+  const rows = suggestions.map((s) =>
+    cols.map((c) => escapeCsvCell(cellValue(s, c.id, lookups))).join(","),
+  );
+  // Excel が扱いやすいよう CRLF
+  return [header, ...rows].join("\r\n") + (rows.length > 0 || header ? "\r\n" : "");
+}
+
+/**
+ * Phase C: 範囲の提案を 1 つの Markdown ファイルに連結する。
+ * 各件は Phase A と同じ詳細＋AI 参照。区切りは水平線。
+ */
+export function formatSuggestionsMarkdownBundle(
+  suggestions: Suggestion[],
+  lookups: SuggestionExportLookups = {},
+): string {
+  if (suggestions.length === 0) return "";
+  return (
+    suggestions
+      .map((s) =>
+        formatSuggestionMarkdown(s, {
+          ...lookups,
+          agentSource: lookups.agentSourceBySuggestionId?.[s.id],
+        }).trimEnd(),
+      )
+      .join("\n\n---\n\n") + "\n"
+  );
+}
+
 function escapeMarkdownTableCell(value: string): string {
   return sanitizeExportCell(value).replace(/\|/g, "\\|");
 }

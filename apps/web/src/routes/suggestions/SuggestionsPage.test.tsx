@@ -8,10 +8,19 @@ import { SuggestionsPage } from "./SuggestionsPage";
 import { IdResolveProvider } from "../../components/IdFragmentLink";
 import type { Suggestion } from "@emther/core/types";
 import { copyTextToClipboard } from "../../lib/clipboard";
+import { downloadTextFile } from "../../lib/downloadTextFile";
 
 vi.mock("../../lib/clipboard", () => ({
   copyTextToClipboard: vi.fn(async () => true),
 }));
+
+vi.mock("../../lib/downloadTextFile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/downloadTextFile")>();
+  return {
+    ...actual,
+    downloadTextFile: vi.fn(() => true),
+  };
+});
 
 // docs/design/suggestion/suggestion-tab.pen 改善案C対応後の一覧UIを検証する。
 // テーマメニュー・絞り込みポップオーバー・4列表・デフォルトの確認済み非表示に絞る。
@@ -106,6 +115,7 @@ describe("SuggestionsPage", () => {
     vi.unstubAllGlobals();
     window.localStorage.clear();
     vi.mocked(copyTextToClipboard).mockClear();
+    vi.mocked(downloadTextFile).mockClear();
   });
 
   it("デフォルトでは確認済み（done）の提案を表示しない", async () => {
@@ -229,5 +239,18 @@ describe("SuggestionsPage", () => {
     expect(screen.queryByText(/未選択 \d+ 列/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "すべての列を選択" })).toBeDisabled();
     expect(screen.queryByText("追加できる列")).not.toBeInTheDocument();
+  });
+
+  it("CSV を保存するとファイルダウンロードを起動する", async () => {
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: "CSV を保存" }));
+    expect(await screen.findByText(/2件を emther-suggestions-.*\.csv に保存しました/)).toBeInTheDocument();
+    expect(downloadTextFile).toHaveBeenCalled();
+    const [fileName, body] = vi.mocked(downloadTextFile).mock.calls[0]!;
+    expect(fileName).toMatch(/^emther-suggestions-\d{8}-\d{6}\.csv$/);
+    expect(String(body).startsWith("\uFEFF")).toBe(true);
+    expect(String(body)).toContain("タイトル,結論,テーマ,確認優先度,Emther ID");
   });
 });

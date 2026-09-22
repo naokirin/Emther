@@ -5,7 +5,10 @@ import {
   buildExportChatTurns,
   buildSuggestionUrl,
   enableAllExportColumns,
+  escapeCsvCell,
   formatSuggestionMarkdown,
+  formatSuggestionsCsv,
+  formatSuggestionsMarkdownBundle,
   formatSuggestionsMarkdownTable,
   formatSuggestionsTsv,
   moveExportColumn,
@@ -189,6 +192,30 @@ describe("formatSuggestionsTsv / MarkdownTable", () => {
     expect(row).toContain("AIロジック");
     expect(row).toContain("AI助言");
     expect(row).toContain("EM: 質問 | Lead Agent: 回答です");
+  });
+
+  it("CSV はカンマ・改行をクォートする", () => {
+    expect(escapeCsvCell("a,b")).toBe('"a,b"');
+    expect(escapeCsvCell('say "hi"')).toBe('"say ""hi"""');
+    const csv = formatSuggestionsCsv(
+      [sug({ title: "A,B", detail: { conclusion: "行1\n行2", facts: [], logic: "x", updatedAt: 1 } })],
+      ["title", "conclusion"],
+      {},
+    );
+    expect(csv).toContain("タイトル,結論");
+    expect(csv).toContain('"A,B"');
+    expect(csv).toContain('"行1\n行2"');
+  });
+
+  it("Markdown bundle は複数件を --- でつなぐ", () => {
+    const md = formatSuggestionsMarkdownBundle(
+      [sug({ id: "a", title: "一件目" }), sug({ id: "b", title: "二件目", memos: [] })],
+      { appOrigin: "http://127.0.0.1:3000" },
+    );
+    expect(md).toContain("# 一件目");
+    expect(md).toContain("# 二件目");
+    expect(md).toContain("\n\n---\n\n");
+    expect(md).toContain("Emther URL: http://127.0.0.1:3000/suggestions/a");
   });
 
   it("Markdown 表を出す", () => {

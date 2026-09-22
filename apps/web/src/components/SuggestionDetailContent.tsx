@@ -16,6 +16,7 @@ import {
   useThemes,
 } from "../lib/queries";
 import { copyTextToClipboard } from "../lib/clipboard";
+import { downloadTextFile } from "../lib/downloadTextFile";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { dateStringToNoonTimestamp, timestampToDateInputValue } from "@emther/core/journal-date-parser";
 import { formatSuggestionMarkdown, agentSourceFromRun } from "@emther/core/suggestion-export";
@@ -89,6 +90,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
   const [mdCopied, setMdCopied] = useState(false);
+  const [mdDownloaded, setMdDownloaded] = useState(false);
 
   const exportLookups = useMemo(
     () => ({
@@ -99,16 +101,29 @@ export function SuggestionDetailContent({ id }: { id: string }) {
     [themes, teams],
   );
 
-  async function handleCopyMarkdown() {
-    if (!suggestion) return;
+  function buildMarkdownText() {
+    if (!suggestion) return "";
     const agentSource = activeRun
       ? agentSourceFromRun(activeRun, showingSourceConsult ? "元の相談" : "判断・提案（Agent）")
       : undefined;
-    const text = formatSuggestionMarkdown(suggestion, { ...exportLookups, agentSource });
-    const ok = await copyTextToClipboard(text);
+    return formatSuggestionMarkdown(suggestion, { ...exportLookups, agentSource });
+  }
+
+  async function handleCopyMarkdown() {
+    if (!suggestion) return;
+    const ok = await copyTextToClipboard(buildMarkdownText());
     if (!ok) return;
     setMdCopied(true);
     window.setTimeout(() => setMdCopied(false), 2000);
+  }
+
+  function handleDownloadMarkdown() {
+    if (!suggestion) return;
+    const fileName = `emther-suggestion-${suggestion.id.slice(0, 8)}.md`;
+    const ok = downloadTextFile(fileName, buildMarkdownText(), "text/markdown;charset=utf-8");
+    if (!ok) return;
+    setMdDownloaded(true);
+    window.setTimeout(() => setMdDownloaded(false), 2000);
   }
 
   async function patchSuggestion(body: Record<string, unknown>) {
@@ -283,6 +298,14 @@ export function SuggestionDetailContent({ id }: { id: string }) {
                 onClick={() => void handleCopyMarkdown()}
               >
                 {mdCopied ? "コピーしました" : "Markdown をコピー"}
+              </button>{" "}
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                onClick={handleDownloadMarkdown}
+              >
+                {mdDownloaded ? "保存しました" : "Markdown を保存"}
               </button>
             </h1>
           )}
