@@ -9,6 +9,7 @@ import { computeReportStats, getReport, type ReportStats } from "../report-store
 import { listAdoptedThemes } from "../theme-store";
 import { computeOrgVitals } from "../vitals";
 import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";
+import { METHODOLOGY_CANDIDATE_GUIDANCE } from "./philosophy-lenses";
 import { runs } from "./store";
 import {
   listDailyRelevantOpenSuggestions,
@@ -218,6 +219,9 @@ export function buildDistillationContextBlock(): string {
     "proposalブロックでは全体の見立て（結論・参照ファクト・判断ロジック・棄却した代替案）を述べてください。",
     "加えて、採用候補となるテーマを themes ブロックで1〜5件出してください（無ければ空配列でも可）。",
     "各テーマには title / summary（根本課題の見立て）/ rationale（なぜこの結果に至ったか）/ facts（根拠）を必須とし、任意で rootCause・suggestedDirection・evidenceJournalIds・evidenceSuggestionIds（下記一覧のID）を付けてください。",
+    "suggestedDirection は『採用せよ』ではなく、EMが検討しうる解決の方向性の候補である。",
+    ...METHODOLOGY_CANDIDATE_GUIDANCE,
+    "名前付き手法を suggestedDirection に含める場合も上記と同じ条件とし、前提・現状との適合・並びうる別案を短く書くこと。",
     "```themes",
     '[{ "title": "…", "summary": "…", "rationale": "…", "facts": ["…"], "rootCause": "…", "suggestedDirection": "…", "evidenceJournalIds": [], "evidenceSuggestionIds": [] }]',
     "```",
@@ -282,6 +286,9 @@ export function buildGrowContextBlock(): string {
       "これは評価ではなく判断材料の提示です。「これを学ぶべき」という断定ではなく、「こういう学びが参考になりそうです」「〇〇を調べてみるのはどうでしょうか」という形で示してください。",
       "自己申告（チェックイン・KPTメモ）だけで導ける範囲に留めず、組織側の観測・解釈と突き合わせて初めて見える点を優先してください。材料が乏しい場合は無理に3件出さず、1件でも構いません。",
       "材料の現場がエンジニアリング組織であっても、学びの候補をエンジニアリング実務・開発プロセスの枠に閉じ込めないでください。同じパターンに対し、経営・事業・組織設計・マネジメント・リーダーシップ・コーチング・心理・他業種のマネジメントなど隣接分野からの類推も含め、EMとして視点を拡げる材料にしてください。複数件出す場合は、少なくとも1件はエンジニアリング実務以外の分野からの視点を含めてください。",
+      // 手法名は「学び・試行の候補」として状況マッチ時のみ。処方にしない（philosophy.md）。
+      ...METHODOLOGY_CANDIDATE_GUIDANCE,
+      "手法を学び候補に含める場合は、title/rationaleで『何を学ぶ／調べるか』と『なぜ今の観測パターンに触れるか』を結び、references にその手法・原典・解説を載せてよい。",
       "参考として挙げる学びのトピックについて、実務書・解説記事等の二次資料は日本語のものを優先してください。理論の提唱者による原著・原典（一次資料）については、英語であっても構わず優先的に触れてください。書籍の正式なタイトルや出版社名などの正確性を保証できない場合は、トピック名・著者名・理論名の範囲に留め、正確なタイトルの特定はEM自身の検索に委ねてください。",
       "各参考トピックには、実在すると確信できる場合に限りurl（Wikipedia記事・公式サイト・出版社の書籍ページ等）を付けてください。存在するか確信が持てないURLは絶対に作り出さないでください（不正確なリンクを提示するくらいなら省略した方がよいです）。urlを省略した場合、アプリ側がトピック名でWeb検索して直リンクを後追い補完しようとします。それでも見つからない場合はEM側の画面で検索リンクが表示されます。",
       "",

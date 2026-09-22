@@ -20,7 +20,7 @@ import { listAdoptedThemes } from "../theme-store";
 import { buildGlossaryContextBlock } from "../glossary-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "../types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
-import { LENS_USAGE_GUIDANCE, PHILOSOPHY_LENSES } from "./philosophy-lenses";
+import { LENS_USAGE_GUIDANCE, METHODOLOGY_CANDIDATE_GUIDANCE, PHILOSOPHY_LENSES } from "./philosophy-lenses";
 import {
   buildDistillationContextBlock,
   buildGrowContextBlock,
@@ -568,6 +568,9 @@ export function buildSystemPrompt(
     "- Suggest: Scope Checkを踏まえ、元の問いのスケールに見合った結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
     "- 入力の要約・言い換えだけで終わらせないこと。「心理的安全性」「1on1」など一般論の羅列も避けること。蓄積された具体的な記録に根ざした発見を優先する。",
     '- 介入の起票まで不要で「様子を見る／追加で確認する」が妥当なら recommendation は "watch"。次の観測・確認ポイントは advice（および conclusion）に書く。',
+    // レンズは見方。手法名は advice の選択肢として状況マッチ時のみ（philosophy.md §5.3）。
+    ...METHODOLOGY_CANDIDATE_GUIDANCE,
+    "名前付き手法を出す場合は conclusion の主語にせず、advice（overview / groups の候補のひとつ）に置き、他の観測・確認・介入候補と並立させること。",
     "",
     "proposalブロックのフォーマット（このとおりのfenced code blockにすること）:",
     "```proposal",
@@ -608,6 +611,7 @@ export function buildSystemPrompt(
     "- advice は任意。次に観測・確認・考えるべき点、または計画・進行・検証の実務助言があるときだけ書く（結論の繰り返しは禁止。特に無ければ省略してよい）。",
     "- advice.overview は『何を押さえて動くか』の要約（1〜2文）。『3ステップ計画です』『以下の構成で進めます』などメタな構成説明は書かない（構成は groups[].title で示す）。",
     "- advice.groups はアクションの塊。1塊なら groups は1要素（title は省略可）。複数の独立した進め方の塊があるときだけ複数要素にし、各 title を付ける（title は目次にも使うので、内容が分かる短文にすること）。",
+    "- 状況に合う名前付き手法を試行候補として載せる場合は、group.summary か nextActions のひとつに置き、前提・適合・代替を短く添えること（上記の手法候補ガイダンスに従う）。",
     "- nextActions / watchOuts / verify の各項目は短文（1行）。塊の意図・背景の語りは group.summary に寄せる。",
     "- followUps は EM が深掘りするための選択式質問を2〜3件（label は短く、message はこの提案固有の文脈を含む依頼文）。無いよりは定型でもよいが、状況に即したものを優先。",
     ...suggestionNoteRule,

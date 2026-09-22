@@ -543,6 +543,8 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     const ctx = rt.buildDistillationContextBlock();
     expect(ctx).toContain("直近Journal");
     expect(ctx).toContain("```themes");
+    expect(ctx).toContain("suggestedDirection は『採用せよ』ではなく");
+    expect(ctx).toContain("試す価値がある候補のひとつ");
   });
 
   it("朝サマリーの材料はcontextブロックに載り、buildSystemPromptへ注入される", async () => {
@@ -607,6 +609,8 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     expect(ctx).toContain("EMとして視点を拡げる");
     expect(ctx).toContain("経営");
     expect(ctx).toContain("エンジニアリング実務以外");
+    expect(ctx).toContain("試す価値がある候補のひとつ");
+    expect(ctx).toContain("このフレームワークでやるべき");
     expect(rt.GROWTH_TASK.length).toBeLessThan(200);
   });
 
@@ -996,6 +1000,8 @@ describe("buildSystemPrompt", () => {
       expect(prompt).toContain("Design Thinking");
       expect(prompt).toContain("Systems Thinking");
       expect(prompt).toContain("lensesUsed");
+      expect(prompt).toContain("試す価値がある候補のひとつ");
+      expect(prompt).toContain("advice（overview / groups の候補のひとつ）");
     }
   });
 

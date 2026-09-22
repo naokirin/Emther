@@ -39,7 +39,7 @@ Journal 自動分析や Issue 壁打ちは「個別の類似度検索」だけ�
 - `title` / `summary`（根本課題の見立て）
 - `rationale`（なぜこの解釈か＝説明の正本）
 - `facts[]`（参照した観測）
-- `rootCause` / `suggestedDirection`（任意）
+- `rootCause` / `suggestedDirection`（任意。後者は「採用せよ」ではなく検討候補。観測と合う名前付き手法を、前提・適合・並びうる別案つきで含めてよい。条件は `docs/philosophy.md` §5.3）
 - `evidenceJournalIds` / `evidenceIssueIds`
 - `status`: `candidate` | `adopted` | `dismissed`
 - `sourceRunId`（生成した Agent Run）
