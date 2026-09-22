@@ -13,6 +13,7 @@ import {
   formatSuggestionsTsv,
   moveExportColumn,
   normalizeExportColumnIds,
+  reorderExportColumn,
   resolveExportColumns,
   sanitizeExportCell,
   toggleExportColumn,
@@ -241,8 +242,16 @@ describe("column helpers (β)", () => {
     expect(resolveExportColumns(["id", "title"]).map((c) => c.id)).toEqual(["id", "title"]);
   });
 
-  it("move / toggle が並びとオンオフを変える", () => {
+  it("move / reorder / toggle が並びとオンオフを変える", () => {
     expect(moveExportColumn(["title", "id"], "id", "up")).toEqual(["id", "title"]);
+    expect(reorderExportColumn(["title", "conclusion", "theme", "id"], "id", 1)).toEqual([
+      "title",
+      "id",
+      "conclusion",
+      "theme",
+    ]);
+    expect(reorderExportColumn(["title", "id"], "title", 0)).toEqual(["title", "id"]);
+    expect(reorderExportColumn(["title", "id"], "missing" as "title", 0)).toEqual(["title", "id"]);
     expect(toggleExportColumn(["title", "id"], "theme", true)).toEqual(["title", "id", "theme"]);
     expect(toggleExportColumn(["title"], "title", false)).toEqual(["title"]);
   });

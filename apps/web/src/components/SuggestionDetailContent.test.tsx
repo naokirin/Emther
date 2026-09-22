@@ -93,8 +93,8 @@ describe("SuggestionDetailContent", () => {
     });
     const user = userEvent.setup();
     render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
-    await user.click(await screen.findByRole("button", { name: "Markdown をコピー" }));
-    expect(await screen.findByRole("button", { name: "コピーしました" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /^エクスポート/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Markdown をコピー" }));
     expect(copyTextToClipboard).toHaveBeenCalled();
     const text = vi.mocked(copyTextToClipboard).mock.calls[0]![0];
     expect(text).toContain("# 提案タイトル");

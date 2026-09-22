@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import styles from "../styles/page.module.css";
 import { CopilotChat, ExecutionState, type AgentRun } from "./RunDetail";
@@ -91,6 +91,25 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
   const [mdCopied, setMdCopied] = useState(false);
   const [mdDownloaded, setMdDownloaded] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!exportOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (exportMenuRef.current?.contains(e.target as Node)) return;
+      setExportOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setExportOpen(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [exportOpen]);
 
   const exportLookups = useMemo(
     () => ({
@@ -291,22 +310,42 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               >
                 {suggestion.archivedAt ? "アーカイブを解除" : "アーカイブする"}
               </button>{" "}
-              <button
-                type="button"
-                className={styles.btnOutline}
-                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
-                onClick={() => void handleCopyMarkdown()}
-              >
-                {mdCopied ? "コピーしました" : "Markdown をコピー"}
-              </button>{" "}
-              <button
-                type="button"
-                className={styles.btnOutline}
-                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
-                onClick={handleDownloadMarkdown}
-              >
-                {mdDownloaded ? "保存しました" : "Markdown を保存"}
-              </button>
+              <div className={styles.suggestionExportMenu} ref={exportMenuRef} style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <button
+                  type="button"
+                  className={`${styles.suggestionExportTrigger} ${exportOpen ? styles.suggestionExportTriggerOpen : ""}`}
+                  aria-expanded={exportOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setExportOpen((v) => !v)}
+                >
+                  エクスポート <span aria-hidden="true">▾</span>
+                </button>
+                {exportOpen && (
+                  <div className={`${styles.journalFloatingMenu} ${styles.suggestionExportDetailPanel}`} role="menu">
+                    <button
+                      type="button"
+                      className={`${styles.journalMoreItem} ${styles.suggestionExportMenuItemActive}`}
+                      role="menuitem"
+                      onClick={() => {
+                        void handleCopyMarkdown().then(() => setExportOpen(false));
+                      }}
+                    >
+                      {mdCopied ? "コピーしました" : "Markdown をコピー"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.journalMoreItem}
+                      role="menuitem"
+                      onClick={() => {
+                        handleDownloadMarkdown();
+                        setExportOpen(false);
+                      }}
+                    >
+                      {mdDownloaded ? "保存しました" : "Markdown を保存"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </h1>
           )}
         </div>

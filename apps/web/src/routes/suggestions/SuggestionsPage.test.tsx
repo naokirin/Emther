@@ -204,6 +204,7 @@ describe("SuggestionsPage", () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: /^エクスポート/ }));
     await user.click(screen.getByRole("button", { name: "表をコピー（TSV）" }));
     expect(await screen.findByText(/2件をコピーしました/)).toBeInTheDocument();
     expect(copyTextToClipboard).toHaveBeenCalled();
@@ -218,33 +219,36 @@ describe("SuggestionsPage", () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: /^エクスポート/ }));
     await user.click(screen.getByRole("button", { name: "列の順・表示" }));
     for (const name of ["タイトルを外す", "結論を外す", "テーマを外す", "確認優先度を外す"]) {
       const btn = screen.queryByRole("button", { name });
       if (btn) await user.click(btn);
     }
+    await user.click(screen.getByRole("button", { name: "‹ エクスポート" }));
     await user.click(screen.getByRole("button", { name: "表をコピー（TSV）" }));
     expect(await screen.findByText(/2件をコピーしました/)).toBeInTheDocument();
     const text = vi.mocked(copyTextToClipboard).mock.calls.at(-1)![0];
     expect(text.split("\n")[0]).toBe("Emther ID");
   });
 
-  it("すべての列を選択すると未選択列が消える", async () => {
+  it("すべての列を追加すると未選択列が消える", async () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: /^エクスポート/ }));
     await user.click(screen.getByRole("button", { name: "列の順・表示" }));
-    expect(screen.getByText(/未選択 \d+ 列/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "すべての列を選択" }));
-    expect(screen.queryByText(/未選択 \d+ 列/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "すべての列を選択" })).toBeDisabled();
+    expect(screen.getByText("追加できる列")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "すべての列を追加" }));
     expect(screen.queryByText("追加できる列")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "すべての列を追加" })).toBeDisabled();
   });
 
   it("CSV を保存するとファイルダウンロードを起動する", async () => {
     const user = userEvent.setup();
     render(<SuggestionsPage />, { wrapper: createWrapper() });
     await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("button", { name: /^エクスポート/ }));
     await user.click(screen.getByRole("button", { name: "CSV を保存" }));
     expect(await screen.findByText(/2件を emther-suggestions-.*\.csv に保存しました/)).toBeInTheDocument();
     expect(downloadTextFile).toHaveBeenCalled();

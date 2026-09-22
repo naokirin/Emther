@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import styles from "../styles/page.module.css";
 import { Select } from "./Select";
 import {
@@ -19,6 +19,8 @@ type Props = {
   onClearFilters: () => void;
   doneCount: number;
   archivedCount: number;
+  /** 適用中チップ行の右端（エクスポートなど）。 */
+  trailing?: ReactNode;
 };
 
 type Chip = { key: string; label: string; clear: () => void };
@@ -33,6 +35,7 @@ export function SuggestionFilterBar({
   onClearFilters,
   doneCount,
   archivedCount,
+  trailing,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [draftStatus, setDraftStatus] = useState(() => new Set(value.statusFilter));
@@ -213,22 +216,27 @@ export function SuggestionFilterBar({
           </div>
         )}
       </div>
-      {chips.length > 0 && (
-        <div className={styles.journalFilterChips}>
-          {chips.map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              className={styles.journalFilterChip}
-              onClick={chip.clear}
-              aria-label={`${chip.label}を解除`}
-            >
-              {chip.label} <span aria-hidden="true">×</span>
-            </button>
-          ))}
-          <button type="button" className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={clearAll}>
-            クリア
-          </button>
+      {(chips.length > 0 || trailing) && (
+        <div className={styles.suggestionFilterMetaRow}>
+          <div className={styles.journalFilterChips}>
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className={styles.journalFilterChip}
+                onClick={chip.clear}
+                aria-label={`${chip.label}を解除`}
+              >
+                {chip.label} <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            {chips.length > 0 && (
+              <button type="button" className={`${styles.detailToggle} ${styles.detailToggleButton}`} onClick={clearAll}>
+                クリア
+              </button>
+            )}
+          </div>
+          {trailing}
         </div>
       )}
     </div>

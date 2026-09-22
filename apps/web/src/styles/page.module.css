@@ -4438,3 +4438,342 @@ button.situationChip:hover {
   color: var(--text-muted);
 }
 
+.suggestionFilterMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.suggestionFilterMetaRow .journalFilterChips {
+  margin-top: 0;
+  flex: 1 1 auto;
+}
+
+.suggestionExportMenu {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.suggestionExportTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-btn, 6px);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.suggestionExportTrigger:hover {
+  border-color: var(--input-border);
+  color: var(--foreground);
+}
+
+.suggestionExportTriggerOpen {
+  border-color: var(--input-border);
+  background: var(--panel);
+  color: var(--foreground);
+}
+
+.suggestionExportPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: min(360px, calc(100vw - 48px));
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestionExportScope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.suggestionExportScopeCap {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.suggestionExportScopeVal {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.suggestionExportScopeActs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.suggestionExportLink,
+.suggestionExportLinkMuted {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--blue-text, #7fb0ff);
+}
+
+.suggestionExportLinkMuted {
+  color: var(--text-muted);
+}
+
+.suggestionExportLink:disabled,
+.suggestionExportLinkMuted:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.suggestionExportPrimary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.suggestionExportHint {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.suggestionExportSecondary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.suggestionExportMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 8px 8px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.suggestionExportMenuItem:hover,
+.suggestionExportMenuItemActive {
+  background: var(--blue-bg, #16233d);
+  color: var(--blue-text, #7fb0ff);
+}
+
+.suggestionExportColsLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--blue-text, #7fb0ff);
+  cursor: pointer;
+}
+
+.suggestionExportColsLink:hover {
+  background: var(--gray-bg);
+}
+
+.suggestionExportFeedback {
+  margin: 0;
+  padding: 0 14px 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.suggestionExportColsHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.suggestionExportColsTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.suggestionExportColsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+
+.suggestionExportColsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestionExportColsSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.suggestionExportColList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suggestionExportColRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--gray-bg);
+}
+
+.suggestionExportColHandle {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  letter-spacing: -0.05em;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  padding: 4px 2px;
+  border-radius: 4px;
+}
+
+.suggestionExportColHandle:active {
+  cursor: grabbing;
+}
+
+.suggestionExportColHandle:focus-visible {
+  outline: 2px solid var(--blue, #3b6fd6);
+  outline-offset: 1px;
+}
+
+.suggestionExportColRowDragging {
+  opacity: 0.45;
+}
+
+.suggestionExportColRowOver {
+  box-shadow: inset 0 0 0 1px var(--blue, #3b6fd6);
+}
+
+.suggestionExportColName {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.suggestionExportColActs {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.suggestionExportIconBtn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.suggestionExportIconBtn:hover:not(:disabled) {
+  border-color: var(--input-border);
+}
+
+.suggestionExportIconBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.suggestionExportAddChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.suggestionExportAddChip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--foreground);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.suggestionExportAddChip:hover {
+  border-color: var(--input-border);
+}
+
+.suggestionExportColsFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.suggestionExportDetailPanel {
+  min-width: 200px;
+  padding: 4px;
+  right: 0;
+  left: auto;
+}
+

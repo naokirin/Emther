@@ -18,9 +18,9 @@ import {
   SuggestionThemeSwitcher,
 } from "../../components/SuggestionThemeSwitcher";
 import {
-  SuggestionExportColumnEditor,
   useSuggestionExportColumns,
 } from "../../components/SuggestionExportColumnEditor";
+import { SuggestionExportMenu } from "../../components/SuggestionExportMenu";
 import { useRuns, useSettingsRules, useSuggestions, useTeams, useThemes } from "../../lib/queries";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import { downloadTextFile, suggestionExportFileName } from "../../lib/downloadTextFile";
@@ -213,7 +213,6 @@ export function SuggestionsPage() {
   }));
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [showColumnEditor, setShowColumnEditor] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const { columnIds, setColumnIds } = useSuggestionExportColumns();
 
@@ -385,74 +384,22 @@ export function SuggestionsPage() {
             onClearFilters={clearFilters}
             doneCount={doneCount}
             archivedCount={archivedCount}
+            trailing={
+              <SuggestionExportMenu
+                selectedCount={selectedIds.size}
+                filteredCount={filtered.length}
+                columnIds={columnIds}
+                onColumnIdsChange={setColumnIds}
+                onSelectAllFiltered={selectAllFiltered}
+                onClearSelection={clearSelection}
+                onCopyTsv={() => void copyExport("tsv")}
+                onCopyMdTable={() => void copyExport("md")}
+                onDownloadCsv={() => downloadExport("csv")}
+                onDownloadMd={() => downloadExport("md")}
+                feedback={copyFeedback}
+              />
+            }
           />
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              alignItems: "center",
-              marginBottom: 10,
-              fontSize: "0.85rem",
-            }}
-          >
-            <span className={styles.tableMuted}>
-              外部へ渡す:{" "}
-              {selectedIds.size > 0
-                ? `選択 ${selectedIds.size}件（フィルタ内）`
-                : `フィルタ結果 ${filtered.length}件`}
-            </span>
-            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={selectAllFiltered}>
-              フィルタ全選択
-            </button>
-            <button
-              type="button"
-              className={styles.btnOutline}
-              style={{ fontSize: "0.75rem", padding: "2px 8px" }}
-              disabled={selectedIds.size === 0}
-              onClick={clearSelection}
-            >
-              選択解除
-            </button>
-            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => void copyExport("tsv")}>
-              表をコピー（TSV）
-            </button>
-            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => void copyExport("md")}>
-              表をコピー（Markdown）
-            </button>
-            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => downloadExport("csv")}>
-              CSV を保存
-            </button>
-            <button type="button" className={styles.btnOutline} style={{ fontSize: "0.75rem", padding: "2px 8px" }} onClick={() => downloadExport("md")}>
-              Markdown を保存
-            </button>
-            <button
-              type="button"
-              className={styles.btnOutline}
-              style={{ fontSize: "0.75rem", padding: "2px 8px" }}
-              onClick={() => setShowColumnEditor((v) => !v)}
-            >
-              {showColumnEditor ? "列設定を閉じる" : "列の順・表示"}
-            </button>
-            {copyFeedback && <span className={styles.tableMuted}>{copyFeedback}</span>}
-          </div>
-          {showColumnEditor && (
-            <div
-              style={{
-                marginBottom: 12,
-                padding: "10px 12px",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                background: "var(--bg-subtle, transparent)",
-              }}
-            >
-              <p className={styles.subtitle} style={{ marginTop: 0, marginBottom: 8 }}>
-                Notion DB / Sheets などに合わせ、出す列と順番だけ変えられます（列名のリネームは未対応）。根拠・判断ロジック・メモ・AI* 列も追加できます。この端末にだけ保存します。
-              </p>
-              <SuggestionExportColumnEditor value={columnIds} onChange={setColumnIds} />
-            </div>
-          )}
 
           <div className={styles.tableWrap}>
             <table className={styles.table}>

@@ -492,6 +492,22 @@ export function moveExportColumn(
   return next;
 }
 
+/** 有効列を `toIndex` の位置へ移動する（ドラッグ並べ替え用）。 */
+export function reorderExportColumn(
+  enabledOrdered: SuggestionExportColumnId[],
+  id: SuggestionExportColumnId,
+  toIndex: number,
+): SuggestionExportColumnId[] {
+  const next = normalizeExportColumnIds(enabledOrdered);
+  const from = next.indexOf(id);
+  if (from < 0) return next;
+  const clamped = Math.max(0, Math.min(Math.trunc(toIndex), next.length - 1));
+  if (from === clamped) return next;
+  next.splice(from, 1);
+  next.splice(clamped, 0, id);
+  return next;
+}
+
 export function toggleExportColumn(
   enabledOrdered: SuggestionExportColumnId[],
   id: SuggestionExportColumnId,
