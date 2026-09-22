@@ -31,7 +31,7 @@ describe("reranker maybeRerankByText", () => {
 
     const transformers = await import("@huggingface/transformers");
     vi.mocked(transformers.AutoTokenizer.from_pretrained).mockResolvedValue(
-      ((_queries: string[], _opts: unknown) => ({})) as never,
+      (() => ({})) as never,
     );
     vi.mocked(transformers.AutoModelForSequenceClassification.from_pretrained).mockResolvedValue(
       (async () => ({ logits: { data: new Float32Array([1.0, 5.0, 2.0]) } })) as never,
@@ -64,7 +64,7 @@ describe("reranker maybeRerankByText", () => {
 
     const transformers = await import("@huggingface/transformers");
     vi.mocked(transformers.AutoTokenizer.from_pretrained).mockResolvedValue(
-      ((_queries: string[], _opts: unknown) => ({})) as never,
+      (() => ({})) as never,
     );
     vi.mocked(transformers.AutoModelForSequenceClassification.from_pretrained).mockResolvedValue(
       (async () => ({ logits: { data: new Float32Array([1, 2, 3]) } })) as never,
@@ -83,7 +83,7 @@ describe("reranker maybeRerankByText", () => {
 
     const transformers = await import("@huggingface/transformers");
     vi.mocked(transformers.AutoTokenizer.from_pretrained).mockResolvedValue(
-      ((_queries: string[], _opts: unknown) => ({})) as never,
+      (() => ({})) as never,
     );
     vi.mocked(transformers.AutoModelForSequenceClassification.from_pretrained).mockResolvedValue(
       (async () => ({ logits: { data: new Float32Array([0.1, 0.9]) } })) as never,
@@ -107,7 +107,7 @@ describe("reranker maybeRerankByText", () => {
 
     const transformers = await import("@huggingface/transformers");
     vi.mocked(transformers.AutoTokenizer.from_pretrained).mockResolvedValue(
-      ((_queries: string[], _opts: unknown) => ({})) as never,
+      (() => ({})) as never,
     );
     vi.mocked(transformers.AutoModelForSequenceClassification.from_pretrained)
       .mockRejectedValueOnce(new Error("fp32 missing"))

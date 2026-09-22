@@ -256,7 +256,10 @@ function buildOrgConcernSignals(params: {
 
   return ranked
     .sort((a, b) => b.severity - a.severity || b.since - a.since)
-    .map(({ severity: _severity, ...item }) => item);
+    .map(({ severity: _severity, ...item }) => {
+      void _severity;
+      return item;
+    });
 }
 
 export type BuildDailySituationParams = {
