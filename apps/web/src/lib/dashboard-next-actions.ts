@@ -8,6 +8,7 @@ import type { AgentRun } from "../components/RunDetail";
 import { draftKindLabel, isDraftAwaitingTriage, runKindLabel, shouldOmitRunFromNextActions } from "../components/runDetailMeta";
 import { formatPendingAgentStartText } from "../components/pendingAgentStart";
 import { truncateExcerpt } from "@emther/core/origin-trace";
+import { isSuggestionDeferredFromDaily } from "@emther/core/agent-runtime/suggestion-cadence";
 import {
   isJournalEntryResolved,
   isSuggestionReviewOverdue,
@@ -46,13 +47,15 @@ export type NextAction = {
   ctaLabel?: string;
 };
 
-/** ダッシュボードの「次の1手」優先度。起票待ちドラフト → 実行異常/Yield → その他判断 → 観測 → 整備。 */
+/** ダッシュボードの「次の1手」優先度。本物の判断ブロッカー → 起票待ちドラフト → その他判断 → 観測 → 整備。 */
 export function heroRank(a: NextAction): number {
   if (a.id.startsWith("pending-unmasked-")) return 0;
-  if (a.kindLabel === "ドラフト提案" || a.id.startsWith("auto-") || a.id === "auto-bundle") return 1;
-  if (a.kindLabel === "ドラフト分析中") return 2;
-  if (a.id.startsWith("yield-") || a.id.startsWith("stale-") || a.id.startsWith("error-")) return 3;
-  if (a.id.startsWith("journal-unconfirmed-")) return 4;
+  // Yield/実行異常は「今日決めると前に進む」本線。バッチ系ドラフトより先に出す
+  // （朝サマリー等が毎日積もって本物の決断を埋もれさせないため）。
+  if (a.id.startsWith("yield-") || a.id.startsWith("stale-") || a.id.startsWith("error-")) return 1;
+  if (a.id.startsWith("journal-unconfirmed-")) return 2;
+  if (a.kindLabel === "ドラフト提案" || a.id.startsWith("auto-") || a.id === "auto-bundle") return 3;
+  if (a.kindLabel === "ドラフト分析中") return 4;
   if (a.lane === "decision" && a.severity === "urgent") return 5;
   if (a.lane === "decision") return 6;
   if (a.lane === "observation") return 7;
@@ -111,6 +114,28 @@ const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
 // 埋もれる。同種のドラフトが閾値を超えたら個別表示をやめ、1件のまとめ表示にする
 // （クリック先は相談履歴一覧。個別に見たい場合はそちらから辿れる）。
 const AUTO_DRAFT_BUNDLE_THRESHOLD = 3;
+
+// 朝サマリー／Journal集約／蒸留／週次・月次など「定期バッチ」由来の起票待ちは、
+// 個別に並べると同趣旨が毎日枠を占有しやすい。2件以上あれば先に束ねる。
+const BATCH_DRAFT_BUNDLE_THRESHOLD = 2;
+const BATCH_DRAFT_ORIGINS = new Set([
+  "auto-summary",
+  "auto-journal-batch",
+  "auto-distill",
+  "auto-weekly-report",
+  "auto-monthly-report",
+]);
+
+/**
+ * 日次の「今日やるべき」から意図的に外す提案。
+ * 実装の正本は @emther/core/agent-runtime/suggestion-cadence（朝サマリー材料と揃える）。
+ */
+export function isSuggestionDeferredFromDailyQueue(
+  s: Pick<Suggestion, "confirmPriority" | "reviewStatus" | "reviewDueAt" | "archivedAt">,
+  now: number,
+): boolean {
+  return isSuggestionDeferredFromDaily(s, now);
+}
 
 // docs/em_human_story_and_ux.md P0-3対応。「様子見」のまま一定期間が過ぎたrunは
 // 判断待ちレーンへ再浮上させ、「様子見＝忘れられる」にしない。期限内のものは
@@ -326,7 +351,13 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   }
 
   const staleInterventions = suggestions
-    .filter((s) => !s.archivedAt && s.reviewStatus !== "done" && now - s.updatedAt > STALE_INTERVENTION_MS)
+    .filter(
+      (s) =>
+        !s.archivedAt &&
+        s.reviewStatus !== "done" &&
+        now - s.updatedAt > STALE_INTERVENTION_MS &&
+        !isSuggestionDeferredFromDailyQueue(s, now),
+    )
     .sort((a, b) => a.updatedAt - b.updatedAt)
     .slice(0, 3);
   for (const suggestion of staleInterventions) {
@@ -412,8 +443,12 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   }
 
   for (const run of watchingItems) {
+    // 次確認日が明示されていればそれを使う（ローリング期限）。未設定時は様子見から既定日数。
+    const dueAt =
+      run.triageNextReviewAt ??
+      (run.triageAt ?? run.updatedAt) + WATCH_RESURFACE_AFTER_MS;
+    if (now < dueAt) continue;
     const watchedAt = run.triageAt ?? run.updatedAt;
-    if (now - watchedAt <= WATCH_RESURFACE_AFTER_MS) continue;
     const days = Math.round((now - watchedAt) / (24 * 60 * 60 * 1000));
     nextActions.push({
       id: `watch-expired-${run.id}`,
@@ -459,10 +494,25 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
-  const autoDraftIds = new Set(nextActions.filter((a) => a.id.startsWith("auto-")).map((a) => a.id));
-  if (autoDraftIds.size > AUTO_DRAFT_BUNDLE_THRESHOLD) {
+  const autoDraftActions = nextActions.filter((a) => a.id.startsWith("auto-"));
+  const batchDraftIds = new Set(
+    autoDraftActions
+      .filter((a) => {
+        const runId = a.id.slice("auto-".length);
+        const run = runs.find((r) => r.id === runId);
+        return run && BATCH_DRAFT_ORIGINS.has(run.origin);
+      })
+      .map((a) => a.id),
+  );
+  const allAutoDraftIds = new Set(autoDraftActions.map((a) => a.id));
+
+  // 定期バッチ由来が2件以上、または自動ドラフト全体が閾値超なら個別表示をやめ束ねる。
+  const shouldBundleBatch = batchDraftIds.size >= BATCH_DRAFT_BUNDLE_THRESHOLD;
+  const shouldBundleAll = allAutoDraftIds.size >= AUTO_DRAFT_BUNDLE_THRESHOLD;
+  if (shouldBundleBatch || shouldBundleAll) {
+    const idsToBundle = shouldBundleAll ? allAutoDraftIds : batchDraftIds;
     for (let i = nextActions.length - 1; i >= 0; i--) {
-      if (autoDraftIds.has(nextActions[i].id)) nextActions.splice(i, 1);
+      if (idsToBundle.has(nextActions[i].id)) nextActions.splice(i, 1);
     }
     nextActions.push({
       id: "auto-bundle",
@@ -470,7 +520,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       lane: "decision",
       icon: "🤖",
       kindLabel: "ドラフト提案",
-      text: `起票待ちのドラフトが${autoDraftIds.size}件たまっています。相談履歴からまとめて確認してください`,
+      text: `起票待ちのドラフトが${idsToBundle.size}件たまっています。相談履歴からまとめて確認してください`,
       onSelect: () => push("/chat"),
       since: 0,
       ctaLabel: "一覧を開く",

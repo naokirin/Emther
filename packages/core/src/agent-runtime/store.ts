@@ -55,6 +55,7 @@ type AgentRunRow = {
   reviewed: number;
   triage_status: string | null;
   triage_at: number | null;
+  triage_next_review_at: number | null;
   archived_at: number | null;
 };
 
@@ -75,8 +76,8 @@ function persistRunMeta(run: AgentRun): void {
   getDb()
     .prepare(
       `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, archived_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, triage_next_review_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          status = excluded.status,
          session_id = excluded.session_id,
@@ -98,6 +99,7 @@ function persistRunMeta(run: AgentRun): void {
          reviewed = excluded.reviewed,
          triage_status = excluded.triage_status,
          triage_at = excluded.triage_at,
+         triage_next_review_at = excluded.triage_next_review_at,
          archived_at = excluded.archived_at`,
     )
     .run(
@@ -128,6 +130,7 @@ function persistRunMeta(run: AgentRun): void {
       run.reviewed ? 1 : 0,
       run.triageStatus ?? null,
       run.triageAt ?? null,
+      run.triageNextReviewAt ?? null,
       run.archivedAt ?? null,
     );
 }
@@ -206,6 +209,7 @@ function loadRunsFromDb(): Map<string, AgentRun> {
       reviewed: !!row.reviewed,
       triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
       triageAt: row.triage_at ?? undefined,
+      triageNextReviewAt: row.triage_next_review_at ?? undefined,
       archivedAt: row.archived_at ?? undefined,
     };
     // "queued"（同時実行数の上限による起動待ち）もキュー自体がメモリ上にしか無いため、
@@ -413,24 +417,38 @@ export function markRunReviewed(id: string): AgentRun | undefined {
   return run;
 }
 
-function applyTriageStatus(run: AgentRun, status: "watching" | "dismissed"): void {
+function applyTriageStatus(
+  run: AgentRun,
+  status: "watching" | "dismissed",
+  opts?: { nextReviewAt?: number },
+): void {
   run.reviewed = true;
   run.triageStatus = status;
   run.triageAt = Date.now();
+  if (status === "watching" && opts?.nextReviewAt !== undefined) {
+    run.triageNextReviewAt = opts.nextReviewAt;
+  } else {
+    run.triageNextReviewAt = undefined;
+  }
 }
 
 // docs/memo.md「B. 何でも相談↔提案の昇格物語」対応。「様子見」（追跡は続けるが緊急ではない）
 // と「却下」（対応不要）をEMに明示的に選ばせ、triageStatusへ記録する。どちらもreviewed=trueに
 // なるため「次にすべきこと」の緊急度からは外れるが、triageStatusで後から区別できる。
-export function setRunTriageStatus(id: string, status: "watching" | "dismissed"): AgentRun | undefined {
+// nextReviewAt: 様子見時のみ有効。「次に確認する日」まで日次キューへ再浮上させない。
+export function setRunTriageStatus(
+  id: string,
+  status: "watching" | "dismissed",
+  opts?: { nextReviewAt?: number },
+): AgentRun | undefined {
   const run = runs.get(id);
   if (!run) return undefined;
-  applyTriageStatus(run, status);
+  applyTriageStatus(run, status, opts);
   persistRunMeta(run);
   // docs/usage_issues U4。親Leadを却下してもconsult子runが判断待ちに残らないよう伝播する。
   for (const child of runs.values()) {
     if (child.consultedBy === id) {
-      applyTriageStatus(child, status);
+      applyTriageStatus(child, status, opts);
       persistRunMeta(child);
     }
   }

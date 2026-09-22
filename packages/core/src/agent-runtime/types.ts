@@ -245,6 +245,9 @@ export type AgentRun = {
   // docs/em_human_story_and_ux.md P0-3対応。triageStatusを設定した時刻。「様子見」が
   // 期限切れ（WATCH_RESURFACE_AFTER_MS超）になったら「次にすべきこと」へ再浮上させる判定に使う。
   triageAt?: number;
+  // 様子見時の「次に確認する日」。設定時は triageAt+既定日数ではなく、この日時まで日次キューに出さない。
+  // 曜日固定ではなく、トリアージ時点からのローリング期限（忙しい曜日への固着を避ける）。
+  triageNextReviewAt?: number;
   // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。誤って起票した・
   // テストで作った等の相談を、相談履歴一覧・AIの判断材料（context-blocks等）から除外する。
   archivedAt?: number;

@@ -150,6 +150,7 @@ export type AgentRun = {
   reviewed: boolean;
   triageStatus?: "watching" | "dismissed";
   triageAt?: number;
+  triageNextReviewAt?: number;
   // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
   archivedAt?: number;
 };

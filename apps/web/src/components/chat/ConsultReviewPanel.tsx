@@ -9,6 +9,7 @@ import { useSuggestionPeek } from "../useSuggestionPeek";
 import type { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { truncateForTitle } from "@emther/core/types";
 import { journalExcerptFromTask } from "@emther/core/origin-trace";
+import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
 import type { Suggestion } from "@emther/core/types";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
@@ -26,6 +27,23 @@ const TRIAGE_LABEL: Record<"watching" | "dismissed", string> = {
   watching: "👀 様子見",
   dismissed: "却下",
 };
+
+/** 様子見の次確認日プリセット（トリアージ時点からのローリング。曜日固定にしない）。 */
+const WATCH_NEXT_REVIEW_PRESETS: { label: string; days: number }[] = [
+  { label: "3日後", days: 3 },
+  { label: "1週間後", days: 7 },
+  { label: "2週間後", days: 14 },
+  { label: "1ヶ月後", days: 30 },
+];
+
+function noonDaysFromNow(days: number, now = Date.now()): number {
+  const d = new Date(now);
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return dateStringToNoonTimestamp(`${y}-${m}-${day}`) ?? d.getTime();
+}
 
 type SuggestionCandidate = ReturnType<typeof listSuggestionCandidatesFromProposal>[number];
 type CandidatePick = { runId: string; selected: boolean[] } | null;
@@ -158,14 +176,20 @@ export function ConsultReviewPanel({
     }
   }
 
-  async function handleTriage(status: "watching" | "dismissed") {
+  async function handleTriage(status: "watching" | "dismissed", nextReviewAt?: number) {
     setReviewSubmitting(true);
     setReviewError(null);
     try {
+      const body: { triageStatus: "watching" | "dismissed"; triageNextReviewAt?: number } = {
+        triageStatus: status,
+      };
+      if (status === "watching" && nextReviewAt !== undefined) {
+        body.triageNextReviewAt = nextReviewAt;
+      }
       const res = await fetch(`/api/agents/${selectedRun.id}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ triageStatus: status }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("記録に失敗しました");
       await refreshRuns();
@@ -450,6 +474,9 @@ export function ConsultReviewPanel({
         {selectedRun.triageStatus && (
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, marginBottom: 0 }}>
             {TRIAGE_LABEL[selectedRun.triageStatus]}
+            {selectedRun.triageStatus === "watching" && selectedRun.triageNextReviewAt
+              ? ` · 次確認 ${new Date(selectedRun.triageNextReviewAt).toLocaleDateString("ja-JP")}`
+              : null}
           </p>
         )}
         {selectedRun.archivedAt && (
@@ -593,6 +620,25 @@ export function ConsultReviewPanel({
             <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
               却下する（対応不要）
             </button>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
+              把握済みで日次に出したくないとき — 次の確認日を指定して様子見（トリアージ時点からの日数）
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {WATCH_NEXT_REVIEW_PRESETS.map((p) => (
+                <button
+                  key={p.days}
+                  type="button"
+                  className={styles.btnOutline}
+                  style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                  disabled={reviewSubmitting}
+                  onClick={() => handleTriage("watching", noonDaysFromNow(p.days))}
+                >
+                  {p.label}に確認
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

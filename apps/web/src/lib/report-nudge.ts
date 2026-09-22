@@ -110,7 +110,7 @@ export function selectReportNudges(params: SelectReportNudgesParams): ReportNudg
           periodKey,
           runId: run.id,
           eyebrow: showMonthly ? "月曜 · 週次（月初と重なる週）" : "月曜 · 週次",
-          body: "先週の週次レビューがあります。空いたときにレポートで確認できます。",
+          body: "先週の週次レビューがあります。日次で抑えている後回し・確認保留の提案の見直しや、提案整理のきっかけにも使えます。",
           linkLabel: showMonthly ? "週次レポート" : "レポートを見る",
         };
       }

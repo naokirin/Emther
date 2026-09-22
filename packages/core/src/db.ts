@@ -185,6 +185,9 @@ function migrate(database: DatabaseSync): void {
   // 「次にすべきこと」へ再浮上させられるようにする。
   addColumnIfMissing(database, "agent_runs", "triage_at", "INTEGER");
 
+  // 日次負荷軽減。様子見時に「次に確認する日」を明示できる。未設定時は triage_at+既定日数で再浮上。
+  addColumnIfMissing(database, "agent_runs", "triage_next_review_at", "INTEGER");
+
   // docs/memo.md「K. ズームイン／ズームアウトの協働計画」対応。AIが提案する子提案分解案の下書き。
   renameColumnIfNeeded(database, "agent_runs", "suggested_sub_issues_json", "suggested_sub_suggestions_json");
   addColumnIfMissing(database, "agent_runs", "suggested_sub_suggestions_json", "TEXT");

@@ -10,6 +10,12 @@ import { listAdoptedThemes } from "../theme-store";
 import { computeOrgVitals } from "../vitals";
 import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";
 import { runs } from "./store";
+import {
+  listDailyRelevantOpenSuggestions,
+  listRecentBatchConclusions,
+  listWeeklyAwarenessSuggestions,
+  SIMILAR_THEME_COOLDOWN_MS,
+} from "./suggestion-cadence";
 import type { AgentRun } from "./types";
 
 // 朝のサマリー・週次の状況蒸留という「バッチ処理専用」の文脈ブロック。呼び出しタイミングが
@@ -24,6 +30,7 @@ const MORNING_OPEN_SUGGESTION_LIMIT = 15;
 // origin=auto-summary のときシステムプロンプトへ動的注入する。再開（decideRun）でも
 // origin 判定だけで再注入するため、「続けて」だけでは材料が消えない。
 export function buildMorningSummaryContextBlock(): string {
+  const now = Date.now();
   const vitals = computeOrgVitals();
   const suggestions = listSuggestions();
   const allRuns = [...runs.values()];
@@ -44,12 +51,10 @@ export function buildMorningSummaryContextBlock(): string {
     .filter((r) => r.status === "error" && !omitRun(r))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, MORNING_ERROR_LIMIT);
-  // docs/2nd_pivot_version.md Phase 2.1。「Why/What/How未整理」の絞り込みはEMに提案の
-  // 構造を手入れさせない方針と衝突するため廃止し、単純に未確認・確認保留の提案を挙げる。
-  const openSuggestions = suggestions
-    .filter((s) => !s.archivedAt && s.reviewStatus !== "done")
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, MORNING_OPEN_SUGGESTION_LIMIT);
+  // 日次で触るべき未完了のみ。parked/deferred/期日前は下の「抑制中」へ回し、毎日の再掲を防ぐ。
+  const openSuggestions = listDailyRelevantOpenSuggestions(suggestions, now, MORNING_OPEN_SUGGESTION_LIMIT);
+  const deferredSuggestions = listWeeklyAwarenessSuggestions(suggestions, now, MORNING_OPEN_SUGGESTION_LIMIT);
+  const recentBatch = listRecentBatchConclusions(allRuns, now);
 
   const teamLines =
     vitals.teams.length > 0
@@ -81,12 +86,36 @@ export function buildMorningSummaryContextBlock(): string {
   const openSuggestionLines =
     openSuggestions.length > 0
       ? openSuggestions.map((s) => `- [${s.id}] ${s.title}（${s.reviewStatus}）`)
-      : ["- （未確認・確認保留の提案なし）"];
+      : ["- （今日触るべき未確認提案なし）"];
+  const cooldownDays = Math.round(SIMILAR_THEME_COOLDOWN_MS / (24 * 60 * 60 * 1000));
+  const recentBatchLines =
+    recentBatch.length > 0
+      ? recentBatch.map((r) => {
+          const daysAgo = Math.max(0, Math.floor((now - r.at) / (24 * 60 * 60 * 1000)));
+          return `- [${r.runId}] (${r.origin}, ${daysAgo}日前) ${r.text}`;
+        })
+      : [`- （直近${cooldownDays}日のバッチ結論なし）`];
+  const deferredLines =
+    deferredSuggestions.length > 0
+      ? deferredSuggestions.map((s) => {
+          const due =
+            s.reviewDueAt !== undefined
+              ? ` / 次確認 ${new Date(s.reviewDueAt).toLocaleDateString("ja-JP")}`
+              : "";
+          return `- [${s.id}] ${s.title}（${s.reviewStatus} / ${s.confirmPriority}${due}）`;
+        })
+      : ["- （日次抑制中の提案なし）"];
 
   return maskNames(
     [
       "朝のサマリーの材料（このタスク専用。下記はシステムが業務データから組み立てたスナップショット。無視して「材料が無い」としないこと）:",
       "今日EMがまず確認・判断すべきことを優先度順に簡潔に整理し、proposalブロックで結論を出してください。",
+      "【頻度抑制（必須）】",
+      `- 下記【直近約${cooldownDays}日のバッチ結論】と同趣旨の結論・提案候補を、新規の事実（Yield/エラー/新しい観測シグナル/Vitals悪化）が無い限り、proposalの主結論や suggestionCandidates に再掲しないこと。`,
+      "- 抑制は「昨日だけ」ではなく直近出現からのローリング窓。暦の曜日固定（毎週同じ曜日）にはしないこと。",
+      "- 「後追いが無い」「Issue管理していない」等のプロセス・メタ指摘は日次では出さず、週次レビュー向けに留めること。",
+      "- 差分が無い日は、今日新たに判断が要る Yield/エラー等が無ければその旨を簡潔に述べ、無理に新規提案を増やさないこと（recommendation: watch 可）。",
+      "- 【日次抑制中の提案】を「動いていない」として毎日責める新規提案にしないこと（気づきは週次レビュー側）。",
       "",
       "【Team Vitals】",
       ...teamLines,
@@ -100,8 +129,14 @@ export function buildMorningSummaryContextBlock(): string {
       "【エラーの Agent Run】",
       ...errorLines,
       "",
-      "【未確認・確認保留の提案】",
+      "【今日触るべき未確認提案】",
       ...openSuggestionLines,
+      "",
+      `【直近約${cooldownDays}日のバッチ結論（同趣旨の再提案防止・ローリング）】`,
+      ...recentBatchLines,
+      "",
+      "【日次抑制中の提案（parked/deferred/期日前。週次で気づく。朝は再掲しない）】",
+      ...deferredLines,
     ].join("\n"),
   );
 }
@@ -130,6 +165,8 @@ export function buildJournalBatchContextBlock(): string {
       // docs/3rd_pivot_version/pivot.md, docs/ai_ philosophy.md
       "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別解釈・別仮説・不足情報・別問題設定）と Challenge（前提・本当に解くべき問題か）を経ること。入力の言い換えや一般論の羅列で終わらせないこと。",
       "個別の一時的な感情の吐露など、単体でもまとめても追跡不要なものは無理に提案化しないこと。既に把握済みで動きのある提案と重複する内容は、新規提案化ではなく監視継続（recommendation: watch）にとどめること（既存の提案は他の注入材料で確認できます）。",
+      "直近約7日の朝サマリー／集約解釈と同趣旨の結論を、新しいJournalシグナルが無い限り再掲しないこと（抑制はローリング。曜日固定にしない。気づきは週次レビュー側）。",
+      "「後追いが無い」等のプロセス・メタ指摘は日次の新規提案にしないこと。",
       "問題設定が未確定で追加の観測・確認が先の場合も recommendation: watch とし、次に確認すべき点を advice に書くこと（解決策を無理に出さなくてよい）。",
       "独立した複数の問題が見つかった場合は、無理に1件へまとめず proposal の suggestionCandidates に分けてください。",
       "",
@@ -339,6 +376,26 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
       : "確認済み: なし",
   ];
 
+  const now = Date.now();
+  const allSuggestions = listSuggestions();
+  const awarenessSuggestions = listWeeklyAwarenessSuggestions(allSuggestions, now, PERIOD_REVIEW_SUGGESTION_LIMIT);
+  const awarenessLines =
+    awarenessSuggestions.length > 0
+      ? awarenessSuggestions.map((s) => {
+          const due =
+            s.reviewDueAt !== undefined
+              ? ` / 次確認 ${new Date(s.reviewDueAt).toLocaleDateString("ja-JP")}`
+              : "";
+          return `- [${s.id}] ${s.title}（${s.reviewStatus} / ${s.confirmPriority}${due}）`;
+        })
+      : ["- （日次抑制中の提案なし）"];
+  const cooledBatch = listRecentBatchConclusions([...runs.values()], now);
+  const cooledLines =
+    cooledBatch.length > 0
+      ? cooledBatch.slice(0, PERIOD_REVIEW_SUGGESTION_LIMIT).map((r) => `- [${r.runId}] (${r.origin}) ${r.text}`)
+      : ["- （直近の日次バッチ結論なし）"];
+  const openCount = allSuggestions.filter((s) => !s.archivedAt && s.reviewStatus !== "done").length;
+
   const adopted = listAdoptedThemes().slice(0, 10);
   const themeLines =
     adopted.length > 0 ? adopted.map((t) => `- ${t.title}: ${t.summary.slice(0, 120)}`) : ["- （採用済みテーマなし）"];
@@ -390,6 +447,10 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
       "- nextQuestions: 次の期間へ持ち越したい問い。次回の同種レビューの材料として再度注入されます",
       "さらに、複数の出来事に共通する繰り返しテーマが見つかれば、既存のthemesブロックで1〜5件提案してください（無理に出さなくてよい。下記【採用済みテーマ】と重複するものは不要）。",
       "9.3の原則: AIは結論を押し付けない。断定できない箇所は仮説・問いとして提示し、最終的な解釈・判断はEMに委ねること。",
+      "【日次との役割分担】日次では頻度を抑えている監視中・同趣旨抑制の項目を、この週次で「まだ残っているか／優先度を変えるか／整理が必要か」としてEMが気付けるように observations または nextQuestions に含めること。",
+      openCount >= 8
+        ? `未完了提案が${openCount}件ある。必要なら nextQuestions に「提案を整理して（重複・後回し・完了の仕分け）」と /chat で依頼する選択肢を含めてよい。`
+        : "",
       "",
       `【対象期間】${periodLabel}`,
       "",
@@ -405,12 +466,20 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
       "【この期間の提案の作成・確認済み】",
       ...suggestionLines,
       "",
+      "【日次では出していない監視中の提案（parked/deferred/期日前。ここで気づきを作る）】",
+      ...awarenessLines,
+      "",
+      "【直近で日次抑制の対象になったバッチ結論（同趣旨を毎日出さなかったもの。必要なら振り返る）】",
+      ...cooledLines,
+      "",
       "【採用済みテーマ解釈（重複防止用）】",
       ...themeLines,
       "",
       `【前回${unitLabel}次レビューから持ち越された問い】`,
       ...carriedQuestionLines,
       ...emSelfLines,
-    ].join("\n"),
+    ]
+      .filter((line) => line !== "")
+      .join("\n"),
   );
 }

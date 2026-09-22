@@ -22,6 +22,7 @@ import {
   type AgentStatus,
 } from "@emther/core/agent-runtime/index";
 import { resolveUniqueByPrefix } from "@emther/core/id-resolve";
+import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
 import { toThemeView } from "@emther/core/theme-store";
 import { EXEC_AGENT_NAME } from "@emther/core/types";
 import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
@@ -140,8 +141,25 @@ export const agentsRoute = new Hono()
 
     const triageStatus = body?.triageStatus === "watching" || body?.triageStatus === "dismissed" ? body.triageStatus : undefined;
     const hasArchived = "archived" in (body ?? {});
+    // 様子見時の「次確認日」（ローリング）。YYYY-MM-DD または epoch ms。却下時は無視。
+    let nextReviewAt: number | undefined;
+    if (triageStatus === "watching" && body?.triageNextReviewAt != null) {
+      if (typeof body.triageNextReviewAt === "number" && Number.isFinite(body.triageNextReviewAt)) {
+        nextReviewAt = body.triageNextReviewAt;
+      } else if (typeof body.triageNextReviewAt === "string") {
+        const parsed = dateStringToNoonTimestamp(body.triageNextReviewAt);
+        if (parsed === undefined) {
+          return c.json({ error: "triageNextReviewAtはYYYY-MM-DDまたは数値のタイムスタンプです" }, 400);
+        }
+        nextReviewAt = parsed;
+      } else {
+        return c.json({ error: "triageNextReviewAtはYYYY-MM-DDまたは数値のタイムスタンプです" }, 400);
+      }
+    }
 
-    let run = triageStatus ? setRunTriageStatus(id, triageStatus) : undefined;
+    let run = triageStatus
+      ? setRunTriageStatus(id, triageStatus, nextReviewAt !== undefined ? { nextReviewAt } : undefined)
+      : undefined;
     if (hasArchived) run = setRunArchived(id, body.archived) ?? run;
     if (!triageStatus && !hasArchived) run = markRunReviewed(id);
 

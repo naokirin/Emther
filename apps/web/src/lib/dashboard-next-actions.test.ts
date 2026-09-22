@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildNextActions, type BuildNextActionsParams } from "./dashboard-next-actions";
+import {
+  buildNextActions,
+  heroRank,
+  isSuggestionDeferredFromDailyQueue,
+  type BuildNextActionsParams,
+  type NextAction,
+} from "./dashboard-next-actions";
+import type { AgentRun } from "../components/RunDetail";
 import type { JournalEntry, OrgVitals, PersonSummary, Suggestion } from "@emther/core/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -46,6 +53,21 @@ function journal(overrides: Partial<JournalEntry> & { id: string }): JournalEntr
     summary: "",
     createdAt: NOW,
     confirmed: true,
+    ...overrides,
+  };
+}
+
+function run(overrides: Partial<AgentRun> & { id: string }): AgentRun {
+  return {
+    agentName: "Lead Agent",
+    task: "task",
+    status: "idle",
+    sessionId: null,
+    log: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+    origin: "auto-summary",
+    reviewed: false,
     ...overrides,
   };
 }
@@ -131,6 +153,121 @@ describe("buildNextActions の確認期日超過（判断待ちレーン）", ()
     ];
     const actions = buildNextActions(baseParams({ suggestions }));
     expect(actions.some((a) => a.id.startsWith("review-due-"))).toBe(false);
+  });
+});
+
+// 日次負荷軽減: parked/deferred/期日前は「提案の停滞」として毎日煽らない。
+describe("buildNextActions の意図的延期の除外", () => {
+  it("isSuggestionDeferredFromDailyQueue は parked / deferred / 期日前を true にする", () => {
+    expect(isSuggestionDeferredFromDailyQueue(suggestion({ id: "a", confirmPriority: "parked" }), NOW)).toBe(true);
+    expect(isSuggestionDeferredFromDailyQueue(suggestion({ id: "b", reviewStatus: "deferred" }), NOW)).toBe(true);
+    expect(
+      isSuggestionDeferredFromDailyQueue(suggestion({ id: "c", reviewDueAt: NOW + DAY_MS }), NOW),
+    ).toBe(true);
+    expect(isSuggestionDeferredFromDailyQueue(suggestion({ id: "d" }), NOW)).toBe(false);
+  });
+
+  it("parked / deferred / 期日前の提案は停滞カードに出さない", () => {
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-parked", title: "後で", confirmPriority: "parked", updatedAt: NOW - 20 * DAY_MS }),
+      suggestion({ id: "s-deferred", title: "保留", reviewStatus: "deferred", updatedAt: NOW - 20 * DAY_MS }),
+      suggestion({
+        id: "s-scheduled",
+        title: "期日前",
+        reviewDueAt: NOW + 3 * DAY_MS,
+        updatedAt: NOW - 20 * DAY_MS,
+      }),
+      suggestion({ id: "s-stale", title: "動いてない通常", updatedAt: NOW - 20 * DAY_MS }),
+    ];
+    const actions = buildNextActions(baseParams({ suggestions }));
+    const staleIds = actions.filter((a) => a.id.startsWith("stale-suggestion-")).map((a) => a.id);
+    expect(staleIds).toEqual(["stale-suggestion-s-stale"]);
+  });
+
+  it("parkedでも確認期日超過なら判断待ちに出す", () => {
+    const suggestions: Suggestion[] = [
+      suggestion({
+        id: "s-parked-overdue",
+        title: "後回しだが期日超過",
+        confirmPriority: "parked",
+        reviewDueAt: NOW - DAY_MS,
+      }),
+    ];
+    const actions = buildNextActions(baseParams({ suggestions }));
+    expect(actions.some((a) => a.id === "review-due-s-parked-overdue")).toBe(true);
+  });
+});
+
+describe("buildNextActions の様子見次確認日", () => {
+  it("triageNextReviewAtが未来なら様子見期限切れに出さない", () => {
+    const watching = run({
+      id: "w1",
+      origin: "manual",
+      reviewed: true,
+      triageStatus: "watching",
+      triageAt: NOW - 20 * DAY_MS,
+      triageNextReviewAt: NOW + 3 * DAY_MS,
+    });
+    const actions = buildNextActions(baseParams({ watchingItems: [watching] }));
+    expect(actions.some((a) => a.id === "watch-expired-w1")).toBe(false);
+  });
+
+  it("triageNextReviewAtを過ぎていれば様子見期限切れに出す", () => {
+    const watching = run({
+      id: "w2",
+      origin: "manual",
+      reviewed: true,
+      triageStatus: "watching",
+      triageAt: NOW - 20 * DAY_MS,
+      triageNextReviewAt: NOW - DAY_MS,
+    });
+    const actions = buildNextActions(baseParams({ watchingItems: [watching] }));
+    expect(actions.some((a) => a.id === "watch-expired-w2")).toBe(true);
+  });
+});
+
+describe("buildNextActions のバッチ系ドラフト束ねと優先度", () => {
+  it("定期バッチ由来の起票待ちが2件以上なら束ねる", () => {
+    const runs: AgentRun[] = [
+      run({
+        id: "r1",
+        origin: "auto-summary",
+        proposal: { conclusion: "A", facts: [], logic: "", recommendation: "suggestion" },
+      }),
+      run({
+        id: "r2",
+        origin: "auto-journal-batch",
+        proposal: { conclusion: "B", facts: [], logic: "", recommendation: "suggestion" },
+      }),
+    ];
+    const actions = buildNextActions(baseParams({ runs }));
+    expect(actions.some((a) => a.id === "auto-bundle")).toBe(true);
+    expect(actions.some((a) => a.id === "auto-r1")).toBe(false);
+    expect(actions.some((a) => a.id === "auto-r2")).toBe(false);
+  });
+
+  it("Yieldはバッチ系ドラフトより heroRank が先", () => {
+    const draft: NextAction = {
+      id: "auto-x",
+      severity: "warn",
+      lane: "decision",
+      icon: "🤖",
+      kindLabel: "ドラフト提案",
+      text: "draft",
+      onSelect: noop,
+      since: NOW,
+    };
+    const yieldAction: NextAction = {
+      id: "yield-y",
+      severity: "urgent",
+      lane: "decision",
+      icon: "🟡",
+      kindLabel: "Yield",
+      text: "yield",
+      onSelect: noop,
+      since: NOW,
+    };
+    expect(heroRank(yieldAction)).toBeLessThan(heroRank(draft));
   });
 });
 

@@ -532,6 +532,8 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     expect(ctx).toContain("1on1 Coverage");
     expect(ctx).toContain("未整理の課題");
     expect(ctx).toContain(issue.id);
+    expect(ctx).toContain("頻度抑制");
+    expect(ctx).toContain("日次抑制中の提案");
     expect(rt.MORNING_SUMMARY_TASK.length).toBeLessThan(200);
 
     const run = await rt.startRun("Lead Agent", rt.MORNING_SUMMARY_TASK, "auto-summary");
@@ -1234,6 +1236,16 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(updated?.triageStatus).toBe("watching");
     expect(updated?.reviewed).toBe(true);
     expect(updated?.triageAt).toBeDefined();
+    expect(updated?.triageNextReviewAt).toBeUndefined();
+  });
+
+  it("setRunTriageStatusは様子見時にnextReviewAtを記録できる", async () => {
+    const { getDb } = await import("./db");
+    insertRunRow(getDb(), { id: "run-1", reviewed: 0 });
+    const rt = await loadModule();
+    const next = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    const updated = rt.setRunTriageStatus("run-1", "watching", { nextReviewAt: next });
+    expect(updated?.triageNextReviewAt).toBe(next);
   });
 
   it("setRunTriageStatusはconsult子runにも同じトリアージを伝播する", async () => {
