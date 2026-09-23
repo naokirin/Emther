@@ -91,7 +91,7 @@ describe("LocalModelDownloadBanner", () => {
     expect(await screen.findByText("ローカルモデルの取得に失敗しました")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "再試行" }));
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/models/status", { method: "POST" });
+      expect(fetchMock).toHaveBeenCalledWith("/api/models/status", expect.objectContaining({ method: "POST" }));
     });
   });
 });

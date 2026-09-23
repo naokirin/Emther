@@ -25,7 +25,9 @@ describe("DataMigrationPanel", () => {
     const user = userEvent.setup();
     render(<DataMigrationPanel />);
     await user.click(screen.getByRole("button", { name: "バックアップをダウンロード" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/settings/data/backup", { method: "POST" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/settings/data/backup", expect.objectContaining({ method: "POST" })),
+    );
   });
 
   it("RESETと入力しないとリセットボタンが無効", () => {

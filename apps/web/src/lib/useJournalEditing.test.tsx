@@ -138,7 +138,7 @@ describe("useJournalEditing", () => {
     await act(async () => {
       await result.current.archiveEntry("e1");
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/journal/e1/archive", { method: "POST" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/journal/e1/archive", expect.objectContaining({ method: "POST" }));
     expect(getEntries()[0].archivedAt).toBe(123);
   });
 

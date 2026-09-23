@@ -66,7 +66,7 @@ describe("PersonHeader", () => {
 
     await user.click(screen.getByRole("button", { name: "誤登録として削除" }));
     await waitFor(() => expect(onDeleted).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith("/api/people/p1", { method: "DELETE" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/people/p1", expect.objectContaining({ method: "DELETE" }));
   });
 
   it("自分として設定するとselfPersonIdをPATCHする", async () => {

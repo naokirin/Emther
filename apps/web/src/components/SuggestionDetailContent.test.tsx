@@ -48,22 +48,26 @@ describe("SuggestionDetailContent", () => {
   beforeEach(() => {
     suggestion = baseSuggestion();
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url === "/api/suggestions/sug-1" && (!init || init.method === undefined)) {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/suggestions/sug-1" && method === "GET") {
         return { ok: true, json: async () => ({ suggestion, sourceJournals: [] }) };
       }
-      if (url === "/api/suggestions/sug-1" && init?.method === "PATCH") {
-        const body = JSON.parse(String(init.body));
+      if (url === "/api/suggestions/sug-1" && method === "PATCH") {
+        const body = JSON.parse(String(init?.body));
         suggestion = { ...suggestion, ...body };
         return { ok: true, json: async () => ({ suggestion }) };
       }
-      if (url === "/api/suggestions/sug-1/memo" && init?.method === "POST") {
-        const body = JSON.parse(String(init.body));
-        suggestion = { ...suggestion, memos: [...suggestion.memos, { id: "m1", text: body.text, createdAt: 1, source: "user" as const }] };
+      if (url === "/api/suggestions/sug-1/memo" && method === "POST") {
+        const body = JSON.parse(String(init?.body));
+        suggestion = {
+          ...suggestion,
+          memos: [...suggestion.memos, { id: "m1", text: body.text, createdAt: 1, source: "user" as const }],
+        };
         return { ok: true, json: async () => ({ suggestion }) };
       }
       if (url === "/api/suggestions") return { ok: true, json: async () => ({ suggestions: [] }) };
       if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
-      if (url === "/api/org/objectives") return { ok: true, json: async () => ({ objectives: [] }) };
+      if (url === "/api/org/goals") return { ok: true, json: async () => ({ goals: [] }) };
       if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
       if (url === "/api/themes") return { ok: true, json: async () => ({ themes: [] }) };
       if (url === "/api/settings/rules") return { ok: true, json: async () => ({ rules: {} }) };
