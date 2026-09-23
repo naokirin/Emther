@@ -37,6 +37,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run typecheck -w @emther/core
+      - run: npm run typecheck -w @emther/api-contract
       - run: npm run typecheck -w @emther/server
       - run: npm run typecheck -w @emther/web
 
@@ -52,6 +53,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm test -w @emther/core
+      - run: npm test -w @emther/api-contract
       - run: npm test -w @emther/server
       - run: npm test -w @emther/web
 

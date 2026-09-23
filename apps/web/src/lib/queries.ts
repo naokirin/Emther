@@ -20,6 +20,7 @@
 import { useCallback } from "react";
 import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { fetchJson } from "./api";
+import { api } from "./api-client";
 import type { AgentRun } from "../components/RunDetail";
 import { runFallbackTitle } from "../components/runDetailMeta";
 import { useSuggestionPeek } from "../components/useSuggestionPeek";
@@ -46,7 +47,6 @@ import type {
   RulesAndConstraints,
   Suggestion,
   Team,
-  TimelineEntry,
 } from "@emther/core/types";
 
 function usePolledQuery<T>(queryKey: readonly unknown[], url: string, intervalMs: number, options?: Pick<UseQueryOptions<T>, "enabled">) {
@@ -59,8 +59,19 @@ function usePolledQuery<T>(queryKey: readonly unknown[], url: string, intervalMs
 }
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応（旧: web/src/lib/hooks.ts useTimeline）。
+// Hono RPC パイプラインの代表例（@emther/api-contract + hc<AppType>）。
 export function useTimeline(intervalMs = 10000) {
-  const query = usePolledQuery<{ entries: TimelineEntry[] }>(["api", "timeline"], "/api/timeline", intervalMs);
+  const query = useQuery({
+    queryKey: ["api", "timeline"],
+    queryFn: async () => {
+      const res = await api.api.timeline.$get();
+      if (!res.ok) {
+        throw new Error(`request failed: GET /api/timeline (${res.status})`);
+      }
+      return res.json();
+    },
+    refetchInterval: intervalMs,
+  });
   return {
     entries: query.data?.entries ?? [],
     timelineLoaded: !query.isPending,

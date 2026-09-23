@@ -14,7 +14,12 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts"
+  },
   "dependencies": {
+    "@emther/api-contract": "*",
     "@emther/core": "*",
     "@hono/node-server": "^2.1.1",
     "hono": "^4.13.7",

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import { settingsRulesPatchSchema } from "@emther/api-contract/settings-rules";
 import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList, updateRulesAndConstraints } from "@emther/core/settings-store";
 import { listPeople } from "@emther/core/people-directory";
 import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@emther/core/local-chat-presets";
@@ -7,51 +7,12 @@ import { ensureLocalModels } from "@emther/core/model-loader";
 import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@emther/core/types";
 
 // docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/settings/rules/route.ts の移植。
+// 単純 number/boolean の入力スキーマは @emther/api-contract（寛容パース）。
+// PERSON_n照合・CLI名一覧等は従来どおり専用関数。
 
 function num(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
-
-// docs/2nd_architecture/plan.md フェーズ2.6: 単純な数値・真偽値フィールド（ビジネスロジックの
-// 分岐を伴わないもの）はZodスキーマに置き換える。既存の num()/bool() と同じ「型が違う値は
-// 黙って undefined 扱いにする」寛容さを1:1で保つため、各フィールドに .catch() を付ける
-// （PERSON_n照合やCLI名一覧チェック等、DB参照や個別エラーメッセージを伴うフィールドは
-// 対象外とし、従来どおり専用関数で扱う）。
-const numberField = z.number().finite().optional().catch(undefined);
-const booleanField = z.boolean().optional().catch(undefined);
-const settingsRulesPatchSchema = z
-  .object({
-    teamWindowDays: numberField,
-    minEntriesForJudgement: numberField,
-    teamBadSentimentMax: numberField,
-    teamWarnSentimentMax: numberField,
-    coverageWindowDays: numberField,
-    coverageGoodRatio: numberField,
-    coverageWarnRatio: numberField,
-    agentStaleAfterSeconds: numberField,
-    agentKillAfterSeconds: numberField,
-    journalFactTtlDays: numberField,
-    autoSuggestionUpdateAnalysisEnabled: booleanField,
-    autoMorningSummaryEnabled: booleanField,
-    autoMorningSummaryHour: numberField,
-    autoJournalBatchEnabled: booleanField,
-    autoJournalBatchHour: numberField, // 旧キー（互換）
-    autoDistillationEnabled: booleanField,
-    autoDistillationWeekday: numberField, // 旧キー（互換）
-    autoDistillationHour: numberField,
-    autoGrowEnabled: booleanField,
-    autoGrowWeekday: numberField,
-    autoGrowHour: numberField,
-    autoWeeklyReportEnabled: booleanField,
-    autoWeeklyReportWeekday: numberField,
-    autoWeeklyReportHour: numberField,
-    autoMonthlyReportEnabled: booleanField,
-    autoMonthlyReportDay: numberField,
-    autoMonthlyReportHour: numberField,
-    teamParallelKickoffEnabled: booleanField,
-    localRerankEnabled: booleanField,
-  })
-  .catch({});
 
 // maxParallelAgentRunsが0以下だと、どのエージェントも永久にキューから出られなくなる
 // （デッドロック）ため、最低1は保証する。

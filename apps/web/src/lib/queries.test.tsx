@@ -29,7 +29,7 @@ describe("useTimeline（usePolledQueryの代表例として検証。docs/2nd_arc
     expect(result.current.timelineLoaded).toBe(false);
     await waitFor(() => expect(result.current.entries).toEqual([{ id: "1" }]));
     expect(result.current.timelineLoaded).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith("/api/timeline", undefined);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/timeline");
   });
 
   it("intervalMsごとに再取得する（refetchInterval）", async () => {

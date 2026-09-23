@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import {
+  journalBulkBodySchema,
+  journalPatchBodySchema,
+  journalPostBodySchema,
+} from "@emther/api-contract/journal";
 import {
   addJournalEntriesBulk,
   addJournalEntryWithProfileCandidate,
@@ -33,6 +37,7 @@ import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } 
 // web/src/app/api/journal/{route,[id]/route,[id]/archive/route,
 // [id]/no-action-needed/route,bulk/route,search/route,[id]/analyze/route,
 // batch/route}.ts の移植。
+// 入力スキーマは @emther/api-contract（寛容パース。.catch で不正型→未指定）。
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -43,40 +48,6 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   const n = value !== undefined ? Number(value) : NaN;
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
-
-// docs/2nd_architecture/plan.md フェーズ2.6: 手書きの typeof/Array.isArray ガードを
-// Zod スキーマに置き換える。既存の「型が違う値は黙って undefined 扱いにする」寛容さを
-// 1:1 で保つため、各フィールドに .catch() を付け、パース失敗時は例外を投げず
-// フォールバック値（未指定と同じ扱い）にする。オブジェクト全体も .catch({}) で包み、
-// body 自体が null/非オブジェクトでも全フィールド未指定として扱う（例外を投げない）。
-const journalPostBodyObject = z.object({
-  text: z.string().optional().catch(undefined),
-  occurredAtDate: z.string().optional().catch(undefined),
-  people: z.array(z.string()).optional().catch(undefined),
-  teams: z.array(z.string()).optional().catch(undefined),
-  teamIds: z.array(z.string()).optional().catch(undefined),
-});
-const journalPostBodySchema = journalPostBodyObject.catch({});
-// POST /bulk はtextのみ使う。.pick()はZodObjectにしか使えないため、.catch()を
-// 被せる前のjournalPostBodyObjectから派生させる。
-const journalBulkBodySchema = journalPostBodyObject.pick({ text: true }).catch({});
-
-const journalPatchBodySchema = z
-  .object({
-    rawText: z.string().optional().catch(undefined),
-    tags: z.array(z.string()).optional().catch(undefined),
-    people: z.array(z.string()).optional().catch(undefined),
-    teams: z.array(z.string()).optional().catch(undefined),
-    teamIds: z.array(z.string()).optional().catch(undefined),
-    urgency: z.enum(["low", "mid", "high"]).optional().catch(undefined),
-    sentiment: z.enum(["positive", "negative", "neutral"]).optional().catch(undefined),
-    occurredAtDate: z.string().optional().catch(undefined),
-    // resolvedSuggestionId/resolutionNoteは「未指定=変更しない」「null=解除」「文字列=設定」の
-    // 3値。不正な型（数値・オブジェクト等）は「未指定」と同じ扱いに落とす（.catch(undefined)）。
-    resolvedSuggestionId: z.string().nullable().optional().catch(undefined),
-    resolutionNote: z.string().nullable().optional().catch(undefined),
-  })
-  .catch({});
 
 export const journalRoute = new Hono()
   .get("/", async (c) => c.json({ entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()) }))
