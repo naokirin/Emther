@@ -20,4 +20,6 @@ Hono API の入出力 Zod スキーマ（共有契約層）。
 | `journal` | POST / PATCH / bulk リクエスト body |
 | `settings-rules` | PATCH の単純 number/boolean |
 
-横展開するときは新規・改修ルートからスキーマをここに追加し、サーバーで import、必要なら web の `fetchJson` を RPC に置換する。
+`apps/web/src/lib/queries.ts` のポーリング GET は Hono RPC（`hc<AppType>`）経由。レスポンス型は当面 `rpcJsonAs<T>` で明示し、ここにレスポンススキーマを足したルートから厳密化できる。
+
+横展開するときは新規・改修ルートからスキーマをここに追加し、サーバーで import、必要なら web のミューテーション側 `fetch` も RPC に置換する。

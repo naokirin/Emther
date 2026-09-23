@@ -15,12 +15,11 @@
 // - queryKeyの命名は `["api", ...urlのpathセグメント, ...パラメータ]` に統一し、
 //   ミューテーション成功後の `invalidateQueries` がURL単位で機械的に書けるようにする。
 //
-// 本ファイルには移行パターンを検証するための代表例（useTimeline）のみを置く。
-// 残り24フックの移植は3.5（画面単位移植）でその画面を移すタイミングに合わせて行う。
+// ポーリング GET は Hono RPC（hc<AppType>）経由。レスポンス型は api-contract 整備まで
+// rpcJsonAs<T> で明示（旧 fetchJson<T> と同じ）。
 import { useCallback } from "react";
 import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchJson } from "./api";
-import { api } from "./api-client";
+import { api, rpcJsonAs } from "./api-client";
 import type { AgentRun } from "../components/RunDetail";
 import { runFallbackTitle } from "../components/runDetailMeta";
 import { useSuggestionPeek } from "../components/useSuggestionPeek";
@@ -47,31 +46,31 @@ import type {
   RulesAndConstraints,
   Suggestion,
   Team,
+  TimelineEntry,
 } from "@emther/core/types";
 
-function usePolledQuery<T>(queryKey: readonly unknown[], url: string, intervalMs: number, options?: Pick<UseQueryOptions<T>, "enabled">) {
+function usePolledRpc<T>(
+  queryKey: readonly unknown[],
+  queryFn: () => Promise<T>,
+  intervalMs: number,
+  options?: Pick<UseQueryOptions<T>, "enabled">,
+) {
   return useQuery<T>({
     queryKey,
-    queryFn: () => fetchJson<T>(url),
+    queryFn,
     refetchInterval: intervalMs,
     enabled: options?.enabled,
   });
 }
 
 // docs/memo.md「N. 時系列変化をEMが読む物語に」対応（旧: web/src/lib/hooks.ts useTimeline）。
-// Hono RPC パイプラインの代表例（@emther/api-contract + hc<AppType>）。
+// Hono RPC（@emther/api-contract + hc<AppType>）。
 export function useTimeline(intervalMs = 10000) {
-  const query = useQuery({
-    queryKey: ["api", "timeline"],
-    queryFn: async () => {
-      const res = await api.api.timeline.$get();
-      if (!res.ok) {
-        throw new Error(`request failed: GET /api/timeline (${res.status})`);
-      }
-      return res.json();
-    },
-    refetchInterval: intervalMs,
-  });
+  const query = usePolledRpc(
+    ["api", "timeline"],
+    async () => rpcJsonAs<{ entries: TimelineEntry[] }>(await api.api.timeline.$get(), "GET /api/timeline"),
+    intervalMs,
+  );
   return {
     entries: query.data?.entries ?? [],
     timelineLoaded: !query.isPending,
@@ -86,7 +85,11 @@ export function useTimeline(intervalMs = 10000) {
 export const emCheckinsQueryKey = ["api", "em-self", "checkins"] as const;
 
 export function useEmCheckins(intervalMs = 15000) {
-  const query = usePolledQuery<{ checkins: EmCheckin[] }>(emCheckinsQueryKey, "/api/em-self/checkins", intervalMs);
+  const query = usePolledRpc(
+    emCheckinsQueryKey,
+    async () => rpcJsonAs<{ checkins: EmCheckin[] }>(await api.api["em-self"].checkins.$get(), "GET /api/em-self/checkins"),
+    intervalMs,
+  );
   return {
     checkins: query.data?.checkins ?? [],
     checkinsLoaded: !query.isPending,
@@ -98,7 +101,12 @@ export function useEmCheckins(intervalMs = 15000) {
 export const reflectionNotesQueryKey = ["api", "em-self", "reflection-notes"] as const;
 
 export function useReflectionNotes(intervalMs = 15000) {
-  const query = usePolledQuery<{ notes: EmReflectionNote[] }>(reflectionNotesQueryKey, "/api/em-self/reflection-notes", intervalMs);
+  const query = usePolledRpc(
+    reflectionNotesQueryKey,
+    async () =>
+      rpcJsonAs<{ notes: EmReflectionNote[] }>(await api.api["em-self"]["reflection-notes"].$get(), "GET /api/em-self/reflection-notes"),
+    intervalMs,
+  );
   return {
     notes: query.data?.notes ?? [],
     notesLoaded: !query.isPending,
@@ -110,7 +118,11 @@ export function useReflectionNotes(intervalMs = 15000) {
 // `refreshTeams()`（再取得）のみを使い、`setTeams`によるローカル即時反映は使っていない
 // ため、useTimeline同様セッターは用意しない。
 export function useTeams(intervalMs = 5000) {
-  const query = usePolledQuery<{ teams: Team[] }>(["api", "teams"], "/api/teams", intervalMs);
+  const query = usePolledRpc(
+    ["api", "teams"],
+    async () => rpcJsonAs<{ teams: Team[] }>(await api.api.teams.$get(), "GET /api/teams"),
+    intervalMs,
+  );
   return {
     teams: query.data?.teams ?? [],
     teamsLoaded: !query.isPending,
@@ -124,7 +136,11 @@ export function useTeams(intervalMs = 5000) {
 
 // 旧: web/src/lib/hooks.ts useJournal。
 export function useJournal(intervalMs = 5000) {
-  const query = usePolledQuery<{ entries: JournalEntry[] }>(["api", "journal"], "/api/journal", intervalMs);
+  const query = usePolledRpc(
+    ["api", "journal"],
+    async () => rpcJsonAs<{ entries: JournalEntry[] }>(await api.api.journal.$get(), "GET /api/journal"),
+    intervalMs,
+  );
   return {
     journalEntries: query.data?.entries ?? [],
     journalLoaded: !query.isPending,
@@ -164,24 +180,33 @@ export function useJournalSearch(
   focusId: string | null,
   intervalMs = 5000,
 ) {
-  const params = new URLSearchParams();
-  if (filter.query) params.set("query", filter.query);
-  if (filter.tag) params.set("tag", filter.tag);
-  if (filter.person) params.set("person", filter.person);
-  if (filter.urgency) params.set("urgency", filter.urgency);
-  if (filter.sentiment) params.set("sentiment", filter.sentiment);
-  if (filter.periodDays !== "all") params.set("periodDays", filter.periodDays);
-  if (filter.excludeResolved) params.set("excludeResolved", "1");
-  if (filter.includeArchived) params.set("includeArchived", "1");
-  if (filter.quarantinedOnly) params.set("quarantinedOnly", "1");
-  if (focusId) params.set("focusId", focusId);
-  params.set("page", String(page));
-  params.set("pageSize", String(pageSize));
-
   const fallback: JournalSearchResult = { entries: [], total: 0, page: 1, pageSize, facets: { tags: [], people: [] } };
   const queryKey = ["api", "journal", "search", filter, page, pageSize, focusId] as const;
   const queryClient = useQueryClient();
-  const query = usePolledQuery<JournalSearchResult>(queryKey, `/api/journal/search?${params.toString()}`, intervalMs);
+  const query = usePolledRpc(
+    queryKey,
+    async () =>
+      rpcJsonAs<JournalSearchResult>(
+        await api.api.journal.search.$get({
+          query: {
+            ...(filter.query ? { query: filter.query } : {}),
+            ...(filter.tag ? { tag: filter.tag } : {}),
+            ...(filter.person ? { person: filter.person } : {}),
+            ...(filter.urgency ? { urgency: filter.urgency } : {}),
+            ...(filter.sentiment ? { sentiment: filter.sentiment } : {}),
+            ...(filter.periodDays !== "all" ? { periodDays: filter.periodDays } : {}),
+            ...(filter.excludeResolved ? { excludeResolved: "1" } : {}),
+            ...(filter.includeArchived ? { includeArchived: "1" } : {}),
+            ...(filter.quarantinedOnly ? { quarantinedOnly: "1" } : {}),
+            ...(focusId ? { focusId } : {}),
+            page: String(page),
+            pageSize: String(pageSize),
+          },
+        }),
+        "GET /api/journal/search",
+      ),
+    intervalMs,
+  );
   const data = query.data ?? fallback;
 
   return {
@@ -205,9 +230,9 @@ export function useJournalSearch(
 export const journalBatchStatusQueryKey = ["api", "journal", "batch"] as const;
 
 export function useJournalBatchStatus(intervalMs = 15000) {
-  const query = usePolledQuery<{ pendingCount: number }>(
+  const query = usePolledRpc(
     journalBatchStatusQueryKey,
-    "/api/journal/batch",
+    async () => rpcJsonAs<{ pendingCount: number }>(await api.api.journal.batch.$get(), "GET /api/journal/batch"),
     intervalMs,
   );
   return {
@@ -265,7 +290,11 @@ const SETTINGS_RULES_FALLBACK: RulesAndConstraints = {
 };
 
 export function useSettingsRules(intervalMs = 8000) {
-  const query = usePolledQuery<{ rules: RulesAndConstraints }>(["api", "settings", "rules"], "/api/settings/rules", intervalMs);
+  const query = usePolledRpc(
+    ["api", "settings", "rules"],
+    async () => rpcJsonAs<{ rules: RulesAndConstraints }>(await api.api.settings.rules.$get(), "GET /api/settings/rules"),
+    intervalMs,
+  );
   return {
     rules: query.data?.rules ?? SETTINGS_RULES_FALLBACK,
     rulesLoaded: !query.isPending,
@@ -278,7 +307,11 @@ export function useSettingsRules(intervalMs = 8000) {
 // 旧: web/src/lib/hooks.ts usePeople。呼び出し側（PersonHeader等）は
 // `refreshPeople: () => Promise<void> | void`という型で受け取るため、refetchの戻り値を握りつぶす。
 export function usePeople(intervalMs = 5000) {
-  const query = usePolledQuery<{ people: PersonSummary[] }>(["api", "people"], "/api/people", intervalMs);
+  const query = usePolledRpc(
+    ["api", "people"],
+    async () => rpcJsonAs<{ people: PersonSummary[] }>(await api.api.people.$get(), "GET /api/people"),
+    intervalMs,
+  );
   return {
     people: query.data?.people ?? [],
     peopleLoaded: !query.isPending,
@@ -290,7 +323,11 @@ export function usePeople(intervalMs = 5000) {
 
 // 旧: web/src/lib/hooks.ts usePersonProfile。
 export function usePersonProfile(id: string, intervalMs = 5000) {
-  const query = usePolledQuery<{ person: PersonProfile | null }>(["api", "people", id], `/api/people/${id}`, intervalMs);
+  const query = usePolledRpc(
+    ["api", "people", id],
+    async () => rpcJsonAs<{ person: PersonProfile | null }>(await api.api.people[":id"].$get({ param: { id } }), `GET /api/people/${id}`),
+    intervalMs,
+  );
   return {
     person: query.data?.person ?? null,
     personLoaded: !query.isPending,
@@ -302,9 +339,13 @@ export function usePersonProfile(id: string, intervalMs = 5000) {
 
 // 旧: web/src/lib/hooks.ts usePersonEvaluationLogs。
 export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
-  const query = usePolledQuery<{ logs: PersonEvaluationLog[] }>(
+  const query = usePolledRpc(
     ["api", "people", personId, "evaluation-logs"],
-    `/api/people/${personId}/evaluation-logs`,
+    async () =>
+      rpcJsonAs<{ logs: PersonEvaluationLog[] }>(
+        await api.api.people[":id"]["evaluation-logs"].$get({ param: { id: personId } }),
+        `GET /api/people/${personId}/evaluation-logs`,
+      ),
     intervalMs,
     { enabled: !!personId },
   );
@@ -319,7 +360,11 @@ export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
 
 // docs/goal_policy_model_plan.md Phase 2。useTeams等と同じ構成のGoal版。
 export function useGoals(intervalMs = 5000) {
-  const query = usePolledQuery<{ goals: Goal[] }>(["api", "org", "goals"], "/api/org/goals", intervalMs);
+  const query = usePolledRpc(
+    ["api", "org", "goals"],
+    async () => rpcJsonAs<{ goals: Goal[] }>(await api.api.org.goals.$get(), "GET /api/org/goals"),
+    intervalMs,
+  );
   return {
     goals: query.data?.goals ?? [],
     goalsLoaded: !query.isPending,
@@ -331,7 +376,11 @@ export function useGoals(intervalMs = 5000) {
 
 // 旧: web/src/lib/hooks.ts useOrgBackgrounds。
 export function useOrgBackgrounds(intervalMs = 8000) {
-  const query = usePolledQuery<{ backgrounds: OrgBackgroundEntry[] }>(["api", "org", "background"], "/api/org/background", intervalMs);
+  const query = usePolledRpc(
+    ["api", "org", "background"],
+    async () => rpcJsonAs<{ backgrounds: OrgBackgroundEntry[] }>(await api.api.org.background.$get(), "GET /api/org/background"),
+    intervalMs,
+  );
   return {
     backgrounds: query.data?.backgrounds ?? [],
     backgroundsLoaded: !query.isPending,
@@ -345,7 +394,11 @@ export function useOrgBackgrounds(intervalMs = 8000) {
 const ORG_STRATEGY_FALLBACK: OrgStrategy = { mission: "", vision: "", values: "" };
 
 export function useOrgStrategy(intervalMs = 8000) {
-  const query = usePolledQuery<{ strategy: OrgStrategy }>(["api", "org", "strategy"], "/api/org/strategy", intervalMs);
+  const query = usePolledRpc(
+    ["api", "org", "strategy"],
+    async () => rpcJsonAs<{ strategy: OrgStrategy }>(await api.api.org.strategy.$get(), "GET /api/org/strategy"),
+    intervalMs,
+  );
   return {
     strategy: query.data?.strategy ?? ORG_STRATEGY_FALLBACK,
     strategyLoaded: !query.isPending,
@@ -357,7 +410,11 @@ export function useOrgStrategy(intervalMs = 8000) {
 
 // docs/goal_policy_model_plan.md Phase 1。useOrgBackgrounds等と同じ構成のPolicy版。
 export function usePolicies(intervalMs = 8000) {
-  const query = usePolledQuery<{ policies: PolicyEntry[] }>(["api", "org", "policies"], "/api/org/policies", intervalMs);
+  const query = usePolledRpc(
+    ["api", "org", "policies"],
+    async () => rpcJsonAs<{ policies: PolicyEntry[] }>(await api.api.org.policies.$get(), "GET /api/org/policies"),
+    intervalMs,
+  );
   return {
     policies: query.data?.policies ?? [],
     policiesLoaded: !query.isPending,
@@ -369,7 +426,11 @@ export function usePolicies(intervalMs = 8000) {
 
 // 旧: web/src/lib/hooks.ts useThemes。
 export function useThemes(intervalMs = 8000) {
-  const query = usePolledQuery<{ themes: OrgTheme[] }>(["api", "themes"], "/api/themes", intervalMs);
+  const query = usePolledRpc(
+    ["api", "themes"],
+    async () => rpcJsonAs<{ themes: OrgTheme[] }>(await api.api.themes.$get(), "GET /api/themes"),
+    intervalMs,
+  );
   return {
     themes: query.data?.themes ?? [],
     themesLoaded: !query.isPending,
@@ -387,8 +448,17 @@ export function reportsQueryKey(periodType: ReportPeriodType | "") {
 }
 
 export function useReports(periodType: ReportPeriodType | "" = "", intervalMs = 15000) {
-  const url = periodType ? `/api/reports?periodType=${periodType}` : "/api/reports";
-  const query = usePolledQuery<{ reports: Report[] }>(reportsQueryKey(periodType), url, intervalMs);
+  const query = usePolledRpc(
+    reportsQueryKey(periodType),
+    async () =>
+      rpcJsonAs<{ reports: Report[] }>(
+        await api.api.reports.$get({
+          query: periodType ? { periodType } : {},
+        }),
+        "GET /api/reports",
+      ),
+    intervalMs,
+  );
   return {
     reports: query.data?.reports ?? [],
     reportsLoaded: !query.isPending,
@@ -404,7 +474,11 @@ export function useReports(periodType: ReportPeriodType | "" = "", intervalMs = 
 export const growSuggestionsQueryKey = ["api", "growth", "suggestions"] as const;
 
 export function useGrowSuggestions(intervalMs = 15000) {
-  const query = usePolledQuery<{ suggestions: GrowSuggestion[] }>(growSuggestionsQueryKey, "/api/growth/suggestions", intervalMs);
+  const query = usePolledRpc(
+    growSuggestionsQueryKey,
+    async () => rpcJsonAs<{ suggestions: GrowSuggestion[] }>(await api.api.growth.suggestions.$get(), "GET /api/growth/suggestions"),
+    intervalMs,
+  );
   return {
     growSuggestions: query.data?.suggestions ?? [],
     growSuggestionsLoaded: !query.isPending,
@@ -421,11 +495,11 @@ export function useGrowSuggestions(intervalMs = 15000) {
 // 旧: web/src/lib/hooks.ts useRuns。AgentRun型の正本はapps/web/src/components/RunDetail.tsx
 // （tier4 suggestionsバッチで移植済み）。
 export function useRuns(intervalMs = 1500) {
-  const query = usePolledQuery<{
-    runs: AgentRun[];
-    pendingAgentStarts: PendingAgentStart[];
-    pendingUnmaskedSends: PendingUnmaskedSend[];
-  }>(["api", "agents"], "/api/agents", intervalMs);
+  const query = usePolledRpc(
+    ["api", "agents"],
+    async () => rpcJsonAs<{ runs: AgentRun[]; pendingAgentStarts: PendingAgentStart[]; pendingUnmaskedSends: PendingUnmaskedSend[] }>(await api.api.agents.$get(), "GET /api/agents"),
+    intervalMs,
+  );
   return {
     runs: query.data?.runs ?? [],
     pendingAgentStarts: query.data?.pendingAgentStarts ?? [],
@@ -450,13 +524,13 @@ export function useGoToRunSuggestion(suggestions: Suggestion[]) {
         return;
       }
       try {
-        const res = await fetch("/api/suggestions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id }),
-        });
-        const data = await res.json();
-        if (res.ok) peek.open(data.suggestion.id);
+        const data = await rpcJsonAs<{ suggestion: Suggestion }>(
+          await api.api.suggestions.$post({
+            json: { title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id },
+          }),
+          "POST /api/suggestions",
+        );
+        peek.open(data.suggestion.id);
       } catch {
         // 失敗時は提案一覧から手動で紐づけられる
       }
@@ -469,15 +543,20 @@ export function useGoToRunSuggestion(suggestions: Suggestion[]) {
 // Fleet状態・Activity Stream用）とは別に、フィルタ＋ページ番号をクエリパラメータとして
 // 都度APIへ渡し、そのページ分のrunsとtotalだけを受け取る。
 export function useRunsInbox(filter: { status: string; showDismissed: boolean }, page: number, pageSize: number, intervalMs = 1500) {
-  const params = new URLSearchParams();
-  if (filter.status) params.set("status", filter.status);
-  if (filter.showDismissed) params.set("showDismissed", "1");
-  params.set("page", String(page));
-  params.set("pageSize", String(pageSize));
-
-  const query = usePolledQuery<{ runs: AgentRun[]; total: number; page: number; pageSize: number }>(
+  const query = usePolledRpc(
     ["api", "agents", "inbox", filter, page, pageSize],
-    `/api/agents/inbox?${params.toString()}`,
+    async () =>
+      rpcJsonAs<{ runs: AgentRun[]; total: number; page: number; pageSize: number }>(
+        await api.api.agents.inbox.$get({
+          query: {
+            ...(filter.status ? { status: filter.status } : {}),
+            ...(filter.showDismissed ? { showDismissed: "1" } : {}),
+            page: String(page),
+            pageSize: String(pageSize),
+          },
+        }),
+        "GET /api/agents/inbox",
+      ),
     intervalMs,
   );
   return {
@@ -492,9 +571,12 @@ export function useRunsInbox(filter: { status: string; showDismissed: boolean },
 
 // 旧: web/src/lib/hooks.ts useJournalEntry。idが未確定（undefined）の間はfetchしない。
 export function useJournalEntry(id: string | undefined, intervalMs = 10000) {
-  const query = usePolledQuery<{ entry: JournalEntry | null }>(
+  const query = usePolledRpc(
     ["api", "journal", id ?? null],
-    id ? `/api/journal/${id}` : "/api/journal",
+    async () => {
+      if (!id) throw new Error("journal id is required");
+      return rpcJsonAs<{ entry: JournalEntry | null }>(await api.api.journal[":id"].$get({ param: { id } }), `GET /api/journal/${id}`);
+    },
     intervalMs,
     { enabled: !!id },
   );
@@ -508,7 +590,11 @@ const VITALS_FALLBACK: OrgVitals = {
 };
 
 export function useVitals(intervalMs = 5000) {
-  const query = usePolledQuery<OrgVitals>(["api", "vitals"], "/api/vitals", intervalMs);
+  const query = usePolledRpc(
+    ["api", "vitals"],
+    async () => rpcJsonAs<OrgVitals>(await api.api.vitals.$get(), "GET /api/vitals"),
+    intervalMs,
+  );
   return {
     vitals: query.data ?? VITALS_FALLBACK,
     vitalsLoaded: !query.isPending,
@@ -522,7 +608,11 @@ export function useVitals(intervalMs = 5000) {
 export const suggestionsQueryKey = ["api", "suggestions"] as const;
 
 export function useSuggestions(intervalMs = 3000) {
-  const query = usePolledQuery<{ suggestions: Suggestion[] }>(suggestionsQueryKey, "/api/suggestions", intervalMs);
+  const query = usePolledRpc(
+    suggestionsQueryKey,
+    async () => rpcJsonAs<{ suggestions: Suggestion[] }>(await api.api.suggestions.$get(), "GET /api/suggestions"),
+    intervalMs,
+  );
   return {
     suggestions: query.data?.suggestions ?? [],
     suggestionsLoaded: !query.isPending,
@@ -534,9 +624,10 @@ export function useSuggestions(intervalMs = 3000) {
 
 // 旧: web/src/lib/hooks.ts useSuggestion（単数）。
 export function useSuggestion(id: string, intervalMs = 2000) {
-  const query = usePolledQuery<{ suggestion: Suggestion | null; sourceJournals?: JournalEntry[] }>(
+  const query = usePolledRpc(
     ["api", "suggestions", id],
-    `/api/suggestions/${id}`,
+    async () =>
+      rpcJsonAs<{ suggestion: Suggestion | null; sourceJournals?: JournalEntry[] }>(await api.api.suggestions[":id"].$get({ param: { id } }), `GET /api/suggestions/${id}`),
     intervalMs,
   );
   return {
@@ -551,10 +642,15 @@ export function useSuggestion(id: string, intervalMs = 2000) {
 
 // 旧: web/src/lib/hooks.ts useEntityHistory。entityIdが未確定（null）の間はfetchしない。
 export function useEntityHistory(entityType: "suggestion" | "team" | "org", entityId: string | null, intervalMs = 5000) {
-  const url = `/api/knowledge/events?entityType=${entityType}&entityId=${entityId ?? ""}`;
-  const query = usePolledQuery<{ events: KnowledgeEvent[] }>(
+  const query = usePolledRpc(
     ["api", "knowledge", "events", entityType, entityId],
-    url,
+    async () =>
+      rpcJsonAs<{ events: KnowledgeEvent[] }>(
+        await api.api.knowledge.events.$get({
+          query: { entityType, entityId: entityId ?? "" },
+        }),
+        "GET /api/knowledge/events",
+      ),
     intervalMs,
     { enabled: entityId !== null },
   );
