@@ -170,10 +170,26 @@ export function teamDisplayName(name: string): string {
   return segments.length > 0 ? segments.join(" / ") : name;
 }
 
+/** 見出し（必須の中核文）＋補足（解釈を閉じる説明・任意）。メモ欄とは別。 */
+export type StatementElaboration = {
+  statement: string;
+  elaboration?: string;
+};
+
 export type OrgStrategy = {
+  /** Mission の見出し */
   mission: string;
+  missionElaboration?: string;
+  /** Vision の見出し */
   vision: string;
+  visionElaboration?: string;
+  /**
+   * Values 見出しの結合文字列（注入・後方互換用）。
+   * 編集の正本は valueItems。
+   */
   values: string;
+  /** Values ×N（各件が見出し＋補足） */
+  valueItems?: StatementElaboration[];
 };
 
 // Standing Background: 組織の長期背景事実＋判断への含意（Core Context）。
@@ -200,7 +216,10 @@ export type PolicyCategory = "value" | "priority" | "avoid" | "principle" | "oth
 
 export type PolicyEntry = {
   id: string;
+  /** 見出し（判断原則の中核文） */
   text: string;
+  /** 補足（解釈を閉じる説明・任意）。メモではない。 */
+  elaboration?: string;
   category?: PolicyCategory;
   createdAt: number;
   updatedAt: number;
@@ -214,7 +233,11 @@ export type GoalStatus = "active" | "achieved" | "abandoned";
 
 export type Goal = {
   id: string;
+  /** 見出し（到達したい状態の中核文） */
   title: string;
+  /** 補足（解釈を閉じる説明・任意）。運用メモとは別。 */
+  elaboration?: string;
+  /** 運用メモ（非注入・任意） */
   note?: string;
   teamId?: string;
   horizon?: GoalHorizon;
@@ -807,8 +830,11 @@ export type ThemeStatus = "candidate" | "adopted" | "dismissed";
 
 export type OrgTheme = {
   id: string;
+  /** 見出し（EMの今の焦点の中核文） */
   title: string;
+  /** 補足（解釈を閉じる説明）。UI上は「補足」として扱う。 */
   summary: string;
+  /** 背景・理由（運用メモに近い。補足とは別） */
   rationale: string;
   facts: string[];
   rootCause?: string;

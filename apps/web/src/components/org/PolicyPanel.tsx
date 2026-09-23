@@ -34,11 +34,13 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
   const visiblePolicies = policies.filter((p) => showArchivedPolicies || !p.archivedAt);
 
   const [newText, setNewText] = useState("");
+  const [newElaboration, setNewElaboration] = useState("");
   const [newCategory, setNewCategory] = useState<PolicyCategory | "">("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [editText, setEditText] = useState("");
+  const [editElaboration, setEditElaboration] = useState("");
   const [editCategory, setEditCategory] = useState<PolicyCategory | "">("");
   const [editArchived, setEditArchived] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,6 +48,7 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
 
   function beginEdit(entry: PolicyEntry) {
     setEditText(entry.text);
+    setEditElaboration(entry.elaboration ?? "");
     setEditCategory(entry.category ?? "");
     setEditArchived(!!entry.archivedAt);
     setEditError(null);
@@ -66,11 +69,16 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
       const res = await fetch("/api/org/policies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: newText.trim(), category: newCategory || undefined }),
+        body: JSON.stringify({
+          text: newText.trim(),
+          elaboration: newElaboration.trim() || undefined,
+          category: newCategory || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewText("");
+      setNewElaboration("");
       setNewCategory("");
       await refreshPolicies();
       beginEdit(data.policy);
@@ -84,6 +92,7 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
   const dirty =
     !!selectedPolicy &&
     (editText !== selectedPolicy.text ||
+      editElaboration !== (selectedPolicy.elaboration ?? "") ||
       editCategory !== (selectedPolicy.category ?? "") ||
       editArchived !== !!selectedPolicy.archivedAt);
 
@@ -95,7 +104,12 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
       const res = await fetch(`/api/org/policies/${selectedPolicy.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: editText, category: editCategory || null, archived: editArchived }),
+        body: JSON.stringify({
+          text: editText,
+          elaboration: editElaboration,
+          category: editCategory || null,
+          archived: editArchived,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
@@ -122,8 +136,14 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
           <form onSubmit={handleAdd}>
             <div className={styles.field}>
               <label>
-                内容（大切にすること／優先すること／やらないこと／判断に迷ったときの原則、など）
+                見出し（組織・チームの判断原則）
                 <textarea rows={3} value={newText} onChange={(e) => setNewText(e.target.value)} />
+              </label>
+            </div>
+            <div className={styles.field}>
+              <label>
+                補足（任意 · 解釈を閉じる説明）
+                <textarea rows={2} value={newElaboration} onChange={(e) => setNewElaboration(e.target.value)} />
               </label>
             </div>
             <div className={styles.field}>
@@ -175,6 +195,11 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
                   }}
                 >
                   <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{treeTitle(p.text)}</div>
+                  {p.elaboration ? (
+                    <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      {treeTitle(p.elaboration)}
+                    </div>
+                  ) : null}
                   <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
                     {categoryLabel(p.category) || "カテゴリなし"}
                     {p.archivedAt ? " · アーカイブ" : ""}
@@ -208,8 +233,14 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
           )}
           <div className={styles.field}>
             <label>
-              内容
+              見出し（組織・チームの判断原則）
               <textarea rows={4} value={editText} onChange={(e) => setEditText(e.target.value)} />
+            </label>
+          </div>
+          <div className={styles.field}>
+            <label>
+              補足（任意 · 解釈を閉じる説明）
+              <textarea rows={3} value={editElaboration} onChange={(e) => setEditElaboration(e.target.value)} />
             </label>
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

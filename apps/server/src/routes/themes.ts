@@ -33,14 +33,14 @@ export const themesRoute = new Hono()
     const summary = typeof body?.summary === "string" ? body.summary.trim() : "";
     const rationale = typeof body?.rationale === "string" ? body.rationale.trim() : "";
 
-    if (!title || !summary) {
-      return c.json({ error: "title と summary は必須です" }, 400);
+    if (!title) {
+      return c.json({ error: "title は必須です" }, 400);
     }
 
     const theme = await createTheme({
       title,
       summary,
-      rationale: rationale || summary,
+      rationale: rationale || summary || title,
       facts: Array.isArray(body?.facts) ? body.facts : [],
       teamId: typeof body?.teamId === "string" ? body.teamId : undefined,
       status: body?.status === "candidate" ? "candidate" : "adopted",

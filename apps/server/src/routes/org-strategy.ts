@@ -1,26 +1,70 @@
 import { Hono } from "hono";
 import { getOrgStrategy, type OrgStrategy, updateOrgStrategy } from "@emther/core/org-context-store/index";
 import { unmaskNames } from "@emther/core/people-directory";
+import type { StatementElaboration } from "@emther/core/types";
 
-// docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/org/strategy/route.ts の移植。
-// 個人情報の分離（ユーザー指摘対応）: ストア側はPERSON_n IDでマスクされたテキストを
-// 保持している。EM向けの応答を組み立てるこの境界でだけ実名へ復元する。
 function toView(strategy: OrgStrategy): OrgStrategy {
   return {
     mission: unmaskNames(strategy.mission),
     vision: unmaskNames(strategy.vision),
     values: unmaskNames(strategy.values),
+    ...(strategy.missionElaboration
+      ? { missionElaboration: unmaskNames(strategy.missionElaboration) }
+      : {}),
+    ...(strategy.visionElaboration
+      ? { visionElaboration: unmaskNames(strategy.visionElaboration) }
+      : {}),
+    ...(strategy.valueItems
+      ? {
+          valueItems: strategy.valueItems.map((v) => ({
+            statement: unmaskNames(v.statement),
+            ...(v.elaboration ? { elaboration: unmaskNames(v.elaboration) } : {}),
+          })),
+        }
+      : {}),
   };
+}
+
+function parseValueItems(raw: unknown): StatementElaboration[] | null | undefined {
+  if (raw === null) return null;
+  if (!Array.isArray(raw)) return undefined;
+  const items: StatementElaboration[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const statement = typeof (row as { statement?: unknown }).statement === "string"
+      ? (row as { statement: string }).statement.trim()
+      : "";
+    if (!statement) continue;
+    const elaborationRaw = (row as { elaboration?: unknown }).elaboration;
+    const elaboration =
+      typeof elaborationRaw === "string" && elaborationRaw.trim() ? elaborationRaw.trim() : undefined;
+    items.push(elaboration ? { statement, elaboration } : { statement });
+  }
+  return items;
 }
 
 export const orgStrategyRoute = new Hono()
   .get("/", (c) => c.json({ strategy: toView(getOrgStrategy()) }))
   .patch("/", async (c) => {
     const body = await c.req.json().catch(() => null);
+    const valueItems = parseValueItems(body?.valueItems);
     const strategy = await updateOrgStrategy({
       mission: typeof body?.mission === "string" ? body.mission : undefined,
+      missionElaboration:
+        body && "missionElaboration" in body
+          ? typeof body.missionElaboration === "string"
+            ? body.missionElaboration
+            : null
+          : undefined,
       vision: typeof body?.vision === "string" ? body.vision : undefined,
+      visionElaboration:
+        body && "visionElaboration" in body
+          ? typeof body.visionElaboration === "string"
+            ? body.visionElaboration
+            : null
+          : undefined,
       values: typeof body?.values === "string" ? body.values : undefined,
+      valueItems,
     });
     return c.json({ strategy: toView(strategy) });
   });

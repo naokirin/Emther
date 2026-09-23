@@ -1,9 +1,7 @@
 import styles from "../../styles/page.module.css";
 
-// docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
-// 走らないよう、MVV/Team/Goalが揃うまでセットアップ導線を出す。新規ウィザード画面は
-// 増やさず、既存の/orgへの案内に留める（EMが明示的に消せるものではなく、実際に揃うと
-// 自然に消える）。
+// docs/memo.md「O. 期初の憲法づくりオンボーディング」および goal.pen 方針:
+// 無いときは観測・相談を主経路にし、方針・目標への「置く」は副経路。
 type Props = {
   setupGaps: string[];
   teamsCount: number;
@@ -14,12 +12,13 @@ type Props = {
 
 export function SetupGapsBanner({ setupGaps, teamsCount, hasMvv, goalsCount, onNavigate }: Props) {
   if (setupGaps.length === 0) return null;
+  const needsOrgLens = !hasMvv || goalsCount === 0;
   return (
     <div
       className={styles.panel}
       style={{
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "space-between",
         gap: 12,
         padding: "10px 16px",
@@ -27,20 +26,30 @@ export function SetupGapsBanner({ setupGaps, teamsCount, hasMvv, goalsCount, onN
         border: "1px solid var(--yellow-border)",
       }}
     >
-      <span style={{ fontSize: "0.875rem" }}>⚙️ 初回セットアップ: {setupGaps.join("・")}</span>
-      {/* ユーザー要望「チーム・メンバータブにチームの追加・編集を統合したい」対応。チームの
-          追加は/teams（チーム・メンバータブの「チーム」）へ、MVV/Goalの設定は
-          方針・目標タブへ、と行き先が分かれたためボタンも分ける（不足している方だけ出す）。 */}
-      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+        <span style={{ fontSize: "0.875rem" }}>レンズの抜け: {setupGaps.join("・")}</span>
+        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+          主経路は観測・相談から。必要なら曖昧なまま方針・目標に置いてよい。
+        </span>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
         {teamsCount === 0 && (
           <button className={styles.btnOutline} onClick={() => onNavigate("/teams")}>
             チームへ
           </button>
         )}
-        {!hasMvv || goalsCount === 0 ? (
-          <button className={styles.btnOutline} onClick={() => onNavigate("/org")}>
-            方針・目標へ
-          </button>
+        {needsOrgLens ? (
+          <>
+            <button className={styles.btnOutline} onClick={() => onNavigate("/journal")}>
+              ジャーナルで考える
+            </button>
+            <button className={styles.btnOutline} onClick={() => onNavigate("/chat")}>
+              相談で考える
+            </button>
+            <button className={styles.btnOutline} onClick={() => onNavigate("/org")}>
+              方針・目標に置く
+            </button>
+          </>
         ) : null}
       </div>
     </div>

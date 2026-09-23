@@ -152,4 +152,23 @@ describe("org strategy", () => {
     expect(strategy.mission).toBe("顧客に価値を届ける");
     expect(strategy.vision).toBe("");
   });
+
+  it("valueItemsと補足を第一級として保存する", async () => {
+    const store = await loadModule();
+    await store.updateOrgStrategy({
+      mission: "自律的に価値を届ける",
+      missionElaboration: "委譲を指す",
+      valueItems: [
+        { statement: "事実に基づく判断", elaboration: "観測を先に置く" },
+        { statement: "心理的安全性" },
+      ],
+    });
+    const strategy = store.getOrgStrategy();
+    expect(strategy.missionElaboration).toBe("委譲を指す");
+    expect(strategy.valueItems).toEqual([
+      { statement: "事実に基づく判断", elaboration: "観測を先に置く" },
+      { statement: "心理的安全性" },
+    ]);
+    expect(strategy.values).toBe("事実に基づく判断\n心理的安全性");
+  });
 });

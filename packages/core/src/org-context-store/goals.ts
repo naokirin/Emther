@@ -11,6 +11,8 @@ export type GoalStatus = "active" | "achieved" | "abandoned";
 export type Goal = {
   id: string;
   title: string;
+  /** 補足（解釈を閉じる説明・任意）。運用メモとは別。 */
+  elaboration?: string;
   note?: string;
   // 未指定＝組織全体、指定時はそのチーム自身のGoal（カスケーディング）。
   teamId?: string;
@@ -50,6 +52,7 @@ export function getGoal(id: string): Goal | undefined {
 export async function addGoal(input: {
   title: string;
   teamId?: string;
+  elaboration?: string;
   note?: string;
   horizon?: GoalHorizon;
 }): Promise<Goal> {
@@ -58,10 +61,12 @@ export async function addGoal(input: {
     throw new Error("titleは必須です");
   }
   const now = Date.now();
+  const elaboration = input.elaboration?.trim();
   const note = input.note?.trim();
   const goal: Goal = {
     id: randomUUID(),
     title: await maskForStorage(title),
+    ...(elaboration ? { elaboration: await maskForStorage(elaboration) } : {}),
     ...(note ? { note: await maskForStorage(note) } : {}),
     teamId: input.teamId,
     horizon: normalizeHorizon(input.horizon),
@@ -80,6 +85,7 @@ export async function updateGoal(
   patch: {
     title?: string;
     teamId?: string | null;
+    elaboration?: string | null;
     note?: string | null;
     horizon?: GoalHorizon | null;
     status?: GoalStatus;
@@ -103,10 +109,21 @@ export async function updateGoal(
       goal.teamId = next;
     }
   }
+  if (patch.elaboration !== undefined) {
+    const next =
+      patch.elaboration === null || !patch.elaboration.trim()
+        ? undefined
+        : await maskForStorage(patch.elaboration.trim());
+    if (next !== goal.elaboration) {
+      changes.push(next ? "補足を更新しました" : "補足を削除しました");
+      if (next) goal.elaboration = next;
+      else delete goal.elaboration;
+    }
+  }
   if (patch.note !== undefined) {
     const next = patch.note === null || !patch.note.trim() ? undefined : await maskForStorage(patch.note.trim());
     if (next !== goal.note) {
-      changes.push(next ? "メモを更新しました" : "メモを削除しました");
+      changes.push(next ? "運用メモを更新しました" : "運用メモを削除しました");
       if (next) goal.note = next;
       else delete goal.note;
     }
@@ -147,6 +164,7 @@ export function toGoalView<T extends Goal>(goal: T): T {
   return {
     ...goal,
     title: unmaskNames(goal.title),
+    ...(goal.elaboration !== undefined ? { elaboration: unmaskNames(goal.elaboration) } : {}),
     ...(goal.note !== undefined ? { note: unmaskNames(goal.note) } : {}),
   };
 }

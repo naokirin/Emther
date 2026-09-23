@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
-import { teamDisplayName, type OrgStrategy, type Team } from "@emther/core/types";
+import { teamDisplayName, type OrgStrategy, type StatementElaboration, type Team } from "@emther/core/types";
 
 type Props = {
   strategy: OrgStrategy;
@@ -10,21 +10,60 @@ type Props = {
   teamsLoaded: boolean;
 };
 
+function valueItemsFromStrategy(strategy: OrgStrategy): StatementElaboration[] {
+  if (strategy.valueItems && strategy.valueItems.length > 0) {
+    return strategy.valueItems.map((v) => ({
+      statement: v.statement,
+      elaboration: v.elaboration ?? "",
+    }));
+  }
+  if (!strategy.values.trim()) return [{ statement: "", elaboration: "" }];
+  return strategy.values
+    .split(/[\n,、]/)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((statement) => ({ statement, elaboration: "" }));
+}
+
 export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activeTeams, teamsLoaded }: Props) {
   const [strategyDraft, setStrategyDraft] = useState<OrgStrategy>(strategy);
+  const [valueDraft, setValueDraft] = useState<StatementElaboration[]>(() => valueItemsFromStrategy(strategy));
   const [strategySaving, setStrategySaving] = useState(false);
-
-  // SettingsのrulesLoaded/seededと同じ。初回フェッチ完了前の空fallbackを
-  // 編集ドラフトに載せない（未入力のまま保存する事故を防ぐ）。
   const [strategySeeded, setStrategySeeded] = useState(false);
+
   if (strategyLoaded && !strategySeeded) {
     setStrategySeeded(true);
     setStrategyDraft(strategy);
+    setValueDraft(valueItemsFromStrategy(strategy));
   }
 
-  // SettingsのisDirtyと同じ。未変更のまま保存できて「保存されたかわからない」状態に
-  // ならないよう、サーバー最新値とドラフトを比較する。
-  const strategyDirty = strategySeeded && JSON.stringify(strategyDraft) !== JSON.stringify(strategy);
+  const normalizedValues = valueDraft
+    .map((v) => ({
+      statement: v.statement.trim(),
+      ...(v.elaboration?.trim() ? { elaboration: v.elaboration.trim() } : {}),
+    }))
+    .filter((v) => v.statement);
+
+  const draftForCompare = {
+    mission: strategyDraft.mission,
+    missionElaboration: strategyDraft.missionElaboration?.trim() || undefined,
+    vision: strategyDraft.vision,
+    visionElaboration: strategyDraft.visionElaboration?.trim() || undefined,
+    valueItems: normalizedValues,
+  };
+  const serverForCompare = {
+    mission: strategy.mission,
+    missionElaboration: strategy.missionElaboration?.trim() || undefined,
+    vision: strategy.vision,
+    visionElaboration: strategy.visionElaboration?.trim() || undefined,
+    valueItems: (strategy.valueItems ?? valueItemsFromStrategy(strategy))
+      .map((v) => ({
+        statement: v.statement.trim(),
+        ...(v.elaboration?.trim() ? { elaboration: v.elaboration.trim() } : {}),
+      }))
+      .filter((v) => v.statement),
+  };
+  const strategyDirty = strategySeeded && JSON.stringify(draftForCompare) !== JSON.stringify(serverForCompare);
 
   async function handleSaveStrategy() {
     if (!strategyDirty) return;
@@ -33,7 +72,13 @@ export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activ
       await fetch("/api/org/strategy", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(strategyDraft),
+        body: JSON.stringify({
+          mission: strategyDraft.mission,
+          missionElaboration: strategyDraft.missionElaboration ?? "",
+          vision: strategyDraft.vision,
+          visionElaboration: strategyDraft.visionElaboration ?? "",
+          valueItems: normalizedValues,
+        }),
       });
       await refreshStrategy();
     } finally {
@@ -41,9 +86,6 @@ export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activ
     }
   }
 
-  // ユーザー指摘「目標のカスケーディング」対応。MVVもTeam.charterというチーム単位の
-  // Mission/制約を既に持っているため、組織MVVの下に参考として並べる（編集はチーム・メンバー
-  // タブで行う——ここでの二重編集導線は作らない）。未設定のチームは載せない。
   const teamsWithCharter = activeTeams
     .filter((t) => t.charter.mission.trim() || t.charter.constraints.trim())
     .sort((a, b) => teamDisplayName(a.name).localeCompare(teamDisplayName(b.name), "ja"));
@@ -59,36 +101,141 @@ export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activ
           {strategySaving ? "保存中…" : strategyDirty ? "保存" : "保存済み"}
         </button>
       </div>
-      <div className={styles.field}>
-        <label>Mission（生む価値・存在意義）
-        <textarea
-          rows={2}
-          value={strategyDraft.mission}
-          onChange={(e) => setStrategyDraft({ ...strategyDraft, mission: e.target.value })}
-        /></label>
-      </div>
-      <div className={styles.field}>
-        <label>Vision（目指す姿）
-        <textarea
-          rows={2}
-          value={strategyDraft.vision}
-          onChange={(e) => setStrategyDraft({ ...strategyDraft, vision: e.target.value })}
-        /></label>
-      </div>
-      <div className={styles.field}>
-        <label>Values（大事にする価値観）
-        <textarea
-          rows={2}
-          value={strategyDraft.values}
-          onChange={(e) => setStrategyDraft({ ...strategyDraft, values: e.target.value })}
-        /></label>
-      </div>
+
+      <p className={styles.subtitle} style={{ marginBottom: 12 }}>
+        ここには EM が日々のレンズとして使う最重要な MVV を置く（多くはプロダクト組織・自チーム）。全社など別レイヤーは
+        Standing Background へ。見出しは必須相当、補足は解釈の幅を閉じる説明（メモ欄とは別）。
+      </p>
+
+      <section className={styles.orgMvvSection} aria-labelledby="mvv-mission-heading">
+        <div className={styles.orgMvvSectionHead}>
+          <h3 id="mvv-mission-heading" className={styles.orgMvvSectionTitle}>
+            Mission
+          </h3>
+          <p className={styles.orgMvvSectionHint}>生む価値・存在意義</p>
+        </div>
+        <div className={styles.field}>
+          <label>
+            見出し
+            <textarea
+              rows={2}
+              value={strategyDraft.mission}
+              onChange={(e) => setStrategyDraft({ ...strategyDraft, mission: e.target.value })}
+            />
+          </label>
+        </div>
+        <div className={styles.field}>
+          <label>
+            補足（任意）
+            <textarea
+              rows={2}
+              value={strategyDraft.missionElaboration ?? ""}
+              onChange={(e) => setStrategyDraft({ ...strategyDraft, missionElaboration: e.target.value })}
+              placeholder="解釈の幅を閉じる説明・言い換え"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className={styles.orgMvvSection} aria-labelledby="mvv-vision-heading">
+        <div className={styles.orgMvvSectionHead}>
+          <h3 id="mvv-vision-heading" className={styles.orgMvvSectionTitle}>
+            Vision
+          </h3>
+          <p className={styles.orgMvvSectionHint}>目指す姿</p>
+        </div>
+        <div className={styles.field}>
+          <label>
+            見出し
+            <textarea
+              rows={2}
+              value={strategyDraft.vision}
+              onChange={(e) => setStrategyDraft({ ...strategyDraft, vision: e.target.value })}
+            />
+          </label>
+        </div>
+        <div className={styles.field}>
+          <label>
+            補足（任意）
+            <textarea
+              rows={2}
+              value={strategyDraft.visionElaboration ?? ""}
+              onChange={(e) => setStrategyDraft({ ...strategyDraft, visionElaboration: e.target.value })}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className={styles.orgMvvSection} aria-labelledby="mvv-values-heading">
+        <div className={styles.orgMvvSectionHead}>
+          <h3 id="mvv-values-heading" className={styles.orgMvvSectionTitle}>
+            Values ×N
+          </h3>
+          <p className={styles.orgMvvSectionHint}>大事にする価値観（複数可）</p>
+        </div>
+      {valueDraft.map((item, index) => (
+        <div
+          key={index}
+          style={{
+            marginBottom: 0,
+            padding: 10,
+            border: "1px solid var(--input-border)",
+            borderRadius: 8,
+            background: "var(--panel)",
+          }}
+        >
+          <div className={styles.field} style={{ marginBottom: 8 }}>
+            <label>
+              見出し
+              <textarea
+                rows={2}
+                value={item.statement}
+                onChange={(e) => {
+                  const next = [...valueDraft];
+                  next[index] = { ...next[index], statement: e.target.value };
+                  setValueDraft(next);
+                }}
+              />
+            </label>
+          </div>
+          <div className={styles.field} style={{ marginBottom: 8 }}>
+            <label>
+              補足（任意）
+              <textarea
+                rows={2}
+                value={item.elaboration ?? ""}
+                onChange={(e) => {
+                  const next = [...valueDraft];
+                  next[index] = { ...next[index], elaboration: e.target.value };
+                  setValueDraft(next);
+                }}
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            className={styles.btnOutline}
+            onClick={() => setValueDraft(valueDraft.filter((_, i) => i !== index))}
+            disabled={valueDraft.length <= 1}
+          >
+            この Value を削除
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className={styles.btnOutline}
+        onClick={() => setValueDraft([...valueDraft, { statement: "", elaboration: "" }])}
+      >
+        ＋ Value を追加
+      </button>
+      </section>
 
       <h3 style={{ marginTop: 20, marginBottom: 4, fontSize: "0.875rem" }}>
         チームごとの Mission・制約（参考）
       </h3>
       <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-        Mission・制約のどちらかを設定しているチームのみ（編集は「チーム」タブ）
+        正式な二重 MVV にはしない。Mission・制約のどちらかを設定しているチームのみ（編集は「チーム」タブ）
       </p>
       {teamsWithCharter.length === 0 ? (
         <p className={styles.subtitle}>

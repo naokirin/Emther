@@ -19,11 +19,13 @@ export const goalsRoute = new Hono()
       return c.json({ error: "titleは必須です" }, 400);
     }
     const teamId = typeof body?.teamId === "string" && body.teamId ? body.teamId : undefined;
+    const elaboration =
+      typeof body?.elaboration === "string" && body.elaboration.trim() ? body.elaboration.trim() : undefined;
     const note = typeof body?.note === "string" && body.note.trim() ? body.note.trim() : undefined;
     const horizon = parseHorizon(body?.horizon);
 
     try {
-      const goal = await addGoal({ title, teamId, note, horizon });
+      const goal = await addGoal({ title, teamId, elaboration, note, horizon });
       return c.json({ goal: toGoalView(goal) }, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
@@ -36,11 +38,21 @@ export const goalsRoute = new Hono()
       return c.json({ error: "bodyが必要です" }, 400);
     }
 
-    const patch: { title?: string; teamId?: string | null; note?: string | null; horizon?: GoalHorizon | null; status?: GoalStatus } = {};
+    const patch: {
+      title?: string;
+      teamId?: string | null;
+      elaboration?: string | null;
+      note?: string | null;
+      horizon?: GoalHorizon | null;
+      status?: GoalStatus;
+    } = {};
 
     if ("title" in body && typeof body.title === "string") patch.title = body.title;
     if ("teamId" in body) {
       patch.teamId = typeof body.teamId === "string" && body.teamId ? body.teamId : null;
+    }
+    if ("elaboration" in body) {
+      patch.elaboration = typeof body.elaboration === "string" ? body.elaboration : null;
     }
     if ("note" in body) {
       patch.note = typeof body.note === "string" ? body.note : null;

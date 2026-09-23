@@ -41,6 +41,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
   const visibleGoals = goals.filter((g) => showInactiveGoals || g.status === "active");
 
   const [newTitle, setNewTitle] = useState("");
+  const [newElaboration, setNewElaboration] = useState("");
   const [newNote, setNewNote] = useState("");
   const [newTeamId, setNewTeamId] = useState("");
   const [newHorizon, setNewHorizon] = useState<GoalHorizon | "">("");
@@ -48,6 +49,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
   const [error, setError] = useState<string | null>(null);
 
   const [editTitle, setEditTitle] = useState("");
+  const [editElaboration, setEditElaboration] = useState("");
   const [editNote, setEditNote] = useState("");
   const [editTeamId, setEditTeamId] = useState("");
   const [editHorizon, setEditHorizon] = useState<GoalHorizon | "">("");
@@ -72,6 +74,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
 
   function beginEdit(goal: Goal) {
     setEditTitle(goal.title);
+    setEditElaboration(goal.elaboration ?? "");
     setEditNote(goal.note ?? "");
     setEditTeamId(goal.teamId ?? "");
     setEditHorizon(goal.horizon ?? "");
@@ -96,6 +99,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: newTitle.trim(),
+          elaboration: newElaboration.trim() || undefined,
           note: newNote.trim() || undefined,
           teamId: newTeamId || undefined,
           horizon: newHorizon || undefined,
@@ -104,6 +108,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewTitle("");
+      setNewElaboration("");
       setNewNote("");
       setNewTeamId("");
       setNewHorizon("");
@@ -119,6 +124,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
   const dirty =
     !!selectedGoal &&
     (editTitle !== selectedGoal.title ||
+      editElaboration !== (selectedGoal.elaboration ?? "") ||
       editNote !== (selectedGoal.note ?? "") ||
       editTeamId !== (selectedGoal.teamId ?? "") ||
       editHorizon !== (selectedGoal.horizon ?? "") ||
@@ -134,6 +140,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: editTitle,
+          elaboration: editElaboration,
           note: editNote,
           teamId: editTeamId || null,
           horizon: editHorizon || null,
@@ -257,13 +264,19 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
           <form onSubmit={handleAdd}>
             <div className={styles.field}>
               <label>
-                Goal（到達したい状態。曖昧なままでも構いません）
+                見出し（組織・チームの到達状態）
                 <textarea rows={2} value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
               </label>
             </div>
             <div className={styles.field}>
               <label>
-                メモ（任意）
+                補足（任意 · 解釈を閉じる説明）
+                <textarea rows={2} value={newElaboration} onChange={(e) => setNewElaboration(e.target.value)} />
+              </label>
+            </div>
+            <div className={styles.field}>
+              <label>
+                運用メモ（任意 · 非注入）
                 <textarea rows={2} value={newNote} onChange={(e) => setNewNote(e.target.value)} />
               </label>
             </div>
@@ -320,6 +333,11 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
                   }}
                 >
                   <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{treeTitle(g.title)}</div>
+                  {g.elaboration ? (
+                    <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                      {treeTitle(g.elaboration)}
+                    </div>
+                  ) : null}
                   <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
                     {horizonLabel(g.horizon) || "時間軸なし"}
                     {g.status !== "active" ? ` · ${STATUS_OPTIONS.find((o) => o.value === g.status)?.label}` : ""}
@@ -367,13 +385,19 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
           {themeGenerateResult && <p className={styles.subtitle}>{themeGenerateResult}</p>}
           <div className={styles.field}>
             <label>
-              Goal
+              見出し（組織・チームの到達状態）
               <textarea rows={3} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
             </label>
           </div>
           <div className={styles.field}>
             <label>
-              メモ（任意）
+              補足（任意 · 解釈を閉じる説明）
+              <textarea rows={3} value={editElaboration} onChange={(e) => setEditElaboration(e.target.value)} />
+            </label>
+          </div>
+          <div className={styles.field}>
+            <label>
+              運用メモ（任意 · 非注入）
               <textarea rows={3} value={editNote} onChange={(e) => setEditNote(e.target.value)} />
             </label>
           </div>

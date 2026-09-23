@@ -25,9 +25,11 @@ export const orgPoliciesRoute = new Hono()
       return c.json({ error: "textは必須です" }, 400);
     }
     const category = parseCategory(body?.category);
+    const elaboration =
+      typeof body?.elaboration === "string" && body.elaboration.trim() ? body.elaboration.trim() : undefined;
 
     try {
-      const entry = await addPolicy({ text, category });
+      const entry = await addPolicy({ text, category, elaboration });
       return c.json({ policy: toPolicyView(entry) }, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
@@ -40,9 +42,17 @@ export const orgPoliciesRoute = new Hono()
       return c.json({ error: "bodyが必要です" }, 400);
     }
 
-    const patch: { text?: string; category?: PolicyCategory | null; archivedAt?: number | null } = {};
+    const patch: {
+      text?: string;
+      elaboration?: string | null;
+      category?: PolicyCategory | null;
+      archivedAt?: number | null;
+    } = {};
 
     if ("text" in body && typeof body.text === "string") patch.text = body.text;
+    if ("elaboration" in body) {
+      patch.elaboration = typeof body.elaboration === "string" ? body.elaboration : null;
+    }
     if ("category" in body) {
       patch.category = body.category === null ? null : parseCategory(body.category) ?? null;
     }

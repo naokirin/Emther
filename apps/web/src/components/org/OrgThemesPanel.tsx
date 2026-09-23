@@ -44,7 +44,7 @@ export function OrgThemesPanel({
   const [createError, setCreateError] = useState<string | null>(null);
 
   async function handleCreateTheme() {
-    if (!newTitle.trim() || !newSummary.trim()) return;
+    if (!newTitle.trim()) return;
     setSubmitting(true);
     setCreateError(null);
     try {
@@ -54,7 +54,7 @@ export function OrgThemesPanel({
         body: JSON.stringify({
           title: newTitle.trim(),
           summary: newSummary.trim(),
-          rationale: newRationale.trim() || newSummary.trim(),
+          rationale: newRationale.trim() || newSummary.trim() || newTitle.trim(),
           status: "adopted",
         }),
       });
@@ -119,7 +119,7 @@ export function OrgThemesPanel({
 
             <div className={styles.field} style={{ marginBottom: 8 }}>
               <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block", marginBottom: 2 }}>
-                テーマ名（必須）
+                見出し（必須）
               </label>
               <input
                 type="text"
@@ -133,7 +133,7 @@ export function OrgThemesPanel({
 
             <div className={styles.field} style={{ marginBottom: 8 }}>
               <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block", marginBottom: 2 }}>
-                狙い・要約（必須）
+                補足（任意 · 解釈を閉じる説明）
               </label>
               <textarea
                 value={newSummary}
@@ -147,7 +147,7 @@ export function OrgThemesPanel({
 
             <div className={styles.field} style={{ marginBottom: 10 }}>
               <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "block", marginBottom: 2 }}>
-                なぜ今このテーマか（理由・背景）
+                背景・理由（任意 · 補足とは別）
               </label>
               <textarea
                 value={newRationale}
@@ -164,7 +164,7 @@ export function OrgThemesPanel({
                 type="button"
                 className={styles.primaryBtn}
                 style={{ width: "auto" }}
-                disabled={submitting || !newTitle.trim() || !newSummary.trim()}
+                disabled={submitting || !newTitle.trim()}
                 onClick={() => void handleCreateTheme()}
               >
                 {submitting ? "保存中…" : "テーマを作成して採用"}

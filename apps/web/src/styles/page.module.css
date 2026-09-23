@@ -1599,6 +1599,847 @@
   font-weight: 600;
 }
 
+/* 方針・目標: フラット区分ナビ（偽ツリー廃止） */
+.orgNavList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orgNavItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.orgNavItem:hover {
+  background: var(--gray-bg);
+}
+
+.orgNavItemSelected {
+  background: var(--blue-bg);
+  border-color: var(--border);
+}
+
+.orgNavItemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.orgNavTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.orgNavItemSelected .orgNavTitle {
+  color: var(--blue-text);
+}
+
+.orgNavDesc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.orgNavCount {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
+
+.orgNavItemSelected .orgNavCount {
+  color: var(--blue-text);
+}
+
+/* 方針・目標: 概要（全体スキャン） */
+.orgOverview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.orgOverviewHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orgOverviewTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.orgOverviewSub {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.orgScanHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.orgScanZoomBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orgScanZoomBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid #686e7d;
+  background: #1b1e26;
+  color: #e7e9ee;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.orgScanZoomBtn:hover:not(:disabled) {
+  border-color: #7fb0ff;
+}
+
+.orgScanZoomBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.orgScanZoomLevel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #7fb0ff;
+  min-width: 3.5rem;
+  text-align: center;
+}
+
+.orgScanFitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid #7fb0ff;
+  background: #16233d;
+  color: #7fb0ff;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.orgScanFitBtn:hover {
+  background: #1a2f52;
+}
+
+.orgScanViewport {
+  overflow: auto;
+  flex: 1;
+  min-height: 320px;
+  max-height: min(78vh, 760px);
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #14161c;
+  border: 1px solid #2c2f3a;
+}
+
+.orgScanCanvas {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  zoom: var(--scan-scale, 1);
+}
+
+.orgScanMvvGoalEdges {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: -10px 0;
+}
+
+.orgScanMvvGoalEdges .orgScanEdge {
+  padding: 0;
+}
+
+.orgScanMvvGoalEdges .orgFocusBranchSvg {
+  display: block;
+  margin: 0;
+}
+
+.orgScanMvv {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 8px;
+  background: var(--blue-bg);
+  border: 1px solid var(--border);
+}
+
+.orgScanMvvLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--blue-text);
+}
+
+.orgScanMvvRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .orgScanMvvRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.orgScanMvvCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+}
+
+.orgScanKind {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--blue-text);
+}
+
+.orgScanStmt {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+.orgScanValues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orgScanChip {
+  font-size: 0.8125rem;
+  padding: 8px 14px;
+  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  color: var(--foreground);
+}
+
+.orgScanSectionLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.orgScanGoals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  grid-template-rows: auto auto auto;
+  column-gap: 10px;
+  row-gap: 0;
+  align-items: stretch;
+}
+
+/* 件数少ないときは横幅を等分して使い切る（6件以下） */
+.orgScanGoalsSpread {
+  grid-template-columns: repeat(var(--org-goal-cols, 1), minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .orgScanGoalsSpread {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  }
+}
+
+.orgScanGoalCol {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  min-width: 0;
+  width: 100%;
+}
+
+.orgScanGoalNode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
+.orgScanGoalNode:hover {
+  border-color: var(--blue-text);
+}
+
+.orgScanGoalId {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--blue-text);
+}
+
+.orgScanEdge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #22c55e;
+  padding: 4px 0;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.orgScanEdgeSvg {
+  display: block;
+  overflow: visible;
+}
+
+.orgScanEdgeBlue {
+  color: #7fb0ff;
+}
+
+.orgScanThemeCluster {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  min-height: 5.5rem;
+  height: 100%;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
+.orgScanThemeClusterEmpty {
+  background: var(--gray-bg);
+  border-color: var(--border);
+  justify-content: center;
+  align-items: center;
+}
+
+.orgScanThemeClusterHead {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--green-fg);
+}
+
+.orgScanThemeClusterEmpty .orgScanThemeClusterHead {
+  color: var(--text-muted);
+}
+
+.orgScanThemeChip {
+  font-size: 0.8125rem;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--green-border);
+  color: var(--foreground);
+  line-height: 1.3;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.orgScanThemeChip:hover {
+  border-color: var(--blue-text);
+}
+
+.orgScanOrphan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-fg);
+  max-width: 320px;
+}
+
+.orgScanOrphanTitle {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--yellow-fg);
+}
+
+.orgScanPolicyRail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: var(--gray-bg);
+  border: 1px solid var(--border);
+  font-size: 0.8125rem;
+}
+
+.orgScanPolicyLabel {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.orgScanCanvas .orgOverviewSub {
+  font-size: 0.6875rem;
+}
+
+.orgCareBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-fg);
+}
+
+.orgCareTitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--yellow-fg);
+}
+
+.orgCareBody {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.orgEmptyGuide {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--gray-bg);
+  border: 1px solid var(--border);
+}
+
+.orgEmptyGuideTitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.orgEmptyGuideBody {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.orgEmptyGuideActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orgEmptyGuideSecondary {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.orgFocusBack {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+}
+
+.orgFocusHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.orgFocusHeadTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.orgFocusHeadTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.orgFocusBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #7fb0ff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #16233d;
+  border: 1px solid #2c4a7a;
+}
+
+.orgFocusSiblings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.orgFocusSiblingsLabel {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.orgFocusSiblingChip {
+  font-family: inherit;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--gray-bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.orgFocusSiblingChip:hover {
+  border-color: var(--blue-text);
+  color: var(--foreground);
+}
+
+.orgFocusCanvas {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  gap: 8px;
+  align-items: center;
+  padding: 14px 10px;
+  border-radius: 10px;
+  background: #14161c;
+  border: 1px solid #2c2f3a;
+  min-height: 360px;
+}
+
+.orgFocusGhost,
+.orgFocusGhostSpacer {
+  width: 56px;
+  min-height: 48px;
+}
+
+.orgFocusGhost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9aa1af;
+  background: #22252e;
+  border: 1px solid #2c2f3a;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 8px 4px;
+}
+
+.orgFocusGhost:hover {
+  border-color: #7fb0ff;
+  color: #e7e9ee;
+}
+
+.orgFocusMap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  width: 100%;
+  padding: 4px 0 8px;
+}
+
+.orgFocusMvv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(100%, 320px);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #16233d;
+  border: 2px solid #7fb0ff;
+}
+
+.orgFocusMvvKind {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #7fb0ff;
+}
+
+.orgFocusMvvStmt {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #e7e9ee;
+  line-height: 1.35;
+}
+
+.orgFocusGoalCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(100%, 360px);
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #1b1e26;
+  border: 2px solid #7fb0ff;
+}
+
+.orgFocusGoalMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.orgFocusGoalId {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #7fb0ff;
+}
+
+.orgFocusGoalHorizon {
+  font-size: 0.6875rem;
+  color: #9aa1af;
+}
+
+.orgFocusGoalStmt {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #e7e9ee;
+  line-height: 1.35;
+}
+
+.orgFocusGoalElab {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #9aa1af;
+  line-height: 1.4;
+}
+
+.orgFocusBranchSvg {
+  display: block;
+  max-width: 100%;
+  margin: 2px 0;
+  overflow: visible;
+}
+
+.orgFocusBranchEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.orgFocusEmptyThemes {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: #9aa1af;
+}
+
+.orgFocusThemeRow {
+  display: grid;
+  grid-template-columns: repeat(var(--org-focus-theme-cols, 2), minmax(140px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 12px;
+}
+
+.orgFocusThemeNode {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #10261a;
+  border: 2px solid #22c55e;
+  min-width: 0;
+}
+
+.orgFocusThemeKind {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.orgFocusThemeStmt {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #e7e9ee;
+  line-height: 1.35;
+}
+
+.orgFocusThemeElab {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: #9aa1af;
+  line-height: 1.35;
+}
+
+.orgFocusPolicyRail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 640px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #22252e;
+  margin-top: 4px;
+}
+
+.orgFocusPolicyLabel {
+  font-size: 0.6875rem;
+  color: #9aa1af;
+}
+
+.orgFocusPolicyItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 0.75rem;
+  color: #c8cdd6;
+}
+
+.orgFocusNote {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #16233d;
+  border: 1px solid #2c4a7a;
+}
+
+.orgFocusNoteTitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #7fb0ff;
+}
+
+.orgFocusNoteBody {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #e7e9ee;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .orgFocusCanvas {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .orgFocusGhostL,
+  .orgFocusGhostR,
+  .orgFocusGhostSpacer {
+    display: none;
+  }
+
+  .orgFocusThemeRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* MVV 編集: Mission / Vision / Values の区切り */
+.orgMvvSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
+}
+
+.orgMvvSectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.orgMvvSectionTitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--blue-text);
+}
+
+.orgMvvSectionHint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.orgMvvSection .field {
+  margin-bottom: 0;
+}
+
 .editorPath {
   display: flex;
   justify-content: space-between;

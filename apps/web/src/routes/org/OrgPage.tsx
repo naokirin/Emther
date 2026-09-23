@@ -2,6 +2,8 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { PageTitleRow } from "../../components/HelpLink";
 import { OrgLeftTree, type Selection } from "../../components/org/OrgLeftTree";
+import { OrgOverviewPanel } from "../../components/org/OrgOverviewPanel";
+import type { OrgEmptyKind } from "../../components/org/OrgEmptyGuidance";
 import { OrgThemesPanel } from "../../components/org/OrgThemesPanel";
 import { GlossaryPanel } from "../../components/org/GlossaryPanel";
 import { GoalsPanel } from "../../components/org/GoalsPanel";
@@ -12,6 +14,7 @@ import { useGoals, useOrgBackgrounds, useOrgStrategy, usePolicies, useTeams, use
 import { teamDisplayName } from "@emther/core/types";
 
 // web/src/app/org/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
+// 設計: docs/design/goal/goal.pen — フラットナビ + 概要（全体スキャン → フォーカス）。
 export function OrgPage() {
   const { strategy, strategyLoaded, refreshStrategy } = useOrgStrategy();
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();
@@ -23,7 +26,7 @@ export function OrgPage() {
   const teamOptions = activeTeams.map((t) => ({ value: t.id, label: teamDisplayName(t.name) }));
   const adoptedThemes = themes.filter((t) => t.status === "adopted");
 
-  const [selection, setSelection] = useState<Selection>(null);
+  const [selection, setSelection] = useState<Selection>({ kind: "overview" });
   const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
 
   // 各パネルは選択中(kind一致)のときだけマウントされ、内部stateはアンマウントで
@@ -31,6 +34,11 @@ export function OrgPage() {
   // kindが変わらずマウントされ続けるため、navTokenをkeyに含めて強制的に再マウントし、
   // 元の実装（クリックのたびに一覧へ戻す）と同じ挙動にする。
   const [navToken, setNavToken] = useState(0);
+
+  function selectOverview() {
+    setSelection({ kind: "overview" });
+    setNavToken((n) => n + 1);
+  }
 
   function selectStrategy() {
     setSelection({ kind: "strategy" });
@@ -62,6 +70,13 @@ export function OrgPage() {
     setNavToken((n) => n + 1);
   }
 
+  function placeDraft(kind: OrgEmptyKind) {
+    if (kind === "mvv") selectStrategy();
+    else if (kind === "goals") selectGoalsView();
+    else if (kind === "policies") selectPoliciesView();
+    else selectThemesView();
+  }
+
   return (
     <div className={styles.screen}>
       <PageTitleRow title="方針・目標" helpAnchor="org" />
@@ -76,6 +91,7 @@ export function OrgPage() {
           activeGoalsCount={goals.filter((g) => g.status === "active").length}
           themesLoaded={themesLoaded}
           adoptedThemesCount={adoptedThemes.length}
+          onSelectOverview={selectOverview}
           onSelectStrategy={selectStrategy}
           onSelectBackgrounds={selectBackgroundsView}
           onSelectPolicies={selectPoliciesView}
@@ -85,10 +101,20 @@ export function OrgPage() {
         />
 
         <div className={styles.panel}>
-          {!selection && (
-            <p className={styles.emptyState}>
-              左のツリーからMVV・Goal・Policy・Themes・Standing Background・Glossaryを選択してください。
-            </p>
+          {selection?.kind === "overview" && (
+            <OrgOverviewPanel
+              key={navToken}
+              strategy={strategy}
+              strategyLoaded={strategyLoaded}
+              goals={goals}
+              goalsLoaded={goalsLoaded}
+              policies={policies}
+              policiesLoaded={policiesLoaded}
+              themes={themes}
+              themesLoaded={themesLoaded}
+              onPlaceDraft={placeDraft}
+              onOpenThemes={selectThemesView}
+            />
           )}
 
           {selection?.kind === "strategy" && (

@@ -14,6 +14,8 @@ export type PolicyCategory = "value" | "priority" | "avoid" | "principle" | "oth
 export type PolicyEntry = {
   id: string;
   text: string;
+  /** 補足（解釈を閉じる説明・任意） */
+  elaboration?: string;
   category?: PolicyCategory;
   createdAt: number;
   updatedAt: number;
@@ -22,6 +24,7 @@ export type PolicyEntry = {
 
 export type NewPolicyInput = {
   text: string;
+  elaboration?: string;
   category?: PolicyCategory;
 };
 
@@ -55,9 +58,11 @@ export async function addPolicy(input: NewPolicyInput): Promise<PolicyEntry> {
     throw new Error("textは必須です");
   }
   const now = Date.now();
+  const elaboration = input.elaboration?.trim();
   const entry: PolicyEntry = {
     id: randomUUID(),
     text: await maskForStorage(text),
+    ...(elaboration ? { elaboration: await maskForStorage(elaboration) } : {}),
     category: normalizeCategory(input.category),
     createdAt: now,
     updatedAt: now,
@@ -70,7 +75,12 @@ export async function addPolicy(input: NewPolicyInput): Promise<PolicyEntry> {
 
 export async function updatePolicy(
   id: string,
-  patch: { text?: string; category?: PolicyCategory | null; archivedAt?: number | null },
+  patch: {
+    text?: string;
+    elaboration?: string | null;
+    category?: PolicyCategory | null;
+    archivedAt?: number | null;
+  },
 ): Promise<PolicyEntry | undefined> {
   const entry = getPolicy(id);
   if (!entry) return undefined;
@@ -81,6 +91,17 @@ export async function updatePolicy(
     if (next && next !== entry.text) {
       changes.push(`内容を更新しました: 「${entry.text}」→「${next}」`);
       entry.text = next;
+    }
+  }
+  if (patch.elaboration !== undefined) {
+    const next =
+      patch.elaboration === null || !patch.elaboration.trim()
+        ? undefined
+        : await maskForStorage(patch.elaboration.trim());
+    if (next !== entry.elaboration) {
+      changes.push(next ? "補足を更新しました" : "補足を削除しました");
+      if (next) entry.elaboration = next;
+      else delete entry.elaboration;
     }
   }
   if (patch.category !== undefined) {
@@ -117,5 +138,9 @@ export function removePolicy(id: string): boolean {
 }
 
 export function toPolicyView(entry: PolicyEntry): PolicyEntry {
-  return { ...entry, text: unmaskNames(entry.text) };
+  return {
+    ...entry,
+    text: unmaskNames(entry.text),
+    ...(entry.elaboration !== undefined ? { elaboration: unmaskNames(entry.elaboration) } : {}),
+  };
 }

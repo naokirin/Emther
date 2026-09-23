@@ -94,9 +94,29 @@ export function buildInterventionTypeGuidance(runId: string | undefined, agentNa
 export function buildStrategyBlock(): string {
   const strategy = getOrgStrategy();
   const lines: string[] = [];
-  if (strategy.mission) lines.push(`Mission: ${strategy.mission}`);
-  if (strategy.vision) lines.push(`Vision: ${strategy.vision}`);
-  if (strategy.values) lines.push(`Values: ${strategy.values}`);
+  if (strategy.mission) {
+    lines.push(`Mission: ${strategy.mission}`);
+    if (strategy.missionElaboration) lines.push(`  補足: ${strategy.missionElaboration}`);
+  }
+  if (strategy.vision) {
+    lines.push(`Vision: ${strategy.vision}`);
+    if (strategy.visionElaboration) lines.push(`  補足: ${strategy.visionElaboration}`);
+  }
+  const valueItems = strategy.valueItems?.length
+    ? strategy.valueItems
+    : strategy.values
+      ? strategy.values
+          .split(/[\n,、]/)
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .map((statement) => ({ statement }))
+      : [];
+  if (valueItems.length > 0) {
+    lines.push("Values:");
+    for (const v of valueItems) {
+      lines.push(`- ${v.statement}${v.elaboration ? `\n  補足: ${v.elaboration}` : ""}`);
+    }
+  }
   if (lines.length === 0) return "";
   return ["組織のMVV（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
@@ -107,9 +127,10 @@ export function buildGoalsContextBlock(): string {
   const goals = listActiveGoals();
   if (goals.length === 0) return "";
   const lines = goals.map((g) => {
-    const note = g.note?.trim() ? `\n  メモ: ${g.note}` : "";
+    const elaboration = g.elaboration?.trim() ? `\n  補足: ${g.elaboration}` : "";
+    const note = g.note?.trim() ? `\n  運用メモ: ${g.note}` : "";
     const horizon = g.horizon ? `（${g.horizon === "long" ? "遠い" : g.horizon === "mid" ? "中間" : "近い"}Goal）` : "";
-    return `- ${g.title}${horizon}${note}`;
+    return `- ${g.title}${horizon}${elaboration}${note}`;
   });
   return [
     "EMが見据えているGoal（絶対の前提として扱うこと。必ずしもOKRとして具体化されているとは限らない）:",
@@ -123,7 +144,10 @@ export function buildGoalsContextBlock(): string {
 export function buildPolicyContextBlock(): string {
   const policies = listActivePolicies();
   if (policies.length === 0) return "";
-  const lines = policies.map((p) => `- ${p.text}`);
+  const lines = policies.map((p) => {
+    const elaboration = p.elaboration?.trim() ? `\n  補足: ${p.elaboration}` : "";
+    return `- ${p.text}${elaboration}`;
+  });
   return [
     "EMの判断原則（Policy、絶対の前提として扱うこと。大切にすること・優先すること・やらないこと・判断に迷ったときの原則など）:",
     ...lines,
