@@ -4,6 +4,12 @@ import {
   journalPatchBodySchema,
   journalPostBodySchema,
 } from "@emther/api-contract/journal";
+import type {
+  JournalBatchStatusResponse,
+  JournalEntryResponse,
+  JournalListResponse,
+  JournalSearchResponse,
+} from "@emther/api-contract";
 import {
   addJournalEntriesBulk,
   addJournalEntryWithProfileCandidate,
@@ -50,7 +56,12 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 }
 
 export const journalRoute = new Hono()
-  .get("/", async (c) => c.json({ entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()) }))
+  .get("/", async (c) => {
+    const body = {
+      entries: toJournalEntryViews(listJournalEntries(), await buildSourceConsultIndex()),
+    } satisfies JournalListResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const parsed = journalPostBodySchema.parse(body);
@@ -157,13 +168,14 @@ export const journalRoute = new Hono()
 
     const { entries, total } = listJournalEntriesPage(filter, { limit: pageSize, offset: (page - 1) * pageSize });
     const facets = listJournalFacets();
-    return c.json({
+    const body = {
       entries: toJournalEntryViews(entries, await buildSourceConsultIndex()),
       total,
       page,
       pageSize,
       facets,
-    });
+    } satisfies JournalSearchResponse;
+    return c.json(body);
   })
   // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
   // 対応。/api/themes/distillと同型のオンデマンド起動。
@@ -171,7 +183,8 @@ export const journalRoute = new Hono()
   // /:id より前に置く（"batch" が id として解釈されないようにする）。
   .get("/batch", (c) => {
     const pendingCount = countPendingForNextJournalBatch(listJournalEntries());
-    return c.json({ pendingCount });
+    const body = { pendingCount } satisfies JournalBatchStatusResponse;
+    return c.json(body);
   })
   .post("/batch", async (c) => {
     try {
@@ -191,7 +204,10 @@ export const journalRoute = new Hono()
     const id = c.req.param("id");
     const exact = getCurrentJournalEntry(id);
     if (exact) {
-      return c.json({ entry: toJournalEntryView(exact, await buildSourceConsultIndex()) });
+      const body = {
+        entry: toJournalEntryView(exact, await buildSourceConsultIndex()),
+      } satisfies JournalEntryResponse;
+      return c.json(body);
     }
     const resolved = resolveUniqueByPrefix(listJournalEntries(), (e) => e.id, id);
     if (resolved.status === "none") {
@@ -210,7 +226,10 @@ export const journalRoute = new Hono()
         409,
       );
     }
-    return c.json({ entry: toJournalEntryView(resolved.item, await buildSourceConsultIndex()) });
+    const body = {
+      entry: toJournalEntryView(resolved.item, await buildSourceConsultIndex()),
+    } satisfies JournalEntryResponse;
+    return c.json(body);
   })
   // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
   // EMがその場で校正するためのエンドポイント。内部的には新しいイベントをsupersedesで

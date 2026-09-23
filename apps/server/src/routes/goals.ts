@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { GoalsResponse } from "@emther/api-contract";
 import { addGoal, listGoals, removeGoal, toGoalView, updateGoal, type GoalHorizon, type GoalStatus } from "@emther/core/org-context-store/index";
 
 function parseHorizon(value: unknown): GoalHorizon | undefined {
@@ -11,7 +12,10 @@ function parseStatus(value: unknown): GoalStatus | undefined {
 
 // docs/goal_policy_model_plan.md Phase 2。web/src/app/api/org/objectives/route.ts と同じ構成のGoal版。
 export const goalsRoute = new Hono()
-  .get("/", (c) => c.json({ goals: listGoals().map(toGoalView) }))
+  .get("/", (c) => {
+    const body = { goals: listGoals().map(toGoalView) } satisfies GoalsResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const title = typeof body?.title === "string" ? body.title.trim() : "";

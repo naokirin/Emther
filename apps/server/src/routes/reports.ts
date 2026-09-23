@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { ReportsResponse } from "@emther/api-contract";
 import { startPeriodReviewAnalysis, toRunView } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { PERIOD_DAYS, generateReport, listReports, toReportView, updateReportNote, type ReportPeriodType } from "@emther/core/report-store";
@@ -12,7 +13,8 @@ export const reportsRoute = new Hono()
   .get("/", (c) => {
     const periodTypeParam = c.req.query("periodType");
     const periodType = isPeriodType(periodTypeParam) ? periodTypeParam : undefined;
-    return c.json({ reports: listReports(periodType).map(toReportView) });
+    const body = { reports: listReports(periodType).map(toReportView) } satisfies ReportsResponse;
+    return c.json(body);
   })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);

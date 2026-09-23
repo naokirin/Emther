@@ -7,7 +7,9 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./*": "./src/*.ts"
+    "./*": "./src/*.ts",
+    "./responses/*": "./src/responses/*.ts",
+    "./entities/*": "./src/entities/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -15,6 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@emther/core": "*",
     "zod": "^4.6.2"
   },
   "devDependencies": {

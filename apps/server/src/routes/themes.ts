@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { ThemesResponse } from "@emther/api-contract";
 import {
   adoptTheme,
   createTheme,
@@ -24,8 +25,10 @@ function stringIdList(value: unknown): string[] | undefined {
 export const themesRoute = new Hono()
   .get("/", (c) => {
     const status = c.req.query("status") as ThemeStatus | undefined;
-    const themes = listCurrentThemes(status ? { status } : undefined).map(toThemeView);
-    return c.json({ themes });
+    const body = {
+      themes: listCurrentThemes(status ? { status } : undefined).map(toThemeView),
+    } satisfies ThemesResponse;
+    return c.json(body);
   })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);

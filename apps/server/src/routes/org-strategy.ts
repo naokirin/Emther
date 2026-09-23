@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { OrgStrategyResponse } from "@emther/api-contract";
 import { getOrgStrategy, type OrgStrategy, updateOrgStrategy } from "@emther/core/org-context-store/index";
 import { unmaskNames } from "@emther/core/people-directory";
 import type { StatementElaboration } from "@emther/core/types";
@@ -44,7 +45,10 @@ function parseValueItems(raw: unknown): StatementElaboration[] | null | undefine
 }
 
 export const orgStrategyRoute = new Hono()
-  .get("/", (c) => c.json({ strategy: toView(getOrgStrategy()) }))
+  .get("/", (c) => {
+    const body = { strategy: toView(getOrgStrategy()) } satisfies OrgStrategyResponse;
+    return c.json(body);
+  })
   .patch("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const valueItems = parseValueItems(body?.valueItems);

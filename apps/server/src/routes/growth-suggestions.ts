@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { GrowSuggestionsResponse } from "@emther/api-contract";
 import {
   GROW_SUGGESTION_STATUSES,
   listGrowSuggestions,
@@ -9,7 +10,10 @@ import {
 
 // docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/growth/suggestions/{route,[id]/route}.ts の移植。
 export const growthSuggestionsRoute = new Hono()
-  .get("/", (c) => c.json({ suggestions: listGrowSuggestions().map(toGrowSuggestionView) }))
+  .get("/", (c) => {
+    const body = { suggestions: listGrowSuggestions().map(toGrowSuggestionView) } satisfies GrowSuggestionsResponse;
+    return c.json(body);
+  })
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);

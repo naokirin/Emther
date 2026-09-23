@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { OrgBackgroundsResponse } from "@emther/api-contract";
 import {
   addOrgBackground,
   listOrgBackgrounds,
@@ -11,7 +12,10 @@ import {
 
 // docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/org/background/{route,[id]/route}.ts の移植。
 export const orgBackgroundRoute = new Hono()
-  .get("/", (c) => c.json({ backgrounds: listOrgBackgrounds().map(toOrgBackgroundView) }))
+  .get("/", (c) => {
+    const body = { backgrounds: listOrgBackgrounds().map(toOrgBackgroundView) } satisfies OrgBackgroundsResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const title = typeof body?.title === "string" ? body.title.trim() : "";

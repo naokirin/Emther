@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { EmCheckinsResponse, ReflectionNotesResponse } from "@emther/api-contract";
 import {
   addCheckin,
   addReflectionNote,
@@ -13,7 +14,10 @@ import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
 // docs/2nd_architecture/plan.md フェーズ2.5:
 // web/src/app/api/em-self/{checkins/route,reflection-notes/route,reflection-notes/[id]/route}.ts の移植。
 export const checkinsRoute = new Hono()
-  .get("/", (c) => c.json({ checkins: listCheckins().map(toCheckinView) }))
+  .get("/", (c) => {
+    const body = { checkins: listCheckins().map(toCheckinView) } satisfies EmCheckinsResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const mood = Number(body?.mood);
@@ -48,7 +52,10 @@ export const checkinsRoute = new Hono()
 // 仕組みに」対応。1回のPOST＝1件のKeep/Problem/Tryメモ。週単位のグルーピングは
 // growth/page.tsx側で行う（サーバー側は個々のメモを時系列で持つだけ）。
 export const reflectionNotesRoute = new Hono()
-  .get("/", (c) => c.json({ notes: listReflectionNotes().map(toReflectionNoteView) }))
+  .get("/", (c) => {
+    const body = { notes: listReflectionNotes().map(toReflectionNoteView) } satisfies ReflectionNotesResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const type = body?.type;

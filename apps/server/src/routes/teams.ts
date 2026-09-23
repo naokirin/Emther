@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { TeamsResponse } from "@emther/api-contract";
 import {
   addTeam,
   getTeam,
@@ -48,7 +49,10 @@ function parseBulkText(text: string): { parsed: ParsedLine[]; skipped: string[] 
 }
 
 export const teamsRoute = new Hono()
-  .get("/", (c) => c.json({ teams: listTeams().map(toTeamView) }))
+  .get("/", (c) => {
+    const body = { teams: listTeams().map(toTeamView) } satisfies TeamsResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const name = typeof body?.name === "string" ? body.name : "";

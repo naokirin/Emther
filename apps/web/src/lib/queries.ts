@@ -15,38 +15,48 @@
 // - queryKeyの命名は `["api", ...urlのpathセグメント, ...パラメータ]` に統一し、
 //   ミューテーション成功後の `invalidateQueries` がURL単位で機械的に書けるようにする。
 //
-// ポーリング GET は Hono RPC（hc<AppType>）経由。レスポンス型は api-contract 整備まで
-// rpcJsonAs<T> で明示（旧 fetchJson<T> と同じ）。
+// ポーリング GET は Hono RPC（hc<AppType>）経由。レスポンス型は @emther/api-contract。
 import { useCallback } from "react";
 import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+import type {
+  AgentsInboxResponse,
+  AgentsResponse,
+  EmCheckinsResponse,
+  GoalsResponse,
+  GrowSuggestionsResponse,
+  JournalBatchStatusResponse,
+  JournalEntryResponse,
+  JournalListResponse,
+  JournalSearchResponse,
+  KnowledgeEventsResponse,
+  OrgBackgroundsResponse,
+  OrgStrategyResponse,
+  PeopleResponse,
+  PersonEvaluationLogsResponse,
+  PersonProfileResponse,
+  PoliciesResponse,
+  ReflectionNotesResponse,
+  ReportsResponse,
+  SettingsRulesResponse,
+  SuggestionDetailResponse,
+  SuggestionsResponse,
+  TeamsResponse,
+  ThemesResponse,
+  TimelineResponse,
+  VitalsResponse,
+} from "@emther/api-contract";
 import { api, rpcJsonAs } from "./api-client";
 import type { AgentRun } from "../components/RunDetail";
 import { runFallbackTitle } from "../components/runDetailMeta";
 import { useSuggestionPeek } from "../components/useSuggestionPeek";
 import { truncateForTitle } from "@emther/core/types";
 import type {
-  EmCheckin,
-  EmReflectionNote,
-  Goal,
-  GrowSuggestion,
   JournalEntry,
-  KnowledgeEvent,
-  OrgBackgroundEntry,
   OrgStrategy,
-  OrgTheme,
   OrgVitals,
-  PendingAgentStart,
-  PendingUnmaskedSend,
-  PersonEvaluationLog,
-  PersonProfile,
-  PersonSummary,
-  PolicyEntry,
-  Report,
   ReportPeriodType,
   RulesAndConstraints,
   Suggestion,
-  Team,
-  TimelineEntry,
 } from "@emther/core/types";
 
 function usePolledRpc<T>(
@@ -68,7 +78,7 @@ function usePolledRpc<T>(
 export function useTimeline(intervalMs = 10000) {
   const query = usePolledRpc(
     ["api", "timeline"],
-    async () => rpcJsonAs<{ entries: TimelineEntry[] }>(await api.api.timeline.$get(), "GET /api/timeline"),
+    async () => rpcJsonAs<TimelineResponse>(await api.api.timeline.$get(), "GET /api/timeline"),
     intervalMs,
   );
   return {
@@ -87,7 +97,7 @@ export const emCheckinsQueryKey = ["api", "em-self", "checkins"] as const;
 export function useEmCheckins(intervalMs = 15000) {
   const query = usePolledRpc(
     emCheckinsQueryKey,
-    async () => rpcJsonAs<{ checkins: EmCheckin[] }>(await api.api["em-self"].checkins.$get(), "GET /api/em-self/checkins"),
+    async () => rpcJsonAs<EmCheckinsResponse>(await api.api["em-self"].checkins.$get(), "GET /api/em-self/checkins"),
     intervalMs,
   );
   return {
@@ -104,7 +114,7 @@ export function useReflectionNotes(intervalMs = 15000) {
   const query = usePolledRpc(
     reflectionNotesQueryKey,
     async () =>
-      rpcJsonAs<{ notes: EmReflectionNote[] }>(await api.api["em-self"]["reflection-notes"].$get(), "GET /api/em-self/reflection-notes"),
+      rpcJsonAs<ReflectionNotesResponse>(await api.api["em-self"]["reflection-notes"].$get(), "GET /api/em-self/reflection-notes"),
     intervalMs,
   );
   return {
@@ -120,7 +130,7 @@ export function useReflectionNotes(intervalMs = 15000) {
 export function useTeams(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "teams"],
-    async () => rpcJsonAs<{ teams: Team[] }>(await api.api.teams.$get(), "GET /api/teams"),
+    async () => rpcJsonAs<TeamsResponse>(await api.api.teams.$get(), "GET /api/teams"),
     intervalMs,
   );
   return {
@@ -138,7 +148,7 @@ export function useTeams(intervalMs = 5000) {
 export function useJournal(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "journal"],
-    async () => rpcJsonAs<{ entries: JournalEntry[] }>(await api.api.journal.$get(), "GET /api/journal"),
+    async () => rpcJsonAs<JournalListResponse>(await api.api.journal.$get(), "GET /api/journal"),
     intervalMs,
   );
   return {
@@ -165,14 +175,6 @@ export type JournalSearchFilter = {
   quarantinedOnly: boolean;
 };
 
-type JournalSearchResult = {
-  entries: JournalEntry[];
-  total: number;
-  page: number;
-  pageSize: number;
-  facets: { tags: string[]; people: string[] };
-};
-
 export function useJournalSearch(
   filter: JournalSearchFilter,
   page: number,
@@ -180,13 +182,13 @@ export function useJournalSearch(
   focusId: string | null,
   intervalMs = 5000,
 ) {
-  const fallback: JournalSearchResult = { entries: [], total: 0, page: 1, pageSize, facets: { tags: [], people: [] } };
+  const fallback: JournalSearchResponse = { entries: [], total: 0, page: 1, pageSize, facets: { tags: [], people: [] } };
   const queryKey = ["api", "journal", "search", filter, page, pageSize, focusId] as const;
   const queryClient = useQueryClient();
   const query = usePolledRpc(
     queryKey,
     async () =>
-      rpcJsonAs<JournalSearchResult>(
+      rpcJsonAs<JournalSearchResponse>(
         await api.api.journal.search.$get({
           query: {
             ...(filter.query ? { query: filter.query } : {}),
@@ -215,7 +217,7 @@ export function useJournalSearch(
     resolvedPage: data.page,
     facets: data.facets,
     setEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) =>
-      queryClient.setQueryData<JournalSearchResult>(queryKey, (prev) => {
+      queryClient.setQueryData<JournalSearchResponse>(queryKey, (prev) => {
         const base = prev ?? fallback;
         return { ...base, entries: typeof entries === "function" ? entries(base.entries) : entries };
       }),
@@ -232,7 +234,7 @@ export const journalBatchStatusQueryKey = ["api", "journal", "batch"] as const;
 export function useJournalBatchStatus(intervalMs = 15000) {
   const query = usePolledRpc(
     journalBatchStatusQueryKey,
-    async () => rpcJsonAs<{ pendingCount: number }>(await api.api.journal.batch.$get(), "GET /api/journal/batch"),
+    async () => rpcJsonAs<JournalBatchStatusResponse>(await api.api.journal.batch.$get(), "GET /api/journal/batch"),
     intervalMs,
   );
   return {
@@ -292,7 +294,7 @@ const SETTINGS_RULES_FALLBACK: RulesAndConstraints = {
 export function useSettingsRules(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "settings", "rules"],
-    async () => rpcJsonAs<{ rules: RulesAndConstraints }>(await api.api.settings.rules.$get(), "GET /api/settings/rules"),
+    async () => rpcJsonAs<SettingsRulesResponse>(await api.api.settings.rules.$get(), "GET /api/settings/rules"),
     intervalMs,
   );
   return {
@@ -309,7 +311,7 @@ export function useSettingsRules(intervalMs = 8000) {
 export function usePeople(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "people"],
-    async () => rpcJsonAs<{ people: PersonSummary[] }>(await api.api.people.$get(), "GET /api/people"),
+    async () => rpcJsonAs<PeopleResponse>(await api.api.people.$get(), "GET /api/people"),
     intervalMs,
   );
   return {
@@ -325,7 +327,7 @@ export function usePeople(intervalMs = 5000) {
 export function usePersonProfile(id: string, intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "people", id],
-    async () => rpcJsonAs<{ person: PersonProfile | null }>(await api.api.people[":id"].$get({ param: { id } }), `GET /api/people/${id}`),
+    async () => rpcJsonAs<PersonProfileResponse>(await api.api.people[":id"].$get({ param: { id } }), `GET /api/people/${id}`),
     intervalMs,
   );
   return {
@@ -342,7 +344,7 @@ export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "people", personId, "evaluation-logs"],
     async () =>
-      rpcJsonAs<{ logs: PersonEvaluationLog[] }>(
+      rpcJsonAs<PersonEvaluationLogsResponse>(
         await api.api.people[":id"]["evaluation-logs"].$get({ param: { id: personId } }),
         `GET /api/people/${personId}/evaluation-logs`,
       ),
@@ -362,7 +364,7 @@ export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
 export function useGoals(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "org", "goals"],
-    async () => rpcJsonAs<{ goals: Goal[] }>(await api.api.org.goals.$get(), "GET /api/org/goals"),
+    async () => rpcJsonAs<GoalsResponse>(await api.api.org.goals.$get(), "GET /api/org/goals"),
     intervalMs,
   );
   return {
@@ -378,7 +380,7 @@ export function useGoals(intervalMs = 5000) {
 export function useOrgBackgrounds(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "org", "background"],
-    async () => rpcJsonAs<{ backgrounds: OrgBackgroundEntry[] }>(await api.api.org.background.$get(), "GET /api/org/background"),
+    async () => rpcJsonAs<OrgBackgroundsResponse>(await api.api.org.background.$get(), "GET /api/org/background"),
     intervalMs,
   );
   return {
@@ -396,7 +398,7 @@ const ORG_STRATEGY_FALLBACK: OrgStrategy = { mission: "", vision: "", values: ""
 export function useOrgStrategy(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "org", "strategy"],
-    async () => rpcJsonAs<{ strategy: OrgStrategy }>(await api.api.org.strategy.$get(), "GET /api/org/strategy"),
+    async () => rpcJsonAs<OrgStrategyResponse>(await api.api.org.strategy.$get(), "GET /api/org/strategy"),
     intervalMs,
   );
   return {
@@ -412,7 +414,7 @@ export function useOrgStrategy(intervalMs = 8000) {
 export function usePolicies(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "org", "policies"],
-    async () => rpcJsonAs<{ policies: PolicyEntry[] }>(await api.api.org.policies.$get(), "GET /api/org/policies"),
+    async () => rpcJsonAs<PoliciesResponse>(await api.api.org.policies.$get(), "GET /api/org/policies"),
     intervalMs,
   );
   return {
@@ -428,7 +430,7 @@ export function usePolicies(intervalMs = 8000) {
 export function useThemes(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "themes"],
-    async () => rpcJsonAs<{ themes: OrgTheme[] }>(await api.api.themes.$get(), "GET /api/themes"),
+    async () => rpcJsonAs<ThemesResponse>(await api.api.themes.$get(), "GET /api/themes"),
     intervalMs,
   );
   return {
@@ -451,7 +453,7 @@ export function useReports(periodType: ReportPeriodType | "" = "", intervalMs = 
   const query = usePolledRpc(
     reportsQueryKey(periodType),
     async () =>
-      rpcJsonAs<{ reports: Report[] }>(
+      rpcJsonAs<ReportsResponse>(
         await api.api.reports.$get({
           query: periodType ? { periodType } : {},
         }),
@@ -476,7 +478,7 @@ export const growSuggestionsQueryKey = ["api", "growth", "suggestions"] as const
 export function useGrowSuggestions(intervalMs = 15000) {
   const query = usePolledRpc(
     growSuggestionsQueryKey,
-    async () => rpcJsonAs<{ suggestions: GrowSuggestion[] }>(await api.api.growth.suggestions.$get(), "GET /api/growth/suggestions"),
+    async () => rpcJsonAs<GrowSuggestionsResponse>(await api.api.growth.suggestions.$get(), "GET /api/growth/suggestions"),
     intervalMs,
   );
   return {
@@ -493,15 +495,15 @@ export function useGrowSuggestions(intervalMs = 15000) {
 }
 
 // 旧: web/src/lib/hooks.ts useRuns。AgentRun型の正本はapps/web/src/components/RunDetail.tsx
-// （tier4 suggestionsバッチで移植済み）。
+// （tier4 suggestionsバッチで移植済み）。レスポンスエンベロープは api-contract。
 export function useRuns(intervalMs = 1500) {
   const query = usePolledRpc(
     ["api", "agents"],
-    async () => rpcJsonAs<{ runs: AgentRun[]; pendingAgentStarts: PendingAgentStart[]; pendingUnmaskedSends: PendingUnmaskedSend[] }>(await api.api.agents.$get(), "GET /api/agents"),
+    async () => rpcJsonAs<AgentsResponse>(await api.api.agents.$get(), "GET /api/agents"),
     intervalMs,
   );
   return {
-    runs: query.data?.runs ?? [],
+    runs: (query.data?.runs ?? []) as AgentRun[],
     pendingAgentStarts: query.data?.pendingAgentStarts ?? [],
     pendingUnmaskedSends: query.data?.pendingUnmaskedSends ?? [],
     runsLoaded: !query.isPending,
@@ -546,7 +548,7 @@ export function useRunsInbox(filter: { status: string; showDismissed: boolean },
   const query = usePolledRpc(
     ["api", "agents", "inbox", filter, page, pageSize],
     async () =>
-      rpcJsonAs<{ runs: AgentRun[]; total: number; page: number; pageSize: number }>(
+      rpcJsonAs<AgentsInboxResponse>(
         await api.api.agents.inbox.$get({
           query: {
             ...(filter.status ? { status: filter.status } : {}),
@@ -560,7 +562,7 @@ export function useRunsInbox(filter: { status: string; showDismissed: boolean },
     intervalMs,
   );
   return {
-    runs: query.data?.runs ?? [],
+    runs: (query.data?.runs ?? []) as AgentRun[],
     total: query.data?.total ?? 0,
     inboxLoaded: !query.isPending,
     refreshInbox: async () => {
@@ -575,7 +577,7 @@ export function useJournalEntry(id: string | undefined, intervalMs = 10000) {
     ["api", "journal", id ?? null],
     async () => {
       if (!id) throw new Error("journal id is required");
-      return rpcJsonAs<{ entry: JournalEntry | null }>(await api.api.journal[":id"].$get({ param: { id } }), `GET /api/journal/${id}`);
+      return rpcJsonAs<JournalEntryResponse>(await api.api.journal[":id"].$get({ param: { id } }), `GET /api/journal/${id}`);
     },
     intervalMs,
     { enabled: !!id },
@@ -592,7 +594,7 @@ const VITALS_FALLBACK: OrgVitals = {
 export function useVitals(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "vitals"],
-    async () => rpcJsonAs<OrgVitals>(await api.api.vitals.$get(), "GET /api/vitals"),
+    async () => rpcJsonAs<VitalsResponse>(await api.api.vitals.$get(), "GET /api/vitals"),
     intervalMs,
   );
   return {
@@ -610,7 +612,7 @@ export const suggestionsQueryKey = ["api", "suggestions"] as const;
 export function useSuggestions(intervalMs = 3000) {
   const query = usePolledRpc(
     suggestionsQueryKey,
-    async () => rpcJsonAs<{ suggestions: Suggestion[] }>(await api.api.suggestions.$get(), "GET /api/suggestions"),
+    async () => rpcJsonAs<SuggestionsResponse>(await api.api.suggestions.$get(), "GET /api/suggestions"),
     intervalMs,
   );
   return {
@@ -627,7 +629,7 @@ export function useSuggestion(id: string, intervalMs = 2000) {
   const query = usePolledRpc(
     ["api", "suggestions", id],
     async () =>
-      rpcJsonAs<{ suggestion: Suggestion | null; sourceJournals?: JournalEntry[] }>(await api.api.suggestions[":id"].$get({ param: { id } }), `GET /api/suggestions/${id}`),
+      rpcJsonAs<SuggestionDetailResponse>(await api.api.suggestions[":id"].$get({ param: { id } }), `GET /api/suggestions/${id}`),
     intervalMs,
   );
   return {
@@ -645,7 +647,7 @@ export function useEntityHistory(entityType: "suggestion" | "team" | "org", enti
   const query = usePolledRpc(
     ["api", "knowledge", "events", entityType, entityId],
     async () =>
-      rpcJsonAs<{ events: KnowledgeEvent[] }>(
+      rpcJsonAs<KnowledgeEventsResponse>(
         await api.api.knowledge.events.$get({
           query: { entityType, entityId: entityId ?? "" },
         }),

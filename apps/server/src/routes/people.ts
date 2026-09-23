@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { PeopleResponse, PersonEvaluationLogsResponse, PersonProfileResponse } from "@emther/api-contract";
 import { deletePerson, registerName, renamePerson } from "@emther/core/people-directory";
 import { addPersonAlias, getPersonProfile, listPersonSummaries, mergePersons, removePersonAlias } from "@emther/core/people-hub";
 import { reassignSelfPersonId } from "@emther/core/settings-store";
@@ -41,7 +42,10 @@ function parseAliases(body: Record<string, unknown> | null): string[] {
 
 export const peopleRoute = new Hono()
   // docs/memo.md「J. Peopleを第一級ハブに」対応。
-  .get("/", (c) => c.json({ people: listPersonSummaries() }))
+  .get("/", (c) => {
+    const body = { people: listPersonSummaries() } satisfies PeopleResponse;
+    return c.json(body);
+  })
   // People画面・ヘッダーのクイック追加からの直接登録。チーム非所属の人物も明示的に
   // 追加できるようにする。aliases があれば同じ人物へ別名として足す（既存人物の再登録時も可）。
   .post("/", async (c) => {
@@ -67,7 +71,8 @@ export const peopleRoute = new Hono()
     if (!profile) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ person: profile });
+    const body = { person: profile } satisfies PersonProfileResponse;
+    return c.json(body);
   })
   // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。addAlias/removeAlias
   // はどちらか一方を指定する想定（両方来た場合はaddAliasを先に処理する）。
@@ -176,7 +181,8 @@ export const peopleRoute = new Hono()
       since: since ? Number(since) : undefined,
       until: until ? Number(until) : undefined,
     });
-    return c.json({ logs: logs.map(toEvaluationLogView) });
+    const body = { logs: logs.map(toEvaluationLogView) } satisfies PersonEvaluationLogsResponse;
+    return c.json(body);
   })
   .post("/:id/evaluation-logs", async (c) => {
     const id = c.req.param("id");

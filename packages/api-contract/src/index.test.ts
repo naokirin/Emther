@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { journalPostBodySchema, settingsRulesPatchSchema, timelineResponseSchema } from "./index";
+import {
+  agentsResponseSchema,
+  emCheckinsResponseSchema,
+  journalListResponseSchema,
+  journalPostBodySchema,
+  settingsRulesPatchSchema,
+  suggestionsResponseSchema,
+  teamsResponseSchema,
+  timelineResponseSchema,
+  vitalsResponseSchema,
+} from "./index";
 
 describe("@emther/api-contract 寛容パース（既存 journal/settings 方針）", () => {
   it("journal POST: 不正型フィールドは未指定扱い、オブジェクト以外も {} に落とす", () => {
@@ -44,5 +54,110 @@ describe("@emther/api-contract timeline レスポンス（厳密）", () => {
         entries: [{ id: "e1", entityType: "nope", text: "x", occurredAt: 1 }],
       }),
     ).toThrow();
+  });
+});
+
+describe("@emther/api-contract GET レスポンス（新規）", () => {
+  it("em-self/checkins: 正しい形を受理する", () => {
+    const data = {
+      checkins: [{ id: "c1", mood: 3, energy: 3, stress: 2, note: "", createdAt: 1 }],
+    };
+    expect(emCheckinsResponseSchema.parse(data)).toEqual(data);
+  });
+
+  it("teams: members 欠落は拒否する", () => {
+    expect(() =>
+      teamsResponseSchema.parse({
+        teams: [
+          {
+            id: "t1",
+            name: "A",
+            charter: { mission: "", constraints: "" },
+            archived: false,
+            managedByEm: true,
+            aliases: [],
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("journal list: 必須フィールドを受理し、余分なキーは残す", () => {
+    const data = {
+      entries: [
+        {
+          id: "j1",
+          rawText: "x",
+          tags: [],
+          people: [],
+          teamIds: [],
+          urgency: "low" as const,
+          sentiment: "neutral" as const,
+          summary: "",
+          createdAt: 1,
+          confirmed: false,
+          archivedAt: 99,
+        },
+      ],
+    };
+    const parsed = journalListResponseSchema.parse(data);
+    expect(parsed.entries[0]?.id).toBe("j1");
+    expect((parsed.entries[0] as { archivedAt?: number }).archivedAt).toBe(99);
+  });
+
+  it("suggestions: reviewStatus 不正は拒否する", () => {
+    expect(() =>
+      suggestionsResponseSchema.parse({
+        suggestions: [
+          {
+            id: "s1",
+            title: "t",
+            reviewStatus: "nope",
+            confirmPriority: "normal",
+            memos: [],
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("agents: エンベロープ必須キーを受理する", () => {
+    const data = {
+      runs: [
+        {
+          id: "r1",
+          agentName: "Lead Agent",
+          task: "t",
+          status: "idle" as const,
+          log: [],
+          totalCostUsd: 0,
+          createdAt: 1,
+          updatedAt: 1,
+          origin: "manual" as const,
+          reviewed: true,
+        },
+      ],
+      pendingAgentStarts: [],
+      pendingUnmaskedSends: [],
+    };
+    expect(agentsResponseSchema.parse(data)).toMatchObject(data);
+  });
+
+  it("vitals: エンベロープ無しの OrgVitals を受理する", () => {
+    const data = {
+      teams: [],
+      oneOnOneCoverage: {
+        status: "unknown" as const,
+        covered: 0,
+        total: 0,
+        reason: "",
+        uncoveredMembers: [],
+      },
+    };
+    expect(vitalsResponseSchema.parse(data)).toEqual(data);
   });
 });

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { SuggestionDetailResponse, SuggestionsResponse } from "@emther/api-contract";
 import {
   addMemo,
   adviceFieldsFromProposal,
@@ -43,7 +44,10 @@ function resolveSuggestionId(id: string): string | undefined {
 }
 
 export const suggestionsRoute = new Hono()
-  .get("/", (c) => c.json({ suggestions: listSuggestions().map(toSuggestionView) }))
+  .get("/", (c) => {
+    const body = { suggestions: listSuggestions().map(toSuggestionView) } satisfies SuggestionsResponse;
+    return c.json(body);
+  })
   // docs/2nd_pivot_version.md Phase 7。相談／Journal／未紐付け Run から提案を残す入口。
   // - agentRunId あり: その Run を提案の主分析として紐付け、reviewed 化（Inbox 等からの起票）。
   // - sourceRunId のみ: 相談スレッドは相談履歴に残し、提案専用の新規分析 Run は起動しない。
@@ -164,10 +168,11 @@ export const suggestionsRoute = new Hono()
       );
     }
     const suggestion = resolved.item;
-    return c.json({
+    const body = {
       suggestion: toSuggestionView(suggestion),
       sourceJournals: toJournalEntryViews(listSourceJournalsForSuggestion(suggestion.id, suggestion.sourceJournalId), await buildSourceConsultIndex()),
-    });
+    } satisfies SuggestionDetailResponse;
+    return c.json(body);
   })
   .patch("/:id", async (c) => {
     const id = c.req.param("id");

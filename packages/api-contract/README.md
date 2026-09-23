@@ -9,17 +9,48 @@ Hono API の入出力 Zod スキーマ（共有契約層）。
 - **OpenAPI**（`@hono/zod-openapi`）: 後追い。スキーマさえあれば追加しやすい。
 - **検証の厳しさ**
   - `journal` / `settings/rules` のリクエスト: **寛容**（不正型 → 未指定）。既存テスト・UX で固定。
-  - `health` / `timeline` のレスポンス: **厳密な形の記述**（`satisfies` でサーバー側ドリフト防止）。
+  - GET レスポンス: **厳密な HTTP エンベロープ**（`{ checkins }` / `{ teams }` 等）。サーバーは `satisfies XxxResponse`、web は `rpcJsonAs<XxxResponse>`。
+  - 大きなドメインエンティティ（Journal / Suggestion / Rules / PersonProfile / AgentRun 等）は必須フィールドを列挙し、深い optional は `.passthrough()`。小さい型はフィールドをフル定義。
 
-## 初手スコープ
+## 構成
 
-| モジュール | 内容 |
+| パス | 内容 |
 | --- | --- |
-| `health` | `GET /api/health` レスポンス |
-| `timeline` | `GET /api/timeline` レスポンス |
-| `journal` | POST / PATCH / bulk リクエスト body |
-| `settings-rules` | PATCH の単純 number/boolean |
+| `health` / `timeline` | 既存 GET レスポンス |
+| `journal` / `settings-rules` | POST / PATCH リクエスト body（寛容） |
+| `entities/*` | 共有エンティティスキーマ |
+| `responses/*` | ポーリング GET のレスポンスエンベロープ |
 
-`apps/web/src/lib/queries.ts` のポーリング GET は Hono RPC（`hc<AppType>`）経由。レスポンス型は当面 `rpcJsonAs<T>` で明示し、ここにレスポンススキーマを足したルートから厳密化できる。
+## GET レスポンス（`queries.ts` ポーリング対応）
 
-横展開するときは新規・改修ルートからスキーマをここに追加し、サーバーで import、必要なら web のミューテーション側 `fetch` も RPC に置換する。
+| Response 型 | エンドポイント |
+| --- | --- |
+| `TimelineResponse` | `GET /api/timeline` |
+| `EmCheckinsResponse` | `GET /api/em-self/checkins` |
+| `ReflectionNotesResponse` | `GET /api/em-self/reflection-notes` |
+| `TeamsResponse` | `GET /api/teams` |
+| `JournalListResponse` | `GET /api/journal` |
+| `JournalSearchResponse` | `GET /api/journal/search` |
+| `JournalBatchStatusResponse` | `GET /api/journal/batch` |
+| `JournalEntryResponse` | `GET /api/journal/:id` |
+| `SettingsRulesResponse` | `GET /api/settings/rules` |
+| `PeopleResponse` | `GET /api/people` |
+| `PersonProfileResponse` | `GET /api/people/:id` |
+| `PersonEvaluationLogsResponse` | `GET /api/people/:id/evaluation-logs` |
+| `GoalsResponse` | `GET /api/org/goals` |
+| `OrgBackgroundsResponse` | `GET /api/org/background` |
+| `OrgStrategyResponse` | `GET /api/org/strategy` |
+| `PoliciesResponse` | `GET /api/org/policies` |
+| `ThemesResponse` | `GET /api/themes` |
+| `ReportsResponse` | `GET /api/reports` |
+| `GrowSuggestionsResponse` | `GET /api/growth/suggestions` |
+| `AgentsResponse` | `GET /api/agents` |
+| `AgentsInboxResponse` | `GET /api/agents/inbox` |
+| `VitalsResponse` | `GET /api/vitals`（エンベロープ無し = OrgVitals） |
+| `SuggestionsResponse` | `GET /api/suggestions` |
+| `SuggestionDetailResponse` | `GET /api/suggestions/:id` |
+| `KnowledgeEventsResponse` | `GET /api/knowledge/events` |
+
+`AgentRunView`（`entities/agents.ts`）は `toRunView` が返す run ビューの必須フィールド＋passthrough。
+
+横展開するときは新規・改修ルートからスキーマをここに追加し、サーバーで `satisfies`、web の `rpcJsonAs` を契約型に置換する。

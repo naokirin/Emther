@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { PoliciesResponse } from "@emther/api-contract";
 import {
   addPolicy,
   listPolicies,
@@ -17,7 +18,10 @@ function parseCategory(value: unknown): PolicyCategory | undefined {
 // docs/goal_policy_model_plan.md Phase 1。web/src/app/api/org/background/{route,[id]/route}.ts と
 // 同じ構成のPolicy版。
 export const orgPoliciesRoute = new Hono()
-  .get("/", (c) => c.json({ policies: listPolicies().map(toPolicyView) }))
+  .get("/", (c) => {
+    const body = { policies: listPolicies().map(toPolicyView) } satisfies PoliciesResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const text = typeof body?.text === "string" ? body.text.trim() : "";

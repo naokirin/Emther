@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { settingsRulesPatchSchema } from "@emther/api-contract/settings-rules";
+import type { SettingsRulesResponse } from "@emther/api-contract";
 import { getRulesAndConstraints, normalizeHourList, normalizeWeekdayList, updateRulesAndConstraints } from "@emther/core/settings-store";
 import { listPeople } from "@emther/core/people-directory";
 import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@emther/core/local-chat-presets";
@@ -144,7 +145,10 @@ function weekdayList(value: unknown): number[] | undefined {
 }
 
 export const settingsRulesRoute = new Hono()
-  .get("/", (c) => c.json({ rules: getRulesAndConstraints() }))
+  .get("/", (c) => {
+    const body = { rules: getRulesAndConstraints() } satisfies SettingsRulesResponse;
+    return c.json(body);
+  })
   .patch("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const parsed = settingsRulesPatchSchema.parse(body);

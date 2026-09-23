@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { AgentsInboxResponse, AgentsResponse } from "@emther/api-contract";
 import {
   adoptSuggestedSuggestionNotesFromRun,
   adoptSuggestedThemesFromRun,
@@ -53,13 +54,14 @@ function parseIndices(body: unknown): number[] | undefined {
 }
 
 export const agentsRoute = new Hono()
-  .get("/", (c) =>
-    c.json({
+  .get("/", (c) => {
+    const body = {
       runs: listRuns().map(toRunView),
       pendingAgentStarts: listPendingAgentStarts(),
       pendingUnmaskedSends: listPendingUnmaskedSends(),
-    }),
-  )
+    } satisfies AgentsResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const agentName = typeof body?.agentName === "string" ? body.agentName.trim() : "";
@@ -236,7 +238,8 @@ export const agentsInboxRoute = new Hono().get("/", (c) => {
   const showDismissed = c.req.query("showDismissed") === "1";
 
   const { runs, total } = listRunsPage({ status, showDismissed }, { limit: pageSize, offset: (page - 1) * pageSize });
-  return c.json({ runs, total, page, pageSize });
+  const body = { runs, total, page, pageSize } satisfies AgentsInboxResponse;
+  return c.json(body);
 });
 
 export const agentsPendingUnmaskedRoute = new Hono().post("/:id", async (c) => {
