@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import styles from "../styles/page.module.css";
+import { useEmCheckins } from "../lib/queries";
 
 // web/src/components/TopNav.tsx（Next.js版）からの移植（フェーズ3.5）。
-// next/link Link → react-router Link、usePathname → useLocation().pathname に置き換えた
-// 以外はナビ構成・グルーピングロジックを変更していない。
+// docs/design/retrospective/retrospective-tab.pen: 「1日を締めくくる」を振り返りサブナビ末尾に追加。
+// 未記録時のみ軽い強調（今日タブの帯は複製しない）。
 type NavItem = { href: string; label: string };
 type StoryGroup = {
   key: string;
@@ -12,6 +13,8 @@ type StoryGroup = {
   hint: string;
   items: NavItem[];
 };
+
+const EVENING_REVIEW_HREF = "/evening-review";
 
 const STORY_GROUPS: StoryGroup[] = [
   { key: "dashboard", label: "今日", hint: "組織の状態を掴み、今日向き合う判断を選ぶ", items: [{ href: "/", label: "今日" }] },
@@ -45,6 +48,7 @@ const STORY_GROUPS: StoryGroup[] = [
       { href: "/checkin", label: "自己チェックイン" },
       { href: "/growth", label: "EM週次振り返り" },
       { href: "/reports", label: "レポート" },
+      { href: EVENING_REVIEW_HREF, label: "1日を締めくくる" },
     ],
   },
   {
@@ -79,6 +83,13 @@ function findActiveGroup(pathname: string): StoryGroup | undefined {
   return STORY_GROUPS.find((g) => g.items.some((i) => isItemActive(i.href, pathname)));
 }
 
+function hasCheckinToday(checkins: { createdAt: number }[]): boolean {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const start = todayStart.getTime();
+  return checkins.some((c) => c.createdAt >= start);
+}
+
 export function TopNav() {
   const pathname = useLocation().pathname;
   const activeGroup = findActiveGroup(pathname);
@@ -99,6 +110,43 @@ export function TopNav() {
   );
 }
 
+function SubNavLinks({
+  group,
+  pathname,
+  eveningNeedsAttention,
+}: {
+  group: StoryGroup;
+  pathname: string;
+  eveningNeedsAttention: boolean;
+}) {
+  const activeHref = bestMatchingHref(group.items, pathname);
+
+  return (
+    <nav className={styles.subTabs} aria-label={group.label}>
+      {group.items.map((item) => {
+        const isActive = item.href === activeHref;
+        const attention = eveningNeedsAttention && item.href === EVENING_REVIEW_HREF;
+        return (
+          <Link
+            key={item.href}
+            to={item.href}
+            className={`${styles.subTabBtn} ${isActive ? styles.subTabBtnActive : ""} ${attention ? styles.subTabBtnAttention : ""}`}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** 振り返りグループだけチェックイン未記録を見て「1日を締めくくる」を軽く強調する。 */
+function ReflectionSubNav({ group, pathname }: { group: StoryGroup; pathname: string }) {
+  const { checkins, checkinsLoaded } = useEmCheckins();
+  const eveningNeedsAttention = checkinsLoaded && !hasCheckinToday(checkins);
+  return <SubNavLinks group={group} pathname={pathname} eveningNeedsAttention={eveningNeedsAttention} />;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useLocation().pathname;
   const group = findActiveGroup(pathname);
@@ -108,20 +156,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  const activeHref = bestMatchingHref(group.items, pathname);
-
   return (
     <div>
-      <nav className={styles.subTabs} aria-label={group.label}>
-        {group.items.map((item) => {
-          const isActive = item.href === activeHref;
-          return (
-            <Link key={item.href} to={item.href} className={`${styles.subTabBtn} ${isActive ? styles.subTabBtnActive : ""}`}>
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      {group.key === "reflection" ? (
+        <ReflectionSubNav group={group} pathname={pathname} />
+      ) : (
+        <SubNavLinks group={group} pathname={pathname} eveningNeedsAttention={false} />
+      )}
       {children}
     </div>
   );

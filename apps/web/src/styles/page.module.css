@@ -267,6 +267,22 @@
   border-bottom-color: var(--blue);
 }
 
+/* docs/design/retrospective/retrospective-tab.pen: 未記録時の「1日を締めくくる」軽い強調 */
+.subTabBtnAttention:not(.subTabBtnActive) {
+  color: var(--yellow-fg);
+}
+
+.subTabBtnAttention::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--yellow-fg);
+  vertical-align: 0.1em;
+}
+
 @media (max-width: 860px) {
   .appBody {
     flex-direction: column;

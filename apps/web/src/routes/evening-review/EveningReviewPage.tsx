@@ -40,7 +40,7 @@ export function EveningReviewPage() {
 
   return (
     <div className={styles.screen}>
-      <PageTitleRow title="1日の締めくくり" helpAnchor="reflection" />
+      <PageTitleRow title="1日を締めくくる" helpAnchor="reflection" />
 
       <div className={styles.panel}>
         <p className={styles.subtitle} style={{ margin: 0 }}>

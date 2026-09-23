@@ -14,7 +14,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
           <strong>今日</strong>は「今決めること」の起点。<strong>提案</strong>は AI が観測・解釈した結果の確認とメモ・壁打ち。
           <strong>ジャーナル</strong>は事実の記録・検索。<strong>相談</strong>はまだ提案として残さない壁打ち。
           <strong>チーム・メンバー</strong>は体制と人物。<strong>方針・目標</strong>は MVV / OKR / テーマの前提。
-          <strong>振り返り</strong>は週次で見る成長・履歴・レポートです。
+          <strong>振り返り</strong>は日次のコンディション・1日を締めくくる流れ・週次の学び・レポートです。
         </p>
         <p>日々の操作画面には仕組みの説明を置かず、必要なときだけこのヘルプを参照してください。</p>
       </>
@@ -150,7 +150,7 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
   },
   {
     id: "reflection",
-    title: "振り返り（自己チェックイン・週次・レポート）",
+    title: "振り返り（自己チェックイン・週次・レポート・1日を締めくくる）",
     body: (
       <>
         <p>
@@ -160,6 +160,10 @@ const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
         <p>
           <strong>EM週次振り返り</strong>は学びの提案・改善方針・KPTです。気づきメモはスキマにひとことずつで、週ごとにまとまります。
           <strong>レポート</strong>は Journal・提案・組織イベントの週次／月次スナップショットとAIレビューです。毎日見る必要はありません。
+        </p>
+        <p>
+          <strong>1日を締めくくる</strong>は、AI対話での振り返り→バイタル→KPTをまとめて進める一連の流れです。
+          今日タブの未記録案内からも入れます。
         </p>
       </>
     ),

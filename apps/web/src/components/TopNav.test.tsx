@@ -1,13 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { AppShell, TopNav } from "./TopNav";
 
 // web/src/components/TopNav.test.tsx（Next.js版）からの移植（フェーズ3.5、ルートシェル）。
-// next/navigationのusePathnameモックの代わりにMemoryRouterのinitialEntriesで
-// 現在パスを指定する以外、検証内容は変更していない。
+// docs/design/retrospective/retrospective-tab.pen: 振り返りサブナビに「1日を締めくくる」追加。
 function renderAt(pathname: string, ui: React.ReactNode) {
   return render(<MemoryRouter initialEntries={[pathname]}>{ui}</MemoryRouter>);
+}
+
+function renderReflectionAt(pathname: string, ui: ReactNode) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[pathname]}>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
 }
 
 describe("TopNav", () => {
@@ -48,6 +58,11 @@ describe("TopNav", () => {
     renderAt("/", <TopNav />);
     expect(screen.getByRole("link", { name: "振り返り・レポート" })).toHaveAttribute("href", "/checkin");
   });
+
+  it("/evening-review では振り返り・レポートグループがactive", () => {
+    renderAt("/evening-review", <TopNav />);
+    expect(screen.getByRole("link", { name: "振り返り・レポート" }).className).toContain("tabBtnActive");
+  });
 });
 
 describe("AppShell", () => {
@@ -66,8 +81,9 @@ describe("AppShell", () => {
     expect(screen.getByText("page content")).toBeInTheDocument();
   });
 
-  it("振り返り・レポートのサブナビは自己チェックイン／EM週次振り返り／レポート", () => {
-    renderAt(
+  it("振り返り・レポートのサブナビは自己チェックイン／EM週次振り返り／レポート／1日を締めくくる", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ checkins: [{ id: "c1", createdAt: Date.now() }] }) }));
+    renderReflectionAt(
       "/checkin",
       <AppShell>
         <div>page content</div>
@@ -75,10 +91,47 @@ describe("AppShell", () => {
     );
     const subNav = screen.getByRole("navigation", { name: "振り返り・レポート" });
     expect(subNav.className).toContain("subTabs");
+    const links = Array.from(subNav.querySelectorAll("a")).map((a) => a.textContent?.trim());
+    expect(links).toEqual(["自己チェックイン", "EM週次振り返り", "レポート", "1日を締めくくる"]);
     expect(screen.getByRole("link", { name: "自己チェックイン" }).className).toContain("subTabBtnActive");
     expect(screen.getByRole("link", { name: "EM週次振り返り" })).toHaveAttribute("href", "/growth");
     expect(screen.getByRole("link", { name: "レポート" })).toHaveAttribute("href", "/reports");
+    expect(screen.getByRole("link", { name: "1日を締めくくる" })).toHaveAttribute("href", "/evening-review");
     expect(screen.queryByRole("link", { name: "タイムライン" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "1日を締めくくる" }).className).not.toContain("subTabBtnAttention");
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("チェックイン未記録なら「1日を締めくくる」を軽く強調する", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ checkins: [] }) }));
+    renderReflectionAt(
+      "/growth",
+      <AppShell>
+        <div>page content</div>
+      </AppShell>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "1日を締めくくる" }).className).toContain("subTabBtnAttention");
+    });
+    expect(screen.getByRole("link", { name: "EM週次振り返り" }).className).toContain("subTabBtnActive");
+    vi.unstubAllGlobals();
+  });
+
+  it("/evening-review では「1日を締めくくる」がactive", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ checkins: [] }) }));
+    renderReflectionAt(
+      "/evening-review",
+      <AppShell>
+        <div>page content</div>
+      </AppShell>,
+    );
+    expect(screen.getByRole("link", { name: "1日を締めくくる" }).className).toContain("subTabBtnActive");
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "1日を締めくくる" }).className).toContain("subTabBtnAttention");
+    });
+    vi.unstubAllGlobals();
   });
 
   it("単一画面グループではサブナビを表示しない", () => {
