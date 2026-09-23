@@ -319,64 +319,64 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               </div>
             </div>
           ) : (
-            <h1 className={styles.issueTitle}>
-              {suggestion.title}{" "}
-              <button
-                type="button"
-                className={styles.btnOutline}
-                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
-                onClick={() => {
-                  setTitleDraft(suggestion.title);
-                  setTitleEditing(true);
-                }}
-              >
-                編集
-              </button>{" "}
-              <button
-                type="button"
-                className={styles.btnOutline}
-                style={{ fontSize: "0.75rem", padding: "2px 8px" }}
-                disabled={saving}
-                onClick={() => void patchSuggestion({ archived: !suggestion.archivedAt })}
-              >
-                {suggestion.archivedAt ? "アーカイブを解除" : "アーカイブする"}
-              </button>{" "}
-              <div className={styles.suggestionExportMenu} ref={exportMenuRef} style={{ display: "inline-block", verticalAlign: "middle" }}>
+            <h1 className={`${styles.issueTitle} ${styles.suggestionDetailTitle}`}>
+              <span className={styles.suggestionDetailTitleText}>{suggestion.title}</span>
+              <span className={styles.suggestionDetailTitleActions}>
                 <button
                   type="button"
-                  className={`${styles.suggestionExportTrigger} ${exportOpen ? styles.suggestionExportTriggerOpen : ""}`}
-                  aria-expanded={exportOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setExportOpen((v) => !v)}
+                  className={styles.btnOutline}
+                  onClick={() => {
+                    setTitleDraft(suggestion.title);
+                    setTitleEditing(true);
+                  }}
                 >
-                  エクスポート <span aria-hidden="true">▾</span>
+                  編集
                 </button>
-                {exportOpen && (
-                  <div className={`${styles.journalFloatingMenu} ${styles.suggestionExportDetailPanel}`} role="menu">
-                    <button
-                      type="button"
-                      className={`${styles.journalMoreItem} ${styles.suggestionExportMenuItemActive}`}
-                      role="menuitem"
-                      onClick={() => {
-                        void handleCopyMarkdown().then(() => setExportOpen(false));
-                      }}
-                    >
-                      {mdCopied ? "コピーしました" : "Markdown をコピー"}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.journalMoreItem}
-                      role="menuitem"
-                      onClick={() => {
-                        handleDownloadMarkdown();
-                        setExportOpen(false);
-                      }}
-                    >
-                      {mdDownloaded ? "保存しました" : "Markdown を保存"}
-                    </button>
-                  </div>
-                )}
-              </div>
+                <button
+                  type="button"
+                  className={styles.btnOutline}
+                  disabled={saving}
+                  onClick={() => void patchSuggestion({ archived: !suggestion.archivedAt })}
+                >
+                  {suggestion.archivedAt ? "アーカイブを解除" : "アーカイブする"}
+                </button>
+                <div className={`${styles.suggestionExportMenu} ${styles.suggestionDetailExportMenu}`} ref={exportMenuRef}>
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    aria-expanded={exportOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setExportOpen((v) => !v)}
+                  >
+                    エクスポート <span aria-hidden="true">▾</span>
+                  </button>
+                  {exportOpen && (
+                    <div className={`${styles.journalFloatingMenu} ${styles.suggestionExportDetailPanel}`} role="menu">
+                      <button
+                        type="button"
+                        className={`${styles.journalMoreItem} ${styles.suggestionExportMenuItemActive}`}
+                        role="menuitem"
+                        onClick={() => {
+                          void handleCopyMarkdown().then(() => setExportOpen(false));
+                        }}
+                      >
+                        {mdCopied ? "コピーしました" : "Markdown をコピー"}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.journalMoreItem}
+                        role="menuitem"
+                        onClick={() => {
+                          handleDownloadMarkdown();
+                          setExportOpen(false);
+                        }}
+                      >
+                        {mdDownloaded ? "保存しました" : "Markdown を保存"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </span>
             </h1>
           )}
         </div>

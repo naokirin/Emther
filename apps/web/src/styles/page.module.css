@@ -5850,3 +5850,37 @@ button.situationChip:hover {
   left: auto;
 }
 
+/* 提案詳細タイトル横の編集・アーカイブ・エクスポートを同一段・同一寸法に揃える */
+.suggestionDetailTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestionDetailTitleText {
+  min-width: 0;
+}
+
+.suggestionDetailTitleActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  line-height: 1.2;
+  font-size: 0.75rem;
+}
+
+.suggestionDetailTitleActions > .btnOutline,
+.suggestionDetailExportMenu > .btnOutline {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 2px 8px;
+}
+
+.suggestionDetailExportMenu {
+  margin-left: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
