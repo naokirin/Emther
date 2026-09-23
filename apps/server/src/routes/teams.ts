@@ -1,5 +1,11 @@
 import { Hono } from "hono";
-import type { OkResponse, TeamMutationResponse, TeamsBulkMutationResponse, TeamsResponse } from "@emther/api-contract";
+import {
+  teamsPostBodySchema,
+  type OkResponse,
+  type TeamMutationResponse,
+  type TeamsBulkMutationResponse,
+  type TeamsResponse,
+} from "@emther/api-contract";
 import {
   addTeam,
   getTeam,
@@ -55,10 +61,9 @@ export const teamsRoute = new Hono()
   })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
-    const name = typeof body?.name === "string" ? body.name : "";
-    const members = Array.isArray(body?.members)
-      ? body.members.filter((m: unknown): m is string => typeof m === "string")
-      : [];
+    const parsed = teamsPostBodySchema.parse(body);
+    const name = parsed.name ?? "";
+    const members = parsed.members ?? [];
 
     // "/"のみ・空白のみなど、正規化すると空になる名前は「実質的にnameが無い」として拒否する
     // （階層区切りの"/"だけを入力してしまうミスを防ぐ）。

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ChatPage } from "./ChatPage";
-import type { AgentRun } from "../../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 // web/src/app/chat/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
 // （フェーズ3.5 tier5 chatバッチ）。相談履歴の選択・新規相談フォームとの切り替えに絞って

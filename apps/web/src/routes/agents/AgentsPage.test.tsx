@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { AgentsPage } from "./AgentsPage";
 import { IdResolveProvider } from "../../components/IdFragmentLink";
-import type { AgentRun } from "../../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 // web/src/app/agents/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
 // （フェーズ3.5 tier5 agentsバッチ）。Fleet状態・起動フォーム・Inbox一覧のクリック導線に絞って

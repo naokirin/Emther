@@ -1,4 +1,4 @@
-import type { AgentRun } from "./RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 const STATUS_SHORT: Record<AgentRun["status"], string> = {
   active: "実行中",
@@ -14,6 +14,7 @@ const ORIGIN_SHORT: Record<AgentRun["origin"], string> = {
   "auto-summary": "朝のサマリー",
   "auto-suggestion-update": "提案更新分析",
   "auto-distill": "状況蒸留",
+  "auto-grow": "学びの提案",
   "auto-journal-batch": "Journal集約解釈",
   "auto-weekly-report": "週次レビュー",
   "auto-monthly-report": "月次レビュー",

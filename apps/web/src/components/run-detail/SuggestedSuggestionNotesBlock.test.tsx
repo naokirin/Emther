@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { SuggestedSuggestionNotesBlock } from "./SuggestedSuggestionNotesBlock";
-import type { SuggestedSuggestionNote } from "../RunDetail";
+import type { SuggestedSuggestionNote } from "@emther/core/agent-runtime";
 
 // web/src/components/run-detail/SuggestedIssueNotesBlock.tsx（Next.js版）には専用テストが
 // 元々無かったため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。チェックボックスの

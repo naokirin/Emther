@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 import styles from "../styles/page.module.css";
 import { IdLinkedText } from "./IdLinkedText";
 import { MarkdownView } from "./MarkdownView";
-import {
-  type ConfirmPriority,
-  type SuggestionReviewStatus,
-  type YieldKind,
-} from "@emther/core/types";
-import type { AdviceStructured } from "@emther/core/advice";
+import type {
+  AgentRun,
+  AgentStatus,
+  LogLine,
+} from "@emther/core/agent-runtime";
+import type { Suggestion } from "@emther/core/types";
 import { STATUS_META } from "./runDetailMeta";
 import { YieldBlock } from "./run-detail/YieldBlock";
 import { ProposalBlock } from "./run-detail/ProposalBlock";
@@ -15,158 +15,7 @@ import { PeriodReviewBlock } from "./run-detail/PeriodReviewBlock";
 import { SuggestedThemesBlock } from "./run-detail/SuggestedThemesBlock";
 import { SuggestedSuggestionNotesBlock } from "./run-detail/SuggestedSuggestionNotesBlock";
 import { SuggestedSuggestionUpdatesBlock } from "./run-detail/SuggestedSuggestionUpdatesBlock";
-import type { Suggestion } from "@emther/core/types";
 
-// "queued"はサーバー側の同時実行数の上限（SettingsのmaxParallelAgentRuns）に達しており、
-// CLI子プロセスの起動を待っている状態（@/lib/agent-runtime.tsのAgentStatus参照）。
-export type AgentStatus = "active" | "queued" | "yield" | "idle" | "error";
-
-export type YieldOption = {
-  id: string;
-  label: string;
-  detail?: string;
-  risk?: string;
-};
-
-export type LogLine = {
-  ts: number;
-  channel: "meta" | "agent" | "system";
-  text: string;
-};
-
-export type RejectedAlternative = {
-  option: string;
-  reason: string;
-};
-
-export type LensUsage = {
-  lens: string;
-  insight: string;
-};
-
-export type Proposal = {
-  conclusion: string;
-  facts: string[];
-  logic: string;
-  rejectedAlternatives: RejectedAlternative[];
-  // docs/3rd_pivot_version/pivot.md。別解釈・別仮説・不足情報・別問題設定（旧runは空配列）。
-  expansions: string[];
-  // docs/3rd_pivot_version/pivot.md。前提・問題設定への問い（旧runは空配列）。
-  challenges: string[];
-  // docs/ai_ philosophy.md。Expand/Challengeで実際に使った哲学レンズ（任意）。
-  lensesUsed?: LensUsage[];
-  recommendation?: "suggestion" | "dismiss" | "watch";
-  // 提案化時の短い課題名。無い場合は conclusion からヒューリスティックで作る。
-  suggestionTitle?: string;
-  // 親なしの独立提案候補（複数）。ある場合は suggestionTitle より優先して起票UIに出す。
-  suggestionCandidates?: { title: string; rationale?: string }[];
-  // 進め方の助言。次に観測・確認すべき点も含めてよい（解決策でなくてよい）。
-  advice?: string;
-  adviceStructured?: AdviceStructured;
-};
-
-export type SuggestedTheme = {
-  title: string;
-  summary: string;
-  rationale: string;
-  facts: string[];
-  rootCause?: string;
-  suggestedDirection?: string;
-  evidenceJournalIds?: string[];
-  evidenceSuggestionIds?: string[];
-};
-
-// docs/new_reporting.md。週次・月次レビューの構造化出力（@emther/core/agent-runtimeの
-// PeriodReviewと同じ形。フロントエンド向けのAgentRun型は他のProposal/SuggestedTheme等と
-// 同様、ここへローカルに複製している）。
-export type PeriodReviewComparisonItem = {
-  area: string;
-  before: string;
-  after: string;
-  assessment: "improved" | "worsened" | "changed" | "uncertain";
-};
-
-export type PeriodReviewBlindSpot = {
-  question: string;
-  reason: string;
-};
-
-export type PeriodReview = {
-  overview: string;
-  observations: string[];
-  interpretation: string;
-  comparisons: PeriodReviewComparisonItem[];
-  blindSpots: PeriodReviewBlindSpot[];
-  learnings: string[];
-  nextQuestions: string[];
-};
-
-// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
-export type SuggestedSuggestionNote = {
-  suggestionId: string;
-  text: string;
-};
-
-// docs/suggestion_organize_via_consult.md。EMが相談で明示的に依頼したときだけ、AIが
-// 提案する既存提案（実在ID）の状態変更下書き。
-export type SuggestionUpdate = {
-  suggestionId: string;
-  reviewStatus?: SuggestionReviewStatus;
-  confirmPriority?: ConfirmPriority;
-  reviewDueAt?: number | null;
-  archived?: boolean;
-  note?: string;
-  reason: string;
-};
-
-export type AgentRun = {
-  id: string;
-  agentName: string;
-  task: string;
-  status: AgentStatus;
-  sessionId?: string;
-  log: LogLine[];
-  yieldRequest?: { reason: string; options: YieldOption[]; kind?: YieldKind };
-  proposal?: Proposal;
-  suggestedActionItems?: string[];
-  suggestedPriority?: ConfirmPriority;
-  suggestedThemes?: SuggestedTheme[];
-  suggestedSuggestionNotes?: SuggestedSuggestionNote[];
-  suggestedSuggestionUpdates?: SuggestionUpdate[];
-  periodReview?: PeriodReview;
-  totalCostUsd: number;
-  createdAt: number;
-  updatedAt: number;
-  consultedBy?: string;
-  origin:
-    | "manual"
-    | "auto-anomaly"
-    | "auto-summary"
-    | "auto-suggestion-update"
-    | "auto-distill"
-    | "auto-journal-batch"
-    | "auto-weekly-report"
-    | "auto-monthly-report";
-  sourceJournalId?: string;
-  sourceReportId?: string;
-  reviewed: boolean;
-  triageStatus?: "watching" | "dismissed";
-  triageAt?: number;
-  triageNextReviewAt?: number;
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
-  archivedAt?: number;
-};
-
-// ユーザー指摘対応: run.taskが空文字のrun（何らかの理由でtask保存に失敗した壊れたデータ）を
-// そのままIssueタイトルにすると、サーバー側の「titleは必須です」検証で400になり、EMが
-// クリックしても何も起きない（エラーがUIに出ない）まま詰む。run.task以外にも意味のある
-// テキスト（Yieldの理由・最初のログ行）があればそれを使い、それも無ければ最低限
-// エージェント名だけのタイトルにフォールバックし、Issue化自体は必ず成功させる。
-//
-// ユーザー指摘対応（続報）: auto-anomaly/auto-summaryのrunはrun.task自体が「〜を判断
-// してください」という定型の指示文＋本文という長い文字列で、EMが書いた短い文ではない。
-// これをそのままタイトルにすると（呼び出し側でtruncateForTitleしても）本文へ辿り着く
-// 前の定型句だけが残ってしまう。proposal.suggestionTitle（短い課題名）があれば最優先。
 // staleは「statusが"active"のままログ更新が長時間無い」ことをクライアント側で判定した結果
 // （@/lib/typesのisRunStale）。実際にkillされたか否かに関わらず、EMには早く気づいてほしいので
 // 実データ（status）を書き換えるのではなく、表示だけをTeam Vitalsの「評価不能」と同じ

@@ -1,5 +1,5 @@
 import { IdLinkedText } from "../IdLinkedText";
-import type { PeriodReview } from "../RunDetail";
+import type { PeriodReview } from "@emther/core/agent-runtime";
 
 const ASSESSMENT_META: Record<PeriodReview["comparisons"][number]["assessment"], { icon: string; label: string }> = {
   improved: { icon: "📈", label: "改善した可能性" },

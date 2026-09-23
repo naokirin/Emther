@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../test-helpers/store-env";
 
 let mockChatResponse = JSON.stringify({ findings: [], people: [] });
-vi.mock("./local-model", () => ({
+vi.mock("../local-model", () => ({
   runLocalChat: vi.fn(async () => mockChatResponse),
   extractFirstJsonObject: (text: string) => {
     const start = text.indexOf("{");
@@ -19,7 +19,7 @@ vi.mock("./local-model", () => ({
   },
 }));
 
-vi.mock("./embeddings", () => ({
+vi.mock("../embeddings", () => ({
   embedText: vi.fn(async () => [1, 0, 0]),
   cosineSimilarity: () => 0,
 }));
@@ -98,7 +98,7 @@ describe("detectSensitiveByRules", () => {
 
 describe("detectNameCandidates", { timeout: 30000 }, () => {
   it("未登録の敬称付き人名を列挙し、登録済みは除外する", async () => {
-    const pd = await import("./people-directory");
+    const pd = await import("../people-directory");
     pd.registerName("田中さん");
     const { detectNameCandidatesAsync } = await import("./mask-check");
     const names = await detectNameCandidatesAsync(INCIDENT_SAMPLE);
@@ -219,7 +219,7 @@ describe("buildTextHighlights", { timeout: 30000 }, () => {
 
 describe("runMaskCheckQuick", { timeout: 30000 }, () => {
   it("登録済み人名をマスクし、未登録人名と機微キーワードも即時返す", async () => {
-    const pd = await import("./people-directory");
+    const pd = await import("../people-directory");
     pd.registerName("田中さん");
     const before = pd.listPeople().length;
 
@@ -249,7 +249,7 @@ describe("runMaskCheckAi", { timeout: 30000 }, () => {
       findings: [{ category: "health", excerpt: "体調不良で休み", match: "体調不良" }],
       people: ["次郎さん"],
     });
-    const pd = await import("./people-directory");
+    const pd = await import("../people-directory");
     const before = pd.listPeople().length;
 
     const { runMaskCheckAi } = await import("./mask-check");
@@ -277,7 +277,7 @@ describe("runMaskCheckAi", { timeout: 30000 }, () => {
       findings: [],
       people: ["花子さん"],
     });
-    const pd = await import("./people-directory");
+    const pd = await import("../people-directory");
     pd.registerName("花子さん");
 
     const { runMaskCheckAi } = await import("./mask-check");
@@ -288,7 +288,7 @@ describe("runMaskCheckAi", { timeout: 30000 }, () => {
 
 describe("previewNameMask", () => {
   it("同一表記の出現回数を数える", async () => {
-    const pd = await import("./people-directory");
+    const pd = await import("../people-directory");
     const id = pd.registerName("太郎さん");
     const preview = pd.previewNameMask("太郎さんと太郎さんが同席");
     expect(preview.maskedText).toBe(`${pd.formatPersonToken(id)}と${pd.formatPersonToken(id)}が同席`);

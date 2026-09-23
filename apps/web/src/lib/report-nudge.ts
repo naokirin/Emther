@@ -1,4 +1,4 @@
-import type { AgentRun } from "../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import { periodWindow } from "@emther/core/daily-trends";
 
 // docs/design/dashboard/today-tab.pen 改善案B対応。週次・月次レポートの弱い案内帯。

@@ -1,7 +1,7 @@
 import styles from "../../styles/page.module.css";
 import { IdLinkedText } from "../IdLinkedText";
 import { YIELD_KIND_META, type YieldKind } from "@emther/core/types";
-import type { YieldOption } from "../RunDetail";
+import type { YieldOption } from "@emther/core/agent-runtime";
 import { resolveYieldKind } from "./run-view-helpers";
 
 // Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）。ExecutionStateから切り出し。

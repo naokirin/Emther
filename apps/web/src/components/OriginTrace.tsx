@@ -17,6 +17,7 @@ export type OriginTraceConsult = {
     | "auto-summary"
     | "auto-suggestion-update"
     | "auto-distill"
+    | "auto-grow"
     | "auto-journal-batch"
     | "auto-weekly-report"
     | "auto-monthly-report";
@@ -27,6 +28,7 @@ function originKindLabel(origin: OriginTraceConsult["origin"]): string | undefin
   if (origin === "auto-summary") return "朝のサマリー";
   if (origin === "auto-suggestion-update") return "提案更新分析";
   if (origin === "auto-distill") return "状況蒸留";
+  if (origin === "auto-grow") return "学びの提案";
   if (origin === "auto-journal-batch") return "Journal集約解釈";
   if (origin === "auto-weekly-report") return "週次レビュー";
   if (origin === "auto-monthly-report") return "月次レビュー";

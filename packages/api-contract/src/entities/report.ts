@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { timelineEntityTypeSchema } from "../timeline";
 
 export const reportPeriodTypeSchema = z.enum(["week", "month"]);
 
@@ -25,9 +26,10 @@ export const reportSuggestionStatsSchema = z.object({
   archivedTitles: z.array(z.object({ id: z.string(), title: z.string() })),
 });
 
+// core ReportEventStats.byEntityType = Partial<Record<TimelineEntityType, number>>
 export const reportEventStatsSchema = z.object({
   total: z.number(),
-  byEntityType: z.record(z.string(), z.number()),
+  byEntityType: z.partialRecord(timelineEntityTypeSchema, z.number()),
 });
 
 export const reportStatsSchema = z.object({

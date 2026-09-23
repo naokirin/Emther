@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import type { PendingAgentStart, PendingUnmaskedSend } from "@emther/core/types";
 
 export const agentStatusSchema = z.enum(["active", "queued", "yield", "idle", "error"]);
@@ -21,8 +22,9 @@ export const logLineSchema = z.object({
   text: z.string(),
 });
 
-// toRunView が返す AgentRun の HTTP ビュー。深い optional（proposal / periodReview 等）は passthrough。
-export const agentRunViewSchema = z
+// toRunView が返す AgentRun。必須フィールドを厳密に、深い optional は passthrough。
+// HTTP ビュー型は core AgentRun と同一（ドリフト防止）。
+export const agentRunViewSchema: z.ZodType<AgentRun> = z
   .object({
     id: z.string(),
     agentName: z.string(),
@@ -35,9 +37,9 @@ export const agentRunViewSchema = z
     origin: agentRunOriginSchema,
     reviewed: z.boolean(),
   })
-  .passthrough();
+  .passthrough() as z.ZodType<AgentRun>;
 
-export type AgentRunView = z.infer<typeof agentRunViewSchema>;
+export type AgentRunView = AgentRun;
 
 export const pendingAgentStartSchema: z.ZodType<PendingAgentStart> = z
   .object({

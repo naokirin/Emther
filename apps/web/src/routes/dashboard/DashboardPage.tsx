@@ -9,9 +9,9 @@ import { NowStatePanel } from "../../components/dashboard/NowStatePanel";
 import { ReportNudgeBanner } from "../../components/dashboard/ReportNudgeBanner";
 import { ThemesPanel } from "../../components/dashboard/ThemesPanel";
 import { TodayActionsPanel } from "../../components/dashboard/TodayActionsPanel";
-import { buildNextActions, selectWatchingItems } from "../../lib/dashboard-next-actions";
-import { buildDailySituation } from "../../lib/daily-situation";
-import { buildTodayStateMeters } from "../../lib/today-state";
+import { buildNextActions, selectWatchingItems, attachNextActionHandlers } from "../../lib/dashboard-next-actions";
+import { buildDailySituation, attachDailySituationHandlers } from "../../lib/daily-situation";
+import { buildTodayStateMeters, attachTodayStateHandlers } from "../../lib/today-state";
 import { selectReportNudges } from "../../lib/report-nudge";
 import {
   useEmCheckins,
@@ -158,7 +158,7 @@ export function DashboardPage() {
   }
 
   const watchingItems = selectWatchingItems(runs, suggestions);
-  const nextActions = buildNextActions({
+  const coreNextActions = buildNextActions({
     now,
     runs,
     suggestions,
@@ -169,40 +169,51 @@ export function DashboardPage() {
     pendingUnmaskedSends,
     staleRunIds,
     watchingItems,
-    goToRunSuggestion,
-    push: (path) => navigate(path),
-    prefillJournal,
-    onConfirmUnmasked: setConfirmingUnmasked,
   });
+  const actionHandlers = {
+    push: (path: string) => navigate(path),
+    goToRunSuggestion: (runId: string) => {
+      const run = runs.find((r) => r.id === runId);
+      if (run) void goToRunSuggestion(run);
+    },
+    prefillJournal,
+    onConfirmUnmasked: (pendingId: string) => {
+      const pending = pendingUnmaskedSends.find((p) => p.id === pendingId);
+      if (pending) setConfirmingUnmasked(pending);
+    },
+  };
+  const nextActions = attachNextActionHandlers(coreNextActions, actionHandlers);
 
   // docs/2nd_pivot_version.md Phase 1対応。pivot_policy.md「目指すUX」の6項目で
   // 今日の状況をまとめる（提案駆動ではなく Journal/Vitals/People 駆動）。
   // 気になる兆候は組織レベルのパターン（停滞提案含む）なので suggestions も渡す。
-  const dailySituation = buildDailySituation({
-    now,
-    journalEntries,
-    vitals,
-    people,
-    nextActions,
-    suggestions,
-    staleInterventionDays: rules.staleInterventionDays,
-    push: (path: string) => navigate(path),
-    prefillJournal,
-  });
+  const dailySituation = attachDailySituationHandlers(
+    buildDailySituation({
+      now,
+      journalEntries,
+      vitals,
+      people,
+      nextActions: coreNextActions,
+      suggestions,
+      staleInterventionDays: rules.staleInterventionDays,
+    }),
+    actionHandlers,
+  );
   const dailySituationLoaded = nextActionsLoaded;
 
   // docs/design/dashboard/today-tab.pen 改善案A対応。「いまの状態」メーターと健全度内訳。
-  const todayMeters = buildTodayStateMeters({
-    now,
-    journalEntries,
-    vitals,
-    people,
-    nextActions,
-    decisionQueueLimit: rules.decisionQueueLimit,
-    observationQueueLimit: rules.observationQueueLimit,
-    push: (path) => navigate(path),
-    prefillJournal,
-  });
+  const todayMeters = attachTodayStateHandlers(
+    buildTodayStateMeters({
+      now,
+      journalEntries,
+      vitals,
+      people,
+      nextActions: coreNextActions,
+      decisionQueueLimit: rules.decisionQueueLimit,
+      observationQueueLimit: rules.observationQueueLimit,
+    }),
+    actionHandlers,
+  );
 
   // docs/em_human_story_and_ux.md P0-4対応。「1日の上限感」をUIで示す（ハード制限はせず、
   // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）。

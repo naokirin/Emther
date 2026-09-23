@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import styles from "../styles/page.module.css";
-import { CopilotChat, ExecutionState, type AgentRun } from "./RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
+import { CopilotChat, ExecutionState } from "./RunDetail";
 import { AdviceBlock } from "./AdviceBlock";
 import { IdLinkedText } from "./IdLinkedText";
 import { OriginTrace } from "./OriginTrace";

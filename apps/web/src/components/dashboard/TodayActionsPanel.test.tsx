@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TodayActionsPanel } from "./TodayActionsPanel";
 import type { NextAction } from "../../lib/dashboard-next-actions";
-import type { AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 function action(overrides: Partial<NextAction> & { id: string }): NextAction {
   return {

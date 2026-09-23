@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConsultHistoryItem } from "./ConsultHistoryItem";
 import { consultListMetaParts, formatConsultListTime } from "./consultListMeta";
-import type { AgentRun } from "./RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 // web/src/components/ConsultHistoryItem.tsx（Next.js版）には専用テストが元々無かったため
 // 新規に追加する（フェーズ3.5 tier5 chatバッチ）。

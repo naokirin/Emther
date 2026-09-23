@@ -1,7 +1,7 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { consultListMetaParts } from "../consultListMeta";
-import type { AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import { SuggestionStrategyLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@emther/core/origin-trace";
 import type { SuggestionStrategyLinkSuggestion } from "@emther/core/types";

@@ -47,7 +47,7 @@ import type {
   VitalsResponse,
 } from "@emther/api-contract";
 import { api, rpcJsonAs } from "./api-client";
-import type { AgentRun } from "../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import { runFallbackTitle } from "../components/runDetailMeta";
 import { useSuggestionPeek } from "../components/useSuggestionPeek";
 import { truncateForTitle } from "@emther/core/types";
@@ -495,7 +495,7 @@ export function useGrowSuggestions(intervalMs = 15000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useRuns。AgentRun型の正本はapps/web/src/components/RunDetail.tsx
+// 旧: web/src/lib/hooks.ts useRuns。AgentRun型の正本は @emther/core/agent-runtime。
 // （tier4 suggestionsバッチで移植済み）。レスポンスエンベロープは api-contract。
 export function useRuns(intervalMs = 1500) {
   const query = usePolledRpc(

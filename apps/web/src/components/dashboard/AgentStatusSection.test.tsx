@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { extractRecentActivities, formatActivityTime } from "./agentActivity";
 import { AgentStatusSection } from "./AgentStatusSection";
-import type { AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 function createRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {

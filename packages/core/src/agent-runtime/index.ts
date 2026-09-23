@@ -37,6 +37,14 @@ export type {
 export { originLabel } from "./types";
 
 export {
+  draftKindLabel,
+  isDraftAwaitingTriage,
+  runFallbackTitle,
+  runKindLabel,
+  shouldOmitRunFromNextActions,
+} from "./run-meta";
+
+export {
   consultQuestionFor,
   ensureRequiredConsult,
   extractConsult,
@@ -134,3 +142,5 @@ export {
   parkPendingUnmaskedSend,
   startRun,
 } from "./run-actions";
+
+export { runCloudChat } from "./cloud-chat";

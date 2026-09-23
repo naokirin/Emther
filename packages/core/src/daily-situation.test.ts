@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildDailySituation } from "./daily-situation";
 import type { NextAction } from "./dashboard-next-actions";
-import type { JournalEntry, OrgVitals, PersonSummary, Suggestion } from "@emther/core/types";
+import type { JournalEntry, OrgVitals, PersonSummary, Suggestion } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 固定の「今日」。2026-09-13は日曜日。週窓は月曜始まりなので今週=9/7〜9/13、先週=8/31〜9/6。
@@ -60,13 +60,11 @@ function nextAction(overrides: Partial<NextAction> & { id: string }): NextAction
     icon: "🔴",
     kindLabel: "テスト",
     text: "テスト項目",
-    onSelect: () => {},
+    target: { type: "path", path: "/" },
     since: NOW,
     ...overrides,
   };
 }
-
-const noop = () => {};
 
 function build(overrides: Partial<Parameters<typeof buildDailySituation>[0]> = {}) {
   return buildDailySituation({
@@ -77,8 +75,6 @@ function build(overrides: Partial<Parameters<typeof buildDailySituation>[0]> = {
     nextActions: [],
     suggestions: [],
     staleInterventionDays: 14,
-    push: noop,
-    prefillJournal: noop,
     ...overrides,
   });
 }
@@ -108,8 +104,7 @@ describe("buildDailySituation", () => {
       person({ id: "p-warn", name: "Cさん", trend: { positive: 1, negative: 1, neutral: 0 } }),
       person({ id: "p-good", name: "Bさん", trend: { positive: 3, negative: 0, neutral: 0 } }),
     ];
-    const push = vi.fn();
-    const result = build({ vitals, people, push });
+    const result = build({ vitals, people });
 
     expect(result.concerns.map((i) => i.id)).toContain("concern-vitals-teams");
     expect(result.concerns.map((i) => i.id)).toContain("concern-vitals-people");
@@ -121,8 +116,10 @@ describe("buildDailySituation", () => {
     expect(result.good.map((i) => i.id)).toContain("good-person-p-good");
     expect(result.unevaluable.map((i) => i.id)).toContain("unevaluable-team-t-unknown");
 
-    result.concerns.find((i) => i.id === "concern-vitals-teams")?.onSelect?.();
-    expect(push).toHaveBeenCalledWith("/teams?focus=t-bad");
+    expect(result.concerns.find((i) => i.id === "concern-vitals-teams")?.target).toEqual({
+      type: "path",
+      path: "/teams?focus=t-bad",
+    });
   });
 
   it("warnチームが1つだけのときは集約シグナルを出さない（注目チップ側）", () => {
@@ -166,13 +163,11 @@ describe("buildDailySituation", () => {
       journal({ id: "t1", createdAt: THIS_WEEK }),
       journal({ id: "t2", createdAt: THIS_WEEK + 1000 }),
     ];
-    const push = vi.fn();
-    const result = build({ journalEntries: entries, push });
+    const result = build({ journalEntries: entries });
     const volume = result.concerns.find((i) => i.id === "concern-journal-volume");
     expect(volume?.signalKind).toBe("journal-volume");
     expect(volume?.text).toContain("先週同期間");
-    volume?.onSelect?.();
-    expect(push).toHaveBeenCalledWith("/journal");
+    expect(volume?.target).toEqual({ type: "path", path: "/journal" });
   });
 
   it("週初で先週全体より少なくても、同期間比が落ちていなければ観測量シグナルを出さない", () => {
@@ -246,12 +241,13 @@ describe("buildDailySituation", () => {
       suggestion({ id: "s2", title: "提案B", updatedAt: NOW - 21 * DAY_MS }),
       suggestion({ id: "s3", title: "新しい", updatedAt: NOW - DAY_MS }),
     ];
-    const push = vi.fn();
-    const result = build({ suggestions, staleInterventionDays: 14, push });
+    const result = build({ suggestions, staleInterventionDays: 14 });
     expect(result.concerns.map((i) => i.id)).toContain("concern-stalled-suggestions");
     expect(result.concerns.find((i) => i.id === "concern-stalled-suggestions")?.text).toContain("2件");
-    result.concerns.find((i) => i.id === "concern-stalled-suggestions")?.onSelect?.();
-    expect(push).toHaveBeenCalledWith("/suggestions");
+    expect(result.concerns.find((i) => i.id === "concern-stalled-suggestions")?.target).toEqual({
+      type: "path",
+      path: "/suggestions",
+    });
   });
 
   // ユーザー指摘「過去との比較に長期プロファイルが混ざってくる」対応。長期プロファイル
@@ -290,28 +286,23 @@ describe("buildDailySituation", () => {
     expect(goodResult.good.map((i) => i.id)).toContain("good-coverage");
     expect(goodResult.unevaluable.map((i) => i.id)).not.toContain("unevaluable-coverage");
 
-    const prefillJournal = vi.fn();
     const warnResult = build({
       vitals: {
         teams: [],
         oneOnOneCoverage: { status: "warn", covered: 2, total: 7, reason: "", uncoveredMembers: ["Aさん", "Bさん"] },
       },
-      prefillJournal,
     });
     expect(warnResult.unevaluable.map((i) => i.id)).toContain("unevaluable-coverage");
     expect(warnResult.good.map((i) => i.id)).not.toContain("good-coverage");
 
     const coverageItem = warnResult.unevaluable.find((i) => i.id === "unevaluable-coverage");
     expect(coverageItem?.detail).toContain("Aさん、Bさん");
-    coverageItem?.onSelect?.();
-    expect(prefillJournal).toHaveBeenCalledWith("#1on1 @Aさん ");
+    expect(coverageItem?.target).toEqual({ type: "prefill-journal", text: "#1on1 @Aさん " });
   });
 
-  it("onSelectを呼ぶとpushへ正しいパスが渡る", () => {
-    const push = vi.fn();
+  it("changesのtargetはJournal focusパスになる", () => {
     const entries = [journal({ id: "j1", createdAt: NOW - 1000, summary: "記録" })];
-    const result = build({ journalEntries: entries, push });
-    result.changes[0].onSelect?.();
-    expect(push).toHaveBeenCalledWith("/journal?focus=j1");
+    const result = build({ journalEntries: entries });
+    expect(result.changes[0].target).toEqual({ type: "path", path: "/journal?focus=j1" });
   });
 });

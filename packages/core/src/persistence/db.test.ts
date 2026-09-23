@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../test-helpers/store-env";
 
 // db.tsはモジュールレベルでDatabaseSyncインスタンスをキャッシュするため、
 // テストごとにvi.resetModules()して新しい一時ディレクトリのapp.dbへ接続し直す。

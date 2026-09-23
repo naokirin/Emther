@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../../styles/page.module.css";
-import { StatusBadge, type AgentRun, type AgentStatus } from "../../components/RunDetail";
+import type { AgentRun, AgentStatus } from "@emther/core/agent-runtime";
+import { StatusBadge } from "../../components/RunDetail";
 import { STATUS_META, runKindLabel } from "../../components/runDetailMeta";
 import { PaginationControls } from "../../components/Pagination";
 import { paginationMeta } from "../../components/usePagination";

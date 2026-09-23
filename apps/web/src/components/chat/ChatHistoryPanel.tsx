@@ -1,7 +1,7 @@
 import styles from "../../styles/page.module.css";
 import { ConsultHistoryItem } from "../ConsultHistoryItem";
 import { PageTitleRow } from "../HelpLink";
-import type { AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 type Props = {
   historyRuns: AgentRun[];

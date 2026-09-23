@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildTodayStateMeters, elapsedDays, formatElapsedLabel } from "./today-state";
-import type { JournalEntry, OrgVitals, PersonSummary } from "@emther/core/types";
+import type { JournalEntry, OrgVitals, PersonSummary } from "./types";
 import type { NextAction } from "./dashboard-next-actions";
 
 const NOW = new Date(2026, 8, 21, 12, 0, 0).getTime();
@@ -62,7 +62,7 @@ describe("buildTodayStateMeters", () => {
         icon: "!",
         kindLabel: "判断",
         text: "x",
-        onSelect: vi.fn(),
+        target: { type: "path", path: "/" },
         since: NOW,
       },
       {
@@ -72,7 +72,7 @@ describe("buildTodayStateMeters", () => {
         icon: "?",
         kindLabel: "観測",
         text: "y",
-        onSelect: vi.fn(),
+        target: { type: "path", path: "/" },
         since: NOW,
       },
     ];
@@ -101,8 +101,6 @@ describe("buildTodayStateMeters", () => {
       nextActions,
       decisionQueueLimit: 3,
       observationQueueLimit: 3,
-      push: vi.fn(),
-      prefillJournal: vi.fn(),
     });
 
     expect(meters.emLoad).toEqual({ current: 2, max: 7 });
@@ -123,7 +121,7 @@ describe("buildTodayStateMeters", () => {
       icon: "!",
       kindLabel: "判断",
       text: `x${i}`,
-      onSelect: vi.fn(),
+      target: { type: "path" as const, path: "/" },
       since: NOW,
     }));
     const meters = buildTodayStateMeters({
@@ -134,8 +132,6 @@ describe("buildTodayStateMeters", () => {
       nextActions,
       decisionQueueLimit: 3,
       observationQueueLimit: 3,
-      push: vi.fn(),
-      prefillJournal: vi.fn(),
     });
     expect(meters.emLoad).toEqual({ current: 10, max: 7 });
   });

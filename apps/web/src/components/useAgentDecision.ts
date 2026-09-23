@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AgentRun } from "./RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import type { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 
 type FetchWithNameConfirm = ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];

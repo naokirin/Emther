@@ -3,7 +3,7 @@ import styles from "../../styles/page.module.css";
 import { IdLinkedText } from "../IdLinkedText";
 import { IdFragmentLink } from "../IdFragmentLink";
 import { CONFIRM_PRIORITY_META, SUGGESTION_REVIEW_STATUS_META, type Suggestion } from "@emther/core/types";
-import type { SuggestionUpdate } from "../RunDetail";
+import type { SuggestionUpdate } from "@emther/core/agent-runtime";
 
 type FieldDiff = { label: string; before: string; after: string };
 

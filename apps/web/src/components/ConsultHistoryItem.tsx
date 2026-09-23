@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styles from "../styles/page.module.css";
-import type { AgentRun } from "./RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import { consultListMetaParts } from "./consultListMeta";
 import { consultListSecondary, consultListTitle, truncateExcerpt } from "@emther/core/origin-trace";
 

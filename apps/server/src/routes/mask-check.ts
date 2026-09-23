@@ -1,7 +1,6 @@
 import { Hono } from "hono";
+import { maskCheckPostBodySchema, type MaskCheckResponse } from "@emther/api-contract";
 import { MASK_CHECK_MAX_INPUT_CHARS, runMaskCheckAi, runMaskCheckQuick } from "@emther/core/mask-check";
-
-type Phase = "quick" | "ai";
 
 // docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ7）: web/src/app/api/mask-check/route.ts の移植。
 /**
@@ -19,14 +18,16 @@ export const maskCheckRoute = new Hono().post("/", async (c) => {
     return c.json({ error: "JSONボディが必要です" }, 400);
   }
 
-  if (!body || typeof body !== "object") {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return c.json({ error: "不正なリクエストです" }, 400);
   }
 
-  const text = (body as { text?: unknown }).text;
-  if (typeof text !== "string") {
+  const parsed = maskCheckPostBodySchema.safeParse(body);
+  if (!parsed.success) {
     return c.json({ error: "text（文字列）が必要です" }, 400);
   }
+
+  const text = parsed.data.text;
   if (!text.trim()) {
     return c.json({ error: "テキストが空です" }, 400);
   }
@@ -35,13 +36,14 @@ export const maskCheckRoute = new Hono().post("/", async (c) => {
     return c.json({ error: `テキストが長すぎます（最大おおよそ ${MASK_CHECK_MAX_INPUT_CHARS} 文字）` }, 400);
   }
 
-  const phaseRaw = (body as { phase?: unknown }).phase;
-  const phase: Phase = phaseRaw === "ai" ? "ai" : "quick";
+  const phase = parsed.data.phase === "ai" ? "ai" : "quick";
 
   if (phase === "quick") {
-    return c.json({ phase: "quick", ...(await runMaskCheckQuick(text)) });
+    const resBody = { phase: "quick" as const, ...(await runMaskCheckQuick(text)) } satisfies MaskCheckResponse;
+    return c.json(resBody);
   }
 
   const ai = await runMaskCheckAi(text);
-  return c.json({ phase: "ai", ...ai });
+  const resBody = { phase: "ai" as const, ...ai } satisfies MaskCheckResponse;
+  return c.json(resBody);
 });

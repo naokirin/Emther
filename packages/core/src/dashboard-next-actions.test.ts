@@ -6,8 +6,8 @@ import {
   type BuildNextActionsParams,
   type NextAction,
 } from "./dashboard-next-actions";
-import type { AgentRun } from "../components/RunDetail";
-import type { JournalEntry, OrgVitals, PersonSummary, Suggestion } from "@emther/core/types";
+import type { AgentRun } from "./agent-runtime/types";
+import type { JournalEntry, OrgVitals, PersonSummary, Suggestion } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date(2026, 8, 13, 12, 0, 0).getTime();
@@ -84,7 +84,7 @@ function proposal(conclusion: string) {
   };
 }
 
-const noop = () => {};
+const noopTarget = { type: "path" as const, path: "/" };
 
 function baseParams(overrides: Partial<BuildNextActionsParams> = {}): BuildNextActionsParams {
   return {
@@ -98,10 +98,6 @@ function baseParams(overrides: Partial<BuildNextActionsParams> = {}): BuildNextA
     pendingUnmaskedSends: [],
     staleRunIds: new Set(),
     watchingItems: [],
-    goToRunSuggestion: noop,
-    push: noop,
-    prefillJournal: noop,
-    onConfirmUnmasked: noop,
     ...overrides,
   };
 }
@@ -266,7 +262,7 @@ describe("buildNextActions のバッチ系ドラフト束ねと優先度", () =>
       icon: "🤖",
       kindLabel: "ドラフト提案",
       text: "draft",
-      onSelect: noop,
+      target: noopTarget,
       since: NOW,
     };
     const yieldAction: NextAction = {
@@ -276,7 +272,7 @@ describe("buildNextActions のバッチ系ドラフト束ねと優先度", () =>
       icon: "🟡",
       kindLabel: "Yield",
       text: "yield",
-      onSelect: noop,
+      target: noopTarget,
       since: NOW,
     };
     expect(heroRank(yieldAction)).toBeLessThan(heroRank(draft));
@@ -304,12 +300,10 @@ describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => 
     const journalEntries: JournalEntry[] = [
       journal({ id: "j-warn", urgency: "mid", sentiment: "negative" }),
     ];
-    let navigatedTo: string | null = null;
-    const actions = buildNextActions(baseParams({ journalEntries, push: (path) => (navigatedTo = path) }));
+    const actions = buildNextActions(baseParams({ journalEntries }));
     const card = actions.find((a) => a.id === "journal-j-warn");
     expect(card).toBeDefined();
-    card?.onSelect();
-    expect(navigatedTo).toBe("/journal?focus=j-warn");
+    expect(card?.target).toEqual({ type: "path", path: "/journal?focus=j-warn" });
   });
 
   it("確認済み（対応不要）にしたJournalは「Journal未確認」に出さない", () => {
@@ -333,20 +327,14 @@ describe("urgencyMeter", () => {
       id: "error-1",
       severity: "urgent",
       lane: "decision",
-      icon: "!",
       kindLabel: "実行異常",
-      text: "x",
-      onSelect: () => {},
       since: NOW,
     });
     const low = urgencyMeter({
       id: "maint-1",
       severity: "warn",
       lane: "maintenance",
-      icon: ".",
       kindLabel: "整備",
-      text: "y",
-      onSelect: () => {},
       since: NOW,
     });
     expect(high.tone).toBe("high");

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
-import type { AgentRun } from "../../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import { listSuggestionCandidatesFromProposal } from "../../components/run-detail/run-view-helpers";
 import { ChatHistoryPanel } from "../../components/chat/ChatHistoryPanel";
 import { ConsultReviewPanel } from "../../components/chat/ConsultReviewPanel";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./settings-store", () => ({
+vi.mock("../settings-store", () => ({
   getRulesAndConstraints: vi.fn(() => ({ localRerankEnabled: false })),
 }));
 
@@ -17,7 +17,7 @@ describe("reranker maybeRerankByText", () => {
   });
 
   it("設定OFFなら入力順のまま返す", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     vi.mocked(settings.getRulesAndConstraints).mockReturnValue({ localRerankEnabled: false } as never);
     const { maybeRerankByText } = await import("./reranker");
     const items = [{ id: "a" }, { id: "b" }];
@@ -26,7 +26,7 @@ describe("reranker maybeRerankByText", () => {
   });
 
   it("設定ONでスコア順に並べ替える", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     vi.mocked(settings.getRulesAndConstraints).mockReturnValue({ localRerankEnabled: true } as never);
 
     const transformers = await import("@huggingface/transformers");
@@ -45,7 +45,7 @@ describe("reranker maybeRerankByText", () => {
   });
 
   it("スコア取得失敗時は元の順にフォールバックする", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     vi.mocked(settings.getRulesAndConstraints).mockReturnValue({ localRerankEnabled: true } as never);
 
     const transformers = await import("@huggingface/transformers");
@@ -59,7 +59,7 @@ describe("reranker maybeRerankByText", () => {
   });
 
   it("getText が非文字列でも throw せずフォールバックする", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     vi.mocked(settings.getRulesAndConstraints).mockReturnValue({ localRerankEnabled: true } as never);
 
     const transformers = await import("@huggingface/transformers");
@@ -78,7 +78,7 @@ describe("reranker maybeRerankByText", () => {
   });
 
   it("既定は fp32 を先にロードする", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     vi.mocked(settings.getRulesAndConstraints).mockReturnValue({ localRerankEnabled: true } as never);
 
     const transformers = await import("@huggingface/transformers");
@@ -102,7 +102,7 @@ describe("reranker maybeRerankByText", () => {
   });
 
   it("先頭 dtype が失敗したら次の dtype を試す", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     vi.mocked(settings.getRulesAndConstraints).mockReturnValue({ localRerankEnabled: true } as never);
 
     const transformers = await import("@huggingface/transformers");

@@ -1,7 +1,7 @@
 import styles from "../../styles/page.module.css";
 import { IdLinkedText } from "../IdLinkedText";
 import { IdFragmentLink } from "../IdFragmentLink";
-import type { SuggestedTheme } from "../RunDetail";
+import type { SuggestedTheme } from "@emther/core/agent-runtime";
 
 export function SuggestedThemesBlock({
   themes,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
-import { CopilotChat, ExecutionState, type AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
+import { CopilotChat, ExecutionState } from "../RunDetail";
 import { listSuggestionCandidatesFromProposal } from "../run-detail/run-view-helpers";
 import { runFallbackTitle } from "../runDetailMeta";
 import { OriginTrace, type OriginTraceJournal } from "../OriginTrace";
@@ -20,6 +21,7 @@ const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   "auto-summary": "朝のサマリー",
   "auto-suggestion-update": "提案更新分析",
   "auto-distill": "状況蒸留",
+  "auto-grow": "学びの提案",
   "auto-journal-batch": "Journal集約解釈",
   "auto-weekly-report": "週次レビュー",
   "auto-monthly-report": "月次レビュー",

@@ -8,18 +8,20 @@ Hono API の入出力 Zod スキーマ（共有契約層）。
 - **クライアント接続**: `apps/web` は Hono RPC（`hc<AppType>`）。`AppType` は `@emther/server/app`。
 - **OpenAPI**（`@hono/zod-openapi`）: 後追い。スキーマさえあれば追加しやすい。
 - **検証の厳しさ**
-  - `journal` / `settings/rules` のリクエスト: **寛容**（不正型 → 未指定）。既存テスト・UX で固定。
+  - `journal` / `settings/rules` / `teams` POST のリクエスト: **寛容**（不正型 → 未指定）。既存テスト・UX で固定。
   - GET レスポンス: **厳密な HTTP エンベロープ**（`{ checkins }` / `{ teams }` 等）。サーバーは `satisfies XxxResponse`、web は `rpcJsonAs<XxxResponse>`。
-  - 大きなドメインエンティティ（Journal / Suggestion / Rules / PersonProfile / AgentRun 等）は必須フィールドを列挙し、深い optional は `.passthrough()`。小さい型はフィールドをフル定義。
+  - 大きなドメインエンティティ（Journal / Suggestion / Person / AgentRun 等）は必須フィールドを列挙し、深い optional は `.passthrough()`。小さい型はフィールドをフル定義。
+  - **契約外（意図的）**: `POST /api/settings/data/backup` は gzip バイナリ（`application/gzip`）を返すため JSON 契約の対象外。エラー時のみ `{ error: string }`。
 
 ## 構成
 
 | パス | 内容 |
 | --- | --- |
 | `health` / `timeline` | 既存 GET レスポンス |
-| `journal` / `settings-rules` | POST / PATCH リクエスト body（寛容） |
+| `journal` / `settings-rules` / `teams` / `mask-check` | POST / PATCH リクエスト body（寛容または text 厳密） |
 | `entities/*` | 共有エンティティスキーマ |
 | `responses/*` | ポーリング GET のレスポンスエンベロープ |
+| `core-type-drift.test.ts` | core 型 ↔ contract 型のコンパイル時一致 |
 
 ## GET レスポンス（`queries.ts` ポーリング対応）
 
@@ -50,8 +52,10 @@ Hono API の入出力 Zod スキーマ（共有契約層）。
 | `SuggestionsResponse` | `GET /api/suggestions` |
 | `SuggestionDetailResponse` | `GET /api/suggestions/:id` |
 | `KnowledgeEventsResponse` | `GET /api/knowledge/events` |
+| `IdResolveResponse` | `GET /api/id-resolve` |
+| `ModelsStatusResponse` | `GET /api/models/status` |
 
-`AgentRunView`（`entities/agents.ts`）は `toRunView` が返す run ビューの必須フィールド＋passthrough。
+`AgentRunView`（`entities/agents.ts`）は core の `AgentRun` と同一型（必須フィールド＋passthrough の ZodType）。
 
 ## ミューテーション（POST / PATCH / DELETE）レスポンス
 
@@ -96,5 +100,7 @@ GET と同じ方針で、成功時の JSON ボディはサーバーで `satisfie
 | `ObservationDumpAcceptResponse` | `POST /api/journal/dumps/:id/accept` |
 | `ImportProfileMutationResponse` | `POST /api/journal/dumps/profiles` |
 | `GlossaryEntryMutationResponse` | `POST /api/glossary`, `PATCH /api/glossary/:id` |
+| `MaskCheckResponse` | `POST /api/mask-check` |
+| `ModelsStatusResponse` | `POST /api/models/status` |
 
 横展開するときは新規・改修ルートからスキーマをここに追加し、サーバーで `satisfies`、web の `rpcJsonAs` を契約型に置換する。

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { SuggestedSuggestionUpdatesBlock } from "./SuggestedSuggestionUpdatesBlock";
-import type { SuggestionUpdate } from "../RunDetail";
+import type { SuggestionUpdate } from "@emther/core/agent-runtime";
 import type { Suggestion } from "@emther/core/types";
 
 // web/src/components/run-detail/SuggestedSuggestionUpdatesBlock.tsx（Next.js版）には専用

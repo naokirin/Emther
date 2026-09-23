@@ -1,4 +1,4 @@
-import type { AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 export interface AgentActivityItem {
   id: string;

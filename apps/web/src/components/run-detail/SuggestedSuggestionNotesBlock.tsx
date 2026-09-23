@@ -2,7 +2,7 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { IdLinkedText } from "../IdLinkedText";
 import { IdFragmentLink } from "../IdFragmentLink";
-import type { SuggestedSuggestionNote } from "../RunDetail";
+import type { SuggestedSuggestionNote } from "@emther/core/agent-runtime";
 
 // docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。lookupで
 // 見つけた別提案への追記提案。採用すると対象提案の経過ログへ追記されるだけで、

@@ -3,7 +3,7 @@ import type { VitalStatus } from "@emther/core/types";
 import type { EntityHealthBreakdown, TodayStateMeters } from "../../lib/today-state";
 import { extractRecentActivities } from "./agentActivity";
 import { coverageTone, healthTone, loadTone, type DialTone } from "./dialTones";
-import type { AgentRun } from "../RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 type Props = {
   meters: TodayStateMeters;

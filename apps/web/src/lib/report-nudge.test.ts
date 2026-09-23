@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { selectReportNudges, type ReportNudgeKind } from "./report-nudge";
-import type { AgentRun } from "../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 
 function run(overrides: Partial<AgentRun> & { origin: AgentRun["origin"] }): AgentRun {
   return {

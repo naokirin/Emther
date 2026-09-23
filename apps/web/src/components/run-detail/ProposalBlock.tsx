@@ -1,6 +1,6 @@
 import { IdLinkedText } from "../IdLinkedText";
 import { AdviceBlock } from "../AdviceBlock";
-import type { Proposal } from "../RunDetail";
+import type { Proposal } from "@emther/core/agent-runtime";
 import { listSuggestionCandidatesFromProposal } from "./run-view-helpers";
 
 // 結論・参照ファクト・Expand/Challenge・判断ロジック・棄却した代替案・提案化候補の表示。

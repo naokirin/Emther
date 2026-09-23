@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
+import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../test-helpers/store-env";
 import { extractFirstJsonObject } from "./local-model";
 
 describe("extractFirstJsonObject", () => {
@@ -44,7 +44,7 @@ describe("getLocalChatModel", () => {
   });
 
   it("設定のプリセットに応じたモデルIDを返す", async () => {
-    const settings = await import("./settings-store");
+    const settings = await import("../settings-store");
     const { getLocalChatModel, LOCAL_CHAT_MODEL_PRESETS } = await import("./local-model");
 
     expect(getLocalChatModel().id).toBe(LOCAL_CHAT_MODEL_PRESETS["1.2b-jp"].id);

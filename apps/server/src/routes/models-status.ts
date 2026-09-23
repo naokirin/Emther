@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { ModelsStatusResponse } from "@emther/api-contract";
 import { ensureLocalModels, getModelLoadSnapshot, retryFailedLocalModels } from "@emther/core/model-loader";
 
 // docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ7）: web/src/app/api/models/status/route.ts の移植。
@@ -8,9 +9,11 @@ import { ensureLocalModels, getModelLoadSnapshot, retryFailedLocalModels } from 
 export const modelsStatusRoute = new Hono()
   .get("/", (c) => {
     void ensureLocalModels();
-    return c.json(getModelLoadSnapshot());
+    const body = getModelLoadSnapshot() satisfies ModelsStatusResponse;
+    return c.json(body);
   })
   .post("/", async (c) => {
     await retryFailedLocalModels();
-    return c.json(getModelLoadSnapshot());
+    const body = getModelLoadSnapshot() satisfies ModelsStatusResponse;
+    return c.json(body);
   });

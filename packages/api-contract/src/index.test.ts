@@ -3,13 +3,19 @@ import {
   agentRunMutationResponseSchema,
   agentsResponseSchema,
   emCheckinsResponseSchema,
+  idResolveResponseSchema,
   journalCreateResponseSchema,
   journalListResponseSchema,
   journalPostBodySchema,
+  maskCheckAiResponseSchema,
+  maskCheckPostBodySchema,
+  maskCheckQuickResponseSchema,
+  modelsStatusResponseSchema,
   okResponseSchema,
   settingsRulesPatchSchema,
   suggestionMutationResponseSchema,
   suggestionsResponseSchema,
+  teamsPostBodySchema,
   teamsResponseSchema,
   timelineResponseSchema,
   vitalsResponseSchema,
@@ -34,6 +40,15 @@ describe("@emther/api-contract 寛容パース（既存 journal/settings 方針�
     });
     expect(parsed.teamWindowDays).toBeUndefined();
     expect(parsed.autoMorningSummaryEnabled).toBeUndefined();
+  });
+
+  it("teams POST: 不正型は未指定扱い", () => {
+    expect(teamsPostBodySchema.parse(null)).toEqual({});
+    expect(teamsPostBodySchema.parse({ name: 1, members: "x", managedByEm: "yes" })).toEqual({
+      name: undefined,
+      members: undefined,
+      managedByEm: undefined,
+    });
   });
 });
 
@@ -231,5 +246,77 @@ describe("@emther/api-contract ミューテーション（POST/PATCH/DELETE）�
       },
     };
     expect(agentRunMutationResponseSchema.parse(data)).toMatchObject(data);
+  });
+});
+
+describe("@emther/api-contract 新規エンベロープ（id-resolve / models-status / mask-check）", () => {
+  it("id-resolve: matches 配列を受理する", () => {
+    const data = {
+      matches: [{ kind: "suggestion" as const, id: "abc", label: "題", href: "/suggestions/abc" }],
+    };
+    expect(idResolveResponseSchema.parse(data)).toEqual(data);
+  });
+
+  it("id-resolve: kind 不正は拒否する", () => {
+    expect(() =>
+      idResolveResponseSchema.parse({
+        matches: [{ kind: "nope", id: "a", label: "l", href: "/x" }],
+      }),
+    ).toThrow();
+  });
+
+  it("models-status: ModelLoadSnapshot 形を受理する", () => {
+    const data = {
+      overall: "ready" as const,
+      models: [
+        {
+          key: "chat" as const,
+          label: "Chat",
+          modelId: "mock/chat",
+          phase: "ready" as const,
+          progress: 100,
+          loadedBytes: null,
+          totalBytes: null,
+          cached: true,
+          error: null,
+        },
+      ],
+    };
+    expect(modelsStatusResponseSchema.parse(data)).toEqual(data);
+  });
+
+  it("mask-check POST body: text 必須・phase 不正は未指定", () => {
+    expect(maskCheckPostBodySchema.parse({ text: "hello", phase: "nope" })).toMatchObject({
+      text: "hello",
+      phase: undefined,
+    });
+    expect(() => maskCheckPostBodySchema.parse({ text: 1 })).toThrow();
+  });
+
+  it("mask-check quick/ai レスポンス: 必須フィールドを受理する", () => {
+    const quick = {
+      phase: "quick" as const,
+      sourceText: "x",
+      maskedText: "x",
+      nameReplacements: [],
+      unregisteredNameCandidates: [],
+      sensitiveFindings: [],
+      highlights: [],
+      truncated: false,
+      inputCharCount: 1,
+      disclaimer: "d",
+    };
+    expect(maskCheckQuickResponseSchema.parse(quick)).toMatchObject(quick);
+
+    const ai = {
+      phase: "ai" as const,
+      unregisteredNameCandidates: [],
+      sensitiveFindings: [],
+      highlights: [],
+      aiScopeNote: "n",
+      aiWeak: false,
+      disclaimer: "d",
+    };
+    expect(maskCheckAiResponseSchema.parse(ai)).toMatchObject(ai);
   });
 });

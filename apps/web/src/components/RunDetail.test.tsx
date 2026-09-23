@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CopilotChat, ExecutionState, StatusBadge, type AgentRun } from "./RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
+import { CopilotChat, ExecutionState, StatusBadge } from "./RunDetail";
 import { draftKindLabel, isDraftAwaitingTriage, runFallbackTitle, shouldOmitRunFromNextActions } from "./runDetailMeta";
 
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {

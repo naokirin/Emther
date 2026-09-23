@@ -8,7 +8,7 @@ import { Select } from "../../components/Select";
 import { JournalSuggestionTrendChart, PeriodNavigator } from "../../components/DailyTrendChart";
 import { usePeriodNavigator } from "../../components/usePeriodNavigator";
 import { PageTitleRow } from "../../components/HelpLink";
-import type { AgentRun } from "../../components/RunDetail";
+import type { AgentRun } from "@emther/core/agent-runtime";
 import { PeriodReviewBlock } from "../../components/run-detail/PeriodReviewBlock";
 import { buildJournalSuggestionDailyTrend } from "@emther/core/daily-trends";
 import { reportsQueryKey, useJournal, useReports, useRuns, useSuggestions } from "../../lib/queries";
