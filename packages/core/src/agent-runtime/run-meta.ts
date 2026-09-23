@@ -1,4 +1,4 @@
-import { suggestionTitleFromConclusion, YIELD_KIND_META, type YieldKind } from "../types";
+import { suggestionTitleFromConclusion, YIELD_KIND_META, type SuggestionReviewStatus, type YieldKind } from "../types";
 import { listSuggestionCandidatesFromProposal } from "./extraction";
 import { originLabel, type AgentRun } from "./types";
 
@@ -53,17 +53,20 @@ export function runKindLabel(run: AgentRun): string {
 /**
  * ダッシュボードの「次の1手」から外す run。
  * 専門Agentへの相談子run、EMが却下したもの、相談自体がアーカイブ済みのもの、
- * 紐づく提案がアーカイブ済みのもの。
+ * 紐づく提案がアーカイブ済み／確認済み(done)のもの。
+ * （確認済みとアーカイブは独立フィールドだが、どちらも「もう追わない」ため朝キューから外す。）
  * 様子見は呼び出し側で別扱い（期限内は非表示、期限切れは再浮上）。
  */
 export function shouldOmitRunFromNextActions(
   run: Pick<AgentRun, "id" | "consultedBy" | "triageStatus" | "archivedAt">,
-  suggestions: { agentRunId?: string; archivedAt?: number }[],
+  suggestions: { agentRunId?: string; archivedAt?: number; reviewStatus?: SuggestionReviewStatus }[],
 ): boolean {
   if (run.consultedBy) return true;
   if (run.triageStatus === "dismissed") return true;
   if (run.archivedAt) return true;
-  return suggestions.some((s) => s.agentRunId === run.id && !!s.archivedAt);
+  return suggestions.some(
+    (s) => s.agentRunId === run.id && (!!s.archivedAt || s.reviewStatus === "done"),
+  );
 }
 
 /** 自動起動かつ未トリアージ（起票／様子見／却下前）のドラフト。Issue行ではなく AgentRun が正。 */

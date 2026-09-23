@@ -10,6 +10,7 @@ import { listAdoptedThemes } from "../theme-store";
 import { computeOrgVitals } from "../vitals";
 import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";
 import { METHODOLOGY_CANDIDATE_GUIDANCE } from "./philosophy-lenses";
+import { shouldOmitRunFromNextActions } from "./run-meta";
 import { runs } from "./store";
 import {
   listDailyRelevantOpenSuggestions,
@@ -36,13 +37,8 @@ export function buildMorningSummaryContextBlock(): string {
   const suggestions = listSuggestions();
   const allRuns = [...runs.values()];
 
-  const omitRun = (run: AgentRun) => {
-    if (run.consultedBy) return true;
-    if (run.triageStatus === "dismissed") return true;
-    // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
-    if (run.archivedAt) return true;
-    return suggestions.some((s) => s.agentRunId === run.id && !!s.archivedAt);
-  };
+  // 朝キュー（今日やるべき）と同じ除外条件。確認済み提案に紐づく Yield/Error も材料にしない。
+  const omitRun = (run: AgentRun) => shouldOmitRunFromNextActions(run, suggestions);
 
   const yieldRuns = allRuns
     .filter((r) => r.status === "yield" && !omitRun(r))

@@ -153,6 +153,17 @@ describe("shouldOmitRunFromNextActions", () => {
     expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: Date.now() }), suggestions)).toBe(true);
     expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: undefined }), suggestions)).toBe(false);
   });
+
+  // ユーザー指摘「確認済みの提案に紐づく相談が今日やるべきに残る」対応。
+  // 確認済みとアーカイブは独立だが、どちらも朝キューからは外す。
+  it("確認済み(done)の提案に紐づくrunはアーカイブしていなくても除外する", () => {
+    const suggestions = [
+      { agentRunId: "run-done", reviewStatus: "done" as const },
+      { agentRunId: "run-open", reviewStatus: "unreviewed" as const },
+    ];
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-done" }), suggestions)).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-open" }), suggestions)).toBe(false);
+  });
 });
 
 describe("StatusBadge", () => {

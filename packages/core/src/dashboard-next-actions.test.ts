@@ -320,6 +320,54 @@ describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => 
   });
 });
 
+// ユーザー指摘「確認済みの提案に紐づく相談が今日やるべきに残る」対応。
+describe("buildNextActions の確認済み提案に紐づく run", () => {
+  it("確認済み(done)の提案に紐づくドラフト提案は朝キューに出さない", () => {
+    const draft = run({
+      id: "run-draft-done",
+      origin: "auto-summary",
+      reviewed: false,
+      status: "idle",
+      proposal: proposal("確認済みに紐づく結論"),
+    });
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-done", agentRunId: "run-draft-done", reviewStatus: "done" }),
+    ];
+    const actions = buildNextActions(baseParams({ runs: [draft], suggestions }));
+    expect(actions.some((a) => a.id === "auto-run-draft-done")).toBe(false);
+  });
+
+  it("確認済み(done)の提案に紐づく Yield も朝キューに出さない", () => {
+    const yieldRun = run({
+      id: "run-yield-done",
+      origin: "manual",
+      reviewed: true,
+      status: "yield",
+      yieldRequest: { kind: "decide", reason: "判断が必要", options: [{ id: "a", label: "A" }] },
+    });
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-done", agentRunId: "run-yield-done", reviewStatus: "done" }),
+    ];
+    const actions = buildNextActions(baseParams({ runs: [yieldRun], suggestions }));
+    expect(actions.some((a) => a.id === "yield-run-yield-done")).toBe(false);
+  });
+
+  it("未確認の提案に紐づくドラフトは従来どおり出す", () => {
+    const draft = run({
+      id: "run-draft-open",
+      origin: "auto-summary",
+      reviewed: false,
+      status: "idle",
+      proposal: proposal("未確認に紐づく結論"),
+    });
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-open", agentRunId: "run-draft-open", reviewStatus: "unreviewed" }),
+    ];
+    const actions = buildNextActions(baseParams({ runs: [draft], suggestions }));
+    expect(actions.some((a) => a.id === "auto-run-draft-open")).toBe(true);
+  });
+});
+
 describe("urgencyMeter", () => {
   it("urgent の判断待ちは high、整備は low 寄り", async () => {
     const { urgencyMeter } = await import("./dashboard-next-actions");
