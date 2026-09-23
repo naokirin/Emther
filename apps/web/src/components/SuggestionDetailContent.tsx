@@ -91,6 +91,9 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [detailDraftAdvice, setDetailDraftAdvice] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
+  // docs/design/suggestion/suggestion-detail.pen 案B。詳細を「結論・進め方 / 問い直し / 根拠」に分割し、
+  // Expand・Challenge を Collapse に埋めず専用タブへ出す。
+  const [detailTab, setDetailTab] = useState<"conclusion" | "rethink" | "evidence">("conclusion");
   const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
   const [mdCopied, setMdCopied] = useState(false);
   const [mdDownloaded, setMdDownloaded] = useState(false);
@@ -273,6 +276,14 @@ export function SuggestionDetailContent({ id }: { id: string }) {
         : [];
 
   const trail = buildSuggestionStrategyTrail({ id: suggestion.id, title: suggestion.title });
+  const detailExpansions = suggestion.detail?.expansions ?? [];
+  const detailChallenges = suggestion.detail?.challenges ?? [];
+  const rethinkCount = detailExpansions.length + detailChallenges.length;
+  const evidenceCount = suggestion.detail
+    ? suggestion.detail.facts.length + (suggestion.detail.logic.trim() ? 1 : 0)
+    : 0;
+  const rethinkTabLabel = rethinkCount > 0 ? `問い直し（${rethinkCount}）` : "問い直し";
+  const evidenceTabLabel = evidenceCount > 0 ? `根拠（${evidenceCount}）` : "根拠";
 
   return (
     <>
@@ -564,122 +575,145 @@ export function SuggestionDetailContent({ id }: { id: string }) {
           </div>
         ) : suggestion.detail ? (
           <>
-            <div
-              style={{
-                padding: "12px 14px",
-                backgroundColor: "var(--surface)",
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                borderLeft: "4px solid var(--accent)",
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <strong style={{ fontSize: "0.95rem", color: "var(--fg)" }}>✅ 結論</strong>
-              </div>
-              <p style={{ fontSize: "1rem", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
-                <IdLinkedText text={suggestion.detail.conclusion} />
-              </p>
-
-              {suggestion.detail.adviceOverride ||
-              suggestion.detail.advice ||
-              suggestion.detail.adviceStructured ? (
-                <AdviceBlock
-                  presentation="summary"
-                  fields={{
-                    advice: suggestion.detail.advice,
-                    adviceStructured: suggestion.detail.adviceStructured,
-                    adviceOverride: suggestion.detail.adviceOverride,
-                  }}
-                  overrideNote={
-                    detailRefreshKeptOverride && suggestion.detail.adviceOverride
-                      ? "AI版のアドバイスは更新済みです。表示はあなたの編集のままです（空にして保存するとAI版に戻れます）。"
-                      : suggestion.detail.adviceOverride
-                        ? "あなたの編集版を表示しています。"
-                        : null
-                  }
-                  onFollowUp={activeRun ? handleAdviceFollowUp : undefined}
-                  followUpsDisabled={deciding || !activeRun}
-                />
-              ) : null}
+            <div className={styles.tabs} style={{ margin: "12px 0" }} role="tablist" aria-label="提案の詳細の内訳">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "conclusion"}
+                className={`${styles.tabBtn} ${detailTab === "conclusion" ? styles.tabBtnActive : ""}`}
+                onClick={() => setDetailTab("conclusion")}
+              >
+                結論・進め方
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "rethink"}
+                className={`${styles.tabBtn} ${detailTab === "rethink" ? styles.tabBtnActive : ""}`}
+                onClick={() => setDetailTab("rethink")}
+              >
+                {rethinkTabLabel}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "evidence"}
+                className={`${styles.tabBtn} ${detailTab === "evidence" ? styles.tabBtnActive : ""}`}
+                onClick={() => setDetailTab("evidence")}
+              >
+                {evidenceTabLabel}
+              </button>
             </div>
 
-            {(suggestion.detail.facts.length > 0 ||
-              Boolean(suggestion.detail.logic) ||
-              (suggestion.detail.expansions && suggestion.detail.expansions.length > 0) ||
-              (suggestion.detail.challenges && suggestion.detail.challenges.length > 0)) && (
-              <details
+            {detailTab === "conclusion" && (
+              <div
                 style={{
-                  margin: "8px 0 12px",
+                  padding: "12px 14px",
+                  backgroundColor: "var(--surface)",
+                  borderRadius: 8,
                   border: "1px solid var(--border)",
-                  borderRadius: 6,
-                  padding: "8px 12px",
-                  background: "var(--bg-subtle, transparent)",
+                  borderLeft: "4px solid var(--accent)",
+                  marginBottom: 12,
                 }}
               >
-                <summary
-                  style={{
-                    cursor: "pointer",
-                    fontSize: "0.8rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 500,
-                    userSelect: "none",
-                  }}
-                >
-                  🔍 判断根拠・思考プロセスを確認する
-                  {suggestion.detail.facts.length > 0 ? `（参照ファクト ${suggestion.detail.facts.length}件）` : ""}
-                </summary>
-
-                <div style={{ marginTop: 10 }}>
-                  {suggestion.detail.facts.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
-                      <strong style={{ fontSize: "0.75rem" }}>参照ファクト</strong>
-                      <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                        {suggestion.detail.facts.map((f, i) => (
-                          <li key={i}>
-                            <IdLinkedText text={f} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {suggestion.detail.logic && (
-                    <div style={{ marginBottom: 10 }}>
-                      <strong style={{ fontSize: "0.75rem" }}>判断ロジック</strong>
-                      <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "4px 0 8px" }}>
-                        <IdLinkedText text={suggestion.detail.logic} />
-                      </p>
-                    </div>
-                  )}
-
-                  {suggestion.detail.expansions && suggestion.detail.expansions.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
-                      <strong style={{ fontSize: "0.75rem" }}>🔭 視点の広がり（Expand）</strong>
-                      <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                        {suggestion.detail.expansions.map((e, i) => (
-                          <li key={i}>
-                            <IdLinkedText text={e} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {suggestion.detail.challenges && suggestion.detail.challenges.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
-                      <strong style={{ fontSize: "0.75rem" }}>❓ 前提への問い（Challenge）</strong>
-                      <ul style={{ margin: "4px 0 8px 18px", fontSize: "0.75rem" }}>
-                        {suggestion.detail.challenges.map((c, i) => (
-                          <li key={i}>
-                            <IdLinkedText text={c} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--fg)" }}>✅ 結論</strong>
                 </div>
-              </details>
+                <p style={{ fontSize: "1rem", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
+                  <IdLinkedText text={suggestion.detail.conclusion} />
+                </p>
+
+                {suggestion.detail.adviceOverride ||
+                suggestion.detail.advice ||
+                suggestion.detail.adviceStructured ? (
+                  <AdviceBlock
+                    presentation="summary"
+                    fields={{
+                      advice: suggestion.detail.advice,
+                      adviceStructured: suggestion.detail.adviceStructured,
+                      adviceOverride: suggestion.detail.adviceOverride,
+                    }}
+                    overrideNote={
+                      detailRefreshKeptOverride && suggestion.detail.adviceOverride
+                        ? "AI版のアドバイスは更新済みです。表示はあなたの編集のままです（空にして保存するとAI版に戻れます）。"
+                        : suggestion.detail.adviceOverride
+                          ? "あなたの編集版を表示しています。"
+                          : null
+                    }
+                    onFollowUp={activeRun ? handleAdviceFollowUp : undefined}
+                    followUpsDisabled={deciding || !activeRun}
+                  />
+                ) : null}
+              </div>
+            )}
+
+            {detailTab === "rethink" && (
+              <div style={{ marginBottom: 12 }}>
+                <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+                  結論をいったん横に置き、前提や視点を見直すための示唆です。
+                </p>
+                {rethinkCount === 0 ? (
+                  <p className={styles.subtitle}>まだ問い直しの示唆はありません。</p>
+                ) : (
+                  <>
+                    {detailExpansions.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <strong style={{ fontSize: "0.85rem" }}>🔭 視点の広がり（Expand）</strong>
+                        <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
+                          {detailExpansions.map((e, i) => (
+                            <li key={i} style={{ marginBottom: 4 }}>
+                              <IdLinkedText text={e} />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {detailChallenges.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <strong style={{ fontSize: "0.85rem" }}>❓ 前提への問い（Challenge）</strong>
+                        <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
+                          {detailChallenges.map((c, i) => (
+                            <li key={i} style={{ marginBottom: 4 }}>
+                              <IdLinkedText text={c} />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {detailTab === "evidence" && (
+              <div style={{ marginBottom: 12 }}>
+                {evidenceCount === 0 ? (
+                  <p className={styles.subtitle}>まだ根拠はありません。</p>
+                ) : (
+                  <>
+                    {suggestion.detail.facts.length > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <strong style={{ fontSize: "0.85rem" }}>参照ファクト</strong>
+                        <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
+                          {suggestion.detail.facts.map((f, i) => (
+                            <li key={i} style={{ marginBottom: 4 }}>
+                              <IdLinkedText text={f} />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {suggestion.detail.logic.trim() && (
+                      <div style={{ marginBottom: 14 }}>
+                        <strong style={{ fontSize: "0.85rem" }}>判断ロジック</strong>
+                        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", margin: "6px 0 0", lineHeight: 1.55 }}>
+                          <IdLinkedText text={suggestion.detail.logic} />
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
 
             <p className={styles.subtitle} style={{ marginTop: 0 }}>
