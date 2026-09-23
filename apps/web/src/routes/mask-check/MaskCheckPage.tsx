@@ -15,6 +15,7 @@ import {
   type SensitiveFinding,
   type TextHighlight,
 } from "../../components/privacy-check/mask-check-display";
+import { api } from "../../lib/api-client";
 
 // web/src/app/mask-check/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
 // stylesのimportパス以外はロジック・構造を変更していない（ポーリング無し・Next依存も
@@ -54,10 +55,8 @@ export function MaskCheckPage() {
     setCopied(false);
 
     try {
-      const quickRes = await fetch("/api/mask-check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: trimmed, phase: "quick" }),
+      const quickRes = await api.api["mask-check"].$post({
+        json: { text: trimmed, phase: "quick" },
       });
       const quickData = (await quickRes.json().catch(() => null)) as QuickPayload | { error?: string } | null;
       if (!quickRes.ok || !quickData || !("maskedText" in quickData)) {
@@ -82,10 +81,8 @@ export function MaskCheckPage() {
 
       setBusyAi(true);
       try {
-        const aiRes = await fetch("/api/mask-check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: trimmed, phase: "ai" }),
+        const aiRes = await api.api["mask-check"].$post({
+          json: { text: trimmed, phase: "ai" },
         });
         const aiData = (await aiRes.json().catch(() => null)) as AiPayload | { error?: string } | null;
         if (aiRes.ok && aiData && "sensitiveFindings" in aiData) {

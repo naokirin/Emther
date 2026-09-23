@@ -2,6 +2,7 @@ import { useCallback, useContext, useRef, useState, type MouseEvent, type ReactN
 import { IdResolveContext } from "./idResolveContext";
 import { useNavigate } from "react-router";
 import { Modal } from "./Modal";
+import { api } from "../lib/api-client";
 import { goHrefForIdFragment } from "@emther/core/id-prefix";
 import type { IdMatch, IdMatchKind } from "@emther/core/id-resolve";
 import styles from "../styles/page.module.css";
@@ -47,7 +48,7 @@ function useIdResolveNav() {
 }
 
 async function fetchIdMatches(fragment: string): Promise<IdMatch[]> {
-  const res = await fetch(`/api/id-resolve?q=${encodeURIComponent(fragment)}`);
+  const res = await api.api["id-resolve"].$get({ query: { q: fragment } });
   const data = (await res.json()) as { matches?: IdMatch[] };
   return data.matches ?? [];
 }

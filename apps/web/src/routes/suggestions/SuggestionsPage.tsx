@@ -22,6 +22,7 @@ import {
 } from "../../components/useSuggestionExportColumns";
 import { SuggestionExportMenu } from "../../components/SuggestionExportMenu";
 import { useRuns, useSettingsRules, useSuggestions, useTeams, useThemes } from "../../lib/queries";
+import { api, rpcInit } from "../../lib/api-client";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import { downloadTextFile, suggestionExportFileName } from "../../lib/downloadTextFile";
 import {
@@ -104,14 +105,12 @@ function UnlinkedRunsAsSuggestions({
     }
     setError(null);
     try {
-      const res = await fetch("/api/suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: run.task.slice(0, 80), agentRunId: run.id }),
+      const res = await api.api.suggestions.$post({
+        json: { title: run.task.slice(0, 80), agentRunId: run.id },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; suggestion?: Suggestion };
       if (!res.ok) throw new Error(data.error ?? "提案化に失敗しました");
-      onCreated(data.suggestion.id);
+      onCreated(data.suggestion!.id);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -350,11 +349,10 @@ export function SuggestionsPage() {
   async function moveFocus(id: string, direction: "up" | "down") {
     setFocusMovingId(id);
     try {
-      const res = await fetch(`/api/suggestions/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ moveFocus: direction }),
-      });
+      const res = await api.api.suggestions[":id"].$patch(rpcInit({
+        param: { id },
+        json: { moveFocus: direction },
+      }));
       if (res.ok) await refreshSuggestions();
     } finally {
       setFocusMovingId(null);

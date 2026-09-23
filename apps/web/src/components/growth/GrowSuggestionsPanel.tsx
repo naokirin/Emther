@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
 import { growSuggestionsQueryKey, useGrowSuggestions, useRuns } from "../../lib/queries";
+import { api, rpcInit } from "../../lib/api-client";
 import type { GrowSuggestion } from "@emther/core/types";
 
 function formatDate(ts: number): string {
@@ -99,8 +100,8 @@ export function GrowSuggestionsPanel() {
     setGenerateStatus(null);
     handledRunIdRef.current = null;
     try {
-      const res = await fetch("/api/growth/generate", { method: "POST" });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.growth.generate.$post();
+      const data = (await res.json().catch(() => null)) as { error?: string; run?: { id?: string } } | null;
       if (res.status === 202) {
         // 人名の未確認確認待ちでparkされた。確認自体は別画面（Inbox）で行う。
         setGenerateStatus("人名の確認待ちです。Inbox で確認すると生成が始まります。");
@@ -123,15 +124,15 @@ export function GrowSuggestionsPanel() {
   async function handleSetStatus(suggestion: GrowSuggestion, status: GrowSuggestion["status"]) {
     setStatusUpdatingId(suggestion.id);
     try {
-      const res = await fetch(`/api/growth/suggestions/${suggestion.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.growth.suggestions[":id"].$patch(rpcInit({
+        param: { id: suggestion.id },
+        json: { status },
+      }));
+      const data = (await res.json().catch(() => null)) as { suggestion?: GrowSuggestion } | null;
       if (!res.ok || !data?.suggestion) return;
+      const updated = data.suggestion;
       queryClient.setQueryData<{ suggestions: GrowSuggestion[] }>(growSuggestionsQueryKey, () => ({
-        suggestions: growSuggestions.map((s) => (s.id === suggestion.id ? data.suggestion : s)),
+        suggestions: growSuggestions.map((s) => (s.id === suggestion.id ? updated : s)),
       }));
     } finally {
       setStatusUpdatingId(null);

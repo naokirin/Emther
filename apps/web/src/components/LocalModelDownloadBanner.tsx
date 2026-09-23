@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import styles from "../styles/page.module.css";
+import { api } from "../lib/api-client";
 import type { ModelLoadSnapshot } from "@emther/core/model-loader";
 
 const EMPTY: ModelLoadSnapshot = {
@@ -31,7 +32,7 @@ export function LocalModelDownloadBanner() {
 
     async function poll() {
       try {
-        const res = await fetch("/api/models/status");
+        const res = await api.api.models.status.$get();
         const json = (await res.json()) as ModelLoadSnapshot;
         if (!cancelled) setSnap(json);
       } catch {
@@ -52,7 +53,7 @@ export function LocalModelDownloadBanner() {
   async function handleRetry() {
     setRetrying(true);
     try {
-      const res = await fetch("/api/models/status", { method: "POST" });
+      const res = await api.api.models.status.$post();
       const json = (await res.json()) as ModelLoadSnapshot;
       setSnap(json);
     } catch {

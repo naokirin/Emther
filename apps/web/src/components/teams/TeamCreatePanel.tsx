@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
+import { api } from "../../lib/api-client";
 import type { Team } from "@emther/core/types";
 
 export function TeamCreatePanel({
@@ -28,16 +29,14 @@ export function TeamCreatePanel({
         .split(",")
         .map((m) => m.trim())
         .filter(Boolean);
-      const res = await fetch("/api/teams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: teamName, members }),
+      const res = await api.api.teams.$post({
+        json: { name: teamName, members },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; team?: Team };
       if (!res.ok) throw new Error(data.error ?? "チームの追加に失敗しました");
       setTeamName("");
       setTeamMembers("");
-      onCreated(data.team);
+      onCreated(data.team!);
       await refreshTeams();
     } catch (err) {
       setTeamError((err as Error).message);
@@ -53,15 +52,17 @@ export function TeamCreatePanel({
     setBulkError(null);
     setBulkResult(null);
     try {
-      const res = await fetch("/api/teams/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: bulkText }),
+      const res = await api.api.teams.bulk.$post({
+        json: { text: bulkText },
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        error?: string;
+        teams?: Team[];
+        skipped?: string[];
+      };
       if (!res.ok) throw new Error(data.error ?? "一括登録に失敗しました");
       setBulkText("");
-      setBulkResult({ created: data.teams.length, skipped: data.skipped });
+      setBulkResult({ created: data.teams!.length, skipped: data.skipped! });
       await refreshTeams();
     } catch (err) {
       setBulkError((err as Error).message);

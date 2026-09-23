@@ -5,6 +5,7 @@ import { IdFragmentLink } from "../IdFragmentLink";
 import { IdLinkedText } from "../IdLinkedText";
 import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
 import { ThemeGoalLinkEditor } from "../ThemeGoalLinkEditor";
+import { api, rpcInit } from "../../lib/api-client";
 import { isThemeGoalUnlinked, type Goal, type GoalLinkSuggestion, type OrgTheme } from "@emther/core/types";
 
 // 採用＝肯定（1段階）。壁打ち前提に入ったテーマを「意識の錨」として今日タブに残す。
@@ -83,8 +84,11 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
     setDistillSubmitting(true);
     setDistillError(null);
     try {
-      const res = await fetch("/api/themes/distill", { method: "POST" });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.themes.distill.$post();
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        run?: { id?: string };
+      } | null;
       if (res.status === 202) {
         await refreshRuns();
         return;
@@ -104,12 +108,13 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
     setThemeLinkSuggesting(true);
     setThemeLinkError(null);
     try {
-      const res = await fetch("/api/themes/link/suggest-goal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.themes.link["suggest-goal"].$post({ json: {} });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        suggestions?: GoalLinkSuggestion[];
+        source?: string;
+        fallbackReason?: string;
+      } | null;
       if (!res.ok) throw new Error(data?.error ?? "Goalリンク提案に失敗しました");
       setThemeLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
@@ -127,16 +132,15 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
     setThemeLinkApplyingId(s.sourceId);
     setThemeLinkError(null);
     try {
-      const res = await fetch(`/api/themes/${s.sourceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.themes[":id"].$patch(rpcInit({
+        param: { id: s.sourceId },
+        json: {
           action: "link",
           goalIds: s.goalIds,
-        }),
-      });
+        },
+      }));
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "リンクの採用に失敗しました");
       }
       await refreshThemes();
@@ -248,11 +252,10 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
                         onClick={async () => {
                           setThemeEditBusy(true);
                           try {
-                            const res = await fetch(`/api/themes/${t.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ action: "revise", ...themeEditDraft }),
-                            });
+                            const res = await api.api.themes[":id"].$patch(rpcInit({
+                              param: { id: t.id },
+                              json: { action: "revise", ...themeEditDraft },
+                            }));
                             if (!res.ok) throw new Error("更新に失敗しました");
                             setThemeEditId(null);
                             await refreshThemes();
@@ -390,11 +393,10 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
                             className={styles.btnOutline}
                             type="button"
                             onClick={async () => {
-                              await fetch(`/api/themes/${t.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "dismiss" }),
-                              });
+                              await api.api.themes[":id"].$patch(rpcInit({
+                                param: { id: t.id },
+                                json: { action: "dismiss" },
+                              }));
                               if (priorityThemeExpandedId === t.id) setPriorityThemeExpandedId(null);
                               await refreshThemes();
                             }}

@@ -12,6 +12,7 @@ import type { AgentRun } from "../../components/RunDetail";
 import { PeriodReviewBlock } from "../../components/run-detail/PeriodReviewBlock";
 import { buildJournalSuggestionDailyTrend } from "@emther/core/daily-trends";
 import { reportsQueryKey, useJournal, useReports, useRuns, useSuggestions } from "../../lib/queries";
+import { api, rpcInit } from "../../lib/api-client";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@emther/core/types";
 
 // web/src/app/reports/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
@@ -304,14 +305,10 @@ export function ReportsPage() {
     setReviewing(`${periodType}-${offset}`);
     setReviewError(null);
     try {
-      const res = await fetch("/api/reports/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodType, offset }),
-      });
-      const data = await res.json();
+      const res = await api.api.reports.review.$post({ json: { periodType, offset } });
+      const data = (await res.json()) as { error?: string; report?: Report };
       if (!res.ok) throw new Error(data.error ?? "レビューの起動に失敗しました");
-      setTriggeredSpotlightReport(data.report);
+      setTriggeredSpotlightReport(data.report!);
       await Promise.all([refreshReports(), refreshRuns()]);
     } catch (err) {
       setReviewError((err as Error).message);
@@ -321,15 +318,11 @@ export function ReportsPage() {
   }
 
   async function handleSaveNote(id: string, note: string) {
-    const res = await fetch(`/api/reports/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
-    });
-    const data = await res.json();
+    const res = await api.api.reports[":id"].$patch(rpcInit({ param: { id }, json: { note } }));
+    const data = (await res.json()) as { error?: string; report?: Report };
     if (res.ok) {
       queryClient.setQueryData<{ reports: Report[] }>(reportsQueryKey(periodFilter), (prev) => ({
-        reports: (prev?.reports ?? reports).map((r) => (r.id === id ? data.report : r)),
+        reports: (prev?.reports ?? reports).map((r) => (r.id === id ? data.report! : r)),
       }));
     }
   }

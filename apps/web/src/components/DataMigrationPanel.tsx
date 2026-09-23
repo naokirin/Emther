@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { api } from "../lib/api-client";
 import styles from "../styles/page.module.css";
 
 /**
@@ -17,9 +18,9 @@ export function DataMigrationPanel() {
     setBusy("backup");
     setError(null);
     try {
-      const res = await fetch("/api/settings/data/backup", { method: "POST" });
+      const res = await api.api.settings.data.backup.$post();
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
+        const json = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(json?.error || "バックアップに失敗しました");
       }
       const disposition = res.headers.get("Content-Disposition") || "";
@@ -50,10 +51,10 @@ export function DataMigrationPanel() {
     setBusy("restore");
     setError(null);
     try {
-      const form = new FormData();
-      form.set("file", file);
-      const res = await fetch("/api/settings/data/restore", { method: "POST", body: form });
-      const json = await res.json().catch(() => null);
+      const res = await api.api.settings.data.restore.$post({
+        form: { file },
+      });
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(json?.error || "復元に失敗しました");
       setRestartReason("restore");
       setRestartRequired(true);
@@ -67,7 +68,7 @@ export function DataMigrationPanel() {
 
   async function handleReset() {
     if (resetConfirm !== "RESET") {
-      setError('リセットするには下の欄に RESET と入力してください');
+      setError("リセットするには下の欄に RESET と入力してください");
       return;
     }
     if (!window.confirm("全データ（業務データと実名対応表）を削除します。サーバーが停止します。よろしいですか？")) {
@@ -77,12 +78,10 @@ export function DataMigrationPanel() {
     setBusy("reset");
     setError(null);
     try {
-      const res = await fetch("/api/settings/data/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "RESET" }),
+      const res = await api.api.settings.data.reset.$post({
+        json: { confirm: "RESET" },
       });
-      const json = await res.json().catch(() => null);
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(json?.error || "リセットに失敗しました");
       setRestartReason("reset");
       setRestartRequired(true);
@@ -102,9 +101,7 @@ export function DataMigrationPanel() {
         <p className={styles.subtitle}>
           サーバーを停止しました。変更を反映するにはアプリを再起動してください。
         </p>
-        <pre style={{ fontSize: "0.875rem", padding: 12, overflow: "auto" }}>
-          emther start
-        </pre>
+        <pre style={{ fontSize: "0.875rem", padding: 12, overflow: "auto" }}>emther start</pre>
         <p className={styles.subtitle} style={{ marginTop: 8 }}>
           再起動後、このページを再読み込みしてください。
         </p>
@@ -124,13 +121,17 @@ export function DataMigrationPanel() {
         業務データと実名対応表のバックアップ・復元・削除（CLI 認証・モデルキャッシュは含みません）
       </p>
 
-      {error && <p className={styles.errorText} role="alert">{error}</p>}
+      {error && (
+        <p className={styles.errorText} role="alert">
+          {error}
+        </p>
+      )}
 
       <section style={{ marginBottom: 24 }}>
         <h4 style={{ fontSize: "0.875rem", margin: "0 0 8px" }}>バックアップ</h4>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-          ダウンロードしたファイルを新しい端末へ移し、そちらで復元してください。サーバー側の
-          backups ディレクトリにも同じファイルが残ります。
+          ダウンロードしたファイルを新しい端末へ移し、そちらで復元してください。サーバー側の backups
+          ディレクトリにも同じファイルが残ります。
         </p>
         <button className={styles.primaryBtn} type="button" onClick={handleBackup} disabled={busy !== null}>
           {busy === "backup" ? "作成中…" : "バックアップをダウンロード"}
@@ -158,8 +159,8 @@ export function DataMigrationPanel() {
       <section>
         <h4 style={{ fontSize: "0.875rem", margin: "0 0 8px" }}>全データをリセット</h4>
         <p className={styles.subtitle} style={{ marginBottom: 8 }}>
-          data と secure の中身をすべて削除します。取り消せません。確認のため下に{" "}
-          <code>RESET</code> と入力してください。
+          data と secure の中身をすべて削除します。取り消せません。確認のため下に <code>RESET</code>{" "}
+          と入力してください。
         </p>
         <div className={styles.field} style={{ maxWidth: 240 }}>
           <label>

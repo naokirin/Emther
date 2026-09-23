@@ -28,6 +28,7 @@ import {
   useVitals,
 } from "../../lib/queries";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
+import { api, rpcInit } from "../../lib/api-client";
 import {
   isSuggestionOpen,
   isSuggestionStrategyUnlinked,
@@ -86,12 +87,13 @@ export function DashboardPage() {
     setSuggestionLinkSuggesting(true);
     setSuggestionLinkError(null);
     try {
-      const res = await fetch("/api/suggestions/link/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.suggestions.link.suggest.$post({ json: {} });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        suggestions?: SuggestionStrategyLinkSuggestion[];
+        source?: string;
+        fallbackReason?: string;
+      } | null;
       if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
       setSuggestionLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
@@ -109,15 +111,12 @@ export function DashboardPage() {
     setSuggestionLinkApplyingId(s.suggestionId);
     setSuggestionLinkError(null);
     try {
-      const res = await fetch(`/api/suggestions/${s.suggestionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          themeId: s.themeId,
-        }),
-      });
+      const res = await api.api.suggestions[":id"].$patch(rpcInit({
+        param: { id: s.suggestionId },
+        json: { themeId: s.themeId },
+      }));
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "リンクの採用に失敗しました");
       }
       await refreshSuggestions();
@@ -321,11 +320,10 @@ export function DashboardPage() {
           onCancel={async () => {
             setConfirmingUnmaskedBusy(true);
             try {
-              await fetch(`/api/agents/pending-unmasked/${encodeURIComponent(confirmingUnmasked.id)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "dismiss" }),
-              });
+              await api.api.agents["pending-unmasked"][":id"].$post(rpcInit({
+                param: { id: confirmingUnmasked.id },
+                json: { action: "dismiss" },
+              }));
               await refreshRuns();
             } finally {
               setConfirmingUnmaskedBusy(false);
@@ -335,11 +333,10 @@ export function DashboardPage() {
           onAllow={async () => {
             setConfirmingUnmaskedBusy(true);
             try {
-              await fetch(`/api/agents/pending-unmasked/${encodeURIComponent(confirmingUnmasked.id)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "confirm" }),
-              });
+              await api.api.agents["pending-unmasked"][":id"].$post(rpcInit({
+                param: { id: confirmingUnmasked.id },
+                json: { action: "confirm" },
+              }));
               await refreshRuns();
             } finally {
               setConfirmingUnmaskedBusy(false);
@@ -349,11 +346,10 @@ export function DashboardPage() {
           onRegister={async () => {
             setConfirmingUnmaskedBusy(true);
             try {
-              await fetch(`/api/agents/pending-unmasked/${encodeURIComponent(confirmingUnmasked.id)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "confirm", registerNameCandidates: true }),
-              });
+              await api.api.agents["pending-unmasked"][":id"].$post(rpcInit({
+                param: { id: confirmingUnmasked.id },
+                json: { action: "confirm", registerNameCandidates: true },
+              }));
               await refreshRuns();
             } finally {
               setConfirmingUnmaskedBusy(false);

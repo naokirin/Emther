@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import type { ObservationDumpView } from "@emther/core/observation-dump-types";
+import { api, rpcInit } from "../../lib/api-client";
 import type { FetchWithNameConfirm } from "./observation-dump-display";
 
 type Props = {
@@ -39,8 +40,10 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
     setReparsing(true);
     setError(null);
     try {
-      const res = await fetch(`/api/journal/dumps/${selectedId}/parse`, { method: "POST" });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.journal.dumps[":id"].parse.$post({
+        param: { id: selectedId },
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "再分割に失敗しました");
       await reload();
     } catch (err) {
@@ -51,11 +54,10 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
   }
 
   async function handleDiscard() {
-    const res = await fetch(`/api/journal/dumps/${selectedId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ discard: true }),
-    });
+    const res = await api.api.journal.dumps[":id"].$patch(rpcInit({
+      param: { id: selectedId },
+      json: { discard: true },
+    }));
     if (res.ok) {
       await reload();
       onDiscarded?.();
@@ -63,13 +65,12 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
   }
 
   async function toggleDrop(chunkId: string, drop: boolean) {
-    await fetch(`/api/journal/dumps/${selectedId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    await api.api.journal.dumps[":id"].$patch(rpcInit({
+      param: { id: selectedId },
+      json: {
         chunks: [{ id: chunkId, disposition: drop ? "drop" : "pending" }],
-      }),
-    });
+      },
+    }));
     await reload();
   }
 
@@ -89,10 +90,9 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
     setSavingEdit(true);
     setError(null);
     try {
-      const res = await fetch(`/api/journal/dumps/${selectedId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.journal.dumps[":id"].$patch(rpcInit({
+        param: { id: selectedId },
+        json: {
           chunks: [
             {
               id: editingChunkId,
@@ -101,9 +101,9 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
               disposition: "edit",
             },
           ],
-        }),
-      });
-      const data = await res.json().catch(() => null);
+        },
+      }));
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "保存に失敗しました");
       setEditingChunkId(null);
       await reload();

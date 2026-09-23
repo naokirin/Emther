@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "../styles/page.module.css";
+import { api } from "../lib/api-client";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { RecordDateField } from "./RecordDateField";
 
@@ -37,14 +38,12 @@ export function LocalLogSummaryImporter({ onCreated }: Props) {
     setSummarizing(true);
     setError(null);
     try {
-      const res = await fetch("/api/journal/local-summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: trimmed, mode: "log" }),
+      const res = await api.api.journal["local-summarize"].$post({
+        json: { text: trimmed, mode: "log" },
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as { error?: string; summary?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "ローカル要約に失敗しました");
-      setSummaryText(data.summary ?? "");
+      setSummaryText(data?.summary ?? "");
     } catch (err) {
       setError((err as Error).message);
     } finally {

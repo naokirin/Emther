@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../styles/page.module.css";
+import { api, rpcInit, rpcData } from "../lib/api-client";
 import { MultiSelectAutocomplete, type MultiSelectOption } from "./MultiSelectAutocomplete";
 import { Select } from "./Select";
 import { TagInput } from "./TagInput";
@@ -47,11 +48,10 @@ function TeamMembershipEditor({
           const nextMembers = added.includes(teamId)
             ? [...team.members, personName]
             : team.members.filter((m) => m !== personName);
-          return fetch(`/api/teams/${teamId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ members: nextMembers }),
-          });
+          return api.api.teams[":id"].$patch(rpcInit({
+            param: { id: teamId },
+            json: { members: nextMembers },
+          }));
         }),
       );
       onChanged();
@@ -89,13 +89,12 @@ function AliasEditor({ personId, aliases, onChanged }: { personId: string; alias
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/people/${personId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
+      const res = await api.api.people[":id"].$patch(rpcInit({
+        param: { id: personId },
+        json: body,
+      }));
+      const data = await rpcData<{ error?: string }>(res);
+      if (!res.ok) throw new Error(data?.error ?? "更新に失敗しました");
       onChanged();
     } catch (err) {
       setError((err as Error).message);
@@ -136,13 +135,12 @@ function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: st
     setMerging(true);
     setError(null);
     try {
-      const res = await fetch(`/api/people/${personId}/merge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ duplicateId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "統合に失敗しました");
+      const res = await api.api.people[":id"].merge.$post(rpcInit({
+        param: { id: personId },
+        json: { duplicateId },
+      }));
+      const data = await rpcData<{ error?: string }>(res);
+      if (!res.ok) throw new Error(data?.error ?? "統合に失敗しました");
       setDuplicateId("");
       onMerged();
     } catch (err) {

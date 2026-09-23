@@ -7,6 +7,7 @@ import { JournalInputSwitcher } from "../../components/JournalInputSwitcher";
 import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls } from "../../components/Pagination";
 import { paginationMeta } from "../../components/usePagination";
+import { api } from "../../lib/api-client";
 import { useSuggestions, useJournalSearch, useJournalBatchStatus } from "../../lib/queries";
 import type { JournalEntry } from "@emther/core/types";
 import { useJournalEditing } from "../../lib/useJournalEditing";
@@ -61,8 +62,8 @@ export function JournalPage() {
     setBatchSubmitting(true);
     setBatchError(null);
     try {
-      const res = await fetch("/api/journal/batch", { method: "POST" });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.journal.batch.$post();
+      const data = (await res.json().catch(() => null)) as { error?: string; run?: { id?: string } } | null;
       if (res.status === 202) return;
       if (!res.ok) throw new Error(data?.error ?? "Journal集約解釈の起動に失敗しました");
       const runId = data?.run?.id as string | undefined;

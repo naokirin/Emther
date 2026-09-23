@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
 import { TagInput } from "../TagInput";
 import { SuggestionLink } from "../SuggestionLink";
+import { api, rpcInit } from "../../lib/api-client";
 import { URGENCY_LABEL, suggestionOverviewFromLogs, type Suggestion, type JournalEntry, type KnowledgeEvent, type Team } from "@emther/core/types";
 
 // web/src/components/teams/TeamEditPanel.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
@@ -69,19 +70,18 @@ export function TeamEditPanel({
     setEditError(null);
     try {
       const members = editMembers.split(",").map((m) => m.trim()).filter(Boolean);
-      const res = await fetch(`/api/teams/${selectedTeam.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.teams[":id"].$patch(rpcInit({
+        param: { id: selectedTeam.id },
+        json: {
           name: editName,
           members,
           mission: editMission,
           constraints: editConstraints,
           managedByEm: editManagedByEm,
           aliases: editAliases,
-        }),
-      });
-      const data = await res.json();
+        },
+      }));
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await refreshTeams();
     } catch (err) {
@@ -95,11 +95,10 @@ export function TeamEditPanel({
     if (!selectedTeam) return;
     setArchiving(true);
     try {
-      const res = await fetch(`/api/teams/${selectedTeam.id}/archive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: !selectedTeam.archived }),
-      });
+      const res = await api.api.teams[":id"].archive.$post(rpcInit({
+        param: { id: selectedTeam.id },
+        json: { archived: !selectedTeam.archived },
+      }));
       if (res.ok) await refreshTeams();
     } finally {
       setArchiving(false);
@@ -108,7 +107,7 @@ export function TeamEditPanel({
 
   async function handleRemoveTeam(id: string) {
     try {
-      await fetch(`/api/teams/${id}`, { method: "DELETE" });
+      await api.api.teams[":id"].$delete({ param: { id } });
       onRemoved();
       await refreshTeams();
     } catch {

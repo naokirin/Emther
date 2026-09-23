@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../../components/Select";
+import { api, rpcData } from "../../lib/api-client";
 import type { ObservationDumpView } from "@emther/core/observation-dump-types";
 import type {
   FieldMapping,
@@ -56,22 +57,24 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
     try {
       const syn = opts?.syntaxOverride ?? syntax;
       const header = opts?.hasHeaderOverride ?? hasHeader;
-      const res = await fetch("/api/journal/dumps/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.journal.dumps.preview.$post({
+        json: {
           text,
           ...(syn !== "auto" ? { syntax: syn } : {}),
           ...(syn === "tsv" || syn === "csv" || syn === "auto"
             ? { hasHeader: header }
             : {}),
-        }),
+        },
       });
-      const data = await res.json().catch(() => null);
+      const data = await rpcData<{
+        error?: string;
+        preview?: ImportPreview;
+        profiles?: ImportProfile[];
+      }>(res);
       if (!res.ok) throw new Error(data?.error || "プレビューに失敗しました");
-      const p = data.preview as ImportPreview;
+      const p = data!.preview as ImportPreview;
       setPreview(p);
-      setProfiles((data.profiles as ImportProfile[]) ?? []);
+      setProfiles(data!.profiles ?? []);
       setFieldMapping(p.suggestedMapping);
       setTsKind(p.suggestedTsKind);
       setHasHeader(p.hasHeader);
@@ -112,25 +115,27 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
 
       if (!effectivePreview) {
         const syn = syntax;
-        const res = await fetch("/api/journal/dumps/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const res = await api.api.journal.dumps.preview.$post({
+          json: {
             text,
             ...(syn !== "auto" ? { syntax: syn } : {}),
             hasHeader,
-          }),
+          },
         });
-        const data = await res.json().catch(() => null);
+        const data = await rpcData<{
+          error?: string;
+          preview?: ImportPreview;
+          profiles?: ImportProfile[];
+        }>(res);
         if (!res.ok) throw new Error(data?.error || "プレビューに失敗しました");
-        const p = data.preview as ImportPreview;
+        const p = data!.preview as ImportPreview;
         effectivePreview = p;
         effectiveMapping = p.suggestedMapping;
         effectiveTsKind = p.suggestedTsKind;
         effectiveHasHeader = p.hasHeader;
         if (syn === "auto") effectiveSyntax = p.suggestedSyntax;
         setPreview(p);
-        setProfiles((data.profiles as ImportProfile[]) ?? []);
+        setProfiles(data!.profiles ?? []);
         setFieldMapping(p.suggestedMapping);
         setTsKind(p.suggestedTsKind);
         setHasHeader(p.hasHeader);
@@ -216,19 +221,18 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
       setError("プロファイル名を入力してください");
       return;
     }
-    const res = await fetch("/api/journal/dumps/profiles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: profileName.trim(), config: mapping }),
+    const res = await api.api.journal.dumps.profiles.$post({
+      json: { name: profileName.trim(), config: mapping },
     });
-    const data = await res.json().catch(() => null);
+    const data = await rpcData<{ error?: string; profile?: ImportProfile }>(res);
     if (!res.ok) {
       setError(data?.error || "プロファイル保存に失敗しました");
       return;
     }
-    setProfiles((prev) => [data.profile as ImportProfile, ...prev.filter((p) => p.id !== data.profile.id)]);
+    const profile = data!.profile as ImportProfile;
+    setProfiles((prev) => [profile, ...prev.filter((p) => p.id !== profile.id)]);
     setProfileName("");
-    setSelectedProfileId(data.profile.id);
+    setSelectedProfileId(profile.id);
   }
 
   function applyProfile(id: string) {

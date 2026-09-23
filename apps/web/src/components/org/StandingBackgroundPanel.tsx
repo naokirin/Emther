@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
+import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type OrgBackgroundEntry } from "@emther/core/types";
 import { treeTitle } from "./treeTitle";
@@ -70,19 +71,17 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
     setBgSubmitting(true);
     setBgError(null);
     try {
-      const res = await fetch("/api/org/background", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.org.background.$post({
+        json: {
           title: newBgTitle.trim(),
           fact: newBgFact.trim(),
           implication: newBgImplication.trim() || undefined,
           occurredOn: newBgOccurredOn.trim() || undefined,
           tags: parseTagInput(newBgTags),
           scope: newBgScope,
-        }),
+        },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; background?: OrgBackgroundEntry };
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewBgTitle("");
       setNewBgFact("");
@@ -91,7 +90,7 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
       setNewBgTags("");
       setNewBgScope("always");
       await refreshBackgrounds();
-      beginEditBackground(data.background);
+      beginEditBackground(data.background!);
     } catch (err) {
       setBgError((err as Error).message);
     } finally {
@@ -114,10 +113,9 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
     setBgSaving(true);
     setBgEditError(null);
     try {
-      const res = await fetch(`/api/org/background/${selectedBackground.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.org.background[":id"].$patch(rpcInit({
+        param: { id: selectedBackground.id },
+        json: {
           title: editBgTitle,
           fact: editBgFact,
           implication: editBgImplication,
@@ -125,9 +123,9 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
           tags: parseTagInput(editBgTags),
           scope: editBgScope,
           status: editBgStatus,
-        }),
-      });
-      const data = await res.json();
+        },
+      }));
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await refreshBackgrounds();
     } catch (err) {
@@ -139,7 +137,7 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
 
   async function handleRemoveBackground(id: string) {
     if (!confirm("この Standing Background を削除しますか？")) return;
-    await fetch(`/api/org/background/${id}`, { method: "DELETE" });
+    await api.api.org.background[":id"].$delete({ param: { id } });
     if (editingBackgroundId === id) setEditingBackgroundId(null);
     await refreshBackgrounds();
   }

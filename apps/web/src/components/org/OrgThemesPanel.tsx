@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
 import { ThemeGoalLinkEditor } from "../../components/ThemeGoalLinkEditor";
+import { api } from "../../lib/api-client";
 import { type Goal, type OrgTheme } from "@emther/core/types";
 
 type Props = {
@@ -48,17 +49,15 @@ export function OrgThemesPanel({
     setSubmitting(true);
     setCreateError(null);
     try {
-      const res = await fetch("/api/themes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.themes.$post({
+        json: {
           title: newTitle.trim(),
           summary: newSummary.trim(),
           rationale: newRationale.trim() || newSummary.trim() || newTitle.trim(),
           status: "adopted",
-        }),
+        },
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as { error?: string; theme?: OrgTheme } | null;
       if (!res.ok) throw new Error(data?.error ?? "テーマの作成に失敗しました");
       await refreshThemes();
       setNewTitle("");

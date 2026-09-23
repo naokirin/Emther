@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "../lib/api-client";
 import styles from "../styles/page.module.css";
 
 // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
@@ -24,13 +25,11 @@ export function JournalProfileCandidateSuggestion({
     setStatus("submitting");
     setError(null);
     try {
-      const res = await fetch("/api/knowledge/interpretations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ person, text }),
+      const res = await api.api.knowledge.interpretations.$post({
+        json: { person, text },
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "記録に失敗しました");
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? "記録に失敗しました");
       setStatus("done");
     } catch (err) {
       setError((err as Error).message);

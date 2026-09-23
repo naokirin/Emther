@@ -2,6 +2,7 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
 import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
+import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type Goal, type GoalHorizon, type GoalLinkSuggestion, type GoalStatus } from "@emther/core/types";
 import { treeTitle } from "./treeTitle";
@@ -94,18 +95,16 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/org/goals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.org.goals.$post({
+        json: {
           title: newTitle.trim(),
           elaboration: newElaboration.trim() || undefined,
           note: newNote.trim() || undefined,
           teamId: newTeamId || undefined,
           horizon: newHorizon || undefined,
-        }),
+        },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; goal?: Goal };
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewTitle("");
       setNewElaboration("");
@@ -113,7 +112,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
       setNewTeamId("");
       setNewHorizon("");
       await refreshGoals();
-      beginEdit(data.goal);
+      beginEdit(data.goal!);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -135,19 +134,18 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     setSaving(true);
     setEditError(null);
     try {
-      const res = await fetch(`/api/org/goals/${selectedGoal.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.org.goals[":id"].$patch(rpcInit({
+        param: { id: selectedGoal.id },
+        json: {
           title: editTitle,
           elaboration: editElaboration,
           note: editNote,
           teamId: editTeamId || null,
           horizon: editHorizon || null,
           status: editStatus,
-        }),
-      });
-      const data = await res.json();
+        },
+      }));
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await refreshGoals();
     } catch (err) {
@@ -162,12 +160,10 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     setThemeGenerateError(null);
     setThemeGenerateResult(null);
     try {
-      const res = await fetch("/api/themes/from-goal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goalIds: [goalId] }),
+      const res = await api.api.themes["from-goal"].$post({
+        json: { goalIds: [goalId] },
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "テーマ候補の作成に失敗しました");
       await refreshThemes();
       setThemeGenerateResult("テーマ候補を作成しました。「Themes」の候補一覧から確認・採用できます。");
@@ -180,7 +176,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
 
   async function handleRemove(id: string) {
     if (!confirm("このGoalを削除しますか？")) return;
-    await fetch(`/api/org/goals/${id}`, { method: "DELETE" });
+    await api.api.org.goals[":id"].$delete({ param: { id } });
     if (editingGoalId === id) setEditingGoalId(null);
     await refreshGoals();
   }
@@ -189,12 +185,13 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     setSuggesting(true);
     setSuggestError(null);
     try {
-      const res = await fetch("/api/themes/link/suggest-goal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.themes.link["suggest-goal"].$post({ json: {} });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        suggestions?: GoalLinkSuggestion[];
+        source?: string;
+        fallbackReason?: string;
+      } | null;
       if (!res.ok) throw new Error(data?.error ?? "Goal紐づけ提案に失敗しました");
       setSuggestPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
@@ -212,13 +209,12 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     setSuggestApplyingId(s.sourceId);
     setSuggestError(null);
     try {
-      const res = await fetch(`/api/themes/${s.sourceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "link", goalIds: s.goalIds }),
-      });
+      const res = await api.api.themes[":id"].$patch(rpcInit({
+        param: { id: s.sourceId },
+        json: { action: "link", goalIds: s.goalIds },
+      }));
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "リンクの採用に失敗しました");
       }
       await refreshThemes();

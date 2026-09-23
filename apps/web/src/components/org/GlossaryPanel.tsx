@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import styles from "../../styles/page.module.css";
+import { api, rpcInit } from "../../lib/api-client";
 import type { GlossaryEntry } from "@emther/core/glossary-store";
 
 export function GlossaryPanel() {
@@ -21,8 +22,8 @@ export function GlossaryPanel() {
 
   async function loadGlossary() {
     try {
-      const res = await fetch("/api/glossary");
-      const data = await res.json().catch(() => null);
+      const res = await api.api.glossary.$get();
+      const data = (await res.json().catch(() => null)) as { entries?: GlossaryEntry[] } | null;
       if (res.ok && Array.isArray(data?.entries)) {
         setEntries(data.entries);
       }
@@ -40,17 +41,15 @@ export function GlossaryPanel() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/glossary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.glossary.$post({
+        json: {
           term: newTerm.trim(),
           reading: newReading.trim() || undefined,
           meaning: newMeaning.trim(),
           category: newCategory.trim() || undefined,
-        }),
+        },
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "登録に失敗しました");
       await loadGlossary();
       setNewTerm("");
@@ -68,7 +67,7 @@ export function GlossaryPanel() {
   async function handleDelete(id: string) {
     if (!confirm("この用語を削除しますか？")) return;
     try {
-      const res = await fetch(`/api/glossary/${id}`, { method: "DELETE" });
+      const res = await api.api.glossary[":id"].$delete({ param: { id } });
       if (res.ok) {
         await loadGlossary();
       }
@@ -80,11 +79,10 @@ export function GlossaryPanel() {
   async function handleUpdate(id: string) {
     if (!editTerm.trim() || !editMeaning.trim()) return;
     try {
-      const res = await fetch(`/api/glossary/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ term: editTerm.trim(), meaning: editMeaning.trim() }),
-      });
+      const res = await api.api.glossary[":id"].$patch(rpcInit({
+        param: { id },
+        json: { term: editTerm.trim(), meaning: editMeaning.trim() },
+      }));
       if (res.ok) {
         setEditingId(null);
         await loadGlossary();

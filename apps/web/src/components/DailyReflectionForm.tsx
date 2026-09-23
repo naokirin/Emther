@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "../styles/page.module.css";
+import { api, rpcData } from "../lib/api-client";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { RecordDateField } from "./RecordDateField";
 import { todayDateInputValue } from "./recordDate";
@@ -63,7 +64,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
   useEffect(() => {
     async function loadTodayJournals() {
       try {
-        const res = await fetch("/api/journal");
+        const res = await api.api.journal.$get();
         const data = await res.json().catch(() => null);
         if (res.ok && Array.isArray(data?.entries)) {
           const todayStart = new Date();
@@ -84,16 +85,14 @@ export function DailyReflectionForm({ onCreated }: Props) {
     setAsking(true);
     setError(null);
     try {
-      const res = await fetch("/api/journal/local-summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.journal["local-summarize"].$post({
+        json: {
           mode: "question",
           history: [],
           todayJournals,
-        }),
+        },
       });
-      const data = await res.json().catch(() => null);
+      const data = await rpcData<{ question?: string; error?: string }>(res);
       const question =
         data?.question ??
         "お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や、全体の雰囲気など、ざっくりとした一言でも構いません）";
@@ -121,16 +120,14 @@ export function DailyReflectionForm({ onCreated }: Props) {
     setError(null);
 
     try {
-      const res = await fetch("/api/journal/local-summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.journal["local-summarize"].$post({
+        json: {
           mode: "question",
           history: updatedHistory,
           todayJournals,
-        }),
+        },
       });
-      const data = await res.json().catch(() => null);
+      const data = await rpcData<{ question?: string; error?: string }>(res);
       const nextQuestion =
         data?.question ??
         "ありがとうございます。今日を振り返って、心残りや、ふと引っかかった違和感、明日以降に意識したいモヤモヤ・気づきなどはありますか？特になければ、このまま本日の振り返りとしてまとめますね。";
@@ -152,15 +149,13 @@ export function DailyReflectionForm({ onCreated }: Props) {
 
     try {
       const combinedText = userMessages.join("\n\n");
-      const res = await fetch("/api/journal/local-summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: combinedText, mode: "reflection", todayJournals }),
+      const res = await api.api.journal["local-summarize"].$post({
+        json: { text: combinedText, mode: "reflection", todayJournals },
       });
-      const data = await res.json().catch(() => null);
+      const data = await rpcData<{ summary?: string; error?: string }>(res);
       if (!res.ok) throw new Error(data?.error ?? "振り返りの整理に失敗しました");
 
-      setStructuredText(data.summary ?? "");
+      setStructuredText(data?.summary ?? "");
       setPhase("review");
     } catch (err) {
       setError((err as Error).message);

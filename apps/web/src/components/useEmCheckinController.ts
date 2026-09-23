@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePagination } from "./usePagination";
 import { todayDateInputValue } from "./recordDate";
+import { api } from "../lib/api-client";
 import { emCheckinsQueryKey, useEmCheckins } from "../lib/queries";
 import type { EmCheckin } from "@emther/core/types";
 
@@ -48,19 +49,17 @@ export function useEmCheckinController(onSubmitted?: (checkin: EmCheckin) => voi
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/em-self/checkins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api["em-self"].checkins.$post({
+        json: {
           mood,
           energy,
           stress,
           headroom,
           note,
           ...(createdAtDate ? { createdAtDate } : {}),
-        }),
+        },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; checkin: EmCheckin };
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       queryClient.setQueryData<{ checkins: EmCheckin[] }>(emCheckinsQueryKey, () => ({
         checkins: [data.checkin, ...checkins],

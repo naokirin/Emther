@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { api } from "../lib/api-client";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import type { ObservationDumpView } from "@emther/core/observation-dump-types";
 import { ObservationDumpCreateForm } from "./observation-dump/ObservationDumpCreateForm";
@@ -24,10 +25,10 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   const selected = dumps.find((d) => d.id === selectedId) ?? null;
 
   const reload = useCallback(async () => {
-    const res = await fetch("/api/journal/dumps");
-    const data = await res.json().catch(() => null);
+    const res = await api.api.journal.dumps.$get();
+    const data = (await res.json().catch(() => null)) as { dumps?: ObservationDumpView[] } | null;
     if (res.ok && data?.dumps) {
-      setDumps(data.dumps as ObservationDumpView[]);
+      setDumps(data.dumps);
     }
     setLoaded(true);
   }, []);
@@ -43,12 +44,12 @@ export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
     if (loaded) return;
     let cancelled = false;
     void (async () => {
-      const res = await fetch("/api/journal/dumps");
+      const res = await api.api.journal.dumps.$get();
       if (cancelled) return;
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as { dumps?: ObservationDumpView[] } | null;
       if (cancelled) return;
       if (res.ok && data?.dumps) {
-        setDumps(data.dumps as ObservationDumpView[]);
+        setDumps(data.dumps);
       }
       setLoaded(true);
     })();

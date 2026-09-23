@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import styles from "../styles/page.module.css";
+import { api } from "../lib/api-client";
 import {
   OPEN_PERSON_QUICK_ADD_EVENT,
   PERSON_REGISTERED_EVENT,
@@ -57,12 +58,13 @@ export function PersonQuickAdd() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch("/api/people", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed, aliases: parseAliases(aliasesText) }),
+      const res = await api.api.people.$post({
+        json: { name: trimmed, aliases: parseAliases(aliasesText) },
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        person?: { name?: string; aliases?: string[] };
+      } | null;
       if (!res.ok) throw new Error(data?.error ?? "登録に失敗しました");
       const personName = typeof data?.person?.name === "string" ? data.person.name : trimmed;
       const aliasCount = Array.isArray(data?.person?.aliases) ? data.person.aliases.length : 0;

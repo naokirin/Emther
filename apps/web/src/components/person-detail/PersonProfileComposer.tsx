@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { api } from "../../lib/api-client";
 import styles from "../../styles/page.module.css";
 
 // ユーザー要望「メンバーの詳細でも長期プロファイルを入力できるようにしたい」対応。
@@ -25,12 +26,10 @@ export function PersonProfileComposer({
     setError(null);
     setSaved(false);
     try {
-      const res = await fetch("/api/knowledge/interpretations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ person: personName, text: trimmed }),
+      const res = await api.api.knowledge.interpretations.$post({
+        json: { person: personName, text: trimmed },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       setText("");
       setSaved(true);

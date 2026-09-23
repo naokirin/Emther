@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import styles from "../../styles/page.module.css";
+import { api } from "../../lib/api-client";
 import { isHexIdPrefix } from "@emther/core/id-prefix";
 import type { IdMatch, IdMatchKind } from "@emther/core/id-resolve";
 
@@ -32,7 +33,7 @@ export function GoByIdPrefixPage() {
     if (!isValid) return;
     let cancelled = false;
     (async () => {
-      const res = await fetch(`/api/id-resolve?q=${encodeURIComponent(prefix)}`);
+      const res = await api.api["id-resolve"].$get({ query: { q: prefix } });
       const data = (await res.json()) as { matches?: IdMatch[] };
       if (!cancelled) setResolved({ prefix, status: "resolved", matches: data.matches ?? [] });
     })();

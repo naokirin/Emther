@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
+import { api, rpcInit } from "../../lib/api-client";
 import { PersonJournalComposer } from "./PersonJournalComposer";
 import { PersonProfileComposer } from "./PersonProfileComposer";
 import { SuggestionLink } from "../SuggestionLink";
@@ -44,7 +45,11 @@ function FactSentimentAction({ fact, onChanged }: { fact: PersonFact; onChanged:
   async function toggle(ack: boolean) {
     setBusy(true);
     try {
-      await fetch(`/api/journal/${fact.id}/no-action-needed`, { method: ack ? "POST" : "DELETE" });
+      if (ack) {
+        await api.api.journal[":id"]["no-action-needed"].$post({ param: { id: fact.id } });
+      } else {
+        await api.api.journal[":id"]["no-action-needed"].$delete({ param: { id: fact.id } });
+      }
       onChanged();
     } finally {
       setBusy(false);
@@ -92,11 +97,10 @@ function SuggestionConcernTag({
   async function toggle(acknowledged: boolean) {
     setBusy(true);
     try {
-      await fetch(`/api/people/${personId}/concern-acks/${suggestion.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acknowledged }),
-      });
+      await api.api.people[":id"]["concern-acks"][":suggestionId"].$patch(rpcInit({
+        param: { id: personId, suggestionId: suggestion.id },
+        json: { acknowledged },
+      }));
       onChanged();
     } finally {
       setBusy(false);

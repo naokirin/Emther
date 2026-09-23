@@ -7,6 +7,7 @@ import { OriginTrace, type OriginTraceJournal } from "../OriginTrace";
 import { IdLinkedText } from "../IdLinkedText";
 import { useSuggestionPeek } from "../useSuggestionPeek";
 import type { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
+import { api, rpcInit } from "../../lib/api-client";
 import { truncateForTitle } from "@emther/core/types";
 import { journalExcerptFromTask } from "@emther/core/origin-trace";
 import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
@@ -186,11 +187,10 @@ export function ConsultReviewPanel({
       if (status === "watching" && nextReviewAt !== undefined) {
         body.triageNextReviewAt = nextReviewAt;
       }
-      const res = await fetch(`/api/agents/${selectedRun.id}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res = await api.api.agents[":id"].review.$post(rpcInit({
+        param: { id: selectedRun.id },
+        json: body,
+      }));
       if (!res.ok) throw new Error("記録に失敗しました");
       await refreshRuns();
     } catch (err) {
@@ -206,11 +206,10 @@ export function ConsultReviewPanel({
     setReviewSubmitting(true);
     setReviewError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: !selectedRun.archivedAt }),
-      });
+      const res = await api.api.agents[":id"].review.$post(rpcInit({
+        param: { id: selectedRun.id },
+        json: { archived: !selectedRun.archivedAt },
+      }));
       if (!res.ok) throw new Error("記録に失敗しました");
       await refreshRuns();
     } catch (err) {
@@ -228,11 +227,10 @@ export function ConsultReviewPanel({
     setResetSubmitting(true);
     setResetError(null);
     try {
-      const archiveRes = await fetch(`/api/agents/${selectedRun.id}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: true }),
-      });
+      const archiveRes = await api.api.agents[":id"].review.$post(rpcInit({
+        param: { id: selectedRun.id },
+        json: { archived: true },
+      }));
       if (!archiveRes.ok) throw new Error("相談のアーカイブに失敗しました");
 
       let newRunId: string;
@@ -309,8 +307,10 @@ export function ConsultReviewPanel({
     setThemesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/themes`, { method: "POST" });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.agents[":id"].themes.$post({
+        param: { id: selectedRun.id },
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "テーマの採用に失敗しました");
       await refreshRuns();
     } catch (err) {
@@ -324,7 +324,9 @@ export function ConsultReviewPanel({
     setThemesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/themes`, { method: "DELETE" });
+      const res = await api.api.agents[":id"].themes.$delete({
+        param: { id: selectedRun.id },
+      });
       if (!res.ok) throw new Error("テーマ提案の却下に失敗しました");
       await refreshRuns();
     } catch (err) {
@@ -340,12 +342,11 @@ export function ConsultReviewPanel({
     setSuggestionNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ indices }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.agents[":id"]["suggestion-notes"].$post(rpcInit({
+        param: { id: selectedRun.id },
+        json: { indices },
+      }));
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "追記の採用に失敗しました");
       await Promise.all([refreshSuggestions(), refreshRuns()]);
     } catch (err) {
@@ -359,11 +360,10 @@ export function ConsultReviewPanel({
     setSuggestionNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-notes`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ indices, reason: "dismissed" }),
-      });
+      const res = await api.api.agents[":id"]["suggestion-notes"].$delete(rpcInit({
+        param: { id: selectedRun.id },
+        json: { indices, reason: "dismissed" },
+      }));
       if (!res.ok) throw new Error("追記提案の却下に失敗しました");
       await refreshRuns();
     } catch (err) {
@@ -379,11 +379,10 @@ export function ConsultReviewPanel({
     setSuggestionNotesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-notes`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ indices, reason: "handled" }),
-      });
+      const res = await api.api.agents[":id"]["suggestion-notes"].$delete(rpcInit({
+        param: { id: selectedRun.id },
+        json: { indices, reason: "handled" },
+      }));
       if (!res.ok) throw new Error("追記提案を対応済みにできませんでした");
       await refreshRuns();
     } catch (err) {
@@ -398,12 +397,11 @@ export function ConsultReviewPanel({
     setSuggestionUpdatesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-updates`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ indices }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.agents[":id"]["suggestion-updates"].$post(rpcInit({
+        param: { id: selectedRun.id },
+        json: { indices },
+      }));
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "整理差分の反映に失敗しました");
       await Promise.all([refreshSuggestions(), refreshRuns()]);
     } catch (err) {
@@ -417,11 +415,10 @@ export function ConsultReviewPanel({
     setSuggestionUpdatesSubmitting(true);
     setDecideError(null);
     try {
-      const res = await fetch(`/api/agents/${selectedRun.id}/suggestion-updates`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ indices }),
-      });
+      const res = await api.api.agents[":id"]["suggestion-updates"].$delete(rpcInit({
+        param: { id: selectedRun.id },
+        json: { indices },
+      }));
       if (!res.ok) throw new Error("整理差分の却下に失敗しました");
       await refreshRuns();
     } catch (err) {

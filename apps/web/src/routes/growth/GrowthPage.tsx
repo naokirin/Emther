@@ -9,6 +9,7 @@ import { GrowSuggestionsPanel } from "../../components/growth/GrowSuggestionsPan
 import { ReflectionNoteForm } from "../../components/growth/ReflectionNoteForm";
 import { useReflectionNoteController } from "../../components/growth/useReflectionNoteController";
 import { reflectionNotesQueryKey } from "../../lib/queries";
+import { api, rpcInit } from "../../lib/api-client";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
 
 // 振り返りタブ改善案: 旧「EMの成長」のうち週次（学び・方針・KPT）だけを残す。
@@ -83,17 +84,17 @@ export function GrowthPage() {
     setPolicyUpdating(true);
     setPolicyError(null);
     try {
-      const res = await fetch(`/api/em-self/reflection-notes/${noteId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api["em-self"]["reflection-notes"][":id"].$patch(rpcInit({
+        param: { id: noteId },
+        json: { archived },
+      }));
+      const data = (await res.json().catch(() => null)) as { error?: string; note?: EmReflectionNote } | null;
       if (!res.ok || !data?.note) {
         throw new Error(data?.error ?? (archived ? "完了／アーカイブに失敗しました" : "戻すのに失敗しました"));
       }
+      const updated = data.note;
       queryClient.setQueryData<{ notes: EmReflectionNote[] }>(reflectionNotesQueryKey, () => ({
-        notes: notes.map((n) => (n.id === data.note.id ? data.note : n)),
+        notes: notes.map((n) => (n.id === updated.id ? updated : n)),
       }));
     } catch (err) {
       setPolicyError((err as Error).message);

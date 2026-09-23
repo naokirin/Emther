@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
+import { api, rpcInit } from "../../lib/api-client";
 import { PersonScoreBadge } from "../PersonScoreBadge";
 import { PERSON_VITAL_LABEL, personVitalReason, personVitalStatus, type PersonProfile } from "@emther/core/types";
 
@@ -28,7 +29,7 @@ export function PersonHeader({
   async function handleDelete() {
     setDeleting(true);
     try {
-      await fetch(`/api/people/${person.id}`, { method: "DELETE" });
+      await api.api.people[":id"].$delete({ param: { id: person.id } });
       onDeleted();
     } catch {
       setDeleting(false);
@@ -45,12 +46,11 @@ export function PersonHeader({
     setNameSaving(true);
     setNameError(null);
     try {
-      const res = await fetch(`/api/people/${person.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: next }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.people[":id"].$patch(rpcInit({
+        param: { id: person.id },
+        json: { name: next },
+      }));
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "名前の変更に失敗しました");
       setRenaming(false);
       await Promise.all([refreshPerson(), refreshPeople()]);
@@ -67,12 +67,10 @@ export function PersonHeader({
     setSelfSaving(true);
     setSelfError(null);
     try {
-      const res = await fetch("/api/settings/rules", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selfPersonId: person.isSelf ? null : person.id }),
+      const res = await api.api.settings.rules.$patch({
+        json: { selfPersonId: person.isSelf ? null : person.id },
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "自分の設定に失敗しました");
       await Promise.all([refreshPerson(), refreshPeople()]);
     } catch (err) {

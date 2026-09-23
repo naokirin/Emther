@@ -1,6 +1,7 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
+import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type PolicyCategory, type PolicyEntry } from "@emther/core/types";
 import { treeTitle } from "./treeTitle";
@@ -66,22 +67,20 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/org/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.org.policies.$post({
+        json: {
           text: newText.trim(),
           elaboration: newElaboration.trim() || undefined,
           category: newCategory || undefined,
-        }),
+        },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string; policy?: PolicyEntry };
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewText("");
       setNewElaboration("");
       setNewCategory("");
       await refreshPolicies();
-      beginEdit(data.policy);
+      beginEdit(data.policy!);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -101,17 +100,16 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
     setSaving(true);
     setEditError(null);
     try {
-      const res = await fetch(`/api/org/policies/${selectedPolicy.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await api.api.org.policies[":id"].$patch(rpcInit({
+        param: { id: selectedPolicy.id },
+        json: {
           text: editText,
           elaboration: editElaboration,
           category: editCategory || null,
           archived: editArchived,
-        }),
-      });
-      const data = await res.json();
+        },
+      }));
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       await refreshPolicies();
     } catch (err) {
@@ -123,7 +121,7 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
 
   async function handleRemove(id: string) {
     if (!confirm("このPolicyを削除しますか？")) return;
-    await fetch(`/api/org/policies/${id}`, { method: "DELETE" });
+    await api.api.org.policies[":id"].$delete({ param: { id } });
     if (editingPolicyId === id) setEditingPolicyId(null);
     await refreshPolicies();
   }

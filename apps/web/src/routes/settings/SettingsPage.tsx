@@ -8,6 +8,7 @@ import { AiToolsSettingsGroup } from "../../components/settings/AiToolsSettingsG
 import { AutomationSettingsGroup } from "../../components/settings/AutomationSettingsGroup";
 import { MorningModeSettingsGroup } from "../../components/settings/MorningModeSettingsGroup";
 import { useSettingsRules } from "../../lib/queries";
+import { api } from "../../lib/api-client";
 import type { RulesAndConstraints } from "@emther/core/types";
 
 // web/src/app/settings/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
@@ -56,13 +57,9 @@ export function SettingsPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch("/api/settings/rules", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
-      });
+      const res = await api.api.settings.rules.$patch({ json: draft });
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(typeof body?.error === "string" && body.error ? body.error : "保存に失敗しました");
       }
       await refreshRules();

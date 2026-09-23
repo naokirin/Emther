@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "../styles/page.module.css";
+import { api, rpcInit } from "../lib/api-client";
 import type { Goal } from "@emther/core/types";
 
 /** テーマ ↔ Goal の手動紐づけ。ThemeOkrLinkEditorのGoal版（API の action:"link" を叩く）。 */
@@ -41,12 +42,11 @@ export function ThemeGoalLinkEditor({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/themes/${themeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "link", goalIds: draft }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.themes[":id"].$patch(rpcInit({
+        param: { id: themeId },
+        json: { action: "link", goalIds: draft },
+      }));
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? "Goal紐づけの保存に失敗しました");
       await onSaved?.();
     } catch (err) {

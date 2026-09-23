@@ -5,6 +5,7 @@ import { PersonDetailContent } from "../../components/PersonDetailContent";
 import { PageTitleRow } from "../../components/HelpLink";
 import { SlideOver } from "../../components/SlideOver";
 import { usePeekParam } from "../../lib/usePeekParam";
+import { api } from "../../lib/api-client";
 import { usePeople } from "../../lib/queries";
 import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@emther/core/types";
 
@@ -53,12 +54,8 @@ export function PeoplePage() {
     setSubmitting(true);
     setAddError(null);
     try {
-      const res = await fetch("/api/people", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const data = await res.json().catch(() => null);
+      const res = await api.api.people.$post({ json: { name } });
+      const data = (await res.json().catch(() => null)) as { error?: string; person?: { id?: string } } | null;
       if (!res.ok) throw new Error(data?.error ?? "登録に失敗しました");
       setNewName("");
       await refreshPeople();

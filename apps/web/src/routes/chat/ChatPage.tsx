@@ -7,6 +7,7 @@ import { ChatHistoryPanel } from "../../components/chat/ChatHistoryPanel";
 import { ConsultReviewPanel } from "../../components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "../../components/chat/NewConsultForm";
 import { useSuggestions, useJournalEntry, useRuns, useSettingsRules } from "../../lib/queries";
+import { api } from "../../lib/api-client";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { isConsultHistoryRun } from "@emther/core/origin-trace";
 import { isRunStale } from "@emther/core/types";
@@ -89,8 +90,8 @@ export function ChatPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`/api/agents/${queryRunId}`);
-        const data = await res.json().catch(() => null);
+        const res = await api.api.agents[":id"].$get({ param: { id: queryRunId } });
+        const data = (await res.json().catch(() => null)) as { run?: AgentRun } | null;
         if (cancelled) return;
         if (!res.ok || !data?.run) {
           setRemotePin({

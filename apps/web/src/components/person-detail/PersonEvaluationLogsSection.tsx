@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
+import { api, rpcInit } from "../../lib/api-client";
 import type { PersonEvaluationLog } from "@emther/core/types";
 
 export function PersonEvaluationLogsSection({
@@ -25,12 +26,11 @@ export function PersonEvaluationLogsSection({
     setEvalError(null);
     setEvalMessage(null);
     try {
-      const res = await fetch(`/api/people/${personId}/evaluation-logs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "suggest-from-journal" }),
-      });
-      const data = await res.json();
+      const res = await api.api.people[":id"]["evaluation-logs"].$post(rpcInit({
+        param: { id: personId },
+        json: { action: "suggest-from-journal" },
+      }));
+      const data = (await res.json()) as { error?: string; logs?: PersonEvaluationLog[] };
       if (!res.ok) throw new Error(data.error ?? "仮置きに失敗しました");
       const n = Array.isArray(data.logs) ? data.logs.length : 0;
       setEvalMessage(n > 0 ? `${n}件の仮置きログを追加しました` : "新規の仮置きはありません（既存または材料不足）");
@@ -46,13 +46,12 @@ export function PersonEvaluationLogsSection({
     setEvalBusyId(logId);
     setEvalError(null);
     try {
-      const res = await fetch(`/api/people/${personId}/evaluation-logs/${logId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      const res = await api.api.people[":id"]["evaluation-logs"][":logId"].$patch(rpcInit({
+        param: { id: personId, logId },
+        json: { status },
+      }));
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "更新に失敗しました");
       }
       await refreshEvaluationLogs();
@@ -70,13 +69,12 @@ export function PersonEvaluationLogsSection({
     setEvalBusyId(logId);
     setEvalError(null);
     try {
-      const res = await fetch(`/api/people/${personId}/evaluation-logs/${logId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ noActionNeeded }),
-      });
+      const res = await api.api.people[":id"]["evaluation-logs"][":logId"].$patch(rpcInit({
+        param: { id: personId, logId },
+        json: { noActionNeeded },
+      }));
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(data?.error ?? "更新に失敗しました");
       }
       await refreshEvaluationLogs();

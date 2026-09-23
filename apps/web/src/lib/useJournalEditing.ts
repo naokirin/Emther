@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { timestampToDateInputValue } from "@emther/core/journal-date-parser";
 import { truncateForTitle, type JournalEntry } from "@emther/core/types";
+import { api, rpcInit } from "./api-client";
 import { useNameCandidateConfirm } from "./useNameCandidateConfirm";
 
 // docs/memo.md「C. Journalセンシング→行動」対応のその場編集ロジックを、Dashboardと
@@ -293,14 +294,13 @@ export function useJournalEditing(
     setPendingEntryIds((prev) => new Set(prev).add(entryId));
     dismissPendingError(entryId);
     try {
-      const res = await fetch(`/api/journal/${entryId}/no-action-needed`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
+      const res = await api.api.journal[":id"]["no-action-needed"].$post(rpcInit({
+        param: { id: entryId },
+        json: {},
+      }));
+      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
       if (!res.ok) throw new Error(data?.error ?? "確認の記録に失敗しました");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
       const retry = () => {
         void acknowledgeSentiment(entryId);
@@ -319,10 +319,12 @@ export function useJournalEditing(
     setPendingEntryIds((prev) => new Set(prev).add(entryId));
     dismissPendingError(entryId);
     try {
-      const res = await fetch(`/api/journal/${entryId}/no-action-needed`, { method: "DELETE" });
-      const data = await res.json();
+      const res = await api.api.journal[":id"]["no-action-needed"].$delete({
+        param: { id: entryId },
+      });
+      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
       if (!res.ok) throw new Error(data?.error ?? "取り消しに失敗しました");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
       const retry = () => {
         void clearSentimentAck(entryId);
@@ -343,10 +345,12 @@ export function useJournalEditing(
     setPendingEntryIds((prev) => new Set(prev).add(entryId));
     dismissPendingError(entryId);
     try {
-      const res = await fetch(`/api/journal/${entryId}/archive`, { method: "POST" });
-      const data = await res.json();
+      const res = await api.api.journal[":id"].archive.$post({
+        param: { id: entryId },
+      });
+      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
       if (!res.ok) throw new Error(data?.error ?? "アーカイブに失敗しました");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
       const retry = () => {
         void archiveEntry(entryId);
@@ -365,10 +369,12 @@ export function useJournalEditing(
     setPendingEntryIds((prev) => new Set(prev).add(entryId));
     dismissPendingError(entryId);
     try {
-      const res = await fetch(`/api/journal/${entryId}/archive`, { method: "DELETE" });
-      const data = await res.json();
+      const res = await api.api.journal[":id"].archive.$delete({
+        param: { id: entryId },
+      });
+      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
       if (!res.ok) throw new Error(data?.error ?? "アーカイブ解除に失敗しました");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
       const retry = () => {
         void unarchiveEntry(entryId);

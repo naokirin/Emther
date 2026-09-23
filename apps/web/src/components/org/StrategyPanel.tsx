@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "../../styles/page.module.css";
+import { api } from "../../lib/api-client";
 import { teamDisplayName, type OrgStrategy, type StatementElaboration, type Team } from "@emther/core/types";
 
 type Props = {
@@ -69,16 +70,14 @@ export function StrategyPanel({ strategy, strategyLoaded, refreshStrategy, activ
     if (!strategyDirty) return;
     setStrategySaving(true);
     try {
-      await fetch("/api/org/strategy", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await api.api.org.strategy.$patch({
+        json: {
           mission: strategyDraft.mission,
           missionElaboration: strategyDraft.missionElaboration ?? "",
           vision: strategyDraft.vision,
           visionElaboration: strategyDraft.visionElaboration ?? "",
           valueItems: normalizedValues,
-        }),
+        },
       });
       await refreshStrategy();
     } finally {
