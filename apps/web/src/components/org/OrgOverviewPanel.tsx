@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   isThemeGoalUnlinked,
   type Goal,
@@ -213,6 +213,7 @@ export function OrgOverviewPanel({
 }: Props) {
   const [focusGoalId, setFocusGoalId] = useState<string | null>(null);
   const [scanScale, setScanScale] = useState(1);
+  const [scanBaseSize, setScanBaseSize] = useState({ w: 0, h: 0 });
   const scanViewportRef = useRef<HTMLDivElement>(null);
   const scanContentRef = useRef<HTMLDivElement>(null);
 
@@ -252,8 +253,7 @@ export function OrgOverviewPanel({
   }
 
   const fitScan = () => {
-    // フィット = 自然サイズ（scale 1）。幅はレイアウトで viewport に収める。
-    // 一律 zoom で縮小すると文字・余白の指定が打ち消されるため使わない。
+    // フィット = 自然サイズ（scale 1）。幅は viewport 幅でレイアウトする。
     setScanScale(1);
     scanViewportRef.current?.scrollTo({ top: 0, left: 0 });
   };
@@ -262,6 +262,32 @@ export function OrgOverviewPanel({
     if (focusGoalId) return;
     setScanScale(1);
   }, [focusGoalId, activeGoals.length, adoptedThemes.length, hasMvv, loaded]);
+
+  // 拡大は transform で行い、レイアウト幅はフィット時のまま（折り返しが増えない）
+  useLayoutEffect(() => {
+    if (focusGoalId) return;
+    const viewport = scanViewportRef.current;
+    const content = scanContentRef.current;
+    if (!viewport || !content) return;
+
+    const measure = () => {
+      const style = getComputedStyle(viewport);
+      const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      const w = Math.max(viewport.clientWidth - padX, 0);
+      const h = content.offsetHeight;
+      setScanBaseSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const ro = new ResizeObserver(measure);
+    ro.observe(viewport);
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [focusGoalId, activeGoals.length, adoptedThemes.length, hasMvv, loaded, orphanThemes.length, activePolicies.length]);
 
   const focusIndex = focusGoalId ? activeGoals.findIndex((g) => g.id === focusGoalId) : -1;
   const focusGoal = focusIndex >= 0 ? activeGoals[focusIndex] : null;
@@ -443,10 +469,27 @@ export function OrgOverviewPanel({
       {hasScanBody ? (
         <div className={styles.orgScanViewport} ref={scanViewportRef}>
           <div
-            className={styles.orgScanCanvas}
-            ref={scanContentRef}
-            style={{ ["--scan-scale" as string]: scanScale } as CSSProperties}
+            className={styles.orgScanScaleShell}
+            style={
+              scanBaseSize.w > 0
+                ? {
+                    width: scanBaseSize.w * scanScale,
+                    height: scanBaseSize.h * scanScale,
+                  }
+                : undefined
+            }
           >
+            <div
+              className={styles.orgScanCanvas}
+              ref={scanContentRef}
+              style={
+                {
+                  width: scanBaseSize.w > 0 ? scanBaseSize.w : "100%",
+                  transform: scanScale === 1 ? undefined : `scale(${scanScale})`,
+                  transformOrigin: "top left",
+                } as CSSProperties
+              }
+            >
             {hasMvv ? (
               <div className={styles.orgScanMvv}>
                 <span className={styles.orgScanMvvLabel}>錨 · MVV</span>
@@ -585,6 +628,7 @@ export function OrgOverviewPanel({
                 ))}
               </div>
             ) : null}
+            </div>
           </div>
         </div>
       ) : null}

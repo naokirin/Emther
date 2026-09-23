@@ -1770,13 +1770,16 @@
   border: 1px solid #2c2f3a;
 }
 
+.orgScanScaleShell {
+  position: relative;
+  min-width: 100%;
+}
+
 .orgScanCanvas {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 100%;
   box-sizing: border-box;
-  zoom: var(--scan-scale, 1);
 }
 
 .orgScanMvvGoalEdges {
