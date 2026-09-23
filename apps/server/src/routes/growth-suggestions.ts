@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { GrowSuggestionsResponse } from "@emther/api-contract";
+import type { GrowSuggestionMutationResponse, GrowSuggestionsResponse } from "@emther/api-contract";
 import {
   GROW_SUGGESTION_STATUSES,
   listGrowSuggestions,
@@ -25,5 +25,6 @@ export const growthSuggestionsRoute = new Hono()
     if (!updated) {
       return c.json({ error: "見つかりません" }, 404);
     }
-    return c.json({ suggestion: toGrowSuggestionView(updated) });
+    const resBody = { suggestion: toGrowSuggestionView(updated) } satisfies GrowSuggestionMutationResponse;
+    return c.json(resBody);
   });

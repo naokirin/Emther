@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { PoliciesResponse } from "@emther/api-contract";
+import type { OkResponse, PoliciesResponse, PolicyMutationResponse } from "@emther/api-contract";
 import {
   addPolicy,
   listPolicies,
@@ -34,7 +34,8 @@ export const orgPoliciesRoute = new Hono()
 
     try {
       const entry = await addPolicy({ text, category, elaboration });
-      return c.json({ policy: toPolicyView(entry) }, 201);
+      const resBody = { policy: toPolicyView(entry) } satisfies PolicyMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }
@@ -72,12 +73,14 @@ export const orgPoliciesRoute = new Hono()
     if (!entry) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ policy: toPolicyView(entry) });
+    const resBody = { policy: toPolicyView(entry) } satisfies PolicyMutationResponse;
+    return c.json(resBody);
   })
   .delete("/:id", (c) => {
     const removed = removePolicy(c.req.param("id"));
     if (!removed) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   });

@@ -12,6 +12,7 @@ import { truncateForTitle } from "@emther/core/types";
 import { journalExcerptFromTask } from "@emther/core/origin-trace";
 import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
 import type { Suggestion } from "@emther/core/types";
+import type { AgentRunMutationResponse, SuggestionMutationResponse } from "@emther/api-contract";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
@@ -160,7 +161,7 @@ export function ConsultReviewPanel({
         };
         const { res, data } = await fetchWithNameConfirm("/api/suggestions", { method: "POST", body }, "保存する");
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "提案の保存に失敗しました");
-        createdIds.push((data as { suggestion: { id: string } }).suggestion.id);
+        createdIds.push((data as SuggestionMutationResponse).suggestion.id);
       }
       await Promise.all([refreshSuggestions(), refreshRuns()]);
       setCandidatePick(null);
@@ -241,7 +242,7 @@ export function ConsultReviewPanel({
           "分析を開始する",
         );
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "再分析の起動に失敗しました");
-        newRunId = (data as { run: { id: string } }).run.id;
+        newRunId = (data as AgentRunMutationResponse).run.id;
       } else {
         const { res, data } = await fetchWithNameConfirm(
           "/api/agents",
@@ -255,7 +256,7 @@ export function ConsultReviewPanel({
           "送信する",
         );
         if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "再分析の起動に失敗しました");
-        newRunId = (data as { run: { id: string } }).run.id;
+        newRunId = (data as AgentRunMutationResponse).run.id;
       }
 
       await refreshRuns();

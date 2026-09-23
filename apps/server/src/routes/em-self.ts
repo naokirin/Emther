@@ -1,5 +1,10 @@
 import { Hono } from "hono";
-import type { EmCheckinsResponse, ReflectionNotesResponse } from "@emther/api-contract";
+import type {
+  EmCheckinMutationResponse,
+  EmCheckinsResponse,
+  ReflectionNoteMutationResponse,
+  ReflectionNotesResponse,
+} from "@emther/api-contract";
 import {
   addCheckin,
   addReflectionNote,
@@ -45,7 +50,8 @@ export const checkinsRoute = new Hono()
     }
 
     const checkin = await addCheckin({ mood, energy, stress, headroom, note, createdAt });
-    return c.json({ checkin: toCheckinView(checkin) }, 201);
+    const resBody = { checkin: toCheckinView(checkin) } satisfies EmCheckinMutationResponse;
+    return c.json(resBody, 201);
   });
 
 // docs/memo.md「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
@@ -77,7 +83,8 @@ export const reflectionNotesRoute = new Hono()
     }
 
     const note = await addReflectionNote({ type, text, createdAt });
-    return c.json({ note: toReflectionNoteView(note) }, 201);
+    const resBody = { note: toReflectionNoteView(note) } satisfies ReflectionNoteMutationResponse;
+    return c.json(resBody, 201);
   })
   // ユーザー要望「現在の改善方針が残り続けてコントロールできない」対応。
   // archived=true で方針パネルから外し、false で戻す（誤操作の取り消し）。
@@ -91,5 +98,6 @@ export const reflectionNotesRoute = new Hono()
     if (!updated) {
       return c.json({ error: "見つかりません" }, 404);
     }
-    return c.json({ note: toReflectionNoteView(updated) });
+    const resBody = { note: toReflectionNoteView(updated) } satisfies ReflectionNoteMutationResponse;
+    return c.json(resBody);
   });

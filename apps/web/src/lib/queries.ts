@@ -39,6 +39,7 @@ import type {
   ReportsResponse,
   SettingsRulesResponse,
   SuggestionDetailResponse,
+  SuggestionMutationResponse,
   SuggestionsResponse,
   TeamsResponse,
   ThemesResponse,
@@ -526,7 +527,7 @@ export function useGoToRunSuggestion(suggestions: Suggestion[]) {
         return;
       }
       try {
-        const data = await rpcJsonAs<{ suggestion: Suggestion }>(
+        const data = await rpcJsonAs<SuggestionMutationResponse>(
           await api.api.suggestions.$post({
             json: { title: truncateForTitle(runFallbackTitle(run)), agentRunId: run.id },
           }),

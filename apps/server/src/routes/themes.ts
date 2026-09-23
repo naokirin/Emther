@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { ThemesResponse } from "@emther/api-contract";
+import type { ThemeMutationResponse, ThemesFromGoalResponse, ThemesResponse } from "@emther/api-contract";
 import {
   adoptTheme,
   createTheme,
@@ -49,7 +49,8 @@ export const themesRoute = new Hono()
       status: body?.status === "candidate" ? "candidate" : "adopted",
     });
 
-    return c.json({ theme: toThemeView(theme) }, 201);
+    const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
+    return c.json(resBody, 201);
   })
   // docs/goal_policy_model_plan.md Decision 3 / Phase 3。Goal起点で先にテーマ候補を置く経路。
   // ヒューリスティック（AIなし）。人間が採用するまでcandidate。
@@ -79,7 +80,8 @@ export const themesRoute = new Hono()
       themes.push(toThemeView(theme));
     }
 
-    return c.json({ themes }, 201);
+    const resBody = { themes } satisfies ThemesFromGoalResponse;
+    return c.json(resBody, 201);
   })
   .get("/:id", (c) => {
     const theme = getTheme(c.req.param("id"));
@@ -94,12 +96,14 @@ export const themesRoute = new Hono()
     if (action === "adopt") {
       const theme = await adoptTheme(id);
       if (!theme) return c.json({ error: "not found" }, 404);
-      return c.json({ theme: toThemeView(theme) });
+      const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
+      return c.json(resBody);
     }
     if (action === "dismiss") {
       const theme = dismissTheme(id);
       if (!theme) return c.json({ error: "not found" }, 404);
-      return c.json({ theme: toThemeView(theme) });
+      const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
+      return c.json(resBody);
     }
     if (action === "revise") {
       const theme = await reviseTheme(id, {
@@ -116,7 +120,8 @@ export const themesRoute = new Hono()
               : undefined,
       });
       if (!theme) return c.json({ error: "not found" }, 404);
-      return c.json({ theme: toThemeView(theme) });
+      const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
+      return c.json(resBody);
     }
     if (action === "link" || (!action && "goalIds" in (body ?? {}))) {
       const theme = updateThemeLinks(id, {
@@ -124,7 +129,8 @@ export const themesRoute = new Hono()
         teamId: body?.teamId === null ? null : typeof body?.teamId === "string" ? body.teamId : undefined,
       });
       if (!theme) return c.json({ error: "not found" }, 404);
-      return c.json({ theme: toThemeView(theme) });
+      const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
+      return c.json(resBody);
     }
 
     return c.json({ error: "action は adopt / dismiss / revise / link のいずれかです" }, 400);

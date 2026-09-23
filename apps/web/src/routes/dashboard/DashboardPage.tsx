@@ -36,6 +36,7 @@ import {
   type SuggestionStrategyLinkSuggestion,
   type PendingUnmaskedSend,
 } from "@emther/core/types";
+import type { SuggestionsLinkSuggestResponse } from "@emther/api-contract";
 
 // react-routerのuseSearchParamsを使わないため、元実装の<Suspense>ラッパーは不要（削除した）。
 export function DashboardPage() {
@@ -88,12 +89,7 @@ export function DashboardPage() {
     setSuggestionLinkError(null);
     try {
       const res = await api.api.suggestions.link.suggest.$post({ json: {} });
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        suggestions?: SuggestionStrategyLinkSuggestion[];
-        source?: string;
-        fallbackReason?: string;
-      } | null;
+      const data = (await res.json().catch(() => null)) as (SuggestionsLinkSuggestResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "戦略リンク提案に失敗しました");
       setSuggestionLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],

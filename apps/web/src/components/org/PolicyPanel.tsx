@@ -4,6 +4,7 @@ import { Select } from "../Select";
 import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type PolicyCategory, type PolicyEntry } from "@emther/core/types";
+import type { PolicyMutationResponse } from "@emther/api-contract";
 import { treeTitle } from "./treeTitle";
 
 type Props = {
@@ -74,7 +75,7 @@ export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props
           category: newCategory || undefined,
         },
       });
-      const data = (await res.json()) as { error?: string; policy?: PolicyEntry };
+      const data = (await res.json()) as PolicyMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewText("");
       setNewElaboration("");

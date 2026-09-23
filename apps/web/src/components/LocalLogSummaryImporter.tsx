@@ -3,6 +3,7 @@ import styles from "../styles/page.module.css";
 import { api } from "../lib/api-client";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { RecordDateField } from "./RecordDateField";
+import type { JournalLocalSummarizeResponse } from "@emther/api-contract";
 
 type Props = {
   onCreated: () => void;
@@ -41,7 +42,7 @@ export function LocalLogSummaryImporter({ onCreated }: Props) {
       const res = await api.api.journal["local-summarize"].$post({
         json: { text: trimmed, mode: "log" },
       });
-      const data = (await res.json().catch(() => null)) as { error?: string; summary?: string } | null;
+      const data = (await res.json().catch(() => null)) as (JournalLocalSummarizeResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "ローカル要約に失敗しました");
       setSummaryText(data?.summary ?? "");
     } catch (err) {

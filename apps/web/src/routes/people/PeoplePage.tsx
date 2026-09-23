@@ -8,6 +8,7 @@ import { usePeekParam } from "../../lib/usePeekParam";
 import { api } from "../../lib/api-client";
 import { usePeople } from "../../lib/queries";
 import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@emther/core/types";
+import type { PersonMutationResponse } from "@emther/api-contract";
 
 // web/src/app/people/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2、人物バッチ）。
 // react-routerのusePeekParamはSuspenseを要求しないため、元実装の<Suspense>ラッパーは
@@ -55,7 +56,7 @@ export function PeoplePage() {
     setAddError(null);
     try {
       const res = await api.api.people.$post({ json: { name } });
-      const data = (await res.json().catch(() => null)) as { error?: string; person?: { id?: string } } | null;
+      const data = (await res.json().catch(() => null)) as (PersonMutationResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "登録に失敗しました");
       setNewName("");
       await refreshPeople();

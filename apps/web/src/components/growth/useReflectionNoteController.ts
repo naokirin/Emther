@@ -4,6 +4,7 @@ import { todayDateInputValue } from "../recordDate";
 import { api } from "../../lib/api-client";
 import { reflectionNotesQueryKey, useReflectionNotes } from "../../lib/queries";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
+import type { ReflectionNoteMutationResponse } from "@emther/api-contract";
 
 export type ReflectionNoteController = ReturnType<typeof useReflectionNoteController>;
 
@@ -43,7 +44,7 @@ export function useReflectionNoteController(onCreated?: (note: EmReflectionNote)
           ...(noteCreatedAtDate ? { createdAtDate: noteCreatedAtDate } : {}),
         },
       });
-      const data = (await res.json()) as { error?: string; note: EmReflectionNote };
+      const data = (await res.json()) as ReflectionNoteMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       queryClient.setQueryData<{ notes: EmReflectionNote[] }>(reflectionNotesQueryKey, () => ({
         notes: [data.note, ...notes],

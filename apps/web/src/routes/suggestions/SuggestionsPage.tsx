@@ -23,6 +23,7 @@ import {
 import { SuggestionExportMenu } from "../../components/SuggestionExportMenu";
 import { useRuns, useSettingsRules, useSuggestions, useTeams, useThemes } from "../../lib/queries";
 import { api, rpcInit } from "../../lib/api-client";
+import type { SuggestionMutationResponse } from "@emther/api-contract";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import { downloadTextFile, suggestionExportFileName } from "../../lib/downloadTextFile";
 import {
@@ -108,7 +109,7 @@ function UnlinkedRunsAsSuggestions({
       const res = await api.api.suggestions.$post({
         json: { title: run.task.slice(0, 80), agentRunId: run.id },
       });
-      const data = (await res.json()) as { error?: string; suggestion?: Suggestion };
+      const data = (await res.json()) as SuggestionMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "提案化に失敗しました");
       onCreated(data.suggestion!.id);
     } catch (err) {

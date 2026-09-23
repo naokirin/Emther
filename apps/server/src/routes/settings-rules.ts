@@ -238,5 +238,6 @@ export const settingsRulesRoute = new Hono()
     if (rules.localChatModelPreset !== previousPreset) {
       void ensureLocalModels();
     }
-    return c.json({ rules });
+    const resBody = { rules } satisfies SettingsRulesResponse;
+    return c.json(resBody);
   });

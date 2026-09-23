@@ -18,6 +18,11 @@ import {
 } from "@emther/core/observation-dump-mapping-types";
 import type { ImportPreview } from "@emther/core/observation-dump-mapping-types";
 import { SOURCE_OPTIONS, type FetchWithNameConfirm } from "./observation-dump-display";
+import type {
+  ImportProfileMutationResponse,
+  ObservationDumpMutationResponse,
+  ObservationDumpPreviewResponse,
+} from "@emther/api-contract";
 
 type Props = {
   fetchWithNameConfirm: FetchWithNameConfirm;
@@ -66,11 +71,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
             : {}),
         },
       });
-      const data = await rpcData<{
-        error?: string;
-        preview?: ImportPreview;
-        profiles?: ImportProfile[];
-      }>(res);
+      const data = await rpcData<ObservationDumpPreviewResponse & { error?: string }>(res);
       if (!res.ok) throw new Error(data?.error || "プレビューに失敗しました");
       const p = data!.preview as ImportPreview;
       setPreview(p);
@@ -122,11 +123,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
             hasHeader,
           },
         });
-        const data = await rpcData<{
-          error?: string;
-          preview?: ImportPreview;
-          profiles?: ImportProfile[];
-        }>(res);
+        const data = await rpcData<ObservationDumpPreviewResponse & { error?: string }>(res);
         if (!res.ok) throw new Error(data?.error || "プレビューに失敗しました");
         const p = data!.preview as ImportPreview;
         effectivePreview = p;
@@ -194,7 +191,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
       if (!res.ok) {
         throw new Error((data as { error?: string })?.error || "取り込みに失敗しました");
       }
-      const dump = (data as { dump: ObservationDumpView }).dump;
+      const dump = (data as ObservationDumpMutationResponse).dump as ObservationDumpView;
       setText("");
       setTitle("");
       setRangeStart("");
@@ -224,7 +221,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
     const res = await api.api.journal.dumps.profiles.$post({
       json: { name: profileName.trim(), config: mapping },
     });
-    const data = await rpcData<{ error?: string; profile?: ImportProfile }>(res);
+    const data = await rpcData<ImportProfileMutationResponse & { error?: string }>(res);
     if (!res.ok) {
       setError(data?.error || "プロファイル保存に失敗しました");
       return;

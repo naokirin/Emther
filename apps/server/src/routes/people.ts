@@ -1,5 +1,14 @@
 import { Hono } from "hono";
-import type { PeopleResponse, PersonEvaluationLogsResponse, PersonProfileResponse } from "@emther/api-contract";
+import type {
+  OkResponse,
+  PeopleResponse,
+  PersonConcernAckResponse,
+  PersonEvaluationLogMutationResponse,
+  PersonEvaluationLogsResponse,
+  PersonMutationResponse,
+  PersonProfileResponse,
+} from "@emther/api-contract";
+import type { PersonProfile } from "@emther/core/types";
 import { deletePerson, registerName, renamePerson } from "@emther/core/people-directory";
 import { addPersonAlias, getPersonProfile, listPersonSummaries, mergePersons, removePersonAlias } from "@emther/core/people-hub";
 import { reassignSelfPersonId } from "@emther/core/settings-store";
@@ -60,11 +69,15 @@ export const peopleRoute = new Hono()
     for (const alias of aliases) {
       addPersonAlias(id, alias);
     }
-    const person = getPersonProfile(id) ?? listPersonSummaries().find((p) => p.id === id);
+    // getPersonProfile はここまでの registerName/addPersonAlias 直後は常にヒットする想定。
+    // listPersonSummaries のフォールバックはPersonSummary止まりでPersonProfileの必須フィールド
+    // （facts等）を持たないため、実行時の挙動は変えずに型だけPersonProfileに合わせる。
+    const person = (getPersonProfile(id) ?? listPersonSummaries().find((p) => p.id === id)) as PersonProfile | undefined;
     if (!person) {
       return c.json({ error: "登録に失敗しました" }, 500);
     }
-    return c.json({ person }, 201);
+    const resBody = { person } satisfies PersonMutationResponse;
+    return c.json(resBody, 201);
   })
   .get("/:id", (c) => {
     const profile = getPersonProfile(c.req.param("id"));
@@ -98,7 +111,8 @@ export const peopleRoute = new Hono()
 
     const profile = getPersonProfile(id);
     if (!profile) return c.json({ error: "not found" }, 404);
-    return c.json({ person: profile });
+    const resBody = { person: profile } satisfies PersonMutationResponse;
+    return c.json(resBody);
   })
   // docs/em_human_story_and_ux.md P2-12対応。ローカルNERの誤登録をEMが確認・削除できる
   // ようにする「最後の安全弁」。
@@ -110,7 +124,8 @@ export const peopleRoute = new Hono()
     }
     // 利用者本人として紐付いていた場合は解除する（幽霊IDを残さない）。
     reassignSelfPersonId({ deletedId: id });
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   })
   // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
   // URLの:idが統合先（残る側）、body.duplicateIdが統合元（消える側）。People詳細画面で
@@ -128,7 +143,8 @@ export const peopleRoute = new Hono()
 
     const profile = getPersonProfile(id);
     if (!profile) return c.json({ error: "not found" }, 404);
-    return c.json({ person: profile });
+    const resBody = { person: profile } satisfies PersonMutationResponse;
+    return c.json(resBody);
   })
   // ユーザー指摘「メンバーのアラート表示（関連提案の停滞・確認保留）を確認したが
   // 対応不要だった、を示せず強調を減らせない」対応。提案自体の状態（停滞・確認保留）は
@@ -144,11 +160,13 @@ export const peopleRoute = new Hono()
     if (body?.acknowledged === true) {
       const note = typeof body?.note === "string" ? body.note : undefined;
       const ack = await acknowledgePersonSuggestionConcern(profile.id, suggestionId, note);
-      return c.json({ ack });
+      const resBody = { ack } satisfies PersonConcernAckResponse;
+      return c.json(resBody);
     }
     if (body?.acknowledged === false) {
       clearPersonSuggestionConcernAck(profile.id, suggestionId);
-      return c.json({ ok: true });
+      const resBody = { ok: true } satisfies OkResponse;
+      return c.json(resBody);
     }
     return c.json({ error: "acknowledged（true/false）を指定してください" }, 400);
   })
@@ -192,7 +210,8 @@ export const peopleRoute = new Hono()
     const body = await c.req.json().catch(() => ({}));
     if (body?.action === "suggest-from-journal") {
       const created = await suggestEvaluationLogsFromRecentJournals(id, profile.name);
-      return c.json({ logs: created.map(toEvaluationLogView) }, 201);
+      const resBody = { logs: created.map(toEvaluationLogView) } satisfies PersonEvaluationLogsResponse;
+      return c.json(resBody, 201);
     }
 
     return c.json({ error: "action は suggest-from-journal です" }, 400);
@@ -226,5 +245,6 @@ export const peopleRoute = new Hono()
     }
 
     const updated = getEvaluationLog(logId);
-    return c.json({ log: toEvaluationLogView(updated!) });
+    const resBody = { log: toEvaluationLogView(updated!) } satisfies PersonEvaluationLogMutationResponse;
+    return c.json(resBody);
   });

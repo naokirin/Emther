@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { ReportsResponse } from "@emther/api-contract";
+import type { PendingUnmaskedResponse, ReportMutationResponse, ReportReviewResponse, ReportsResponse } from "@emther/api-contract";
 import { startPeriodReviewAnalysis, toRunView } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { PERIOD_DAYS, generateReport, listReports, toReportView, updateReportNote, type ReportPeriodType } from "@emther/core/report-store";
@@ -27,7 +27,8 @@ export const reportsRoute = new Hono()
     const periodsAgo = Number.isInteger(body?.periodsAgo) && body.periodsAgo >= 0 ? body.periodsAgo : 0;
     const now = Date.now() - periodsAgo * PERIOD_DAYS[body.periodType as ReportPeriodType] * 24 * 60 * 60 * 1000;
     const report = generateReport(body.periodType, now);
-    return c.json({ report: toReportView(report) }, 201);
+    const resBody = { report: toReportView(report) } satisfies ReportMutationResponse;
+    return c.json(resBody, 201);
   })
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
@@ -40,7 +41,8 @@ export const reportsRoute = new Hono()
     if (!report) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ report: toReportView(report) });
+    const resBody = { report: toReportView(report) } satisfies ReportMutationResponse;
+    return c.json(resBody);
   })
   // docs/new_reporting.md。統計スナップショット（reports行）だけでなく、Lead Agentによる
   // 対話型レビュー（AgentRun, origin=auto-weekly-report/auto-monthly-report）も併せて起動する。
@@ -53,9 +55,14 @@ export const reportsRoute = new Hono()
     try {
       const result = await startPeriodReviewAnalysis(body.periodType as ReportPeriodType, offset, { manual: true });
       if (!result) {
-        return c.json({ pendingUnmasked: true }, 202);
+        const pendingBody = { pendingUnmasked: true } satisfies PendingUnmaskedResponse;
+        return c.json(pendingBody, 202);
       }
-      return c.json({ report: toReportView(result.report), run: toRunView(result.run) }, 201);
+      const resBody = {
+        report: toReportView(result.report),
+        run: toRunView(result.run),
+      } satisfies ReportReviewResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       if (isUnconfirmedNameCandidatesError(err)) {
         return c.json({ error: err.message, candidates: err.candidates }, 409);

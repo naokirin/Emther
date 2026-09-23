@@ -53,4 +53,48 @@ Hono API の入出力 Zod スキーマ（共有契約層）。
 
 `AgentRunView`（`entities/agents.ts`）は `toRunView` が返す run ビューの必須フィールド＋passthrough。
 
+## ミューテーション（POST / PATCH / DELETE）レスポンス
+
+GET と同じ方針で、成功時の JSON ボディはサーバーで `satisfies XxxResponse`、web は `rpcData<XxxResponse & { error?: string }>` 等で契約型に揃える。エラーボディ（`{ error: string }`）自体は対象外。
+
+| Response 型 | 主なエンドポイント |
+| --- | --- |
+| `OkResponse`（`{ ok: true }`） | 各種 `DELETE`（`teams/:id`, `people/:id`, `goals/:id`, `policies/:id`, `org/background/:id` 等） |
+| `TeamMutationResponse` | `POST /api/teams`, `PATCH /api/teams/:id`, `POST /api/teams/:id/archive` |
+| `TeamsBulkMutationResponse` | `POST /api/teams/bulk` |
+| `EmCheckinMutationResponse` | `POST /api/em-self/checkins` |
+| `ReflectionNoteMutationResponse` | `POST` / `PATCH /api/em-self/reflection-notes` |
+| `JournalCreateResponse` | `POST /api/journal` |
+| `JournalBulkResponse` | `POST /api/journal/bulk` |
+| `JournalEntryResponse` | `PATCH /api/journal/:id`, archive/no-action-needed 系 |
+| `JournalAnalyzeResponse` | `POST /api/journal/:id/analyze` |
+| `JournalLocalSummarizeResponse` | `POST /api/journal/local-summarize` |
+| `AgentRunMutationResponse` | `POST /api/journal/batch`, `/api/growth/generate`, `/api/themes/distill`, `/api/agents`, `/api/agents/:id/decide`, `/api/agents/pending-unmasked`（確定時） |
+| `PendingUnmaskedResponse` | 上記と同エンドポイントの 202（人名未確認で保留） |
+| `SuggestionMutationResponse` | `POST /api/suggestions`, `PATCH /api/suggestions/:id`, `/api/suggestions/:id/memo` |
+| `SuggestionsLinkSuggestResponse` | `POST /api/suggestions/link/suggest` |
+| `AgentThemesAdoptResponse` | `POST /api/agents/:id/themes` |
+| `AgentSuggestionUpdatesResponse` | `POST /api/agents/:id/suggestion-updates` |
+| `AgentSuggestionNotesResponse` | `POST /api/agents/:id/suggestion-notes` |
+| `GrowSuggestionMutationResponse` | `PATCH /api/growth/suggestions/:id` |
+| `PersonMutationResponse` | `POST /api/people`, `POST /api/people/:id/merge` |
+| `PersonConcernAckResponse` | `PATCH /api/people/:id/concern-acks/:suggestionId`（ack=true） |
+| `PersonEvaluationLogsResponse` | `POST /api/people/:id/evaluation-logs`（suggest-from-journal） |
+| `PersonEvaluationLogMutationResponse` | `PATCH /api/people/:id/evaluation-logs/:logId` |
+| `GoalMutationResponse` | `POST /api/org/goals`, `PATCH /api/org/goals/:id` |
+| `PolicyMutationResponse` | `POST /api/org/policies`, `PATCH /api/org/policies/:id` |
+| `OrgBackgroundMutationResponse` | `POST /api/org/background`, `PATCH /api/org/background/:id` |
+| `ThemeMutationResponse` | `POST /api/themes`, `PATCH /api/themes/:id`（adopt/dismiss/revise/link） |
+| `ThemesFromGoalResponse` | `POST /api/themes/from-goal` |
+| `ThemeGoalLinkSuggestResponse` | `POST /api/themes/link/suggest-goal` |
+| `ReportMutationResponse` | `POST /api/reports`, `PATCH /api/reports/:id` |
+| `ReportReviewResponse` | `POST /api/reports/review` |
+| `DataMutationResponse` | `POST /api/settings/data/reset`, `/api/settings/data/restore` |
+| `KnowledgeInterpretationMutationResponse` | `POST /api/knowledge/interpretations` |
+| `ObservationDumpMutationResponse` | `POST /api/journal/dumps`, `PATCH /api/journal/dumps/:id`, `POST /api/journal/dumps/:id/parse` |
+| `ObservationDumpPreviewResponse` | `POST /api/journal/dumps/preview` |
+| `ObservationDumpAcceptResponse` | `POST /api/journal/dumps/:id/accept` |
+| `ImportProfileMutationResponse` | `POST /api/journal/dumps/profiles` |
+| `GlossaryEntryMutationResponse` | `POST /api/glossary`, `PATCH /api/glossary/:id` |
+
 横展開するときは新規・改修ルートからスキーマをここに追加し、サーバーで `satisfies`、web の `rpcJsonAs` を契約型に置換する。

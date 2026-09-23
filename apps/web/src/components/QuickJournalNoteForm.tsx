@@ -3,6 +3,7 @@ import styles from "../styles/page.module.css";
 import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { JournalProfileCandidateSuggestion } from "./JournalProfileCandidateSuggestion";
 import type { ProfileCandidate } from "@emther/core/journal-store";
+import type { JournalCreateResponse } from "@emther/api-contract";
 
 // docs/memo.md「現場メモのタブでも単発のメモ入力をしたい」対応。/journalには従来
 // 「📥 観測を取り込む」（複数件をAIが解析するダンプ）しか無く、Dashboardの「メモする」に
@@ -44,7 +45,7 @@ export function QuickJournalNoteForm({
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
-      const payload = data as { profileCandidate?: ProfileCandidate };
+      const payload = data as JournalCreateResponse;
       if (payload.profileCandidate) {
         setLastProfileCandidate(payload.profileCandidate);
       }

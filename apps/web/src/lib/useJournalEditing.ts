@@ -3,6 +3,7 @@ import { timestampToDateInputValue } from "@emther/core/journal-date-parser";
 import { truncateForTitle, type JournalEntry } from "@emther/core/types";
 import { api, rpcInit } from "./api-client";
 import { useNameCandidateConfirm } from "./useNameCandidateConfirm";
+import type { JournalAnalyzeResponse, JournalEntryResponse, SuggestionMutationResponse } from "@emther/api-contract";
 
 // docs/memo.md「C. Journalセンシング→行動」対応のその場編集ロジックを、Dashboardと
 // Journal一覧（TODO「Quick Journalをリスト確認・検索できる画面を追加する」）の両方で
@@ -115,8 +116,9 @@ export function useJournalEditing(
       // 修正はsupersedesで新しいイベント（＝新しいid）として記録されるため、
       // 古いエントリを新しい内容へ置き換える（一覧の並び順は変えない）。関数形式の
       // 更新を使い、待っている間にポーリングで変わった最新の配列を起点にする。
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
-      return (data as { entry: JournalEntry }).entry;
+      const entry = (data as JournalEntryResponse).entry as JournalEntry;
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? entry : e)));
+      return entry;
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
@@ -171,7 +173,7 @@ export function useJournalEditing(
         "分析を開始する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "分析の起動に失敗しました");
-      const payload = data as { entry: JournalEntry; run: { id: string } };
+      const payload = data as JournalAnalyzeResponse;
       setJournalEntries((prev) =>
         prev.map((e) => (e.id === entry.id ? { ...payload.entry, sourceConsultRunId: payload.run.id } : e)),
       );
@@ -230,7 +232,7 @@ export function useJournalEditing(
         throw new Error((suggestionData as { error?: string } | null)?.error ?? "提案の作成に失敗しました");
       }
 
-      const suggestionId = (suggestionData as { suggestion: { id: string } }).suggestion.id;
+      const suggestionId = (suggestionData as SuggestionMutationResponse).suggestion.id;
       const { res, data } = await fetchWithNameConfirm(
         `/api/journal/${entry.id}`,
         {
@@ -244,7 +246,9 @@ export function useJournalEditing(
           (data as { error?: string } | null)?.error ?? "提案への紐付けに失敗しました（提案自体は作成されています）",
         );
       }
-      setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? (data as { entry: JournalEntry }).entry : e)));
+      setJournalEntries((prev) =>
+        prev.map((e) => (e.id === entry.id ? ((data as JournalEntryResponse).entry as JournalEntry) : e)),
+      );
       setEditingEntryId(null);
       return suggestionId;
     } catch (err) {
@@ -275,7 +279,8 @@ export function useJournalEditing(
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "更新に失敗しました");
-      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? (data as { entry: JournalEntry }).entry : e)));
+      const entry = (data as JournalEntryResponse).entry as JournalEntry;
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? entry : e)));
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setEditError((err as Error).message);
@@ -298,7 +303,7 @@ export function useJournalEditing(
         param: { id: entryId },
         json: {},
       }));
-      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
       if (!res.ok) throw new Error(data?.error ?? "確認の記録に失敗しました");
       setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
@@ -322,7 +327,7 @@ export function useJournalEditing(
       const res = await api.api.journal[":id"]["no-action-needed"].$delete({
         param: { id: entryId },
       });
-      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
       if (!res.ok) throw new Error(data?.error ?? "取り消しに失敗しました");
       setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
@@ -348,7 +353,7 @@ export function useJournalEditing(
       const res = await api.api.journal[":id"].archive.$post({
         param: { id: entryId },
       });
-      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
       if (!res.ok) throw new Error(data?.error ?? "アーカイブに失敗しました");
       setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {
@@ -372,7 +377,7 @@ export function useJournalEditing(
       const res = await api.api.journal[":id"].archive.$delete({
         param: { id: entryId },
       });
-      const data = (await res.json()) as { error?: string; entry?: JournalEntry };
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
       if (!res.ok) throw new Error(data?.error ?? "アーカイブ解除に失敗しました");
       setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
     } catch (err) {

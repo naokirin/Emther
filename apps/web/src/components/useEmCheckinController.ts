@@ -5,6 +5,7 @@ import { todayDateInputValue } from "./recordDate";
 import { api } from "../lib/api-client";
 import { emCheckinsQueryKey, useEmCheckins } from "../lib/queries";
 import type { EmCheckin } from "@emther/core/types";
+import type { EmCheckinMutationResponse } from "@emther/api-contract";
 
 const CHECKIN_PAGE_SIZE = 10;
 
@@ -59,7 +60,7 @@ export function useEmCheckinController(onSubmitted?: (checkin: EmCheckin) => voi
           ...(createdAtDate ? { createdAtDate } : {}),
         },
       });
-      const data = (await res.json()) as { error?: string; checkin: EmCheckin };
+      const data = (await res.json()) as EmCheckinMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "記録に失敗しました");
       queryClient.setQueryData<{ checkins: EmCheckin[] }>(emCheckinsQueryKey, () => ({
         checkins: [data.checkin, ...checkins],

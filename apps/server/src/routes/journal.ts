@@ -5,10 +5,15 @@ import {
   journalPostBodySchema,
 } from "@emther/api-contract/journal";
 import type {
+  AgentRunMutationResponse,
+  JournalAnalyzeResponse,
   JournalBatchStatusResponse,
+  JournalBulkResponse,
+  JournalCreateResponse,
   JournalEntryResponse,
   JournalListResponse,
   JournalSearchResponse,
+  PendingUnmaskedResponse,
 } from "@emther/api-contract";
 import {
   addJournalEntriesBulk,
@@ -106,7 +111,12 @@ export const journalRoute = new Hono()
           : await addJournalEntryWithProfileCandidate(text, Date.now(), opts);
       // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
       // profileCandidateは投稿直後だけの一度きりのヒント（永続化しない）。
-      return c.json({ entry: toJournalEntryView(entry, new Map()), nameCandidates, profileCandidate }, 201);
+      const resBody = {
+        entry: toJournalEntryView(entry, new Map()),
+        nameCandidates,
+        profileCandidate,
+      } satisfies JournalCreateResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -125,7 +135,12 @@ export const journalRoute = new Hono()
       const { entries, skippedLines, nameCandidateSuggestions } = await addJournalEntriesBulk(text, {
         ...maskOptionsFromBodyStrict(body),
       });
-      return c.json({ entries: toJournalEntryViews(entries, new Map()), skippedLines, nameCandidateSuggestions }, 201);
+      const resBody = {
+        entries: toJournalEntryViews(entries, new Map()),
+        skippedLines,
+        nameCandidateSuggestions,
+      } satisfies JournalBulkResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -190,9 +205,11 @@ export const journalRoute = new Hono()
     try {
       const run = await startJournalBatchAnalysis({ manual: true });
       if (!run) {
-        return c.json({ pendingUnmasked: true }, 202);
+        const pendingBody = { pendingUnmasked: true } satisfies PendingUnmaskedResponse;
+        return c.json(pendingBody, 202);
       }
-      return c.json({ run: toRunView(run) }, 201);
+      const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       if (isUnconfirmedNameCandidatesError(err)) {
         return c.json({ error: err.message, candidates: err.candidates }, 409);
@@ -304,7 +321,8 @@ export const journalRoute = new Hono()
       if (!entry) {
         return c.json({ error: "not found" }, 404);
       }
-      return c.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
+      const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+      return c.json(resBody);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -316,13 +334,15 @@ export const journalRoute = new Hono()
     const id = c.req.param("id");
     const entry = archiveJournalEntry(id);
     if (!entry) return c.json({ error: "not found" }, 404);
-    return c.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
+    const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+    return c.json(resBody);
   })
   .delete("/:id/archive", async (c) => {
     const id = c.req.param("id");
     const entry = unarchiveJournalEntry(id);
     if (!entry) return c.json({ error: "not found" }, 404);
-    return c.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
+    const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+    return c.json(resBody);
   })
   // ユーザー指摘「確認したが対応不要だった、をEM側から示せない・UI上の強調を減らせない」対応。
   // sentimentの値そのものは書き換えず、「EMが確認し対応不要と判断した」という事実だけを
@@ -335,7 +355,8 @@ export const journalRoute = new Hono()
     try {
       const entry = await setJournalNoActionNeeded(id, note);
       if (!entry) return c.json({ error: "not found" }, 404);
-      return c.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
+      const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+      return c.json(resBody);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -344,7 +365,8 @@ export const journalRoute = new Hono()
     const id = c.req.param("id");
     const entry = clearJournalNoActionNeeded(id);
     if (!entry) return c.json({ error: "not found" }, 404);
-    return c.json({ entry: toJournalEntryView(entry, await buildSourceConsultIndex()) });
+    const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+    return c.json(resBody);
   })
   // docs/usage_issues U16。EMが明示した手動分析。投稿時・自動フィルタとは独立に起動する。
   .post("/:id/analyze", async (c) => {
@@ -364,13 +386,11 @@ export const journalRoute = new Hono()
       if (!result) {
         return c.json({ error: "not found" }, 404);
       }
-      return c.json(
-        {
-          entry: { ...toJournalEntryView(result.entry, new Map()), sourceConsultRunId: result.run.id },
-          run: toRunView(result.run),
-        },
-        201,
-      );
+      const resBody = {
+        entry: { ...toJournalEntryView(result.entry, new Map()), sourceConsultRunId: result.run.id },
+        run: toRunView(result.run),
+      } satisfies JournalAnalyzeResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return jsonFromUnknownError(err);
     }

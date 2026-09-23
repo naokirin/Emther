@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentRunMutationResponseSchema,
   agentsResponseSchema,
   emCheckinsResponseSchema,
+  journalCreateResponseSchema,
   journalListResponseSchema,
   journalPostBodySchema,
+  okResponseSchema,
   settingsRulesPatchSchema,
+  suggestionMutationResponseSchema,
   suggestionsResponseSchema,
   teamsResponseSchema,
   timelineResponseSchema,
@@ -159,5 +163,73 @@ describe("@emther/api-contract GET レスポンス（新規）", () => {
       },
     };
     expect(vitalsResponseSchema.parse(data)).toEqual(data);
+  });
+});
+
+describe("@emther/api-contract ミューテーション（POST/PATCH/DELETE）レスポンス（新規）", () => {
+  it("OkResponse: DELETE 等の成功のみエンベロープを受理する", () => {
+    expect(okResponseSchema.parse({ ok: true })).toEqual({ ok: true });
+  });
+
+  it("OkResponse: ok が true 以外は拒否する", () => {
+    expect(() => okResponseSchema.parse({ ok: false })).toThrow();
+  });
+
+  it("JournalCreateResponse: entry 必須、nameCandidates/profileCandidate は任意", () => {
+    const data = {
+      entry: {
+        id: "j1",
+        rawText: "x",
+        tags: [],
+        people: [],
+        teamIds: [],
+        urgency: "low" as const,
+        sentiment: "neutral" as const,
+        summary: "",
+        createdAt: 1,
+        confirmed: false,
+      },
+    };
+    const parsed = journalCreateResponseSchema.parse(data);
+    expect(parsed.entry.id).toBe("j1");
+    expect(parsed.nameCandidates).toBeUndefined();
+    expect(parsed.profileCandidate).toBeUndefined();
+  });
+
+  it("SuggestionMutationResponse: suggestion 必須フィールドを受理する", () => {
+    const data = {
+      suggestion: {
+        id: "s1",
+        title: "t",
+        reviewStatus: "unreviewed" as const,
+        confirmPriority: "normal" as const,
+        memos: [],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    };
+    expect(suggestionMutationResponseSchema.parse(data)).toMatchObject(data);
+  });
+
+  it("SuggestionMutationResponse: suggestion 欠落は拒否する", () => {
+    expect(() => suggestionMutationResponseSchema.parse({})).toThrow();
+  });
+
+  it("AgentRunMutationResponse: run 必須フィールドを受理する", () => {
+    const data = {
+      run: {
+        id: "r1",
+        agentName: "Lead Agent",
+        task: "t",
+        status: "idle" as const,
+        log: [],
+        totalCostUsd: 0,
+        createdAt: 1,
+        updatedAt: 1,
+        origin: "manual" as const,
+        reviewed: true,
+      },
+    };
+    expect(agentRunMutationResponseSchema.parse(data)).toMatchObject(data);
   });
 });

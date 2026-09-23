@@ -1,5 +1,13 @@
 import { Hono } from "hono";
-import type { AgentsInboxResponse, AgentsResponse } from "@emther/api-contract";
+import type {
+  AgentRunMutationResponse,
+  AgentSuggestionNotesResponse,
+  AgentSuggestionUpdatesResponse,
+  AgentThemesAdoptResponse,
+  AgentsInboxResponse,
+  AgentsResponse,
+  OkResponse,
+} from "@emther/api-contract";
 import {
   adoptSuggestedSuggestionNotesFromRun,
   adoptSuggestedThemesFromRun,
@@ -81,7 +89,8 @@ export const agentsRoute = new Hono()
         sourceJournalId,
         ...(requireExecConsult && agentName === "Lead Agent" ? { requiredConsultAgents: [EXEC_AGENT_NAME] } : {}),
       });
-      return c.json({ run: toRunView(run) }, 201);
+      const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -127,7 +136,8 @@ export const agentsRoute = new Hono()
       if (!run) {
         return c.json({ error: "not found" }, 404);
       }
-      return c.json({ run: toRunView(run) });
+      const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+      return c.json(resBody);
     } catch (err) {
       return jsonFromUnknownError(err, 409);
     }
@@ -168,20 +178,26 @@ export const agentsRoute = new Hono()
     if (!run) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ run: toRunView(run) });
+    const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+    return c.json(resBody);
   })
   .post("/:id/themes", async (c) => {
     const id = c.req.param("id");
     if (!getRun(id)) return c.json({ error: "not found" }, 404);
     const result = await adoptSuggestedThemesFromRun(id);
     if (!result) return c.json({ error: "採用できるテーマ提案がありません" }, 400);
-    return c.json({ run: toRunView(result.run), themes: result.themes.map(toThemeView) });
+    const resBody = {
+      run: toRunView(result.run),
+      themes: result.themes.map(toThemeView),
+    } satisfies AgentThemesAdoptResponse;
+    return c.json(resBody);
   })
   .delete("/:id/themes", (c) => {
     const id = c.req.param("id");
     const run = clearSuggestedThemes(id);
     if (!run) return c.json({ error: "not found" }, 404);
-    return c.json({ run: toRunView(run) });
+    const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+    return c.json(resBody);
   })
   // docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。POST=まとめて反映
   // （suggestedSuggestionUpdatesの対象要素を実際のSuggestionへ書き込む）、DELETE=却下。
@@ -193,7 +209,12 @@ export const agentsRoute = new Hono()
     const indices = parseIndices(body);
     const result = await adoptSuggestionUpdatesFromRun(id, indices);
     if (!result) return c.json({ error: "反映できる整理差分がありません" }, 400);
-    return c.json({ run: toRunView(result.run), applied: result.applied, skipped: result.skipped });
+    const resBody = {
+      run: toRunView(result.run),
+      applied: result.applied,
+      skipped: result.skipped,
+    } satisfies AgentSuggestionUpdatesResponse;
+    return c.json(resBody);
   })
   .delete("/:id/suggestion-updates", async (c) => {
     const id = c.req.param("id");
@@ -201,7 +222,8 @@ export const agentsRoute = new Hono()
     const indices = parseIndices(body);
     const run = clearSuggestedSuggestionUpdates(id, { indices });
     if (!run) return c.json({ error: "not found" }, 404);
-    return c.json({ run: toRunView(run) });
+    const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+    return c.json(resBody);
   })
   // docs/memo.md「Agentが相談などから他提案などへ記録することができない」「他提案への追記提案で
   // 追記対象を個別に選択できるようにする」対応。POST=採用（対象提案への追記を確定）、DELETE=却下/
@@ -214,7 +236,12 @@ export const agentsRoute = new Hono()
     const indices = parseIndices(body);
     const result = await adoptSuggestedSuggestionNotesFromRun(id, indices);
     if (!result) return c.json({ error: "採用できる追記提案がありません" }, 400);
-    return c.json({ run: toRunView(result.run), written: result.written, skipped: result.skipped });
+    const resBody = {
+      run: toRunView(result.run),
+      written: result.written,
+      skipped: result.skipped,
+    } satisfies AgentSuggestionNotesResponse;
+    return c.json(resBody);
   })
   .delete("/:id/suggestion-notes", async (c) => {
     const id = c.req.param("id");
@@ -223,7 +250,8 @@ export const agentsRoute = new Hono()
     const reason = (body as { reason?: unknown } | null)?.reason === "handled" ? "handled" : "dismissed";
     const run = clearSuggestedSuggestionNotes(id, { indices, reason });
     if (!run) return c.json({ error: "not found" }, 404);
-    return c.json({ run: toRunView(run) });
+    const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+    return c.json(resBody);
   });
 
 // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents画面の
@@ -250,7 +278,8 @@ export const agentsPendingUnmaskedRoute = new Hono().post("/:id", async (c) => {
   if (action === "dismiss") {
     const ok = dismissPendingUnmaskedSend(id);
     if (!ok) return c.json({ error: "not found" }, 404);
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   }
 
   try {
@@ -261,7 +290,8 @@ export const agentsPendingUnmaskedRoute = new Hono().post("/:id", async (c) => {
       registerNameCandidates: opts.registerNameCandidates,
     });
     if (!run) return c.json({ error: "not found" }, 404);
-    return c.json({ run: toRunView(run) });
+    const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
+    return c.json(resBody);
   } catch (err) {
     return c.json({ error: (err as Error).message }, 409);
   }

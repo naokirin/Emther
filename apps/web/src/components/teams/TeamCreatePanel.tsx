@@ -2,6 +2,7 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { api } from "../../lib/api-client";
 import type { Team } from "@emther/core/types";
+import type { TeamMutationResponse, TeamsBulkMutationResponse } from "@emther/api-contract";
 
 export function TeamCreatePanel({
   refreshTeams,
@@ -32,7 +33,7 @@ export function TeamCreatePanel({
       const res = await api.api.teams.$post({
         json: { name: teamName, members },
       });
-      const data = (await res.json()) as { error?: string; team?: Team };
+      const data = (await res.json()) as TeamMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "チームの追加に失敗しました");
       setTeamName("");
       setTeamMembers("");
@@ -55,11 +56,7 @@ export function TeamCreatePanel({
       const res = await api.api.teams.bulk.$post({
         json: { text: bulkText },
       });
-      const data = (await res.json()) as {
-        error?: string;
-        teams?: Team[];
-        skipped?: string[];
-      };
+      const data = (await res.json()) as TeamsBulkMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "一括登録に失敗しました");
       setBulkText("");
       setBulkResult({ created: data.teams!.length, skipped: data.skipped! });

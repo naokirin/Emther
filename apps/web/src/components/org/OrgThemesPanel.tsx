@@ -4,6 +4,7 @@ import styles from "../../styles/page.module.css";
 import { ThemeGoalLinkEditor } from "../../components/ThemeGoalLinkEditor";
 import { api } from "../../lib/api-client";
 import { type Goal, type OrgTheme } from "@emther/core/types";
+import type { ThemeMutationResponse } from "@emther/api-contract";
 
 type Props = {
   themes: OrgTheme[];
@@ -57,7 +58,7 @@ export function OrgThemesPanel({
           status: "adopted",
         },
       });
-      const data = (await res.json().catch(() => null)) as { error?: string; theme?: OrgTheme } | null;
+      const data = (await res.json().catch(() => null)) as (ThemeMutationResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "テーマの作成に失敗しました");
       await refreshThemes();
       setNewTitle("");

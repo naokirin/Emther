@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { SuggestionsLinkSuggestResponse } from "@emther/api-contract";
 import { suggestSuggestionStrategyLinks } from "@emther/core/link-suggest";
 
 // docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ10）: web/src/app/api/issues/link/suggest/route.ts の移植。
@@ -10,10 +11,11 @@ export const suggestionsLinkSuggestRoute = new Hono().post("/", async (c) => {
     : undefined;
 
   const result = await suggestSuggestionStrategyLinks({ suggestionIds });
-  return c.json({
+  const resBody = {
     suggestions: result.suggestions,
     targetCount: result.targetCount,
     source: result.source,
     fallbackReason: result.fallbackReason,
-  });
+  } satisfies SuggestionsLinkSuggestResponse;
+  return c.json(resBody);
 });

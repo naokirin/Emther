@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { TeamsResponse } from "@emther/api-contract";
+import type { OkResponse, TeamMutationResponse, TeamsBulkMutationResponse, TeamsResponse } from "@emther/api-contract";
 import {
   addTeam,
   getTeam,
@@ -67,7 +67,8 @@ export const teamsRoute = new Hono()
     }
 
     const team = addTeam(name, members);
-    return c.json({ team: toTeamView(team) }, 201);
+    const resBody = { team: toTeamView(team) } satisfies TeamMutationResponse;
+    return c.json(resBody, 201);
   })
   .post("/bulk", async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -79,7 +80,8 @@ export const teamsRoute = new Hono()
     }
 
     const teams = parsed.map((p) => addTeam(p.name, p.members));
-    return c.json({ teams: teams.map(toView), skipped }, 201);
+    const resBody = { teams: teams.map(toView), skipped } satisfies TeamsBulkMutationResponse;
+    return c.json(resBody, 201);
   })
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
@@ -103,14 +105,16 @@ export const teamsRoute = new Hono()
     if (!team) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ team: toTeamView(team) });
+    const resBody = { team: toTeamView(team) } satisfies TeamMutationResponse;
+    return c.json(resBody);
   })
   .delete("/:id", (c) => {
     const removed = removeTeam(c.req.param("id"));
     if (!removed) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   })
   .post("/:id/archive", async (c) => {
     const id = c.req.param("id");
@@ -121,5 +125,8 @@ export const teamsRoute = new Hono()
     }
     const archived = typeof body?.archived === "boolean" ? body.archived : !current.archived;
     const team = setTeamArchived(id, archived);
-    return c.json({ team: team ? toView(team) : team });
+    // setTeamArchivedはcurrentが存在する時点で常にTeamを返す想定だが、型上はundefinedを
+    // 許容するため、TeamMutationResponse（nullable）に合わせてnullへ正規化する。
+    const resBody = { team: team ? toView(team) : null } satisfies TeamMutationResponse;
+    return c.json(resBody);
   });

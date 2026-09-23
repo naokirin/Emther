@@ -6,6 +6,7 @@ import {
   PERSON_REGISTERED_EVENT,
   type OpenPersonQuickAddDetail,
 } from "./personQuickAddEvents";
+import type { PersonMutationResponse } from "@emther/api-contract";
 
 function parseAliases(raw: string): string[] {
   return [...new Set(raw.split(/[,、]/).map((s) => s.trim()).filter(Boolean))];
@@ -61,10 +62,7 @@ export function PersonQuickAdd() {
       const res = await api.api.people.$post({
         json: { name: trimmed, aliases: parseAliases(aliasesText) },
       });
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        person?: { name?: string; aliases?: string[] };
-      } | null;
+      const data = (await res.json().catch(() => null)) as (PersonMutationResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "登録に失敗しました");
       const personName = typeof data?.person?.name === "string" ? data.person.name : trimmed;
       const aliasCount = Array.isArray(data?.person?.aliases) ? data.person.aliases.length : 0;

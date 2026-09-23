@@ -11,6 +11,7 @@ import { useReflectionNoteController } from "../../components/growth/useReflecti
 import { reflectionNotesQueryKey } from "../../lib/queries";
 import { api, rpcInit } from "../../lib/api-client";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
+import type { ReflectionNoteMutationResponse } from "@emther/api-contract";
 
 // 振り返りタブ改善案: 旧「EMの成長」のうち週次（学び・方針・KPT）だけを残す。
 // 自己チェックインは /checkin へ分離。URL /growth と /api/growth/* は維持する。
@@ -88,7 +89,7 @@ export function GrowthPage() {
         param: { id: noteId },
         json: { archived },
       }));
-      const data = (await res.json().catch(() => null)) as { error?: string; note?: EmReflectionNote } | null;
+      const data = (await res.json().catch(() => null)) as (ReflectionNoteMutationResponse & { error?: string }) | null;
       if (!res.ok || !data?.note) {
         throw new Error(data?.error ?? (archived ? "完了／アーカイブに失敗しました" : "戻すのに失敗しました"));
       }

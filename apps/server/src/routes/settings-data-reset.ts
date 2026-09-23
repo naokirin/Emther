@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { DataMutationResponse } from "@emther/api-contract";
 import { resetAllState, scheduleProcessExit } from "@emther/core/state-archive";
 
 // docs/2nd_architecture/plan.md フェーズ4.3a: web/src/app/api/settings/data/reset/route.ts
@@ -15,7 +16,8 @@ export const settingsDataResetRoute = new Hono().post("/", async (c) => {
     }
     resetAllState();
     scheduleProcessExit();
-    return c.json({ ok: true, requiresRestart: true });
+    const resBody = { ok: true, requiresRestart: true } satisfies DataMutationResponse;
+    return c.json(resBody);
   } catch (err) {
     return c.json({ error: (err as Error).message || "リセットに失敗しました" }, 500);
   }

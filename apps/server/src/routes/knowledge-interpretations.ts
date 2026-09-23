@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { KnowledgeInterpretationMutationResponse } from "@emther/api-contract";
 import { listEvents, listInterpretationsForPerson, recordEvent, toEventView } from "@emther/core/knowledge-store";
 import { embedText } from "@emther/core/embeddings";
 import { getPersonId, maskForStorage, registerName } from "@emther/core/people-directory";
@@ -44,5 +45,6 @@ export const knowledgeInterpretationsRoute = new Hono()
       occurredAt: Date.now(),
       embedding,
     });
-    return c.json({ interpretation: toEventView(event) }, 201);
+    const resBody = { interpretation: toEventView(event) } satisfies KnowledgeInterpretationMutationResponse;
+    return c.json(resBody, 201);
   });

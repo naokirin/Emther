@@ -4,6 +4,7 @@ import { Select } from "../Select";
 import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type OrgBackgroundEntry } from "@emther/core/types";
+import type { OrgBackgroundMutationResponse } from "@emther/api-contract";
 import { treeTitle } from "./treeTitle";
 
 type Props = {
@@ -81,7 +82,7 @@ export function StandingBackgroundPanel({ backgrounds, backgroundsLoaded, refres
           scope: newBgScope,
         },
       });
-      const data = (await res.json()) as { error?: string; background?: OrgBackgroundEntry };
+      const data = (await res.json()) as OrgBackgroundMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewBgTitle("");
       setNewBgFact("");

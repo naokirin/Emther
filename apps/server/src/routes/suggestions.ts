@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { SuggestionDetailResponse, SuggestionsResponse } from "@emther/api-contract";
+import type { SuggestionDetailResponse, SuggestionMutationResponse, SuggestionsResponse } from "@emther/api-contract";
 import {
   addMemo,
   adviceFieldsFromProposal,
@@ -150,7 +150,8 @@ export const suggestionsRoute = new Hono()
           }
         }
       }
-      return c.json({ suggestion: toSuggestionView(suggestion) }, 201);
+      const resBody = { suggestion: toSuggestionView(suggestion) } satisfies SuggestionMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return jsonFromUnknownError(err, 400);
     }
@@ -306,7 +307,8 @@ export const suggestionsRoute = new Hono()
           }) ?? suggestion;
       }
 
-      return c.json({ suggestion: toSuggestionView(suggestion) });
+      const resBody = { suggestion: toSuggestionView(suggestion) } satisfies SuggestionMutationResponse;
+      return c.json(resBody);
     } catch (err) {
       // updateSuggestionDetailの「結論と判断ロジックは必須です」等、入力起因のエラーは
       // 4xxとして返す（jsonFromUnknownErrorはUnconfirmedNameCandidatesErrorなら409、
@@ -338,7 +340,8 @@ export const suggestionsRoute = new Hono()
       if (!suggestion) {
         return c.json({ error: "not found" }, 404);
       }
-      return c.json({ suggestion: toSuggestionView(suggestion) }, 201);
+      const resBody = { suggestion: toSuggestionView(suggestion) } satisfies SuggestionMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return jsonFromUnknownError(err);
     }

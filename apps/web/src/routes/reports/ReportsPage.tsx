@@ -14,6 +14,7 @@ import { buildJournalSuggestionDailyTrend } from "@emther/core/daily-trends";
 import { reportsQueryKey, useJournal, useReports, useRuns, useSuggestions } from "../../lib/queries";
 import { api, rpcInit } from "../../lib/api-client";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@emther/core/types";
+import type { ReportMutationResponse, ReportReviewResponse } from "@emther/api-contract";
 
 // web/src/app/reports/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
 // stylesのimportパス・`@core/*`のbare specifier化以外はロジックを変更していないが、
@@ -306,7 +307,7 @@ export function ReportsPage() {
     setReviewError(null);
     try {
       const res = await api.api.reports.review.$post({ json: { periodType, offset } });
-      const data = (await res.json()) as { error?: string; report?: Report };
+      const data = (await res.json()) as ReportReviewResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "レビューの起動に失敗しました");
       setTriggeredSpotlightReport(data.report!);
       await Promise.all([refreshReports(), refreshRuns()]);
@@ -319,7 +320,7 @@ export function ReportsPage() {
 
   async function handleSaveNote(id: string, note: string) {
     const res = await api.api.reports[":id"].$patch(rpcInit({ param: { id }, json: { note } }));
-    const data = (await res.json()) as { error?: string; report?: Report };
+    const data = (await res.json()) as ReportMutationResponse & { error?: string };
     if (res.ok) {
       queryClient.setQueryData<{ reports: Report[] }>(reportsQueryKey(periodFilter), (prev) => ({
         reports: (prev?.reports ?? reports).map((r) => (r.id === id ? data.report! : r)),

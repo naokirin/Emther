@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { GoalsResponse } from "@emther/api-contract";
+import type { GoalMutationResponse, GoalsResponse, OkResponse } from "@emther/api-contract";
 import { addGoal, listGoals, removeGoal, toGoalView, updateGoal, type GoalHorizon, type GoalStatus } from "@emther/core/org-context-store/index";
 
 function parseHorizon(value: unknown): GoalHorizon | undefined {
@@ -30,7 +30,8 @@ export const goalsRoute = new Hono()
 
     try {
       const goal = await addGoal({ title, teamId, elaboration, note, horizon });
-      return c.json({ goal: toGoalView(goal) }, 201);
+      const resBody = { goal: toGoalView(goal) } satisfies GoalMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }
@@ -78,12 +79,14 @@ export const goalsRoute = new Hono()
     if (!goal) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ goal: toGoalView(goal) });
+    const resBody = { goal: toGoalView(goal) } satisfies GoalMutationResponse;
+    return c.json(resBody);
   })
   .delete("/:id", (c) => {
     const removed = removeGoal(c.req.param("id"));
     if (!removed) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   });

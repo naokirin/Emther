@@ -10,6 +10,7 @@ import { paginationMeta } from "../../components/usePagination";
 import { api } from "../../lib/api-client";
 import { useSuggestions, useJournalSearch, useJournalBatchStatus } from "../../lib/queries";
 import type { JournalEntry } from "@emther/core/types";
+import type { AgentRunMutationResponse } from "@emther/api-contract";
 import { useJournalEditing } from "../../lib/useJournalEditing";
 
 // web/src/app/journal/page.tsx（Next.js版）からの移植（フェーズ3.5 tier4）。
@@ -63,10 +64,10 @@ export function JournalPage() {
     setBatchError(null);
     try {
       const res = await api.api.journal.batch.$post();
-      const data = (await res.json().catch(() => null)) as { error?: string; run?: { id?: string } } | null;
+      const data = (await res.json().catch(() => null)) as (AgentRunMutationResponse & { error?: string }) | null;
       if (res.status === 202) return;
       if (!res.ok) throw new Error(data?.error ?? "Journal集約解釈の起動に失敗しました");
-      const runId = data?.run?.id as string | undefined;
+      const runId = data?.run?.id;
       if (runId) navigate(`/chat?runId=${runId}`);
     } catch (err) {
       setBatchError((err as Error).message);

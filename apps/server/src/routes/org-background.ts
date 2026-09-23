@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { OrgBackgroundsResponse } from "@emther/api-contract";
+import type { OkResponse, OrgBackgroundMutationResponse, OrgBackgroundsResponse } from "@emther/api-contract";
 import {
   addOrgBackground,
   listOrgBackgrounds,
@@ -43,7 +43,8 @@ export const orgBackgroundRoute = new Hono()
         scope,
         status,
       });
-      return c.json({ background: toOrgBackgroundView(entry) }, 201);
+      const resBody = { background: toOrgBackgroundView(entry) } satisfies OrgBackgroundMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }
@@ -100,12 +101,14 @@ export const orgBackgroundRoute = new Hono()
     if (!entry) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ background: toOrgBackgroundView(entry) });
+    const resBody = { background: toOrgBackgroundView(entry) } satisfies OrgBackgroundMutationResponse;
+    return c.json(resBody);
   })
   .delete("/:id", (c) => {
     const removed = removeOrgBackground(c.req.param("id"));
     if (!removed) {
       return c.json({ error: "not found" }, 404);
     }
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   });

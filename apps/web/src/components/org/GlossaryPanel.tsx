@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import styles from "../../styles/page.module.css";
 import { api, rpcInit } from "../../lib/api-client";
 import type { GlossaryEntry } from "@emther/core/glossary-store";
+import type { GlossaryListResponse } from "@emther/api-contract";
 
 export function GlossaryPanel() {
   const [entries, setEntries] = useState<GlossaryEntry[]>([]);
@@ -23,7 +24,7 @@ export function GlossaryPanel() {
   async function loadGlossary() {
     try {
       const res = await api.api.glossary.$get();
-      const data = (await res.json().catch(() => null)) as { entries?: GlossaryEntry[] } | null;
+      const data = (await res.json().catch(() => null)) as GlossaryListResponse | null;
       if (res.ok && Array.isArray(data?.entries)) {
         setEntries(data.entries);
       }

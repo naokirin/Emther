@@ -4,6 +4,7 @@ import styles from "../../styles/page.module.css";
 import { growSuggestionsQueryKey, useGrowSuggestions, useRuns } from "../../lib/queries";
 import { api, rpcInit } from "../../lib/api-client";
 import type { GrowSuggestion } from "@emther/core/types";
+import type { AgentRunMutationResponse, GrowSuggestionMutationResponse } from "@emther/api-contract";
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
@@ -101,14 +102,14 @@ export function GrowSuggestionsPanel() {
     handledRunIdRef.current = null;
     try {
       const res = await api.api.growth.generate.$post();
-      const data = (await res.json().catch(() => null)) as { error?: string; run?: { id?: string } } | null;
+      const data = (await res.json().catch(() => null)) as (AgentRunMutationResponse & { error?: string }) | null;
       if (res.status === 202) {
         // 人名の未確認確認待ちでparkされた。確認自体は別画面（Inbox）で行う。
         setGenerateStatus("人名の確認待ちです。Inbox で確認すると生成が始まります。");
         return;
       }
       if (!res.ok) throw new Error(data?.error ?? "学びの提案の生成に失敗しました");
-      const runId = data?.run?.id as string | undefined;
+      const runId = data?.run?.id;
       if (!runId) throw new Error("生成の起動に失敗しました");
       setPendingRunId(runId);
       setGenerateStatus("学びの提案を生成しています…");
@@ -128,7 +129,7 @@ export function GrowSuggestionsPanel() {
         param: { id: suggestion.id },
         json: { status },
       }));
-      const data = (await res.json().catch(() => null)) as { suggestion?: GrowSuggestion } | null;
+      const data = (await res.json().catch(() => null)) as GrowSuggestionMutationResponse | null;
       if (!res.ok || !data?.suggestion) return;
       const updated = data.suggestion;
       queryClient.setQueryData<{ suggestions: GrowSuggestion[] }>(growSuggestionsQueryKey, () => ({

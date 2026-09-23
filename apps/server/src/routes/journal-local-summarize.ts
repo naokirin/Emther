@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { JournalLocalSummarizeResponse } from "@emther/api-contract";
 import {
   generateNextReflectionQuestionLocally,
   structureDailyReflectionLocally,
@@ -16,7 +17,8 @@ export const journalLocalSummarizeRoute = new Hono().post("/", async (c) => {
     const todayJournals: string[] = Array.isArray(body?.todayJournals) ? body.todayJournals : [];
     try {
       const question = await generateNextReflectionQuestionLocally(history, todayJournals);
-      return c.json({ question });
+      const resBody = { question } satisfies JournalLocalSummarizeResponse;
+      return c.json(resBody);
     } catch (err) {
       return c.json({ error: (err as Error).message ?? "問いかけの生成に失敗しました" }, 500);
     }
@@ -29,7 +31,8 @@ export const journalLocalSummarizeRoute = new Hono().post("/", async (c) => {
 
   try {
     const summary = mode === "reflection" ? await structureDailyReflectionLocally(text) : await summarizeLogLocally(text);
-    return c.json({ summary });
+    const resBody = { summary } satisfies JournalLocalSummarizeResponse;
+    return c.json(resBody);
   } catch (err) {
     return c.json({ error: (err as Error).message ?? "ローカル要約に失敗しました" }, 500);
   }

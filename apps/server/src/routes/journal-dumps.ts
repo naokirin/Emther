@@ -1,4 +1,12 @@
 import { Hono } from "hono";
+import type {
+  ImportProfileMutationResponse,
+  ObservationDumpAcceptResponse,
+  ObservationDumpMutationResponse,
+  ObservationDumpPreviewResponse,
+  ObservationDumpsResponse,
+  OkResponse,
+} from "@emther/api-contract";
 import { acceptDumpChunks, runParseOnDump } from "@emther/core/observation-dump-actions";
 import { isImportSyntax, parseImportMappingConfig } from "@emther/core/observation-dump-mapping-types";
 import { buildImportPreview } from "@emther/core/observation-dump-normalize";
@@ -29,7 +37,10 @@ function isDisposition(v: unknown): v is ChunkDisposition {
 
 export const journalDumpsRoute = new Hono()
   // docs/observation_dump_journal.md: Dump 一覧・作成。作成後は既定で分割まで実行する。
-  .get("/", (c) => c.json({ dumps: listObservationDumps().map(toObservationDumpView) }))
+  .get("/", (c) => {
+    const body = { dumps: listObservationDumps().map(toObservationDumpView) } satisfies ObservationDumpsResponse;
+    return c.json(body);
+  })
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const text = typeof body?.text === "string" ? body.text : "";
@@ -57,7 +68,8 @@ export const journalDumpsRoute = new Hono()
       if (parse) {
         dump = await runParseOnDump(dump.id);
       }
-      return c.json({ dump: toObservationDumpView(dump) }, 201);
+      const resBody = { dump: toObservationDumpView(dump) } satisfies ObservationDumpMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       const message = (err as Error).message;
       if (message.includes("本文(text)") || message.includes("列を確認する")) {
@@ -76,7 +88,8 @@ export const journalDumpsRoute = new Hono()
     const syntax = isImportSyntax(body?.syntax) ? body.syntax : undefined;
     const hasHeader = typeof body?.hasHeader === "boolean" ? body.hasHeader : undefined;
     const preview = buildImportPreview(text, syntax, hasHeader);
-    return c.json({ preview, profiles: listImportProfiles() });
+    const resBody = { preview, profiles: listImportProfiles() } satisfies ObservationDumpPreviewResponse;
+    return c.json(resBody);
   })
   .get("/profiles", (c) => c.json({ profiles: listImportProfiles() }))
   .post("/profiles", async (c) => {
@@ -91,7 +104,8 @@ export const journalDumpsRoute = new Hono()
     }
     try {
       const profile = saveImportProfile({ id: typeof body?.id === "string" ? body.id : undefined, name, config });
-      return c.json({ profile }, 201);
+      const resBody = { profile } satisfies ImportProfileMutationResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }
@@ -103,7 +117,8 @@ export const journalDumpsRoute = new Hono()
     if (!deleteImportProfile(id)) {
       return c.json({ error: "見つかりません" }, 404);
     }
-    return c.json({ ok: true });
+    const resBody = { ok: true } satisfies OkResponse;
+    return c.json(resBody);
   })
   .get("/:id", (c) => {
     const dump = getObservationDump(c.req.param("id"));
@@ -118,7 +133,8 @@ export const journalDumpsRoute = new Hono()
     const body = await c.req.json().catch(() => null);
     if (body?.discard === true) {
       const discarded = discardObservationDump(id);
-      return c.json({ dump: toObservationDumpView(discarded!) });
+      const resBody = { dump: toObservationDumpView(discarded!) } satisfies ObservationDumpMutationResponse;
+      return c.json(resBody);
     }
 
     try {
@@ -151,7 +167,8 @@ export const journalDumpsRoute = new Hono()
 
       const updated = patches.length > 0 ? patchChunkDrafts(id, patches) : dump;
       if (!updated) return c.json({ error: "更新に失敗しました" }, 500);
-      return c.json({ dump: toObservationDumpView(updated) });
+      const resBody = { dump: toObservationDumpView(updated) } satisfies ObservationDumpMutationResponse;
+      return c.json(resBody);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -163,7 +180,8 @@ export const journalDumpsRoute = new Hono()
     }
     try {
       const dump = await runParseOnDump(id);
-      return c.json({ dump: toObservationDumpView(dump) });
+      const resBody = { dump: toObservationDumpView(dump) } satisfies ObservationDumpMutationResponse;
+      return c.json(resBody);
     } catch (err) {
       return jsonFromUnknownError(err);
     }
@@ -179,10 +197,12 @@ export const journalDumpsRoute = new Hono()
 
     try {
       const { dump, entries, nameCandidateSuggestions } = await acceptDumpChunks(id, chunkIds, maskOptionsFromBodyStrict(body));
-      return c.json(
-        { dump: toObservationDumpView(dump), entries: toJournalEntryViews(entries, new Map()), nameCandidateSuggestions },
-        201,
-      );
+      const resBody = {
+        dump: toObservationDumpView(dump),
+        entries: toJournalEntryViews(entries, new Map()),
+        nameCandidateSuggestions,
+      } satisfies ObservationDumpAcceptResponse;
+      return c.json(resBody, 201);
     } catch (err) {
       const message = (err as Error).message;
       if (message.includes("選んでください") || message.includes("採用可能") || message.includes("破棄済み") || message.includes("分割処理中")) {

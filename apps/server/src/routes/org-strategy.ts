@@ -70,5 +70,6 @@ export const orgStrategyRoute = new Hono()
       values: typeof body?.values === "string" ? body.values : undefined,
       valueItems,
     });
-    return c.json({ strategy: toView(strategy) });
+    const resBody = { strategy: toView(strategy) } satisfies OrgStrategyResponse;
+    return c.json(resBody);
   });

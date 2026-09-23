@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
 import { api, rpcInit } from "../../lib/api-client";
 import type { PersonEvaluationLog } from "@emther/core/types";
+import type { PersonEvaluationLogsResponse } from "@emther/api-contract";
 
 export function PersonEvaluationLogsSection({
   personId,
@@ -30,7 +31,7 @@ export function PersonEvaluationLogsSection({
         param: { id: personId },
         json: { action: "suggest-from-journal" },
       }));
-      const data = (await res.json()) as { error?: string; logs?: PersonEvaluationLog[] };
+      const data = (await res.json()) as PersonEvaluationLogsResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "仮置きに失敗しました");
       const n = Array.isArray(data.logs) ? data.logs.length : 0;
       setEvalMessage(n > 0 ? `${n}件の仮置きログを追加しました` : "新規の仮置きはありません（既存または材料不足）");

@@ -5,6 +5,7 @@ import { useNameCandidateConfirm } from "../lib/useNameCandidateConfirm";
 import { RecordDateField } from "./RecordDateField";
 import { todayDateInputValue } from "./recordDate";
 import type { ReflectionTurn } from "@emther/core/local-summarizer";
+import type { JournalLocalSummarizeResponse } from "@emther/api-contract";
 
 // web/src/components/DailyReflectionForm.tsx（Next.js版）からの移植（フェーズ3.5
 // evening-reviewバッチ）。stylesのimportパス・`@core/*`のbare specifier化以外の
@@ -92,7 +93,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
           todayJournals,
         },
       });
-      const data = await rpcData<{ question?: string; error?: string }>(res);
+      const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
       const question =
         data?.question ??
         "お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や、全体の雰囲気など、ざっくりとした一言でも構いません）";
@@ -127,7 +128,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
           todayJournals,
         },
       });
-      const data = await rpcData<{ question?: string; error?: string }>(res);
+      const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
       const nextQuestion =
         data?.question ??
         "ありがとうございます。今日を振り返って、心残りや、ふと引っかかった違和感、明日以降に意識したいモヤモヤ・気づきなどはありますか？特になければ、このまま本日の振り返りとしてまとめますね。";
@@ -152,7 +153,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
       const res = await api.api.journal["local-summarize"].$post({
         json: { text: combinedText, mode: "reflection", todayJournals },
       });
-      const data = await rpcData<{ summary?: string; error?: string }>(res);
+      const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
       if (!res.ok) throw new Error(data?.error ?? "振り返りの整理に失敗しました");
 
       setStructuredText(data?.summary ?? "");

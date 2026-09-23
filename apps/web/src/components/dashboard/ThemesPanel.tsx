@@ -7,6 +7,7 @@ import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
 import { ThemeGoalLinkEditor } from "../ThemeGoalLinkEditor";
 import { api, rpcInit } from "../../lib/api-client";
 import { isThemeGoalUnlinked, type Goal, type GoalLinkSuggestion, type OrgTheme } from "@emther/core/types";
+import type { AgentRunMutationResponse, ThemeGoalLinkSuggestResponse } from "@emther/api-contract";
 
 // 採用＝肯定（1段階）。壁打ち前提に入ったテーマを「意識の錨」として今日タブに残す。
 const PRIORITY_THEME_LIMIT = 3;
@@ -85,16 +86,13 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
     setDistillError(null);
     try {
       const res = await api.api.themes.distill.$post();
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        run?: { id?: string };
-      } | null;
+      const data = (await res.json().catch(() => null)) as (AgentRunMutationResponse & { error?: string }) | null;
       if (res.status === 202) {
         await refreshRuns();
         return;
       }
       if (!res.ok) throw new Error(data?.error ?? "状況蒸留の起動に失敗しました");
-      const runId = data?.run?.id as string | undefined;
+      const runId = data?.run?.id;
       await refreshRuns();
       if (runId) onNavigate(`/chat?runId=${runId}`);
     } catch (err) {
@@ -109,12 +107,7 @@ export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refres
     setThemeLinkError(null);
     try {
       const res = await api.api.themes.link["suggest-goal"].$post({ json: {} });
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        suggestions?: GoalLinkSuggestion[];
-        source?: string;
-        fallbackReason?: string;
-      } | null;
+      const data = (await res.json().catch(() => null)) as (ThemeGoalLinkSuggestResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "Goalリンク提案に失敗しました");
       setThemeLinkPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],

@@ -2,6 +2,7 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { PageTitleRow } from "../HelpLink";
 import type { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
+import type { AgentRunMutationResponse } from "@emther/api-contract";
 
 type Props = {
   initialTask: string;
@@ -73,7 +74,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "開始に失敗しました");
       updateTask("");
       setRequireExecConsult(false);
-      onStarted((data as { run: { id: string } }).run.id);
+      onStarted((data as AgentRunMutationResponse).run.id);
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setStartError((err as Error).message);

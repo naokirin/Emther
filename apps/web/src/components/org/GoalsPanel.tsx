@@ -5,6 +5,7 @@ import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
 import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type Goal, type GoalHorizon, type GoalLinkSuggestion, type GoalStatus } from "@emther/core/types";
+import type { GoalMutationResponse, ThemeGoalLinkSuggestResponse } from "@emther/api-contract";
 import { treeTitle } from "./treeTitle";
 
 type Props = {
@@ -104,7 +105,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
           horizon: newHorizon || undefined,
         },
       });
-      const data = (await res.json()) as { error?: string; goal?: Goal };
+      const data = (await res.json()) as GoalMutationResponse & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "追加に失敗しました");
       setNewTitle("");
       setNewElaboration("");
@@ -186,12 +187,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     setSuggestError(null);
     try {
       const res = await api.api.themes.link["suggest-goal"].$post({ json: {} });
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        suggestions?: GoalLinkSuggestion[];
-        source?: string;
-        fallbackReason?: string;
-      } | null;
+      const data = (await res.json().catch(() => null)) as (ThemeGoalLinkSuggestResponse & { error?: string }) | null;
       if (!res.ok) throw new Error(data?.error ?? "Goal紐づけ提案に失敗しました");
       setSuggestPreview({
         suggestions: Array.isArray(data?.suggestions) ? data.suggestions : [],
