@@ -19,7 +19,7 @@ import {
 } from "../../components/SuggestionThemeSwitcher";
 import {
   useSuggestionExportColumns,
-} from "../../components/SuggestionExportColumnEditor";
+} from "../../components/useSuggestionExportColumns";
 import { SuggestionExportMenu } from "../../components/SuggestionExportMenu";
 import { useRuns, useSettingsRules, useSuggestions, useTeams, useThemes } from "../../lib/queries";
 import { copyTextToClipboard } from "../../lib/clipboard";

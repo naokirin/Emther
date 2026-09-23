@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent } from "react";
+import { useState, type DragEvent } from "react";
 import styles from "../styles/page.module.css";
 import {
   SUGGESTION_EXPORT_COLUMNS,
@@ -9,7 +9,6 @@ import {
   toggleExportColumn,
   type SuggestionExportColumnId,
 } from "@emther/core/suggestion-export";
-import { loadSuggestionExportColumnIds, saveSuggestionExportColumnIds } from "../lib/suggestionExportColumns";
 
 export type SuggestionExportColumnEditorProps = {
   value: SuggestionExportColumnId[];
@@ -159,17 +158,4 @@ export function SuggestionExportColumnEditor({ value, onChange }: SuggestionExpo
       </div>
     </div>
   );
-}
-
-/** 一覧ページ用: localStorage と同期した列設定フック。 */
-export function useSuggestionExportColumns() {
-  const [columnIds, setColumnIds] = useState<SuggestionExportColumnId[]>(() => [
-    ...loadSuggestionExportColumnIds(),
-  ]);
-
-  useEffect(() => {
-    saveSuggestionExportColumnIds(columnIds);
-  }, [columnIds]);
-
-  return { columnIds, setColumnIds };
 }

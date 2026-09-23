@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   isThemeGoalUnlinked,
   type Goal,
@@ -258,10 +258,16 @@ export function OrgOverviewPanel({
     scanViewportRef.current?.scrollTo({ top: 0, left: 0 });
   };
 
-  useEffect(() => {
-    if (focusGoalId) return;
-    setScanScale(1);
-  }, [focusGoalId, activeGoals.length, adoptedThemes.length, hasMvv, loaded]);
+  // スキャン概観に戻ったとき／構造が変わったときは拡大率をフィットに戻す。
+  // effect 内 setState を避け、描画中の「prev props との差分」で調整する。
+  const scanResetKey = focusGoalId
+    ? "focus"
+    : `scan:${activeGoals.length}:${adoptedThemes.length}:${hasMvv}:${loaded}`;
+  const [prevScanResetKey, setPrevScanResetKey] = useState(scanResetKey);
+  if (scanResetKey !== prevScanResetKey) {
+    setPrevScanResetKey(scanResetKey);
+    if (!focusGoalId) setScanScale(1);
+  }
 
   // 拡大は transform で行い、レイアウト幅はフィット時のまま（折り返しが増えない）
   useLayoutEffect(() => {

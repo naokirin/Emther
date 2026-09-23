@@ -85,6 +85,6 @@ describe("DashboardPage", () => {
       }),
     );
     render(<DashboardPage />, { wrapper: createWrapper() });
-    expect(await screen.findByText(/初回セットアップ/)).toBeInTheDocument();
+    expect(await screen.findByText(/レンズの抜け/)).toBeInTheDocument();
   });
 });

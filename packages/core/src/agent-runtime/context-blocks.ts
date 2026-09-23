@@ -109,7 +109,7 @@ export function buildStrategyBlock(): string {
           .split(/[\n,、]/)
           .map((v) => v.trim())
           .filter(Boolean)
-          .map((statement) => ({ statement }))
+          .map((statement): { statement: string; elaboration?: string } => ({ statement }))
       : [];
   if (valueItems.length > 0) {
     lines.push("Values:");

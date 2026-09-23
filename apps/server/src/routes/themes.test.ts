@@ -49,10 +49,19 @@ describe("GET /api/themes", () => {
 });
 
 describe("POST /api/themes", () => {
-  it("title/summaryが無ければ400", async () => {
+  it("titleが無ければ400", async () => {
     const { themesRoute } = await import("./themes");
-    const res = await themesRoute.request("/", post({ title: "x" }));
+    const res = await themesRoute.request("/", post({ summary: "x" }));
     expect(res.status).toBe(400);
+  });
+
+  it("summary省略でも作成できる（rationaleはtitleにフォールバック）", async () => {
+    const { themesRoute } = await import("./themes");
+    const res = await themesRoute.request("/", post({ title: "タイトルのみ" }));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.theme.title).toBe("タイトルのみ");
+    expect(json.theme.rationale).toBe("タイトルのみ");
   });
 
   it("作成できる（201、既定statusはadopted）", async () => {
