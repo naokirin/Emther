@@ -94,6 +94,8 @@ packages/core/src/
 旧パス `@emther/core/<file>` はルートの thin re-export shim で維持（`package.json` の `"./*": "./src/*.ts"` 前提）。
 フォルダ外の core 内 import も shim 経由（`./embeddings` 等）にし、`vi.mock("@emther/core/embeddings")` が実装モジュールと同一 identity になるようにする。カテゴリ内でも、外部から mock されうる依存（例: `local-ml/mask-check` → `../local-model` / `../mask-check-morph`）は shim 経由にする。
 
+**注意（ブラウザ）**: `@emther/core/agent-runtime`（`src/agent-runtime.ts`）は types / run-meta などクライアント安全な subset のみ。store / context-blocks / scheduled-tasks 等のフルバレルは `@emther/core/agent-runtime/index`（server 向け）。web がフルバレルを値 import すると embeddings → `node:fs` がクライアントに載る。
+
 #### `types.ts` 配置ノート（分割しない）
 
 - `types.ts` は **ルートに残す**（共有ドメイン型 + 純ヘルパーの置き場）
@@ -115,6 +117,6 @@ packages/core/src/
 
 | フェーズ | 状態 | 備考 |
 |---|---|---|
-| Phase A | 完了 | AgentRun 型を `@emther/core/agent-runtime` に一本化。run meta（`runFallbackTitle` / `runKindLabel` / `shouldOmitRunFromNextActions` / `isDraftAwaitingTriage` / `draftKindLabel`）を core へ。`daily-situation` / `today-state` / `dashboard-next-actions` を core 化し、NextAction/SituationItem は `target` を持ち web で `attach*Handlers` により onSelect 配線。STATUS_META と React コンポーネントは web 残留。 |
+| Phase A | 完了 | AgentRun 型を `@emther/core/agent-runtime` に一本化。run meta（`runFallbackTitle` / `runKindLabel` / `shouldOmitRunFromNextActions` / `isDraftAwaitingTriage` / `draftKindLabel`）を core へ。`daily-situation` / `today-state` / `dashboard-next-actions` を core 化し、NextAction/SituationItem は `target` を持ち web で `attach*Handlers` により onSelect 配線。STATUS_META と React コンポーネントは web 残留。`packages/core/src/agent-runtime.ts` は **ブラウザ安全な subset のみ**（types / run-meta）。サーバー用フルバレルは `@emther/core/agent-runtime/index`。 |
 | Phase B | 完了 | `AgentRunView`＝core `AgentRun`。id-resolve / mask-check / models-status を api-contract エンベロープ化（`satisfies`）。teams POST に寛容リクエスト parse。`core-type-drift.test.ts` で Team〜AgentRun 等の型一致を検知。settings/data/backup はバイナリのため契約外と README 明記。 |
 | Phase C | 完了 | `local-ml/`・`persistence/`・`observation-dump/` を新設。`cloud-chat` → `agent-runtime/`。旧 deep import はルート shim で互換維持。`types.ts` はルート据え置き（分割見送り）。 |
