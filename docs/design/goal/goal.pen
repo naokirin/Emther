@@ -22105,7 +22105,7 @@
       "id": "AjU7b",
       "x": 7613,
       "y": 6334,
-      "name": "接続案3b: 件数増・ズームアウト",
+      "name": "接続案3b: 全体スキャン",
       "clip": true,
       "width": 1200,
       "fill": "$background",
@@ -22899,7 +22899,7 @@
                           "fill": "$text-muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "件数増 · 全体フィット。Goal→Themes束ね枠（1辺・同一高さ）。枠内 Theme は縦並び（2件=2行）。",
+                          "content": "全体スキャン · Goal→Themes束ね枠（実辺＋矢印）。ノード／枠を選ぶとフォーカスへ。",
                           "fontFamily": "$font-sans",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -22943,7 +22943,7 @@
                           "id": "ui6g8",
                           "name": "ZLevel",
                           "fill": "$blue-text",
-                          "content": "全体",
+                          "content": "スキャン",
                           "fontFamily": "$font-sans",
                           "fontSize": 12,
                           "fontWeight": "600"
@@ -23024,7 +23024,7 @@
                       "id": "w6rWw",
                       "name": "Hint",
                       "fill": "$blue-text",
-                      "content": "ノードクリックで 1 Goal フォーカスへ",
+                      "content": "Goal または Themes 枠をクリック → フォーカス",
                       "fontFamily": "$font-sans",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -24107,6 +24107,215 @@
                           "fontWeight": "normal"
                         }
                       ]
+                    },
+                    {
+                      "type": "path",
+                      "id": "XsZV0",
+                      "x": 79,
+                      "y": 80,
+                      "name": "Arr-MVV-G0",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#7fb0ff",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#7fb0ff",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "ijNqW",
+                      "x": 197,
+                      "y": 80,
+                      "name": "Arr-MVV-G1",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#7fb0ff",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#7fb0ff",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "iOkPo",
+                      "x": 315,
+                      "y": 80,
+                      "name": "Arr-MVV-G2",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#7fb0ff",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#7fb0ff",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "mIahG",
+                      "x": 433,
+                      "y": 80,
+                      "name": "Arr-MVV-G3",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#7fb0ff",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#7fb0ff",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "fSm62",
+                      "x": 551,
+                      "y": 80,
+                      "name": "Arr-MVV-G4",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#7fb0ff",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#7fb0ff",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "l025O",
+                      "x": 669,
+                      "y": 80,
+                      "name": "Arr-MVV-G5",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#7fb0ff",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#7fb0ff",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "YoqN6",
+                      "x": 79,
+                      "y": 178,
+                      "name": "Arr-G-T0",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#22c55e",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "OZwFc",
+                      "x": 197,
+                      "y": 178,
+                      "name": "Arr-G-T1",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#22c55e",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "aED2m",
+                      "x": 315,
+                      "y": 178,
+                      "name": "Arr-G-T2",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#22c55e",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "yYOcO",
+                      "x": 433,
+                      "y": 178,
+                      "name": "Arr-G-T3",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#22c55e",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "path",
+                      "id": "S6cMq",
+                      "x": 551,
+                      "y": 178,
+                      "name": "Arr-G-T4",
+                      "geometry": "M6 10l-6-10 12 0z",
+                      "viewBox": [
+                        0,
+                        0,
+                        12,
+                        10
+                      ],
+                      "fill": "#22c55e",
+                      "width": 12,
+                      "height": 10,
+                      "stroke": "#22c55e",
+                      "strokeWidth": 1
                     }
                   ]
                 },
@@ -24131,7 +24340,7 @@
                       "id": "EuNoF",
                       "name": "CT",
                       "fill": "$yellow-fg",
-                      "content": "ズームアウト時の読み方",
+                      "content": "スキャン → フォーカス",
                       "fontFamily": "$font-sans",
                       "fontSize": 13,
                       "fontWeight": "600"
@@ -24143,7 +24352,7 @@
                       "fill": "$foreground",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "束ね枠の高さを揃えて横並びのリズムを保つ。枠内は縦積みを基本にし、多いときだけ複数列を検討。",
+                      "content": "入口は全体スキャン。気になる Goal／Themes を選んでフォーカス。件数でレイアウト切替はしない。",
                       "lineHeight": 1.4,
                       "fontFamily": "$font-sans",
                       "fontSize": 12,
@@ -24956,7 +25165,7 @@
                           "fill": "$text-muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "1 Goal フォーカス · G1 周辺の糸だけを拡大。他は周辺視。",
+                          "content": "フォーカス · スキャンから G1 を選択。周辺の糸だけ拡大。← スキャンへ戻る。",
                           "fontFamily": "$font-sans",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -24988,7 +25197,7 @@
                               "id": "i2hI3",
                               "name": "BL",
                               "fill": "$foreground",
-                              "content": "← 全体へ",
+                              "content": "← スキャンへ",
                               "fontFamily": "$font-sans",
                               "fontSize": 12,
                               "fontWeight": "normal"
@@ -25672,7 +25881,7 @@
       "id": "qNR37",
       "x": 10173,
       "y": 6334,
-      "name": "方針メモ: ズームとフォーカス",
+      "name": "方針メモ: スキャンとフォーカス",
       "width": 420,
       "fill": "$panel",
       "cornerRadius": "$radius-panel",
@@ -25687,7 +25896,7 @@
           "id": "kVm1z",
           "name": "Title",
           "fill": "$foreground",
-          "content": "方針メモ: ズームとフォーカス",
+          "content": "方針メモ: スキャンとフォーカス",
           "fontFamily": "$font-sans",
           "fontSize": 16,
           "fontWeight": "700"
@@ -25705,7 +25914,7 @@
               "id": "srZoq",
               "name": "ズームアウトH",
               "fill": "$foreground",
-              "content": "ズームアウト",
+              "content": "全体スキャン（入口）",
               "fontFamily": "$font-sans",
               "fontSize": 13,
               "fontWeight": "600"
@@ -25717,7 +25926,7 @@
               "fill": "$text-muted",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "Goal→Themes束ね枠（1辺）。枠の高さは列間で統一。枠内は縦並び基本（2件なら2行）。多い場合のみ複数列。未リンクは別帯。",
+              "content": "本線の入口。実辺＋矢印。Themes は束ね枠（同一高さ・枠内縦並び）。件数での自動切替はしない。",
               "lineHeight": 1.5,
               "fontFamily": "$font-sans",
               "fontSize": 13,
@@ -25750,7 +25959,7 @@
               "fill": "$text-muted",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "選んだ Goal 周辺だけ拡大。見出し＋短い補足＋紐づく Theme。他 Goal はチップ／ゴーストで周辺視。",
+              "content": "スキャンで選んだ Goal／Themes 周辺を拡大。見出し＋補足＋紐づく Theme。",
               "lineHeight": 1.5,
               "fontFamily": "$font-sans",
               "fontSize": 13,
@@ -25783,7 +25992,7 @@
               "fill": "$text-muted",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "全体 ←→ フォーカス。ズーム％より『全体／フォーカス』のモード切替を主にする。",
+              "content": "スキャン → 選択 → フォーカス → スキャンへ戻る。件数条件の分岐は置かない。",
               "lineHeight": 1.5,
               "fontFamily": "$font-sans",
               "fontSize": 13,
@@ -25816,7 +26025,7 @@
               "fill": "$text-muted",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "未リンクは全体ビューで拾う。フォーカスは『この Goal に効いている注意』の点検。",
+              "content": "未リンクはスキャンで拾う。フォーカスは選んだ糸の点検。",
               "lineHeight": 1.5,
               "fontFamily": "$font-sans",
               "fontSize": 13,
