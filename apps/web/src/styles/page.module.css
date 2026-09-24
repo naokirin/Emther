@@ -529,6 +529,31 @@
   border-bottom: none;
 }
 
+/* 提案一覧: 確認優先度による視覚強度（左アクセントは付けない）。
+   focus を一段強く、parked を一段弱くして、溜まりやすい一覧のフラット感を緩和する。 */
+.suggestionRowFocus td {
+  background: var(--blue-bg);
+}
+.suggestionRowFocus:hover td {
+  background: color-mix(in srgb, var(--blue-bg) 70%, var(--gray-bg));
+}
+.suggestionRowFocus .tableRowLink {
+  font-weight: 600;
+}
+
+.suggestionRowParked td {
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+.suggestionRowParked:hover td {
+  background: var(--gray-bg);
+  opacity: 0.85;
+}
+.suggestionRowParked .tableRowLink {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 /* 表の行はtr自体をクリック対象にせず（trはキーボード操作の対象にならないため）、
    主要な列の中身をこのボタンにして表全体を実質的にクリッカブルに見せる。 */
 .tableRowLink {

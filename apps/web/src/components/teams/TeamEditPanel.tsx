@@ -135,7 +135,15 @@ export function TeamEditPanel({
   return (
     <>
       <div className={styles.editorPath}>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            className={styles.primaryBtn}
+            style={{ width: "auto" }}
+            onClick={handleSaveTeam}
+            disabled={editSaving || !editName.trim() || !teamDirty}
+          >
+            {editSaving ? "保存中…" : teamDirty ? "保存" : "保存済み"}
+          </button>
           <button className={styles.btnOutline} onClick={handleToggleTeamArchived} disabled={archiving}>
             {selectedTeam.archived ? "アーカイブを解除" : "アーカイブする"}
           </button>
@@ -144,6 +152,7 @@ export function TeamEditPanel({
           </button>
         </div>
       </div>
+      {editError && <p className={styles.errorText} role="alert">{editError}</p>}
       {selectedTeam.archived && (
         <p className={styles.subtitle} style={{ marginBottom: 10 }}>
           🗄 アーカイブ済み
@@ -190,15 +199,6 @@ export function TeamEditPanel({
           label="別名"
         />
       </div>
-      {editError && <p className={styles.errorText} role="alert">{editError}</p>}
-      <button
-        className={styles.primaryBtn}
-        style={{ width: "auto" }}
-        onClick={handleSaveTeam}
-        disabled={editSaving || !editName.trim() || !teamDirty}
-      >
-        {editSaving ? "保存中…" : teamDirty ? "保存" : "保存済み"}
-      </button>
 
       <div className={styles.field} style={{ marginTop: 16 }}>
         <span className={styles.fieldCaption}>Members_Profile（保存済みの状態。クリックで詳細へ）</span>

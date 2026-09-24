@@ -251,7 +251,8 @@ describe("ExecutionState", () => {
     expect(screen.getByText(/Inform/)).toBeInTheDocument();
   });
 
-  it("idle+proposalの場合は結論・ロジック・棄却案を表示する", () => {
+  it("idle+proposalの場合は結論タブを既定表示し、問い直し・根拠はタブで切り替える", async () => {
+    const user = userEvent.setup();
     const run = baseRun({
       status: "idle",
       proposal: {
@@ -267,10 +268,21 @@ describe("ExecutionState", () => {
       <ExecutionState run={run} selectedOptionId={null} onSelectOption={noop} onConfirmOption={noop} onFocusChat={noop} deciding={false} />,
     );
     expect(screen.getByText("結論テキスト")).toBeInTheDocument();
-    expect(screen.getByText("ロジック説明")).toBeInTheDocument();
-    expect(screen.getByText("案X")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "結論・進め方" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "問い直し（2）" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "根拠（3）" })).toBeInTheDocument();
+    expect(screen.queryByText("ロジック説明")).not.toBeInTheDocument();
+    expect(screen.queryByText("チーム全体の傾向かもしれない")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "問い直し（2）" }));
     expect(screen.getByText("チーム全体の傾向かもしれない")).toBeInTheDocument();
     expect(screen.getByText("発言量自体が問題なのか")).toBeInTheDocument();
+    expect(screen.queryByText("結論テキスト")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "根拠（3）" }));
+    expect(screen.getByText("fact1")).toBeInTheDocument();
+    expect(screen.getByText("ロジック説明")).toBeInTheDocument();
+    expect(screen.getByText("案X")).toBeInTheDocument();
   });
 
   it("error状態では再試行ボタンを表示する", async () => {

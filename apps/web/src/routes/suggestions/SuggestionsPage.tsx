@@ -430,8 +430,14 @@ export function SuggestionsPage() {
                   const linkedRun = runs.find((r) => r.id === s.agentRunId);
                   const statusMeta = SUGGESTION_REVIEW_STATUS_META[s.reviewStatus];
                   const priMeta = CONFIRM_PRIORITY_META[s.confirmPriority];
+                  const priorityRowClass =
+                    s.confirmPriority === "focus"
+                      ? styles.suggestionRowFocus
+                      : s.confirmPriority === "parked"
+                        ? styles.suggestionRowParked
+                        : undefined;
                   return (
-                    <tr key={s.id}>
+                    <tr key={s.id} className={priorityRowClass}>
                       <td>
                         <input
                           type="checkbox"
