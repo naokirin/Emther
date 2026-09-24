@@ -1,9 +1,6 @@
-// docs/em_human_story_and_ux.md TODO「ダッシュボードで『人間のEMが次になにをするべきか？』が
-// すぐに分かり、詳細に遷移できる状態にする」への対応。Yield/Error/Team Vitals不調などの
-// シグナルを、EMが今すぐ対応すべき順（urgent→warn）に束ねて1箇所に見せるための、JSXを
-// 持たない純粋なデータ組み立てロジック。
-// docs/2nd_pivot_version.md Phase 2.1対応。「提案未整理」「次の一手未設定」のような、
-// EMに提案の構造（Why/What/How・Action Item）を手入れさせる方向のカードは出さない。
+// Yield/Error/Team Vitals不調などのシグナルを、EMが今すぐ対応すべき順（urgent→warn）に
+// 束ねて1箇所に見せるための、JSXを持たない純粋なデータ組み立てロジック。
+// 「提案未整理」「次の一手未設定」のような、EMに提案の構造を手入れさせるカードは出さない。
 import type { AgentRun } from "./agent-runtime/types";
 import {
   draftKindLabel,
@@ -25,7 +22,7 @@ import {
   type PersonSummary,
 } from "./types";
 
-// docs/em_human_story_and_ux.md P0-1対応。「次にすべきこと」を単一リストのままにせず、
+// 「次にすべきこと」を単一リストのままにせず、
 // 性質の異なる3つのレーンに分ける。判断待ち＝EMの決断がボトルネックになっているもの、
 // 観測不足＝まだ決断材料が足りず観測を増やすべきもの、整備＝緊急ではないが整えたいもの。
 export type Lane = "decision" | "observation" | "maintenance";
@@ -51,7 +48,6 @@ export type NextAction = {
   kindLabel: string;
   text: string;
   target: NextActionTarget;
-  // 改修依頼「何が新しく出てきたか（以前から変わったか）をより分かりやすく」対応。
   // このカードの根拠になった事実が発生・更新された時刻。前回このダッシュボードを
   // 開いた時刻（ローカルのlastSeenAt）と比較し、新着だけに「NEW」を出す。
   since: number;
@@ -83,7 +79,7 @@ export type UrgencyMeter = {
   tone: "high" | "mid" | "low";
 };
 
-// docs/design/dashboard/today-tab.pen 改善案A対応。順位付けの目安として緊急度バーを出す。
+// 順位付けの目安として緊急度バーを出す。
 // heroRank（小さいほど優先）と severity から視覚的な度合いを決める。
 export function urgencyMeter(a: NextActionRankFields): UrgencyMeter {
   const rank = heroRank(a);
@@ -95,7 +91,7 @@ export function urgencyMeter(a: NextActionRankFields): UrgencyMeter {
   return { ratio, tone };
 }
 
-// UI/UX見直し（今日タブ）対応。「次の1手」を単一のヒーローだけでなく「今日やるべき3つ」
+// 「次の1手」を単一のヒーローだけでなく「今日やるべき3つ」
 // として上位N件をまとめて取り出せるよう、単一ピック関数をランキング関数に一般化する。
 export function rankActions<T extends NextActionRankFields>(actions: T[]): T[] {
   return [...actions].sort((a, b) => {
@@ -106,25 +102,25 @@ export function rankActions<T extends NextActionRankFields>(actions: T[]): T[] {
   });
 }
 
-// docs/memo.md「C. Journalセンシング→行動」対応。urgency:highは既に自動検知(auto-anomaly)
+// urgency:highは既に自動検知(auto-anomaly)
 // で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
 // 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
 // よう表示ウィンドウで自然に外れるようにする。
 const JOURNAL_ATTENTION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// docs/em_human_story_and_ux.md P0-3対応。「様子見」に決めたまま長期間放置されている
+// 「様子見」に決めたまま長期間放置されている
 // 項目は、判断待ちレーンへ再浮上させる。
 const WATCH_RESURFACE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
-// docs/em_human_story_and_ux.md P1-10対応。進行中（未アーカイブ）の介入のうち、着手は
+// 進行中（未アーカイブ）の介入のうち、着手は
 // されているのに長期間動きが無いものは「やりっぱなし」になりやすい。観測不足として
 // 朝キューに載せる（reviewStatus:doneの提案は対象外）。
-// docs/2nd_pivot_version.md Phase 2.3対応。以前はcharter充足・Action Item有無を
+// 以前はcharter充足・Action Item有無を
 // 「着手済みかどうか」のシグナルにしていたが、両方とも人間に管理させたくないフィールド
 // なので、既に持っているreviewStatus（確認状態）で判定する形に変えた。
 const STALE_INTERVENTION_MS = 14 * 24 * 60 * 60 * 1000;
 
-// docs/em_human_story_and_ux.md P0-4対応。並列consult(M)や自動検知の連続起動で、AIの
+// 並列consult(M)や自動検知の連続起動で、AIの
 // 未確認ドラフトが一度に大量発生すると、本当の判断待ち（Yield/エラー/無応答）が
 // 埋もれる。同種のドラフトが閾値を超えたら個別表示をやめ、1件のまとめ表示にする
 // （クリック先は相談履歴一覧。個別に見たい場合はそちらから辿れる）。
@@ -152,7 +148,7 @@ export function isSuggestionDeferredFromDailyQueue(
   return isSuggestionDeferredFromDaily(s, now);
 }
 
-// docs/em_human_story_and_ux.md P0-3対応。「様子見」のまま一定期間が過ぎたrunは
+// 「様子見」のまま一定期間が過ぎたrunは
 // 判断待ちレーンへ再浮上させ、「様子見＝忘れられる」にしない。期限内のものは
 // watchingItemsとして別途一覧できるようにする（新画面は増やさない）。
 export function selectWatchingItems(runs: AgentRun[], suggestions: Suggestion[]): AgentRun[] {
@@ -207,15 +203,15 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   const nextActions: NextAction[] = [];
 
   for (const run of runs) {
-    // docs/usage_issues U4/U5。consult子run・却下済み・アーカイブ済み提案に紐づくrunは出さない。
+    // consult子run・却下済み・アーカイブ済み提案に紐づくrunは出さない。
     if (shouldOmitRunFromNextActions(run, suggestions)) continue;
     if (run.triageStatus === "watching") continue;
 
     // AI主導（イベント駆動・バッチ駆動）で自動起動されたrunは、EMがまだ内容を確認して
     // いない間は「ドラフト提案（起票待ち）」としてここに残す。クリック先は即提案化せず
-    // /chat（起票／様子見／却下）へ。提案更新分析だけは紐付く提案詳細へ。
+    // chat（起票／様子見／却下）へ。提案更新分析だけは紐付く提案詳細へ。
     const isDraft = isDraftAwaitingTriage(run);
-    // docs/em_human_story_and_ux.md P0-2対応（修正）。自動検知draftsだけでなく、
+    // 自動検知draftsだけでなく、
     // まだ提案に紐付いていないLead Agent run全般も、クリックしたらgoToRunSuggestionで
     // 即提案化せず/chatへ寄せる。
     const isLeadUnlinked = run.agentName === "Lead Agent" && !suggestions.some((s) => s.agentRunId === run.id);
@@ -291,19 +287,16 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
 
   for (const entry of journalEntries) {
     if (now - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
-    // バグ修正（docs/memo.md「観測不足に解決済みJournalが残り続ける」）対応。表示ウィンドウ
+    // 表示ウィンドウ
     // （24時間）だけで自然に外れる設計だったため、対応済み/提案化済みのJournalも
     // ウィンドウ内は「観測不足」レーンに載り続けていた。すでに解決済みなら観測を
     // 増やす必要はないため、ここで除外する。
     if (isJournalEntryResolved(entry)) continue;
-    // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
     if (entry.noActionNeededAt) continue;
-    // docs/memo.md「紐づく提案がすでにあるJournalは確認案内をなくす/弱める」対応。
     // sourceConsultRunIdがあれば、すでにこのJournalからLead Agent runが生まれている
     // （＝提案が生成済み・進行中）。相談を促すカードを重ねて出すと「さらに提案を作る」
     // 案内に見えてしまうため、そのJournalはここでは出さない。
     if (entry.urgency === "mid" && entry.sentiment === "negative" && !entry.sourceConsultRunId) {
-      // docs/memo.md「要注目Journalのリンク先に飛ぶと、相談画面に飛ばされて困惑する」対応。
       // このJournalにはまだ相談が存在しない（sourceConsultRunIdなし）ため、いきなり相談の
       // 入力状態へ連れて行かず、Journal自体（focus指定）へ遷移させる。相談を始めるかどうかは
       // Journal詳細を見てからEMが判断する。
@@ -318,12 +311,11 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
         since: entry.createdAt,
       });
     } else if (entry.urgency === "high" && !entry.confirmed) {
-      // docs/em_human_story_and_ux.md P1-9対応。緊急度highの自動検知はEMの校正後にしか
+      // 緊急度highの自動検知はEMの校正後にしか
       // 起動しないため、校正されないまま放置されると誰にも気づかれない恐れがある。
       // 未確認のままのhighエントリは、様子見にできる「観測不足」ではなく「判断待ち」
       // （校正するかどうかを決める）として明示的に残す。
-      // 改修依頼「/journalへ放り込むだけで、その先どうすればいいか分からない」対応。
-      // /journal?focus=<id>で該当エントリのページへ直接移動し、編集モードまで自動的に
+      // journal?focus=<id>で該当エントリのページへ直接移動し、編集モードまで自動的に
       // 開く（EMは内容を確認して「この内容で確定」を押すだけで完結する）。
       nextActions.push({
         id: `journal-unconfirmed-${entry.id}`,
@@ -338,13 +330,12 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     }
   }
 
-  // docs/2nd_pivot_version.md Phase 2.1対応。「提案未整理」（Why/What/Howの充足を
-  // 埋めるよう促すカード）は、pivot_policy.mdの方針（EMに提案の構造を手入れさせない）
-  // と衝突するため廃止した。
+  // 「提案未整理」（Why/What/Howの充足を埋めるよう促すカード）は、
+  // EMに提案の構造を手入れさせない方針と衝突するため廃止した。
 
-  // docs/em_human_story_and_ux.md P1-10対応。要注目人物（ネガティブ傾向が優勢）を
+  // 要注目人物（ネガティブ傾向が優勢）を
   // 朝キューにも薄く載せる（Peopleハブは「ある画面」のままだと朝の物語に編入されないため）。
-  // docs/memo.md「観測不足に自チーム外のメンバーが混ざる」対応。daily-situation.tsの
+  // daily-situation.tsの
   // 「今日の状況」と同じく、自分が管理するチーム（PersonSummary.isDirectReport）の
   // メンバーだけを対象にする。
   const attentionPeople = people
@@ -391,7 +382,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
-  // ユーザー要望「期日超過の提案を朝キューにも自動で出してほしい」対応。EMがreviewDueAt
+  // EMがreviewDueAt
   // （「いつまでに確認したいか」）を自ら設定した提案が、その期日を過ぎても未確認・確認中・
   // 確認保留のままなら、様子見の期限切れ（watch-expired、下記）と同じ考え方で判断待ち
   // レーンへ出す。確認済み(done)・アーカイブ済みは対象外（isSuggestionReviewOverdue）。
@@ -417,17 +408,16 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     });
   }
 
-  // docs/2nd_pivot_version.md Phase 2.1対応。「次の一手未設定」（Action Itemを設定する
+  // 「次の一手未設定」（Action Itemを設定する
   // よう促すカード）も、提案未整理と同じ理由（EMに提案の構造を手入れさせない）で廃止した。
 
-  // docs/memo.md「今日タブの今日やるべきに『チームリスク』が表示されるが『チームの状態』と
-  // 内容的には被っている」対応。bad/warnは同じダッシュボード上のDailySituationPanel
+  // bad/warnは同じダッシュボード上のDailySituationPanel
   // （今日の状況）のステータスチップに常に表示されており、同じ情報を指す別カードを
   // 「今日やるべき」に重ねて出す必要はないため、ここでは出さない。unknown（評価不能）は
   // 「観測を増やす」という行動への誘導であり、状態表示側とは役割が異なるため引き続き載せる。
   for (const v of vitals.teams) {
     if (v.status === "unknown") {
-      // docs/memo.md「D」対応。診断で止まらせず、観測を増やす行動（Quick Journal）へ誘導する。
+      // 診断で止まらせず、観測を増やす行動（Quick Journal）へ誘導する。
       nextActions.push({
         id: `vital-unknown-${v.teamId}`,
         severity: "warn",
@@ -452,7 +442,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       icon: vitals.oneOnOneCoverage.status === "bad" ? "🔴" : "🟡",
       kindLabel: "1on1不足",
       text: `1on1 Coverageが${vitals.oneOnOneCoverage.covered}/${vitals.oneOnOneCoverage.total}件です`,
-      // docs/em_human_story_and_ux.md P1-8対応。「評価不能・1on1不足」は体制変更ではなく
+      // 「評価不能・1on1不足」は体制変更ではなく
       // 観測を増やす行動（Quick Journal）に一本化する。体制そのものを見直したい場合は
       // Team Vitalsパネル側から/orgへ行ける。
       target: {

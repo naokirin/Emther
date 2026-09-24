@@ -51,7 +51,6 @@ export function consultListMetaParts(
   if (run.origin !== "manual" && !run.reviewed) parts.push("未確認");
   // 様子見セクション内では「様子見」ラベルは冗長なので省略できる。
   if (run.triageStatus && !opts.omitTriage) parts.push(TRIAGE_SHORT[run.triageStatus]);
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
   if (run.archivedAt) parts.push("🗄 アーカイブ済み");
   return parts;
 }

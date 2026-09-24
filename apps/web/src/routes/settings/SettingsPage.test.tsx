@@ -7,8 +7,7 @@ import type { ReactNode } from "react";
 import { SettingsPage } from "./SettingsPage";
 import { makeRules } from "../../components/settings/test-fixtures";
 
-// web/src/app/settings/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier2）。useSettingsRulesがTanStack Query化されているためQueryClientProviderで包む。
+// useSettingsRulesがTanStack Query化されているためQueryClientProviderで包む
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

@@ -13,9 +13,7 @@ import type { JournalEntry } from "@emther/core/types";
 import type { AgentRunMutationResponse } from "@emther/api-contract";
 import { useJournalEditing } from "../../lib/useJournalEditing";
 
-// web/src/app/journal/page.tsx（Next.js版）からの移植（フェーズ3.5 tier4）。
-// docs/design/journal/journal-tab.pen 改善案A「役割分離 + 段階開示」に合わせて
-// 書く／見返すの二層構成・集約解釈ストリップ・絞り込みポップオーバーへ再編。
+// 書く／見返すの二層構成・集約解釈ストリップ・絞り込みポップオーバーへ再編
 const PAGE_SIZE = 10;
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [

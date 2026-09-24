@@ -5,15 +5,13 @@ import { JournalProfileCandidateSuggestion } from "./JournalProfileCandidateSugg
 import type { ProfileCandidate } from "@emther/core/journal-store";
 import type { JournalCreateResponse } from "@emther/api-contract";
 
-// docs/memo.md「現場メモのタブでも単発のメモ入力をしたい」対応。/journalには従来
 // 「📥 観測を取り込む」（複数件をAIが解析するダンプ）しか無く、Dashboardの「メモする」に
-// あるような単発の一言入力が無かった。Dashboardのように非同期・下書き一覧までは持たせず、
+// あるような単発の一言入力が無かった。Dashboardのように非同期・下書き一覧までは持たせず
 // このページ単体で完結する最小限の1件投稿フォームにする（結果は呼び出し元がrefreshSearch()
-// で一覧を再取得する）。
-//
-// ユーザー指摘「折りたたみをやめて最初から表示したい」対応。自身での開閉は持たず、
-// 呼び出し元（JournalInputSwitcher）のタブ切り替えで表示/非表示を制御する。
-// 未登録人名は保存前ダイアログ（fetchWithNameConfirm）で完結する。
+// で一覧を再取得する）
+// 自身での開閉は持たず
+// 呼び出し元（JournalInputSwitcher）のタブ切り替えで表示/非表示を制御する
+// 未登録人名は保存前ダイアログ（fetchWithNameConfirm）で完結する
 export function QuickJournalNoteForm({
   onCreated,
   initialText,

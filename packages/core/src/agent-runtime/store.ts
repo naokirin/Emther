@@ -18,14 +18,13 @@ import { adoptTheme, createThemeCandidate } from "../theme-store";
 import type { AgentRunRepository } from "./agent-run-repository";
 import type { AgentRun, AgentStatus, LogLine } from "./types";
 
-// docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
+// 以前は`.data/agent-runs.json`へ
 // 全run・全ログを含む配列をベタ書きしており、標準出力1行ごと（appendLog呼び出しごと）に
 // ファイル全体を書き直していた。半年〜1年単位で運用するとrunとログ行が単調増加するため、
 // SQLite（agent_runs=runメタデータの低頻度更新、agent_run_logs=ログ行の高頻度追記）に分離し、
 // 1回の更新につき対象run 1件・ログ1行だけを書き込むようにする。
 // メモリ上の`AgentRun`（log配列を含む可変オブジェクト）はこれまで通り「作業中の実体」として
-// 扱い続け、SQLiteへの書き込みはその都度の永続化先を切り替えただけ——呼び出し側の
-// runClaudeTurn/handleStreamEvent等は一切変更していない。
+// 扱い、SQLiteへの書き込みはその都度の永続化先。
 // 永続化は AgentRunRepository（SQLite アダプタ）経由。ドメインは SQL / getDb を知らない。
 
 const agentRunRepository: AgentRunRepository = createSqliteAgentRunRepository();
@@ -64,21 +63,20 @@ function loadRunsFromDb(): Map<string, AgentRun> {
 
 export const runs = loadRunsFromDb();
 
-// docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応の実体。
 // 生きている子プロセスをrun.idで引けるようにしておき、watchdog（scheduled-tasks.ts）が
 // ハングしたプロセスを実際にkillできるようにする。プロセス自体はメモリ上にしか存在しないため
 // 永続化しない（サーバー再起動時は上のloadRunsFromDb変換で"error"に倒される）。
 export const liveProcesses = new Map<string, ReturnType<typeof spawn>>();
 
 // "active"のままログ更新（updatedAt）が長時間無いrunを見つけ、ハングした子プロセスとして
-// 強制終了する自己修復の仕組み。「応答なしの表示」自体はクライアント側でisRunStale()を使い
+// 強制終了する自己修復の仕組み。「応答なしの表示」自体はクライアント側でisRunStaleを使い
 // 実プロセスをkillせずに警告するが、それよりさらに長い時間放置されたものはゾンビプロセス化を
 // 防ぐためここで実際に終了させる。killしても状態遷移は既存のchild.on("close")に任せる
 // （二重に状態を書き換えず、実際にプロセスが終了したタイミングで確定させるため）。
 export const WATCHDOG_INTERVAL_MS = 30_000;
 
-// 個人情報の分離（ユーザー指摘対応）: 名前検出＋マスクの実処理はpeople-directory.tsの
-// maskForStorage()に一本化した（agent-runtime固有のロジックとしては持たない）。
+// 個人情報の分離: 名前検出＋マスクの実処理はpeople-directory.tsの
+// maskForStorageに一本化した（agent-runtime固有のロジックとしては持たない）。
 // ここでは「マスクが実際に何か変えたらEMにその旨をログで知らせる」責務だけを持つ。
 export async function sanitizeForCloud(run: AgentRun, text: string): Promise<string> {
   const masked = await maskForStorage(text);
@@ -129,7 +127,7 @@ export function killLiveAgentProcesses(): void {
   }
 }
 
-// 個人情報の分離（ユーザー指摘対応）: 上のrunsマップ・listRuns/getRun等はマスクされた
+// 個人情報の分離: 上のrunsマップ・listRuns/getRun等はマスクされた
 // （PERSON_n ID化された）テキストを保持する内部表現。EM向けのAPI応答を組み立てる境界
 // だけで、この関数を通して実名へ復元する（runClaudeTurn等の内部処理からは呼ばないこと）。
 export function toRunView(run: AgentRun): AgentRun {
@@ -233,8 +231,8 @@ export function getRun(id: string): AgentRun | undefined {
   return runs.get(id);
 }
 
-// ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents（Inbox一覧）専用の
-// ページ取得。toRunView()はrun.logを全文含めて返すため一覧表示には過剰に重く、runの件数が
+// agents（Inbox一覧）専用の
+// ページ取得。toRunViewはrun.logを全文含めて返すため一覧表示には過剰に重く、runの件数が
 // 増えるほどAPIレスポンスも線形に肥大化する。runFallbackTitle（「📌 提案にする」クリック時の
 // タイトル自動生成の最終フォールバック）が「先頭の非systemログ行」だけを参照するため、
 // 全ログではなく最大1行だけに切り詰めて返す（表示にも自動生成にも必要十分）。
@@ -252,7 +250,7 @@ export function listRunsPage(
   return { runs: page, total: all.length };
 }
 
-// docs/first_implession 3.6対応。AI主導（origin !== "manual"）で起動されたrunをEMが
+// AI主導（origin !== "manual"）で起動されたrunをEMが
 // 開いた・提案化した際に「確認済み」にする。手動起動のrunは常にreviewed=trueのため無害。
 export function markRunReviewed(id: string): AgentRun | undefined {
   const run = runs.get(id);
@@ -277,7 +275,7 @@ function applyTriageStatus(
   }
 }
 
-// docs/memo.md「B. 何でも相談↔提案の昇格物語」対応。「様子見」（追跡は続けるが緊急ではない）
+// 「様子見」（追跡は続けるが緊急ではない）
 // と「却下」（対応不要）をEMに明示的に選ばせ、triageStatusへ記録する。どちらもreviewed=trueに
 // なるため「次にすべきこと」の緊急度からは外れるが、triageStatusで後から区別できる。
 // nextReviewAt: 様子見時のみ有効。「次に確認する日」まで日次キューへ再浮上させない。
@@ -290,7 +288,7 @@ export function setRunTriageStatus(
   if (!run) return undefined;
   applyTriageStatus(run, status, opts);
   persistRunMeta(run);
-  // docs/usage_issues U4。親Leadを却下してもconsult子runが判断待ちに残らないよう伝播する。
+  // 親Leadを却下してもconsult子runが判断待ちに残らないよう伝播する。
   for (const child of runs.values()) {
     if (child.consultedBy === id) {
       applyTriageStatus(child, status, opts);
@@ -300,7 +298,7 @@ export function setRunTriageStatus(
   return run;
 }
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。誤って起票した・
+// 誤って起票した・
 // テストで作った等の相談を、相談履歴一覧・AIの判断材料（context-blocks等）から除外する
 // （ログ・run自体は削除しない）。triageStatusとは独立（却下済みの相談も後から
 // アーカイブできるように、意味を混同しない）。
@@ -320,8 +318,7 @@ export function clearSuggestedThemes(id: string): AgentRun | undefined {
   return run;
 }
 
-// docs/memo.md「他提案への追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
-// 対応済みも」対応。indicesを指定するとsuggestedSuggestionNotes配列中の該当要素のみを対象にし、
+// indicesを指定するとsuggestedSuggestionNotes配列中の該当要素のみを対象にし、
 // 残りは提案として残す（未指定時は従来どおり全件対象・全消去、後方互換を維持）。
 // reason:"handled"は「却下」（提案自体が誤り）ではなく「別口で対応済みなので追わない」ことを
 // runのログに残す——却下と違い何の記録も残らないと後から見分けがつかないため。
@@ -352,7 +349,6 @@ export function clearSuggestedSuggestionNotes(
   return run;
 }
 
-// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
 // suggestedSuggestionNotes を対象提案のメモへ書き込んで確定する。suggestionIdは
 // lookup結果由来のためフルID一致を優先し、無ければ8桁以上のプレフィックス一致（1件のみ）を
 // 許容する（提案詳細のURL欄と同じ解決規則）。存在しない/曖昧なsuggestionIdの要素は書き込まず
@@ -388,7 +384,7 @@ export async function adoptSuggestedSuggestionNotesFromRun(
   return { run, written, skipped };
 }
 
-// docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。EMが「まとめて
+// EMが「まとめて
 // 反映」を押したタイミングでのみ、suggestedSuggestionUpdates を実際のSuggestionへ書き込む。
 // suggestionIdの解決規則はadoptSuggestedSuggestionNotesFromRunと同じ（フルID一致優先、無ければ
 // プレフィックス一致1件のみ許容）。反映してよい変更種類は制限しない（reviewStatus/
@@ -448,7 +444,7 @@ export function clearSuggestedSuggestionUpdates(
   return run;
 }
 
-// docs/knowledge_distillation.md。suggestedThemes を OrgTheme(candidate→adopted) として確定する。
+// suggestedThemes を OrgTheme(candidate→adopted) として確定する。
 export async function adoptSuggestedThemesFromRun(
   id: string,
 ): Promise<{ run: AgentRun; themes: Awaited<ReturnType<typeof createThemeCandidate>>[] } | undefined> {

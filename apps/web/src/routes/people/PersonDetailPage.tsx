@@ -2,8 +2,7 @@ import { Link, useParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import { PersonDetailContent } from "../../components/PersonDetailContent";
 
-// web/src/app/people/[id]/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2、人物バッチ）。
-// フルページ表示用（直接URLアクセス・リロード・「詳細画面で開く」の遷移先）。
+// フルページ表示用（直接URLアクセス・リロード・「詳細画面で開く」の遷移先）
 export function PersonDetailPage() {
   const { id } = useParams();
   return (

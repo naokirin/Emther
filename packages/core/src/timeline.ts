@@ -9,7 +9,7 @@ import {
 } from "./org-context-store/index";
 import { teamDisplayName } from "./types";
 
-// docs/memo.md「N. 時系列変化をEMが読む物語に」対応。新しいエンティティやデータモデルは
+// 新しいエンティティやデータモデルは
 // 増やさず、既存のKnowledgeEvent（変更履歴）をSuggestion/Team/Goal横断で1本の
 // タイムラインとして見せるだけの集約レイヤー（people-hub.tsと同じ考え方）。
 

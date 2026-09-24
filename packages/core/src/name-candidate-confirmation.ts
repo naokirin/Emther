@@ -1,6 +1,5 @@
 // 人名候補を「自動登録」せず、厳格モード時にEMへ確認するための共通プロトコル。
 // 誤登録が assertNoRealNamesLeaked を誤発火させて Agent送信全体を止める問題への対策
-// （docs/memo.md / em_human_story_and_ux.md P2-12）。
 // 現行方針では名簿の事前登録が正で、既定の保存・送信パスは確認ゲートを走らせない。
 // このプロトコルは allowUnmaskedCandidates:false 等の明示オプトイン時にだけ使う。
 // 候補検出は name-candidate-detect（mask-check と同系統のルール＋形態素）。
@@ -47,7 +46,7 @@ export function formatNameCandidateConfirmationMessage(candidates: string[]): st
 
 export function isUnconfirmedNameCandidatesError(err: unknown): err is UnconfirmedNameCandidatesError {
   if (err instanceof UnconfirmedNameCandidatesError) return true;
-  // Next.js のモジュール分割で instanceof が外れることがあるため、名前と candidates でも判定する。
+  // モジュール分割で instanceof が外れることがあるため、名前と candidates でも判定する。
   if (!err || typeof err !== "object") return false;
   const e = err as { name?: unknown; candidates?: unknown };
   return e.name === "UnconfirmedNameCandidatesError" && Array.isArray(e.candidates);

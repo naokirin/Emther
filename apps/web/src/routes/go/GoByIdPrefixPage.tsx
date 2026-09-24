@@ -5,10 +5,7 @@ import { api } from "../../lib/api-client";
 import { isHexIdPrefix } from "@emther/core/id-prefix";
 import type { IdMatch, IdMatchKind } from "@emther/core/id-resolve";
 
-// web/src/app/go/[prefix]/page.tsx（Next.js版、async Server ComponentがDBへ直接
-// resolveIdPrefix()を呼ぶ実装）からの移植（フェーズ3.5 tier1）。apps/webは純粋な
-// クライアントSPAのためDB直読みはできず、フェーズ2.3で移植済みの
-// `GET /api/id-resolve?q=`（同じresolveIdPrefix()を内部で呼ぶ）経由に置き換えた。
+// クライアントSPAのためDB直読みはできず、`GET /api/id-resolve?q=`（同じ resolveIdPrefix()）経由。
 const KIND_LABEL: Record<IdMatchKind, string> = {
   suggestion: "提案",
   journal: "Journal",

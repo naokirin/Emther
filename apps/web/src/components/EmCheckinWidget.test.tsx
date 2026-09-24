@@ -6,11 +6,8 @@ import type { ReactNode } from "react";
 import { EmCheckinForm, EmCheckinWidget } from "./EmCheckinWidget";
 import { useEmCheckinController } from "./useEmCheckinController";
 
-// web/src/components/EmCheckinWidget.test.tsx（Next.js版）からの移植（フェーズ3.5
-// evening-reviewバッチ）。useEmCheckinsがTanStack Query化された（フェーズ3.2の方針）ため
-// QueryClientProviderで包む点、GETレスポンスのモックに`ok: true`を明示する点
-// （queries.tsのfetchJsonは`res.ok`を見るため。旧usePollingは見ていなかった）以外は
-// 検証内容を変更していない。
+// useEmCheckins は TanStack Query のため QueryClientProvider で包む。
+// GET モックには `ok: true` を明示する（queries.ts の fetchJson が res.ok を見る）。
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

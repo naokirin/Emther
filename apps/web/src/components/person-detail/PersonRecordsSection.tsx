@@ -7,14 +7,12 @@ import { PersonProfileComposer } from "./PersonProfileComposer";
 import { SuggestionLink } from "../SuggestionLink";
 import { URGENCY_LABEL, type PersonFact, type PersonProfile, type PersonRelatedSuggestion } from "@emther/core/types";
 
-// ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブの強調を減らせない」対応。
-// sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した場合だけ、
+// sentiment自体は観測値のまま書き換えず、EMが確認済み・対応不要と判断した場合だけ
 // 赤い#ネガティブの強調を弱める（Dashboard/Journal一覧のJournalEntryCardと同じ考え方・
-// 同じAPI: POST/DELETE /api/journal/[id]/no-action-needed）。
-// ユーザー指摘「タグやステータスの情報のところにアクションを混ぜてしまっているのが問題。
-// 行の右端のほうに分けて配置してほしい」対応。ステータス表示（このコンポーネント）と
+// 同じAPI: POST/DELETE /api/journal/[id]/no-action-needed）
+// ステータス表示（このコンポーネント）と
 // 操作ボタン（FactSentimentAction）を分離し、呼び出し側でUrgencyより後ろ（行末）に
-// アクションを配置する。
+// アクションを配置する
 function FactSentimentTag({ fact }: { fact: PersonFact }) {
   if (fact.sentiment !== "negative") {
     return (
@@ -79,10 +77,9 @@ function FactSentimentAction({ fact, onChanged }: { fact: PersonFact; onChanged:
   );
 }
 
-// ユーザー指摘「メンバーのアラート表示（関連提案の停滞・確認保留）を確認したが
-// 対応不要だった、を示せず強調を減らせない」対応。提案自体の状態は書き換えず、
+// 提案自体の状態は書き換えず
 // 「この人物にとって対応不要と確認済み」を人物×提案単位で記録する
-// （PATCH /api/people/[id]/concern-acks/[suggestionId]）。
+// （PATCH /api/people/[id]/concern-acks/[suggestionId]）
 function SuggestionConcernTag({
   personId,
   suggestion,
@@ -191,10 +188,7 @@ export function PersonRecordsSection({
                 <th>内容</th>
                 <th>タグ / 緊急度</th>
                 <th>発生日時</th>
-                {/* ユーザー指摘「メンバー詳細のJournal一覧ではまだタグ等と混ざって表示されている」
-                    対応。同じ列に置くと折り返し表示上は分かれていてもタグの続きに見えてしまう
-                    ため、操作は独立した列に分ける（Journal一覧のJournalEntryCardと同じ、
-                    情報とアクションを分離する考え方）。 */}
+                {/* 同じ列に置くとタグの続きに見えてしまうため、操作は独立した列に分ける。 */}
                 <th>操作</th>
               </tr>
             </thead>

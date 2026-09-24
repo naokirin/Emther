@@ -6,8 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { TimelinePage } from "./TimelinePage";
 
-// web/src/app/timeline/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier2）。useTimelineがTanStack Query化されているためQueryClientProviderで包む。
+// useTimelineがTanStack Query化されているためQueryClientProviderで包む
 function createWrapper(initialEntries: string[] = ["/timeline"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

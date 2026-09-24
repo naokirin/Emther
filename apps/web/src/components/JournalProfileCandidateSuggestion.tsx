@@ -2,13 +2,12 @@ import { useState } from "react";
 import { api } from "../lib/api-client";
 import styles from "../styles/page.module.css";
 
-// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
-// 良いものがあれば、入れるようにする」対応。JournalNameCandidateSuggestionと同じ考え方:
+// JournalNameCandidateSuggestionと同じ考え方:
 // ローカル抽出の候補は保存をブロックせず、投稿直後だけ1クリックで長期プロファイル
 // （POST /api/knowledge/interpretations、人物詳細の「長期プロファイル」と同じ実体）へ
 // 採用できるヒントを出す。保存しない一度きりのヒントなので、ポーリングで一覧が
-// 更新されると消える（呼び出し側のローカルstateで保持する）。
-// UIはJournalNameCandidateSuggestion / HierarchyLinkSuggestPanelと同系の枠付き提案ブロックに揃える。
+// 更新されると消える（呼び出し側のローカルstateで保持する）
+// UIはJournalNameCandidateSuggestion / HierarchyLinkSuggestPanelと同系の枠付き提案ブロックに揃える
 export function JournalProfileCandidateSuggestion({
   person,
   text,

@@ -1,21 +1,9 @@
-// フェーズ3.2: web/src/lib/hooks.ts の usePolling 群を TanStack Query で置き換える方針の実装。
-//
-// 決定事項（docs/2nd_architecture/plan.md フェーズ3.2参照）:
-// - ポーリングは 1:1 で `refetchInterval` に対応させる（間隔ms・enabledの意味はusePollingと同じ）。
-// - 旧 usePolling が返していた `setXxx`（ミューテーション直後にローカルstateへ即時反映する
-//   楽観的更新）は、呼び出し側が `useQueryClient().setQueryData(queryKey, ...)` を直接呼ぶ形に置き換える。
-//   TanStack Queryのqueryキャッシュ自体がこのユースケースの標準機構であり、旧実装のように
-//   フック側に個別のsetter（setIssues/setRuns等）を用意する理由が無くなるため。
-// - 旧 `loaded`（初回フェッチ完了フラグ）は `!isPending` に対応する。`data` の初期値（旧fallback）は
-//   TanStack Queryでは`undefined`が自然なため、呼び出し側で `data?.xxx ?? []` のように扱う
-//   （画面移植時にfallback値をコールサイト側に明示的に残す）。
-// - 失敗時の扱い: 旧 usePolling は「静かに無視し次回ポーリングに任せる」だったが、TanStack Query の
-//   既定（失敗時は自動リトライ）はこれに近い挙動になる。明示的なエラーUIが必要な画面のみ
-//   `query.isError` を個別に見る（3.5の画面移植で必要に応じて対応）。
-// - queryKeyの命名は `["api", ...urlのpathセグメント, ...パラメータ]` に統一し、
-//   ミューテーション成功後の `invalidateQueries` がURL単位で機械的に書けるようにする。
-//
-// ポーリング GET は Hono RPC（hc<AppType>）経由。レスポンス型は @emther/api-contract。
+// TanStack Query ベースのポーリング GET（Hono RPC / @emther/api-contract）。
+// - ポーリングは refetchInterval（間隔ms・enabled）。
+// - 楽観的更新は呼び出し側が useQueryClient().setQueryData(queryKey, ...) を直接呼ぶ（フック側に個別 setter は持たない）。
+// - 初回完了は !isPending。data 初期値は undefined（呼び出し側で data?.xxx ?? []）。
+// - 失敗は Query 既定のリトライに任せ、明示エラー UI が必要な画面のみ query.isError を見る。
+// - queryKey は ["api", ...pathセグメント, ...パラメータ] で invalidateQueries を URL 単位に揃える。
 import { useCallback } from "react";
 import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import type {
@@ -74,8 +62,6 @@ function usePolledRpc<T>(
   });
 }
 
-// docs/memo.md「N. 時系列変化をEMが読む物語に」対応（旧: web/src/lib/hooks.ts useTimeline）。
-// Hono RPC（@emther/api-contract + hc<AppType>）。
 export function useTimeline(intervalMs = 10000) {
   const query = usePolledRpc(
     ["api", "timeline"],
@@ -89,10 +75,7 @@ export function useTimeline(intervalMs = 10000) {
   };
 }
 
-// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る」対応
-// （旧: web/src/lib/hooks.ts useEmCheckins）。フェーズ3.2の方針どおり、旧`setCheckins`
-// （楽観的ローカル更新）は用意せず、呼び出し側（EmCheckinWidget.tsx）が
-// `queryClient.setQueryData(emCheckinsQueryKey, ...)`を直接呼ぶ。
+// 楽観的更新は呼び出し側が queryClient.setQueryData(emCheckinsQueryKey, ...) を直接呼ぶ。
 export const emCheckinsQueryKey = ["api", "em-self", "checkins"] as const;
 
 export function useEmCheckins(intervalMs = 15000) {
@@ -108,7 +91,7 @@ export function useEmCheckins(intervalMs = 15000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useReflectionNotes。上記useEmCheckinsと同じ方針。
+// 楽観的更新は呼び出し側が setQueryData を直接呼ぶ（useEmCheckins と同じ）。
 export const reflectionNotesQueryKey = ["api", "em-self", "reflection-notes"] as const;
 
 export function useReflectionNotes(intervalMs = 15000) {
@@ -125,9 +108,7 @@ export function useReflectionNotes(intervalMs = 15000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useTeams。呼び出し側（teams画面）はミューテーション後
-// `refreshTeams()`（再取得）のみを使い、`setTeams`によるローカル即時反映は使っていない
-// ため、useTimeline同様セッターは用意しない。
+// 呼び出し側は refreshTeams() のみ使うためセッターは用意しない。
 export function useTeams(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "teams"],
@@ -145,7 +126,6 @@ export function useTeams(intervalMs = 5000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useJournal。
 export function useJournal(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "journal"],
@@ -159,11 +139,7 @@ export function useJournal(intervalMs = 5000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useJournalSearch。`useJournalEditing`（web/src/lib/useJournalEditing.ts、
-// Next非依存のフレームワーク非依存フックとして移設済み）が`setJournalEntries`を関数形式
-// （前回値を起点に更新）でも呼ぶ契約のフックであるため、このフックだけは例外的に
-// フェーズ3.2の「セッター無し」方針を取らず、旧実装と同じ形の`setEntries`を維持する
-// （旧hooks.tsのコメントと同じ理由）。
+// useJournalEditing が setJournalEntries を関数形式でも呼ぶため、このフックだけは setEntries を維持する。
 export type JournalSearchFilter = {
   query: string;
   tag: string;
@@ -231,7 +207,7 @@ export function useJournalSearch(
   };
 }
 
-/** docs/design/journal/journal-tab.pen 改善案A: 未解釈件数で集約解釈ストリップを出し分け */
+/** 未解釈件数で集約解釈ストリップを出し分け */
 export const journalBatchStatusQueryKey = ["api", "journal", "batch"] as const;
 
 export function useJournalBatchStatus(intervalMs = 15000) {
@@ -247,8 +223,7 @@ export function useJournalBatchStatus(intervalMs = 15000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useSettingsRules。settings画面はロード完了前にdraftを
-// 初期化する必要があるため、旧実装と同じ既定値のfallbackを維持する。
+// settings 画面はロード完了前に draft を初期化するため既定値 fallback を維持する。
 const SETTINGS_RULES_FALLBACK: RulesAndConstraints = {
   teamWindowDays: 14,
   minEntriesForJudgement: 2,
@@ -309,8 +284,7 @@ export function useSettingsRules(intervalMs = 8000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts usePeople。呼び出し側（PersonHeader等）は
-// `refreshPeople: () => Promise<void> | void`という型で受け取るため、refetchの戻り値を握りつぶす。
+// 呼び出し側は refreshPeople: () => Promise<void> | void のため、refetch の戻り値を握りつぶす。
 export function usePeople(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "people"],
@@ -326,7 +300,6 @@ export function usePeople(intervalMs = 5000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts usePersonProfile。
 export function usePersonProfile(id: string, intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "people", id],
@@ -342,7 +315,6 @@ export function usePersonProfile(id: string, intervalMs = 5000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts usePersonEvaluationLogs。
 export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "people", personId, "evaluation-logs"],
@@ -363,7 +335,6 @@ export function usePersonEvaluationLogs(personId: string, intervalMs = 8000) {
   };
 }
 
-// docs/goal_policy_model_plan.md Phase 2。useTeams等と同じ構成のGoal版。
 export function useGoals(intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "org", "goals"],
@@ -379,7 +350,6 @@ export function useGoals(intervalMs = 5000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useOrgBackgrounds。
 export function useOrgBackgrounds(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "org", "background"],
@@ -395,7 +365,6 @@ export function useOrgBackgrounds(intervalMs = 8000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useOrgStrategy。
 const ORG_STRATEGY_FALLBACK: OrgStrategy = { mission: "", vision: "", values: "" };
 
 export function useOrgStrategy(intervalMs = 8000) {
@@ -413,7 +382,6 @@ export function useOrgStrategy(intervalMs = 8000) {
   };
 }
 
-// docs/goal_policy_model_plan.md Phase 1。useOrgBackgrounds等と同じ構成のPolicy版。
 export function usePolicies(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "org", "policies"],
@@ -429,7 +397,6 @@ export function usePolicies(intervalMs = 8000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useThemes。
 export function useThemes(intervalMs = 8000) {
   const query = usePolledRpc(
     ["api", "themes"],
@@ -445,9 +412,7 @@ export function useThemes(intervalMs = 8000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useReports。呼び出し側（ReportsPage）はPATCH成功後に旧`setReports`
-// （楽観的ローカル更新）を使っていたため、フェーズ3.2の方針どおり
-// `queryClient.setQueryData(reportsQueryKey(periodType), ...)`を直接呼ぶ形に置き換える。
+// 楽観的更新は呼び出し側が queryClient.setQueryData(reportsQueryKey(...), ...) を直接呼ぶ。
 export function reportsQueryKey(periodType: ReportPeriodType | "") {
   return ["api", "reports", periodType] as const;
 }
@@ -473,9 +438,7 @@ export function useReports(periodType: ReportPeriodType | "" = "", intervalMs = 
   };
 }
 
-// 旧: web/src/lib/hooks.ts useGrowSuggestions。GrowSuggestionsPanel.tsxは旧`setGrowSuggestions`
-// （楽観的ローカル更新）を使っていたため、フェーズ3.2の方針どおり
-// `queryClient.setQueryData(growSuggestionsQueryKey, ...)`を直接呼ぶ形に置き換える。
+// 楽観的更新は呼び出し側が queryClient.setQueryData(growSuggestionsQueryKey, ...) を直接呼ぶ。
 export const growSuggestionsQueryKey = ["api", "growth", "suggestions"] as const;
 
 export function useGrowSuggestions(intervalMs = 15000) {
@@ -487,9 +450,8 @@ export function useGrowSuggestions(intervalMs = 15000) {
   return {
     growSuggestions: query.data?.suggestions ?? [],
     growSuggestionsLoaded: !query.isPending,
-    // 旧実装のrefresh()はfetch結果のjsonをそのまま返していた（GrowSuggestionsPanel.tsxが
-    // 生成完了直後にsourceRunId一致件数を数えるため）。TanStack Queryのrefetch結果から
-    // 同じ形（{ suggestions }）を取り出して返す。
+    // GrowSuggestionsPanel が生成完了直後に sourceRunId 一致件数を数えるため、
+    // refetch 結果から { suggestions } 形を返す。
     refreshGrowSuggestions: async () => {
       const result = await query.refetch();
       return result.data;
@@ -497,8 +459,7 @@ export function useGrowSuggestions(intervalMs = 15000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useRuns。AgentRun型の正本は @emther/core/agent-runtime。
-// （tier4 suggestionsバッチで移植済み）。レスポンスエンベロープは api-contract。
+// AgentRun 型の正本は @emther/core/agent-runtime。レスポンスエンベロープは api-contract。
 export function useRuns(intervalMs = 1500) {
   const query = usePolledRpc(
     ["api", "agents"],
@@ -516,9 +477,8 @@ export function useRuns(intervalMs = 1500) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useGoToRunIssue。既に提案化されていればその提案へ、まだなら
-// その場で提案として残してから遷移する。TanStack Query化の対象ではない（ポーリングを
-// 持たないコールバックのみのフック）ため、他フックと異なりuseQueryClient等は使わない。
+// 既に提案化されていればその提案へ、まだならその場で提案として残してから遷移する。
+// ポーリングを持たないコールバックのみのため useQueryClient は使わない。
 export function useGoToRunSuggestion(suggestions: Suggestion[]) {
   const peek = useSuggestionPeek();
   return useCallback(
@@ -544,9 +504,8 @@ export function useGoToRunSuggestion(suggestions: Suggestion[]) {
   );
 }
 
-// 旧: web/src/lib/hooks.ts useRunsInbox。/agents画面のInbox一覧専用。useRuns()（全件取得、
-// Fleet状態・Activity Stream用）とは別に、フィルタ＋ページ番号をクエリパラメータとして
-// 都度APIへ渡し、そのページ分のrunsとtotalだけを受け取る。
+// /agents の Inbox 一覧専用。useRuns()（全件・Fleet/Activity用）とは別に、
+// フィルタ＋ページ番号でそのページ分の runs と total だけを受け取る。
 export function useRunsInbox(filter: { status: string; showDismissed: boolean }, page: number, pageSize: number, intervalMs = 1500) {
   const query = usePolledRpc(
     ["api", "agents", "inbox", filter, page, pageSize],
@@ -574,7 +533,7 @@ export function useRunsInbox(filter: { status: string; showDismissed: boolean },
   };
 }
 
-// 旧: web/src/lib/hooks.ts useJournalEntry。idが未確定（undefined）の間はfetchしない。
+// id が未確定（undefined）の間は fetch しない。
 export function useJournalEntry(id: string | undefined, intervalMs = 10000) {
   const query = usePolledRpc(
     ["api", "journal", id ?? null],
@@ -588,7 +547,6 @@ export function useJournalEntry(id: string | undefined, intervalMs = 10000) {
   return { entry: query.data?.entry ?? null, entryLoaded: !query.isPending };
 }
 
-// 旧: web/src/lib/hooks.ts useVitals。
 const VITALS_FALLBACK: OrgVitals = {
   teams: [],
   oneOnOneCoverage: { status: "unknown", covered: 0, total: 0, reason: "", uncoveredMembers: [] },
@@ -609,7 +567,6 @@ export function useVitals(intervalMs = 5000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useSuggestions。docs/2nd_pivot_version.md Phase 7。Suggestion が第一級。
 export const suggestionsQueryKey = ["api", "suggestions"] as const;
 
 export function useSuggestions(intervalMs = 3000) {
@@ -627,7 +584,6 @@ export function useSuggestions(intervalMs = 3000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useSuggestion（単数）。
 export function useSuggestion(id: string, intervalMs = 2000) {
   const query = usePolledRpc(
     ["api", "suggestions", id],
@@ -645,7 +601,7 @@ export function useSuggestion(id: string, intervalMs = 2000) {
   };
 }
 
-// 旧: web/src/lib/hooks.ts useEntityHistory。entityIdが未確定（null）の間はfetchしない。
+// entityId が未確定（null）の間は fetch しない。
 export function useEntityHistory(entityType: "suggestion" | "team" | "org", entityId: string | null, intervalMs = 5000) {
   const query = usePolledRpc(
     ["api", "knowledge", "events", entityType, entityId],

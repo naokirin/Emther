@@ -8,7 +8,6 @@ import {
   type SuggestionReviewStatus,
 } from "./types";
 
-/** docs/suggestion_export.md Phase B の列 ID。 */
 export type SuggestionExportColumnId =
   | "title"
   | "conclusion"
@@ -55,7 +54,7 @@ export const SUGGESTION_EXPORT_COLUMNS: SuggestionExportColumnDef[] = [
   { id: "aiChat", header: "AI壁打ち" },
 ];
 
-/** βの既定: AI* 以外の全列。順は Phase A Markdown（詳細コピー）に近い。 */
+/** βの既定: AI* 以外の全列。順は Markdown（詳細コピー）に近い。 */
 export const DEFAULT_SUGGESTION_EXPORT_COLUMN_IDS: SuggestionExportColumnId[] = [
   "title",
   "conclusion",
@@ -407,7 +406,7 @@ export function escapeCsvCell(value: string): string {
   return value;
 }
 
-/** Phase C: 列設定どおりの CSV（Excel / Sheets / Notion DB インポート向け）。 */
+/** 列設定どおりの CSV（Excel / Sheets / Notion DB インポート向け）。 */
 export function formatSuggestionsCsv(
   suggestions: Suggestion[],
   enabledOrderedIds: SuggestionExportColumnId[],
@@ -424,8 +423,8 @@ export function formatSuggestionsCsv(
 }
 
 /**
- * Phase C: 範囲の提案を 1 つの Markdown ファイルに連結する。
- * 各件は Phase A と同じ詳細＋AI 参照。区切りは水平線。
+ * 範囲の提案を 1 つの Markdown ファイルに連結する。
+ * 各件は詳細コピーと同じ詳細＋AI 参照。区切りは水平線。
  */
 export function formatSuggestionsMarkdownBundle(
   suggestions: Suggestion[],

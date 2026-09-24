@@ -1,13 +1,9 @@
-// フェーズ3.3: クエリパラメータ連動（例: /chat?run=… , /journal?focus=…）を
-// 型安全に扱うための薄いZodラッパー。docs/2nd_architecture.md 3.3節の方針どおり、
+// クエリパラメータ連動（例: /chat?run=… , /journal?focus=…）を型安全に扱う薄いZodラッパー。
 // TanStack Router のような専用ルーティング機構は導入せず、React Router の
 // useSearchParams + Zod スキーマで必要な型安全性だけを確保する。
-//
-// 値はURLSearchParams由来で常に文字列のため型不一致は起きない。旧Next側の
-// `searchParams.get(key)`（値が無ければnull）との対応は、フィールドを
-// `z.string().optional()` にすることで「無ければundefined」という同じ意味になる。
-// enumや数値等、より厳密な検証をしたい呼び出し側は`.optional().catch(undefined)`
-// （フェーズ2.6のZod導入で確立した「不正な値は黙って未指定扱いにする」規約）を使う。
+// 値はURLSearchParams由来で常に文字列のため型不一致は起きない。
+// フィールドを `z.string().optional()` にすることで「無ければundefined」。
+// enumや数値等、より厳密な検証をしたい呼び出し側は`.optional().catch(undefined)`を使う。
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import type { z } from "zod";

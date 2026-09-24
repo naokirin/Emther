@@ -26,11 +26,6 @@ import {
   type EvaluationLogStatus,
 } from "@emther/core/person-evaluation-store";
 
-// docs/2nd_architecture/plan.md フェーズ2.5:
-// web/src/app/api/people/{route,[id]/route,[id]/merge/route,
-// [id]/concern-acks/[suggestionId]/route,[id]/evaluation-logs/route,
-// [id]/evaluation-logs/[logId]/route}.ts の移植。
-
 function parseAliases(body: Record<string, unknown> | null): string[] {
   if (!body) return [];
   if (Array.isArray(body.aliases)) {
@@ -50,7 +45,6 @@ function parseAliases(body: Record<string, unknown> | null): string[] {
 }
 
 export const peopleRoute = new Hono()
-  // docs/memo.md「J. Peopleを第一級ハブに」対応。
   .get("/", (c) => {
     const body = { people: listPersonSummaries() } satisfies PeopleResponse;
     return c.json(body);
@@ -87,8 +81,8 @@ export const peopleRoute = new Hono()
     const body = { person: profile } satisfies PersonProfileResponse;
     return c.json(body);
   })
-  // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。addAlias/removeAlias
-  // はどちらか一方を指定する想定（両方来た場合はaddAliasを先に処理する）。
+  // addAlias/removeAlias
+  // はどちらか一方を指定する想定（両方来た場合はaddAliasを先に処理する）
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);
@@ -114,8 +108,8 @@ export const peopleRoute = new Hono()
     const resBody = { person: profile } satisfies PersonMutationResponse;
     return c.json(resBody);
   })
-  // docs/em_human_story_and_ux.md P2-12対応。ローカルNERの誤登録をEMが確認・削除できる
-  // ようにする「最後の安全弁」。
+  // ローカルNERの誤登録をEMが確認・削除できる
+  // ようにする「最後の安全弁」
   .delete("/:id", (c) => {
     const id = c.req.param("id");
     const removed = deletePerson(id);
@@ -127,9 +121,8 @@ export const peopleRoute = new Hono()
     const resBody = { ok: true } satisfies OkResponse;
     return c.json(resBody);
   })
-  // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
   // URLの:idが統合先（残る側）、body.duplicateIdが統合元（消える側）。People詳細画面で
-  // 開いている人物へ、検索して選んだ別の人物を統合する、というUIの向きに合わせている。
+  // 開いている人物へ、検索して選んだ別の人物を統合する、というUIの向きに合わせている
   .post("/:id/merge", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);
@@ -165,10 +158,9 @@ export const peopleRoute = new Hono()
     const resBody = { person: profile } satisfies PersonMutationResponse;
     return c.json(resBody);
   })
-  // ユーザー指摘「メンバーのアラート表示（関連提案の停滞・確認保留）を確認したが
-  // 対応不要だった、を示せず強調を減らせない」対応。提案自体の状態（停滞・確認保留）は
+  // 提案自体の状態（停滞・確認保留）は
   // 書き換えず、「この人物にとってこの提案は対応不要と確認済み」という人物×提案単位の
-  // 判断だけを記録する。
+  // 判断だけを記録する
   .patch("/:id/concern-acks/:suggestionId", async (c) => {
     const id = c.req.param("id");
     const suggestionId = c.req.param("suggestionId");
@@ -235,9 +227,8 @@ export const peopleRoute = new Hono()
 
     return c.json({ error: "action は suggest-from-journal です" }, 400);
   })
-  // ユーザー指摘「懸念を確認したが対応不要だった、を示せず強調を減らせない」対応。
   // status（provisional/confirmed/discarded）とは独立に、polarity: concernの強調だけを
-  // 弱める noActionNeeded を持たせる。bodyにどちらか一方だけでも、両方でも指定できる。
+  // 弱める noActionNeeded を持たせる。bodyにどちらか一方だけでも、両方でも指定できる
   .patch("/:id/evaluation-logs/:logId", async (c) => {
     const logId = c.req.param("logId");
     const body = await c.req.json().catch(() => null);

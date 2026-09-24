@@ -3,10 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { IdLinkedText } from "./IdLinkedText";
 
-// web/src/components/IdLinkedText.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。分割ロジック自体は
+// 分割ロジック自体は
 // @emther/core/id-prefixのテストで検証済みのため、ここではIdFragmentLinkへの
-// 委譲（リンク化されるか否か）だけを確認する。
+// 委譲（リンク化されるか否か）だけを確認する
 describe("IdLinkedText", () => {
   it("ID断片を含む文はリンクとプレーンテキストに分割される", () => {
     render(

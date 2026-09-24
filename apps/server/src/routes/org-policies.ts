@@ -15,8 +15,7 @@ function parseCategory(value: unknown): PolicyCategory | undefined {
     : undefined;
 }
 
-// docs/goal_policy_model_plan.md Phase 1。web/src/app/api/org/background/{route,[id]/route}.ts と
-// 同じ構成のPolicy版。
+// Goal ルートと同型の Policy CRUD。
 export const orgPoliciesRoute = new Hono()
   .get("/", (c) => {
     const body = { policies: listPolicies().map(toPolicyView) } satisfies PoliciesResponse;

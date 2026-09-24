@@ -22,9 +22,7 @@ const AGY_GEMINI_MODEL = "gemini-3.6-flash-medium";
 export function runAgyCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
 
-    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-    // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば
-    // それを使い、未設定なら既定モデルのまま動く。
+    // 設定でこのエージェント種別にモデルが指定されていればそれを使い、未設定なら既定のまま。
     const agyModel = getRulesAndConstraints().agentAgyModels[run.agentName] || AGY_GEMINI_MODEL;
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
     const args = ["-p", combinedPrompt, "--model", agyModel, "--output-format", "stream-json"];

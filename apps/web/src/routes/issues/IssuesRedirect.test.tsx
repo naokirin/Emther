@@ -4,8 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { IssuesRedirect } from "./IssuesRedirect";
 import { IssueDetailRedirect } from "./IssueDetailRedirect";
 
-// web/src/app/issues/page.tsx・[id]/page.tsx（Next.js版）からの移植（フェーズ3.5 tier1）。
-// docs/2nd_pivot_version.md Phase 7で課題タブは提案に統合済み。
+// 課題タブは提案に統合済み（/issues → /suggestions）
 describe("IssuesRedirect / IssueDetailRedirect", () => {
   it("/issues は /suggestions へリダイレクトする", () => {
     render(

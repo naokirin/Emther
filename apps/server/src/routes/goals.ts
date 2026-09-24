@@ -10,7 +10,7 @@ function parseStatus(value: unknown): GoalStatus | undefined {
   return value === "active" || value === "achieved" || value === "abandoned" ? value : undefined;
 }
 
-// docs/goal_policy_model_plan.md Phase 2。web/src/app/api/org/objectives/route.ts と同じ構成のGoal版。
+// Policy ルートと同型の Goal CRUD。
 export const goalsRoute = new Hono()
   .get("/", (c) => {
     const body = { goals: listGoals().map(toGoalView) } satisfies GoalsResponse;

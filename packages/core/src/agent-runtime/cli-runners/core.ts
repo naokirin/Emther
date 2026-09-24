@@ -22,7 +22,7 @@ import { runAgyCliAttempt } from "./agy";
 import { runClaudeCliAttempt } from "./claude";
 import { runCursorCliAttempt } from "./cursor";
 
-// 個人情報の分離（ユーザー指摘対応）: クラウドが返すテキストは、渡したプロンプトが
+// 個人情報の分離: クラウドが返すテキストは、渡したプロンプトが
 // PERSON_n IDでマスクされている以上、常にPERSON_n IDのままである（クラウドが実名を
 // 新たに生成することはあり得ない）。そのため、ここでは意図的にunmaskNamesを呼ばず、
 // マスクされたままrun.log/yieldRequest/proposal等へ保存する。実名への復元は、EM向けの
@@ -57,14 +57,13 @@ export function handleStreamEvent(run: AgentRun, event: any, allowConsult: boole
   }
 }
 
-// docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」対応。
 // claude/geminiどちらの結果テキストからも、consult/yield/proposalの抽出とrun状態の
 // 確定を同じロジックで行うための共通処理（元は"result"ケースに直書きしていたもの）。
 // 個人情報の分離対応: 呼び出し側は「マスクされたまま」のテキストを渡すこと
 // （unmaskNamesを通した後のテキストを渡してはいけない——yieldRequest/proposal/
 // suggestedActionItemsはそのままSQLiteへ保存されるため、実名が混入する）。
 export function applyAssistantResultText(run: AgentRun, resultText: string, allowConsult: boolean): void {
-  // U19: lookup は consult / proposal / yield より優先（事実確認を先に済ませる）。
+  // lookup は consult / proposal / yield より優先（事実確認を先に済ませる）。
   const lookupRequest = extractLookup(resultText);
   if (lookupRequest) {
     if ((run.lookupRounds ?? 0) >= LOOKUP_MAX_ROUNDS) {
@@ -136,12 +135,11 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     run.yieldRequest = undefined;
     run.proposal = extractProposal(resultText);
     run.suggestedActionItems = undefined;
-    // docs/2nd_pivot_version.md Phase 7: charter/sub_issues 提案は生成しない。
     run.suggestedPriority = undefined;
     run.suggestedThemes = run.proposal ? extractThemes(resultText) : undefined;
     run.suggestedSuggestionNotes = run.proposal ? extractSuggestionNotes(resultText) : undefined;
     run.suggestedSuggestionUpdates = run.proposal ? extractSuggestionUpdates(resultText) : undefined;
-    // docs/new_reporting.md。週次・月次レビューの主出力。proposalの有無に関わらず、
+    // 週次・月次レビューの主出力。proposalの有無に関わらず、
     // このoriginのときだけ抽出する（他originのテキストにたまたまperiod_reviewブロック
     // 相当の文字列が混ざっても誤って拾わないようにする）。
     run.periodReview =
@@ -165,7 +163,7 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
     if (run.periodReview) {
       appendLog(run, "system", "[期間レビュー] period_reviewブロックを受け取りました");
     }
-    // docs/2nd_pivot_version.md Phase 8。Growの提案は組織の前提を変更しない「EMへの
+    // Growの提案は組織の前提を変更しない「EMへの
     // 参考情報」そのものなので、他のsuggested*と異なり採用/却下の中間段階を挟まず、
     // 生成された時点でem-growth-storeへ直接確定させる（朝サマリーのproposalと同じ扱い）。
     if (run.origin === "auto-grow") {
@@ -173,13 +171,12 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       if (growDrafts && growDrafts.length > 0) {
         const created = createGrowSuggestions(growDrafts, { sourceRunId: run.id });
         appendLog(run, "system", `[学びの提案] ${growDrafts.length}件`);
-        // ユーザー要望「検索ばかりなので、もう少し直接知れるリンク先を探すようにしてほしい」
-        // 対応。urlが無い参照をWikipediaで後追い補完する（fire-and-forget。run完了を
+        // urlが無い参照をWikipediaで後追い補完する（fire-and-forget。run完了を
         // ブロックしない。失敗しても学びの提案自体は既に保存済みなので無視してよい）。
         void enrichGrowSuggestionReferences(created).catch(() => {});
       }
     }
-    // docs/usage_issues U2。Journal分析（EM明示の個別分析／日次の集約解釈）が追跡不要と
+    // Journal分析（EM明示の個別分析／日次の集約解釈）が追跡不要と
     // 明示したときだけ自動却下する。手動相談や提案更新分析はEMのトリアージ対象のまま残す。
     if (
       (run.origin === "auto-anomaly" || run.origin === "auto-journal-batch") &&
@@ -191,12 +188,11 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
   }
 }
 
-// ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
-// 起動することがある」対応。1回のCLI子プロセス起動（claude/agy/cursor-agentのいずれか）
-// をここで数える「枠」で囲み、settings-store.tsのmaxParallelAgentRunsを超える同時起動を
-// 防ぐ。1つのrunのターン内でのフォールバック（claude失敗→agy→cursor）は逐次実行のため
-// 同時に複数の枠を要求することは無く、Lead Agentのconsultによる並行相談は専門エージェントの
-// 数だけ別々に枠を取り合う（上限に達した分だけキューイングされる）。
+// 1回のCLI子プロセス起動（claude/agy/cursor-agentのいずれか）をここで数える「枠」で囲み、
+// settings-store.tsのmaxParallelAgentRunsを超える同時起動を防ぐ。1つのrunのターン内での
+// フォールバック（claude失敗→agy→cursor）は逐次実行のため同時に複数の枠を要求することは無く、
+// Lead Agentのconsultによる並行相談は専門エージェントの数だけ別々に枠を取り合う
+// （上限に達した分だけキューイングされる）。
 let activeRunSlots = 0;
 const runSlotQueue: Array<() => void> = [];
 
@@ -233,7 +229,7 @@ export async function withRunSlot<T>(run: AgentRun, fn: () => Promise<T>): Promi
   }
 }
 
-// 個人情報の分離（ユーザー指摘対応）: precomputedPromptを渡された場合はsanitizeForCloudを
+// 個人情報の分離: precomputedPromptを渡された場合はsanitizeForCloudを
 // 再度呼ばない。startRun/decideRunは、run.task/ログへ保存する文言自体を「保存前にマスクする」
 // ため、既にマスク済みのテキストを持っている——同じテキストに対して二重にローカルNERを
 // 走らせる（コスト増）だけでなく、既にPERSON_n ID化された文字列を再度NERにかけると
@@ -252,8 +248,8 @@ export async function runClaudeTurn(
   allowConsult = true,
   precomputedPrompt?: string,
 ): Promise<void> {
-  // 非同期のsanitizeForCloud()を待つ前に同期でactiveへ倒しておく。
-  // でないとdecideRun()が呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
+  // 非同期のsanitizeForCloudを待つ前に同期でactiveへ倒しておく。
+  // でないとdecideRunが呼び出し直後に返すrunの状態がまだ古いまま（yield/idle）になり、
   // 「実行中は入力を受け付けない」というdecideRunの多重実行ガードもすり抜けてしまう。
   run.status = "active";
   run.pendingConsult = undefined;
@@ -267,15 +263,8 @@ export async function runClaudeTurn(
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, contextQuery, relatedContext);
 
-  // docs/memo.md TODO「Claude Codeが使えない場合にGemini CLIを使うようにする」・
-  // 「サポートするAIエージェントCLIにCursor CLIを追加する」対応を、Settingsの
-  // cliOrder（全エージェント共通のCLI優先順位リスト）で並び替え・除外可能にしたもの。
-  // ユーザー指摘「優先度設定が増えたことでフォールバック設定との競合が発生している」
-  // 「エージェントごとに設定できる必要はない、全体で1つで大丈夫」「claude codeが
-  // 外せないようになっている」対応で、以前のcliPriorityOrder（全エージェント共通の
-  // 並び順）とagyFallbackAgents/cursorFallbackAgents（エージェント種別ごとのON/OFF）
-  // をこの1つの設定へ統合した——配列に含まれるCLIだけが候補（除外＝配列から外す）で、
-  // claudeも他の2つと同様に除外できる（API側のバリデーションで空配列は弾く）。
+  // SettingsのcliOrder（全エージェント共通のCLI優先順位）。配列に含まれるCLIだけが候補
+  // （除外＝配列から外す）。claudeも他と同様に除外可（空配列はAPI側で弾く）。
   // 含まれる順に、失敗（run.statusが"error"）する限り次の候補へ進む。agyは
   // `--conversation`で会話継続できるため、run.agyConversationIdがあればそのまま
   // 引き継げる（claudeのsessionIdとは別のID空間で管理している）。
@@ -297,7 +286,7 @@ export async function runClaudeTurn(
     if ((run.status as AgentStatus) !== "error") break;
   }
 
-  // U19: lookup を consult より先に処理（事実確認 → 必要なら専門相談）。
+  // lookup を consult より先に処理（事実確認 → 必要なら専門相談）。
   if (run.pendingLookup) {
     const lookup = run.pendingLookup;
     run.pendingLookup = undefined;
@@ -389,7 +378,7 @@ export async function runTeamParallelKickoff(
   await runClaudeTurn(leadRun, followUp, false, followUp);
 }
 
-// docs/usage_issues U19。エージェントが ```lookup``` で要求した読み取り専用照会を
+// エージェントが ```lookup``` で要求した読み取り専用照会を
 // アプリ側で実行し、結果を同一 run の次ターンへ返す（consult と同型のオーケストレーション）。
 // CLI ネイティブツールは無効のままなので、secure ディレクトリや書き込み API には触れない。
 async function handleLookup(run: AgentRun, lookup: LookupRequest, allowConsult: boolean): Promise<void> {
@@ -427,14 +416,12 @@ async function handleLookup(run: AgentRun, lookup: LookupRequest, allowConsult: 
   await runClaudeTurn(run, followUp, allowConsult, followUp);
 }
 
-// docs 3.3「階層型マルチエージェント」/ docs/memo.md「M. AIエージェント“チーム”の
-// 本格協働」: Lead Agentからの相談を1体以上の専門エージェントへ並行して委譲し、
-// 全員の回答をLead Agent自身の会話（--resumeで同一セッション）に返して最終的な結論を
-// 出させる。相談は1ターンにつき1回だけ（フォローアップ呼び出しはallowConsult=falseに
-// して再帰的な相談連鎖を禁止する——専門エージェント同士が孫相談することは無い）。
+// Lead Agentからの相談を1体以上の専門エージェントへ並行して委譲し、
+// 全員の回答をLead Agent自身の会話（--resumeで同一セッション）に返して最終結論を出させる。
+// 相談は1ターンにつき1回だけ（フォローアップはallowConsult=falseにし、再帰的な相談連鎖を禁止）。
 async function handleConsult(leadRun: AgentRun, consult: ConsultRequest): Promise<void> {
   const specialistRuns = consult.agents.map((agentName) => {
-    // docs/agent_specialization.md 段階5対応。consult.questionsにこのagentName向けの
+    // consult.questionsにこのagentName向けの
     // 個別質問があればそれを使い、無ければ従来どおり共通questionにフォールバックする。
     const question = consultQuestionFor(consult, agentName);
     const specialistRun: AgentRun = {

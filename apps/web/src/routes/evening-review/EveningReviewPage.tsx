@@ -8,9 +8,6 @@ import { ReflectionNoteForm } from "../../components/growth/ReflectionNoteForm";
 import { useReflectionNoteController } from "../../components/growth/useReflectionNoteController";
 import { PageTitleRow } from "../../components/HelpLink";
 
-// web/src/app/evening-review/page.tsx（Next.js版）からの移植（フェーズ3.5 tier1
-// evening-reviewバッチ）。`next/navigation`の`useRouter().push`→react-routerの
-// `useNavigate()`に置き換えた以外は構造・状態遷移を変更していない。
 type FlowStep = "journal" | "checkin" | "kpt" | "done";
 
 const STEP_ORDER: FlowStep[] = ["journal", "checkin", "kpt", "done"];
@@ -27,11 +24,10 @@ function nextStep(step: FlowStep): FlowStep {
   return STEP_ORDER[Math.min(index + 1, STEP_ORDER.length - 1)];
 }
 
-// ユーザー指摘「1日の終わりにAI対話での振り返り→バイタル→KPT入力、という流れが
-// 画面ごとに途切れているのはUXとして不自然」対応。Journal Entry / EmCheckin /
+// Journal Entry / EmCheckin /
 // EmReflectionNoteというドメインの分離はそのままに、その日を締めくくる体験だけを
 // 1本道でつなぐ。各ステップの入力・保存先は既存の各画面と完全に同じもの（DailyReflectionForm /
-// EmCheckinForm / ReflectionNoteForm）を再利用し、保存完了時のコールバックで次へ進める。
+// EmCheckinForm / ReflectionNoteForm）を再利用し、保存完了時のコールバックで次へ進める
 export function EveningReviewPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<FlowStep>("journal");

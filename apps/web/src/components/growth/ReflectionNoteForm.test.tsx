@@ -6,9 +6,7 @@ import type { ReactNode } from "react";
 import { ReflectionNoteForm } from "./ReflectionNoteForm";
 import { useReflectionNoteController } from "./useReflectionNoteController";
 
-// web/src/components/growth/ReflectionNoteForm.test.tsx（Next.js版）からの移植
-// （フェーズ3.5 evening-reviewバッチ）。EmCheckinWidget.test.tsxと同じ理由でQueryClientProvider
-// で包み、GETレスポンスに`ok: true`を明示した以外は検証内容を変更していない。
+// EmCheckinWidget.test と同様、QueryClientProvider で包む
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

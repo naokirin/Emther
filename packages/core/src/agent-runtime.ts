@@ -1,5 +1,4 @@
 // Browser-safe entry for `@emther/core/agent-runtime`.
-//
 // Server orchestration（store / scheduled-tasks / CLI / context-blocks 等）は
 // `@emther/core/agent-runtime/index` を使うこと。ここにフルバレルを re-export すると、
 // web が値 import した瞬間に Vite が embeddings → transformers-file-cache → node:fs

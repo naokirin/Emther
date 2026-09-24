@@ -17,9 +17,6 @@ import {
 } from "../../components/privacy-check/mask-check-display";
 import { api } from "../../lib/api-client";
 
-// web/src/app/mask-check/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
-// stylesのimportパス以外はロジック・構造を変更していない（ポーリング無し・Next依存も
-// 元々`"use client"`のみのため、移植コストが最も低い画面という3.4の見立てどおりだった）。
 export function MaskCheckPage() {
   const [text, setText] = useState("");
   const [busyQuick, setBusyQuick] = useState(false);

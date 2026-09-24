@@ -8,8 +8,7 @@ import type {
   GrowSuggestionStatus,
 } from "./em-growth-types";
 
-// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
-// 学びの提示）専用。組織向けのSuggestionとは性質が異なり、生成時点で確定として扱う。
+// Grow（EM自身の学びの提示）専用。組織向けのSuggestionとは性質が異なり、生成時点で確定として扱う。
 // EM側の反応は軽量な既読管理のみ（unread / acknowledged / dismissed）。
 
 // scheduled-tasks.tsのisoWeekKeyと同じロジック（循環import回避のため複製）。

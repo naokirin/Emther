@@ -230,7 +230,6 @@ describe("POST /api/suggestions", () => {
     startSpy.mockRestore();
   });
 
-  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
   it("sourceRunにproposalがあれば起票時にdetailとして残す", async () => {
     await insertRunWithProposal("run-with-proposal", {
       conclusion: "結論だよ",
@@ -263,7 +262,6 @@ describe("POST /api/suggestions", () => {
   });
 });
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
 describe("PATCH /api/suggestions/:id archived", () => {
   it("archived:trueでアーカイブし、falseで解除できる", async () => {
     const suggestionStore = await import("@emther/core/suggestion-store");
@@ -292,7 +290,6 @@ describe("PATCH /api/suggestions/:id archived", () => {
   });
 });
 
-// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
 describe("PATCH /api/suggestions/:id reviewDueAt", () => {
   it("reviewDueAtを設定・null で解除できる", async () => {
     const suggestionStore = await import("@emther/core/suggestion-store");
@@ -318,7 +315,6 @@ describe("PATCH /api/suggestions/:id reviewDueAt", () => {
   });
 });
 
-// ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。
 describe("PATCH /api/suggestions/:id reviewStatus=in_review", () => {
   it("確認中(in_review)へ変更できる", async () => {
     const suggestionStore = await import("@emther/core/suggestion-store");
@@ -398,7 +394,6 @@ describe("PATCH /api/suggestions/:id title/charter/teamId", () => {
   });
 });
 
-// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
 describe("PATCH /api/suggestions/:id refreshDetailFromRunId", () => {
   it("指定Runの現在のproposalで詳細を更新する", async () => {
     const suggestionStore = await import("@emther/core/suggestion-store");
@@ -427,7 +422,6 @@ describe("PATCH /api/suggestions/:id refreshDetailFromRunId", () => {
   });
 });
 
-// ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
 describe("PATCH /api/suggestions/:id detail", () => {
   it("EMが詳細を新規に書き起こせる", async () => {
     const suggestionStore = await import("@emther/core/suggestion-store");

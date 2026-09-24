@@ -4,9 +4,7 @@ import { MemoryRouter, useSearchParams } from "react-router";
 import type { ReactNode } from "react";
 import { usePeekParam } from "./usePeekParam";
 
-// web/src/lib/hooks.ts usePeekParam（Next.js版）のテストからの移植（フェーズ3.5 tier2
-// timelineバッチ）。next/navigationのモックの代わりに実際のreact-router（MemoryRouter）で
-// クエリパラメータの読み書きを検証する。
+// MemoryRouter 上でクエリパラメータの読み書きを検証する
 function wrapperWith(initialEntries: string[]) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>;

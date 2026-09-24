@@ -5,10 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { PersonDetailContent } from "./PersonDetailContent";
 
-// web/src/components/PersonDetailContent.tsx（Next.js版）には専用テストが元々無かった
-// ため新規に追加する（フェーズ3.5 tier2、人物バッチ）。usePersonProfile/
-// usePersonEvaluationLogs/usePeople/useTeamsがTanStack Query化されているため
-// QueryClientProviderで包む。
+// usePersonProfile / usePersonEvaluationLogs / usePeople / useTeams が TanStack Query 化されているため
+// QueryClientProvider で包む。
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

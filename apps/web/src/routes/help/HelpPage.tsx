@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import styles from "../../styles/page.module.css";
 
-// web/src/app/help/page.tsx からの移植（フェーズ3.5 tier1）。next/link Link → react-router Link
-// 以外は内容・構造を変更していない。
 const SECTIONS: { id: string; title: string; body: ReactNode }[] = [
   {
     id: "overview",

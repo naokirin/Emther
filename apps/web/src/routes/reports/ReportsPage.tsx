@@ -16,20 +16,16 @@ import { api, rpcInit } from "../../lib/api-client";
 import { REPORT_PERIOD_LABEL, type Report, type ReportPeriodType } from "@emther/core/types";
 import type { ReportMutationResponse, ReportReviewResponse } from "@emther/api-contract";
 
-// web/src/app/reports/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
-// stylesのimportパス・`@core/*`のbare specifier化以外はロジックを変更していないが、
-// `useReports`の旧`setReports`（楽観的ローカル更新）はフェーズ3.2の方針どおり
-// `queryClient.setQueryData`に置き換えた。
+// 楽観的更新は queryClient.setQueryData を使う。
 const PAGE_SIZE = 5;
 
 function formatDateTime(ts: number): string {
   return new Date(ts).toLocaleString("ja-JP", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-// ユーザー指摘「『週次レビューをする』を実行しても結果が表示されず、レポート一覧を見ても
-// AIの分析結果やそこへのリンクが出ない」対応。実行直後にスクロール不要で見える場所
+// 実行直後にスクロール不要で見える場所
 // （ボタン列のすぐ下）に直近のレビューを表示し（後述のReviewSpotlight）、かつ一覧の各行にも
-// レビューの有無・状態を常時見えるバッジとして出す（後述のReviewStatusBadge）。
+// レビューの有無・状態を常時見えるバッジとして出す（後述のReviewStatusBadge）
 function reviewStatusLabel(run: AgentRun): { icon: string; label: string } {
   if (run.status === "idle" && run.periodReview) return { icon: "🤖", label: "AIレビュー完了" };
   if (run.status === "error") return { icon: "⚠️", label: "AIレビュー エラー" };
@@ -46,12 +42,11 @@ function ReviewStatusBadge({ reviewRun }: { reviewRun: AgentRun | undefined }) {
   );
 }
 
-// docs/new_reporting.md。週次・月次「レビュー」機能。統計スナップショット（Report）に紐づく
 // Lead Agent run（AgentRun.sourceReportId）があれば、AIの概観・解釈・Before/After・見落としの
 // 問い・学び・次期間への問いをこのカード内に表示する。起動は上部の「AIとレビューする」ボタン
 // （新しい暦週/暦月のReportを生成しつつ起動する）でのみ行い、ここは表示専用。会話継続・
 // テーマ採用/却下は自前実装せず、同じrunを開ける/chatへリンクする
-// （ConsultReviewPanelが既に持つ機能をそのまま使う）。
+// （ConsultReviewPanelが既に持つ機能をそのまま使う）
 function ReportReviewSection({ reviewRun }: { reviewRun: AgentRun | undefined }) {
   if (!reviewRun) return null;
 
@@ -78,12 +73,11 @@ function ReportReviewSection({ reviewRun }: { reviewRun: AgentRun | undefined })
   );
 }
 
-// ユーザー要望「今週・先週…と個別に並ぶと野暮ったい。ボタンを押すとプルダウンで
-// 今週/先週などの選択が表示されるようにまとめたい」対応。レポート作成・AIレビューの
-// 週次/月次それぞれで「今週or先週」のどちらを対象にするかだけが違う4アクションを、
-// 1つのボタン（Selectを流用したドロップダウン。押すまで選択肢は隠れている）にまとめる。
+// レポート作成・AIレビューの
+// 週次/月次それぞれで「今週or先週」のどちらを対象にするかだけが違う4アクションを
+// 1つのボタン（Selectを流用したドロップダウン。押すまで選択肢は隠れている）にまとめる
 // valueを持たせず常にplaceholder表示のままにすることで、Selectを「値を保持する入力欄」
-// ではなく「押すたびに選ぶ使い捨てのアクションメニュー」として使う。
+// ではなく「押すたびに選ぶ使い捨てのアクションメニュー」として使う
 function PeriodActionMenu({
   periodType,
   idleLabel,
@@ -268,15 +262,14 @@ export function ReportsPage() {
   const queryClient = useQueryClient();
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  // ユーザー指摘「『週次レビューをする』を実行しても結果が表示されず、一覧を見てもAIの
-  // 分析結果やリンクが出ない」対応。POSTのレスポンスで返ってきたReportをそのまま直近レビューの
+  // POSTのレスポンスで返ってきたReportをそのまま直近レビューの
   // 対象として保持する（種別フィルタで一覧から外れていても見失わない）。runの方はuseRuns()の
-  // ポーリングで常に最新状態を取るため、こちらはIDから毎回引き直す。
+  // ポーリングで常に最新状態を取るため、こちらはIDから毎回引き直す
   const [triggeredSpotlightReport, setTriggeredSpotlightReport] = useState<Report | null>(null);
   const spotlightSectionRef = useRef<HTMLDivElement | null>(null);
 
-  // 改修依頼「日毎の変化をグラフで見たい」対応。生成済みレポート（週次/月次スナップショット）
-  // とは別に、生きたJournal/提案の全件から日次の推移を都度集計して見せる。
+  // 生成済みレポート（週次/月次スナップショット）
+  // とは別に、生きたJournal/提案の全件から日次の推移を都度集計して見せる
   const { journalEntries } = useJournal();
   const { suggestions } = useSuggestions();
   const trendNav = usePeriodNavigator("month");
@@ -298,10 +291,9 @@ export function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggeredSpotlightReport?.id]);
 
-  // ユーザー指摘「『レポートを作成する』と『レビューをする』の違いが分かりにくい」対応。
   // 機械集計のみの生成ボタンは廃止し、暦週/暦月の統計スナップショット生成とLead Agentに
   // よる対話型レビューの起動を1つの入口（レビューをする）に一本化する。統計スナップショット
-  // 自体はstartPeriodReviewAnalysis内部で生成されるため、レポート一覧・履歴は従来どおり残る。
+  // 自体はstartPeriodReviewAnalysis内部で生成されるため、レポート一覧・履歴は従来どおり残る
   async function handleStartReview(periodType: ReportPeriodType, offset = 0) {
     setReviewing(`${periodType}-${offset}`);
     setReviewError(null);

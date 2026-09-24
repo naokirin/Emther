@@ -18,8 +18,7 @@ export type SuggestionExportColumnEditorProps = {
 const DRAG_MIME = "application/x-emther-export-column";
 
 /**
- * docs/suggestion_export.md Phase B β / suggestion-tab.pen「列設定」ドリルイン。
- * 列のオン／オフと有効列の並び替え（↑↓ とドラッグ）。設定は呼び出し側が localStorage に保存する。
+ * 列のオン／オフと有効列の並び替え（↑↓ とドラッグ）。設定は呼び出し側が localStorage に保存する
  */
 export function SuggestionExportColumnEditor({ value, onChange }: SuggestionExportColumnEditorProps) {
   const { enabled, disabled } = partitionExportColumns(value);

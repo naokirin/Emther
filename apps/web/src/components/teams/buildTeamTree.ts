@@ -1,8 +1,7 @@
 import { teamPathSegments, type Team } from "@emther/core/types";
 
-// docs/memo.md TODO「チームの組織階層を入力できるようにする」への対応。
-// チーム名の"/"区切り（例: "Engineering/Team A"）をパスとして解釈し、
-// 共通のセグメントを持つチームをネストしたフォルダとして表示するためのツリー構造。
+// チーム名の"/"区切り（例: "Engineering/Team A"）をパスとして解釈し
+// 共通のセグメントを持つチームをネストしたフォルダとして表示するためのツリー構造
 export type TeamTreeNode = {
   segment: string;
   team?: Team;

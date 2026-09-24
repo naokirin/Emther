@@ -1,4 +1,4 @@
-// Phase A: ドメイン判断は @emther/core/daily-situation。ここでは UI コールバック配線のみ。
+// ドメイン判断は @emther/core/daily-situation。ここでは UI コールバック配線のみ。
 import type {
   DailySituation as CoreDailySituation,
   SituationItem as CoreSituationItem,

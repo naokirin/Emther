@@ -6,12 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { ReportsPage } from "./ReportsPage";
 
-// web/src/app/reports/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier3）。DailyTrendChartはreact-chartjs-2をモックしたテストで別途
-// 検証済みのため、ここでは実チャートをそのまま描画させ「クラッシュしないこと」に留め、
+// DailyTrendChartはreact-chartjs-2をモックしたテストで別途
+// 検証済みのため、ここでは実チャートをそのまま描画させ「クラッシュしないこと」に留め
 // AIレビュー起動・絞り込み・コメント保存の主要フローを検証する。機械集計のみの
-// 生成ボタンは「レポート作成とレビューの違いが分かりにくい」というユーザー指摘対応で
-// 廃止し、AIレビュー起動（レビューをする）に一本化した。
+// 生成ボタンは廃止し、AIレビュー起動（レビューをする）に一本化した。
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -141,9 +139,8 @@ describe("ReportsPage", () => {
       ),
     );
 
-    // ユーザー指摘「実行しても結果が表示されず、一覧を見てもAIの分析結果やリンクが出ない」対応。
     // 「詳細を見る」で展開しなくても、実行直後に直近のAIレビュー欄へ内容が出ること・
-    // 一覧の行にもレビュー有無のバッジが出ることを確認する。
+    // 一覧の行にもレビュー有無のバッジが出ることを確認する
     expect(await screen.findByRole("heading", { name: "直近のAIレビュー" })).toBeInTheDocument();
     expect(screen.getByText("今週は判断待ちが多かった")).toBeInTheDocument();
     expect(screen.getAllByText(/AIレビュー完了/).length).toBeGreaterThan(0);

@@ -95,7 +95,6 @@ describe("GET /api/people/:id", () => {
   });
 });
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
 describe("PATCH /api/people/:id", () => {
   it("addAliasで別名を追加できる", async () => {
     const peopleDirectory = await import("@emther/core/people-directory");
@@ -161,7 +160,6 @@ describe("DELETE /api/people/:id", () => {
   });
 });
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 describe("POST /api/people/:id/merge", () => {
   it("duplicateIdをURLの:idへ統合し、統合後のプロファイルを返す", async () => {
     const peopleDirectory = await import("@emther/core/people-directory");
@@ -220,7 +218,6 @@ describe("POST /api/people/:id/archive", () => {
   });
 });
 
-// ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
 describe("PATCH /api/people/:id/concern-acks/:suggestionId", () => {
   it("存在しない人物は404", async () => {
     const { peopleRoute } = await import("./people");
@@ -289,7 +286,6 @@ describe("GET/POST /api/people/:id/evaluation-logs", () => {
   });
 });
 
-// ユーザー指摘「懸念を確認したが対応不要だった、を示せず強調を減らせない」対応。
 describe("PATCH /api/people/:id/evaluation-logs/:logId", () => {
   it("存在しないlogIdは404", async () => {
     const { peopleRoute } = await import("./people");

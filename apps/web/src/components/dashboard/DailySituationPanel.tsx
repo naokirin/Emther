@@ -6,9 +6,8 @@ import {
 } from "../../lib/daily-situation";
 import type { WeeklyJournalTonePoint } from "@emther/core/daily-trends";
 
-// docs/design/dashboard/today-tab.pen 改善案A対応。
-// 「材料（判断はEMがする）」として、変化・兆候・4週トーン比較の3カラム + 注目チップ。
-// 気になる兆候は組織レベルのパターン材料（個体ナビは「注目」チップ側）。
+// 「材料（判断はEMがする）」として、変化・兆候・4週トーン比較の3カラム + 注目チップ
+// 気になる兆候は組織レベルのパターン材料（個体ナビは「注目」チップ側）
 
 function NarrativeList({ items, emptyText }: { items: SituationItem[]; emptyText: string }) {
   if (items.length === 0) return <p className={styles.situationEmpty}>{emptyText}</p>;

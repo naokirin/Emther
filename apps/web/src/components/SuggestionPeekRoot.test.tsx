@@ -7,9 +7,6 @@ import type { ReactNode } from "react";
 import { SuggestionPeekRoot } from "./SuggestionPeekRoot";
 import { useSuggestionPeek } from "./useSuggestionPeek";
 
-// web/src/components/SuggestionPeekRoot.tsx（Next.js版）には専用テストが元々無かった
-// ため新規に追加する（フェーズ3.5、ルートシェル。tier4 suggestionsバッチで
-// SuggestionDetailContentへ差し替え済み）。
 function OpenButton() {
   const peek = useSuggestionPeek();
   return (

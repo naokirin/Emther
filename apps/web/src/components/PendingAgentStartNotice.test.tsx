@@ -4,9 +4,6 @@ import { formatPendingAgentStartText } from "./pendingAgentStart";
 import { PendingAgentStartNotice } from "./PendingAgentStartNotice";
 import type { PendingAgentStart } from "@emther/core/types";
 
-// web/src/components/PendingAgentStartNotice.tsx（Next.js版）には専用テストが元々無かった
-// ため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。
-
 function pending(overrides: Partial<PendingAgentStart> = {}): PendingAgentStart {
   return {
     id: "p1",

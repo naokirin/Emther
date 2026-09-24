@@ -8,9 +8,7 @@ function LocationProbe() {
   return <div data-testid="location">{useLocation().pathname}</div>;
 }
 
-// web/src/components/IdFragmentLink.test.tsx（Next.js版）からの移植（フェーズ3.5、ルートシェル）。
-// next/navigationのuseRouterモックの代わりに、実際のreact-router（MemoryRouter）で
-// 遷移後のパスを検証する。
+// MemoryRouter 上で遷移後のパスを検証する
 describe("IdFragmentLink", () => {
   beforeEach(() => {
     vi.stubGlobal(

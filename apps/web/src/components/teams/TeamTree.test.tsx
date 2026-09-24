@@ -5,8 +5,6 @@ import { buildTeamTree } from "./buildTeamTree";
 import { TeamTreeView } from "./TeamTree";
 import type { Team } from "@emther/core/types";
 
-// web/src/components/teams/TeamTree.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier2、teamsバッチ）。
 function makeTeam(overrides: Partial<Team> & Pick<Team, "id" | "name">): Team {
   return {
     members: [],

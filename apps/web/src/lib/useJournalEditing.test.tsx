@@ -3,9 +3,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useJournalEditing } from "./useJournalEditing";
 import type { JournalEntry } from "@emther/core/types";
 
-// web/src/lib/useJournalEditing.ts（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier4 journalバッチ）。Next非依存のフレームワーク非依存
-// フックとしてそのまま移設したロジックの主要フローを検証する。
+// Next非依存のフレームワーク非依存
+// フックとしてそのまま移設したロジックの主要フローを検証する
 function baseEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
   return {
     id: "e1",

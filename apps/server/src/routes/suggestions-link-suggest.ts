@@ -2,8 +2,7 @@ import { Hono } from "hono";
 import type { SuggestionsLinkSuggestResponse } from "@emther/api-contract";
 import { suggestSuggestionStrategyLinks } from "@emther/core/link-suggest";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ10）: web/src/app/api/issues/link/suggest/route.ts の移植。
-// docs/value_hierarchy_and_flow.md §2 / §6.1。戦略未接続の提案へテーマ/KR リンク案を返す（HITL・未適用）。
+// 戦略未接続の提案へテーマ/KR リンク案を返す（HITL・未適用）
 export const suggestionsLinkSuggestRoute = new Hono().post("/", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { suggestionIds?: string[] };
   const suggestionIds = Array.isArray(body.suggestionIds)

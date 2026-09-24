@@ -3,8 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RecordDateField } from "./RecordDateField";
 
-// web/src/components/RecordDateField.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 evening-reviewバッチ）。
 describe("RecordDateField", () => {
   it("open=falseのときは開くボタンのみ表示する", () => {
     render(<RecordDateField open={false} date="" onOpen={vi.fn()} onDateChange={vi.fn()} onReset={vi.fn()} />);

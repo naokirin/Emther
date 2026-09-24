@@ -22,8 +22,7 @@ vi.mock("../../lib/downloadTextFile", async (importOriginal) => {
   };
 });
 
-// docs/design/suggestion/suggestion-tab.pen 改善案C対応後の一覧UIを検証する。
-// テーマメニュー・絞り込みポップオーバー・4列表・デフォルトの確認済み非表示に絞る。
+// テーマメニュー・絞り込みポップオーバー・4列表・デフォルトの確認済み非表示に絞る
 
 function suggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   return {

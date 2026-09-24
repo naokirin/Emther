@@ -30,7 +30,7 @@ function themeGoalLinks(theme: OrgTheme, goals: Goal[]): { label: string }[] {
   return links.slice(0, 2);
 }
 
-// UI/UX見直し（今日タブ）対応。「状態/テーマ/Issue/人が混在」への対処として、
+// 「状態/テーマ/Issue/人が混在」への対処として、
 // テーマは判断待ちの一覧とは別の「いまの見立て（状態）」に位置付け、既定では
 // 要約1行だけを見せる。詳細（Why/What/How・Goalリンク・編集）はクリックしてから。
 export function ThemesPanel({ themes, themesLoaded, goals, refreshThemes, refreshRuns, onNavigate }: Props) {

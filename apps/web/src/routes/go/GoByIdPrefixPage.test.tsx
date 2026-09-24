@@ -4,9 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { GoByIdPrefixPage } from "./GoByIdPrefixPage";
 import type { IdMatch } from "@emther/core/id-resolve";
 
-// web/src/app/go/[prefix]/page.tsx（Next.js版）からの移植（フェーズ3.5 tier1）。
-// DB直読みのRSCから `GET /api/id-resolve` 経由のクライアントフェッチに置き換えたため、
-// fetchをモックして3分岐（0件/1件/複数件）+ 不正プレフィックスを検証する。
+// fetchをモックして3分岐（0件/1件/複数件）+ 不正プレフィックスを検証する
 function renderAt(prefix: string) {
   return render(
     <MemoryRouter initialEntries={[`/go/${prefix}`]}>

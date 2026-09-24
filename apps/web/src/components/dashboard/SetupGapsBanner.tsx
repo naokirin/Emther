@@ -1,7 +1,7 @@
 import styles from "../../styles/page.module.css";
 
-// docs/memo.md「O. 期初の憲法づくりオンボーディング」および goal.pen 方針:
-// 無いときは観測・相談を主経路にし、方針・目標への「置く」は副経路。
+// 期初の憲法づくりオンボーディング」および goal.pen 方針:
+// 無いときは観測・相談を主経路にし、方針・目標への「置く」は副経路
 type Props = {
   setupGaps: string[];
   teamsCount: number;

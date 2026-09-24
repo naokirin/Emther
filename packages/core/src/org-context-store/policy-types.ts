@@ -1,4 +1,3 @@
-// docs/goal_policy_model.md / docs/goal_policy_model_plan.md Decision 2。
 // Goalに向かう際に守りたい判断原則。OrgBackgroundEntryに近い自由記述リスト。
 
 export type PolicyCategory = "value" | "priority" | "avoid" | "principle" | "other";

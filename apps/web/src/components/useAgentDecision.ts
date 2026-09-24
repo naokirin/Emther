@@ -11,7 +11,7 @@ type Params = {
 };
 
 // ExecutionState の壁打ち（Yield選択・自由記述の送信）と CopilotChat の両方から使う
-// 共有ロジック。docs/2nd_pivot_version.md Phase 7 で issue-detail から切り出し。
+// 共有ロジック。 で issue-detail から切り出し
 export function useAgentDecision({ linkedRun, fetchWithNameConfirm, refreshRuns }: Params) {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");

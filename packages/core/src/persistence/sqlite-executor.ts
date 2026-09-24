@@ -4,7 +4,6 @@ import { getDb } from "./db";
 /**
  * SQLite アダプタ共通の薄い実行面。ドメインはこれを直接使わず、
  * 各ドメイン Repository の SQLite 実装だけが依存する。
- * docs/architecture_boundary_refactor.md Phase D（SQLite 共通抽象）。
  */
 export type SqliteExecutor = {
   run(sql: string, ...params: SQLInputValue[]): void;

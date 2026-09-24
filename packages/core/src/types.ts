@@ -4,8 +4,8 @@ import { effectiveAdviceText, type AdviceStructured } from "./advice";
 
 export type { AdviceStructured, AdviceGroup, AdviceFollowUp } from "./advice";
 
-// docs/memo.md「H: Phase 2」対応。Issue/Teamの変更履歴（KnowledgeEvent）を画面表示するための
-// クライアント向け型。サーバー側の実体（@/lib/knowledge-store）とは意図的に型を分離している
+// Issue/Teamの変更履歴（KnowledgeEvent）を画面表示するためのクライアント向け型。
+// サーバー側の実体（@/lib/knowledge-store）とは意図的に型を分離している
 // （TeamやIssue等、他の型とも同じ既存の慣習に合わせている）。
 export type KnowledgeEvent = {
   id: string;
@@ -29,24 +29,21 @@ export type JournalEntry = {
   sentiment: "positive" | "negative" | "neutral";
   summary: string;
   createdAt: number;
-  // docs/em_human_story_and_ux.md P1-9対応。EMが一度でも校正（確認）操作を通したかどうか。
+  // EMが一度でも校正（確認）操作を通したかどうか。
   confirmed: boolean;
-  // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは書き換えず、「今どこで管理
-  // されているか」を別軸で持たせる。
+  // urgencyは書き換えず、「今どこで管理されているか」を別軸で持たせる。
   resolvedSuggestionId?: string;
   resolvedSuggestionTitle?: string;
   resolutionNote?: string;
   // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
   sourceConsultRunId?: string;
-  // docs/observation_dump_journal.md: 外部ログ取り込み由来。
+  // 外部ログ取り込み由来。
   sourceDumpId?: string;
   sourceChunkId?: string;
-  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
   // sentimentは観測値のまま残しつつ、EMが確認済み・対応不要と判断した事実を別軸で持つ。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
-  // Journalを一覧・AIの判断材料から除外するためのフラグ（記録自体は削除しない）。
+  // 重複記録・誤入力等のJournalを一覧・AIの判断材料から除外する（記録自体は削除しない）。
   archivedAt?: number;
   // センシティブ設定。UI 一覧から既定で除外する（エージェント／分析入力からは除外しない）。
   sensitiveAt?: number;
@@ -59,7 +56,7 @@ export function journalResolutionLabel(entry: JournalEntry): string {
 }
 
 // JournalEntryCard.tsxの解決表示と同じ判定基準（提案で追跡中、または
-// 対応メモが残っている）。/journal一覧の「対応済みを除外」フィルタと表示ラベルの
+// メモが残っている）。/journal一覧の「対応済みを除外」フィルタと表示ラベルの
 // 両方でこの1箇所を参照し、判定基準がずれないようにする。
 export function isJournalEntryResolved(entry: JournalEntry): boolean {
   return !!(entry.resolvedSuggestionId || entry.resolutionNote);
@@ -96,10 +93,9 @@ export function suggestionTitleFromConclusion(conclusion: string): string {
   return text.replace(/[。．.]+$/u, "").trim() || conclusion.trim();
 }
 
-// ユーザー指摘対応: 異常検知runなど、EMが書いた短い文ではなく定型の指示文＋本文という
-// 長いtaskをそのまま提案タイトルに使うと、単純なslice(0, n)では文の途中（しかも
-// 肝心の本文へ辿り着く前）でちぎれ、省略されたことも分からない見た目になっていた。
-// 提案タイトルを作る全箇所でこの1箇所を通し、上限超過時は句読点付近で切って「…」を付ける。
+// 定型の指示文＋本文という長いtaskをそのまま提案タイトルに使うと、単純なslice(0, n)では
+// 文の途中でちぎれ、省略されたことも分からない見た目になる。提案タイトルを作る全箇所で
+// この1箇所を通し、上限超過時は句読点付近で切って「…」を付ける。
 // （句点で自然に終わった場合は「…」を付けない。）
 export function truncateForTitle(text: string, maxLength = 80): string {
   const trimmed = text.trim().replace(/\s+/g, " ");
@@ -124,7 +120,7 @@ export function truncateForTitle(text: string, maxLength = 80): string {
   return `${cut}…`;
 }
 
-// docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。
+/** チーム単位のミッション／制約。 */
 export type TeamCharter = {
   mission: string;
   constraints: string;
@@ -136,21 +132,17 @@ export type Team = {
   members: string[];
   charter: TeamCharter;
   archived: boolean;
-  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
-  // 既定はtrue(＝自分が管理するチーム)。パートナーチーム・ステークホルダーチームなど、
-  // 所属メンバーの1on1実施やIssueをEMが主体的に扱わないチームだけfalseにする想定。
-  // 既存チームの移行はorg-context-store.ts側で読み込み時に`?? true`を補う（既定を
-  // 変えずに済むよう、無指定は「自分のチーム」として扱う）。
+  // 既定はtrue(＝自分が管理するチーム)。パートナー／ステークホルダー等、所属メンバーの
+  // 1on1やIssueをEMが主体的に扱わないチームだけfalse。既存チームはorg-context-store側で
+  // 読み込み時に`?? true`を補う（無指定は「自分のチーム」）。
   managedByEm: boolean;
-  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
+  // 表記揺れ用の別名。
   aliases: string[];
   createdAt: number;
   updatedAt: number;
 };
 
-// docs/memo.md TODO「チームの組織階層を入力できるようにする（チーム名で `/` をつけると
-// 組織階層をつけられるようにする）」への対応。独立した親子フィールドは持たせず、
-// チーム名自体を`/`区切りのパスとして解釈する軽量な設計にしている
+// 独立した親子フィールドは持たせず、チーム名自体を`/`区切りのパスとして解釈する
 // （例: "Engineering / Team A" → ["Engineering", "Team A"]）。
 // `/`の前後の空白は名前の一部とみなさない。
 export function teamPathSegments(name: string): string[] {
@@ -210,7 +202,7 @@ export type OrgBackgroundEntry = {
   updatedAt: number;
 };
 
-// docs/goal_policy_model.md / docs/goal_policy_model_plan.md Decision 2。Goalに向かう際に
+// Goalに向かう際に
 // 守りたい判断原則（大切にすること／優先すること／やらないこと／判断に迷ったときの原則、など）。
 // MVVのような固定欄にはせず、OrgBackgroundEntryに近い自由記述の複数エントリにする。
 // categoryは分類のヒントであり必須ではない（方針4「入力項目を埋めることを目的にしない」）。
@@ -228,7 +220,7 @@ export type PolicyEntry = {
   archivedAt?: number;
 };
 
-// docs/goal_policy_model.md / docs/goal_policy_model_plan.md。EMとして見据えている
+// EMとして見据えている
 // 「到達したい状態」。SMARTである必要はなく、曖昧な段階から登録してよい。
 export type GoalHorizon = "long" | "mid" | "near";
 export type GoalStatus = "active" | "achieved" | "abandoned";
@@ -260,11 +252,8 @@ export type GoalLinkSuggestion = {
   labels: { goals: string[] };
 };
 
-// ユーザー要望「利用するAIツールの優先度を設定で変更できるようにしたい」対応。以前は
-// claude→agy→cursorの順が固定だったが、この並びを設定で入れ替えられるようにする。
-// ユーザー指摘「claude codeが外せないようになっているので外せるようにしておいて
-// ほしい」対応で、claudeも他の2つと同様に除外できる（最低1つは候補として残す
-// 必要があり、配列を空にはできない）。
+// CLI優先順位の候補。並びは設定（cliOrder）で入れ替え・除外できる。
+// claudeも他と同様に除外可（最低1つは候補として残す必要があり、空配列にはできない）。
 export const CLI_OPTIONS = ["claude", "agy", "cursor"] as const;
 export type CliName = (typeof CLI_OPTIONS)[number];
 export const CLI_LABELS: Record<CliName, string> = {
@@ -337,51 +326,46 @@ export type RulesAndConstraints = {
   // 起動時刻は複数指定可。材料は前回カバー以降（最大7日）。
   autoJournalBatchEnabled: boolean;
   autoJournalBatchHours: number[];
-  // docs/knowledge_distillation.md。状況蒸留（既定OFF）。曜日は複数選択可。
+  // 状況蒸留（既定OFF）。曜日は複数選択可。
   autoDistillationEnabled: boolean;
   autoDistillationWeekdays: number[];
   autoDistillationHour: number;
-  // docs/2nd_pivot_version.md Phase 8。EM自身の学びの提案（Grow）の週次バッチ（既定OFF）。
+  // EM自身の学びの提案（Grow）の週次バッチ（既定OFF）。
   autoGrowEnabled: boolean;
   autoGrowWeekday: number;
   autoGrowHour: number;
-  // docs/new_reporting.md。週次・月次レビューの自動起動（既定OFF）。
+  // 週次・月次レビューの自動起動（既定OFF）。
   autoWeeklyReportEnabled: boolean;
   autoWeeklyReportWeekday: number;
   autoWeeklyReportHour: number;
   autoMonthlyReportEnabled: boolean;
   autoMonthlyReportDay: number;
   autoMonthlyReportHour: number;
-  // ユーザー指摘「設定変更時に、それまで起動していなかったエージェントが一気に並列で
-  // 起動することがある」対応。同時に「実行中」にできるエージェント（CLI子プロセス）数の
-  // 上限。超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
+  // 同時に「実行中」にできるエージェント（CLI子プロセス）数の上限。
+  // 超過分はキューイングされ、Agent Runの一覧でstatus:"queued"として見える。
   maxParallelAgentRuns: number;
   // claude CLIの1ターンあたりの予算上限（USD、--max-budget-usd）。既定0.5。
   // Opus既定環境では引き上げが必要なことがある。agy/cursorには効かない。
   perTurnBudgetUsd: number;
   // 提案紐付きLead起動時に関連specialistを先行並列起動し、Leadが統合する（既定ON）。
   teamParallelKickoffEnabled: boolean;
-  // docs/em_ui_ux_issue.md 2.2/4節「AI主導トリアージ・上限N件への圧縮」対応。Morning Modeで
-  // 前面に出す「判断待ち（decision）」「観測不足（observation）」レーンそれぞれの表示上限。
+  // Morning Modeで前面に出す「判断待ち」「観測不足」レーンそれぞれの表示上限。
   // 超過分は非表示にはせず、「もっと見る」で追加表示できる。
   decisionQueueLimit: number;
   observationQueueLimit: number;
-  // docs/2nd_pivot_version.md Phase 7。未確認・確認保留の提案が何日動きが無ければ
+  // 未確認・確認保留の提案が何日動きが無ければ
   // 「停滞」として強調するかの閾値。既定14日。
   staleInterventionDays: number;
   // AGENT_OPTIONSの値をキーにした、エージェント種別ごとのモデル系統指定。キーが無い
   // （または値が空文字列の）エージェントはclaude CLIの既定モデルのまま動く。
   agentModelTiers: Partial<Record<string, ModelTier>>;
-  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-  // できるようにしたい」対応。claudeのagentModelTiersと違い、agy/cursorのモデルは
-  // （エイリアスではなく）バージョン付きの具体名でしか指定できない実機確認済みの制約が
-  // あるため、系統選択のプルダウンではなく自由入力の文字列にする。キーが無い（または
-  // 空文字列の）エージェントはagent-runtime.tsの既定モデル定数のまま動く。
+  // agy/cursorのモデルは（エイリアスではなく）バージョン付きの具体名でしか指定できない
+  // 実機確認済みの制約があるため、系統選択のプルダウンではなく自由入力の文字列にする。
+  // キーが無い（または空文字列の）エージェントはagent-runtime.tsの既定モデル定数のまま動く。
   agentAgyModels: Partial<Record<string, string>>;
   agentCursorModels: Partial<Record<string, string>>;
-  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
-  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。エージェント種別ごとの
-  // モデル（agentModelTiers等）とは別に、`reference-lookup.ts`専用の単一モデル設定を持つ。
+  // エージェント種別ごとのモデル（agentModelTiers等）とは別に、reference-lookup専用の
+  // 単一モデル設定を持つ。
   // claudeはagentModelTiersと同じtierエイリアス（空文字列="CLIの既定のまま"）。cursorは
   // agentCursorModelsと同じ自由入力の具体名だが、Cursor CLIのHooks不具合
   // （Autoモデルルーティング時にpreToolUseフックが発火しない既知バグ）を踏まえ、
@@ -391,19 +375,10 @@ export type RulesAndConstraints = {
   // 持たない（常に非アクティブ）。
   referenceLookupClaudeModel: ModelTier | "";
   referenceLookupCursorModel: string;
-  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が発生
-  // している」対応。以前はcliPriorityOrder（全エージェント共通の並び順）と
-  // agyFallbackAgents/cursorFallbackAgents（エージェント種別ごとのON/OFF）という
-  // 2つの設定が別々に存在し、「順番を変えたのに反映されない（OFFのままだから）」
-  // といった混乱を招いていた。ユーザー指摘「エージェントごとに設定できる必要はない、
-  // 全体で1つで大丈夫」対応で、エージェント種別ごとではなく全エージェント共通の
-  // 単一のCLI優先順位リストへ統合する——配列に含まれるCLIだけが候補になり
-  // （＝「除外」は配列から外すことで表現する）、含まれる順が試行順になる
-  // （＝「優先度」）。ユーザー指摘「claude codeが外せないようになっている」対応で、
-  // claudeも他の2つと同様に除外できる（配列を空にはできず、最低1つは必ず候補に残す）。
+  // 全エージェント共通の単一CLI優先順位。配列に含まれるCLIだけが候補（除外は外すだけで表現）、
+  // 含まれる順が試行順。claudeも他と同様に除外可（空配列は不可、最低1つは残す）。
   // 既定["claude"]（＝agy/cursorは無効、既存の挙動を変えない）。
   cliOrder: CliName[];
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   // Peopleの PERSON_n を利用者本人（EM）として紐付ける任意設定。未設定は null。
   selfPersonId: string | null;
   // Journal抽出等のローカルチャットモデルプリセット（既定 "350m"）。埋め込みは対象外。
@@ -413,7 +388,6 @@ export type RulesAndConstraints = {
   localRerankEnabled: boolean;
 };
 
-// docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」への対応。
 // statusが"active"のままログ更新（updatedAt）が閾値以上無ければ「応答なし」とみなす。
 // 実際にkillするかどうかの判断はサーバー側（agent-runtime.tsのwatchdog）の責務で、
 // これはあくまで表示用の軽量な判定（Team Vitalsの「評価不能」判定と同じ考え方）。
@@ -446,9 +420,9 @@ export type OrgVitals = {
   oneOnOneCoverage: CoverageVital;
 };
 
-// docs/2nd_pivot_version.md Phase 7 / pivot_policy.md。Issue管理を廃し、AIの提案を
+// Issue管理を廃し、AIの提案を
  // EMが確認するための第一級エンティティ。アクション管理は対象外。
-// ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。unreviewed（未着手）と
+// unreviewed（未着手）と
 // deferred（いったん保留）の間に、「今まさに検討している最中」を明示できる状態を挟む。
 export type SuggestionReviewStatus = "unreviewed" | "in_review" | "deferred" | "done";
 
@@ -486,18 +460,18 @@ export type SuggestionMemo = {
   source?: SuggestionMemoSource;
 };
 
-// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。メモ（EMが自由に書き足す
+// メモ（EMが自由に書き足す
 // 経過記録）とは別に、AIが提案時点で示した結論・根拠・ロジックと、この提案を実際に計画・
 // 進行・検証するうえでの実務的なアドバイスを、判断・提案（Agent）パネル（紐づくAgent Runが
 // 差し替わると内容も変わりうる）とは独立に、提案自体に1件だけ残す。
 // アドバイスは AI の半構造化（adviceStructured）と、EM 編集の非構造（adviceOverride）を分ける。
 // 表示は adviceOverride → 旧 advice → adviceStructured の順。AI 更新（refresh）は structured
-// のみ差し替え、override は保持する（案A）。
+// のみ差し替え、override は保持する。
 export type SuggestionDetail = {
   conclusion: string;
   facts: string[];
   logic: string;
-  // docs/3rd_pivot_version/pivot.md。起票時点の Expand / Challenge（無い旧detailは未定義）。
+  // 起票時点の Expand / Challenge（無い旧detailは未定義）。
   expansions?: string[];
   challenges?: string[];
   /** @deprecated 旧フリーテキスト。新規は adviceStructured / adviceOverride を使う */
@@ -525,12 +499,11 @@ export type Suggestion = {
   createdAt: number;
   updatedAt: number;
   reviewedAt?: number;
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。reviewStatusとは
+  // reviewStatusとは
   // 独立に持たせる（「確認済み（もう追わない）」＝有効に完了、との混同を避けるため）。
   // 重複起票・誤操作等で「もう存在しなかったことにしたい」ときに使う。
   archivedAt?: number;
-  // ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
-  // 対応。reviewStatusとは独立（後回しに限らず、未確認・確認中でも設定できる）。
+  // reviewStatusとは独立（後回しに限らず、未確認・確認中でも設定できる）。
   // 日付レベルの粒度（lib/journal-date-parser.tsのdateStringToNoonTimestampと同じ、
   // その日の正午のタイムスタンプ）で持つ。
   reviewDueAt?: number;
@@ -557,7 +530,7 @@ export function isSuggestionStalled(s: Pick<Suggestion, "reviewStatus" | "update
   return now - s.updatedAt > staleDays * 24 * 60 * 60 * 1000;
 }
 
-// ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。タイトル・メモ・
+// タイトル・メモ・
 // 詳細（結論/根拠/ロジック/アドバイス）を対象に、大小文字を区別せず部分一致で検索する。
 export function suggestionMatchesKeyword(
   s: Pick<Suggestion, "title" | "memos" | "detail">,
@@ -604,9 +577,9 @@ export function suggestionOverviewFromLogs(logEntries: { text: string }[], maxLe
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-// docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。§2.3のDecide/Inform/Commitの区別を
-// YieldRequestに持たせる。AIプロンプト側の指示は@/lib/agent-runtime.tsのbuildSystemPrompt、
-// パースはextractYieldを参照。省略された場合は既存run（後方互換）としてUI側でフォールバック推定する。
+// Decide/Inform/Commitの区別をYieldRequestに持たせる。
+// AIプロンプト側の指示はbuildSystemPrompt、パースはextractYieldを参照。
+// 省略された場合は既存run（後方互換）としてUI側でフォールバック推定する。
 export type YieldKind = "decide" | "inform" | "commit";
 
 export const YIELD_KIND_META: Record<YieldKind, { icon: string; label: string; description: string }> = {
@@ -615,7 +588,7 @@ export const YIELD_KIND_META: Record<YieldKind, { icon: string; label: string; d
   commit: { icon: "🤝", label: "Commit", description: "介入の実行・人への働きかけ・優先順位変更を決めてください" },
 };
 
-// docs/memo.md「F. Product Agentの追加」対応。People(人)/Process(組織運営)/Tech(実装)の
+// People(人)/Process(組織運営)/Tech(実装)の
 // 3象限に、Product(顧客価値・優先順位・ロードマップ)を足して4象限を埋める。
 // Exec Agentは常時象限ではなく、何でも相談のオプトインで経営／役員／MVV目線の厳しい
 // レビューを足す専門レンズ（Leadの必須consult先）。手動起動も可能なので選択肢に含める。
@@ -629,7 +602,7 @@ export const AGENT_OPTIONS = [
   EXEC_AGENT_NAME,
 ];
 
-// ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。Claude Codeの
+// Claude Codeの
 // 「計画立案はOpus、単純な分析はSonnet」のような使い分けに倣い、エージェント種別ごとに
 // モデルの"系統"（claude CLIの--modelが受け付けるエイリアス）を指定できるようにする。
 // モデルは日々更新されるため、特定バージョン（例: claude-sonnet-5-20260101）ではなく
@@ -638,7 +611,7 @@ export const AGENT_OPTIONS = [
 export const MODEL_TIER_OPTIONS = ["sonnet", "opus", "fable", "haiku"] as const;
 export type ModelTier = (typeof MODEL_TIER_OPTIONS)[number];
 
-// docs/memo.md「G. Issueに『介入の型』を足す」対応。実装タスク箱ではなく「仕組み・人・組織への
+// 実装タスク箱ではなく「仕組み・人・組織への
 // 介入」へIssueの切り口を寄せるためのプリセット。保存先は既存のtags（新規フィールドは増やさない）で、
 // why/what/howはあくまでプレースホルダー（初期文面のヒント）として使い、EMが実際に入力した内容は
 // 上書きしない。
@@ -708,17 +681,16 @@ export const URGENCY_LABEL: Record<JournalEntry["urgency"], string> = {
   high: "Urgency: High",
 };
 
-// docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
+// 新規の永続化エンティティは持たず、
 // 既存のpeople-directory／Journal fact・解釈／チーム所属／関連提案を人物軸で束ねた
 // 集約ビュー（@/lib/people-hub.tsのサーバー側の型と対応）。
 export type PersonTrend = { positive: number; negative: number; neutral: number };
 
-// 改修依頼「Peopleを労務SaaS的な視覚スコア表示に」対応。Team Vitals
+// Team Vitals
 // （lib/vitals.tsのcomputeOrgVitals、平均sentimentスコア＋設定可能な閾値）と同じ
 // 「ネガティブ優勢→bad／件数不足→unknown」という判定思想を踏襲するが、こちらは
 // 一覧カードの軽量な視覚表示用なので、Team Vitalsのような設定可能な閾値
 // （RulesAndConstraints）は持たない単純な多数決にする。
-// ユーザー指摘「バイタルが提案の状況(停滞・確認保留)に対して問題無いように見える」対応。
 // hasConcerningSuggestion（確認保留・停滞中の関連提案が1件でもあるか）がtrueの場合、
 // Journalのsentimentだけでは"good"/"unknown"に見えていても、少なくとも"warn"へ引き上げる
 // （"warn"/"bad"は据え置き＝提案の状況で評価を下げることはあっても甘くはしない）。
@@ -729,7 +701,6 @@ export function personVitalStatus(trend: PersonTrend, hasConcerningSuggestion = 
   return base;
 }
 
-// ユーザー指摘「気にかけるべき度合いがなぜ高いのかメンバー詳細を見てもわかりにくい」対応。
 // personVitalStatusの判定根拠（Journalのsentiment内訳／関連提案の停滞・確認保留）を、
 // バッジのtitleツールチップ頼みにせず、詳細画面に文章として表示できるようにする。
 export function personVitalReason(trend: PersonTrend, hasConcerningSuggestion = false): string {
@@ -750,7 +721,6 @@ export function personVitalReason(trend: PersonTrend, hasConcerningSuggestion = 
   return reasons.join(" ／ ");
 }
 
-// ユーザー指摘「人のスコアを、どのくらい気をかけるべきかのバイタル表示にしたい」対応。
 // lib/vitals.ts（Team Vitals）の文言（bad="要注意"／warn="やや注意"／good="安定"）と
 // 揃え、アプリ全体で同じVitalStatusの意味付けにする。
 export const PERSON_VITAL_LABEL: Record<VitalStatus, string> = {
@@ -763,13 +733,11 @@ export const PERSON_VITAL_LABEL: Record<VitalStatus, string> = {
 export type PersonSummary = {
   id: string;
   name: string;
-  // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
   aliases: string[];
   teamNames: string[];
   trend: PersonTrend;
   factCount: number;
   isDirectReport: boolean;
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   // settings.selfPersonId と一致する人物。本人は部下一覧・1on1 Coverageから除外する。
   isSelf: boolean;
   hasConcerningSuggestion: boolean;
@@ -784,7 +752,6 @@ export type PersonFact = {
   sentiment?: "positive" | "negative" | "neutral";
   urgency?: "low" | "mid" | "high";
   occurredAt: number;
-  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
 };
@@ -793,9 +760,8 @@ export type PersonRelatedSuggestion = {
   id: string;
   title: string;
   archived: boolean;
-  // docs/2nd_pivot_version.md Phase 2.3対応。charterそのものではなく要約テキスト。
+  // charterそのものではなく要約テキスト。
   overview: string;
-  // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
   concerning: boolean;
   concernAcknowledgedAt?: number;
   concernAcknowledgedNote?: string;
@@ -807,7 +773,7 @@ export type PersonProfile = PersonSummary & {
   relatedSuggestions: PersonRelatedSuggestion[];
 };
 
-// docs/value_hierarchy_and_flow.md §5。日常の評価ログ（A/B）。
+// 日常の評価ログ（A/B）。
 export type EvaluationLens = "outcome" | "value";
 export type EvaluationLogStatus = "provisional" | "confirmed" | "discarded";
 export type EvaluationPolarity = "positive" | "concern";
@@ -824,12 +790,11 @@ export type PersonEvaluationLog = {
   rationale: string;
   createdAt: number;
   updatedAt: number;
-  // ユーザー指摘「懸念を確認したが対応不要だった、を示せず強調を減らせない」対応。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
 };
 
-// docs/knowledge_distillation.md。組織状況の統括解釈（テーマ）。
+// 組織状況の統括解釈（テーマ）。
 export type ThemeStatus = "candidate" | "adopted" | "dismissed";
 
 export type OrgTheme = {
@@ -881,12 +846,9 @@ export type SuggestedTheme = {
   goalIds?: string[];
 };
 
-// docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
-// docs/em_human_story_and_ux.md P2-15対応でinProgressを追加（アーカイブ前の暫定値かどうか）。
 export type ImpactWindow = { total: number; positive: number; negative: number };
 export type SuggestionImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };
 
-// docs/memo.md「N. 時系列変化をEMが読む物語に」対応。
 export type TimelineEntityType = "journal" | "person" | "team" | "suggestion" | "org";
 
 export type TimelineEntry = {
@@ -907,9 +869,7 @@ export const TIMELINE_ENTITY_TYPE_LABEL: Record<TimelineEntityType, string> = {
   person: "Person",
 };
 
-// docs/memo.md TODO「Quick Journal、Issue進捗、各種イベントを週次・月次でレポーティングする
-// 機能を追加する」対応。サーバー側の実体（@/lib/report-store）とは意図的に型を分離している
-// （他のストアと同じ既存の慣習に合わせている）。
+/** 週次・月次レポート。サーバー側の実体（@/lib/report-store）とは意図的に型を分離している。 */
 export type ReportPeriodType = "week" | "month";
 
 export const REPORT_PERIOD_LABEL: Record<ReportPeriodType, string> = { week: "週次", month: "月次" };
@@ -950,8 +910,7 @@ export type Report = {
   note: string;
 };
 
-// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
-// 入力・改善方針機能を作る」対応。
+/** EM本人の気分・エネルギー等のチェックイン。 */
 export type EmCheckin = {
   id: string;
   mood: number;
@@ -963,8 +922,7 @@ export type EmCheckin = {
   createdAt: number;
 };
 
-// 改修依頼「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
-// 仕組みに」対応。1件＝Keep/Problem/Tryのいずれか1つの気づきメモ。週単位の集計は
+// 1件＝Keep/Problem/Tryのいずれか1つの気づきメモ。週単位の集計は
 // 表示側（growth/page.tsx）でcreatedAtからグルーピングする。
 export type ReflectionNoteType = "keep" | "problem" | "try";
 
@@ -973,14 +931,12 @@ export type EmReflectionNote = {
   type: ReflectionNoteType;
   text: string;
   createdAt: number;
-  // ユーザー要望「現在の改善方針が残り続けてコントロールできない」対応。
   // 付与されると /growth の「現在の改善方針」パネルから外れ、週次KPTには残る。
   archivedAt?: number;
 };
 
-// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
-// 学びの提示）。実体（型定義の正）は@/lib/em-growth-store.tsにあるが、そちらは
-// node:cryptoを使うサーバー専用モジュールのためクライアントから直接importできない
+// EM自身の学びの提示（Grow）。実体の正は@/lib/em-growth-store.tsだが、
+// node:cryptoを使うサーバー専用のためクライアントから直接importできない
 // （RulesAndConstraints等と同じ、サーバー/クライアントでの型複製パターン）。
 export type GrowReference = {
   topic: string;

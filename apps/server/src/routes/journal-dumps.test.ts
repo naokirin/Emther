@@ -69,10 +69,7 @@ describe("POST /api/journal/dumps", () => {
     const dumpId = created.dump.id as string;
     const chunkIds = created.dump.chunkDrafts.map((c: { id: string }) => c.id);
 
-    // docs/memo.md「メンバーに登録がない名前をJournalで入力して分析にかけましたが、とくに
-    // 引っかからずにAIに渡されてしまいました」対応で採用時にも確認ゲートがかかるようになった
-    // ため、この統合テスト自体は採用の仕組み（分割→採用でJournalになる）の検証が主眼であり、
-    // 未登録人名の確認フローは下の専用テストで見るので、ここでは確認済みとして進める。
+    // 未登録人名の確認は下の専用テストで見る。ここでは確認済みフラグで採用の仕組み（分割→Journal）だけ検証する。
     const acceptRes = await journalDumpsRoute.request(`/${dumpId}/accept`, post({ chunkIds, allowUnmaskedNameCandidates: true }));
     expect(acceptRes.status).toBe(201);
     const accepted = await acceptRes.json();

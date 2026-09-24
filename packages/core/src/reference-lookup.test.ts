@@ -57,8 +57,7 @@ async function loadModule() {
 }
 
 describe("findReferenceUrls", () => {
-  // ユーザー指摘「Claudeのみは制約が強すぎるので緩和したい」対応で、claude/cursorどちらも
-  // 対応CLIになった後の挙動を検証する。
+  // claude/cursorどちらもCLIになった後の挙動を検証する。
   it("cliOrderにclaude/cursorどちらも含まれていない場合はCLIを起動せず空配列を返す", async () => {
     const settingsStore = await import("./settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["agy"] });
@@ -132,8 +131,6 @@ describe("findReferenceUrls", () => {
     await promise;
   });
 
-  // ユーザー要望「この検索で使うモデル設定を追加してほしい。他のタスクに比べても
-  // コストが低く軽量なモデルで良いはず」対応。
   describe("この検索専用のモデル設定（referenceLookupClaudeModel/referenceLookupCursorModel）", () => {
     it("referenceLookupClaudeModelが設定されていればclaude起動時に--modelで渡す", async () => {
       const settingsStore = await import("./settings-store");
@@ -339,7 +336,6 @@ describe("findReferenceUrls", () => {
     expect(spawnCalls).toHaveLength(0);
   });
 
-  // ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
   describe("Wikipediaの日本語版チェック", () => {
     it("英語版WikipediaのURLで日本語版が存在する場合、日本語版のURLに差し替える", async () => {
       const fetchMock = vi.fn().mockResolvedValue({

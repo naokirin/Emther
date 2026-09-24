@@ -1,10 +1,8 @@
 /**
  * 個人・機密情報チェックの語彙・ルール定義。
- *
  * - CORE: ドメイン横断で妥当な短い核（実値以外のヒューリスティックの最小セット）
  * - TUNING: 検証サンプル（インシデント議事録・リリース定例など）由来の積み上げ。
- *   過適合の温床になりうるため、コア実装と分離して管理する。
- *
+ * 過適合の温床になりうるため、コア実装と分離して管理する。
  * 将来 Presidio / GiNZA 等へ寄せる場合、TUNING から見直す。
  */
 import type { SensitiveCategory } from "./mask-check-types";
@@ -92,7 +90,7 @@ export const CORE_HIRAGANA_NAME_LOOKAHEAD = "";
  * 吸収済み（CORE 核で足りる）: apiキー, 個人情報の漏洩, 個人情報が一部, 漏洩を伴う, メンタル不調, 年収交渉
  * CORE へ移した短核: 不正アクセス
  * 削ったインシデント寄り: 認証系, 不正利用, 不正に利用, アカウントが不正, アクセスを遮断,
- *   セキュリティインシデント, 被害拡大, 不審なアクセス, 顧客名
+ * セキュリティインシデント, 被害拡大, 不審なアクセス, 顧客名
  * 人名まわりの stopword / lookahead / few-shot は別（下の定数）に残す。
  */
 export const TUNING_KEYWORD_RULES: KeywordRule[] = [];

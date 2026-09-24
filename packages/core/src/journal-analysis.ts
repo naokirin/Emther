@@ -7,7 +7,7 @@ import { startJournalAnalysis, type AgentRun } from "./agent-runtime/index";
 // 依存を持たせない（journal-store⇄agent-runtimeの循環参照を避ける）ため、両方に依存してよい
 // この層に置く。
 
-// docs/usage_issues U16。自動フィルタ外・自動OFF・修正なし確定後でも、EMが明示して分析を起動する。
+// 自動フィルタ外・自動OFF・修正なし確定後でも、EMが明示して分析を起動する。
 // 未確認（AI抽出のまま）では起動しない——投稿時点起動と同じ誤検知リスクを避ける。
 export async function requestJournalAnalysis(
   id: string,

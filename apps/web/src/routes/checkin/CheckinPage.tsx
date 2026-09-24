@@ -6,7 +6,7 @@ import { usePeriodNavigator } from "../../components/usePeriodNavigator";
 import { PageTitleRow } from "../../components/HelpLink";
 import { buildCheckinDailyTrend } from "@emther/core/daily-trends";
 
-// 振り返りタブ改善案: 日次の自己チェックインを /growth から分離した画面。
+// 日次の自己チェックイン画面（/growth から分離）。
 export function CheckinPage() {
   const checkin = useEmCheckinController();
   const checkinNav = usePeriodNavigator("week");

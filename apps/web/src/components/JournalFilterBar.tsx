@@ -30,9 +30,8 @@ type Props = {
 type Chip = { key: keyof JournalFilterState; label: string };
 
 /**
- * docs/design/journal/journal-tab.pen 改善案A「フィルタ」対応。
- * 5つのSelectを常時展開せず、検索＋「絞り込み」ポップオーバーにまとめ、
- * 適用中だけチップで見せる。
+ * 5つのSelectを常時展開せず、検索＋「絞り込み」ポップオーバーにまとめ
+ * 適用中だけチップで見せる
  */
 export function JournalFilterBar({
   value,

@@ -12,10 +12,9 @@ import { useGoToRunSuggestion, useSuggestions, useRuns, useRunsInbox, useSetting
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@emther/core/types";
 
-// docs/em_ui_ux_issue.md「ダッシュボードの簡素化」対応。旧「今日」タブに同居していた
 // Agent Fleet状態・横断Activity Stream・「相談・起動」パネル（エージェント起動フォーム＋
 // 状態フィルタ付きInbox）をこの専用画面へ移設した。ダッシュボード側はロジック・JSXともに
-// ほぼそのままここへ移しただけで、新規機能は追加していない。
+// ほぼそのままここへ移しただけで、新規機能は追加していない
 const INBOX_PAGE_SIZE = 5;
 const ACTIVITY_STREAM_LIMIT = 30;
 const STATUS_FILTER_OPTIONS = [
@@ -27,7 +26,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: "error", label: "🔴 Error" },
 ];
 
-// docs 3.1「Agent Statusシグナル」: エージェント種別ごとに直近のrunを代表値として見せる。
+// エージェント種別ごとに直近のrunを代表値として見せる。
 // そのエージェント種別のrunが一つも無い場合は「⚪️ Idle（一度も起動していない）」として扱う。
 function latestRunForAgent(agentName: string, runs: AgentRun[]): AgentRun | undefined {
   const relevant = runs.filter((r) => r.agentName === agentName);
@@ -37,9 +36,9 @@ function latestRunForAgent(agentName: string, runs: AgentRun[]): AgentRun | unde
 
 const STALE_META = { icon: "❔", label: "応答なし（無応答）", cls: styles.stale };
 
-// ユーザー指摘「いつのものかわからないので日時を先頭に入れてほしい」対応。月/日 時:分を
+// 月/日 時:分を
 // 常に2桁ゼロ埋めで返すことで、文字数を固定長にする（.activityLineTime側の固定幅指定と
-// 合わせて、日時の値によってテキストの開始位置がずれないようにする）。
+// 合わせて、日時の値によってテキストの開始位置がずれないようにする）
 function formatActivityTimestamp(ts: number): string {
   const d = new Date(ts);
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -58,8 +57,8 @@ export function AgentsPage() {
   const { rules } = useSettingsRules();
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
 
-  // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
-  // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Inboxで警告表示する。
+  // statusが"active"のまま
+  // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Inboxで警告表示する
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
@@ -69,14 +68,11 @@ export function AgentsPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
   const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
-  // ユーザー指摘「『今日』の判断待ちで却下のものも並ぶので、フィルタとして却下を非表示にしたい。
-  // また却下のものはデフォルトで非表示となるようにしたい」対応。
   const [showDismissedRuns, setShowDismissedRuns] = useState(false);
-  // ユーザー要望「一覧の全件取得をページネーション化したい」対応。フィルタ・ページ番号を
+  // フィルタ・ページ番号を
   // サーバーへ渡し、そのページ分のrunsだけを受け取る（Fleet状態・Activity Streamは
-  // 引き続き上のuseRuns()＝全件取得のまま。今回のスコープ外）。
+  // 引き続き上のuseRuns()＝全件取得のまま。今回のスコープ外）
   const [inboxPage, setInboxPage] = useState(1);
   const { runs: inboxRuns, total: inboxTotal, inboxLoaded } = useRunsInbox(
     { status: statusFilter, showDismissed: showDismissedRuns },
@@ -110,10 +106,10 @@ export function AgentsPage() {
       const run = (data as { run: AgentRun }).run;
       setTask("");
       await refreshRuns();
-      // docs/em_human_story_and_ux.md P0-2対応。Lead Agentは「何でも相談」の相手なので、
+      // Lead Agentは「何でも相談」の相手なので
       // 起票フォームから始めた場合も即提案化はせず、まず相談画面に着地させる
       // （提案化・様子見・却下はそちら側で明示的に選べる）。専門エージェントは
-      // 「決まった介入」を前提に既存どおり即提案化する。
+      // 「決まった介入」を前提に既存どおり即提案化する
       if (agentName === "Lead Agent") {
         navigate(`/chat?runId=${run.id}`);
       } else {
@@ -128,9 +124,9 @@ export function AgentsPage() {
     }
   }
 
-  // docs/em_human_story_and_ux.md P0-2対応。Inbox行クリックの既定を「相談」優先にする。
+  // Inbox行クリックの既定を「相談」優先にする
   // Lead Agentでまだ何にも紐付いていないrunは/chatへ（そこで「提案にする/様子見/却下」を
-  // 選べる）。専門エージェントや、既に提案化済みのrunはこれまで通り。
+  // 選べる）。専門エージェントや、既に提案化済みのrunはこれまで通り
   function handleInboxRunClick(run: AgentRun) {
     const existing = suggestions.find((s) => s.agentRunId === run.id);
     if (!existing && run.agentName === "Lead Agent") {
@@ -147,8 +143,8 @@ export function AgentsPage() {
     return { name, meta };
   });
 
-  // docs/memo.md「E. 横断Activity Stream」対応。新基盤（SSE等）は導入せず、既存runs[].logを
-  // 時刻順にマージして見せるだけ。ポーリングは既存useRunsのまま。
+  // 新基盤（SSE等）は導入せず、既存runs[].logを
+  // 時刻順にマージして見せるだけ。ポーリングは既存useRunsのまま
   const activityLines = runs
     .flatMap((run) =>
       run.log.map((line, idx) => ({
@@ -215,9 +211,7 @@ export function AgentsPage() {
         <h2>相談・起動</h2>
         <form onSubmit={handleStart}>
           <div className={styles.field}>
-            {/* 改修依頼「デフォルトのセレクトボックスの多用による選択のしにくさ」対応。
-                固定5件の選択肢はプルダウンで隠さず、常に見えるボタン群にする
-                （介入の型・ステータス選択と同じ.typeChipパターン）。 */}
+            {/* 固定5件の選択肢はプルダウンで隠さず、常に見えるボタン群にする （介入の型・ステータス選択と同じ.typeChipパターン） */}
             <span className={styles.fieldCaption}>エージェント</span>
             <div role="group" aria-label="エージェント" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {AGENT_OPTIONS.map((name) => (

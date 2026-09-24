@@ -26,8 +26,7 @@ type Props = {
 type Chip = { key: string; label: string; clear: () => void };
 
 /**
- * docs/design/suggestion/suggestion-tab.pen 改善案C（A/B共通）のツールバー。
- * 検索・並び替え・絞り込みポップオーバー＋適用中チップ。
+ * 検索・並び替え・絞り込みポップオーバー＋適用中チップのツールバー
  */
 export function SuggestionFilterBar({
   value,

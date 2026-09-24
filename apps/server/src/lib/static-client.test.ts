@@ -5,8 +5,8 @@ import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mountStaticClient } from "./static-client";
 
-// docs/2nd_architecture/plan.md フェーズ4.3: 単一プロセス配信の静的配信 + SPA
-// フォールバックを、実ファイル配置に対する直接requestで検証する。
+// 単一プロセス配信の静的配信 + SPA
+// フォールバックを、実ファイル配置に対する直接requestで検証する
 describe("mountStaticClient", () => {
   let clientDir: string;
   let app: Hono;

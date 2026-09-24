@@ -32,7 +32,6 @@ vi.mock("./embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
 vi.mock("./name-candidate-detect", () => ({
@@ -258,8 +257,6 @@ describe("addJournalEntry", () => {
   });
 });
 
-// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
-// 良いものがあれば、入れるようにする」対応。
 describe("addJournalEntryWithProfileCandidate", () => {
   it("既登録の人物についての長期プロファイル候補を返す", async () => {
     mockExtraction = { summary: "",
@@ -292,7 +289,6 @@ describe("addJournalEntryWithProfileCandidate", () => {
     expect(profileCandidate).toBeUndefined();
   });
 
-  // ユーザー要望「保存前に1回のダイアログで完結／形態素とLLMの両方で統合判定」対応。
   // ローカル抽出の未登録名は保存後ヒントではなく、allowUnmaskedCandidates:false の
   // 確認ゲートへ合流する（形態素モックが空でも抽出名だけでブロックされる）。
   it("抽出結果の未登録名は確認フラグ無しでは UnconfirmedNameCandidatesError になる", async () => {
@@ -529,7 +525,6 @@ describe("listJournalFacets", () => {
   });
 });
 
-// ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
 describe("setJournalNoActionNeeded / clearJournalNoActionNeeded", () => {
   it("sentimentは変えずno-action-needed系だけを設定し、現行版（headの版）に反映される", async () => {
     const store = await loadModule();
@@ -561,7 +556,6 @@ describe("setJournalNoActionNeeded / clearJournalNoActionNeeded", () => {
   });
 });
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
 describe("archiveJournalEntry / unarchiveJournalEntry", () => {
   it("一覧・ページングから除外され、解除すると戻る（現行版=headに反映される）", async () => {
     const store = await loadModule();
@@ -728,8 +722,7 @@ describe("toJournalEntryView", () => {
     );
   });
 
-  // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
-  // AIを再度実行できない」対応。アーカイブ済みrunは現行の相談とみなさない。
+  // アーカイブ済みrunは現行の相談とみなさない。
   it("アーカイブ済みのrunはsourceConsultRunIdとして採用しない（EMが相談をリセットできるようにする）", async () => {
     const { buildSourceConsultIndex } = await import("./journal-consult-index");
     const store = await loadModule();

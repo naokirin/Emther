@@ -1,4 +1,4 @@
-// Phase A: ドメイン判断は @emther/core/dashboard-next-actions。ここでは UI コールバック配線のみ。
+// ドメイン判断は @emther/core/dashboard-next-actions。ここでは UI コールバック配線のみ。
 import type { NextAction as CoreNextAction, NextActionTarget } from "@emther/core/dashboard-next-actions";
 
 export type {

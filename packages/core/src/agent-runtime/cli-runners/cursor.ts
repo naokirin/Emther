@@ -6,7 +6,6 @@ import { appendLog, liveProcesses } from "../store";
 import type { AgentRun } from "../types";
 import { applyAssistantResultText } from "./core";
 
-// docs/memo.md「サポートするAIエージェントCLIにCursor CLIを追加する」対応。
 // cursor-agentも複数モデルに対応するマルチモデルCLIで、汎用モデル名（コーディング特化で
 // ない一般的なモデル）として"gpt-5.2"を使う。`--mode ask`は実機確認済みで
 // 書き込み・シェル実行を拒否する（安全側）が、Glob/Read等の読み取り専用ツールは
@@ -29,9 +28,7 @@ mkdirSync(CURSOR_WORKSPACE_DIR, { recursive: true });
 export function runCursorCliAttempt(run: AgentRun, prompt: string, systemPrompt: string, allowConsult: boolean): Promise<void> {
   return new Promise<void>((resolve) => {
 
-    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-    // できるようにしたい」対応。設定でこのエージェント種別にモデルが指定されていれば
-    // それを使い、未設定なら既定モデルのまま動く。
+    // 設定でこのエージェント種別にモデルが指定されていればそれを使い、未設定なら既定のまま。
     const cursorModel = getRulesAndConstraints().agentCursorModels[run.agentName] || CURSOR_MODEL;
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${prompt}`;
     const args = [

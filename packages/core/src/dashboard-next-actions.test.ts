@@ -125,7 +125,6 @@ describe("buildNextActions の要注目人物（観測不足レーン）", () =>
   });
 });
 
-// ユーザー要望「期日超過の提案を朝キューにも自動で出してほしい」対応。
 describe("buildNextActions の確認期日超過（判断待ちレーン）", () => {
   it("reviewDueAtを過ぎている提案を判断待ちレーンへ出す", () => {
     const suggestions: Suggestion[] = [
@@ -280,7 +279,6 @@ describe("buildNextActions のバッチ系ドラフト束ねと優先度", () =>
   });
 });
 
-// ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
 describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => {
   it("確認済み（対応不要）にしたJournalは「要注目Journal」に出さない", () => {
     const journalEntries: JournalEntry[] = [
@@ -295,7 +293,6 @@ describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => 
     expect(actions.some((a) => a.id === "journal-j-noaction")).toBe(false);
   });
 
-  // docs/memo.md「要注目Journalのリンク先に飛ぶと、相談画面に飛ばされて困惑する」対応。
   // このJournalにはまだ相談が無いため、相談画面ではなくJournal自体へ遷移させる。
   it("「要注目Journal」はJournal自体（focus指定）へ遷移する", () => {
     const journalEntries: JournalEntry[] = [
@@ -321,7 +318,6 @@ describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => 
   });
 });
 
-// ユーザー指摘「確認済みの提案に紐づく相談が今日やるべきに残る」対応。
 describe("buildNextActions の確認済み提案に紐づく run", () => {
   it("確認済み(done)の提案に紐づくドラフト提案は朝キューに出さない", () => {
     const draft = run({

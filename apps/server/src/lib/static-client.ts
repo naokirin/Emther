@@ -3,11 +3,11 @@ import path from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
 import type { Hono } from "hono";
 
-// docs/2nd_architecture/plan.md フェーズ4.3: 単一プロセス配信で Hono が
-// `dist/client`（apps/web の vite build 出力）の静的配信を兼ねる。
+// 単一プロセス配信で Hono が
+// `dist/client`（apps/web の vite build 出力）の静的配信を兼ねる
 // SPA のクライアントサイドルーティング（React Router）のため、静的ファイルに
 // 一致しない GET リクエストは index.html にフォールバックする。ただし `/api/*`
-// はフォールバック対象から除外し、未知の API パスは JSON 404 のままにする。
+// はフォールバック対象から除外し、未知の API パスは JSON 404 のままにする
 export function mountStaticClient(app: Hono, clientDir: string) {
   app.use("*", serveStatic({ root: clientDir }));
   app.notFound((c) => {

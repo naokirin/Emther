@@ -23,7 +23,6 @@ vi.mock("./embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
 vi.mock("./name-candidate-detect", () => ({
@@ -81,7 +80,6 @@ describe("listPersonSummaries", () => {
     expect(hub.listPersonSummaries()).toEqual([]);
   });
 
-  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   it("自分が管理するチーム(managedByEm:true)のメンバーはisDirectReport:true", async () => {
     const orgStore = await import("./org-context-store/index");
     const hub = await loadModule();
@@ -112,7 +110,6 @@ describe("listPersonSummaries", () => {
     expect(summary?.isDirectReport).toBe(true);
   });
 
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("selfPersonIdに紐付いた人物はisSelf:trueで部下扱いにしない", async () => {
     const peopleDirectory = await import("./people-directory");
     const orgStore = await import("./org-context-store/index");
@@ -130,7 +127,6 @@ describe("listPersonSummaries", () => {
     expect(other?.isDirectReport).toBe(true);
   });
 
-  // ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。
   it("関連提案に確認保留ありのものが1件でもあればhasConcerningSuggestion:true", async () => {
     const peopleDirectory = await import("./people-directory");
     const suggestionStore = await import("./suggestion-store");
@@ -167,7 +163,6 @@ describe("listPersonSummaries", () => {
     expect(summary?.hasConcerningSuggestion).toBe(false);
   });
 
-  // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
   it("確認済み（対応不要）にした提案はhasConcerningSuggestionの判定から除外する", async () => {
     const peopleDirectory = await import("./people-directory");
     const suggestionStore = await import("./suggestion-store");
@@ -226,7 +221,6 @@ describe("getPersonProfile", () => {
     expect(profile?.hasConcerningSuggestion).toBe(true);
   });
 
-  // ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
   // relatedSuggestionsは、確認済み後も提案自体の状態(concerning)はtrueのまま返す一方、
   // hasConcerningSuggestion（アラートの強調トリガー）からは除外される。
   it("relatedSuggestionsはconcerning/確認済みの情報を持ち、確認済みでも提案自体の状態は隠さない", async () => {
@@ -299,7 +293,6 @@ describe("getPersonProfile", () => {
   });
 });
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
 describe("addPersonAlias / removePersonAlias", () => {
   it("別名を追加・取り消しでき、listPersonSummariesに反映される", async () => {
     const peopleDirectory = await import("./people-directory");
@@ -314,7 +307,6 @@ describe("addPersonAlias / removePersonAlias", () => {
   });
 });
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 describe("mergePersons", () => {
   it("Journal・チーム所属を統合先へ付け替え、統合元は一覧から消える", async () => {
     const peopleDirectory = await import("./people-directory");

@@ -38,7 +38,7 @@ import { journalExcerptFromTask, resolveSourceConsultRun } from "@emther/core/or
 import { StrategyTrail } from "./StrategyTrail";
 import { buildSuggestionStrategyTrail } from "@emther/core/strategy-trail";
 
-// docs/2nd_pivot_version.md Phase 7。提案詳細: 確認状態・確認優先度・メモ・壁打ちに絞る。
+// 提案詳細: 確認状態・確認優先度・メモ・壁打ちに絞る
 export function SuggestionDetailContent({ id }: { id: string }) {
   // eslint-disable-next-line react-hooks/purity -- 確認期日の期日超過表示にのみ使う
   const now = Date.now();
@@ -65,13 +65,12 @@ export function SuggestionDetailContent({ id }: { id: string }) {
     : undefined;
   const pendingStart = pendingAgentStarts.find((p) => p.suggestionId === id) ?? null;
 
-  // docs/memo.md「判断・提案（Agent）／壁打ちにも元の相談の内容を反映し、やり取りを継続
-  // できるようにしたい」対応。提案に専用のAgent Run（linkedRun）がまだ無い場合が多く
-  // （相談から提案化しても agentRunId は付与されない設計——docs/memo.md「提案化後も
-  // 相談履歴に残す」対応参照）、その間は「元の相談を開く」への片道リンクしか出せず、
+  // 提案に専用のAgent Run（linkedRun）がまだ無い場合が多く
+  // （相談から提案化しても agentRunId は付与されない設計——
+  // 参照）、その間は「元の相談を開く」への片道リンクしか出せず
   // 会話の続きがここで見えなかった。linkedRunが無ければ、代わりにsourceConsult
   // （元の相談のAgent Run。/chatのConsultReviewPanelと同じ実体）をそのまま表示・継続の
-  // 対象にする。
+  // 対象にする
   const activeRun = linkedRun ?? sourceConsult ?? null;
   const showingSourceConsult = !linkedRun && !!sourceConsult;
 
@@ -92,8 +91,8 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [detailDraftAdvice, setDetailDraftAdvice] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
-  // docs/design/suggestion/suggestion-detail.pen 案B。詳細を「結論・進め方 / 問い直し / 根拠」に分割し、
-  // Expand・Challenge を Collapse に埋めず専用タブへ出す。
+  // 案B。詳細を「結論・進め方 / 問い直し / 根拠」に分割し
+  // Expand・Challenge を Collapse に埋めず専用タブへ出す
   const [detailTab, setDetailTab] = useState<"conclusion" | "rethink" | "evidence">("conclusion");
   const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
   const [mdCopied, setMdCopied] = useState(false);
@@ -166,9 +165,8 @@ export function SuggestionDetailContent({ id }: { id: string }) {
     }
   }
 
-  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
-  // 判断・提案（Agent）の内容が起票時から変わった場合に、現在の内容で詳細を更新し直す。
-  // 案A: adviceOverride がある場合は structured のみ更新され、表示は編集版のまま。
+  // 判断・提案（Agent）の内容が起票時から変わった場合に、現在の内容で詳細を更新し直す
+  // adviceOverride がある場合は structured のみ更新され、表示は編集版のまま
   async function handleRefreshDetail() {
     if (!suggestion || !activeRun) return;
     const hadOverride = Boolean(suggestion.detail?.adviceOverride?.trim());
@@ -193,8 +191,7 @@ export function SuggestionDetailContent({ id }: { id: string }) {
     }
   }
 
-  // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
-  // アドバイス欄は override 優先、無ければ構造化の平坦化テキストを初期値にする。
+  // アドバイス欄は override 優先、無ければ構造化の平坦化テキストを初期値にする
   function handleStartDetailEdit() {
     if (!suggestion) return;
     setDetailDraftConclusion(suggestion.detail?.conclusion ?? "");
@@ -383,7 +380,6 @@ export function SuggestionDetailContent({ id }: { id: string }) {
       </div>
 
       {suggestion.archivedAt && (
-        // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
         <p className={styles.subtitle} style={{ marginBottom: 10 }}>
           🗄 アーカイブ済み（一覧・AIの判断材料からは除外されています）
         </p>

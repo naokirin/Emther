@@ -3,10 +3,6 @@ import { RecordDateField } from "../RecordDateField";
 import type { ReflectionNoteController } from "./useReflectionNoteController";
 import type { ReflectionNoteType } from "@emther/core/types";
 
-// web/src/components/growth/ReflectionNoteForm.tsx（Next.js版）からの移植（フェーズ3.5
-// evening-reviewバッチ）。EmCheckinWidget.tsxと同じ方針で、旧`useReflectionNotes`の
-// `setNotes`（楽観的ローカル更新）を`queryClient.setQueryData(reflectionNotesQueryKey, ...)`に
-// 置き換えた。
 const NOTE_TYPE_LABEL: Record<ReflectionNoteType, string> = {
   keep: "👍 Keep（続けたいこと）",
   problem: "⚠️ Problem（気になること）",
@@ -33,8 +29,7 @@ export function ReflectionNoteForm({ controller }: { controller: ReflectionNoteC
     <>
       <form onSubmit={handleNoteSubmit}>
         <div className={styles.field}>
-          {/* 改修依頼「selectの選択肢の選択のしにくさそのものの改善」対応。固定3択は
-              プルダウンで隠さずボタン群にする。 */}
+          {/* 固定3択は プルダウンで隠さずボタン群にする */}
           <span className={styles.fieldCaption}>種類</span>
           <div role="group" aria-label="種類" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {(["keep", "problem", "try"] as const).map((t) => (

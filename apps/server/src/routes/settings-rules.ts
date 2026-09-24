@@ -7,9 +7,8 @@ import { isLocalChatModelPresetId, type LocalChatModelPresetId } from "@emther/c
 import { ensureLocalModels } from "@emther/core/model-loader";
 import { AGENT_OPTIONS, CLI_OPTIONS, MODEL_TIER_OPTIONS, type CliName, type ModelTier } from "@emther/core/types";
 
-// docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/settings/rules/route.ts の移植。
-// 単純 number/boolean の入力スキーマは @emther/api-contract（寛容パース）。
-// PERSON_n照合・CLI名一覧等は従来どおり専用関数。
+// 単純 number/boolean の入力スキーマは @emther/api-contract（寛容パース）
+// PERSON_n照合・CLI名一覧等は従来どおり専用関数
 
 function num(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -44,9 +43,8 @@ function agentModelTiers(value: unknown): Partial<Record<string, ModelTier>> | u
   return result;
 }
 
-// ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-// できるようにしたい」対応。agentModelTiersと違いモデル名は自由入力（エイリアスが無い
-// ため）なので、値自体の妥当性は検証しない（trimして空になったキーは既定へ戻す）。
+// agentModelTiersと違いモデル名は自由入力（エイリアスが無い
+// ため）なので、値自体の妥当性は検証しない（trimして空になったキーは既定へ戻す）
 function agentCliModels(value: unknown): Partial<Record<string, string>> | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
   const result: Partial<Record<string, string>> = {};
@@ -60,15 +58,11 @@ function agentCliModels(value: unknown): Partial<Record<string, string>> | undef
   return result;
 }
 
-// ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が発生
-// している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
-// 「claude codeが外せないようになっている」対応。以前のcliPriorityOrder
-// （全エージェント共通の並び順）とagyFallbackAgents/cursorFallbackAgents
-// （エージェント種別ごとのON/OFF）を統合した、全エージェント共通のCLI優先順位
-// リスト。配列に含まれるCLIだけが候補（＝含まれないCLIは除外）で、含まれる順が
-// 試行順（＝優先度）。claudeも他の2つと同様に除外できる。CLI_OPTIONSに無い値・
-// 重複を含む配列・空配列は黙って落とす（不正な設定でrunClaudeTurnが候補ゼロに
-// なってrunが何も試さず終わる、といった事態を防ぐ）。
+// 以前の cliPriorityOrder（全エージェント共通の並び順）と agyFallbackAgents/cursorFallbackAgents
+// （エージェント種別ごとのON/OFF）を統合した、全エージェント共通のCLI優先順位リスト。
+// 配列に含まれるCLIだけが候補（含まれないCLIは除外）で、含まれる順が試行順。
+// claudeも他の2つと同様に除外できる。CLI_OPTIONSに無い値・重複・空配列は黙って落とす
+// （不正な設定で runClaudeTurn が候補ゼロになり run が何も試さず終わるのを防ぐ）。
 function cliOrder(value: unknown): CliName[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const names = value.filter((v): v is string => typeof v === "string");
@@ -83,8 +77,7 @@ function localChatModelPreset(value: unknown): LocalChatModelPresetId | undefine
   return isLocalChatModelPresetId(value) ? value : undefined;
 }
 
-// ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい」
-// 対応。agentModelTiersと同じ検証（MODEL_TIER_OPTIONSに無い値は黙って落とす）。
+// agentModelTiersと同じ検証（MODEL_TIER_OPTIONSに無い値は黙って落とす）。
 // 空文字列は「claude CLIの既定モデルのまま」を意味する有効値として許容する。
 function referenceLookupClaudeModel(value: unknown): ModelTier | "" | undefined {
   if (value === "") return "";
@@ -92,13 +85,11 @@ function referenceLookupClaudeModel(value: unknown): ModelTier | "" | undefined 
   return (MODEL_TIER_OPTIONS as readonly string[]).includes(value) ? (value as ModelTier) : undefined;
 }
 
-// ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいて
-// ほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を表示）」対応。
-// フロントエンド（AiToolsSettingsGroup.tsx）でも同じ内容を即時に弾いているが、
+// フロントエンド（AiToolsSettingsGroup.tsx）でも同じ内容を即時に弾いているが
 // APIを直接叩く経路への保険として、ここでも"auto"（大小文字・前後空白は無視）は
 // エラーとして拒否する（selfPersonIdの400と同じ既存パターン）。それ以外の値は
 // agentCliModelsと同じくバージョン付きの具体名でしか指定できない制約のため
-// 自由入力で検証しない。
+// 自由入力で検証しない
 function parseReferenceLookupCursorModel(
   value: unknown,
 ): { ok: true; value: string } | { ok: false; error: string } | undefined {
@@ -115,9 +106,8 @@ function parseReferenceLookupCursorModel(
   return { ok: true, value: trimmed };
 }
 
-// ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
 // null / 空文字 = 解除。存在する PERSON_n のみ受け付ける（不正IDは undefined で無視しないよう
-// 呼び出し側で 400 にする）。
+// 呼び出し側で 400 にする）
 function parseSelfPersonId(value: unknown): { ok: true; value: string | null } | { ok: false; error: string } | undefined {
   if (value === undefined) return undefined;
   if (value === null) return { ok: true, value: null };

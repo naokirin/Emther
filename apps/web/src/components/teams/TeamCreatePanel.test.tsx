@@ -3,8 +3,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TeamCreatePanel } from "./TeamCreatePanel";
 
-// web/src/components/teams/TeamCreatePanel.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier2、teamsバッチ）。
 afterEach(() => {
   vi.unstubAllGlobals();
 });

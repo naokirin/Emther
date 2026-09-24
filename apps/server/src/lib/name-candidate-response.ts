@@ -1,8 +1,7 @@
 import { isUnconfirmedNameCandidatesError, nameCandidateConfirmationBody } from "@emther/core/name-candidate-confirmation";
 
-// web/src/app/api/name-candidate-response.ts のHono版。フレームワーク非依存の部分
-// （MaskOptions組み立てロジック）は packages/core にあるため、ここではHTTPフレームワーク
-// 固有のエラーレスポンス整形だけを持つ（docs/2nd_architecture/plan.md フェーズ2.5）。
+// Hono向けの名前候補エラー整形。MaskOptions組み立ては packages/core 側にあり、
+// ここでは HTTP フレームワーク固有のレスポンス整形だけを持つ。
 export {
   parseAllowUnmaskedCandidates,
   parseRegisterNameCandidates,

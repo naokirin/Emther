@@ -35,7 +35,7 @@ import type { AgentRun } from "./types";
 // 紐づく提案のtagsに介入の型が含まれ、かつそのagentNameが主担当／副担当に該当する場合、
 // 「この介入型を主軸に」という一文を足す。該当しない場合はブロック自体を省略する
 // （無関係な介入型の指示で専門性をブレさせないため）。
-// docs/usage_issues U3。専門Agentのrunは提案に直接紐付かない（consultedByだけが親Leadを指す）。
+// 専門Agentのrunは提案に直接紐付かない（consultedByだけが親Leadを指す）。
 // getSuggestionByRunId(そのrun)だとWhy/What/Howが空になり、「分からない」Yieldの原因になる。
 export function resolveSuggestionForRun(runId: string) {
   const direct = getSuggestionByRunId(runId);
@@ -54,7 +54,6 @@ export function resolveSuggestionForRun(runId: string) {
 }
 
 // Suggestionはtagsを持たないため、介入の型タグは常に空扱い（この関数は常に空文字を返す）。
-// docs/2nd_pivot_version.md Phase 7でIssueのtags/介入の型UIを廃止した後の残骸。
 export function buildInterventionTypeGuidance(runId: string | undefined, agentName: string): string {
   if (!runId) return "";
   const suggestion = resolveSuggestionForRun(runId);
@@ -77,16 +76,15 @@ export function buildInterventionTypeGuidance(runId: string | undefined, agentNa
   return ["このタスクに設定された介入の型（絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
-// docs 3.1「動的ロード」対応（docs/em_human_story_and_ux.md P2-13で残件を解消）。
 // 紐づく提案のteamId、またはタスク本文中のチーム名の言及という手がかりがあれば
 // Organization Context（チーム名簿）を関連チームだけに絞る（buildOrgContextBlock内の
 // relevantTeams参照）。手がかりが一つも無い場合だけ、MVP当初の方針どおり全チームを注入する。
 // メンバー名はここで初めて登場する可能性があるため、注入前に必ずpeople-directoryへ登録し、
 // 実名のままクラウドに出さないようmaskNamesを通す（他の経路と同じ匿名化ルール）。
-// docs 3.1「Core Context」の`Strategy/`ディレクトリ相当。MVV/OKRは組織全体で
-// 1つの静的な前提であり、提案に紐づくかどうかに関わらず常に「絶対の前提」として注入する
-// （動的ロード対象は提案charterとJournalのみ）。未設定の項目は行ごと省略する。
-// 個人情報の分離（ユーザー指摘対応）: org-context-store.tsはMission/Vision/Values/OKRを
+// MVV/OKRは組織全体で1つの静的な前提であり、提案に紐づくかどうかに関わらず常に
+// 「絶対の前提」として注入する（動的ロード対象は提案charterとJournalのみ）。
+// 未設定の項目は行ごと省略する。
+// 個人情報の分離: org-context-store.tsはMission/Vision/Values/OKRを
 // 既にPERSON_n IDでマスクした状態で保持している（保存前にmaskForStorageを通す設計に変更）。
 // そのためここではmaskNamesを呼ばない——呼ぶ必要が無いのではなく、呼んではいけない
 // （既にマスク済みのIDをもう一度maskNamesに通しても実害は無いが、「保存時点で安全」が
@@ -121,7 +119,7 @@ export function buildStrategyBlock(): string {
   return ["組織のMVV（Organization Context / Strategy、絶対の前提として扱うこと）:", ...lines].join("\n");
 }
 
-// docs/goal_policy_model.md。EMとして見据えている「到達したい状態」。MVVと同じく組織全体で
+// EMとして見据えている「到達したい状態」。MVVと同じく組織全体で
 // 1つの静的な前提として常時注入する。未設定（0件）ならブロック自体を省略する。
 export function buildGoalsContextBlock(): string {
   const goals = listActiveGoals();
@@ -138,7 +136,7 @@ export function buildGoalsContextBlock(): string {
   ].join("\n");
 }
 
-// docs/goal_policy_model.md / docs/goal_policy_model_plan.md Decision 2。Goalに向かう際に
+// Goalに向かう際に
 // EMが守りたい判断原則（大切にする／優先する／やらない／判断原則）。MVVと同じく組織全体で
 // 1つの静的な前提とし、提案非依存で常時注入する。未設定（0件）ならブロック自体を省略する。
 export function buildPolicyContextBlock(): string {
@@ -198,7 +196,7 @@ export function buildOrgBackgroundBlock(runId?: string, rawText?: string): strin
   ].join("\n");
 }
 
-// docs/knowledge_distillation.md。採用済みテーマ解釈のみを絶対の前提として注入する。
+// 採用済みテーマ解釈のみを絶対の前提として注入する。
 // 候補・却下は載せない（EM未承認の見立てで推論を汚さない）。
 export function buildThemesContextBlock(): string {
   const themes = listAdoptedThemes();
@@ -216,9 +214,8 @@ export function buildThemesContextBlock(): string {
   ].join("\n");
 }
 
-// docs/knowledge_distillation.md 後続 1・2。
 // 提案 壁打ち・Journal 自動分析向けに関連 Journal/提案 束をシステムプロンプトへ載せる。
-// run.task には載せない（U13）。
+// run.task には載せない。
 export async function buildRelatedContextForRun(run: AgentRun, rawText?: string): Promise<string> {
   try {
     if (run.origin === "auto-anomaly") {
@@ -237,7 +234,6 @@ export async function buildRelatedContextForRun(run: AgentRun, rawText?: string)
   }
 }
 
-// docs/em_human_story_and_ux.md P2-13（docs 3.1「動的ロード」の残件）対応。
 // チーム憲法（buildTeamCharterBlock）は既に提案単位でスコープ済みだが、チーム名簿
 // （名前＋メンバー一覧）自体は「チーム数が少ない前提」で常に全件注入していた。
 // 関連性の手がかり（紐づく提案のteamId、タスク本文中のチーム名の言及）が
@@ -252,7 +248,7 @@ export function relevantTeams(teams: Team[], runId: string | undefined, rawText:
 
   if (rawText) {
     for (const t of teams) {
-      // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。正式名・
+      // 正式名・
       // 階層セグメントに加え、登録済みの別名（略称・旧名等）も照合対象にする。
       const segments = [t.name, ...teamPathSegments(t.name), ...t.aliases];
       if (segments.some((seg) => seg && rawText.includes(seg))) relevantIds.add(t.id);
@@ -284,8 +280,8 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
   return maskNames(["組織のチーム構成（Organization Context、絶対の前提として扱うこと）:", ...lines].join("\n"));
 }
 
-// docs 3.1「動的ロード」: そのrunが提案（Suggestion）に紐づいている場合、タイトルとメモを
-// 「絶対の前提」としてエージェントに渡す。docs/2nd_pivot_version.md Phase 7。
+// そのrunが提案（Suggestion）に紐づいている場合、タイトルとメモを
+// 「絶対の前提」としてエージェントに渡す。
 export function buildSuggestionContextBlock(runId: string): string {
   const suggestion = resolveSuggestionForRun(runId);
   if (!suggestion) return "";
@@ -301,9 +297,9 @@ export function buildSuggestionContextBlock(runId: string): string {
   return lines.join("\n");
 }
 
-// docs/memo.md「I. チーム単位の憲法（ミッション／制約）」対応。buildOrgContextBlockが
+// buildOrgContextBlockが
 // 全チームの名簿を常時注入するのに対し、こちらは「その提案が紐づくチーム」1つだけの
-// Mission/制約を動的にロードする（docs/memo.md TODO「Organization Contextの動的ロードを
+// Mission/制約を動的にロードする（ TODO「Organization Contextの動的ロードを
 // 対象提案に関連するチームのみに絞る」に対応する部分）。Mission/制約が両方未設定なら
 // 渡す情報が無いのでブロック自体を省略する。
 export function buildTeamCharterBlock(runId: string): string {
@@ -320,42 +316,41 @@ export function buildTeamCharterBlock(runId: string): string {
   return lines.join("\n");
 }
 
-// docs 3.1「動的ロード」: タスク/EMの発言に登場する人物（people-directoryに登録済み＝
+// タスク/EMの発言に登場する人物（people-directoryに登録済み＝
 // 過去にJournalで言及されたか、Org Contextのメンバーとして登録された人）について、
 // その人に関する直近のJournalエントリを参考情報として渡す。全Journalを渡すと
 // ノイズが増え推論がブレるため、「今回の話題に出てきた人」だけに絞るのが「動的」の要点。
 // 実名でのマッチングが必要なため、maskNamesで置換する前のテキストに対して行うこと。
-// docs/memo.md「H: 永続化データモデルの設計」対応。「ファクト（一時的な出来事・発言）」と
+// 「ファクト（一時的な出来事・発言）」と
 // 「解釈（長期的なプロファイル）」を分けて注入する。ファクトはTTLを過ぎたものを除外し
 // （listActiveFactsForPerson）、解釈は基本的に常に有効（listInterpretationsForPerson）。
 // この2つを別々のラベルでプロンプトに渡すことで、エージェントが「一時的な感情」と
 // 「長期的な傾向」を混同しないようにする。
-// docs/memo.md「H: Phase 3」ローカル完結のベクトル検索。名前の完全一致では拾えない
+// 名前の完全一致では拾えない
 // 「意味的に関連しそうな過去の情報」（例: 具体的な名前を出さずに「最近チームの士気は？」と
 // 聞かれた場合等）を補う。名前一致より確度が低いため、別ラベル・低い信頼度の書き方で
 // 提示し、類似度が低いものは足切りする（無関係な情報を紛れ込ませないため）。
 const SEMANTIC_SIMILARITY_THRESHOLD = 0.4;
 
-// docs/agent_specialization.md「5.3 象限ごとの厚み」対応。Peopleは「言及人物の解釈
+// Peopleは「言及人物の解釈
 // （長期プロファイル）を多め、直近Journalのsentiment/urgencyを厚く」が期待値、
 // Process/Tech/Product/Leadは「個人解釈の長文すべて／人物性格の深掘りは薄くてよい」が
 // 期待値（表5.3）。完全に隠すと判断材料が欠けるため、削るのではなく件数だけを絞る。
 const PERSON_FACT_LIMIT_DEFAULT = 5;
 const PERSON_FACT_LIMIT_PEOPLE = 10;
 const PERSON_INTERPRETATION_LIMIT_NON_PEOPLE = 3;
-// ユーザー指摘対応: 名前一致だけで人物ファクトを選ぶと、話題との関連度に関わらず
+// 名前一致だけで人物ファクトを選ぶと、話題との関連度に関わらず
 // 「直近のもの」が機械的に上限件数まで埋まってしまい、組織/チーム全体規模の問いに
 // 個人単位の些末な事象（例:「1on1がスキップになった」）が紛れ込む。名前一致は維持しつつ、
 // factLimitより広く候補を取ってから話題（rawText）との類似度で再ランキングし、
 // 上位のみを残すことで「関連度の低い直近事象」が優先されるのを防ぐ。
 const PERSON_FACT_SCAN_LIMIT = 30;
 
-// 個人情報の分離（ユーザー指摘対応）: rawTextは実名（EM/クラウドどちらの入力の場合もある）
+// 個人情報の分離: rawTextは実名（EM/クラウドどちらの入力の場合もある）
 // またはPERSON_n ID（Lead Agentからのconsult.questionのように既にマスクされたテキストの
 // 場合）のどちらかを含み得るため、両方でマッチングする。listActiveFactsForPerson等は
 // 既にPERSON_n IDで検索する契約になっているため、person.id（実名ではない）を渡す。
-// docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
-// 『複数回報告されている』と誤って判定されてしまう」対応。excludeEventIdは、いま分析中の
+// excludeEventIdは、いま分析中の
 // Journal自身のイベントID（run.sourceJournalId）。渡された場合、ファクト一覧・意味的類似
 // 検索の両方から自分自身を除外する（自分自身を「過去の類似事例」として見せてしまうと、
 // 単発の新規報告なのにAIが「既出・繰り返し報告されている」と誤解する）。
@@ -499,7 +494,7 @@ export function buildSystemPrompt(
         ]
       : [];
 
-  // docs/2nd_pivot_version.md Phase 7。子提案分解・Charter埋め提案は廃止。
+  // 子提案分解・Charter埋め提案は廃止。
   // 他提案へのメモ追記のみ残す。
   const suggestionNoteRule = [
     "- 相談やlookupの過程で、このタスクとは別の提案に関わる重要な事実・懸念を見つけた場合は、その提案への一言メモを提案できます。proposalブロックに続けて以下の形式でsuggestion_noteブロックを追加してください（無ければ省略して構いません。yieldする場合は出力しないこと。suggestionIdはlookup結果で得た実在の提案IDのみを使い、推測や新規作成はしないこと）。",
@@ -509,7 +504,7 @@ export function buildSystemPrompt(
     "",
   ];
 
-  // docs/suggestion_organize_via_consult.md。EMが「提案を整理して」等と明示的に依頼した
+  // EMが「提案を整理して」等と明示的に依頼した
   // ときだけ、Leadが既存提案（実在ID）の状態変更をまとめて提案できる。裏での自動書き換えは
   // 禁止のため、この出力自体もEMからの明示依頼が入口。入口を相談（Lead Agent）に限定する。
   const suggestionUpdatesRule =
@@ -536,7 +531,7 @@ export function buildSystemPrompt(
         ]
       : [];
 
-  // docs/2nd_pivot_version.md Phase 2.4対応。優先度（focus/normal/parked）の提案は、
+  // 優先度（focus/normal/parked）の提案は、
   // 採用/却下UIを廃止したため出力させても宙に浮くだけになった。プロンプトからも外す。
 
   const roleBlockLines = ROLE_BLOCKS[agentName] ?? [];
@@ -573,7 +568,7 @@ export function buildSystemPrompt(
     "",
     "- タスクを完結できる場合（yieldしない場合）は、通常の文章で説明したうえで、回答の最後に必ず以下の形式でproposalブロックを1つだけ出力してください。",
     "",
-    // docs/ai_ philosophy.md。単なるEM業務の知識やフレームワーク知識ではなく、状況を考えるための
+    // 単なるEM業務の知識やフレームワーク知識ではなく、状況を考えるための
     // 「哲学・思考様式」をレンズとして持たせる。レンズは正解を導くルールではなく、
     // 「この状況を、この考え方から見ると何が見えるか？」を考えるための道具として使う。
     "哲学レンズ（Lens Selection。Expand/Challengeの材料となる「見方」の一覧。正解を導くルールではなく、この状況をこの考え方で見ると何が見えるかを考えるための道具）:",
@@ -581,8 +576,8 @@ export function buildSystemPrompt(
     "",
     ...LENS_USAGE_GUIDANCE,
     "",
-    // docs/3rd_pivot_version/pivot.md。いきなり解決策に飛ばず Expand → Challenge → Suggest。
-    // docs/ai_ philosophy.md。Lens SelectionとHypothesisを明示ステップとして追加。
+    // いきなり解決策に飛ばず Expand → Challenge → Suggest。
+    // Lens SelectionとHypothesisを明示ステップとして追加。
     "分析の順序（Observe / Remember / Interpret → Lens Selection → Expand → Challenge → Hypothesis → Scope Check のあと、Suggestの前に必ず通すこと）:",
     "- Lens Selection: 上記の哲学レンズのうち、この状況に有効そうなものを判断して選ぶ（個数のノルマは無い。1つも無理に使わなくてよいし、複数が同時に効くならその分だけ使ってよい）。",
     "- Expand: 選んだレンズを使い、現在のEMの認識・仮説から離れて、別の解釈・別の仮説・見えていない情報・別の問題設定・過去記録やチーム全体から見える可能性を列挙する（EMの仮説を否定するのではなく「他にもこういう見方があり得る」を示す）。レンズ同士で異なる解釈・矛盾する見立てがあれば、それも書く。",
@@ -592,7 +587,7 @@ export function buildSystemPrompt(
     "- Suggest: Scope Checkを踏まえ、元の問いのスケールに見合った結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
     "- 入力の要約・言い換えだけで終わらせないこと。「心理的安全性」「1on1」など一般論の羅列も避けること。蓄積された具体的な記録に根ざした発見を優先する。",
     '- 介入の起票まで不要で「様子を見る／追加で確認する」が妥当なら recommendation は "watch"。次の観測・確認ポイントは advice（および conclusion）に書く。',
-    // レンズは見方。手法名は advice の選択肢として状況マッチ時のみ（philosophy.md §5.3）。
+    // レンズは見方。手法名は advice の選択肢として状況マッチ時のみ。処方にしない。
     ...METHODOLOGY_CANDIDATE_GUIDANCE,
     "名前付き手法を出す場合は conclusion の主語にせず、advice（overview / groups の候補のひとつ）に置き、他の観測・確認・介入候補と並立させること。",
     "",
@@ -677,7 +672,7 @@ export function buildSystemPrompt(
   const morningContext = runOrigin === "auto-summary" ? buildMorningSummaryContextBlock() : "";
   const growContext = runOrigin === "auto-grow" ? buildGrowContextBlock() : "";
   const journalBatchContext = runOrigin === "auto-journal-batch" ? buildJournalBatchContextBlock() : "";
-  // docs/new_reporting.md。週次・月次レビューの材料。対象reports行への逆リンク
+  // 週次・月次レビューの材料。対象reports行への逆リンク
   // （sourceReportId）が必要なため、originだけでなくrun本体を渡す。
   const periodReviewContext =
     run && (runOrigin === "auto-weekly-report" || runOrigin === "auto-monthly-report")

@@ -6,7 +6,7 @@ import { env } from "@huggingface/transformers";
 import { createNodeTransformersCache } from "./transformers-file-cache";
 
 // Transformers.js の既定 cacheDir はパッケージ配下 `.cache/`。配布では
-// 業務データと分けて XDG キャッシュへ置く（docs/packaging.md）。
+// 業務データと分けて XDG キャッシュへ置く。
 // 以前パッケージ配下へ落としたファイルがあれば起動時にコピーして再利用する。
 
 let configuredCacheDir: string | null = null;
@@ -110,7 +110,7 @@ function installNodeCache(cacheDir: string): void {
   };
 }
 
-/** `pipeline()` より先に呼び、書き込み可能な cacheDir を固定する。 */
+/** `pipeline` より先に呼び、書き込み可能な cacheDir を固定する。 */
 export function configureTransformersEnv(): string {
   const cacheDir = defaultTransformersCacheDir();
   configuredCacheDir = cacheDir;

@@ -17,10 +17,9 @@ import { jitterPointsPlugin } from "./jitterPointsPlugin";
 import { type PeriodNavigatorState } from "./usePeriodNavigator";
 import { scaleLabel, toChartValue, type CheckinMetricKey } from "../lib/checkin-scale";
 
-// 改修依頼「マウスオーバーで数値を確認したい／先週・先月など時間を自由に移動したい」対応。
 // 素のSVG自作から、ホバーツールチップ・積み上げ/グループ棒を標準で持つChart.jsへ移行する
-// （bundlephobia調べ: Chart.js本体はgzip約68KB、Rechartsの約148KBの半分以下）。
-// 必要な要素だけを登録し、chart.js/autoは使わずツリーシェイクする。
+// （bundlephobia調べ: Chart.js本体はgzip約68KB、Rechartsの約148KBの半分以下）
+// 必要な要素だけを登録し、chart.js/autoは使わずツリーシェイクする
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend);
 
 // canvasのfillStyle/strokeStyleはCSSのvar()を解決できないため、globals.cssのトークンと
@@ -155,21 +154,19 @@ function checkinChartOptions(pointCount: number): ChartOptions<"line"> {
   };
 }
 
-// docs/memo.md「同じ日に複数の項目で同じ数値を選択すると点が重なって見えなくなる」対応。
 // 実データ・目盛りは変えず、描画済みの点（＝そこに繋がる線の端点も）をdatasetIndexに
 // 応じてピクセル単位でわずかに左右へずらすだけの見た目上の対応（ホバー時の数値・
-// interaction(index)の対象特定はscale上のindexで行われるため影響しない）。
-// ユーザー指摘「Chart.jsのアニメーションで位置が上書きされ、結局点が重なる」対応で
+// interaction(index)の対象特定はscale上のindexで行われるため影響しない）
 // afterDatasetsUpdate（chart.update()時に1回だけ発火）からbeforeDatasetsDraw（draw()の
-// 直前・毎フレーム発火）に変更したが、`point.x += offset`という相対加算のままだと、
+// 直前・毎フレーム発火）に変更したが、`point.x += offset`という相対加算のままだと
 // 「マウスオーバーのたびにどんどん離れていく」別の不具合が出た。ホバーによる
 // ツールチップ再描画はdraw()は呼ぶがcontroller.update()（x/yをscaleから再計算する処理）
-// は経由しないため、point.xは前回描画済みの「既にジッター適用済みの値」のまま渡ってくる。
+// は経由しないため、point.xは前回描画済みの「既にジッター適用済みの値」のまま渡ってくる
 // そこへさらに+=offsetすると、ホバーする（＝再描画される）たびにオフセットが積み上がって
 // しまう。相対加算ではなくscale（x軸のCategoryScale）からindexごとの本来のpixel位置を
 // 毎回算出し、そこへoffsetを足した絶対値で上書きすることで、何回描画が呼ばれても
-// （アニメーション中・ホバー再描画のどちらでも）常に同じ結果になるようにする。
-// 自己チェックイン: 日次推移。記録が無い日はnull。ストレスは描画時に反転して「上＝良い」に揃える。
+// （アニメーション中・ホバー再描画のどちらでも）常に同じ結果になるようにする
+// 自己チェックイン: 日次推移。記録が無い日はnull。ストレスは描画時に反転して「上＝良い」に揃える
 export function CheckinTrendChart({ points }: { points: CheckinDailyPoint[] }) {
   const hasAnyData = points.some((p) => p.count > 0);
   const data: ChartData<"line"> = {

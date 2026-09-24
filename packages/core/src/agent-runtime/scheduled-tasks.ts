@@ -27,20 +27,17 @@ export function setScheduleMarkersRepositoryForTest(next: ScheduleMarkersReposit
   scheduleMarkers = next;
 }
 
-// docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
 // 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
-//
 // 二重起動ガードは次の4層（朝サマリー・週次蒸留・週次Grow・Journal集約の全4種で共通の考え方）:
 // 1) globalThis 上のクレーム（同一プロセス内の HMR でも共有）
 // 2) auto-morning-summary.json 等の永続化（プロセス再起動後）
 // 3) 当日/当該週の origin run が DB/メモリに既にあれば起動しない
 // 4) auto_batch_claims テーブルへの原子的 INSERT（起動直前の最終防波堤）
-//
 // (1) だけだと next dev の HMR でモジュール変数がリセットされ、かつ setInterval が
 // クリアされずに積み上がると、指定時刻直後に複数 tick がほぼ同時に走りレースする
 // （実機: 2026-09-11 07:00 に約3秒で9件）。ファイル永続化だけでは「全員が未クレームを
 // 読んでから書く」レースを止められないため、globalThis 単一化 + 既存 run の有無確認が必要。
-// さらに、docs/2nd_architecture/plan.md フェーズ2（Hono並走）でNext↔Honoの2プロセスが
+// さらに、 でNext↔Honoの2プロセスが
 // 同じデータディレクトリを見る構成になると、(1)〜(3)は全て「読み取り→（別プロセスの
 // 書き込みを跨がず）書き込み」という同一プロセス内の同期実行を前提にしており、
 // 複数OSプロセス間のTOCTOUは防げない（2026-09-19、2プロセスを実機起動して実際に
@@ -58,7 +55,7 @@ function saveLastAutoMorningSummaryDate(date: string): void {
  * 自動バッチ起動の直前に呼ぶ、プロセス境界をまたいで安全な最終クレーム。
  * SQLiteのPRIMARY KEY制約により、同じclaimKeyへのINSERTは（他プロセスからの
  * ものも含めて）最初の1件しか成功しない。trueを返した呼び出し元だけが実際に
- * start*()を呼んでよい。
+ * start*を呼んでよい。
  */
 function tryClaimAutoBatchSlot(claimKey: string): boolean {
   return scheduleMarkers.tryClaim(claimKey);
@@ -135,12 +132,9 @@ export function checkMorningSummary(): void {
 export const MORNING_SUMMARY_TASK =
   "朝のサマリーを作成してください。Team Vitals・1on1 Coverage・判断待ち(Yield)やエラーのAgent Run・未確認・確認保留の提案など、今日EMがまず確認すべきことを簡潔に整理してください。";
 
-// ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、Journalが一定溜まったり
-// 朝のサマリーのタイミングなど、ある程度の期間における複数のJournalをまとめて観測・
-// 解釈した結果から行うのが良い」対応。以前あったJournal校正のたびの即時個別分析
-// （イベント駆動）は廃止し、朝のサマリーと同様のバッチ駆動へ一本化した。
+// Journal集約解釈バッチ。朝のサマリーと同様のバッチ駆動（校正ごとの即時個別分析は廃止）。
 // EMが能動的に「相談」したときの個別分析（POST /api/journal/[id]/analyze・
-// requestJournalAnalysis）は、これとは別の経路としてそのまま残す。
+// requestJournalAnalysis）は別経路として残す。
 // 起動スロットは1日複数時刻可。材料の漏れ防止は lastCoveredAt ウォーターマーク
 // （journal-batch-window.ts）。
 
@@ -216,8 +210,7 @@ export function checkJournalBatchReview(): void {
 export const JOURNAL_BATCH_TASK =
   "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式で提案化を検討し、未確定なら watch＋advice にしてください。追跡不要なものは無理に提案化しないでください。";
 
-// ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
-// 対応。startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
+// startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
 // manual時はEMが明示起動したものとしてreviewed=trueにする。
 export async function startJournalBatchAnalysis(
   opts: MaskOptions & { manual?: boolean } = {},
@@ -248,7 +241,7 @@ export async function startJournalBatchAnalysis(
   }
 }
 
-// docs/knowledge_distillation.md。状況蒸留。watchdog へ相乗りし、ISO 週＋曜日スロットで
+// 状況蒸留。watchdog へ相乗りし、ISO 週＋曜日スロットで
 // 二重起動を防ぐ（複数曜日を選べる）。
 type DistillationPersisted = {
   week: string | null;
@@ -356,8 +349,7 @@ export async function startDistillationAnalysis(
   }
 }
 
-// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
-// 学びの提示）。週次蒸留と同様に watchdog へ相乗りし、ISO 週キーを永続化して二重起動を防ぐ。
+// Grow（EM自身の学びの提示）。週次蒸留と同様に watchdog へ相乗りし、ISO 週キーを永続化して二重起動を防ぐ。
 function loadLastAutoGrowWeek(): string | null {
   return scheduleMarkers.loadGrowWeek();
 }
@@ -471,7 +463,7 @@ export function checkWeeklyDistillation(): void {
   });
 }
 
-// docs/new_reporting.md。週次・月次レビュー。状況蒸留・学びの提案と同じくwatchdogへ相乗りし、
+// 週次・月次レビュー。状況蒸留・学びの提案と同じくwatchdogへ相乗りし、
 // 材料（reports行の統計スナップショット）を先に生成してからLead Agent runを起動する。
 // 相談履歴・Inboxに載せる短いタスク文。材料の本体はbuildPeriodReviewContextBlock（batch-context-blocks.ts）へ。
 export const WEEKLY_REPORT_TASK =
@@ -597,7 +589,7 @@ export function checkMonthlyReport(): void {
 
 // 提案のタイトル・整理内容・経過メモの連打保存でコストが爆発しないよう、同一提案は
 // デバウンスしてから1回だけ分析する（朝サマリーと同系の軽量実装）。
-// デバウンス中は listPendingAgentStarts() でUIへ「あとN秒で起動」を公開する。
+// デバウンス中は listPendingAgentStarts でUIへ「あとN秒で起動」を公開する。
 export const SUGGESTION_UPDATE_DEBOUNCE_MS = 45_000;
 
 type PendingSuggestionUpdateJob = {
@@ -769,7 +761,7 @@ export function buildJournalAnalysisTask(rawText: string): string {
   return [
     "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、提案として追跡すべき実質的な問題かどうかを判断してください。",
     "ただし、この提案化判定はあくまで一覧に残すかどうかの分類に過ぎません。判定結果がsuggestionでもwatchでもdismissでも、それだけで終わらせず、EMがこの状況にどう向き合うとよいかという実務的な気づき・助言を回答本文に必ず書いてください（判定を言い渡すだけの素っ気ない回答にしないこと）。",
-    // docs/3rd_pivot_version/pivot.md, docs/ai_ philosophy.md。EMの問題設定をなぞるだけの提案を避ける。
+    // EMの問題設定をなぞるだけの提案を避ける。
     "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別の解釈・仮説・不足情報・別問題設定）と Challenge（前提・事実と解釈の混同・本当に解くべき問題か）を必ず経てください。入力の要約や言い換えだけで終わらせないこと。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・expansions・challenges・判断ロジック・棄却した代替案）で示し、結論の中で提案化を検討する旨を明記してください。あわせて proposal の suggestionTitle（単一）または suggestionCandidates（複数・親なしの独立提案）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず suggestionCandidates に分けてください（親提案は作らない）。同じ介入の具体作業への分解はここではしないこと。",

@@ -1,13 +1,12 @@
 import { useState } from "react";
 
-// docs/memo.md TODO「リストにおける、フィルタ機能の拡充、ページネーションの追加を行う」への対応。
 // 複数のリスト（Issues、Dashboardのジャーナル/Inbox）で同じページネーションUIを
 // 使い回すための共通フック。フィルタ自体は各画面固有の条件で
-// items配列を絞り込んでからこのフックへ渡す想定（フィルタロジックはここに含めない）。
+// items配列を絞り込んでからこのフックへ渡す想定（フィルタロジックはここに含めない）
 
-// ユーザー要望「一覧の全件取得をページネーション化したい」対応。Agent Run/Journal一覧は
+// Agent Run/Journal一覧は
 // サーバー側でページ分割・件数集計するようになったため（クライアントは1ページ分の
-// itemsとtotalしか持たない）、ページ番号・表示範囲の算出だけをusePaginationと共有する。
+// itemsとtotalしか持たない）、ページ番号・表示範囲の算出だけをusePaginationと共有する
 export function paginationMeta(total: number, page: number, pageSize: number) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   // 件数が減ってpageが範囲外になっても、表示側では自動的に最終ページへ丸める。

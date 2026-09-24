@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "@emther/core/test-helpers/store-env";
 
 // このルートはstartRunを呼ぶため、実CLIを起動しないようnode:child_processのspawnを
-// モックする（web/src/app/api/agents/route.test.ts と同じパターン）。
+// モックする（ と同じパターン）
 vi.mock("@emther/core/local-model", () => ({
   runLocalChat: vi.fn(async () => JSON.stringify({ people: [] })),
   extractFirstJsonObject: (text: string) => text,
@@ -262,7 +262,6 @@ describe("POST /api/agents/:id/review", () => {
     expect((await res.json()).run.triageStatus).toBe("watching");
   });
 
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
   it("archived:trueでアーカイブし、falseで解除できる（reviewedは強制しない）", async () => {
     const { getDb } = await import("@emther/core/db");
     insertRunRow(getDb(), { origin: "auto-anomaly", reviewed: 0 });

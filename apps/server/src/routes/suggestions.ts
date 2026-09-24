@@ -28,9 +28,6 @@ import { resolveUniqueByPrefix } from "@emther/core/id-resolve";
 import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES, type ConfirmPriority, type SuggestionReviewStatus } from "@emther/core/types";
 import { jsonFromUnknownError, maskOptionsFromBody } from "../lib/name-candidate-response";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ4）:
-// web/src/app/api/suggestions/{route,[id]/route,[id]/memo/route}.ts の移植。
-
 function resolveSuggestionForRead(id: string) {
   return resolveUniqueByPrefix(listSuggestions(), (s) => s.id, id);
 }
@@ -48,10 +45,10 @@ export const suggestionsRoute = new Hono()
     const body = { suggestions: listSuggestions().map(toSuggestionView) } satisfies SuggestionsResponse;
     return c.json(body);
   })
-  // docs/2nd_pivot_version.md Phase 7。相談／Journal／未紐付け Run から提案を残す入口。
-  // - agentRunId あり: その Run を提案の主分析として紐付け、reviewed 化（Inbox 等からの起票）。
-  // - sourceRunId のみ: 相談スレッドは相談履歴に残し、提案専用の新規分析 Run は起動しない。
-  // - どちらも無し: Lead Agent の分析 Run を自動起動する（旧 Issue 起票と同じ）。
+  // 相談／Journal／未紐付け Run から提案を残す入口
+  // - agentRunId あり: その Run を提案の主分析として紐付け、reviewed 化（Inbox 等からの起票）
+  // - sourceRunId のみ: 相談スレッドは相談履歴に残し、提案専用の新規分析 Run は起動しない
+  // - どちらも無し: Lead Agent の分析 Run を自動起動する（旧 Issue 起票と同じ）
   .post("/", async (c) => {
     const body = await c.req.json().catch(() => null);
     const title = typeof body?.title === "string" ? body.title.trim() : "";
@@ -80,10 +77,9 @@ export const suggestionsRoute = new Hono()
     const sourceJournalId =
       typeof body?.sourceJournalId === "string" && body.sourceJournalId.trim() ? body.sourceJournalId.trim() : sourceRun?.sourceJournalId;
 
-    // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。sourceRunの内部表現
     // （マスク済み）にproposalがあれば、起票直後にそのままdetailとして持たせる。判断・提案
     // （Agent）パネルは紐づくAgent Runが差し替わると内容も変わりうるため、起票時点の結論・
-    // 根拠・ロジック・アドバイスを提案自体に固定するのがねらい。
+    // 根拠・ロジック・アドバイスを提案自体に固定するのがねらい
     const detail = sourceRun?.proposal
       ? {
           conclusion: sourceRun.proposal.conclusion,
@@ -198,7 +194,6 @@ export const suggestionsRoute = new Hono()
     if ("reviewDueAt" in (body ?? {}) && body.reviewDueAt !== null && typeof body.reviewDueAt !== "number") {
       return c.json({ error: "reviewDueAtは数値（タイムスタンプ）またはnullです" }, 400);
     }
-    // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
     if ("detail" in (body ?? {})) {
       const d = body.detail;
       if (!d || typeof d !== "object") {
@@ -272,9 +267,9 @@ export const suggestionsRoute = new Hono()
       if ("reviewDueAt" in (body ?? {})) {
         suggestion = setSuggestionReviewDueAt(suggestionId, typeof body.reviewDueAt === "number" ? body.reviewDueAt : null) ?? suggestion;
       }
-      // ユーザー要望「提案の詳細をユーザーでも編集したい」対応。AI由来のsetSuggestionDetailと
+      // AI由来のsetSuggestionDetailと
       // 違い、EMの自由記述なのでensureNameCandidatesAllowed／maskForStorageを通す
-      // （updateSuggestionDetail内部で実施）。未指定のフィールドは現在値を保持する部分更新。
+      // （updateSuggestionDetail内部で実施）。未指定のフィールドは現在値を保持する部分更新
       if ("detail" in (body ?? {})) {
         const d = body.detail as { conclusion?: string; facts?: string[]; logic?: string; advice?: string };
         suggestion =
@@ -289,8 +284,7 @@ export const suggestionsRoute = new Hono()
             opts,
           )) ?? suggestion;
       }
-      // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
-      // 判断・提案（Agent）の内容が起票時から変わった場合に、EMが明示して詳細を更新し直す。
+      // 判断・提案（Agent）の内容が起票時から変わった場合に、EMが明示して詳細を更新し直す
       if (typeof body?.refreshDetailFromRunId === "string" && body.refreshDetailFromRunId.trim()) {
         const run = getRun(body.refreshDetailFromRunId.trim());
         if (!run || !run.proposal) {

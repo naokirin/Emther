@@ -135,7 +135,6 @@ describe("createSuggestion / review / memo", () => {
     expect(store.getSuggestion(s.id)?.reviewStatus).toBe("done");
   });
 
-  // ユーザー要望「確認状態に『確認中』ステータスを追加したい」対応。
   it("確認中(in_review)ステータスへ変更できる", async () => {
     const store = await import("./suggestion-store");
     const s = await store.createSuggestion("検討中の提案");
@@ -145,7 +144,6 @@ describe("createSuggestion / review / memo", () => {
   });
 });
 
-// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。
 describe("createSuggestion detail / setSuggestionDetail", () => {
   it("detailを渡して作成すると保持され、toSuggestionViewでunmaskされる", async () => {
     const store = await import("./suggestion-store");
@@ -183,7 +181,6 @@ describe("createSuggestion detail / setSuggestionDetail", () => {
   });
 });
 
-// ユーザー要望「提案の詳細をユーザーでも編集したい」対応。
 describe("updateSuggestionDetail", () => {
   it("詳細が無い状態からEMが新規に書き起こせる", async () => {
     const store = await import("./suggestion-store");
@@ -217,7 +214,7 @@ describe("updateSuggestionDetail", () => {
     expect(updated?.detail?.adviceStructured?.overview).toBe("AI版");
   });
 
-  it("setSuggestionDetailはadviceOverrideを保持する（案A）", async () => {
+  it("setSuggestionDetailはadviceOverrideを保持する", async () => {
     const store = await import("./suggestion-store");
     const s = await store.createSuggestion("override保持", {
       detail: {
@@ -281,7 +278,6 @@ describe("updateSuggestionDetail", () => {
   });
 });
 
-// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
 describe("setSuggestionReviewDueAt", () => {
   it("確認期日を設定・解除できる。reviewStatusとは独立に変更できる", async () => {
     const store = await import("./suggestion-store");

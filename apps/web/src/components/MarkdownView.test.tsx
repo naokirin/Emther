@@ -3,9 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { MarkdownView } from "./MarkdownView";
 
-// web/src/components/MarkdownView.test.tsx（Next.js版）からの移植（フェーズ3.5 tier4
-// journalバッチ）。内部で使う`IdFragmentLink`が`react-router`の`useNavigate`（Router context
-// を要求するフック）を呼ぶため、元のnext/navigationモックの代わりにMemoryRouterで包む。
+// IdFragmentLink が useNavigate（Router context）を使うため MemoryRouter で包む
 function renderMarkdown(text: string) {
   return render(
     <MemoryRouter>

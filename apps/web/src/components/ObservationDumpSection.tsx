@@ -12,9 +12,9 @@ type Props = {
   focusDumpId?: string | null;
 };
 
-// ユーザー指摘「折りたたみをやめて最初から表示したい」対応。自身での開閉は持たず、
+// 自身での開閉は持たず
 // 呼び出し元（JournalInputSwitcher）のタブ切り替えで表示/非表示（マウント/アンマウント）を
-// 制御する。マウントされている間は常に読み込み済み状態を目指す。
+// 制御する。マウントされている間は常に読み込み済み状態を目指す
 export function ObservationDumpSection({ onAccepted, focusDumpId }: Props) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [dumps, setDumps] = useState<ObservationDumpView[]>([]);

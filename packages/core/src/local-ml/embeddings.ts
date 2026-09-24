@@ -3,12 +3,11 @@ import { pipeline, type ProgressCallback } from "@huggingface/transformers";
 import { getTransformersCacheDir } from "./transformers-env";
 import { withTransformersInferenceLock } from "./transformers-inference-lock";
 
-// docs/memo.md「H: Phase 3」ローカル完結のベクトル検索。埋め込みも外部送信せず、
+// 埋め込みも外部送信せず、
 // local-model.ts（チャット生成）とは別に、文埋め込み専用の小さなモデルをロードする。
 // 日本語を含む多言語の意味的類似度が必要なため、英語専用のall-MiniLMではなく
 // 多言語対応のparaphrase-multilingual-MiniLM-L12-v2を採用（実機で日本語の類似/非類似
 // ペアの区別ができることを確認済み）。量子化(q8)で約118MBに抑えている。
-//
 // 未キャッシュ時の起動ダウンロード＋進捗表示は model-loader.ts が担う。
 export const EMBEDDING_MODEL = {
   task: "feature-extraction" as const,
@@ -54,7 +53,7 @@ export function getEmbedder(progress_callback?: ProgressCallback) {
   return embedderPromise;
 }
 
-/** pipeline() 失敗後に再試行できるよう、拒否済み Promise を捨てる。 */
+/** pipeline 失敗後に再試行できるよう、拒否済み Promise を捨てる。 */
 export function clearEmbedderCache() {
   embedderPromise = null;
   embedderReady = false;
@@ -78,7 +77,7 @@ export async function embedText(text: string): Promise<number[]> {
   });
 }
 
-// 埋め込みはembedText()内でnormalize:trueにより単位ベクトル化しているため、
+// 埋め込みはembedText内でnormalize:trueにより単位ベクトル化しているため、
 // 本来は内積だけでコサイン類似度と一致するが、他の生成元（次元不一致等）が
 // 混じっても壊れないよう、ここでは素直にコサイン類似度の定義通り計算する。
 export function cosineSimilarity(a: number[], b: number[]): number {

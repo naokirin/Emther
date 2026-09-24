@@ -3,9 +3,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useAgentDecision } from "./useAgentDecision";
 import type { AgentRun } from "@emther/core/agent-runtime";
 
-// web/src/components/useAgentDecision.ts（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。
-
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
     id: "run-1",

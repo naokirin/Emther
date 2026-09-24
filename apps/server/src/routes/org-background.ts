@@ -10,7 +10,6 @@ import {
   type OrgBackgroundStatus,
 } from "@emther/core/org-context-store/index";
 
-// docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/org/background/{route,[id]/route}.ts の移植。
 export const orgBackgroundRoute = new Hono()
   .get("/", (c) => {
     const body = { backgrounds: listOrgBackgrounds().map(toOrgBackgroundView) } satisfies OrgBackgroundsResponse;

@@ -2,8 +2,7 @@ import { useState, type FormEvent } from "react";
 import styles from "../../styles/page.module.css";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 
-// docs/memo.md「J. Peopleを第一級ハブに」対応の一部。人物詳細画面から、この人物に
-// 紐づくJournalをその場で追加できる（作成時にpeopleへ本人を明示付与）。
+// 人物詳細から、この人物に紐づく Journal をその場で追加する（作成時に people へ本人を明示付与）。
 // 未登録人名は保存前ダイアログ（fetchWithNameConfirm）で完結する。
 export function PersonJournalComposer({
   personName,

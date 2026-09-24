@@ -36,14 +36,10 @@ import { toThemeView } from "@emther/core/theme-store";
 import { EXEC_AGENT_NAME } from "@emther/core/types";
 import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ1・2）:
-// web/src/app/api/agents/**/route.ts の移植。
-// 注意: このファイルをimportすると agent-runtime/scheduled-tasks.ts の
-// モジュールロード時 side effect（ensureWatchdogStarted）によりHonoプロセス側でも
-// 30秒間隔のwatchdogが起動する。Next側watchdogとの二重起動は、既存の3層ガード
-// （globalThis・ファイル永続化・DB上の当日run存在チェック）で許容される設計
-// （HMRによるNext側の多重起動と同型の事象として元々ハードニングされている）。
-// docs/2nd_architecture/plan.md リスクレジスタ参照。
+// 注意: このファイルを import すると agent-runtime/scheduled-tasks.ts の
+// モジュールロード時 side effect（ensureWatchdogStarted）により Hono プロセス側でも
+// 30秒間隔の watchdog が起動する。二重起動は既存の3層ガード
+// （globalThis・ファイル永続化・DB上の当日 run 存在チェック）で許容される設計。
 
 const DEFAULT_PAGE_SIZE = 5;
 const MAX_PAGE_SIZE = 50;
@@ -142,8 +138,7 @@ export const agentsRoute = new Hono()
       return jsonFromUnknownError(err, 409);
     }
   })
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。archivedはtriageStatus
-  // （様子見/却下）とは独立の軸のため、他の指定と併用できるよう独立して処理する。
+  // archived は triageStatus（様子見/却下）とは独立の軸のため、他の指定と併用できるよう独立して処理する。
   .post("/:id/review", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);
@@ -199,9 +194,8 @@ export const agentsRoute = new Hono()
     const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
     return c.json(resBody);
   })
-  // docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。POST=まとめて反映
-  // （suggestedSuggestionUpdatesの対象要素を実際のSuggestionへ書き込む）、DELETE=却下。
-  // bodyでindicesを指定すると該当要素のみを対象にし、未指定時は従来どおり全件を対象にする。
+  // POST=まとめて反映（suggestedSuggestionUpdates を実際の Suggestion へ書き込む）、DELETE=却下。
+  // body で indices を指定すると該当要素のみ、未指定時は全件。
   .post("/:id/suggestion-updates", async (c) => {
     const id = c.req.param("id");
     if (!getRun(id)) return c.json({ error: "not found" }, 404);
@@ -225,10 +219,9 @@ export const agentsRoute = new Hono()
     const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;
     return c.json(resBody);
   })
-  // docs/memo.md「Agentが相談などから他提案などへ記録することができない」「他提案への追記提案で
-  // 追記対象を個別に選択できるようにする」対応。POST=採用（対象提案への追記を確定）、DELETE=却下/
-  // 対応済み。bodyでindicesを指定するとsuggestedSuggestionNotes中の該当要素のみを対象にし、未指定時は
-  // 従来どおり全件を対象にする。いずれも処理した提案はrunから消す。
+  // POST=採用（対象提案への追記を確定）、DELETE=却下/対応済み。
+  // body で indices を指定すると suggestedSuggestionNotes 中の該当要素のみ、未指定時は全件。
+  // いずれも処理した提案は run から消す。
   .post("/:id/suggestion-notes", async (c) => {
     const id = c.req.param("id");
     if (!getRun(id)) return c.json({ error: "not found" }, 404);
@@ -254,10 +247,8 @@ export const agentsRoute = new Hono()
     return c.json(resBody);
   });
 
-// ユーザー要望「一覧の全件取得をページネーション化したい」対応。/agents画面の
-// Inbox一覧（フィルタ＋ページ送り）専用の軽量エンドポイント。Fleet状態・Activity Streamは
-// 引き続き既存の/api/agents（全件取得）を使う——それらは「直近の状態」を横断的に見る
-// 集計用途であり、今回のスコープ外（別タスク）とする。
+// /agents の Inbox 一覧（フィルタ＋ページ送り）専用。Fleet・Activity Stream は
+// 引き続き既存の /api/agents（全件）を使う（横断的な直近状態の集計用途）。
 export const agentsInboxRoute = new Hono().get("/", (c) => {
   const pageSize = Math.min(MAX_PAGE_SIZE, parsePositiveInt(c.req.query("pageSize"), DEFAULT_PAGE_SIZE));
   const page = parsePositiveInt(c.req.query("page"), 1);

@@ -32,12 +32,10 @@ export function StatusBadge({ status, stale }: { status: AgentStatus; stale?: bo
   );
 }
 
-// docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
-// docs/em_ui_ux_issue.md 5節対応。yield中はDecide/Inform/Commitの種別まで見せる
-// （§2.3「Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる」の語彙を揃える）。
-// docs/first_implession/em_ui_wireframe_v5.html の Issue Workspace「Execution State」に対応。
+// yield中はDecide/Inform/Commitの種別まで見せる
+// （Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる語彙に揃える）
 // Context（このrunが何のタスクか）＋ Yieldの選択UI（ラジオ風カード＋共通の確定/壁打ちボタン）＋
-// 通常完了時のProposalを表示する。Action Itemsは呼び出し側（提案がある場合のみ）で追加する。
+// 通常完了時のProposalを表示する。Action Itemsは呼び出し側（提案がある場合のみ）で追加する
 export function ExecutionState({
   run,
   selectedOptionId,
@@ -77,9 +75,8 @@ export function ExecutionState({
   onAdoptSuggestionUpdates?: (indices: number[]) => void;
   onDismissSuggestionUpdates?: (indices: number[]) => void;
   suggestionUpdatesSubmitting?: boolean;
-  // docs/suggestion_organize_via_consult.md。差分のbefore値表示用。呼び出し側
   // （ConsultReviewPanel）が保持済みのSuggestion一覧から作る
-  // （未指定時はbefore値を「不明」として表示するだけで、反映自体には影響しない）。
+  // （未指定時はbefore値を「不明」として表示するだけで、反映自体には影響しない）
   currentSuggestions?: Map<string, Suggestion>;
 }) {
   return (
@@ -168,10 +165,9 @@ export function ExecutionState({
 
 type ChatTurn = { kind: "user" | "ai" | "note"; text: string };
 
-// docs 3.5のExplainability方針（何も隠さない）は保ちつつ、ワイヤーフレームの
-// 「Copilot Workspace」が意図する対話的な見た目に寄せる。タスク受理／EMからの入力は
-// ユーザー発言、agentチャンネルはAIの発言として吹き出し表示し、それ以外の
-// system/metaログ（起動・匿名化・完了通知等）は小さな注記として発言の間に薄く表示する。
+// Explainability方針（何も隠さない）は保ちつつ、対話的な見た目に寄せる。
+// タスク受理／EMからの入力はユーザー発言、agentチャンネルはAIの発言として吹き出し表示し、
+// それ以外のsystem/metaログ（起動・匿名化・完了通知等）は小さな注記として発言の間に薄く表示する。
 // yield/proposal/consultの機械可読ブロックはExecution State側で構造化表示するので、
 // チャット吹き出しでは自然文の説明部分だけを見せて二重表示を避ける。
 function stripStructuredBlocks(text: string): string {
@@ -194,7 +190,6 @@ function buildChatTurns(log: LogLine[]): ChatTurn[] {
   });
 }
 
-// docs/first_implession/em_ui_wireframe_v5.html の「Copilot Workspace (Interactive)」に対応。
 export function CopilotChat({
   run,
   message,

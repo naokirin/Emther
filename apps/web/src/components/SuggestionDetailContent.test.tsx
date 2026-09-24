@@ -12,10 +12,9 @@ vi.mock("../lib/clipboard", () => ({
   copyTextToClipboard: vi.fn(async () => true),
 }));
 
-// web/src/components/SuggestionDetailContent.tsx（Next.js版）には専用テストが元々無かった
-// ため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。確認状態のPATCH（ミューテーション
-// 後の再取得）とメモ追記の主要フローに絞って検証する（画面の他の細部はRunDetail.test.tsx等で
-// 個別に検証済み）。
+// 確認状態のPATCH（ミューテーション後の再取得）とメモ追記の主要フローに絞って検証する
+// （画面の他の細部はRunDetail.test.tsx等で
+// 個別に検証済み）
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

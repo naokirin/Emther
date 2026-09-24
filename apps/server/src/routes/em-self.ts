@@ -16,8 +16,6 @@ import {
 } from "@emther/core/em-self-store";
 import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
 
-// docs/2nd_architecture/plan.md フェーズ2.5:
-// web/src/app/api/em-self/{checkins/route,reflection-notes/route,reflection-notes/[id]/route}.ts の移植。
 export const checkinsRoute = new Hono()
   .get("/", (c) => {
     const body = { checkins: listCheckins().map(toCheckinView) } satisfies EmCheckinsResponse;
@@ -39,8 +37,7 @@ export const checkinsRoute = new Hono()
     }
     const note = typeof body?.note === "string" ? body.note : "";
 
-    // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
-    // createdAtDateは"YYYY-MM-DD"（日付レベルのみ）。省略時は Date.now()。
+    // createdAtDateは"YYYY-MM-DD"（日付レベルのみ）。省略時は Date.now()
     let createdAt: number | undefined;
     if (typeof body?.createdAtDate === "string" && body.createdAtDate) {
       createdAt = dateStringToNoonTimestamp(body.createdAtDate);
@@ -54,9 +51,8 @@ export const checkinsRoute = new Hono()
     return c.json(resBody, 201);
   });
 
-// docs/memo.md「週次振り返りを『思いついたときに書き込み、レポートの週次で振り返る』
-// 仕組みに」対応。1回のPOST＝1件のKeep/Problem/Tryメモ。週単位のグルーピングは
-// growth/page.tsx側で行う（サーバー側は個々のメモを時系列で持つだけ）。
+// 1回のPOST＝1件のKeep/Problem/Tryメモ。週単位のグルーピングは
+// growth/page.tsx側で行う（サーバー側は個々のメモを時系列で持つだけ）
 export const reflectionNotesRoute = new Hono()
   .get("/", (c) => {
     const body = { notes: listReflectionNotes().map(toReflectionNoteView) } satisfies ReflectionNotesResponse;
@@ -73,7 +69,6 @@ export const reflectionNotesRoute = new Hono()
       return c.json({ error: "textは必須です" }, 400);
     }
 
-    // 改修依頼「前日分を入れ忘れたときに入れるなどできるように日付指定」対応。
     let createdAt: number | undefined;
     if (typeof body?.createdAtDate === "string" && body.createdAtDate) {
       createdAt = dateStringToNoonTimestamp(body.createdAtDate);
@@ -86,8 +81,7 @@ export const reflectionNotesRoute = new Hono()
     const resBody = { note: toReflectionNoteView(note) } satisfies ReflectionNoteMutationResponse;
     return c.json(resBody, 201);
   })
-  // ユーザー要望「現在の改善方針が残り続けてコントロールできない」対応。
-  // archived=true で方針パネルから外し、false で戻す（誤操作の取り消し）。
+  // archived=true で方針パネルから外し、false で戻す（誤操作の取り消し）
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);

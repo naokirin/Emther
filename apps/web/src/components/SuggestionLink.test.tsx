@@ -5,8 +5,6 @@ import { MemoryRouter } from "react-router";
 import { SuggestionLink } from "./SuggestionLink";
 import { IdResolveProvider } from "./IdFragmentLink";
 
-// web/src/components/SuggestionLink.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier2、teamsバッチ）。
 describe("SuggestionLink", () => {
   it("通常クリックではpeek.openを呼び、遷移しない", async () => {
     const openSuggestionInPeek = vi.fn();

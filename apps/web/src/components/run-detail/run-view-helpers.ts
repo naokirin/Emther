@@ -6,9 +6,9 @@ import type { YieldKind } from "@emther/core/types";
 // ここに置くことで、run-detail/配下のコンポーネントがRunDetail.tsx（値としての
 // import）に依存する循環参照を避けられる（型のみはimport typeで参照してよい）。
 
-// docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。サーバー側（agent-runtime.ts）は
+// サーバー側（agent-runtime.ts）は
 // 既にkindを正規化して返すが、キャッシュされた古いrunデータ等との保険として同じ
-// フォールバック（options有無からdecide/informへ）をクライアント側にも持たせる。
+// フォールバック（options有無からdecide/informへ）をクライアント側にも持たせる
 export function resolveYieldKind(kind: YieldKind | undefined, optionsLength: number): YieldKind {
   if (kind) return kind;
   return optionsLength === 0 ? "inform" : "decide";

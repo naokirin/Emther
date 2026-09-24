@@ -6,9 +6,6 @@ import { SuggestionLink } from "../SuggestionLink";
 import { api, rpcInit } from "../../lib/api-client";
 import { URGENCY_LABEL, suggestionOverviewFromLogs, type Suggestion, type JournalEntry, type KnowledgeEvent, type Team } from "@emther/core/types";
 
-// web/src/components/teams/TeamEditPanel.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
-// stylesのimportパス・`next/link`→`react-router`の`Link`・`@core/*`のbare specifier化
-// 以外はロジックを変更していない。
 export function TeamEditPanel({
   selectedTeam,
   suggestions,
@@ -119,8 +116,7 @@ export function TeamEditPanel({
     return <p className={styles.emptyState}>左のツリーからチームを選択してください。</p>;
   }
 
-  // docs/memo.md TODO「チームや、メンバーごとの関連する提案および提案ではない特性や問題などについて、
-  // 確認できるようにする」への対応。提案は teamId 明示＋メンバー名の本文一致、
+  // 提案は teamId 明示＋メンバー名の本文一致。
   // Journalは方針A（明示 teamIds またはメンバー一致）で関連付ける。
   const relatedSuggestions = suggestions.filter((suggestion) => {
     if (suggestion.teamId === selectedTeam.id) return true;

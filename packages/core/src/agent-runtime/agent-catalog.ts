@@ -2,25 +2,25 @@ import { EXEC_AGENT_NAME } from "../types";
 
 export { EXEC_AGENT_NAME };
 
-// docs/memo.md「F. Product Agentの追加」対応。Lead Agentの相談先候補にProduct Agentを含める。
+// Lead Agentの相談先候補にProduct Agentを含める。
 // Exec Agentは経営／役員／MVV目線のオプトイン専門レンズ（何でも相談の必須consult先）。
 // チーム先行並列（selectRelatedSpecialists）の既定候補には含めない。
 export const QUADRANT_SPECIALISTS = ["People Agent", "Process Agent", "Tech Agent", "Product Agent"];
 export const SPECIALIST_AGENTS = [...QUADRANT_SPECIALISTS, EXEC_AGENT_NAME];
 
-// docs/agent_specialization.md「3. A. 役割定義」対応。以前は自己紹介1行
+// 以前は自己紹介1行
 // （「あなたは『〇〇 Agent』です」）だけで専門性をモデルの名前推論に委ねていたため、
 // 同じ事実を見ても各エージェントの結論・logicの軸が実質同じになりがちだった。
 // ここでは「専門領域」「主に答える問い」「やらないこと（境界）」を各象限ごとに固定文で
 // 与える。「やらないこと」を必ず書くのは、肯定文の専門領域だけより境界の方が
-// 役割の安定に効くため（同ドキュメント3.1「共通の枠」の考え方）。
+// 役割の安定に効くため。
 export const ROLE_BLOCKS: Record<string, string[]> = {
   "Lead Agent": [
     "【役割】",
     "- 専門領域: 論点の分解、専門エージェントへの振り分け、統合判断、EMへのYield",
     "- 主に答える問い: 「今日EMが決めるべきことは何か／誰の専門見解が必要か」",
-    // docs/3rd_pivot_version/pivot.md。解決策の前に視野拡大と問題設定の問い直し。
-    // docs/ai_ philosophy.md。哲学レンズからLens Selectionする役目はLeadが特に担う。
+    // 解決策の前に視野拡大と問題設定の問い直し。
+    // 哲学レンズからLens Selectionする役目はLeadが特に担う。
     "- 分析手順: Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selection（有効そうなものを判断して選ぶ。個数のノルマは無い）し、それを使ってExpand（別の見方）とChallenge（前提・問題設定への問い）を経る。入力の言い換えや一般論の羅列で終わらせない",
     "- やらないこと: 一象限の深い専門分析を自分だけで完結させること（必要ならconsult）",
     "- 統合時: 専門家の一致点・相違点・採用した軸をlogicに明示する",
@@ -33,7 +33,7 @@ export const ROLE_BLOCKS: Record<string, string[]> = {
     "- 見る: 人物プロファイル、Journalの感情・緊急度、チーム内の関係・負荷の偏り",
     "- やらないこと: 技術選定の本論、ロードマップ優先順位の本論（必要なら境界を示す）",
     "- 提案の翻訳先: 1on1設計、心理的安全性、役割の人側、採用・オンボーディング",
-    // docs/ai_ philosophy.md。効きやすいレンズは出発点の参考であり、他レンズの使用を妨げない。
+    // 効きやすいレンズは出発点の参考であり、他レンズの使用を妨げない。
     "- 効きやすい哲学レンズ（参考。他のレンズを使ってもよい）: Systems Thinking（人と人・チーム間の関係やフィードバックループ）、Design Thinking（誰にとっての問題か）",
   ],
   "Process Agent": [
@@ -75,12 +75,12 @@ export const ROLE_BLOCKS: Record<string, string[]> = {
   ],
 };
 
-// 専門エージェント（Lead以外）共通のテール。docs/agent_specialization.md 3.1
-// 「情報不足時: 推測で埋めずyield（options空可）」対応。各象限固有の「提案の翻訳先」等は
+// 専門エージェント（Lead以外）共通のテール。 3.1
+// 各象限固有の「提案の翻訳先」等は
 // ROLE_BLOCKS側に持たせ、ここでは象限を問わず共通の境界だけを足す。
 export const SPECIALIST_ROLE_TAIL = "- 情報不足時: 推測で埋めず、proposalではなくyieldしてください（optionsは空でも構いません）";
 
-// docs/agent_specialization.md「6. Leadのconsult差分化（振り分け表）」対応。以前は
+// 以前は
 // 「名前列挙＋コスト注意」のみで、Leadがどの論点でどの専門家を呼ぶべきかの
 // ヒューリスティックが無かった。
 export const CONSULT_ROUTING_TABLE = [
@@ -93,7 +93,7 @@ export const CONSULT_ROUTING_TABLE = [
   "  - 複合論点（例: 人×プロセス、技術×優先）は該当する2つまでに絞る（3つ以上は例外的な場合のみ）",
 ];
 
-// docs/agent_specialization.md「7. 介入の型 ↔ エージェント」対応。INTERVENTION_TYPES
+// INTERVENTION_TYPES
 // （EM向けの提案テンプレート、types.ts）を、そのままエージェント振り分けの辞書としても
 // 使う。コード・プロンプト・UIが同じ辞書を共有することで「専門チーム感」を出す狙い。
 export const INTERVENTION_TYPE_AGENTS: Record<string, { primary: string[]; secondary: string[] }> = {

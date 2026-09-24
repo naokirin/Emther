@@ -72,7 +72,7 @@ describe("parseDateMarkerLine", () => {
     expect(parseDateMarkerLine("  今日  ", NOW)).toBe(noonOf(2026, 3, 5));
   });
 
-  // docs/memo.md「書き込んだばかりのJournalが一覧で下に埋もれる」対応。「今日」は
+  // 「今日」は
   // 他の相対日付と違い日またぎの曖昧さが無いため、正午に丸めず実時刻をそのまま使う。
   it("「今日」は正午丸めではなく実時刻(now)をそのまま返す", () => {
     const nowAfternoon = new Date(2026, 2, 5, 15, 30, 0, 0).getTime();
@@ -105,7 +105,6 @@ describe("dateStringToNoonTimestamp", () => {
   });
 });
 
-// docs/memo.md「書き込んだばかりのJournalが一覧で下に埋もれる」対応。
 describe("resolveJournalOccurredAtFromDateInput", () => {
   it("今日の日付を指定した場合は正午に丸めず実時刻(now)を使う", () => {
     const nowAfternoon = new Date(2026, 2, 5, 15, 30, 0, 0).getTime();

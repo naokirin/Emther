@@ -25,10 +25,6 @@ import { toJournalEntryViews } from "@emther/core/journal-store";
 import { maskForStorage } from "@emther/core/people-directory";
 import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ9）:
-// web/src/app/api/journal/dumps/{route,[id]/route,[id]/parse/route,
-// [id]/accept/route,preview/route,profiles/route}.ts の移植。
-
 const DISPOSITIONS: ChunkDisposition[] = ["pending", "accept", "edit", "merge_into", "drop"];
 
 function isDisposition(v: unknown): v is ChunkDisposition {
@@ -36,7 +32,7 @@ function isDisposition(v: unknown): v is ChunkDisposition {
 }
 
 export const journalDumpsRoute = new Hono()
-  // docs/observation_dump_journal.md: Dump 一覧・作成。作成後は既定で分割まで実行する。
+  // Dump 一覧・作成。作成後は既定で分割まで実行する
   .get("/", (c) => {
     const body = { dumps: listObservationDumps().map(toObservationDumpView) } satisfies ObservationDumpsResponse;
     return c.json(body);

@@ -4,8 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { AiToolsSettingsGroup } from "./AiToolsSettingsGroup";
 import { makeRules } from "./test-fixtures";
 
-// web/src/components/settings/AiToolsSettingsGroup.tsx（Next.js版）には専用テストが
-// 元々無かったため新規に追加する（フェーズ3.5 tier2 settingsバッチ）。
 describe("AiToolsSettingsGroup", () => {
   it("除外中のCLIをチェックすると優先順位リストの末尾に追加する", async () => {
     const onChange = vi.fn();

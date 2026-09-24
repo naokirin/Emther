@@ -28,7 +28,7 @@ const MORNING_YIELD_LIMIT = 15;
 const MORNING_ERROR_LIMIT = 10;
 const MORNING_OPEN_SUGGESTION_LIMIT = 15;
 
-// 朝サマリーの材料は run.task に載せない（巨大 task で相談履歴が壊れる・U13 と同型）。
+// 朝サマリーの材料は run.task に載せない（巨大 task で相談履歴が壊れる）。
 // origin=auto-summary のときシステムプロンプトへ動的注入する。再開（decideRun）でも
 // origin 判定だけで再注入するため、「続けて」だけでは材料が消えない。
 export function buildMorningSummaryContextBlock(): string {
@@ -138,11 +138,10 @@ export function buildMorningSummaryContextBlock(): string {
   );
 }
 
-// ユーザー要望「提案はJournal1回ごとに毎回検討するのではなく、一定期間分をまとめて
-// 解釈する」対応。個別1件ずつの反応（旧auto-anomalyの即時トリガー）ではなく、
-// 前回カバー以降（最大7日）のJournalをまとめて読み、単発では見えない繰り返しや複数
-// エントリにまたがるパターンを優先して拾わせる。origin=auto-journal-batchのとき
-// システムプロンプトへ動的注入する（材料はrun.taskに載せない。理由はbuildDistillationContextBlockと同じ）。
+// 個別1件ずつの反応（旧auto-anomalyの即時トリガー）ではなく、前回カバー以降（最大7日）の
+// Journalをまとめて読み、単発では見えない繰り返しや複数エントリにまたがるパターンを優先して
+// 拾わせる。origin=auto-journal-batchのときシステムプロンプトへ動的注入する
+// （材料はrun.taskに載せない。理由はbuildDistillationContextBlockと同じ）。
 export function buildJournalBatchContextBlock(): string {
   const journals = listJournalEntries()
     .filter((e) => isJournalInBatchWindow(e.createdAt))
@@ -159,7 +158,6 @@ export function buildJournalBatchContextBlock(): string {
   return maskNames(
     [
       "Journal集約解釈の材料（このタスク専用。1件ごとに個別反応するのではなく、直近のJournalをまとめて読み、単発では見えない繰り返しや複数エントリにまたがるパターンから見える問題を優先すること）:",
-      // docs/3rd_pivot_version/pivot.md, docs/ai_ philosophy.md
       "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別解釈・別仮説・不足情報・別問題設定）と Challenge（前提・本当に解くべき問題か）を経ること。入力の言い換えや一般論の羅列で終わらせないこと。",
       "個別の一時的な感情の吐露など、単体でもまとめても追跡不要なものは無理に提案化しないこと。既に把握済みで動きのある提案と重複する内容は、新規提案化ではなく監視継続（recommendation: watch）にとどめること（既存の提案は他の注入材料で確認できます）。",
       "直近約7日の朝サマリー／集約解釈と同趣旨の結論を、新しいJournalシグナルが無い限り再掲しないこと（抑制はローリング。曜日固定にしない。気づきは週次レビュー側）。",
@@ -176,8 +174,8 @@ export function buildJournalBatchContextBlock(): string {
 const DISTILL_JOURNAL_LIMIT = 25;
 const DISTILL_SUGGESTION_LIMIT = 20;
 
-// docs/knowledge_distillation.md。蒸留の材料は run.task に載せない（巨大な task だと
-// /api/agents 全件取得が重くなり、相談タブの履歴に載らない／開けない不具合の原因になる）。
+// 蒸留の材料は run.task に載せない（巨大な task だと
+// api/agents 全件取得が重くなり、相談タブの履歴に載らない／開けない不具合の原因になる）。
 // origin=auto-distill のときシステムプロンプトへ動的注入する。
 export function buildDistillationContextBlock(): string {
   const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -238,12 +236,11 @@ const GROW_NOTE_LIMIT = 10;
 const GROW_INTERPRETATION_LIMIT = 15;
 const GROW_DECISION_LOG_LIMIT = 10;
 
-// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
-// 学びの提示）の材料。自己申告（チェックイン・KPTメモ）だけでは本人が既に関心を持つ点の
+// Grow（EM自身の学びの提示）の材料。自己申告（チェックイン・KPTメモ）だけでは本人が既に関心を持つ点の
 // 増幅にとどまるため、組織側の観測・解釈（長期解釈イベント・相談での判断ログ）も横断し、
 // EM自身では気づきにくい繰り返しのパターンや盲点を示せるようにする。
 // 材料の現場がエンジニア組織でも、学び候補を開発実務に閉じ込めず、経営・マネジメント等の
-// 隣接分野も含めて「EMとして視点を拡げる」ための判断材料にする（ユーザー要望 2026-09-17）。
+// 隣接分野も含めて「EMとして視点を拡げる」ための判断材料にする。
 // origin=auto-growのときシステムプロンプトへ動的注入する。
 export function buildGrowContextBlock(): string {
   const checkins = listCheckins().slice(0, GROW_CHECKIN_LIMIT);
@@ -282,7 +279,7 @@ export function buildGrowContextBlock(): string {
       "これは評価ではなく判断材料の提示です。「これを学ぶべき」という断定ではなく、「こういう学びが参考になりそうです」「〇〇を調べてみるのはどうでしょうか」という形で示してください。",
       "自己申告（チェックイン・KPTメモ）だけで導ける範囲に留めず、組織側の観測・解釈と突き合わせて初めて見える点を優先してください。材料が乏しい場合は無理に3件出さず、1件でも構いません。",
       "材料の現場がエンジニアリング組織であっても、学びの候補をエンジニアリング実務・開発プロセスの枠に閉じ込めないでください。同じパターンに対し、経営・事業・組織設計・マネジメント・リーダーシップ・コーチング・心理・他業種のマネジメントなど隣接分野からの類推も含め、EMとして視点を拡げる材料にしてください。複数件出す場合は、少なくとも1件はエンジニアリング実務以外の分野からの視点を含めてください。",
-      // 手法名は「学び・試行の候補」として状況マッチ時のみ。処方にしない（philosophy.md）。
+      // 手法名は「学び・試行の候補」として状況マッチ時のみ。処方にしない。
       ...METHODOLOGY_CANDIDATE_GUIDANCE,
       "手法を学び候補に含める場合は、title/rationaleで『何を学ぶ／調べるか』と『なぜ今の観測パターンに触れるか』を結び、references にその手法・原典・解説を載せてよい。",
       "参考として挙げる学びのトピックについて、実務書・解説記事等の二次資料は日本語のものを優先してください。理論の提唱者による原著・原典（一次資料）については、英語であっても構わず優先的に触れてください。書籍の正式なタイトルや出版社名などの正確性を保証できない場合は、トピック名・著者名・理論名の範囲に留め、正確なタイトルの特定はEM自身の検索に委ねてください。",
@@ -335,7 +332,7 @@ function formatStatsSummary(stats: ReportStats): string {
   ].join(" / ");
 }
 
-// docs/new_reporting.md。週次・月次レビューの材料。buildDistillationContextBlock/
+// 週次・月次レビューの材料。buildDistillationContextBlock/
 // buildGrowContextBlockと同じく、材料はrun.taskではなくシステムプロンプトへ動的注入する
 // （origin=auto-weekly-report/auto-monthly-reportのときだけbuildSystemPromptから呼ばれる）。
 // runのsourceReportIdから対象reports行を取得し、起動時刻からの再計算ではなく生成時点の
@@ -403,7 +400,6 @@ export function buildPeriodReviewContextBlock(run: AgentRun): string {
   const themeLines =
     adopted.length > 0 ? adopted.map((t) => `- ${t.title}: ${t.summary.slice(0, 120)}`) : ["- （採用済みテーマなし）"];
 
-  // docs/new_reporting.md 8節「Weekly Review → 来週の問い → 翌週のJournal → 次回Weekly Review」の
   // ループ。前回の同originレビューが持ち越したnextQuestionsを、今回の材料として注入する。
   const previousReview = [...runs.values()]
     .filter((r) => r.origin === run.origin && r.id !== run.id && r.periodReview)

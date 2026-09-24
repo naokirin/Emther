@@ -22,8 +22,8 @@ type Props = {
 type Panel = "menu" | "columns";
 
 /**
- * docs/design/suggestion/suggestion-tab.pen エクスポート改善。
- * 常時面はミュートな「エクスポート」のみ。形式・列設定はポップオーバー内へ段階開示。
+ * エクスポート改善
+ * 常時面はミュートな「エクスポート」のみ。形式・列設定はポップオーバー内へ段階開示
  */
 export function SuggestionExportMenu({
   selectedCount,

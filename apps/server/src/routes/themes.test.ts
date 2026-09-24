@@ -121,7 +121,7 @@ describe("PATCH /api/themes/:id", () => {
     expect((await res.json()).theme.title).toBe("改訂タイトル");
   });
 
-  // docs/goal_policy_model_plan.md Decision 1。
+  // Decision 1
   it("goalIdsを渡すとlinkとして扱い、nullで解除できる", async () => {
     const orgStore = await import("@emther/core/org-context-store/index");
     const goal = await orgStore.addGoal({ title: "信頼性を高める" });
@@ -144,7 +144,6 @@ describe("PATCH /api/themes/:id", () => {
   });
 });
 
-// docs/goal_policy_model_plan.md Decision 3 / Phase 3。
 describe("POST /api/themes/from-goal", () => {
   it("Goalが無ければ400", async () => {
     const { themesRoute } = await import("./themes");

@@ -8,10 +8,9 @@ const ASSESSMENT_META: Record<PeriodReview["comparisons"][number]["assessment"],
   uncertain: { icon: "❔", label: "判断が難しい" },
 };
 
-// docs/new_reporting.md。週次・月次レビューの構造化出力の表示。事実（observations）・
-// 解釈（interpretation）・Before/After・見落としの問い・学び・次期間への問いを、
+// 解釈（interpretation）・Before/After・見落としの問い・学び・次期間への問いを
 // ProposalBlockと同じ「事実／解釈を区別して見せる」方針で並べる。呼び出し側
-// （ExecutionState）が外側のdivを持つため、ここでもFragmentのみ返す。
+// （ExecutionState）が外側のdivを持つため、ここでもFragmentのみ返す
 export function PeriodReviewBlock({ review }: { review: PeriodReview }) {
   return (
     <>

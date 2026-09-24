@@ -13,8 +13,8 @@ import { api, rpcInit } from "../../lib/api-client";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
 import type { ReflectionNoteMutationResponse } from "@emther/api-contract";
 
-// 振り返りタブ改善案: 旧「EMの成長」のうち週次（学び・方針・KPT）だけを残す。
-// 自己チェックインは /checkin へ分離。URL /growth と /api/growth/* は維持する。
+// 週次（学び・方針・KPT）専用画面。自己チェックインは /checkin へ分離。
+// URL /growth と /api/growth/* は維持する。
 const WEEK_GROUP_PAGE_SIZE = 4;
 const DAY_MS = 24 * 60 * 60 * 1000;
 

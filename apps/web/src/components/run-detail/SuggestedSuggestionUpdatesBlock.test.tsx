@@ -6,9 +6,7 @@ import { SuggestedSuggestionUpdatesBlock } from "./SuggestedSuggestionUpdatesBlo
 import type { SuggestionUpdate } from "@emther/core/agent-runtime";
 import type { Suggestion } from "@emther/core/types";
 
-// web/src/components/run-detail/SuggestedSuggestionUpdatesBlock.tsx（Next.js版）には専用
-// テストが元々無かったため新規に追加する（フェーズ3.5 tier4 suggestionsバッチ）。
-// 差分表示（前後比較）とチェックボックスの選択反映を検証する。
+// 差分表示（前後比較）とチェックボックスの選択反映を検証する
 const UPDATES: SuggestionUpdate[] = [
   { suggestionId: "a1b2c3d4e5f6", reviewStatus: "done", reason: "対応済みのため" },
 ];

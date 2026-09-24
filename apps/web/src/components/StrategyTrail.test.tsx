@@ -4,9 +4,7 @@ import { MemoryRouter } from "react-router";
 import { StrategyTrail } from "./StrategyTrail";
 import type { StrategyTrailNode } from "@emther/core/strategy-trail";
 
-// web/src/components/StrategyTrail.test.tsx（Next.js版）からの移植（フェーズ3.5 tier4
-// journalバッチ）。`next/link`→`react-router`の`Link`に伴いMemoryRouterで包む以外は
-// 検証内容を変更していない。
+// MemoryRouter で Link を検証する
 const nodes: StrategyTrailNode[] = [
   { kind: "suggestion", id: "suggestion-1", label: "Bチーム1on1不足" },
   { kind: "journal", id: "journal-1", label: "このJournal" },

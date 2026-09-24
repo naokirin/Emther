@@ -21,10 +21,10 @@ function formatDueAt(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP");
 }
 
-// docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。差分一覧
+// 差分一覧
 // （ID・変更前後・理由）をEMが一度見て「まとめて反映」できるようにする。currentは
 // 取得できなかった場合（未読み込み・ID解決不能）は「不明」と表示するだけで、反映自体は
-// APIサイドの再解決に委ねる（表示上の不一致で採用をブロックしない）。
+// APIサイドの再解決に委ねる（表示上の不一致で採用をブロックしない）
 function fieldDiffsFor(update: SuggestionUpdate, current: Suggestion | undefined): FieldDiff[] {
   const diffs: FieldDiff[] = [];
   if (update.reviewStatus !== undefined) {

@@ -4,7 +4,7 @@ import { buildWeeklyJournalToneTrend, type WeeklyJournalTonePoint } from "./dail
 import type { NextAction } from "./dashboard-next-actions";
 import type { SituationItem } from "./daily-situation";
 
-// docs/design/dashboard/today-tab.pen 改善案A対応。「いまの状態」メーターと健全度内訳、
+// 「いまの状態」メーターと健全度内訳、
 // 4週トーン比較を既存の Journal / Vitals / People / NextActions から組み立てる。
 
 const STATUS_WEIGHT: Record<VitalStatus, number | null> = {

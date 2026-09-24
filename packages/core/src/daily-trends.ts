@@ -1,5 +1,4 @@
-// 改修依頼「ふりかえりタブで日毎の変化をグラフで見たい」「先週・先月など時間を自由に
-// 移動したい」対応。EM自身のバイタル（チェックイン）と、Journal/提案の日毎の件数を、
+// ふりかえりタブ用。EM自身のバイタル（チェックイン）と、Journal/提案の日毎の件数を、
 // 既存の生データ（useEmCheckins / useJournal / useSuggestions が返す全件リスト）から
 // 週／月カレンダーに揃えた期間で集計するだけの純粋関数群。新しい永続化エンティティは
 // 持たず、既存データを画面側で読みやすい形に畳むだけ（groupNotesByWeekと同じ考え方）。
@@ -123,8 +122,7 @@ export type JournalSuggestionDailyPoint = {
 
 // Journalはsentiment別の件数、提案は起票日ベースの件数を日毎に積む。
 // 「ネガティブ・ポジティブが多い/少ない」はJournal側、「業務状況」の量感は提案側で見る。
-// docs/2nd_pivot_version.md Phase 5対応。issueDone（doneAtベースの日次解決件数）は、
-// Phase 2.4でstatus編集UI自体が廃止されdoneAtが書き込めなくなったため削除した。
+// issueDone（doneAtベースの日次解決件数）は、status編集UI廃止でdoneAtが書き込めなくなったため削除した。
 export function buildJournalSuggestionDailyTrend(
   journalEntries: JournalEntry[],
   suggestions: Suggestion[],
@@ -172,7 +170,7 @@ export type WeeklyJournalTonePoint = {
 
 const WEEKLY_TONE_LABELS = ["3週前", "前々週", "前週", "今週"] as const;
 
-// docs/design/dashboard/today-tab.pen 改善案A対応。今日タブ「過去との比較」用に、
+// 今日タブ「過去との比較」用に、
 // 直近4週のJournal感情トーン件数を週単位で積む（さっと見る用途の狭い棒グラフ向け）。
 export function buildWeeklyJournalToneTrend(
   journalEntries: JournalEntry[],

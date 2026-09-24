@@ -2,12 +2,8 @@ import { Hono } from "hono";
 import type { DataMutationResponse } from "@emther/api-contract";
 import { resetAllState, scheduleProcessExit } from "@emther/core/state-archive";
 
-// docs/2nd_architecture/plan.md フェーズ4.3a: web/src/app/api/settings/data/reset/route.ts
-// から移植。フェーズ2〜3の並走期間は scheduleProcessExit()（呼び出し元プロセスの
-// process.exit）が「Honoプロセスだけを落とし、Next側はプロキシ先が死んだ壊れた
-// 状態のまま残る」ためあえて未移植だった（dev-hybrid-rules.md 5節参照）。
-// フェーズ4.3で単一プロセス配信に切り替わったため、プロセス終了＝アプリ全体の
-// 終了となり問題が解消したので移植する。
+// 単一プロセス配信では scheduleProcessExit()（process.exit）がアプリ全体終了になるため問題ない。
+// （並走時代は Hono だけ落ちてプロキシ先が壊れるため未導入だった。）
 export const settingsDataResetRoute = new Hono().post("/", async (c) => {
   try {
     const body = await c.req.json().catch(() => null);

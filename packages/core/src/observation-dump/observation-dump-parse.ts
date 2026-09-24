@@ -5,7 +5,6 @@ import { maskNames, unmaskNames } from "../people-directory";
 import { normalizeObservationInput } from "./observation-dump-normalize";
 import type { ChunkDraft, ObservationSourceType } from "./observation-dump-store";
 
-// docs/observation_dump_journal.md §6: マスク済み本文のみを外部AIへ渡し、原文抜粋チャンクを提案する。
 
 export const MAX_OBSERVATION_CHUNKS = 30;
 /** クラウドへ一度に渡す文字数目安（超えたらヒューリスティック分割後に先頭から） */

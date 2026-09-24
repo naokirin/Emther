@@ -10,7 +10,6 @@ type Props = {
   promotedRunIds: Set<string>;
   chatHistoryLoaded: boolean;
   pinError: string | null;
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
   showArchivedConsults: boolean;
   onChangeShowArchivedConsults: (value: boolean) => void;
   archivedConsultCount: number;

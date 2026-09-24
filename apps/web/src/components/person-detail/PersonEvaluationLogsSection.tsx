@@ -63,9 +63,8 @@ export function PersonEvaluationLogsSection({
     }
   }
 
-  // ユーザー指摘「懸念(polarity: concern)を確認したが対応不要だった、を示せず強調を
-  // 減らせない」対応。statusの確定/破棄とは独立に、赤い「乖離・懸念」の強調だけを
-  // 弱める・戻すトグル。AIが当初検出したpolarity自体は書き換えない（監査性のため）。
+  // statusの確定/破棄とは独立に、赤い「乖離・懸念」の強調だけを
+  // 弱める・戻すトグル。AIが当初検出したpolarity自体は書き換えない（監査性のため）
   async function handleEvalNoActionNeeded(logId: string, noActionNeeded: boolean) {
     setEvalBusyId(logId);
     setEvalError(null);

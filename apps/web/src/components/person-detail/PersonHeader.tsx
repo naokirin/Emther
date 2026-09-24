@@ -24,9 +24,9 @@ export function PersonHeader({
   const [selfSaving, setSelfSaving] = useState(false);
   const [selfError, setSelfError] = useState<string | null>(null);
 
-  // docs/em_human_story_and_ux.md P2-12対応。ローカルNERが自由記述中の一般語や
+  // ローカルNERが自由記述中の一般語や
   // チーム名を人物として誤登録した場合の削除導線（フィルタでは防ぎきれない誤登録の
-  // 「最後の安全弁」）。
+  // 「最後の安全弁」）
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -78,8 +78,7 @@ export function PersonHeader({
     }
   }
 
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
-  // 既存人物を settings.selfPersonId に紐付ける／解除する。
+  // 既存人物を settings.selfPersonId に紐付ける／解除する
   async function handleToggleSelf() {
     setSelfSaving(true);
     setSelfError(null);

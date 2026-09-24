@@ -1,5 +1,4 @@
 // クライアント／サーバー共用の Observation Dump 型（Node API に依存しない）。
-// docs/observation_dump_journal.md
 
 export type ObservationSourceType = "chat_log" | "meeting_log" | "other_log";
 

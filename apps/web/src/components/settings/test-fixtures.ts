@@ -1,7 +1,7 @@
 import type { RulesAndConstraints } from "@emther/core/types";
 
-// settings/*SettingsGroup.test.tsx で共有するdraftのひな形（フェーズ3.5 tier2
-// settingsバッチ）。apps/web/src/lib/queries.ts の SETTINGS_RULES_FALLBACK と同じ値。
+// settings/*SettingsGroup.test.tsx で共有するdraftのひな形。
+// apps/web/src/lib/queries.ts の SETTINGS_RULES_FALLBACK と同じ値
 export function makeRules(overrides: Partial<RulesAndConstraints> = {}): RulesAndConstraints {
   return {
     teamWindowDays: 14,

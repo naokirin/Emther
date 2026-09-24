@@ -46,10 +46,6 @@ import { countPendingForNextJournalBatch } from "@emther/core/agent-runtime/jour
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { jsonFromUnknownError, maskOptionsFromBody, maskOptionsFromBodyStrict } from "../lib/name-candidate-response";
 
-// docs/2nd_architecture/plan.md フェーズ2.5:
-// web/src/app/api/journal/{route,[id]/route,[id]/archive/route,
-// [id]/no-action-needed/route,bulk/route,search/route,[id]/analyze/route,
-// batch/route}.ts の移植。
 // 入力スキーマは @emther/api-contract（寛容パース。.catch で不正型→未指定）。
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -78,7 +74,6 @@ export const journalRoute = new Hono()
       return c.json({ error: "textは必須です" }, 400);
     }
 
-    // docs/em_human_story_and_ux.md 改修依頼「通常投入でも日付レベルの訂正を検討」対応。
     // occurredAtDateは"YYYY-MM-DD"（日付レベルのみ・時刻は求めない）。省略時はこれまで通り
     // Date.now()（＝今日）を使う。
     let occurredAt: number | undefined;
@@ -112,7 +107,6 @@ export const journalRoute = new Hono()
         occurredAt !== undefined
           ? await addJournalEntryWithProfileCandidate(text, occurredAt, opts)
           : await addJournalEntryWithProfileCandidate(text, Date.now(), opts);
-      // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
       // profileCandidateは投稿直後だけの一度きりのヒント（永続化しない）。
       const resBody = {
         entry: toJournalEntryView(entry, new Map()),
@@ -124,8 +118,7 @@ export const journalRoute = new Hono()
       return jsonFromUnknownError(err);
     }
   })
-  // docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。EMが忙しくて
-  // 後からまとめて書く場合に、1件ずつSubmitさせる負担を無くすための専用エンドポイント。
+  // まとめて記録する専用エンドポイント（1件ずつ Submit する負担を減らす）。
   .post("/bulk", async (c) => {
     const body = await c.req.json().catch(() => null);
     const text = journalBulkBodySchema.parse(body).text?.trim() ?? "";
@@ -148,10 +141,8 @@ export const journalRoute = new Hono()
       return jsonFromUnknownError(err);
     }
   })
-  // ユーザー要望「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
-  // 専用のエンドポイント。既存の/api/journal（全件取得）はDashboard・Organization Context画面
-  // （直近5件表示・チームVitalsの集計）が引き続き使うため変更しない——今回のスコープは
-  // 一覧・検索画面のページ送りのみ。
+  // /journal（一覧・検索）専用のページネーション。既存の /api/journal（全件）は
+  // Dashboard・Organization Context（直近5件・チームVitals集計）が使うため変更しない。
   .get("/search", async (c) => {
     const pageSize = Math.min(MAX_PAGE_SIZE, parsePositiveInt(c.req.query("pageSize"), DEFAULT_PAGE_SIZE));
 
@@ -175,9 +166,8 @@ export const journalRoute = new Hono()
       if (Number.isFinite(days) && days > 0) filter.sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
     }
 
-    // ユーザー指摘「Dashboardから特定のJournalエントリへ直接飛ぶ深いリンクを、ページネーション後も
-    // 保ちたい」対応。focusIdが指定されていれば、そのエントリが載っているページをサーバー側で
-    // 求め、pageクエリより優先する（見つからなければ通常通りpageクエリに従う）。
+    // focusId 指定時は、そのエントリが載っているページをサーバー側で求め page クエリより優先する
+    // （見つからなければ通常通り page クエリに従う）。深いリンクをページネーション後も保つため。
     const focusId = c.req.query("focusId");
     let page = parsePositiveInt(c.req.query("page"), 1);
     if (focusId) {
@@ -196,9 +186,8 @@ export const journalRoute = new Hono()
     } satisfies JournalSearchResponse;
     return c.json(body);
   })
-  // ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」
-  // 対応。/api/themes/distillと同型のオンデマンド起動。
-  // GET は docs/design/journal/journal-tab.pen 改善案A「未解釈があるときだけストリップ表示」用。
+  // 集約解釈のオンデマンド起動（/api/themes/distill と同型）。
+  // GET は未解釈があるときだけストリップ表示するための件数。
   // /:id より前に置く（"batch" が id として解釈されないようにする）。
   .get("/batch", (c) => {
     const pendingCount = countPendingForNextJournalBatch(listJournalEntries());
@@ -252,16 +241,14 @@ export const journalRoute = new Hono()
     } satisfies JournalEntryResponse;
     return c.json(body);
   })
-  // docs/memo.md「C. Journalセンシング→行動」対応。AI抽出（tags/people/urgency）を
-  // EMがその場で校正するためのエンドポイント。内部的には新しいイベントをsupersedesで
-  // 繋いで記録するだけで、元のジャーナルは削除・上書きしない。
+  // AI抽出（tags/people/urgency）をEMがその場で校正する。内部的には supersedes で
+  // 新しいイベントを繋ぐだけで、元のジャーナルは削除・上書きしない。
   .patch("/:id", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);
     const parsed = journalPatchBodySchema.parse(body);
 
-    // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
-    // 訂正を扱えるように」対応。occurredAtDateは"YYYY-MM-DD"（日付レベルのみ）。
+    // occurredAtDateは"YYYY-MM-DD"（日付レベルのみ）。
     let occurredAt: number | undefined;
     if (parsed.occurredAtDate) {
       occurredAt = resolveJournalOccurredAtFromDateInput(parsed.occurredAtDate, Date.now());
@@ -270,18 +257,15 @@ export const journalRoute = new Hono()
       }
     }
 
-    // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
     // 記録時の言い間違い等の訂正用。空文字での更新はPOST同様に拒否する。
     if (parsed.rawText !== undefined && !parsed.rawText.trim()) {
       return c.json({ error: "rawTextは空にできません" }, 400);
     }
 
-    // docs/em_human_story_and_ux.md 改修依頼「Journalをurgency:highのまま解決済みにできない」
-    // 対応。未指定（キー自体が無い）=変更しない、null=解除、文字列=設定、の3値。
-    // docs/2nd_pivot_version.md Phase 3対応。既存提案への手動紐付けUIは廃止し、現在この経路を
-    // 呼ぶのは「提案を起票してこの件を追跡する」（作成直後の提案への自動紐付け、常にsuggestion.id
-    // 自体を渡すため完全一致でヒットする）のみ。プレフィックス解決は他のID参照
-    // （/go/<fragment>等）と共通の汎用ロジックのため、そのまま残している。
+    // resolvedSuggestionId: 未指定（キー無し）=変更しない、null=解除、文字列=設定。
+    // 現状この経路を呼ぶのは「提案を起票してこの件を追跡する」（作成直後の提案への自動紐付け、
+    // 常に suggestion.id 自体を渡すため完全一致でヒット）のみ。プレフィックス解決は
+    // /go/<fragment> 等と共通の汎用ロジックのため残している。
     let resolvedSuggestionId: string | null | undefined;
     if (parsed.resolvedSuggestionId === undefined) {
       resolvedSuggestionId = undefined;
@@ -331,9 +315,7 @@ export const journalRoute = new Hono()
       return jsonFromUnknownError(err);
     }
   })
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
-  // Journalを、内容の訂正（PATCH・supersedesチェーン）とは別に、一覧・AIの判断材料から
-  // 除外する専用エンドポイント（no-action-neededと同じ思想のin-place更新）。
+  // 重複・誤入力等を一覧・AIの判断材料から除外する（PATCH/supersedes とは別の in-place 更新）。
   .post("/:id/archive", async (c) => {
     const id = c.req.param("id");
     const entry = archiveJournalEntry(id);
@@ -363,10 +345,8 @@ export const journalRoute = new Hono()
     const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
     return c.json(resBody);
   })
-  // ユーザー指摘「確認したが対応不要だった、をEM側から示せない・UI上の強調を減らせない」対応。
-  // sentimentの値そのものは書き換えず、「EMが確認し対応不要と判断した」という事実だけを
-  // 別途記録する。内容の訂正ではないため、通常のPATCH（supersedesチェーン）とは別の
-  // 専用エンドポイントにし、in-placeで更新する。
+  // sentiment は書き換えず、「EMが確認し対応不要と判断した」事実だけを別途記録する。
+  // 内容の訂正ではないため PATCH（supersedes）とは別の専用エンドポイントで in-place 更新。
   .post("/:id/no-action-needed", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => ({}));
@@ -387,7 +367,7 @@ export const journalRoute = new Hono()
     const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
     return c.json(resBody);
   })
-  // docs/usage_issues U16。EMが明示した手動分析。投稿時・自動フィルタとは独立に起動する。
+  // EMが明示した手動分析。投稿時・自動フィルタとは独立に起動する。
   .post("/:id/analyze", async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => null);

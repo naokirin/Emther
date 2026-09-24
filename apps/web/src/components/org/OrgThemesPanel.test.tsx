@@ -5,10 +5,7 @@ import { MemoryRouter } from "react-router";
 import { OrgThemesPanel } from "./OrgThemesPanel";
 import type { OrgTheme } from "@emther/core/types";
 
-// web/src/components/org/OrgThemesPanel.test.tsx（Next.js版）からの移植（フェーズ3.5
-// tier3、orgバッチ）。next/link→react-routerのLinkに伴いMemoryRouterで包む必要がある点、
-// および元のフィクスチャがOrgTheme型に存在しないフィールド（priority/sourceIssueIds。
-// web側の既存5件の型エラーの1つ）を使っていた点を修正した以外は検証内容を変更していない。
+// OrgTheme フィクスチャ＋ MemoryRouter で描画を検証する
 function makeTheme(overrides: Partial<OrgTheme> & Pick<OrgTheme, "id" | "title" | "status">): OrgTheme {
   return {
     summary: "",

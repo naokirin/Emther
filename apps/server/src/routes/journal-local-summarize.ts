@@ -7,7 +7,6 @@ import {
   type ReflectionTurn,
 } from "@emther/core/local-summarizer";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ7）: web/src/app/api/journal/local-summarize/route.ts の移植。
 export const journalLocalSummarizeRoute = new Hono().post("/", async (c) => {
   const body = await c.req.json().catch(() => null);
   const mode = body?.mode ?? "log";

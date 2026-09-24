@@ -34,20 +34,15 @@ import { settingsDataRestoreRoute } from "./routes/settings-data-restore";
 import { journalDumpsRoute } from "./routes/journal-dumps";
 import { suggestionsLinkSuggestRoute } from "./routes/suggestions-link-suggest";
 
-// docs/2nd_architecture/plan.md フェーズ2: apps/server 骨組み。
-// ルート追加のたびに、対応する web/src/app/api/**/route.ts を
-// web/src/lib/hono-proxy.ts 経由のフォワードへ置き換える（並走運用）。
-// docs/2nd_architecture/plan.md フェーズ4.3: clientDir を渡すと `dist/client`
-// の静的配信 + SPA フォールバックを同一プロセスで有効化する（省略時は API のみ。
-// テスト・dev（vite dev が別プロセスで配信）はこれまで通り省略で動く）。
-//
 // API ルートはチェーンで組み立て、Hono RPC（hc<AppType>）用の AppType を export する。
+// clientDir を渡すと dist/client の静的配信 + SPA フォールバックを同一プロセスで有効化する
+// （省略時は API のみ。テスト・dev（vite が別プロセス）は省略で動く）。
+//
 // 注意: Honoは別々にmountされたサブアプリ同士でパスが重なる場合、静的パスを
 // 優先せず「先にmountされた方」が勝つ（単一Honoインスタンス内でのstatic-vs-:id
 // 優先とは挙動が異なる）。そのため、あるprefix配下のサブパスを別ファイルへ切り出す
 // ときは、親（:idワイルドカードを持つ）より必ず先にmountすること
-// （実例: /api/journal/dumps が /api/journal の GET /:id に飲まれていた不具合。
-// docs/2nd_architecture/plan.md フェーズ2.5 高リスク バッチ9参照）。
+// （実例: /api/journal/dumps が /api/journal の GET /:id に飲まれていた不具合）。
 function createApiApp() {
   return new Hono()
     .route("/api/health", healthRoute)
@@ -83,8 +78,7 @@ function createApiApp() {
     .route("/api/mask-check", maskCheckRoute)
     .route("/api/knowledge/interpretations", knowledgeInterpretationsRoute)
     .route("/api/settings/data/backup", settingsDataBackupRoute)
-    // docs/2nd_architecture/plan.md フェーズ4.3a: 単一プロセス配信化により
-    // scheduleProcessExit()（process.exit）を呼んでも問題ないため移植。
+    // scheduleProcessExit()（process.exit）を呼んでも問題ない単一プロセス配信向け。
     .route("/api/settings/data/reset", settingsDataResetRoute)
     .route("/api/settings/data/restore", settingsDataRestoreRoute);
 }
@@ -94,8 +88,7 @@ export type AppType = ReturnType<typeof createApiApp>;
 
 export function createApp(options?: { clientDir?: string }) {
   const app = createApiApp();
-  // docs/2nd_architecture/plan.md フェーズ2.7: 各ルートのtry/catchから漏れた例外の
-  // 最終防波堤。プロセスを落とさず500 JSONで返す。
+  // 各ルートの try/catch から漏れた例外の最終防波堤。プロセスを落とさず 500 JSON で返す。
   app.onError(honoErrorHandler);
   if (options?.clientDir) {
     mountStaticClient(app, options.clientDir);

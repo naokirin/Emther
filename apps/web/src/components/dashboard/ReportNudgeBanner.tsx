@@ -11,7 +11,7 @@ type Props = {
   onOpenReport: (runId: string) => void;
 };
 
-// docs/design/dashboard/today-tab.pen 改善案B対応。週次・月次レポートの弱い案内帯。
+// 週次・月次レポートの弱い案内帯
 export function ReportNudgeBanner({ primary, secondary, onOpenReport }: Props) {
   const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(() => new Set());
 

@@ -40,15 +40,15 @@ afterEach(() => {
   teardownIsolatedStoreEnv(dir);
 });
 
-// route.ts単位のテストは各routes/*.tsのHonoインスタンスを直接requestするため、
+// route.ts単位のテストは各routes/*.tsのHonoインスタンスを直接requestするため
 // app.ts側のapp.route()マウント順に起因する衝突（静的パスが親の:idワイルドカードに
 // 飲まれる等）を検出できない。実際に2026-09-19にGET /api/journal/dumpsが
 // /api/journal の GET /:id（journalRoute）に飲まれる不具合が3バッチ気づかれずに
-// 残っていた（docs/2nd_architecture/plan.md フェーズ2.5 高リスク バッチ9参照）。
-// このテストは合成済みの`app`（createApp()の実際の出力）に対してリクエストし、
+// 残っていた
+// このテストは合成済みの`app`（createApp()の実際の出力）に対してリクエストし
 // 「親prefixの:idワイルドカードを持つルートの配下に、別ファイルで切り出した
 // 静的サブパスが存在する」組み合わせを横断的に確認する。新しいルートを追加した
-// ときは、該当するprefixの組み合わせをここに追記すること。
+// ときは、該当するprefixの組み合わせをここに追記すること
 describe("createApp() のマウント順（静的サブパス vs 親の:idワイルドカード）", () => {
   it("GET /api/journal/dumps は journalDumpsRoute のGET /に届く（journalRouteのGET /:idに飲まれない）", async () => {
     const { app } = await import("./app");

@@ -8,10 +8,9 @@ import { useTimeline } from "../../lib/queries";
 import { SuggestionDetailContent } from "../../components/SuggestionDetailContent";
 import { TIMELINE_ENTITY_TYPE_LABEL, type TimelineEntry } from "@emther/core/types";
 
-// web/src/app/timeline/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2、tier4で
-// SuggestionDetailContentへ差し替え済み）。react-routerのusePeekParam
+// react-routerのusePeekParam
 // （../lib/usePeekParam）はSuspenseを要求しないため、元実装の<Suspense>ラッパーは不要
-// （削除した）。
+// （削除した）
 
 function groupByDate(entries: TimelineEntry[]): { date: string; items: TimelineEntry[] }[] {
   const groups: { date: string; items: TimelineEntry[] }[] = [];
@@ -30,9 +29,8 @@ function groupByDate(entries: TimelineEntry[]): { date: string; items: TimelineE
 export function TimelinePage() {
   const { entries, timelineLoaded } = useTimeline();
   const groups = groupByDate(entries);
-  // docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。Timelineの提案エントリだけ、
   // 一覧・詳細の他画面と同じ仕組みでスライドオーバー表示にする。Team/Goalは
-  // Goal は /org で詳細を開ける。Team は /teams?focus=。
+  // Goal は /org で詳細を開ける。Team は /teams?focus=
   const peek = usePeekParam("suggestion");
   const peekedEntry = peek.id ? entries.find((e) => e.entityType === "suggestion" && e.entityId === peek.id) : undefined;
 

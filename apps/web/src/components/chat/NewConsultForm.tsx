@@ -11,9 +11,8 @@ type Props = {
   onStarted: (runId: string) => void;
 };
 
-// docs/memo.md「タブ移動すると相談の入力中テキストが消えてしまう」対応。この画面は履歴選択や
 // 他タブへの遷移でアンマウントされ得るため、下書きをこの端末のlocalStorageにも退避する
-// （SlideOverの幅記憶等と同じ軽量パターン）。他の閲覧者・他端末とは共有されない。
+// （SlideOverの幅記憶等と同じ軽量パターン）。他の閲覧者・他端末とは共有されない
 const DRAFT_STORAGE_KEY = "em-chat-new-consult-draft";
 
 function readStoredDraft(): string {
@@ -38,8 +37,8 @@ function writeStoredDraft(value: string) {
   }
 }
 
-// docs/memo.md「C. Journalセンシング→行動」対応。Quick Journalの@人物クリックや
-// 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする。
+// Quick Journalの@人物クリックや
+// 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする
 export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfirm, onStarted }: Props) {
   // 明示的なprefill（Journal等からの導線）が無いときだけ、退避していた下書きを初期値に使う。
   const [task, setTask] = useState(() => initialTask || readStoredDraft());

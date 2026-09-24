@@ -17,7 +17,7 @@ import {
 // ローカルモデル（チャット生成・埋め込み）のディスクキャッシュ有無を見て、
 // 未取得なら起動直後にダウンロード＋メモリロードを開始し、進捗をUIへ返すための状態機械。
 // チャットモデルは設定（localChatModelPreset）で切替可能。切替時はスロットをリセットし、
-// 未キャッシュなら再ダウンロードする。キャッシュ済みなら pipeline() は呼ばず、
+// 未キャッシュなら再ダウンロードする。キャッシュ済みなら pipeline は呼ばず、
 // 従来通り初回利用時の遅延ロードに任せる（メモリを起動時点で食わない）。
 
 export type ModelSlotKey = "chat" | "embedding";
@@ -213,7 +213,7 @@ async function isCached(slot: SlotRuntime): Promise<boolean> {
     });
   } catch {
     // レジストリ問い合わせ自体が失敗した場合は「未キャッシュ」扱いにし、
-    // pipeline() 側の取得に任せる（オフライン時はそこで error になる）。
+    // pipeline 側の取得に任せる（オフライン時はそこで error になる）。
     return false;
   }
 }

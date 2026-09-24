@@ -23,7 +23,6 @@ vi.mock("./embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
 vi.mock("./name-candidate-detect", () => ({
@@ -114,7 +113,6 @@ describe("computeOrgVitals", () => {
     expect(result.oneOnOneCoverage.uncoveredMembers).toEqual(["PERSON_2"]);
   });
 
-  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   it("自分が管理していないチーム(managedByEm:false)のメンバーは1on1カバレッジの対象外", async () => {
     const { vitals, orgStore } = await loadModules();
     const team = orgStore.addTeam("パートナーチーム", ["Cさん"]);
@@ -125,7 +123,6 @@ describe("computeOrgVitals", () => {
     expect(result.oneOnOneCoverage.total).toBe(0);
   });
 
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("利用者本人(selfPersonId)は1on1カバレッジとTeamVital.membersから除外する", async () => {
     const { vitals, orgStore } = await loadModules();
     const peopleDirectory = await import("./people-directory");
@@ -156,7 +153,6 @@ describe("computeOrgVitals", () => {
     expect(result.teams[0].members).toEqual([activeId]);
   });
 
-  // ユーザー要望「チームの状態を自分が管理するチームのみに」対応。
   it("自分が管理していないチーム(managedByEm:false)はTeam Vitalsの対象外", async () => {
     const { vitals, orgStore } = await loadModules();
     const managed = orgStore.addTeam("自チーム", ["Aさん"]);
@@ -168,7 +164,6 @@ describe("computeOrgVitals", () => {
     expect(result.teams[0].managedByEm).toBe(true);
   });
 
-  // ユーザー指摘「バイタルが提案の状況(停滞・確認保留)に対して問題無いように見える」対応。
   it("チームに紐づく確認保留の提案が1件あれば、Journalが良好でもwarn以上に引き上げる", async () => {
     const { vitals, orgStore, journalStore, suggestionStore } = await loadModules();
     const team = orgStore.addTeam("Team A", ["Aさん"]);
@@ -206,7 +201,6 @@ describe("computeOrgVitals", () => {
     const result = vitals.computeOrgVitals();
     expect(result.teams[0].status).toBe("unknown");
   });
-  // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
   it("確認済み（対応不要）にしたネガティブJournalはTeam Vitalsの判定材料から除外する", async () => {
     const { vitals, orgStore, journalStore } = await loadModules();
     orgStore.addTeam("Team A", ["Aさん"]);

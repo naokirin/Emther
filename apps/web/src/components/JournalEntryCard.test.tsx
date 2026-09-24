@@ -7,12 +7,8 @@ import { JournalEntryCard } from "./JournalEntryCard";
 import { IdResolveProvider } from "./IdFragmentLink";
 import type { JournalEntry } from "@emther/core/types";
 
-// web/src/components/JournalEntryCard.test.tsx（Next.js版）からの移植（フェーズ3.5
-// tier4 journalバッチ）。next/navigationのuseRouterモック（`pushMock`をアサーション対象に
-// する方式）は、react-routerのLink/useSuggestionPeek等が実際のRouter contextを要求する
-// ため使えない（他バッチで繰り返し踏んだ制約）。代わりにMemoryRouter配下に現在地を
-// 表示するプローブを置き、遷移結果のURLで検証する方式に置き換えた。検証内容自体は
-// 変更していない。
+// react-router の Link / useSuggestionPeek 等が Router context を要求するため、
+// MemoryRouter 配下に現在地プローブを置き、遷移結果の URL で検証する。
 function LocationProbe() {
   const location = useLocation();
   return <div data-testid="location">{location.pathname + location.search}</div>;

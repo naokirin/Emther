@@ -11,14 +11,12 @@ import { PersonRecordsSection } from "./person-detail/PersonRecordsSection";
 import { usePeople, usePersonEvaluationLogs, usePersonProfile, useTeams } from "../lib/queries";
 import { teamDisplayName, type Team } from "@emther/core/types";
 
-// ユーザー要望「メンバーの詳細画面からチームを設定できるようにしたい」対応。従来は
-// Organization Context画面でチームを選んでからメンバー一覧を編集する必要があったが、
+// 従来は
+// Organization Context画面でチームを選んでからメンバー一覧を編集する必要があったが
 // 人物視点でチーム所属をその場で切り替えられるようにする。既存のチーム編集API
-// （PATCH /api/teams/:id、members配列を丸ごと置き換える）をそのまま使い、新規APIは追加しない。
-//
-// ユーザー指摘「チームが増えるとメンバー詳細にチーム名の選択肢が大量に並ぶ」対応。
+// （PATCH /api/teams/:id、members配列を丸ごと置き換える）をそのまま使い、新規APIは追加しない
 // 全チームを常に並べるチップ切り替えではなく、入力して部分一致した候補だけを出す
-// マルチセレクトオートコンプリート（選択済みはタグ表示・✕で解除）に変更する。
+// マルチセレクトオートコンプリート（選択済みはタグ表示・✕で解除）に変更する
 function TeamMembershipEditor({
   personName,
   teams,
@@ -78,9 +76,9 @@ function TeamMembershipEditor({
   );
 }
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。別名を追加・
+// 別名を追加・
 // 取り消しするたびに即座にPATCH /api/people/:idへ反映する（チーム所属エディタと
-// 同じ「都度保存」パターン。このページに「保存」ボタンは無い）。
+// 同じ「都度保存」パターン。このページに「保存」ボタンは無い）
 function AliasEditor({ personId, aliases, onChanged }: { personId: string; aliases: string[]; onChanged: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,9 +116,8 @@ function AliasEditor({ personId, aliases, onChanged }: { personId: string; alias
   );
 }
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
-// 統合すると、選んだ人物（重複側）の記録・チーム所属がすべてこの画面の人物へ移り、
-// 重複側の名前は以後この人物の別名として認識される。
+// 統合すると、選んだ人物（重複側）の記録・チーム所属がすべてこの画面の人物へ移り
+// 重複側の名前は以後この人物の別名として認識される
 function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: string; personName: string; onMerged: () => void }) {
   const { people } = usePeople();
   const [duplicateId, setDuplicateId] = useState("");
@@ -170,14 +167,9 @@ function MergeDuplicatePerson({ personId, personName, onMerged }: { personId: st
   );
 }
 
-// docs/em_ui_ux_issue.md「一覧⇄詳細をサイドピークで」対応。中身をidベースの
-// コンポーネントに切り出し、フルページ（people/[id]/page）と一覧側のSlideOverの
-// 両方から同じロジック・JSXを使う。page.tsx から named export すると Next.js の
-// 生成型チェックに弾かれるため、コンポーネントファイルへ分離している。
-//
-// docs/memo.md「J. Peopleを第一級ハブに」対応。人物軸でJournal fact・長期プロファイル
-// （解釈）・チーム所属・関連提案を横断して見せる詳細画面。新規の永続化エンティティは
-// 持たず、既存ストアを@/lib/people-hub.tsで集約しているだけ。辿る入口に加え、
+// フルページ（people/[id]）と一覧側のSlideOverの両方から同じロジック・JSXを使う。
+// 人物軸でJournal fact・長期プロファイル（解釈）・チーム所属・関連提案を横断して見せる。
+// 新規の永続化エンティティは持たず、既存ストアを集約しているだけ。
 // この人物に紐づくJournalをその場で追加できる（作成時にpeopleへ本人を明示付与）。
 export function PersonDetailContent({ id }: { id: string }) {
   const { person, personLoaded, refreshPerson } = usePersonProfile(id);

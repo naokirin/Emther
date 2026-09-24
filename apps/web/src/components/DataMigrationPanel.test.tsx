@@ -3,8 +3,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
-// web/src/components/DataMigrationPanel.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier2 settingsバッチ）。
 describe("DataMigrationPanel", () => {
   beforeEach(() => {
     vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));

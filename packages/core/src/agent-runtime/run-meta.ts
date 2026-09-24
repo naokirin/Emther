@@ -2,20 +2,19 @@ import { suggestionTitleFromConclusion, YIELD_KIND_META, type SuggestionReviewSt
 import { listSuggestionCandidatesFromProposal } from "./extraction";
 import { originLabel, type AgentRun } from "./types";
 
-// docs/em_ui_ux_issue.md 5節「Yield種別カードUI」対応。サーバー側は既にkindを正規化して
+// サーバー側は既にkindを正規化して
 // 返すが、キャッシュされた古いrunデータ等との保険として同じフォールバックを持つ。
 function resolveYieldKind(kind: YieldKind | undefined, optionsLength: number): YieldKind {
   if (kind) return kind;
   return optionsLength === 0 ? "inform" : "decide";
 }
 
-// ユーザー指摘対応: run.taskが空文字のrun（何らかの理由でtask保存に失敗した壊れたデータ）を
+// run.taskが空文字のrun（何らかの理由でtask保存に失敗した壊れたデータ）を
 // そのままIssueタイトルにすると、サーバー側の「titleは必須です」検証で400になり、EMが
 // クリックしても何も起きない（エラーがUIに出ない）まま詰む。run.task以外にも意味のある
 // テキスト（Yieldの理由・最初のログ行）があればそれを使い、それも無ければ最低限
 // エージェント名だけのタイトルにフォールバックし、Issue化自体は必ず成功させる。
-//
-// ユーザー指摘対応（続報）: auto-anomaly/auto-summaryのrunはrun.task自体が「〜を判断
+// auto-anomaly/auto-summaryのrunはrun.task自体が「〜を判断
 // してください」という定型の指示文＋本文という長い文字列で、EMが書いた短い文ではない。
 // これをそのままタイトルにすると（呼び出し側でtruncateForTitleしても）本文へ辿り着く
 // 前の定型句だけが残ってしまう。proposal.suggestionTitle（短い課題名）があれば最優先。
@@ -36,9 +35,9 @@ export function runFallbackTitle(run: AgentRun): string {
   return `${run.agentName}のRun（内容未記録）`;
 }
 
-// docs/memo.md「A」対応。Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
-// docs/em_ui_ux_issue.md 5節対応。yield中はDecide/Inform/Commitの種別まで見せる
-// （§2.3「Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる」の語彙を揃える）。
+// Inbox一覧・「次にすべきこと」で語彙を揃えるための共通ラベル関数。
+// yield中はDecide/Inform/Commitの種別まで見せる
+// （Morning ModeのYieldカードはDecide/Inform/Commitのみを載せる語彙に揃える）。
 // ダッシュボード（判断カード表）と/agents（Inbox一覧）の両方から使う共通ヘルパー。
 export function runKindLabel(run: AgentRun): string {
   if (run.status === "yield" && run.yieldRequest) {

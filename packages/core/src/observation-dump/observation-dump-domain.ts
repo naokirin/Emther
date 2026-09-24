@@ -15,7 +15,6 @@ import {
 
 export type { ChunkDraft, ObservationDump } from "./observation-dump-entity";
 
-// docs/observation_dump_journal.md: Slack/MTG 等の未分割観測を薄い Dump として残し、
 // AI チャンク提案→採用分だけ Journal 化する。永続本文は常にマスク済み。
 
 export function createObservationDumpService(repo: ObservationDumpRepository) {

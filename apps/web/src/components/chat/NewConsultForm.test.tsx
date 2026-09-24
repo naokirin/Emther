@@ -4,9 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { NewConsultForm } from "./NewConsultForm";
 
-// web/src/components/chat/NewConsultForm.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier5 chatバッチ）。localStorageへの下書き退避・復元と
-// 送信フローを検証する。PageTitleRow（HelpLink）がreact-routerのLinkを使うためMemoryRouterで包む。
+// localStorageへの下書き退避・復元と
+// 送信フローを検証する。PageTitleRow（HelpLink）がreact-routerのLinkを使うためMemoryRouterで包む
 
 const DRAFT_KEY = "em-chat-new-consult-draft";
 

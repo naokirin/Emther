@@ -6,10 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { EveningReviewPage } from "./EveningReviewPage";
 
-// web/src/app/evening-review/page.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 evening-reviewバッチ）。3ステップ（journal→checkin→kpt→done）を
+// 3ステップ（journal→checkin→kpt→done）を
 // 「この工程をスキップ」で最短経路で進め、doneの遷移ボタンだけ確認する（各ステップの
-// 中身自体はDailyReflectionForm/EmCheckinWidget/ReflectionNoteFormの個別テストで検証済み）。
+// 中身自体はDailyReflectionForm/EmCheckinWidget/ReflectionNoteFormの個別テストで検証済み）
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

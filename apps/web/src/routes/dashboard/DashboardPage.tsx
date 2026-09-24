@@ -47,10 +47,10 @@ export function DashboardPage() {
   // eslint-disable-next-line react-hooks/purity -- 「NEW」バッジ・経過時間表示にのみ使う
   const now = Date.now();
 
-  // 改修依頼「以前から変わったことがより分かりやすいUIに」対応。前回このダッシュボードを
+  // 前回このダッシュボードを
   // 開いた時刻をブラウザのlocalStorageに記録し（サーバー側の既読管理は増やさない軽量な
-  // 実装）、判断待ちカードのうち根拠の時刻がそれより新しいものにだけ「NEW」を出す。
-  // 初回訪問（保存値なし）はnullにし、「全部NEW」という誤った印象を与えない。
+  // 実装）、判断待ちカードのうち根拠の時刻がそれより新しいものにだけ「NEW」を出す
+  // 初回訪問（保存値なし）はnullにし、「全部NEW」という誤った印象を与えない
   const [lastSeenAt] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -72,9 +72,8 @@ export function DashboardPage() {
   const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
   const goToRunSuggestion = useGoToRunSuggestion(suggestions);
 
-  // docs/memo.md「今日タブでAIに戦略を提案させている最中にタブを切り替えると結果が消える」
-  // 対応。TodayActionsPanelはダッシュボード／書き連ねタブの切り替えでアンマウントされるため、
-  // 生成中フラグ・結果をこのコンポーネント（タブ切り替えで不変）側に持たせる。
+  // TodayActionsPanelはダッシュボード／書き連ねタブの切り替えでアンマウントされるため
+  // 生成中フラグ・結果をこのコンポーネント（タブ切り替えで不変）側に持たせる
   const [suggestionLinkSuggesting, setSuggestionLinkSuggesting] = useState(false);
   const [suggestionLinkError, setSuggestionLinkError] = useState<string | null>(null);
   const [suggestionLinkPreview, setSuggestionLinkPreview] = useState<{
@@ -127,14 +126,12 @@ export function DashboardPage() {
   }
   const { vitals, vitalsLoaded } = useVitals();
   const { journalEntries, journalLoaded } = useJournal();
-  // 改修依頼「今日の振り返りに、今日記録されていない場合のアラートを出す」対応。
   const { checkins, checkinsLoaded } = useEmCheckins();
   const { rules } = useSettingsRules();
-  // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。
   const { strategy, strategyLoaded } = useOrgStrategy();
   const { teams, teamsLoaded } = useTeams();
   const { goals, goalsLoaded } = useGoals();
-  // docs/em_human_story_and_ux.md P1-10対応。People(J)を朝キューにも薄く編入する。
+  // People を朝キューにも薄く編入する
   const { people, peopleLoaded } = usePeople();
   const { themes, themesLoaded, refreshThemes } = useThemes();
   // 初回フェッチ完了前の空fallbackを「未設定／0件／対応不要」と誤表示しないためのゲート。
@@ -142,8 +139,8 @@ export function DashboardPage() {
   const setupLoaded = strategyLoaded && teamsLoaded && goalsLoaded;
   const nextActionsLoaded = runsLoaded && suggestionsLoaded && vitalsLoaded && journalLoaded && peopleLoaded;
 
-  // docs/memo.md TODO「動いていると思ったら止まっていた、を防ぐ」対応。statusが"active"のまま
-  // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する。
+  // statusが"active"のまま
+  // ログ更新が閾値以上無いrunをクライアント側で判定し、Fleet/Next Actions/Inboxで警告表示する
   const staleRunIds = new Set(
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
@@ -184,9 +181,8 @@ export function DashboardPage() {
   };
   const nextActions = attachNextActionHandlers(coreNextActions, actionHandlers);
 
-  // docs/2nd_pivot_version.md Phase 1対応。pivot_policy.md「目指すUX」の6項目で
-  // 今日の状況をまとめる（提案駆動ではなく Journal/Vitals/People 駆動）。
-  // 気になる兆候は組織レベルのパターン（停滞提案含む）なので suggestions も渡す。
+  // 今日の状況をまとめる（提案駆動ではなく Journal/Vitals/People 駆動）
+  // 気になる兆候は組織レベルのパターン（停滞提案含む）なので suggestions も渡す
   const dailySituation = attachDailySituationHandlers(
     buildDailySituation({
       now,
@@ -201,7 +197,7 @@ export function DashboardPage() {
   );
   const dailySituationLoaded = nextActionsLoaded;
 
-  // docs/design/dashboard/today-tab.pen 改善案A対応。「いまの状態」メーターと健全度内訳。
+  // 「いまの状態」メーターと健全度内訳
   const todayMeters = attachTodayStateHandlers(
     buildTodayStateMeters({
       now,
@@ -215,23 +211,22 @@ export function DashboardPage() {
     actionHandlers,
   );
 
-  // docs/em_human_story_and_ux.md P0-4対応。「1日の上限感」をUIで示す（ハード制限はせず、
-  // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）。
+  // 「1日の上限感」をUIで示す（ハード制限はせず
+  // 今日どれだけAIが自動的にRunを起動したかの感覚をEMに持たせる）
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
   const autoRunsToday = runs.filter((r) => r.origin !== "manual" && r.createdAt >= todayStart.getTime()).length;
 
-  // 改修依頼「今日の振り返りは、今日記録されていない場合のアラート表示」対応。
-  // 入力フォーム自体はここには置かず、未記録のときだけ気づかせて /evening-review → /checkin へ誘導する。
+  // 入力フォーム自体はここには置かず、未記録のときだけ気づかせて /evening-review → /checkin へ誘導する
   const hasCheckinToday = checkins.some((c) => c.createdAt >= todayStart.getTime());
 
-  // docs/design/dashboard/today-tab.pen 改善案B対応。週次・月次レポートの弱い案内。
+  // 週次・月次レポートの弱い案内
   const reportNudges = selectReportNudges({ now, runs });
 
-  // docs/memo.md「O. 期初の憲法づくりオンボーディング」対応。空の前提のままエージェントが
+  // 空の前提のままエージェントが
   // 走らないよう、MVV/Team/Goalが揃うまでセットアップ導線を出す。新規ウィザード画面は
   // 増やさず、既存の/orgへの案内に留める（EMが明示的に消せるものではなく、実際に揃うと
-  // 自然に消える）。未ロード中は空fallbackを「未設定」と誤認しないよう計算しない。
+  // 自然に消える）。未ロード中は空fallbackを「未設定」と誤認しないよう計算しない
   const setupGaps: string[] = [];
   if (setupLoaded) {
     if (!strategy.mission && !strategy.vision && !strategy.values) setupGaps.push("MVV未設定");
@@ -251,21 +246,21 @@ export function DashboardPage() {
         onNavigate={(path) => navigate(path)}
       />
 
-      {/* docs/design/dashboard/today-tab.pen 改善案B: 主問を奪わない薄いレポート案内 */}
+      {/* 主問を奪わない薄いレポート案内 */}
       <ReportNudgeBanner
         primary={reportNudges.primary}
         secondary={reportNudges.secondary}
         onOpenReport={(runId) => navigate(`/chat?runId=${encodeURIComponent(runId)}`)}
       />
 
-      {/* docs/design/dashboard/today-tab.pen 改善案A: 未記録時のみ薄い帯 */}
+      {/* 未記録時のみ薄い帯 */}
       <EveningReviewCard
         checkinsLoaded={checkinsLoaded}
         hasCheckinToday={hasCheckinToday}
         onStart={() => navigate("/evening-review")}
       />
 
-      {/* docs/design/dashboard/today-tab.pen 改善案A: 状態の量化を先頭へ */}
+      {/* 状態の量化を先頭へ */}
       <NowStatePanel
         meters={todayMeters}
         loaded={dailySituationLoaded}
@@ -310,7 +305,7 @@ export function DashboardPage() {
         onNavigate={(path) => navigate(path)}
       />
 
-      {/* docs/design/dashboard/today-tab.pen 改善案A: 材料は下部。状態チップはいまの状態へ。 */}
+      {/* 材料は下部。状態チップはいまの状態へ */}
       <DailySituationPanel
         situation={dailySituation}
         loaded={dailySituationLoaded}

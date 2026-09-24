@@ -10,7 +10,6 @@ vi.mock("./embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
 vi.mock("./name-candidate-detect", () => ({
@@ -71,7 +70,6 @@ describe("resolveIdPrefix", () => {
     expect(matches.find((m) => m.id === entry.id)?.href).toContain(`/journal?focus=${encodeURIComponent(entry.id)}`);
   });
 
-  // ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
   it("Suggestion のタイトルに含まれる登録済み人名は{{PERSON_n}}のままにせず実名で返す", async () => {
     const peopleDirectory = await import("./people-directory");
     peopleDirectory.registerName("Aさん");

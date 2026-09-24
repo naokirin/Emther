@@ -12,7 +12,6 @@ import {
 import { searchSimilarEvents } from "./knowledge-store";
 import { maybeRerankByText, RERANK_CANDIDATE_LIMIT } from "./reranker";
 
-// docs/usage_issues U19 / U14-C。
 // CLI のネイティブツールは無効のまま、アプリ側の読み取り専用照会を
 // ```lookup``` ブロック経由でエージェントに提供する。secure（実名対応表）は触らない。
 // 返すテキストはマスク済み（PERSON_n）のまま——クラウドへ戻すため。
@@ -136,7 +135,7 @@ function searchSuggestionsByKeyword(opts: {
   const displayNeedle = needles[0];
 
   const matched = listSuggestions().filter((s) => {
-    // Phase 7: archivedAt ⇔ 確認済み(done)。includeDone / includeArchived のどちらかで拾う。
+    // archivedAt ⇔ 確認済み(done)。includeDone / includeArchived のどちらかで拾う。
     if (s.archivedAt || s.reviewStatus === "done") {
       if (!opts.includeDone && !opts.includeArchived) return false;
     }

@@ -62,10 +62,8 @@ type Props = {
   fetchWithNameConfirm: ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];
   refreshRuns: () => Promise<void>;
   refreshSuggestions: () => Promise<void>;
-  // docs/suggestion_organize_via_consult.md。整理差分のbefore値表示用。
   suggestions: Suggestion[];
-  // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
-  // AIを再度実行できない」対応。リセット後に新しく生まれたrunを選択状態にする。
+  // リセット後に新しく生まれたrunを選択状態にする
   onReanalyzed?: (runId: string) => void;
 };
 
@@ -203,8 +201,7 @@ export function ConsultReviewPanel({
     }
   }
 
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。誤って起票した・
-  // テストで作った等の相談を、相談履歴一覧・AIの判断材料から除外する（却下とは独立の軸）。
+  // テストで作った等の相談を、相談履歴一覧・AIの判断材料から除外する（却下とは独立の軸）
   async function handleToggleArchived() {
     setReviewSubmitting(true);
     setReviewError(null);
@@ -222,10 +219,9 @@ export function ConsultReviewPanel({
     }
   }
 
-  // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
-  // AIを再度実行できない」対応。実名リークでerrorのまま詰まったrunを、EMが内容を
+  // 実名リークでerrorのまま詰まったrunを、EMが内容を
   // 直した後に1クリックでやり直せるようにする。今のrunはアーカイブして「現行の相談」から
-  // 外し（ログは残す）、同じタスク・Journal本文で新しい相談を起動し直す。
+  // 外し（ログは残す）、同じタスク・Journal本文で新しい相談を起動し直す
   async function handleResetAndReanalyze() {
     setResetSubmitting(true);
     setResetError(null);
@@ -339,8 +335,7 @@ export function ConsultReviewPanel({
     }
   }
 
-  // docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
-  // 「他提案への追記提案で追記対象を個別に選択できるようにする」対応でindicesを渡すよう拡張。
+  // 選択した suggestion note の indices を渡して採用する
   async function handleAdoptSuggestionNotes(indices: number[]) {
     setSuggestionNotesSubmitting(true);
     setDecideError(null);
@@ -376,8 +371,7 @@ export function ConsultReviewPanel({
     }
   }
 
-  // docs/memo.md「却下だけでなく対応済みも」対応。却下（提案自体が誤り）と違い、別口ですでに
-  // 対応済みであることをrunのログに残した上で提案を消す。
+  // 対応済みであることをrunのログに残した上で提案を消す
   async function handleMarkHandledSuggestionNotes(indices: number[]) {
     setSuggestionNotesSubmitting(true);
     setDecideError(null);
@@ -395,7 +389,6 @@ export function ConsultReviewPanel({
     }
   }
 
-  // docs/suggestion_organize_via_consult.md「5. 反映の契約（HITL）」対応。
   async function handleAdoptSuggestionUpdates(indices: number[]) {
     setSuggestionUpdatesSubmitting(true);
     setDecideError(null);
@@ -485,10 +478,9 @@ export function ConsultReviewPanel({
           </p>
         )}
         {selectedRun.status === "error" && !selectedRun.archivedAt && (
-          // docs/memo.md「Journalで個人名が混じった場合、編集し直しても同じ相談に接続されて
-          // AIを再度実行できない」対応。実名リーク等でこのrunがエラーのまま詰まっている
-          // 可能性があるため、内容を直した前提で1クリックでやり直せる導線を出す。
-          // Journal起点以外の相談（手動入力など）でも同様にリセットして再分析できるようにする。
+          // 実名リーク等でこのrunがエラーのまま詰まっている
+          // 可能性があるため、内容を直した前提で1クリックでやり直せる導線を出す
+          // Journal起点以外の相談（手動入力など）でも同様にリセットして再分析できるようにする
           <div style={{ margin: "8px 0", padding: 8, border: "1px solid var(--border)", borderRadius: 6 }}>
             <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
               {selectedRun.sourceJournalId

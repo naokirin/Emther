@@ -130,7 +130,7 @@ function hardenSecureDir(secureDir: string): void {
 }
 
 /**
- * アーカイブで data/secure を全置換する。呼び出し前に prepareForDestructiveStateChange() を推奨。
+ * アーカイブで data/secure を全置換する。呼び出し前に prepareForDestructiveStateChange を推奨。
  * 既存内容は空にしてからコピーする（部分混在を避ける）。
  */
 export function restoreFromArchive(archivePath: string): void {

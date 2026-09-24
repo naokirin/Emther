@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { optionalBoolean, optionalFiniteNumber } from "./tolerant";
 
-// docs/2nd_architecture/plan.md フェーズ2.6 由来。
 // ビジネスロジック付きフィールド（PERSON_n 照合・CLI 名一覧等）はルート側の専用関数のまま。
 // ここは単純な number / boolean のみ（不正型 → 未指定）。
 

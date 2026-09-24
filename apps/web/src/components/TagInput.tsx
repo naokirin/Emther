@@ -1,11 +1,10 @@
 import { useState } from "react";
 import styles from "../styles/page.module.css";
 
-// ユーザー要望「メンバー・チーム名の表記揺れに対応できる仕組みが欲しい」対応。
 // MultiSelectAutocomplete（既存の選択肢から選ぶ）とは違い、こちらは「新しい文字列を
 // 自由入力してタグとして追加する」ための最小限の入力。別名（表記ゆれ）の登録はまさに
-// 「候補一覧から選ぶ」のではなく「新しい呼び方を教える」操作なので、別コンポーネントにした。
-// 見た目はMultiSelectAutocompleteの選択済みタグ表示（.multiSelectTag等）をそのまま流用する。
+// 「候補一覧から選ぶ」のではなく「新しい呼び方を教える」操作なので、別コンポーネントにした
+// 見た目はMultiSelectAutocompleteの選択済みタグ表示（.multiSelectTag等）をそのまま流用する
 export function TagInput({
   values,
   onAdd,

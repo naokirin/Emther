@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { maskCheckPostBodySchema, type MaskCheckResponse } from "@emther/api-contract";
 import { MASK_CHECK_MAX_INPUT_CHARS, runMaskCheckAi, runMaskCheckQuick } from "@emther/core/mask-check";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ7）: web/src/app/api/mask-check/route.ts の移植。
 /**
  * 個人・機密情報チェック。
  * body: { text: string, phase?: "quick" | "ai" }

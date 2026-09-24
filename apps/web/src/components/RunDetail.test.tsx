@@ -154,8 +154,7 @@ describe("shouldOmitRunFromNextActions", () => {
     expect(shouldOmitRunFromNextActions(baseRun({ archivedAt: undefined }), suggestions)).toBe(false);
   });
 
-  // ユーザー指摘「確認済みの提案に紐づく相談が今日やるべきに残る」対応。
-  // 確認済みとアーカイブは独立だが、どちらも朝キューからは外す。
+  // 確認済みとアーカイブは独立だが、どちらも朝キューからは外す
   it("確認済み(done)の提案に紐づくrunはアーカイブしていなくても除外する", () => {
     const suggestions = [
       { agentRunId: "run-done", reviewStatus: "done" as const },

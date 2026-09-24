@@ -29,7 +29,6 @@ export type AddJournalOpts = MaskOptions & {
   people?: string[];
   teams?: string[];
   teamIds?: string[];
-  // docs/observation_dump_journal.md
   sourceDumpId?: string;
   sourceChunkId?: string;
   /**
@@ -67,16 +66,13 @@ import { getSuggestion, toSuggestionView } from "./suggestion-store";
 
 // 重要: ジャーナルには人名・心情などの機微情報が含まれうるため、この抽出処理は
 // 外部サービス（claude -p を含む）に一切送信せず、完全にローカル（Transformers.js / WASM,
-// ONNX Runtime）で完結させる。docs 3.2「サニタイズ（秘匿化）」および業務要求3「情報の壁と
-// セキュリティ」に対応するための必須要件であり、コストや速度のための最適化ではない。
+// ONNX Runtime）で完結させる。秘匿化・情報の壁のための必須要件であり、コストや速度の最適化ではない。
 // 関係者紐付け: 本文中の登録済み人物は名簿照合（findMentionedPersonIds）で必ず people へ
 // 入れる。ローカルLLM抽出の people は補助（既登録だけ解決）。未登録名は自動登録しない
 // （誤登録対策）。未登録の人名らしい語句は一度きりの登録ヒントに回す。
-//
-// 永続化: docs/memo.md「H: 永続化データモデルの設計」対応で、Journalの投稿は
-// `knowledge-store.ts`のKnowledgeEvent（kind: "fact", entityType: "journal"）として
-// SQLiteに記録する（`journal.json`という別ファイルへの二重管理はしない）。
-// JournalEntryはそのfactイベントをUI/Agent Runtime向けの形に変換したビューでしかない。
+// 永続化: Journal投稿は knowledge-store の KnowledgeEvent（kind:"fact", entityType:"journal"）
+// としてSQLiteに記録する（journal.jsonへの二重管理はしない）。
+// JournalEntryはそのfactイベントをUI/Agent Runtime向けに変換したビューでしかない。
 
 export type Urgency = "low" | "mid" | "high";
 export type Sentiment = "positive" | "negative" | "neutral";
@@ -92,29 +88,26 @@ export type JournalEntry = {
   sentiment: Sentiment;
   summary: string;
   createdAt: number;
-  // docs/em_human_story_and_ux.md P1-9対応。EMが一度でも校正（確認）操作を通したかどうか。
+  // EMが一度でも校正（確認）操作を通したかどうか。
   // supersedesが無い＝記録直後のローカルモデル抽出そのまま、という目印になる。
   confirmed: boolean;
-  // docs/em_human_story_and_ux.md 改修依頼対応。urgencyは書き換えず、「今どこで管理
+  // urgencyは書き換えず、「今どこで管理
   // されているか」を別軸で持たせる。resolvedSuggestionIdが設定されている場合、
-  // resolvedSuggestionTitleはtoJournalEntryView()が表示用に解決する（内部表現には無い）。
+  // resolvedSuggestionTitleはtoJournalEntryViewが表示用に解決する（内部表現には無い）。
   resolvedSuggestionId?: string;
   resolvedSuggestionTitle?: string;
   resolutionNote?: string;
   // Journalから自動分析／手動相談が立ったときの Lead run。supersedes後も現行版から辿れる。
   sourceConsultRunId?: string;
-  // docs/observation_dump_journal.md: 外部ログ取り込み由来。
   sourceDumpId?: string;
   sourceChunkId?: string;
-  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
   // sentimentは観測値のまま書き換えず、EMが確認済み・対応不要と判断した事実だけを別軸で持つ。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
+  // 重複記録・誤入力等の
   // Journalを一覧・AIの判断材料から除外するためのフラグ（イベント自体は削除しない）。
   archivedAt?: number;
-  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
-  // 確認できるようにしたい」対応。archivedAtだけでは手動アーカイブと区別できないため、
+  // archivedAtだけでは手動アーカイブと区別できないため、
   // 実名リーク検知による自動隔離のときだけ"name_leak"になる。
   archivedReason?: "name_leak";
   // センシティブ設定。UI 一覧から既定で除外する（アーカイブと異なり、エージェント／分析
@@ -134,9 +127,9 @@ export function isJournalRelatedToTeam(
   return entry.people.some((p) => team.members.includes(p));
 }
 
-// 個人情報の分離（ユーザー指摘対応）: KnowledgeEventのtext/summary/peopleはPERSON_n ID
+// 個人情報の分離: KnowledgeEventのtext/summary/peopleはPERSON_n ID
 // でマスクされた内部表現。これはそのマスクされた状態のJournalEntryを返す（agent-runtime.ts
-// 等、内部利用向け）。EM向けの表示にはtoJournalEntryView()を使うこと。
+// 等、内部利用向け）。EM向けの表示にはtoJournalEntryViewを使うこと。
 function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
   return {
     id: e.id,
@@ -168,7 +161,7 @@ function resolveTeamNames(teamIds: string[]): string[] {
   });
 }
 
-// consultIndexは@/lib/journal-consult-indexのbuildSourceConsultIndex()で組み立てる
+// consultIndexは@/lib/journal-consult-indexのbuildSourceConsultIndexで組み立てる
 // （journal-store⇄agent-runtimeの循環参照を避けるため、journal-store自身はagent-runtimeを
 // 参照しない。呼び出し側がその橋渡しを担う）。載せる必要が無ければ空のMapを渡してよい。
 export function toJournalEntryView(entry: JournalEntry, consultIndex: Map<string, string>): JournalEntry {
@@ -189,7 +182,7 @@ export function toJournalEntryView(entry: JournalEntry, consultIndex: Map<string
   };
 }
 
-// ユーザー指摘「確認したが対応不要だった、をUIに反映したい」対応。ネガティブ/ポジティブの
+// ネガティブ/ポジティブの
 // sentimentタグは観測事実として残すが、EMがこの1件を確認済み・対応不要と判断したことを
 // 記録し、一覧側で強調を弱める（例: 赤い#ネガティブタグを中立色に）。内容の訂正ではない
 // ためsupersedesは使わず、既存イベントへのin-place更新（knowledge-store.ts参照）。
@@ -210,7 +203,7 @@ export function clearJournalNoActionNeeded(id: string): JournalEntry | undefined
   return event ? eventToJournalEntry(event) : undefined;
 }
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
+// 重複記録・誤入力等の
 // Journalを一覧・AIの判断材料から除外する（イベント自体は削除しない）。
 export function archiveJournalEntry(id: string): JournalEntry | undefined {
   const head = getEventHeadById(id);
@@ -245,8 +238,6 @@ export function toJournalEntryViews(entries: JournalEntry[], consultIndex: Map<s
   return entries.map((entry) => toJournalEntryView(entry, consultIndex));
 }
 
-// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
-// 良いものがあれば、入れるようにする」対応。profileCandidateは既存フィールドと同じ
 // ローカル1回の抽出呼び出しに相乗りさせる（気軽に書けることを優先し、緊急度に関係なく
 // 全投稿で無料・低遅延に判定したいため、クラウドのLead Agent分析へはエスカレートしない）。
 const SYSTEM_PROMPT = [
@@ -339,8 +330,6 @@ function isSentiment(v: unknown): v is Sentiment {
   return v === "positive" || v === "negative" || v === "neutral";
 }
 
-// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
-// 良いものがあれば、入れるようにする」対応。EMが1クリックで長期プロファイル
 // （POST /api/knowledge/interpretations と同じ実体）へ採用できるよう、ローカル抽出の
 // 生候補をそのまま返す。既登録の人物（getPersonIdで解決できる場合）だけを対象にする
 // （人物名の自動登録はしない既存方針を踏襲。未登録ならヒント自体を出さない）。
@@ -387,7 +376,7 @@ function unresolvedExtractedPeopleNames(peopleNames: string[], rawText: string):
 /** ローカルモデルでの構造化抽出。失敗しても空オブジェクトを返し、保存自体は止めない。 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function extractJournalStructured(rawText: string): Promise<any> {
-  // docs/usage_issues U1: 構造化抽出は補助。モデルがJSONを返さない・呼び出し自体が
+  // モデルがJSONを返さない・呼び出し自体が
   // 失敗しても、本文の保存（Journalの主目的）は止めない。失敗時は未確認のまま既定値で残し、
   // EMが後から校正できる。
   try {
@@ -419,9 +408,7 @@ async function extractJournalStructured(rawText: string): Promise<any> {
 
 // ローカルモデルでの抽出→（形態素＋抽出の統合）人名確認→保存までの一連処理。
 // addJournalEntry（単発）と addJournalEntriesBulk（まとめ入力）の両方から呼ぶ。
-// occurredAtは呼び出し側が決める（単発なら既定でDate.now()、まとめ入力なら行ごとに解決した日）。
-//
-// ユーザー要望「保存前に1回のダイアログで完結／形態素とLLMの両方で統合判定」対応。
+// occurredAtは呼び出し側が決める（単発なら既定でDate.now、まとめ入力なら行ごとに解決した日）。
 // 以前は形態素ゲートが抽出より前に走り、抽出だけの未登録名は保存後ヒントに回していた。
 // いまは抽出を先に行い、両経路の候補を ensureNameCandidatesAllowed に合流させてから保存する。
 // 保存後の nameCandidates ヒントは出さない（常に空配列。API互換のためフィールドは残す）。
@@ -460,7 +447,7 @@ async function createJournalEventFromText(
   const teamIds = resolveJournalTeamIds(rawText, structured.teams, opts);
   const profileCandidate = extractProfileCandidate(structured);
 
-  // docs/memo.md「H: Phase 3」ローカル完結のベクトル検索用の埋め込み。埋め込み生成に
+  // 埋め込み生成に
   // 失敗しても（モデル読み込み失敗等）Journal自体の保存は諦めない——意味的検索は
   // あくまで補助的な機能であり、Journal記録という主目的をブロックすべきではない。
   // 埋め込みはローカル生成・ローカル利用のみ（クラウドへは一切送らない）なので、
@@ -473,7 +460,6 @@ async function createJournalEventFromText(
   }
 
   const maskedText = await maskForStorage(rawText);
-  // docs/usage_issues Journalの本文はもともと短いため、ローカルモデルによる要約（summary）の抽出は廃止した。
   // （抽出させると、短い・要約不能な入力に対してfew-shot例をそのまま出力してしまうハルシネーションの温床になるため）
   const maskedSummary = "";
 
@@ -489,7 +475,7 @@ async function createJournalEventFromText(
 
   // 「一時的な感情・発言」というJournalの性質上、既定ではkind:"fact"・
   // ttlDaysをSettings（journalFactTtlDays）から適用する。公式方針や長期プロファイルの
-  // ように「常に有効」な情報を記録したい場合はrecordEvent()を別途直接使う想定
+  // ように「常に有効」な情報を記録したい場合はrecordEventを別途直接使う想定
   // （現時点ではJournalは常にfact扱い、context分類の精緻化は今後の課題）。
   const event = recordEvent({
     kind: "fact",
@@ -514,9 +500,8 @@ async function createJournalEventFromText(
   return { event, profileCandidate, nameCandidates: [] };
 }
 
-// docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。occurredAtは
-// 既定でDate.now()（＝これまでの単発投稿と同じ挙動）。EMが「今日ではなく先日の話」だと
-// 分かっている場合だけ、呼び出し側（APIルート）が日付レベルの値を渡せるようにする。
+// occurredAtは既定でDate.now()（単発投稿と同じ）。EMが「今日ではなく先日の話」と分かっている
+// 場合だけ、呼び出し側（APIルート）が日付レベルの値を渡せる。
 export async function addJournalEntry(
   rawText: string,
   occurredAt: number = Date.now(),
@@ -524,19 +509,12 @@ export async function addJournalEntry(
 ): Promise<JournalEntry> {
   const { event } = await createJournalEventFromText(rawText, occurredAt, opts);
 
-  // docs/em_human_story_and_ux.md P1-9対応（旧実装からの変更）。以前はここ（登録直後、
-  // ローカルモデルの生の抽出結果に対して）で自動検知を起動していたが、ローカルモデルの
-  // 精度限界でurgency抽出を誤ると、EMが校正する前に「偽の緊急事態」としてクラウドの
-  // Lead Agentが起動してしまう問題があった（docs/em_human_story_and_ux.md
-  // 「(10) ローカルNER誤検出」とは別の、抽出精度そのものの問題）。そのため自動検知の
-  // トリガーはupdateJournalEntry（EMが確認・校正した後）側に移し、ここでは記録のみ行う。
+  // 自動検知はupdateJournalEntry（EMが確認・校正した後）側で起動する。
+  // 登録直後のローカル抽出のまま起動すると、urgency誤判定で校正前にクラウドLeadが走るため。
   return eventToJournalEntry(event);
 }
 
-// docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れるほうが
-// 良いものがあれば、入れるようにする」対応。addJournalEntry（多数の既存呼び出し元・テストが
-// JournalEntryをそのまま受け取る前提）の返り値は変えず、投稿直後のヒント表示が必要な
-// 呼び出し元（POST /api/journal）専用にprofileCandidateも一緒に返す別関数として切り出す。
+// addJournalEntryの返り値は変えず、投稿直後ヒント用にprofileCandidateも返す別関数。
 // nameCandidates は保存前ダイアログ統合後は常に空（API互換のためフィールドは残す）。
 export async function addJournalEntryWithProfileCandidate(
   rawText: string,
@@ -575,18 +553,17 @@ export type BulkJournalResult = {
   nameCandidateSuggestions: JournalNameCandidateHint[];
 };
 
-// docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。忙しくて後から
+// 忙しくて後から
 // まとめて書く場合に、1件ずつSubmitさせる負担を無くす。EMは自由記述のまま複数行を貼り、
 // 「1行＝1つの出来事」・「その行だけが日付なら日付マーカー」という軽い約束事だけを守れば
 // よい（固定フォーマットでの逐一入力は求めない）。
-//
 // 危険な暗黙の決めつけを避けるため:
 // - 「まとめ投入した時刻」を全件のoccurredAtにはしない（危険——投入したタイミングと
-//   出来事が起きたタイミングは別物）。行ごとに解決した「出来事があった日」の正午を
-//   occurredAtにする（時刻までは求めない・ズレのリスクが低いので正午に丸める）。
+// 出来事が起きたタイミングは別物）。行ごとに解決した「出来事があった日」の正午を
+// occurredAtにする（時刻までは求めない・ズレのリスクが低いので正午に丸める）。
 // - 抽出結果はいずれも未確認（confirmed:false）のまま返る。自動検知はupdateJournalEntry
-//   （EMが確認した後）側でしか起動しないため、まとめ入力で「偽の緊急事態」が連鎖的に
-//   自動起動する心配はない。
+// （EMが確認した後）側でしか起動しないため、まとめ入力で「偽の緊急事態」が連鎖的に
+// 自動起動する心配はない。
 export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions = {}): Promise<BulkJournalResult> {
   const now = Date.now();
   const MAX_LINES = 40;
@@ -637,12 +614,12 @@ export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions =
 
 export function listJournalEntries(opts: { includeArchived?: boolean; includeSensitive?: boolean } = {}): JournalEntry[] {
   const events = listEvents({ entityType: "journal", kind: "fact" });
-  // docs/memo.md「C」対応。イベントは不変のまま、supersedesで置き換えられた（＝EMが
+  // イベントは不変のまま、supersedesで置き換えられた（＝EMが
   // 修正した）版だけを一覧から除外する。履歴自体はSQLiteに残り続ける（削除しない）。
   const supersededIds = new Set(events.map((e) => e.supersedes).filter((id): id is string => !!id));
   return events
     .filter((e) => !supersededIds.has(e.id))
-    // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定では
+    // 既定では
     // アーカイブ済み（重複記録・誤入力等）を一覧・AIの判断材料から除外する。
     .filter((e) => opts.includeArchived || !e.archivedAt)
     // センシティブは UI 一覧から既定で除外（エージェント経路は別）。
@@ -650,7 +627,7 @@ export function listJournalEntries(opts: { includeArchived?: boolean; includeSen
     .map(eventToJournalEntry);
 }
 
-// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。/journal（一覧・検索画面）
+// journal（一覧・検索画面）
 // 専用の検索フィルタ。query/tag/personはEM向けの実名表示のまま受け取り、内部で
 // マスク後の表現（PERSON_n ID・マスク済みタグ）へ変換してからSQLへ渡す
 // （knowledge_events.text/tags_json/people_jsonはマスクされた状態で保存されているため）。
@@ -663,8 +640,7 @@ export type JournalListFilter = {
   sinceMs?: number;
   excludeResolved?: boolean;
   includeArchived?: boolean;
-  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
-  // 確認できるようにしたい」対応。trueのときはincludeArchivedの値によらず、実名リークで
+  // trueのときはincludeArchivedの値によらず、実名リークで
   // 自動隔離されたJournalだけに絞り込む。
   quarantinedOnly?: boolean;
   // センシティブ Journal を一覧に含める（既定は除外）。
@@ -703,17 +679,15 @@ export function listJournalEntriesPage(
   return { entries: events.map(eventToJournalEntry), total };
 }
 
-// ユーザー指摘「Dashboardの『Journal未確認』から/journalへ飛んだ際、そのエントリが
-// 載っているページへ自動的に移動したい」対応。ページネーション後もこの深いリンクを保つため、
-// 対象エントリが現在のフィルタ・並び順で何件目に位置するかをサーバー側で求める。
-// フィルタに合致しない（別のtag/urgency等で絞り込み中）場合はundefinedを返す。
+// ページネーション後も深いリンクを保つため、対象エントリが現在のフィルタ・並び順で
+// 何件目に位置するかをサーバー側で求める。フィルタに合致しない場合はundefinedを返す。
 export function findJournalEntryOffset(id: string, filter: JournalListFilter): number | undefined {
   const target = getEventById(id);
   if (!target || target.entityType !== "journal") return undefined;
   return findEventOffset({ occurredAt: target.occurredAt, recordedAt: target.recordedAt }, toEventFilter(filter));
 }
 
-// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。絞り込みドロップダウン
+// 絞り込みドロップダウン
 // （タグ・人物）用の選択肢一覧。全件からの重複排除が必要なため、これ自体は全行を
 // 走査するが、読むのはtags_json/people_jsonの2カラムのみ（本文・要約等は含まない）。
 export function listJournalFacets(): { tags: string[]; people: string[] } {
@@ -756,7 +730,7 @@ export async function linkJournalToSuggestion(
   return updateJournalEntry(current.id, { resolvedSuggestionId: suggestionId }, opts);
 }
 
-// docs/memo.md「C. Journalセンシング→行動」対応。ローカルモデルの抽出精度には限界があり、
+// ローカルモデルの抽出精度には限界があり、
 // EMがtags/people/urgencyをその場で校正できないと「AI抽出のまま組織の事実になる」ことに
 // なってしまう。イベントソーシングの不変性は保ったまま、新しいfactイベントを
 // supersedesで繋いで記録することで「修正」を表現する（元イベントは削除・上書きしない）。
@@ -771,11 +745,11 @@ export async function updateJournalEntry(
     // Team.id の明示指定。teams と併用時は和集合。
     teamIds?: string[];
     urgency?: Urgency;
-    // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。sentimentは
+    // sentimentは
     // ローカルモデルの自動抽出値だが、誤判定をEMが直接直せるようにする（urgencyと同じ扱い）。
     sentiment?: Sentiment;
     occurredAt?: number;
-    // docs/em_human_story_and_ux.md 改修依頼対応。undefined=変更しない、null=解除、
+    // undefined=変更しない、null=解除、
     // string=設定、という3値の意味を持たせる（他フィールドと違い「未指定=既存値を保持」が
     // 「クリアできない」ことを意味してしまうため）。
     resolvedSuggestionId?: string | null;
@@ -795,8 +769,7 @@ export async function updateJournalEntry(
   const urgency = patch.urgency !== undefined && isUrgency(patch.urgency) ? patch.urgency : original.urgency ?? "mid";
   const sentiment =
     patch.sentiment !== undefined && isSentiment(patch.sentiment) ? patch.sentiment : original.sentiment ?? "neutral";
-  // docs/em_human_story_and_ux.md 改修依頼「通常投入でも日付レベルの訂正を扱えるように」
-  // 対応。まとめ入力から生成された（または単に日付を勘違いした）エントリの発生日を、
+  // まとめ入力から生成された（または単に日付を勘違いした）エントリの発生日を、
   // 校正のタイミングで直せるようにする。
   const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : original.occurredAt;
   const resolvedSuggestionId =
@@ -830,7 +803,6 @@ export async function updateJournalEntry(
         : undefined
       : original.resolutionNote;
 
-  // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
   // 記録時の言い間違い等の訂正用であり、tags/people/urgency/summaryの再抽出は行わない
   // （EMが必要なら別途手動で合わせて調整する）。新しい文面から新規の人物名が出てくる
   // 可能性があるため、候補確認のうえ既知名のみマスクする。
@@ -857,8 +829,8 @@ export async function updateJournalEntry(
     sentiment,
     summary: original.summary,
     occurredAt,
-    // バグ修正（docs/memo.md「入力順と表示順が変わる」）対応。recordedAtを指定しないと
-    // recordEvent()がDate.now()を採番し、校正のたびに「記録した実時刻」が編集時刻へ
+    // recordedAtを指定しないと
+    // recordEventがDate.nowを採番し、校正のたびに「記録した実時刻」が編集時刻へ
     // 進んでしまう。一覧はoccurred_at DESC, recorded_at DESCの順で並ぶため、occurredAtが
     // 同値（まとめ入力の同日エントリ等）の集団内で、後から校正しただけのエントリが
     // 本来の入力順を追い越して先頭寄りに移動してしまっていた。supersedeしても

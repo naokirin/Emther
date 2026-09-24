@@ -23,7 +23,6 @@ vi.mock("./embeddings", () => ({
   cosineSimilarity: () => 0,
 }));
 
-// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 // 実際の辞書・形態素解析（重い・並列実行時にタイムアウトしやすい）を避けてモックする。
 vi.mock("./name-candidate-detect", () => ({
@@ -89,7 +88,6 @@ describe("generateReport", () => {
     expect(report.stats.journal.notableEntries).toHaveLength(1);
   });
 
-  // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
   it("確認済み（対応不要）にしたJournalはnotableEntriesから除外する", async () => {
     const journalStore = await import("./journal-store");
     const store = await loadModule();

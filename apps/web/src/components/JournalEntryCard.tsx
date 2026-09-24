@@ -18,9 +18,8 @@ const URGENCY_SHORT: Record<JournalEntry["urgency"], string> = {
   high: "High",
 };
 
-// docs/em_human_story_and_ux.md 改修依頼「まとめて記録する仕組み」対応。まとめ入力・日付
-// 訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、常に
-// 発生日を短く表示する（今日/昨日はそう書き、それ以外はM/D）。
+// まとめ入力・日付訂正により、entry.createdAt（＝出来事の発生日）が「今日」以外になり得るため、
+// 常に発生日を短く表示する（今日/昨日はそう書き、それ以外はM/D）。
 function formatEntryDate(ts: number): string {
   const d = new Date(ts);
   const today = new Date();
@@ -31,16 +30,12 @@ function formatEntryDate(ts: number): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-// docs/memo.md TODO「Quick JournalをEMが後からリスト確認・検索しにくいUIになっている」対応。
-// Dashboard（直近5件）とJournal一覧（全件検索）の両方で同じ表示・その場編集UIを使うための
-// 共有コンポーネント。編集状態そのものは@/lib/hooksのuseJournalEditingが持ち、
-// このコンポーネントは表示に専念する。改修依頼「表形式を戻してほしい」対応。Journalは
-// 自由記述の本文＋タグが主役で、カラムに分けてもわかりやすくならず、個別のエントリを
-// 1件ずつ読む場面の方が多いため、カードの並びに戻す（表形式にはしない）。
+// Dashboard（直近5件）とJournal一覧（全件検索）の両方で同じ表示・その場編集UIを使う共有コンポーネント。
+// 編集状態は useJournalEditing が持ち、このコンポーネントは表示に専念する。
+// Journalは自由記述の本文＋タグが主役で、個別エントリを1件ずつ読む場面が多いためカード並び（表形式にはしない）。
 export function JournalEntryCard({
   entry,
-  // docs/memo.md「戦略→提案→Journalの縦の接続が見えづらい」対応。resolvedSuggestionId経由で
-  // 提案まで辿れるときだけパンくずを出す。呼び出し側で未指定なら何も出さない
+  // resolvedSuggestionId経由で提案まで辿れるときだけパンくずを出す。呼び出し側で未指定なら何も出さない
   // （Dashboard等、既に手一杯な画面での強制表示は避ける）。
   suggestions = [],
   editing,
@@ -91,16 +86,14 @@ export function JournalEntryCard({
   editPeople: string;
   editTeams: string;
   editUrgency: JournalEntry["urgency"];
-  // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。
   editSentiment: JournalEntry["sentiment"];
   editDate: string;
   editSensitive: boolean;
   editSubmitting: boolean;
   editError: string | null;
   resolutionNoteDraft: string;
-  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
-  // スピナーだけ表示する」対応。pending中はこのエントリの編集フォームを閉じたまま
-  // バックグラウンドで更新中であることだけを示す（他のエントリの編集は妨げない）。
+  // pending中はこのエントリの編集フォームを閉じたままバックグラウンドで更新中であることだけを示す
+  // （他のエントリの編集は妨げない）。
   pending: boolean;
   pendingError?: { message: string; retry: () => void };
   onChangeEditRawText: (value: string) => void;
@@ -113,20 +106,18 @@ export function JournalEntryCard({
   onChangeEditSensitive: (value: boolean) => void;
   onChangeResolutionNoteDraft: (value: string) => void;
   onConfirmEdit: () => void;
-  // docs/usage_issues U16。未確認エントリを編集せずに確定する。
+  // 未確認エントリを編集せずに確定する。
   onConfirmAsIs?: () => void;
-  // docs/usage_issues U16。確定済みで相談未作成のとき、手動で分析を起動する。成功時は runId。
+  // 確定済みで相談未作成のとき、手動で分析を起動する。成功時は runId。
   onStartAnalysis?: () => Promise<string | undefined>;
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onResolveWithNote: () => void;
   onResolveWithNewSuggestion: () => Promise<string | undefined>;
   onClearResolution: () => void;
-  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジ等の強調を減らせない」対応。
   onAcknowledgeSentiment: () => void;
   onClearSentimentAck: () => void;
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。呼び出し側が省略
-  // した場合はボタン自体を出さない（Dashboard等、まだ配線していない画面向け）。
+  // 呼び出し側が省略した場合はボタン自体を出さない（Dashboard等、まだ配線していない画面向け）。
   onArchive?: () => void;
   onUnarchive?: () => void;
   // センシティブ設定。呼び出し側が省略した場合はメニュー項目自体を出さない。
@@ -139,10 +130,8 @@ export function JournalEntryCard({
   const navigate = useNavigate();
   const suggestionPeek = useSuggestionPeek();
   const isResolved = isJournalEntryResolved(entry);
-  // docs/em_human_story_and_ux.md 改修依頼「本文編集は他の編集項目より頻度が低いので、
-  // 編集を押したときだけ編集モードに入るようにする」対応。tags/people/urgency/日付は
-  // 編集モードに入ると常に触れるが、本文は提案のタイトル編集と同じくボタンで
-  // 明示的に開始する（うっかり本文を書き換えてしまう事故も減らせる）。
+  // tags/people/urgency/日付は編集モードに入ると常に触れるが、本文はボタンで明示的に開始する
+  // （うっかり本文を書き換えてしまう事故も減らせる）。
   const [rawTextRevealed, setRawTextRevealed] = useState(false);
   const [analysisStarting, setAnalysisStarting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -202,9 +191,8 @@ export function JournalEntryCard({
     }
   }
 
-  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
-  // スピナーだけ表示する」対応。エラーは編集フォームを閉じたあとに届くことがあるため、
-  // editingとは独立してこのエントリ自体に出す（再試行すれば元の内容のまま送り直せる）。
+  // エラーは編集フォームを閉じたあとに届くことがあるため、editingとは独立してこのエントリ自体に出す
+  // （再試行すれば元の内容のまま送り直せる）。
   if (pendingError) {
     return (
       <div className={styles.journalEntry}>
@@ -252,8 +240,8 @@ export function JournalEntryCard({
           </div>
         ) : (
           <div>
-            {/* docs/em_ui_ux_issue.md 7節対応。テキスト領域自体のクリックでも編集を開始
-                できるようにする（アクセシブルな入口は下の「本文を編集」ボタン）。 */}
+            {/* テキスト領域自体のクリックでも編集を開始できるようにする
+                （アクセシブルな入口は下の「本文を編集」ボタン）。 */}
             <div className={styles.editableTextView} onClick={() => setRawTextRevealed(true)}>
               <MarkdownView text={entry.rawText} />
             </div>
@@ -295,8 +283,7 @@ export function JournalEntryCard({
           </label>
         </div>
         <div className={styles.field}>
-          {/* 改修依頼「デフォルトのセレクトボックスの多用による選択のしにくさ」対応。
-              3択の固定選択肢はプルダウンで隠さない。 */}
+          {/* 3択の固定選択肢はプルダウンで隠さない。 */}
           <span className={styles.fieldCaption}>Urgency</span>
           <div role="group" aria-label="Urgency" style={{ display: "flex", gap: 6 }}>
             {(["low", "mid", "high"] as const).map((u) => (
@@ -312,8 +299,7 @@ export function JournalEntryCard({
           </div>
         </div>
         <div className={styles.field}>
-          {/* ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。
-              ローカルモデルの自動判定が実態と違う場合に、EMがその場で直せるようにする。 */}
+          {/* ローカルモデルの自動判定が実態と違う場合に、EMがその場で直せるようにする。 */}
           <span className={styles.fieldCaption}>ネガティブ・ポジティブ</span>
           <div role="group" aria-label="ネガティブ・ポジティブ" style={{ display: "flex", gap: 6 }}>
             {(["positive", "neutral", "negative"] as const).map((s) => (
@@ -373,9 +359,8 @@ export function JournalEntryCard({
           )
         )}
 
-        {/* docs/em_human_story_and_ux.md 改修依頼対応。Urgencyは起きた出来事自体の
-            深刻さの記録として書き換えず、「今どこで管理されているか」を別途記録できる
-            ようにする。 */}
+        {/* Urgencyは起きた出来事自体の深刻さの記録として書き換えず、
+            「今どこで管理されているか」を別途記録できるようにする。 */}
         <div className={styles.field} style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
           <span className={styles.fieldCaption}>解決 / 追跡</span>
           {entry.sourceConsultRunId && (
@@ -491,8 +476,7 @@ export function JournalEntryCard({
 
   return (
     <div className={`${styles.journalEntry} ${isResolved ? styles.journalEntryResolved : ""}`}>
-      {/* docs/design/journal/journal-tab.pen 改善案A「カードのごちゃつき」対応。
-          層を分ける: ①状態＋誰・いつ ②本文 ③シグナル ④主アクション1つ。
+      {/* 層を分ける: ①状態＋誰・いつ ②本文 ③シグナル ④主アクション1つ。
           編集・アーカイブ・対応不要・相談などは ⋯ メニューへ。 */}
       <div className={styles.journalCardHead}>
         <div className={styles.journalCardHeadLeft}>

@@ -6,9 +6,9 @@ import { isSuggestionStalled, teamDisplayName } from "./types";
 import { listSuggestions } from "./suggestion-store";
 import type { Suggestion } from "./types";
 
-// docs 3.1.1「Team Vitals」の三値ステータス（良好/要注意/評価不能）を実データから算出する。
+// Team Vitalsの三値ステータス（良好/要注意/評価不能）を実データから算出する。
 // 重要: データが足りない場合に「良好」や「要注意」へ寄せず、必ず"unknown"として
-// 判定不能であることを明示する（このプロジェクトの出発点になった要件）。
+// 判定不能であることを明示する。
 
 export type VitalStatus = "good" | "warn" | "bad" | "unknown";
 
@@ -18,11 +18,10 @@ export type TeamVital = {
   status: VitalStatus;
   label: string;
   reason: string;
-  // docs/memo.md「D. 評価不能→観測アクション」対応。評価不能な時にEMが誰の1on1を
+  // 評価不能な時にEMが誰の1on1を
   // 記録すればよいか具体的に示せるよう、チームメンバー（PERSON_n IDのまま）を持たせる。
   // 実名への変換はAPIルート側（unmaskNames）で行う。
   members: string[];
-  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // Dashboardの「○○さんの1on1を記録」提案を、自分が管理するチームに限定するために使う。
   managedByEm: boolean;
 };
@@ -32,7 +31,7 @@ export type CoverageVital = {
   covered: number;
   total: number;
   reason: string;
-  // docs/memo.md「D」対応。reasonの自由文からのパースは脆いため、1on1が未実施の
+  // reasonの自由文からのパースは脆いため、1on1が未実施の
   // メンバー（PERSON_n ID）を構造化フィールドとして持たせる。
   uncoveredMembers: string[];
 };
@@ -54,7 +53,6 @@ function sentimentScore(s: JournalEntry["sentiment"]): number {
 
 const STATUS_LABEL: Record<VitalStatus, string> = { good: "安定", warn: "やや注意", bad: "要注意", unknown: "評価不能" };
 
-// ユーザー指摘「バイタルが提案の状況(停滞・確認保留)に対して問題無いように見える」対応。
 // Journalのsentimentだけで判定すると、提案が停滞・確認保留していても穏やかに見えてしまう。
 // このチームに紐づく（Suggestion.teamId一致）未アーカイブ提案に、確認保留・停滞中のものが
 // 1件でもあるかを見る。
@@ -111,7 +109,6 @@ function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType
   }
 
   // 方針A: 明示 teamIds またはメンバー一致のどちらか。
-  // ユーザー指摘「確認済み（対応不要）にしたJournalはメンバーのアラート換算から外したい」対応。
   const relevant = entries.filter(
     (e) => withinDays(e.createdAt, rules.teamWindowDays) && isJournalRelatedToTeam(e, team) && !e.noActionNeededAt,
   );
@@ -159,7 +156,6 @@ function computeCoverageVital(
   entries: JournalEntry[],
   rules: ReturnType<typeof getRulesAndConstraints>,
 ): CoverageVital {
-  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // 1on1 Coverageは「EMが1on1を実施すべき相手」の充足率なので、自分が管理するチーム
   // （managedByEm）のメンバーだけを対象にする（兼務で他チームにも所属していれば対象に含む）。
   // さらに利用者本人(selfPersonId)と退職アーカイブ済みは「1on1を実施すべき相手」ではないので除外する。
@@ -209,7 +205,6 @@ function computeCoverageVital(
 
 export function computeOrgVitals(): OrgVitals {
   const teams = listActiveTeams();
-  // ユーザー要望「チームの状態を自分が管理するチームのみに」対応。
   // 1on1 Coverage と同様、Dashboard / 朝サマリー / 次にすべきことの Team Vitals は
   // managedByEm のチームだけを対象にする（兼務・他チームの観測は /teams 側で管理）。
   const managedTeams = teams.filter((t) => t.managedByEm);
@@ -221,13 +216,12 @@ export function computeOrgVitals(): OrgVitals {
   };
 }
 
-// docs/memo.md「L. 介入の閉ループ（やった→組織が変わったか）」対応。
 // 「感覚」ではなく観測（Journalのsentiment集計）に基づいて、介入（チームに紐づく提案）の
 // 前後でチームの状態がどう変化したかを見せる。新しいVitalsのロジックは作らず、
 // computeTeamVitalと同じ「直近teamWindowDays日間のJournal」という考え方を、
 // 「解決（done）前のteamWindowDays日間」と「reviewedAt以降のteamWindowDays日間」の
-// 2つの窓に分けて適用するだけ（docs/issue_tracker_contract.md §6 案α）。
-// docs/em_human_story_and_ux.md P2-15「介入効果の『進行中』版」対応。未完了でも
+// 2つの窓に分けて適用するだけ。
+// 未完了でも
 // before窓（介入開始前）と「介入開始〜現在」窓の比較を返す（inProgressで文言を出し分け）。
 export type ImpactWindow = { total: number; positive: number; negative: number };
 export type SuggestionImpact = { windowDays: number; before: ImpactWindow; after: ImpactWindow; inProgress: boolean };

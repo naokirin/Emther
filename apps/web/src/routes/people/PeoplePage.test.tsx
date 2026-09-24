@@ -6,9 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { PeoplePage } from "./PeoplePage";
 
-// web/src/app/people/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier2、人物バッチ）。usePeopleがTanStack Query化されているため
-// QueryClientProviderで包む。
+// usePeopleがTanStack Query化されているため
+// QueryClientProviderで包む
 function createWrapper(initialEntries: string[] = ["/people"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -36,9 +35,8 @@ const PERSON_A = {
 describe("PeoplePage", () => {
   beforeEach(() => {
     // 追加した人物のサイドピークがrefreshPeople()後の再GETに反映されている必要があるため
-    // （固定レスポンスだと追加した人物が一覧に出ずサイドピークの対象が見つからない）、
-    // 状態を保持する素朴なサーバーもどきにする（docs/2nd_architecture/plan.md
-    // フェーズ3.5 settingsバッチで踏んだ落とし穴と同種）。
+    // （固定レスポンスだと追加した人物が一覧に出ずサイドピークの対象が見つからない）
+    // 状態を保持する素朴なサーバーもどきにする（
     let people = [PERSON_A];
     vi.stubGlobal(
       "fetch",

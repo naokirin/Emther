@@ -10,9 +10,8 @@ import { usePeople } from "../../lib/queries";
 import { PERSON_VITAL_LABEL, personVitalStatus, type PersonSummary } from "@emther/core/types";
 import type { PersonMutationResponse } from "@emther/api-contract";
 
-// web/src/app/people/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2、人物バッチ）。
 // react-routerのusePeekParamはSuspenseを要求しないため、元実装の<Suspense>ラッパーは
-// 不要（削除した）。
+// 不要（削除した）
 function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (id: string) => void }) {
   return (
     <div className={styles.personCardGrid}>

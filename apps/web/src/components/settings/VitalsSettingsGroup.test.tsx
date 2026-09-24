@@ -3,8 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { VitalsSettingsGroup } from "./VitalsSettingsGroup";
 import { makeRules } from "./test-fixtures";
 
-// web/src/components/settings/VitalsSettingsGroup.tsx（Next.js版）には専用テストが
-// 元々無かったため新規に追加する（フェーズ3.5 tier2 settingsバッチ）。
 // 「判定に使う参照期間（日）」はTeam Vital / 1on1 Coverageの両セクションに同名ラベルが
 // 存在するため getAllByLabelText で取得する（先頭=Team Vital側）。
 describe("VitalsSettingsGroup", () => {

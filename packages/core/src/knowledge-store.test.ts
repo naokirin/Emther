@@ -357,8 +357,6 @@ describe("listActiveFactsForPerson / listInterpretationsForPerson", () => {
     expect(knowledgeStore.listInterpretationsForPerson("PERSON_1").map((i) => i.text)).toEqual(["clean-version"]);
   });
 
-  // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
-  // 『複数回報告されている』と誤って判定されてしまう」対応。
   it("excludeIdを渡すと、そのイベント自身をファクト一覧から除外する", async () => {
     const { knowledgeStore } = await loadModules();
     const self = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: ["PERSON_1"], text: "いま分析中の本人", tags: [], occurredAt: 1 });
@@ -387,8 +385,7 @@ describe("quarantineEventsContainingNames", () => {
     expect(knowledgeStore.getEventById(clean.id)?.archivedAt).toBeUndefined();
   });
 
-  // docs/memo.md「実名を含んでしまっていた場合に自動で隔離されたJournalをユーザーが
-  // 確認できるようにしたい」対応。手動アーカイブと区別するため、自動隔離だけ
+  // 手動アーカイブと区別するため、自動隔離だけ
   // archivedReasonが"name_leak"になり、archivedReasonExactで絞り込める。
   it("自動隔離だけarchivedReasonが'name_leak'になり、手動アーカイブと区別できる", async () => {
     const { knowledgeStore } = await loadModules();
@@ -444,7 +441,6 @@ describe("toEventView", () => {
   });
 });
 
-// ユーザー指摘「確認したが対応不要だった、を示せず強調を減らせない」対応。
 describe("setEventNoActionNeeded / clearEventNoActionNeeded", () => {
   it("sentiment等は変えずno_action_needed系だけをin-placeで更新する", async () => {
     const { knowledgeStore } = await loadModules();
@@ -481,7 +477,6 @@ describe("setEventNoActionNeeded / clearEventNoActionNeeded", () => {
   });
 });
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
 describe("setEventArchived / clearEventArchived", () => {
   it("in-placeでarchived_atだけを更新し、excludeArchivedで絞り込める", async () => {
     const { knowledgeStore } = await loadModules();
@@ -558,7 +553,6 @@ describe("listEventsForEntity / recordChangeEvent / listRecentChangeEvents", () 
   });
 });
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 describe("reassignPersonId", () => {
   it("text/summary/resolution_note内の埋め込みIDを置換する", async () => {
     const { knowledgeStore } = await loadModules();
@@ -639,8 +633,6 @@ describe("searchSimilarEvents", () => {
     expect(results[1].similarity).toBeCloseTo(0);
   });
 
-  // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
-  // 『複数回報告されている』と誤って判定されてしまう」対応。
   it("excludeIdを渡すと、そのイベント自身を類似検索結果から除外する", async () => {
     const { knowledgeStore } = await loadModules();
     const self = knowledgeStore.recordEvent({ kind: "fact", context: "observation", entityType: "journal", people: [], text: "分析中の本人", tags: [], occurredAt: 1, embedding: [1, 0] });

@@ -8,7 +8,6 @@ import {
   updateGlossaryEntry,
 } from "@emther/core/glossary-store";
 
-// docs/2nd_architecture/plan.md フェーズ2.3: web/src/app/api/glossary/{route,[id]/route}.ts の移植。
 export const glossaryRoute = new Hono()
   .get("/", (c) => {
     const body = { entries: listGlossaryEntries() } satisfies GlossaryListResponse;

@@ -26,7 +26,7 @@ function categoryLabel(category: PolicyCategory | undefined): string {
   return CATEGORY_OPTIONS.find((o) => o.value === (category ?? ""))?.label ?? "";
 }
 
-// Policy（判断原則）。goal_policy_model.md の方針どおり固定欄にはせず、Standing Background
+// Policy（判断原則）。固定欄にはせず、Standing Background
 // と同じ「自由記述の複数エントリ」を左ツリー入口＋右パネルの一覧・編集で扱う。
 export function PolicyPanel({ policies, policiesLoaded, refreshPolicies }: Props) {
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);

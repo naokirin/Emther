@@ -1,14 +1,9 @@
-// docs/memo.md の設計に対応:
-// 「個人名は人間に見せるときは実名で表示したいが、外部LLMに渡すときにはマスクしたい。
-//   ID:名前の対応表はローカルのみが読める場所に持ち、外部送信前にIDへ置換、
-//   表示時にはプログラムでID→名前に戻す」
-//
+// 個人名は人間に見せるときは実名、外部LLMへ渡すときはマスクする。
+// ID:名前の対応表はローカルのみが読める場所に持ち、外部送信前にIDへ置換、
+// 表示時にはプログラムでID→名前に戻す。
 // この対応表は`~/.local/state/emther/secure/people-directory.json`（所有者のみ
 // 読み書き可能、0700/0600）にのみ存在し、外部LLM（claude -p 等）には絶対に渡さない。
-// 個人情報の分離（ユーザー指摘対応）: 当初はプロジェクト配下の`.data/`、次いで
-// `~/.local/state/em-ai-team-secure/`、その後 `em-ai-team/secure` に置いていたが、
-// 配布方針（docs/packaging.md）に合わせ業務データと同根の `emther/secure` へ移した
-// （旧配置からは自動移行）。
+// 個人情報の分離: 業務データと同根の `emther/secure` に置く（旧配置からは自動移行）。
 // virtiofs 上では Unix パーミッションが実効的でないこと、cursor-agent の
 // `--workspace` が絶対パス読み取りを防げないことは実機検証済みのため、
 // プロジェクト外・権限が効く場所に置く方針は維持する。
@@ -141,7 +136,7 @@ function persist(): void {
   });
 }
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。nameToIdは元々
+// nameToIdは元々
 // 「名前→ID」のMapであり、複数の名前文字列が同じIDを指すこと自体は構造上すでに可能
 // だった（1つのIDに複数の別名がぶら下がる形）。idToName（表示用の正式名、1id=1名）と
 // 組み合わせ、「正式名以外でこのIDを指しているnameToIdのキー」を別名（aliases）として
@@ -245,7 +240,7 @@ function escapeRegExp(s: string): string {
 // 挿入済みの置換後文字列（例: "PERSON_1"）の内部に部分一致してしまい、自己破壊的に
 // 壊れることがある——実際に、1文字だけの誤登録名（ローカルモデルの抽出ミスによる
 // "P" 等）が既に挿入済みの"PERSON_10"のような文字列の内部の"P"に一致し、
-// 二重に置換されて文字列が破損する不具合が実機で発生した。String.replace()の
+// 二重に置換されて文字列が破損する不具合が実機で発生した。String.replaceの
 // コールバックは元の文字列上の一致箇所に対してのみ呼ばれ、置換後の文字列を
 // 再スキャンしないため、この自己破壊が起きない。
 function replaceAllAtOnce(text: string, mapping: Map<string, string>): string {
@@ -331,7 +326,6 @@ export function findMentionedPersonIds(text: string): string[] {
 
 // IDを実名に戻す。区切り付き {{PERSON_n}} を先に処理し、続けてレガシーな裸 ID
 // （people 配列・移行前データ）を戻す。
-// ユーザー指摘「PERSON_10がPERSON_1(登録済み)の時点で置き換えられ『◯◯さん0』になる」対応。
 // 裸IDは登録済みIDの集合から作ったパターンで置換していたため、カウンタのリセットや
 // deletePersonで対応表から消えたIDが本文に残っていると（例: 本文は"PERSON_20"だが
 // idToNameにはPERSON_1〜PERSON_17しか無い）、"PERSON_20"の先頭8文字が短い登録済みID
@@ -382,12 +376,10 @@ export function setPersonArchived(id: string, archived: boolean): PersonRecord |
   return listPeople().find((p) => p.id === id);
 }
 
-// docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
 // フィルタでは防ぎきれない誤登録が必ず残る前提の「最後の安全弁」として、EMが
 // People画面から誤登録エントリを直接削除できるようにする。関連するJournal fact等
 // （knowledge-store側にPERSON_n ID付きで残る）はここでは削除しない——誤登録エントリは
 // 実際のJournal記録を伴わないケースがほとんどであり、対応表からの削除だけで
-// 「以後そのIDは実名に戻らない・以後NERで再度この名前が出れば新しいIDが振られる」
 // という実用上十分な復旧になる。正式名だけでなく、登録済みの別名もすべて一緒に消す
 // （別名だけが対応表に残ると、以後その別名を含む文が誰にも解決できないIDへマスクされ
 // 続けてしまうため）。
@@ -408,7 +400,7 @@ export function deletePerson(id: string): boolean {
   return true;
 }
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。既存の人物に
+// 既存の人物に
 // 別名を追加登録する（新規IDは発行しない）。以後、この別名がJournal等の自由記述に
 // 現れた場合もこのIDへマスクされる。
 export function addAlias(id: string, aliasName: string): { ok: true } | { ok: false; error: string } {
@@ -434,7 +426,7 @@ export function addAlias(id: string, aliasName: string): { ok: true } | { ok: fa
   return { ok: true };
 }
 
-// docs/usage_issues U7。正式名を差し替え、旧表記は別名として残す（過去のJournalが
+// 正式名を差し替え、旧表記は別名として残す（過去のJournalが
 // マスクされ続けるようにする）。
 export function renamePerson(id: string, newName: string): { ok: true } | { ok: false; error: string } {
   const trimmed = newName.trim();
@@ -464,7 +456,6 @@ export function removeAlias(id: string, aliasName: string): boolean {
   return true;
 }
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 // fromId（重複・統合されて消える側）の正式名・別名をすべてtoId（統合先・残る側）の
 // 別名として付け替え、fromIdの正式名エントリを削除する。これにより、以後fromIdの
 // 名前がJournal等に現れてもtoIdへマスクされる（統合＝表記揺れ登録の特殊形）。
@@ -490,7 +481,7 @@ export function getPersonId(name: string): string | undefined {
   return findIdByAnyForm(name);
 }
 
-// 個人情報の分離の「保証する仕組み」（ユーザー指摘対応）。ここまでの対応（保存前マスク・
+// 個人情報の分離の「保証する仕組み」。ここまでの対応（保存前マスク・
 // クラウド応答の非アンマスク化）はすべて「呼び出し側が正しく実装している」という規律に
 // 依存しており、技術的に強制する仕組みではなかった——実際、このセッション中に発見した
 // maskNames/unmaskNamesの自己破壊バグや、Journalのtagsへの人物名混入は、まさに
@@ -508,10 +499,8 @@ export function assertNoRealNamesLeaked(text: string): void {
   }
 }
 
-// ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
-// 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要がある」
-// 対応。assertNoRealNamesLeakedと同じ検査だが、例外を投げる代わりにヒットした登録名を
-// 返す——呼び出し側（agent-runtime）はこれを使って原因と見られるナレッジイベントを
+// assertNoRealNamesLeakedと同じ検査だが、例外を投げる代わりにヒットした登録名を返す。
+// 呼び出し側（agent-runtime）はこれを使って原因と見られるナレッジイベントを
 // knowledge-store.ts側で特定・自動アーカイブする。ヒットした名前自体はログに出さない。
 export function detectLeakedNames(text: string): string[] {
   const hits: string[] = [];
@@ -530,7 +519,6 @@ export function detectLeakedNames(text: string): string[] {
 // ensureNameCandidatesAllowed 経由でEM確認（未マスク許可）を求める。
 // 呼び出し側は既知の名前だけがPERSON_nに置換されたテキストを保存する。
 
-// docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
 // 実機で確認された誤登録事例を踏まえた抽出後フィルタ。完全な言語判定はしない。
 // （候補検出本体は name-candidate-detect。ここは追加の妥当性チェック用）
 const MIN_NAME_LENGTH = 2;
@@ -660,14 +648,11 @@ registerNameCandidateFilters({
 
 /**
  * 複数テキストから未確認候補を集め、必要なら登録／確認エラーにする。
- *
  * 既定（opts未指定）: 候補検出を起動せず即return。登録済み人名だけが後続の maskForStorage で
  * マスクされる。事前登録が正の方針に合わせ、保存・Agent送信のホットパスから検出を外す。
- *
  * - registerNameCandidates: true → 候補を検出し人名登録する
  * - allowUnmaskedCandidates: false → 候補を検出し、未許可なら UnconfirmedNameCandidatesError
  * - allowUnmaskedCandidates: true → 候補を検出し acknowledge して進める
- *
  * additionalCandidates: 形態素／ルール検出に加え、ローカルLLM抽出など別経路の未登録名を
  * 同じ確認ゲートへ合流させる（Journal保存前ダイアログを1回に統合するため）。
  * 既登録・ack済み・妥当でない語句はここで落とす。

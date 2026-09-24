@@ -12,7 +12,7 @@ function createWrapper() {
   };
 }
 
-describe("useTimeline（usePolledQueryの代表例として検証。docs/2nd_architecture/plan.md フェーズ3.2）", () => {
+describe("useTimeline（usePolledQueryの代表例として検証）", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

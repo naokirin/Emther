@@ -50,16 +50,15 @@ describe("CheckinTrendChart", () => {
   });
 });
 
-// ユーザー指摘「Chart.jsのアニメーションで位置が上書きされ、結局点が重なる」および
-// 「マウスオーバーのたびにどんどん離れていく」対応の回帰テスト。
+// Chart.js のアニメーションで点が重なる／マウスオーバーのたびに離れていく回帰テスト。
 // - 1回目: afterDatasetsUpdate（chart.update()時に1回だけ発火）でずらすと、その後の
-//   毎フレームのアニメーションTickでx/yがジッター無しのターゲット値へ再設定され、
-//   静止後には結局元の位置へ戻ってしまっていた → beforeDatasetsDraw（draw()直前・
-//   毎フレーム発火）へ変更。
+// 毎フレームのアニメーションTickでx/yがジッター無しのターゲット値へ再設定され
+// 静止後には結局元の位置へ戻ってしまっていた → beforeDatasetsDraw（draw()直前・
+// 毎フレーム発火）へ変更
 // - 2回目: beforeDatasetsDrawでも`point.x += offset`という相対加算のままだと、ホバーに
-//   よるツールチップ再描画（controller.update()を経由せずdraw()だけ呼ばれる）のたびに
-//   既にジッター済みのx値へさらに加算してしまい、離れ続けていた → x軸スケールから
-//   indexごとの本来位置を毎回算出し、そこへoffsetを足した絶対値で上書きするよう変更。
+// よるツールチップ再描画（controller.update()を経由せずdraw()だけ呼ばれる）のたびに
+// 既にジッター済みのx値へさらに加算してしまい、離れ続けていた → x軸スケールから
+// indexごとの本来位置を毎回算出し、そこへoffsetを足した絶対値で上書きするよう変更
 describe("jitterPointsPlugin", () => {
   function fakeChart(datasetCount: number, pointCountPerDataset: number): Chart<"line"> {
     const metas = Array.from({ length: datasetCount }, () => ({

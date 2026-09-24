@@ -5,11 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { DashboardPage } from "./DashboardPage";
 
-// web/src/app/page.tsx（Next.js版、ダッシュボード本体）には専用テストが元々無かった
-// ため新規に追加する（フェーズ3.5 tier5 dashboardバッチ、最終ティア最後の画面）。各子
-// パネル（TodayActionsPanel/DailySituationPanel/ThemesPanel/EveningReviewCard/
-// SetupGapsBanner）の内部動作は個別テストで検証済みのため、ここでは主要パネルが
-// 揃って描画されることに絞って検証する。
+// 各子パネル（TodayActionsPanel/DailySituationPanel/ThemesPanel/EveningReviewCard/
+// SetupGapsBanner）の内部は個別テスト済みのため、ここでは主要パネルが揃って描画されることだけ検証する。
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

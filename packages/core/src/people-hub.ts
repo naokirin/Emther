@@ -14,7 +14,7 @@ import { getRulesAndConstraints, getSelfPersonId, reassignSelfPersonId } from ".
 import { isSuggestionStalled, suggestionOverviewFromLogs } from "./types";
 import { listPersonSuggestionConcernAcks, toPersonSuggestionConcernAckView } from "./person-concern-ack-store";
 
-// docs/memo.md「J. Peopleを第一級ハブに」対応。新規の永続化エンティティは持たず、
+// 新規の永続化エンティティは持たず、
 // 既存のpeople-directory（誰がいるか）・knowledge-store（Journal fact／長期解釈）・
 // org-context-store（チーム所属）・suggestion-store（関連提案、org/page.tsxの関連提案抽出と
 // 同じ名前一致の簡易ヒューリスティック）を人物軸で束ねて見せるだけの集約レイヤー。
@@ -24,19 +24,16 @@ export type PersonTrend = { positive: number; negative: number; neutral: number 
 export type PersonSummary = {
   id: string;
   name: string;
-  // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
   aliases: string[];
   teamNames: string[];
   trend: PersonTrend;
   factCount: number;
-  // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // 自分が管理するチーム(Team.managedByEm)に1つでも所属していればtrue(兼務も部下扱い)。
   // ただし利用者本人(isSelf)は部下扱いしない。
   isDirectReport: boolean;
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   // settings.selfPersonId と一致する人物。
   isSelf: boolean;
-  // ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。この人物名を
+  // この人物名を
   // 含む未アーカイブ提案に、確認保留(reviewStatus:"deferred")または停滞中(isSuggestionStalled)の
   // ものが1件でもあればtrue。personVitalStatusでJournalのsentimentが穏やかでも
   // 「やや注意」以上に引き上げるためのシグナル。
@@ -52,7 +49,6 @@ export type PersonFact = {
   sentiment?: KnowledgeEvent["sentiment"];
   urgency?: KnowledgeEvent["urgency"];
   occurredAt: number;
-  // ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
   noActionNeededAt?: number;
   noActionNeededNote?: string;
 };
@@ -61,11 +57,10 @@ export type PersonRelatedSuggestion = {
   id: string;
   title: string;
   archived: boolean;
-  // docs/2nd_pivot_version.md Phase 2.3対応。charterをまるごと渡すと、UI側が
+  // charterをまるごと渡すと、UI側が
   // 「Why/What/Howの充足度」のような管理指標を組み立てやすくなってしまうため、
   // 要約テキスト1本（suggestionOverviewFromLogs）だけを渡す。
   overview: string;
-  // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
   // この提案単体が、hasConcerningSuggestionの根拠（停滞・確認保留、未アーカイブ）に
   // 該当するか。確認済み(concernAcknowledgedAt)であっても実際の状態はconcerning=trueの
   // まま返し、UI側は「確認済みだから強調を弱める」判断に使う（提案自体の状態は隠さない）。
@@ -82,7 +77,6 @@ export type PersonProfile = PersonSummary & {
 
 const FACTS_LIMIT = 20;
 
-// ユーザー指摘「確認済み（対応不要）の所見があってもバイタルのアラート色が落ちない」対応。
 // hasConcerningRelatedSuggestion（提案側）と同様、noActionNeededAt済みのfactはtrend（バイタルの
 // 強調トリガー）の集計から除外する。fact自体はfacts一覧にconfirmed済みとして残り続ける。
 function computeTrend(facts: KnowledgeEvent[]): PersonTrend {
@@ -121,9 +115,8 @@ function findRelatedSuggestions(personName: string): Suggestion[] {
     });
 }
 
-// ユーザー指摘「バイタルが提案の状況に対して問題無いように見える」対応。未アーカイブの
+// 未アーカイブの
 // 関連提案に、確認保留・停滞中のものが1件でもあるかどうか。
-// ユーザー指摘「確認したが対応不要だった、を示せずアラートの強調を減らせない」対応。
 // EMが確認済み（対応不要）と判断した提案（acknowledgedSuggestionIds）は、提案自体は
 // concerning=trueのまま関連提案一覧に出しつつ、hasConcerningSuggestion（一覧・バイタルの
 // 強調トリガー）の判定からは除外する。
@@ -236,7 +229,7 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
   };
 }
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。People詳細画面から
+// People詳細画面から
 // 直接、既存の人物へ別名を追加・取り消しできるようにする薄いラッパー
 // （people-directory.tsの対応表操作をそのまま呼ぶだけ）。
 export function addPersonAlias(id: string, aliasName: string): { ok: true } | { ok: false; error: string } {
@@ -247,7 +240,6 @@ export function removePersonAlias(id: string, aliasName: string): boolean {
   return removeAlias(id, aliasName);
 }
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 // people-directory（対応表の付け替え）・knowledge-store（Journal等に埋め込まれた
 // PERSON_n IDの書き換え）・org-context-store（チーム所属の付け替え）の3ストアを横断する
 // 統合処理をここで束ねる（people-hub.tsが既に人物軸の集約レイヤーとして各ストアを

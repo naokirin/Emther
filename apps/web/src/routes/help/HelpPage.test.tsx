@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { HelpPage } from "./HelpPage";
 
-describe("HelpPage（docs/2nd_architecture/plan.md フェーズ3.5 tier1）", () => {
+describe("HelpPage", () => {
   it("見出し・目次・戻るリンクを表示する", () => {
     render(
       <MemoryRouter>

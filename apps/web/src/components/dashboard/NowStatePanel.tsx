@@ -132,7 +132,7 @@ function HealthSide({ title, breakdown }: { title: string; breakdown: EntityHeal
   );
 }
 
-// docs/design/dashboard/today-tab.pen 改善案A対応。「いまの状態」を程度で掴む先頭パネル。
+// 「いまの状態」を程度で掴む先頭パネル
 export function NowStatePanel({
   meters,
   loaded,

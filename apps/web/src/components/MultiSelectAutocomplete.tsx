@@ -4,12 +4,11 @@ import styles from "../styles/page.module.css";
 
 export type MultiSelectOption = { value: string; label: string };
 
-// ユーザー指摘「チームが増えるとメンバー詳細にチーム名の選択肢が大量に並ぶ」対応。
 // Select.tsx（WAI-ARIA「Select-Only Combobox」パターン、ポータル配置のリストボックス）と
 // 同じ土台（外側クリック・Escape（Modal内でも先取りできるようcaptureフェーズ）・
 // スクロール/リサイズ追従）を流用しつつ、こちらは「テキスト入力で部分一致絞り込み→
-// 選んだものをタグとして表示・✕で解除」というマルチセレクト向けの入力に置き換える。
-// 未選択の選択肢は入力するまで一覧に出さない（全件を常に並べない）。
+// 選んだものをタグとして表示・✕で解除」というマルチセレクト向けの入力に置き換える
+// 未選択の選択肢は入力するまで一覧に出さない（全件を常に並べない）
 export function MultiSelectAutocomplete({
   values,
   onChange,

@@ -4,12 +4,10 @@ import { IdLinkedText } from "../IdLinkedText";
 import { IdFragmentLink } from "../IdFragmentLink";
 import type { SuggestedSuggestionNote } from "@emther/core/agent-runtime";
 
-// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。lookupで
-// 見つけた別提案への追記提案。採用すると対象提案の経過ログへ追記されるだけで、
-// 作成・ステータス変更は行わない。
-// docs/memo.md「他提案への追記提案で追記対象を個別に選択できるようにする」「却下だけでなく
-// 対応済みも」対応。複数件あるときはチェックで対象を絞り込め、却下（提案自体が誤り）と
-// 対応済み（別口ですでに対応済みなので追わない）を区別できる。
+// 見つけた別提案への追記提案。採用すると対象提案の経過ログへ追記されるだけで
+// 作成・ステータス変更は行わない
+// 複数件あるときはチェックで対象を絞り込め、却下（提案自体が誤り）と
+// 対応済み（別口ですでに対応済みなので追わない）を区別できる
 export function SuggestedSuggestionNotesBlock({
   notes,
   onAdopt,

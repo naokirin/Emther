@@ -8,7 +8,6 @@ import {
   type GrowSuggestionStatus,
 } from "@emther/core/em-growth-store";
 
-// docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/growth/suggestions/{route,[id]/route}.ts の移植。
 export const growthSuggestionsRoute = new Hono()
   .get("/", (c) => {
     const body = { suggestions: listGrowSuggestions().map(toGrowSuggestionView) } satisfies GrowSuggestionsResponse;

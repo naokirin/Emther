@@ -1,4 +1,3 @@
-// docs/memo.md「Journal・提案・方針目標・ふりかえりを行き来し続ける認知負荷」対応。
 // 提案→Journalという縦の接続を、Suggestion.sourceJournalId・JournalEntry.resolvedSuggestionIdという
 // ライブな外部キーから都度組み立てる。
 

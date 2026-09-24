@@ -14,9 +14,6 @@ import {
 } from "@emther/core/theme-store";
 import { listGoals } from "@emther/core/org-context-store/index";
 
-// docs/2nd_architecture/plan.md フェーズ2.5:
-// web/src/app/api/themes/{route,[id]/route}.ts の移植。
-
 function stringIdList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.filter((id): id is string => typeof id === "string");
@@ -52,8 +49,7 @@ export const themesRoute = new Hono()
     const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
     return c.json(resBody, 201);
   })
-  // docs/goal_policy_model_plan.md Decision 3 / Phase 3。Goal起点で先にテーマ候補を置く経路。
-  // ヒューリスティック（AIなし）。人間が採用するまでcandidate。
+// Goal起点で先にテーマ候補を置く経路。ヒューリスティック（AIなし）。人間が採用するまでcandidate。
   .post("/from-goal", async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { goalIds?: string[] };
     const all = listGoals().filter((g) => g.status === "active");

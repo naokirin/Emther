@@ -4,9 +4,8 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { RootLayout } from "./RootLayout";
 import { HelpPage } from "./help/HelpPage";
 
-// web/src/app/layout.tsx（Next.js版RootLayout）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5、ルートシェル）。LocalModelDownloadBannerが
-// /api/models/status をポーリングするため fetch をモックする。
+// LocalModelDownloadBannerが
+// /api/models/status をポーリングするため fetch をモックする
 afterEach(() => {
   vi.unstubAllGlobals();
 });

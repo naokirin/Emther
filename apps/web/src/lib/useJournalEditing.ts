@@ -5,45 +5,36 @@ import { api, rpcInit } from "./api-client";
 import { useNameCandidateConfirm } from "./useNameCandidateConfirm";
 import type { JournalAnalyzeResponse, JournalEntryResponse, SuggestionMutationResponse } from "@emther/api-contract";
 
-// docs/memo.md「C. Journalセンシング→行動」対応のその場編集ロジックを、Dashboardと
-// Journal一覧（TODO「Quick Journalをリスト確認・検索できる画面を追加する」）の両方で
-// 共有するための共通フック。同時に編集できるのは呼び出し側の画面ごとに1件のみ。
+// Dashboard と Journal 一覧で共有するその場編集ロジック。同時に編集できるのは画面ごとに1件のみ。
 export function useJournalEditing(
   journalEntries: JournalEntry[],
   setJournalEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) => void,
 ) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  // docs/em_human_story_and_ux.md 改修依頼「Journalの本文を編集できるようにする」対応。
   const [editRawText, setEditRawText] = useState("");
-  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化する」対応。本文が実際に
-  // 触られた場合だけPATCHにrawTextを含める（毎回含めると、触っていなくても
-  // maskForStorage（ローカルNER）が走り、tags/urgency等だけの軽い確定まで重くなってしまう）。
+  // 本文が実際に触られた場合だけ PATCH に rawText を含める（毎回含めると、触っていなくても
+  // maskForStorage（ローカル NER）が走り、tags/urgency 等だけの軽い確定まで重くなってしまう）。
   const [rawTextTouched, setRawTextTouched] = useState(false);
   const [editTags, setEditTags] = useState("");
   const [editPeople, setEditPeople] = useState("");
   const [editTeams, setEditTeams] = useState("");
   const [editUrgency, setEditUrgency] = useState<JournalEntry["urgency"]>("mid");
-  // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。urgencyと同じ扱い。
   const [editSentiment, setEditSentiment] = useState<JournalEntry["sentiment"]>("neutral");
-  // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
-  // 訂正を扱えるように」対応。"YYYY-MM-DD"（<input type="date">の値）で保持する。
+  // "YYYY-MM-DD"（<input type="date">の値）で保持する。
   const [editDate, setEditDate] = useState("");
   // 編集フォーム内のセンシティブ設定（確定時に POST/DELETE /sensitive で反映）。
   const [editSensitive, setEditSensitive] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // docs/em_human_story_and_ux.md 改修依頼「urgency:highのまま解決済みにできない」対応。
   // Issueの起票・メモでの解決も、通常の確定と同じくその時点のtags/people/urgency/日付の
   // 編集内容を一緒に反映する（別のフォームとして分離すると二度手間になるため）。
   const [resolutionNoteDraft, setResolutionNoteDraft] = useState("");
 
-  // 改修依頼「メモ等の保存前にローカルAIが走る処理を非同期化し、対象のアイテム部分に
-  // スピナーだけ表示する」対応。resolutionNote／rawTextを伴う更新はmaskForStorage
-  // （ローカルNER）を通るため数十秒かかることがある。編集フォームでその完了を
-  // 待たせず、対象のエントリ自体に「処理中」を示す（他のエントリの編集・閲覧は
-  // その間もそのまま行える）。entryIdごとに管理するので、複数件を並行して
+  // resolutionNote／rawTextを伴う更新はmaskForStorage（ローカルNER）を通るため数十秒かかることがある。
+  // 編集フォームでその完了を待たせず、対象のエントリ自体に「処理中」を示す（他のエントリの
+  // 編集・閲覧はその間もそのまま行える）。entryIdごとに管理するので、複数件を並行して
   // バックグラウンド処理してもよい。
   const [pendingEntryIds, setPendingEntryIds] = useState<Set<string>>(new Set());
   const [pendingEntryErrors, setPendingEntryErrors] = useState<Record<string, { message: string; retry: () => void }>>(
@@ -187,7 +178,7 @@ export function useJournalEditing(
     if (entry) await syncSensitiveAfterSave(entry, wantSensitive, retry);
   }
 
-  // docs/usage_issues U16。編集フォームを開かず、現在の抽出内容のまま確定する。
+  // 編集フォームを開かず、現在の抽出内容のまま確定する。
   // 自動分析ONかつフィルタ適合なら、サーバ側で初回確定時に分析が起動する。
   function confirmAsIs(entry: JournalEntry) {
     const body = {
@@ -203,7 +194,7 @@ export function useJournalEditing(
     void sendJournalPatch(entry.id, body, retry);
   }
 
-  // docs/usage_issues U16。確定済みJournalをフィルタ／自動設定に関係なく明示分析する。
+  // 確定済みJournalをフィルタ／自動設定に関係なく明示分析する。
   // 成功時は相談タブへ遷移できるよう runId を返す。
   async function startAnalysis(entry: JournalEntry): Promise<string | undefined> {
     setPendingEntryIds((prev) => new Set(prev).add(entry.id));
@@ -342,7 +333,6 @@ export function useJournalEditing(
     }
   }
 
-  // ユーザー指摘「確認したが対応不要だった、を示せず#ネガティブ等の強調を減らせない」対応。
   // sentimentは観測値のまま書き換えず、EMが確認済み・対応不要と判断した事実だけを別途
   // 記録する専用エンドポイントを叩く（通常のPATCH/supersedesチェーンとは別経路）。
   // 頻度の低い操作であり、自由記述のノートを毎回求めると手間になるため、既定はメモなしの
@@ -396,8 +386,7 @@ export function useJournalEditing(
     }
   }
 
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。内容の訂正
-  // （PATCH/supersedesチェーン）とは別の専用エンドポイント（acknowledgeSentimentと同じ形）。
+  // 内容の訂正（PATCH/supersedesチェーン）とは別の専用エンドポイント（acknowledgeSentimentと同じ形）。
   async function archiveEntry(entryId: string) {
     setPendingEntryIds((prev) => new Set(prev).add(entryId));
     dismissPendingError(entryId);

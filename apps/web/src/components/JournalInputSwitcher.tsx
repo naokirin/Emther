@@ -37,9 +37,8 @@ const IMPORT_OPTIONS: {
 ];
 
 /**
- * docs/design/journal/journal-tab.pen 改善案A「入力の初見負荷」対応。
  * 既定は「書く」（随時メモ）だけを見せ、議事録ローカル要約・まとめて取り込みは
- * 「他の取り込み方」メニューへ退避する。タブバーは出さない。
+ * 「他の取り込み方」メニューへ退避する。タブバーは出さない
  */
 export function JournalInputSwitcher({ onSaved, focusDumpId, initialMode, prefill }: Props) {
   const [mode, setMode] = useState<Mode>(

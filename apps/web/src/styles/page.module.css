@@ -128,10 +128,10 @@
   animation: none;
 }
 
-/* docs/dashboard_ui_readability.md U1-2対応。画面直下に並ぶパネル間の余白を1箇所で揃え、
-   「セクション＝呼吸」を作る。:not(.layout)は、.screenと.layout（2カラムgrid）を同じ要素に
-   併用しているchat/settings/org画面を除外するため——そちらの直下の子はgridの列であり、
-   margin-topを入れるとカラムの縦位置がずれてしまう。 */
+/* U1-2対応。画面直下に並ぶパネル間の余白を1箇所で揃え
+「セクション＝呼吸」を作る。:not(.layout)は、.screenと.layout（2カラムgrid）を同じ要素に
+併用しているchat/settings/org画面を除外するため——そちらの直下の子はgridの列であり
+margin-topを入れるとカラムの縦位置がずれてしまう */
 .screen:not(.layout) > * + * {
   margin-top: 16px;
 }
@@ -156,9 +156,9 @@
   }
 }
 
-/* docs/dashboard_ui_readability.md U4-3対応。Quick Journal／Inboxはどちらもフォーム＋
-   リストで内容が詰まっており、.layoutより広い幅で折り返しが目立ち始めるため、
-   専用の（より広い）ブレークポイントで先に縦積みへ切り替える。 */
+/* U4-3対応。Quick Journal／Inboxはどちらもフォーム＋
+リストで内容が詰まっており、.layoutより広い幅で折り返しが目立ち始めるため
+専用の（より広い）ブレークポイントで先に縦積みへ切り替える */
 @media (max-width: 1000px) {
   .dashColumns {
     grid-template-columns: minmax(0, 1fr);
@@ -203,18 +203,17 @@
   background: var(--gray-bg);
 }
 
-/* ユーザー指摘「サイドメニューのデザインがほかタブと異なる」対応。.sideNavItem/
-   .sideNavItemActiveは元々<Link>（グローバルナビのAppShell）向けだが、Settings画面内の
-   切り替えはURL遷移を伴わないため<button>で使う。ネイティブbutton既定の背景（UAスタイル
-   シートのbuttonface）を打ち消さないと非アクティブ項目だけ灰色い箱に見えてしまうため、
-   ここで明示的にtransparentにする。.sideNavItemActiveより前に置く必要がある——CSSは
-   クラス名の並び順ではなくスタイルシート内の記述順で同じ詳細度の衝突を解決するため、
-   後ろに置くとActive時の背景色をtransparentが上書きしてしまう。
-   ユーザー指摘（続報）「まだフォントサイズが違う」対応。`font: inherit`はショートハンドの
-   ため、font-size等の指定していないサブプロパティも含めてすべてinherit値にリセットして
-   しまい、.sideNavItemが指定するfont-size: 0.875remを上書きして周囲の（より大きい）
-   フォントサイズを継承してしまっていた。button既定のfont-familyだけを打ち消したいので、
-   ショートハンドではなくfont-familyだけを指定する。 */
+/* .sideNavItem/
+.sideNavItemActiveは元々<Link>（グローバルナビのAppShell）向けだが、Settings画面内の
+切り替えはURL遷移を伴わないため<button>で使う。ネイティブbutton既定の背景（UAスタイル
+シートのbuttonface）を打ち消さないと非アクティブ項目だけ灰色い箱に見えてしまうため
+ここで明示的にtransparentにする。.sideNavItemActiveより前に置く必要がある——CSSは
+クラス名の並び順ではなくスタイルシート内の記述順で同じ詳細度の衝突を解決するため
+後ろに置くとActive時の背景色をtransparentが上書きしてしまう。
+`font: inherit`はショートハンドのため、font-size等の指定していないサブプロパティも含めて
+すべてinherit値にリセットしてしまい、.sideNavItemが指定するfont-size: 0.875remを上書きして
+周囲の（より大きい）フォントサイズを継承してしまっていた。button既定のfont-familyだけを
+打ち消したいのでショートハンドではなくfont-familyだけを指定する */
 .sideNavButton {
   border: none;
   background: transparent;
@@ -267,7 +266,7 @@
   border-bottom-color: var(--blue);
 }
 
-/* docs/design/retrospective/retrospective-tab.pen: 未記録時の「1日を締めくくる」軽い強調 */
+/* 未記録時の「1日を締めくくる」軽い強調 */
 .subTabBtnAttention:not(.subTabBtnActive) {
   color: var(--yellow-fg);
 }
@@ -307,9 +306,9 @@
   padding: 16px 18px;
 }
 
-/* docs/dashboard_ui_readability.md U1-3対応。副次パネル（既定で畳んである・振り返り専用
-   等）は主パネル（.heroPanel）と同じ白カードにせず、地の色に近いトーンへ落として
-   「見なくていい」感を出す。 */
+/* U1-3対応。副次パネル（既定で畳んである・振り返り専用
+等）は主パネル（.heroPanel）と同じ白カードにせず、地の色に近いトーンへ落として
+「見なくていい」感を出す */
 .secondaryPanel {
   background: var(--gray-bg);
   border-color: transparent;
@@ -473,8 +472,8 @@
   margin-top: 8px;
 }
 
-/* ユーザー指摘「保存の押し忘れや保存されたかのわかりにくさ」対応。Settings画面の
-   保存確認メッセージ用。errorTextと対になる、成功を示す常設のテキストスタイル。 */
+/* Settings画面の
+保存確認メッセージ用。errorTextと対になる、成功を示す常設のテキストスタイル */
 .successText {
   color: var(--green-fg);
   font-size: 0.875rem;
@@ -491,9 +490,8 @@
 }
 
 /* ---------- 一覧表示（表形式） ---------- */
-/* 改修依頼「メッセージのやり取り・Timeline以外の一覧表示は表形式にしたい」対応。
-   overflow-x: autoで、横幅が狭い画面でもテーブル自体が2Dスクロールの原因にならない
-   ようにする（WCAG 1.4.10 Reflow）。 */
+/* overflow-x: autoで、横幅が狭い画面でもテーブル自体が2Dスクロールの原因にならない
+ようにする（WCAG 1.4.10 Reflow） */
 .tableWrap {
   margin-top: 16px;
   overflow-x: auto;
@@ -652,16 +650,15 @@
      ハンドはfont-size/font-weightも一括で上書きしてしまう（.tag/.tagBtnで実際に踏んだ
      不具合と同じ原因）。ここは競合する明示指定が無いため実害は無いが、念のため統一する。 */
   font-family: inherit;
-  /* ユーザー指摘「増えると上下で重なってしまう」対応。親.activityStreamはflex-directionが
-     columnで高さ固定＋overflow-y:autoだが、flexアイテムは既定でflex-shrink:1のため、
-     内容が180pxを超えるとスクロールする前に各行の高さが圧縮され、行同士が重なって見えて
-     いた。0にして行の高さを常に内容通りに保ち、収まらない分は親のスクロールに任せる。 */
+  /* 親.activityStreamはflex-directionが
+columnで高さ固定＋overflow-y:autoだが、flexアイテムは既定でflex-shrink:1のため
+内容が180pxを超えるとスクロールする前に各行の高さが圧縮され、行同士が重なって見えて
+いた。0にして行の高さを常に内容通りに保ち、収まらない分は親のスクロールに任せる */
   flex-shrink: 0;
 }
 
-/* ユーザー指摘「いつのものかわからないので日時を先頭に入れてほしい。ただしテキストの
-   開始位置がずれないように」対応。日時部分を固定幅にすることで、日付・時刻の値に
-   関わらず本文（.activityLineText）の開始位置が揃うようにする。 */
+/* 日時部分を固定幅にすることで、日付・時刻の値に
+関わらず本文（.activityLineText）の開始位置が揃うようにする */
 .activityLineTime {
   flex-shrink: 0;
   /* "MM/DD HH:mm" は常に11文字（ゼロ埋め済み）。等幅フォントにすることで11chの前提が
@@ -692,8 +689,8 @@
   border-radius: 8px;
   padding: 8px 10px;
   cursor: pointer;
-  /* docs/dashboard_ui_readability.md U1-1対応。リスト行は「全部同じ小ささ」から
-     引き上げる（旧11〜12px → 0.8125rem → 主UI既定の0.875rem／14px）。 */
+  /* U1-1対応。リスト行は「全部同じ小ささ」から
+引き上げる（旧11〜12px → 0.8125rem → 主UI既定の0.875rem／14px） */
   font-size: 0.875rem;
   box-shadow: 0 1px 2px rgba(15, 18, 25, 0.04);
 }
@@ -730,9 +727,9 @@
   background: var(--gray-bg);
 }
 
-/* docs/dashboard_ui_readability.md U0-1 / U1-3対応。Dashboard先頭の主パネルだけを
-   視覚的に「主」にする（背景・枠を強め、見出しを大きくする）。他のパネルは既定の
-   .panelのまま据え置き、相対的に「副」に見えるようにする。 */
+/* U0-1 / U1-3対応。Dashboard先頭の主パネルだけを
+視覚的に「主」にする（背景・枠を強め、見出しを大きくする）。他のパネルは既定の
+.panelのまま据え置き、相対的に「副」に見えるようにする */
 .heroPanel {
   border-width: 2px;
   border-color: var(--blue);
@@ -750,9 +747,9 @@
   margin: 0;
 }
 
-/* docs/dashboard_ui_readability.md U3-3対応。色塗りの既定を弱める。全面tintは
-   本当に緊急な項目（urgent）だけに残し、警告（warn）は枠・左アクセントのみにする——
-   常時オンの色が並ぶと「今ここ」の合図が埋もれるため。 */
+/* U3-3対応。色塗りの既定を弱める。全面tintは
+本当に緊急な項目（urgent）だけに残し、警告（warn）は枠・左アクセントのみにする——
+常時オンの色が並ぶと「今ここ」の合図が埋もれるため */
 .runItem.nextActionUrgent {
   background: var(--red-bg);
   border-color: var(--red-border);
@@ -813,8 +810,8 @@
   border-radius: 4px;
   border: 1px solid var(--border);
   border-left-width: 3px;
-  /* 改修依頼「ウィンドウ幅が十分あるのにラベルが改行される」対応。表のセル等、
-     親要素の幅がテキストより先に決まる文脈でラベル自体が2行になっていた。 */
+  /* 表のセル等
+親要素の幅がテキストより先に決まる文脈でラベル自体が2行になっていた */
   white-space: nowrap;
 }
 
@@ -849,10 +846,10 @@
   border-color: var(--red-border);
 }
 
-/* 改修依頼「以前から変わったことがより分かりやすいUIに」対応。緊急度（黄=要判断／
-   赤=緊急）とは別次元の「新しさ」を示す唯一の印。塗りつぶした小さな青ドット＋文字
-   ラベルにし、状態バッジ（.badge）の左縁アクセントとは違う形にして
-   混同を避ける。 */
+/* 緊急度（黄=要判断／
+赤=緊急）とは別次元の「新しさ」を示す唯一の印。塗りつぶした小さな青ドット＋文字
+ラベルにし、状態バッジ（.badge）の左縁アクセントとは違う形にして
+混同を避ける */
 .newBadge {
   display: inline-flex;
   align-items: center;
@@ -1092,16 +1089,15 @@
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 10px;
-  /* docs/dashboard_ui_readability.md U1-1対応。本文として読ませる部分は1rem（16px）へ。
-     タグ（0.75rem・下記.tag）とのサイズ差をはっきり付け、本文とラベルの区切りを
-     フォントサイズだけに頼らせない（WCAG px→rem対応でタグ側の最小サイズを11pxから
-     12pxへ引き上げた結果、差が縮まって区切りが分かりにくくなっていた分の補正）。 */
+  /* U1-1対応。本文として読ませる部分は1rem（16px）へ
+タグ（0.75rem・下記.tag）とのサイズ差をはっきり付け、本文とラベルの区切りを
+フォントサイズだけに頼らせない（WCAG px→rem対応でタグ側の最小サイズを11pxから
+12pxへ引き上げた結果、差が縮まって区切りが分かりにくくなっていた分の補正） */
   font-size: 1rem;
 }
 
-/* 改修依頼「Journal一覧で解決済みがほかより少し目立たないようにする」対応。
-   Issues一覧のアーカイブ済み行（opacity: 0.6）と同じ考え方だが、解決済みJournalは
-   完全に過去の話ではなく参照する場面もあるため、少しだけ弱める程度に留める。 */
+/* Issues一覧のアーカイブ済み行（opacity: 0.6）と同じ考え方だが、解決済みJournalは
+完全に過去の話ではなく参照する場面もあるため、少しだけ弱める程度に留める */
 .journalEntryResolved {
   opacity: 0.75;
 }
@@ -1155,8 +1151,8 @@
   border: none;
   cursor: pointer;
   /* font: inheritだと.tagのfont-size/font-weightごと打ち消してしまい、@人物・#トピックの
-     クリック可能なタグだけ本文と同じ大きさ・太さのボタン既定フォントに戻ってしまう
-     （ユーザー指摘で発覚）。font-familyだけをボタンの既定UIフォントから引き剥がす。 */
+クリック可能なタグだけ本文と同じ大きさ・太さのボタン既定フォントに戻ってしまう。
+font-familyだけをボタンの既定UIフォントから引き剥がす */
   font-family: inherit;
 }
 
@@ -1324,8 +1320,8 @@
   margin-top: 0 !important;
 }
 
-/* ユーザー指摘「気分／エネルギー／ストレスの幅を揃え、中央寄せにする」対応。数字1桁分の
-   幅で十分なため小さめにし、日付・メモ列を圧迫しない（日付側はnowrapで折り返し崩れを防ぐ）。 */
+/* 数字1桁分の
+幅で十分なため小さめにし、日付・メモ列を圧迫しない（日付側はnowrapで折り返し崩れを防ぐ） */
 .checkinScaleCol {
   width: 56px;
   text-align: center;
@@ -2847,7 +2843,7 @@
   }
 }
 
-/* ---------- SlideOver（改修依頼「一覧⇄詳細をサイドピークで」対応） ---------- */
+/* ---------- SlideOver（） ---------- */
 .slideOverOverlay {
   position: fixed;
   inset: 0;
@@ -2868,8 +2864,8 @@
   animation: slideOverIn 0.18s ease-out;
 }
 
-/* ユーザー指摘「サイドピークの幅を自由に変更できるようにしたい」対応。左端の8px帯を
-   ドラッグハンドルにする（見た目は中央の縦線のみ、当たり判定はWCAG 2.2 2.5.8対応で広め）。 */
+/* 左端の8px帯を
+ドラッグハンドルにする（見た目は中央の縦線のみ、当たり判定はWCAG 2.2 2.5.8対応で広め） */
 .slideOverResizeHandle {
   position: absolute;
   top: 0;
@@ -2926,9 +2922,8 @@
   padding: 16px 20px 32px;
 }
 
-/* ユーザー指摘「サイドピークからの詳細画面移動のリンクをアイコン表示にしたい」対応。
-   .modalClose（×ボタン）と同じ見た目の言語で揃えた、アイコンのみのリンクボタン。
-   アクセシブルな名前はLink側のaria-label/titleで維持する。 */
+/* .modalClose（×ボタン）と同じ見た目の言語で揃えた、アイコンのみのリンクボタン
+アクセシブルな名前はLink側のaria-label/titleで維持する */
 .slideOverExpandLink {
   display: inline-flex;
   align-items: center;
@@ -2993,10 +2988,10 @@
   margin-bottom: 10px;
 }
 
-/* docs/em_ui_ux_issue.md 7節「閲覧ビューと編集ビューの分離」対応。閲覧モードの自由記述
-   テキスト領域（Issue charter・Journal本文など）に共通で使う。クリックで編集モードに
-   入れることを示すため、ホバー時だけ枠を出す（常時枠を出すと読んでいる最中の視覚ノイズ
-   になるため）。 */
+/* 閲覧モードの自由記述
+テキスト領域（Issue charter・Journal本文など）に共通で使う。クリックで編集モードに
+入れることを示すため、ホバー時だけ枠を出す（常時枠を出すと読んでいる最中の視覚ノイズ
+になるため） */
 .editableTextView {
   cursor: pointer;
   border: 1px solid transparent;
@@ -3021,9 +3016,9 @@
   color: var(--text-muted);
 }
 
-/* docs/em_ui_ux_issue.md 7節対応。Issue charter・Journal本文などEMの自由記述テキストを
-   見出し・箇条書き・太字を活かして読みやすく描画する共通スタイル（@/components/MarkdownView）。
-   フォントサイズは呼び出し元の文脈に委ね、ここでは要素間の余白・装飾だけを定義する。 */
+/* 7節対応。Issue charter・Journal本文などEMの自由記述テキストを
+見出し・箇条書き・太字を活かして読みやすく描画する共通スタイル（@/components/MarkdownView）
+フォントサイズは呼び出し元の文脈に委ね、ここでは要素間の余白・装飾だけを定義する */
 .markdownView p {
   margin: 0 0 8px;
 }
@@ -3141,8 +3136,7 @@
   padding: 4px 8px;
 }
 
-/* 改修依頼「ローカルAIの処理を非同期化し、対象のアイテム部分にスピナーだけ表示する」対応。
-   処理中であることだけを示す最小限のインジケーター。 */
+/* 処理中であることだけを示す最小限のインジケーター */
 .spinner {
   display: inline-block;
   width: 12px;
@@ -3161,7 +3155,7 @@
   }
 }
 
-/* ---------- Issue進捗管理（docs/em_ui_ux_issue.md 4節） ---------- */
+/* ---------- Issue進捗管理 ---------- */
 .progressBarRow {
   display: flex;
   align-items: center;
@@ -3200,10 +3194,9 @@
   cursor: help;
 }
 
-/* ユーザー指摘「ツールチップを全体的にカスタムのものにしてほしい」対応。
-   .axisTooltipをクリック可能なbutton/リンクへ付ける場面が増えたため、情報のみを
-   示すhelpカーソルではなく、本来のpointerカーソルを保つ（タグ限定セレクタで
-   .axisTooltip単体より詳細度を上げ、定義順に関係なく確実に上書きする）。 */
+/* .axisTooltipをクリック可能なbutton/リンクへ付ける場面が増えたため、情報のみを
+示すhelpカーソルではなく、本来のpointerカーソルを保つ（タグ限定セレクタで
+.axisTooltip単体より詳細度を上げ、定義順に関係なく確実に上書きする） */
 a.axisTooltip,
 button.axisTooltip {
   cursor: pointer;
@@ -3240,14 +3233,13 @@ button.axisTooltip {
   opacity: 1;
 }
 
-/* ユーザー指摘「サイドピークで開いたときにツールチップがヘッダーに隠れる」対応。
-   PersonScoreBadge等、パネル上部（.slideOverBodyの先頭付近）に置かれる要素は、
-   上向きに開くと親のoverflow-y: autoでクリップされ、直上のslideOverHeaderの
-   裏に隠れて見えなくなる。この種の要素だけ下向きに開く。
-   ユーザー指摘「サイドピークの外側（左側）にはみ出すと切れる」対応。中央揃え
-   （left: 50% + translateX(-50%)）だと、パネル左端近くの要素では左側にはみ出し、
-   .slideOverBodyのoverflow-y: auto（overflow-xも暗黙にautoになる）でクリップされる。
-   この種の要素は左端をそろえて右方向にだけ広がるようにする。 */
+/* PersonScoreBadge等、パネル上部（.slideOverBodyの先頭付近）に置かれる要素は
+上向きに開くと親のoverflow-y: autoでクリップされ、直上のslideOverHeaderの
+裏に隠れて見えなくなる。この種の要素だけ下向きに開く
+中央揃え
+（left: 50% + translateX(-50%)）だと、パネル左端近くの要素では左側にはみ出し
+.slideOverBodyのoverflow-y: auto（overflow-xも暗黙にautoになる）でクリップされる
+この種の要素は左端をそろえて右方向にだけ広がるようにする */
 .axisTooltipDown::after {
   bottom: auto;
   top: calc(100% + 6px);
@@ -3255,10 +3247,10 @@ button.axisTooltip {
   transform: none;
 }
 
-/* ユーザー指摘「ツールチップを全体的にカスタムのものにしてほしい」対応。画面最上部
-   （ヘッダー・グローバルnav）の要素は.axisTooltipDownと同じく上向きに開くと画面外に
-   切れるが、.axisTooltipDownの左端揃えは要素の位置によって右側にはみ出すことがある
-   （行内に複数並ぶタブ・右端寄りのボタン等）。中央揃えは保ったまま縦方向だけ反転する。 */
+/* 画面最上部
+（ヘッダー・グローバルnav）の要素は.axisTooltipDownと同じく上向きに開くと画面外に
+切れるが、.axisTooltipDownの左端揃えは要素の位置によって右側にはみ出すことがある
+（行内に複数並ぶタブ・右端寄りのボタン等）。中央揃えは保ったまま縦方向だけ反転する */
 .axisTooltipDownCenter::after {
   bottom: auto;
   top: calc(100% + 6px);
@@ -3344,7 +3336,7 @@ button.axisTooltip {
   margin-top: 6px;
 }
 
-/* ---------- Yield種別（docs/em_ui_ux_issue.md 5節） ---------- */
+/* ---------- Yield種別 ---------- */
 /* デザイン見直し（frontend-design）対応。以前はcommit専用にオレンジ色相を新設していたが、
    「黄=EMの判断が要る」という単一の意味に統一するため撤回し、同じ黄系のまま左太枠で
    重み（最も説明責任が重いYield種別）だけを差別化する。informは「決定」ではなく
@@ -3358,7 +3350,7 @@ button.axisTooltip {
   border-left-width: 4px;
 }
 
-/* ---------- カスタムSelect（改修依頼「selectの選択肢の選択のしにくさ」対応） ---------- */
+/* ---------- カスタムSelect（） ---------- */
 /* @/components/Select.tsx。ネイティブ<select>のポップアップはCSSで一切スタイルできない
    ため、閉じた状態の見た目はglobals.cssのselect{}と揃えつつ、開いたリストボックス自体を
    自前のCSSで組む。トリガーは.field select等と同じ視覚言語（枠・背景・矢印）にする。 */
@@ -3454,9 +3446,8 @@ button.axisTooltip {
   color: var(--blue-text);
 }
 
-/* ユーザー指摘「チームが増えるとメンバー詳細にチーム名の選択肢が大量に並ぶ」対応。
-   MultiSelectAutocomplete.tsx用。ドロップダウン部分は.customSelectList等をそのまま
-   流用し、ここでは「選択済みタグ＋入力欄」の見た目だけを追加する。 */
+/* MultiSelectAutocomplete.tsx用。ドロップダウン部分は.customSelectList等をそのまま
+流用し、ここでは「選択済みタグ＋入力欄」の見た目だけを追加する */
 .multiSelectField {
   position: relative;
   display: block;
@@ -3528,8 +3519,7 @@ button.axisTooltip {
   background: rgba(127, 127, 127, 0.2);
 }
 
-/* ---------- People: 円形バイタルバッジ（改修依頼「どのくらい気をかけるべきかの
-   バイタル表示にしたい」対応。Team Vitalsと同じ状態アイコンを円の中に大きく表示する） ---------- */
+/* ---------- People: 円形バイタルバッジ（Team Vitalsと同じ状態アイコンを円の中に大きく表示） ---------- */
 .personScoreBadge {
   display: flex;
   align-items: center;
@@ -4012,12 +4002,12 @@ button.axisTooltip {
   line-height: 1.65;
 }
 
-/* docs/2nd_pivot_version.md Phase 1対応。「今日の状況」の文章系2カード（昨日から
-   変わったこと／気になる兆候（出来事））。ウィンドウ幅を使って読みやすくするため、
-   3枚以上並ぶ小さいカードのグリッドではなく、既存の.dashColumns（固定2カラム、
-   1000px以下で縦積み）をそのまま使う。ステータス系（気になる兆候・良い状態・
-   評価できないこと）は.situationChipRowへ、過去との比較は常に1〜2行程度しかない
-   ため.situationCompareRow（カード化せず全幅の1本）へ、それぞれ分離する。 */
+/* 対応。「今日の状況」の文章系2カード（昨日から
+変わったこと／気になる兆候（出来事））。ウィンドウ幅を使って読みやすくするため
+3枚以上並ぶ小さいカードのグリッドではなく、既存の.dashColumns（固定2カラム
+1000px以下で縦積み）をそのまま使う。ステータス系（気になる兆候・良い状態・
+評価できないこと）は.situationChipRowへ、過去との比較は常に1〜2行程度しかない
+ため.situationCompareRow（カード化せず全幅の1本）へ、それぞれ分離する */
 .situationCard {
   border-radius: 8px;
   padding: 10px 12px;
@@ -4097,8 +4087,8 @@ button.axisTooltip {
   margin: 10px 0 14px 0;
 }
 
-/* ユーザー指摘「チーム・メンバーが混合で並んでいる」対応。チーム／メンバーを
-   別の段落に分ける。 */
+/* チーム／メンバーを
+別の段落に分ける */
 .situationChipGroup {
   display: flex;
   align-items: baseline;
@@ -4177,8 +4167,7 @@ button.situationChip:hover {
   color: var(--gray-fg);
 }
 
-/* ユーザー指摘「過去との比較は常に1行しかないので専用の1行で見せたい」対応。
-   他のカテゴリのようなカード（背景・枠）にはせず、区切り線1本だけの全幅の帯にする。 */
+/* 他のカテゴリのようなカード（背景・枠）にはせず、区切り線1本だけの全幅の帯にする */
 .situationCompareRow {
   margin-top: 14px;
   margin-bottom: 14px;
@@ -4207,7 +4196,7 @@ button.situationChip:hover {
   margin-bottom: 2px;
 }
 
-/* ---------- docs/design/dashboard/today-tab.pen 改善案A/B ---------- */
+/* ---------- 改善案A/B ---------- */
 
 .checkinMissBanner {
   display: flex;
@@ -4353,7 +4342,7 @@ button.situationChip:hover {
   background: var(--gray-bg, #1b1e26);
 }
 
-/* docs/design/dashboard/today-tab.pen: 点リング dial（conic ではなく tick の円） */
+/* 点リング dial（conic ではなく tick の円） */
 .nowStateDotDial {
   position: relative;
   display: flex;
@@ -4856,7 +4845,7 @@ button.situationChip:hover {
   color: var(--text-muted);
 }
 
-/* docs/design/journal/journal-tab.pen 改善案A: 役割分離 + 段階開示 */
+/* 改善案A: 役割分離 + 段階開示 */
 
 .journalTitleHint {
   margin: 4px 0 0;
@@ -5323,7 +5312,7 @@ button.situationChip:hover {
   font-size: 0.8125rem;
 }
 
-/* docs/design/suggestion/suggestion-tab.pen 改善案C: テーマメニュー切替 + 段階開示 */
+/* 改善案C: テーマメニュー切替 + 段階開示 */
 
 .suggestionThemeContext {
   display: flex;

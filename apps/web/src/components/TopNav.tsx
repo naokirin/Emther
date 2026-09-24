@@ -3,9 +3,8 @@ import { Link, useLocation } from "react-router";
 import styles from "../styles/page.module.css";
 import { useEmCheckins } from "../lib/queries";
 
-// web/src/components/TopNav.tsx（Next.js版）からの移植（フェーズ3.5）。
-// docs/design/retrospective/retrospective-tab.pen: 「1日を締めくくる」を振り返りサブナビ末尾に追加。
-// 未記録時のみ軽い強調（今日タブの帯は複製しない）。
+// 「1日を締めくくる」を振り返りサブナビ末尾に追加
+// 未記録時のみ軽い強調（今日タブの帯は複製しない）
 type NavItem = { href: string; label: string };
 type StoryGroup = {
   key: string;

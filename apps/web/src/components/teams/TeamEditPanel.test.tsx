@@ -5,8 +5,6 @@ import { MemoryRouter } from "react-router";
 import { TeamEditPanel } from "./TeamEditPanel";
 import type { Suggestion, JournalEntry, Team } from "@emther/core/types";
 
-// web/src/components/teams/TeamEditPanel.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier2、teamsバッチ）。
 const team: Team = {
   id: "t1",
   name: "Design",

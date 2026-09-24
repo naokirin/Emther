@@ -6,8 +6,7 @@ type Props = {
   onStart: () => void;
 };
 
-// docs/design/dashboard/today-tab.pen 改善案A対応。リッチな「1日の締めくくり」カードを
-// やめ、未記録時だけ上部の薄い帯にする（記録済みなら何も出さない）。
+// 未記録時だけ上部の薄い帯にする（記録済みなら何も出さない）
 export function EveningReviewCard({ checkinsLoaded, hasCheckinToday, onStart }: Props) {
   if (!checkinsLoaded) return null;
   if (hasCheckinToday) return null;

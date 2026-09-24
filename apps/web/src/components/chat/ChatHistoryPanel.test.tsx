@@ -13,9 +13,6 @@ function renderPanel(props: React.ComponentProps<typeof ChatHistoryPanel>) {
   );
 }
 
-// web/src/components/chat/ChatHistoryPanel.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier5 chatバッチ）。
-
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
     id: "run-1",

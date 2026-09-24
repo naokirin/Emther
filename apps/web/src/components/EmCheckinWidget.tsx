@@ -10,11 +10,6 @@ import {
   type CheckinMetricKey,
 } from "../lib/checkin-scale";
 
-// web/src/components/EmCheckinWidget.tsx（Next.js版）からの移植（フェーズ3.5
-// evening-reviewバッチ）。フェーズ3.2の方針どおり、旧`useEmCheckins`の`setCheckins`
-// （楽観的ローカル更新）は`queryClient.setQueryData(emCheckinsQueryKey, ...)`に
-// 置き換えた。振り返りタブ改善案で数値チップ→メーター位置、headroom追加。
-
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
@@ -184,8 +179,7 @@ export function EmCheckinHistory({ controller }: { controller: EmCheckinControll
   );
 }
 
-// docs/memo.md TODO「人間EM自体の成長に対する向き合いを作る。EM本人のバイタル、週次振り返りの
-// 入力・改善方針機能を作る」対応。/checkin の自己チェックインフォーム＋履歴。
+// /checkin の自己チェックインフォーム＋履歴
 export function EmCheckinWidget() {
   const controller = useEmCheckinController();
   return (

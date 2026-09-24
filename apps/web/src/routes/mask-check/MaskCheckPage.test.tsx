@@ -4,8 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { MaskCheckPage } from "./MaskCheckPage";
 
-// web/src/app/mask-check/page.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 tier2）。quick→aiの2段階フェッチが順に反映されることを確認する。
+// quick→aiの2段階フェッチが順に反映されることを確認する
 function renderPage() {
   return render(
     <MemoryRouter>

@@ -70,7 +70,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
   };
 }
 
-// ユーザー指摘「一覧の全件取得をページネーション化したい」対応。値そのものをSQL文字列へ
+// 値そのものをSQL文字列へ
 // 連結することはない（常にbind parameter経由）が、LIKEのワイルドカード文字（%・_）は
 // 値の中に含まれると意図しない部分一致を起こすため、リテラルとして扱うためにエスケープする。
 function escapeLike(value: string): string {

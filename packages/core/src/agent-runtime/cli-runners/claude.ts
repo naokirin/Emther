@@ -26,7 +26,7 @@ export function runClaudeCliAttempt(run: AgentRun, prompt: string, systemPrompt:
     if (run.sessionId) {
       args.push("--resume", run.sessionId);
     }
-    // ユーザー要望「エージェントが使うモデルを設定で事前に決めたい」対応。設定で
+    // 設定で
     // このエージェント種別に系統が指定されていれば渡す。未設定ならclaude CLIの既定に任せる
     // （挙動を変えないデフォルト）。
     const modelTier = getRulesAndConstraints().agentModelTiers[run.agentName];

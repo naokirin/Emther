@@ -8,9 +8,8 @@ import { AgentsPage } from "./AgentsPage";
 import { IdResolveProvider } from "../../components/IdFragmentLink";
 import type { AgentRun } from "@emther/core/agent-runtime";
 
-// web/src/app/agents/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier5 agentsバッチ）。Fleet状態・起動フォーム・Inbox一覧のクリック導線に絞って
-// 検証する（ExecutionState等の個別描画はRunDetail.test.tsxで検証済み）。
+// Fleet状態・起動フォーム・Inbox一覧のクリック導線に絞って
+// 検証する（ExecutionState等の個別描画はRunDetail.test.tsxで検証済み）
 
 function run(overrides: Partial<AgentRun> = {}): AgentRun {
   return {

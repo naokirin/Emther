@@ -17,7 +17,6 @@ afterEach(() => {
   teardownIsolatedStoreEnv(dir);
 });
 
-// ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
 describe("person-concern-ack-store", () => {
   it("記録・一覧・取り消しができる", async () => {
     const store = await import("./person-concern-ack-store");

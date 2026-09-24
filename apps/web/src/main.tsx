@@ -2,8 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の
-// @fontsource を使う（web/src/app/layout.tsxからの移植、docs/packaging.md参照）。
+// 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の @fontsource を使う。
 import "@fontsource/zen-kaku-gothic-new/japanese-400.css";
 import "@fontsource/zen-kaku-gothic-new/japanese-500.css";
 import "@fontsource/zen-kaku-gothic-new/japanese-700.css";
@@ -37,10 +36,7 @@ import { SuggestionDetailPage } from "./routes/suggestions/SuggestionDetailPage"
 import { AgentsPage } from "./routes/agents/AgentsPage";
 import { ChatPage } from "./routes/chat/ChatPage";
 
-// フェーズ3.5（画面単位移植）: ルートシェル（旧web/src/app/layout.tsx相当）+ tier1〜tier5
-// （docs/2nd_architecture/plan.md フェーズ3.4の5ティア移行順）を全て移植し、21画面の
-// 移植が完了した。index（"/"）はダッシュボード本体（DashboardPage）に差し替え済み。
-// 振り返りタブ改善案: /timelineはナビから外し /reports へリダイレクト。日次は /checkin。
+// index（"/"）はダッシュボード本体。/timeline はナビから外し /reports へリダイレクト。日次は /checkin。
 const router = createBrowserRouter([
   {
     path: "/",
@@ -71,8 +67,7 @@ const router = createBrowserRouter([
   },
 ]);
 
-// フェーズ3.2: hooks.tsのusePolling群を置き換えるサーバー状態層。
-// queryClient自体はプロセス内でシングルトン（画面遷移をまたいでキャッシュを共有する）。
+// TanStack Query のサーバー状態層。queryClient はプロセス内シングルトン（画面遷移をまたいでキャッシュを共有）。
 const queryClient = new QueryClient();
 
 const rootElement = document.getElementById("root");

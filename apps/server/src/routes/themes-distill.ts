@@ -3,7 +3,6 @@ import type { AgentRunMutationResponse, PendingUnmaskedResponse } from "@emther/
 import { startDistillationAnalysis, toRunView } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ5）: web/src/app/api/themes/distill/route.ts の移植。
 export const themesDistillRoute = new Hono().post("/", async (c) => {
   try {
     const run = await startDistillationAnalysis({ manual: true });

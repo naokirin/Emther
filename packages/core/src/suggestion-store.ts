@@ -35,7 +35,7 @@ export function adviceFieldsFromProposal(proposal: {
   return structured ? { adviceStructured: structured } : {};
 }
 
-// docs/2nd_pivot_version.md Phase 7。Issue を廃し Suggestion を第一級エンティティにする。
+// Issue を廃し Suggestion を第一級エンティティにする。
 // 既存 issues.json は suggestions.json が無い初回起動時に一度だけ移行し、以降は suggestions のみ書き込む。
 
 const suggestionRepo = createJsonSuggestionRepository();
@@ -186,7 +186,7 @@ export async function createSuggestion(
   await ensureNameCandidatesAllowed([titleTrimmed], maskOpts);
   const maskedTitle = await maskForStorage(titleTrimmed);
   const now = Date.now();
-  // docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。detailInputは
+  // detailInputは
   // sourceRunのproposal（既にマスク済みの内部表現）由来のため、ここでは再マスクしない。
   const detail: SuggestionDetail | undefined =
     detailInput && detailInput.conclusion.trim() && detailInput.logic.trim()
@@ -273,8 +273,7 @@ export function setReviewStatus(id: string, reviewStatus: SuggestionReviewStatus
   return s;
 }
 
-// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」
-// 対応。reviewStatusとは独立に設定・解除できる（nullで解除）。
+// reviewStatusとは独立に設定・解除できる（nullで解除）。
 export function setSuggestionReviewDueAt(id: string, dueAt: number | null): Suggestion | undefined {
   const s = getSuggestion(id);
   if (!s) return undefined;
@@ -291,7 +290,7 @@ export function setSuggestionReviewDueAt(id: string, dueAt: number | null): Sugg
   return s;
 }
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。reviewStatusは変えず、
+// reviewStatusは変えず、
 // archivedAtだけを立てる（一覧・AIの判断材料から外すが、確認状態の履歴自体は残す）。
 export function archiveSuggestion(id: string): Suggestion | undefined {
   const s = getSuggestion(id);
@@ -398,7 +397,7 @@ export async function addMemo(
   return s;
 }
 
-// docs/2nd_pivot_version.md Phase 7。SuggestionはIssue時代のcharter（why/what/how）を
+// SuggestionはIssue時代のcharter（why/what/how）を
 // 構造化フィールドとして持たない。AIが提案するWhy/What/Howの下書きをEMが採用したときは、
 // メモへ整形して残す（addMemoと同じHuman-in-the-Loop）。
 export async function updateSuggestionCharter(
@@ -425,14 +424,14 @@ export function setSuggestionTheme(id: string, themeId: string | null): Suggesti
   return s;
 }
 
-// docs/memo.md「メモとは別に提案自体の詳細を残す単一の場所」対応。壁打ちの継続等で
+// 壁打ちの継続等で
 // 判断・提案（Agent）の内容が更新された後、EMが明示して現在の内容を詳細へ反映し直す用途。
 // detailInputは呼び出し側（APIルート）がAgentRunの内部表現（マスク済み）から作る想定。
 export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInput): Suggestion | undefined {
   const s = getSuggestion(id);
   if (!s) return undefined;
   if (!detailInput.conclusion.trim() || !detailInput.logic.trim()) return s;
-  // 案A: AI からの更新は adviceStructured のみ差し替え。adviceOverride は保持する。
+  // AI からの更新は adviceStructured のみ差し替え。adviceOverride は保持する。
   const preservedOverride = s.detail?.adviceOverride?.trim()
     ? s.detail.adviceOverride
     : undefined;
@@ -455,7 +454,7 @@ export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInp
   return s;
 }
 
-// ユーザー要望「提案の詳細をユーザーでも編集したい」対応。setSuggestionDetailと違い、
+// setSuggestionDetailと違い、
 // こちらはEMが自由記述で書く／直す入口のため、他の自由記述フィールド（title/memo）と
 // 同じくensureNameCandidatesAllowed＋maskForStorageを通す（AI由来のsetSuggestionDetailは
 // 既にマスク済みのAgentRun内部表現をそのまま使うため通さない）。未指定のフィールドは

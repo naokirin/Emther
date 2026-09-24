@@ -1,7 +1,6 @@
 // ローカルチャットモデルのプリセット定義。
 // UI（クライアント）と推論（サーバー）の両方から参照するため、
 // @huggingface/transformers 等の重い依存をここに置かない。
-//
 // 収録方針: Transformers.js でロード可能な ONNX（tokenizer.json 付き）のみ。
 // Sarashina2.2 の onnx-community 版は tokenizer 欠落のため除外。
 

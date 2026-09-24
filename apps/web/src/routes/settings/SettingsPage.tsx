@@ -11,16 +11,9 @@ import { useSettingsRules } from "../../lib/queries";
 import { api } from "../../lib/api-client";
 import type { RulesAndConstraints } from "@emther/core/types";
 
-// web/src/app/settings/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。
-// stylesのimportパス・`@core/*`のbare specifier化以外はロジックを変更していない。
-//
-// **既知の暫定的な制約（データタブ）**: `DataMigrationPanel`が呼ぶ`/api/settings/data/reset`・
-// `/api/settings/data/restore`は、呼び出し元プロセスを`process.exit`させる処理のため
-// フェーズ4（単一プロセス配信）まで意図的にNext側にのみ実装が残っている
-// （docs/2nd_architecture/plan.md フェーズ2.5高リスクバッチ8参照）。`apps/web`（Vite）の
-// dev proxyは`apps/server`（Hono）にしか転送しないため、この画面を`vite dev`側で開いている
-// 間は「バックアップ」は動くが「復元」「全データをリセット」は404になる
-// （`next dev`側で開けば従来どおり動作する。docs/2nd_architecture/dev-hybrid-rules.md参照）。
+// reset/restore は process.exit するため、単一プロセス配信ではアプリ全体終了になる。
+// vite.dev の proxy は Hono のみなので、dev ではバックアップは動くが復元・リセットは
+// 404 になりうる（本番の単一プロセス配信では問題ない）。
 type SettingsGroupKey = "vitals" | "agentRun" | "aiTools" | "automation" | "morningMode" | "data";
 
 const SETTINGS_GROUPS: { key: SettingsGroupKey; label: string }[] = [

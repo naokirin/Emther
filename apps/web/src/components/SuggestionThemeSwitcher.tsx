@@ -25,8 +25,7 @@ type Props = {
 };
 
 /**
- * docs/design/suggestion/suggestion-tab.pen 改善案C「テーマメニュー切替」。
- * 長文テーマ名を閉じた状態でも複数行で全文表示し、開いた項目にも要約と件数を添える。
+ * 長文テーマ名を閉じた状態でも複数行で全文表示し、開いた項目にも要約と件数を添える
  */
 export function SuggestionThemeSwitcher({ value, onChange, themes, counts, statusSummary }: Props) {
   const [open, setOpen] = useState(false);

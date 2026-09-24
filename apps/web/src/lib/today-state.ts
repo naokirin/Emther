@@ -1,4 +1,4 @@
-// Phase A: ドメイン判断は @emther/core/today-state。ここでは UI コールバック配線のみ。
+// ドメイン判断は @emther/core/today-state。ここでは UI コールバック配線のみ。
 import type { TodayStateMeters as CoreTodayStateMeters } from "@emther/core/today-state";
 import { resolveNextActionTarget, type NextActionHandlers } from "./dashboard-next-actions";
 import type { SituationItem } from "./daily-situation";

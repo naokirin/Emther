@@ -17,7 +17,7 @@ function wrapperWith(initialEntries: string[]) {
   };
 }
 
-describe("useTypedSearchParams（docs/2nd_architecture/plan.md フェーズ3.3）", () => {
+describe("useTypedSearchParams", () => {
   it("クエリが無ければ全フィールドundefined", () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), { wrapper: wrapperWith(["/"]) });
     const [values] = result.current;
@@ -32,7 +32,7 @@ describe("useTypedSearchParams（docs/2nd_architecture/plan.md フェーズ3.3�
     expect(values).toEqual({ issue: "abc", urgency: "high" });
   });
 
-  it("enumに一致しない値は.catch(undefined)で無視される（フェーズ2.6と同じ寛容さの規約）", () => {
+  it("enumに一致しない値は.catch(undefined)で無視される（不正値は黙って未指定扱い）", () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), {
       wrapper: wrapperWith(["/?urgency=invalid"]),
     });

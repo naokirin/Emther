@@ -5,7 +5,7 @@ export type GrowReference = {
   // false: 実務書・解説記事等の二次資料。日本語のものを優先する。
   isPrimarySource: boolean;
   note?: string;
-  // ユーザー要望「参考文献やWeb記事、書籍のリンクを乗せてほしい」対応。LLMが実在すると
+  // LLMが実在すると
   // 確信できるURL（Wikipedia・公式サイト・出版社ページ等）のみを想定した任意項目。
   // 不確かな場合はLLM側でurlを省略する運用とし、UI側はurl不在時にtopicの検索リンクへ
   // フォールバックする（存在しない/誤ったURLを断定的に提示しないための二段構え）。

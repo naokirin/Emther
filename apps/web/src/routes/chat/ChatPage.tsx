@@ -12,12 +12,10 @@ import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { isConsultHistoryRun } from "@emther/core/origin-trace";
 import { isRunStale } from "@emther/core/types";
 
-// docs/memo.md TODO「これまでに収集された事実等をベースにIssue等と関係なく横断的な相談、
-// 質問ができるチャットを用意する」への対応。Lead Agent の相談スレッドをこの画面で扱う。
+// Lead Agent の相談スレッドをこの画面で扱う。
 // 提案化後も履歴に残し、分割起票や提案に紐づかない続きの壁打ちができるようにする
 // （提案詳細専用の起票分析／更新分析だけ除外。isConsultHistoryRun）。
-// react-routerのuseSearchParamsはSuspenseを要求しないため、元実装の<Suspense>ラッパーは不要
-// （削除した）。
+// react-routerのuseSearchParamsはSuspenseを要求しないため、<Suspense>ラッパーは不要。
 
 export function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,8 +27,7 @@ export function ChatPage() {
     runs.filter((r) => isRunStale(r.status, r.updatedAt, rules.agentStaleAfterSeconds)).map((r) => r.id),
   );
 
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定ではアーカイブ済み
-  // （誤って起票した・テストで作った等）を履歴一覧から除外し、必要なときだけ表示できるようにする。
+  // （誤って起票した・テストで作った等）を履歴一覧から除外し、必要なときだけ表示できるようにする
   const [showArchivedConsults, setShowArchivedConsults] = useState(false);
 
   // 提案化済みでも相談履歴に残す（提案詳細専用の分析 Run だけ除外）。
@@ -44,11 +41,11 @@ export function ChatPage() {
   );
   const chatHistoryLoaded = runsLoaded && suggestionsLoaded;
 
-  // docs/usage_issues U6。runs+suggestionsの両方が揃ってから runId を選択する。
-  // 蒸留など巨大taskの旧runは /api/agents 全件に載らない／遅延することがあるため、
-  // 一覧に無いときは GET /api/agents/[id] で1件だけ拾って履歴へピン留めする。
+  // runs+suggestionsの両方が揃ってから runId を選択する
+  // 蒸留など巨大taskの旧runは /api/agents 全件に載らない／遅延することがあるため
+  // 一覧に無いときは GET /api/agents/[id] で1件だけ拾って履歴へピン留めする
   // 選択の同期は queryRunId 変化時のみ（runs ポーリング依存にすると、履歴クリック直後に
-  // URL の runId＝先頭付近の相談へ選択が引き戻される）。
+  // URL の runId＝先頭付近の相談へ選択が引き戻される）
   const queryRunId = searchParams.get("runId");
   // マウント時点で既にrunsLoaded/issuesLoadedが揃っている（ダッシュボード等からの遷移で
   // React Queryのキャッシュが既に温まっている）場合、下のselectionSyncKeyは初回レンダーから
@@ -120,8 +117,8 @@ export function ChatPage() {
   function replaceChatQuery(mutate: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams);
     mutate(params);
-    // 旧web/src/app/chat/page.tsxのrouter.replace(..., { scroll: false })と同じく、
-    // 履歴一覧からの選択切り替えでは画面全体のスクロール位置を動かさない。
+    // 旧 { scroll: false })と同じく
+    // 履歴一覧からの選択切り替えでは画面全体のスクロール位置を動かさない
     setSearchParams(params, { replace: true, preventScrollReset: true });
   }
 

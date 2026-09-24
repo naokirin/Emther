@@ -4,8 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { AutomationSettingsGroup } from "./AutomationSettingsGroup";
 import { makeRules } from "./test-fixtures";
 
-// web/src/components/settings/AutomationSettingsGroup.tsx（Next.js版）には専用テストが
-// 元々無かったため新規に追加する（フェーズ3.5 tier2 settingsバッチ）。
 describe("AutomationSettingsGroup", () => {
   it("Journal集約時刻を追加できる", async () => {
     const onChange = vi.fn();

@@ -4,11 +4,8 @@ import { IdResolveProvider } from "./IdFragmentLink";
 import { SuggestionDetailContent } from "./SuggestionDetailContent";
 import { usePeekParam } from "../lib/usePeekParam";
 
-// web/src/components/SuggestionPeekRoot.tsx（Next.js版）からの移植（フェーズ3.5、ルートシェル）。
-// 元実装のusePeekParam（@/lib/hooks、next/navigationのuseSearchParams依存でSuspense必須）を
-// フェーズ3.3で確立したuseTypedSearchParams上の共通フック（../lib/usePeekParam、tier2
-// timelineバッチで抽出）に置き換えた。react-routerのuseSearchParamsはSuspenseを要求しない
-// ため、元実装のSuspenseラッパーは不要（削除した）。
+// useTypedSearchParams上の共通フック（../lib/usePeekParam）を使う。
+// react-routerのuseSearchParamsはSuspenseを要求しないため、Suspenseラッパーは不要。
 
 export function SuggestionPeekRoot({ children }: { children: ReactNode }) {
   const peek = usePeekParam("suggestion");

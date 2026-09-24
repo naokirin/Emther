@@ -1,9 +1,6 @@
-// docs/2nd_pivot_version.md Phase 1対応。「提案が何件あるか」ではなく、
-// docs/2nd_pivot_version/pivot_policy.md「目指すUX」の6項目
-// （昨日から変わったこと／気になる兆候／良い状態／評価できないこと／過去との比較／
-// 判断する価値がありそうなこと）でEMに状況を提示するための純粋関数群。
-// この段階では提案の内部データモデルには触れず、既にクライアント側で取得済みの
-// Journal / Vitals / People / NextActions / Suggestionsだけを組み替えて使う
+// 「提案が何件あるか」ではなく、昨日からの変化／兆候／良い状態／評価不能／過去比較／
+// 判断価値などでEMに状況を提示する純粋関数群。提案の内部モデルには触れず、
+// 既取得の Journal / Vitals / People / NextActions / Suggestions だけを組み替える
 // （新しいAPI・永続化エンティティは追加しない）。
 import { periodWindow } from "./daily-trends";
 import type { NextAction, NextActionTarget } from "./dashboard-next-actions";
@@ -36,11 +33,9 @@ export type SituationItem = {
   /** 気になる兆候／良い状態／評価できないことの表示色分けに使う。ステータス系以外の
    * カテゴリ（changes/comparisons/worthDeciding）では付けない。 */
   status?: VitalStatus;
-  /** 状態チップのホバー詳細（根拠・件数等）。ユーザー指摘「色でわかるので名前だけで
-   * 良い」対応でtextはチーム名／メンバー名だけにし、根拠はこちらへ逃がす。 */
+  /** 状態チップのホバー詳細（根拠・件数等）。textは名前のみ、根拠はこちら。 */
   detail?: string;
-  /** 状態チップの段落分け（チーム／メンバー）に使う。ユーザー指摘「チーム・メンバーが
-   * 混合で並んでいる」対応。ステータス系以外のカテゴリでは付けない。 */
+  /** 状態チップの段落分け（チーム／メンバー）。ステータス系以外では付けない。 */
   entityKind?: "team" | "person";
   /** 気になる兆候カードの種別ラベル用。status付き個体チップとは別物。 */
   signalKind?: ConcernSignalKind;
@@ -286,8 +281,7 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
     suggestions = [],
     staleInterventionDays = 14,
   } = params;
-  // docs/memo.md「今日の状況に表示するメンバーを自分の管理するチームのメンバーだけに
-  // する」対応。ステータスチップ・比較欄で扱う「メンバー」は、自分が管理するチーム
+  // ステータスチップ・比較欄で扱う「メンバー」は、自分が管理するチーム
   // （Team.managedByEm、兼務含む）に所属する人物（PersonSummary.isDirectReport）に限る。
   // 退職アーカイブ済みは既に活動していない人物として除外する。
   const people = allPeople.filter((p) => p.isDirectReport && !p.archived);
@@ -317,7 +311,6 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
 
   // 3. 良い状態: Team/PersonのVitalsがgood。
   const good: SituationItem[] = [];
-  // ユーザー指摘「チームの状態パネルと今日の状況のチーム表示が被っている」対応。
   // 独立パネル（旧TeamStatePanel）を廃止し、1on1 Coverageもチーム・メンバーの状態
   // チップへ統合する。bad/warn（観測不足）は「評価できないこと」へ、good（良好）は
   // こちらへ振り分ける。各カテゴリはCATEGORY_LIMIT件に切り詰められるため、
@@ -365,8 +358,7 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
   // good側と同様、メンバー数が多いとteam/personループに押し出されて消えないよう先頭に置く。
   if (vitals.oneOnOneCoverage.status === "bad" || vitals.oneOnOneCoverage.status === "warn") {
     const uncovered = vitals.oneOnOneCoverage.uncoveredMembers;
-    // ユーザー指摘「誰の1on1が不足しているか分からないまま、押すとチーム画面へ飛ばされる
-    // だけ」対応。未実施メンバー名をdetail（ホバー）に出し、クリックは/teamsへの遷移では
+    // 未実施メンバー名をdetail（ホバー）に出し、クリックは/teamsへの遷移では
     // なく、先頭の未実施メンバーの1on1をQuick Journalへプリフィルする行動に変える
     // （dashboard-next-actions.tsの「1on1不足」カードと同じ導線に揃える）。
     const uncoveredNote =
@@ -412,7 +404,7 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
   }
 
   // 5. 過去との比較: 今週と先週のJournal件数比較（量的比較）。
-  // ユーザー指摘「過去との比較に長期プロファイルが混ざってくる」対応。長期プロファイル
+  // 長期プロファイル
   // （KnowledgeEvent kind:interpretation）はTTLの無い恒常的な人物解釈であり、「今週→先週で
   // 何が変わったか」という過去比較の趣旨とは性質が異なる（変化ではなく前提事実）ため、
   // ここでは混ぜない。長期プロファイルは人物詳細画面で確認する。

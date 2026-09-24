@@ -68,15 +68,14 @@ export function IdFragmentLink({
   const [candidates, setCandidates] = useState<IdMatch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // ユーザー指摘「提案やJournalのリンクに関して、カスタムUIのツールチップでタイトルだけ
-  // 表示したい」対応。文中の#ID参照はこれまでID断片の文字列しか見えず、クリックして
+  // 文中の#ID参照はこれまでID断片の文字列しか見えず、クリックして
   // 解決するまでリンク先の中身（提案・Journalのタイトル）が分からなかった。ネイティブ
   // titleではなく、既存の.axisTooltip（data-tooltip属性を読むCSSカスタムツールチップ）
   // に揃え、ホバー/フォーカス時にだけ/api/id-resolveへ問い合わせてタイトルを表示する
-  // （クリック時と違い候補選択はしないため、複数候補があれば改行区切りで並べる）。
+  // （クリック時と違い候補選択はしないため、複数候補があれば改行区切りで並べる）
   // tooltipがnullの間は.axisTooltipクラス自体を付けない：CSSの::afterはmin-widthを
   // 持つため、data-tooltip未設定のままクラスだけ先に付けると、取得前に空の吹き出しの
-  // 箱がhover時に一瞬見えてしまう。
+  // 箱がhover時に一瞬見えてしまう
   const [tooltip, setTooltip] = useState<string | null>(null);
   const tooltipFetchedRef = useRef(false);
 

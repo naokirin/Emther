@@ -55,7 +55,7 @@ export function normalizeSuggestionCandidates(parsed: unknown): SuggestionCandid
   return items.length > 0 ? items : undefined;
 }
 
-// docs/ai_ philosophy.md。Expand/Challengeの過程で使った哲学レンズ（任意）。壊れにくい
+// Expand/Challengeの過程で使った哲学レンズ（任意）。壊れにくい
 // パースの考え方はnormalizeSuggestionCandidatesと同じ：不正な形式の要素は黙って除外する。
 export function normalizeLensUsage(parsed: unknown): LensUsage[] | undefined {
   if (!Array.isArray(parsed)) return undefined;
@@ -73,7 +73,7 @@ export function normalizeLensUsage(parsed: unknown): LensUsage[] | undefined {
 
 const KNOWN_YIELD_KINDS: YieldKind[] = ["decide", "inform", "commit"];
 
-// docs/em_ui_ux_issue.md 5節対応。kindはAIの自己申告のため、未知の値・欠落は
+// kindはAIの自己申告のため、未知の値・欠落は
 // options有無から機械的にフォールバック推定する（既存run・プロンプト非対応モデルとの後方互換）。
 function normalizeYieldKind(value: unknown, options: YieldOption[]): YieldKind {
   if (typeof value === "string" && (KNOWN_YIELD_KINDS as string[]).includes(value)) {
@@ -108,8 +108,8 @@ function normalizeStringList(parsed: unknown): string[] {
     .map((f) => f.trim());
 }
 
-// docs 3.5「構造化された提案」: 結論・参照ファクト・判断ロジック・棄却した代替案を
-// 必ず含めさせる。docs/3rd_pivot_version/pivot.md で expansions / challenges を追加
+// 結論・参照ファクト・判断ロジック・棄却した代替案を
+// 必ず含めさせる。 で expansions / challenges を追加
 // （欠落時は空配列＝旧run互換）。抽出できない（規約に従わなかった）場合はundefinedを返し、
 // UI側は素のテキストログのみを表示する（無理に構造化して見せない）。
 export function extractProposal(resultText: string): Proposal | undefined {
@@ -155,7 +155,6 @@ export function extractProposal(resultText: string): Proposal | undefined {
   return undefined;
 }
 
-// docs/memo.md「Agentが相談などから他提案などへ記録することができない」対応。
 // lookupで見つけた別提案への追記提案。extractYield/extractProposalと同じ
 // 壊れにくいパースの考え方（不正な形式・suggestionId/text欠落の要素は捨てるだけで、
 // ブロック自体は「提案なし」として扱う）。
@@ -186,8 +185,8 @@ export function extractSuggestionNotes(resultText: string): SuggestedSuggestionN
   return undefined;
 }
 
-// docs/suggestion_organize_via_consult.md。EMが相談で明示的に「提案を整理して」等と
-// 依頼したときだけ、AIが提案する既存提案（実在ID）の状態変更下書き。extractSuggestionNotesと
+// EMが相談で明示的に「提案を整理して」等と
+// したときだけ、AIが提案する既存提案（実在ID）の状態変更下書き。extractSuggestionNotesと
 // 同じ壊れにくいパースの考え方（要素単位で不正な値は捨て、有効な変更が1つも残らない
 // 要素は捨てる。ブロック自体が不正なら「提案なし」として扱う）。reasonは必須（差分表示・
 // 監査用の根拠を必ず持たせる方針のため）。
@@ -266,7 +265,7 @@ export function parseSuggestedPriority(value: unknown): ConfirmPriority | undefi
     : undefined;
 }
 
-// docs/knowledge_distillation.md。状況蒸留のテーマ候補。
+// 状況蒸留のテーマ候補。
 export function extractThemes(resultText: string): SuggestedTheme[] | undefined {
   const match = resultText.match(/```themes\s*\n?([\s\S]*?)```/);
   if (!match) return undefined;
@@ -322,7 +321,7 @@ export function extractThemes(resultText: string): SuggestedTheme[] | undefined 
   }
 }
 
-// docs/new_reporting.md。週次・月次レビューの構造化出力。extractThemesと同じ壊れにくい
+// 週次・月次レビューの構造化出力。extractThemesと同じ壊れにくい
 // パースの考え方——必須フィールド欠落の配列要素はスキップし、1つも残らなければその配列は
 // 空のまま返す（ブロック自体は「提案なし」にしない。overview/interpretationが無い場合のみ
 // レビュー全体を無効とする）。
@@ -401,10 +400,10 @@ export function extractPeriodReview(resultText: string): PeriodReview | undefine
   }
 }
 
-// docs 3.3「階層型マルチエージェント」/ docs/memo.md「M」: Lead Agentが1体以上の
+// 「M」: Lead Agentが1体以上の
 // 専門エージェントに並行相談したい場合の合図。agentsは重複除去し、SPECIALIST_AGENTSに
 // 含まれない値・空配列は不正なブロックとして扱う（相談なしにフォールバック）。
-// docs/agent_specialization.md 段階5対応。questionsはagentName→個別質問の任意マップ。
+// questionsはagentName→個別質問の任意マップ。
 // キーがagentsに含まれない・SPECIALIST_AGENTS外・値が文字列でない場合はそのエントリだけ
 // 無視する（consultブロック全体を不正扱いにはしない）。
 export function extractConsult(resultText: string): ConsultRequest | undefined {
@@ -433,7 +432,7 @@ export function extractConsult(resultText: string): ConsultRequest | undefined {
   return undefined;
 }
 
-// docs/agent_specialization.md 段階5対応。指定agentへの個別質問があればそれを、
+// 指定agentへの個別質問があればそれを、
 // 無ければ共通questionにフォールバックする（後方互換）。
 export function consultQuestionFor(consult: ConsultRequest, agentName: string): string {
   return consult.questions?.[agentName] ?? consult.question;
@@ -481,7 +480,7 @@ export function ensureRequiredConsult(
   };
 }
 
-// docs/2nd_pivot_version.md Phase 8。Growth（EM自身の学びの提示）の提案候補。
+// Growth（EM自身の学びの提示）の提案候補。
 // extractThemesと同じ壊れにくいパースの考え方（不正な形式・必須フィールド欠落の要素は
 // 捨てるだけで、ブロック自体は「提案なし」として扱う）。
 export function extractGrowSuggestions(resultText: string): GrowSuggestionDraft[] | undefined {
@@ -509,7 +508,6 @@ export function extractGrowSuggestions(resultText: string): GrowSuggestionDraft[
               if (typeof topic !== "string" || !topic.trim()) return undefined;
               const noteRaw = (r as { note?: unknown }).note;
               const note = typeof noteRaw === "string" && noteRaw.trim() ? noteRaw.trim() : undefined;
-              // ユーザー要望「参考文献やWeb記事、書籍のリンクを乗せてほしい」対応。
               // http(s)で始まる文字列のみ受け付ける（不正な形式・javascript:等は破棄し、
               // UI側の検索リンクフォールバックに委ねる）。存在確認はしない（LLMが
               // 実在すると確信できる場合のみ出力する前提。詳細はGrowReferenceの型注釈参照）。

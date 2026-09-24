@@ -10,18 +10,16 @@ type Props = {
 };
 
 /**
- * 議事録・長文ログのローカル要約インポーター。
- * 機微な個人情報や会話の生ログを外部AIやストレージに蓄積せず、
+ * 議事録・長文ログのローカル要約インポーター
+ * 機微な個人情報や会話の生ログを外部AIやストレージに蓄積せず
  * ローカル環境で「決定事項・シグナル・ネクストアクション」に要約したうえで
- * EMが手直ししてジャーナルに登録する。
- *
- * web/src/components/LocalLogSummaryImporter.tsx（Next.js版）からの移植（フェーズ3.5
- * tier4 journalバッチ）。元実装は<RecordDateField>へ実際には存在しないprops名
+ * EMが手直ししてジャーナルに登録する
+ * 元実装は<RecordDateField>へ実際には存在しないprops名
  * （`value`/`onChange`）を渡しており、かつ独自のdateOpen開閉UIを外側に重ねて実装していた
- * （web側の既存5件の型エラーの1つ、DailyReflectionForm.tsxと同種の誤り）。移植にあたり、
+ * （web側の既存5件の型エラーの1つ、DailyReflectionForm.tsxと同種の誤り）。移植にあたり
  * 同じRecordDateFieldを正しく使っている他コンポーネント（EmCheckinWidget.tsx等）と同じ
  * パターン（`open`/`onOpen`/`onDateChange`/`onReset`）に揃え、外側の独自開閉UIは削除した
- * （RecordDateField自身が開閉状態の表示を担うため不要だった）。
+ * （RecordDateField自身が開閉状態の表示を担うため不要だった）
  */
 export function LocalLogSummaryImporter({ onCreated }: Props) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();

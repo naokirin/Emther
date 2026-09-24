@@ -5,9 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { GrowSuggestionsPanel } from "./GrowSuggestionsPanel";
 
-// web/src/components/growth/GrowSuggestionsPanel.tsx（Next.js版）には専用テストが
-// 元々無かったため新規に追加する（フェーズ3.5 tier3 growthバッチ）。useGrowSuggestions/
-// useRunsがTanStack Query化されているためQueryClientProviderで包む。
+// useRunsがTanStack Query化されているためQueryClientProviderで包む
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

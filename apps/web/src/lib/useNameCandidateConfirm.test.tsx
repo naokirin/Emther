@@ -5,9 +5,7 @@ import { useState } from "react";
 import { useNameCandidateConfirm } from "./useNameCandidateConfirm";
 import { NAME_CANDIDATE_CONFIRMATION_CODE } from "@emther/core/name-candidate-confirmation";
 
-// web/src/lib/useNameCandidateConfirm.tsx（Next.js版）には専用テストが元々無かったため
-// 新規に追加する（フェーズ3.5 evening-reviewバッチ。DailyReflectionFormが利用する）。
-// ダイアログ本体のクリック操作を検証するため、DOM描画込みの簡易ハーネスで確認する。
+// ダイアログ本体のクリック操作を検証するため、DOM描画込みの簡易ハーネスで確認する
 function Harness({ actionLabel = "保存する" }: { actionLabel?: string }) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [result, setResult] = useState("idle");

@@ -1,8 +1,7 @@
 import type { LocalChatModelPresetId } from "../local-chat-presets";
 import type { CliName, ModelTier } from "../types";
 
-// docs 3.1.1「判定閾値およびデータ欠如とみなす期間はCore Context（Rules_and_Constraints）
-// 側で定義」に対応。Organization Context とは分離したアプリ設定。
+// 判定閾値およびデータ欠如とみなす期間。Organization Context とは分離したアプリ設定。
 
 export type RulesAndConstraints = {
   teamWindowDays: number;

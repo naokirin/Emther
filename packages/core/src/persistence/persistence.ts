@@ -14,11 +14,10 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 // 単一Node.jsプロセス・シングルユーザー前提のローカル永続化。
-// デフォルト配置は XDG 準拠でリポジトリ外（docs/packaging.md）。
+// デフォルト配置は XDG 準拠でリポジトリ外。
 // EM_DATA_DIR / EM_SECURE_DATA_DIR はテスト・Docker・明示上書き用。
 // 呼び出しのたびに process.env を読むのは、テストがモジュールをリセットせずに
 // 環境変数だけを差し替えても正しく反映されるようにするため。
-//
 // JSON 書き込みは「.bak 退避 → .tmp へ書いて rename」で行い、OOM／強制終了で
 // 途中切れの不完全 JSON が本体になる事故と、その後の空 fallback→persist による
 // 二次消失を抑える（Knowledge/Issue 等の蓄積データを守る）。

@@ -5,8 +5,7 @@ import { Hono } from "hono";
 import type { DataMutationResponse } from "@emther/api-contract";
 import { restoreFromArchive, scheduleProcessExit } from "@emther/core/state-archive";
 
-// docs/2nd_architecture/plan.md フェーズ4.3a: web/src/app/api/settings/data/restore/route.ts
-// から移植（reset同様、単一プロセス配信化により未移植の理由が解消したため）。
+// 単一プロセス配信では scheduleProcessExit() がアプリ全体終了になるため問題ない（reset と同様）。
 export const settingsDataRestoreRoute = new Hono().post("/", async (c) => {
   let tmpDir: string | undefined;
   try {

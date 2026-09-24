@@ -10,7 +10,6 @@ import {
 /**
  * JSON 配列ドキュメント用の共通 load/save。
  * ドメイン固有の Repository 型は各ドメインに残し、アダプタ実装の重複だけをここに寄せる。
- * docs/architecture_boundary_refactor.md Phase D3。
  */
 export function createJsonArrayDocument<T>(
   filename: string,

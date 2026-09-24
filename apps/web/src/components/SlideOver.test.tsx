@@ -139,9 +139,8 @@ describe("SlideOver", () => {
     expect(parseInt(box.style.width, 10)).toBeGreaterThan(parseInt(initialWidth, 10));
   });
 
-  // ユーザー指摘「サイドピークを開くとhydration mismatchのコンソールエラーが出る」対応。
   // 保存済みの幅がDEFAULT_WIDTHと異なっていても、初回描画（SSRと揃えるべき瞬間）は
-  // 必ずDEFAULT_WIDTHになり、マウント後に保存値へ切り替わることを確認する。
+  // 必ずDEFAULT_WIDTHになり、マウント後に保存値へ切り替わることを確認する
   it("保存済みの幅がDEFAULT_WIDTHと異なっていても、初回描画はDEFAULT_WIDTHになり、直後に保存値へ切り替わる", async () => {
     window.localStorage.setItem("em-slideover-width", "909");
     render(

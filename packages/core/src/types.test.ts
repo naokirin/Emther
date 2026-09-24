@@ -16,7 +16,6 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// ユーザー要望「後回しにする場合でも『いつまでには確認したい』という期日を入力したい」対応。
 describe("isSuggestionReviewOverdue", () => {
   it("確認期日が過ぎており、未確認/確認保留/確認中なら期日超過とみなす", () => {
     const now = 1000 * DAY_MS;
@@ -39,7 +38,6 @@ describe("isSuggestionReviewOverdue", () => {
   });
 });
 
-// ユーザー要望「提案の一覧でキーワード検索できるようにしてください」対応。
 describe("suggestionMatchesKeyword", () => {
   it("空文字のクエリは常にマッチする", () => {
     expect(suggestionMatchesKeyword({ title: "タイトル", memos: [] }, "")).toBe(true);

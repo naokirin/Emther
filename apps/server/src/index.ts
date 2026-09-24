@@ -4,11 +4,9 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 
-// docs/2nd_architecture/plan.md フェーズ4.3: dist/server.js から見て隣の
-// client/ ディレクトリ（apps/web の vite build 出力。フェーズ4.4のパッケージング
-// で server.js と同じ階層に配置する想定）があれば静的配信を有効化する。
-// dev（tsx watch）実行時はこのディレクトリが存在しないため、これまで通り
-// vite dev 側のプロキシ経由の API 専用サーバーとして動く。
+// dist/server.js から見て隣の client/（apps/web の vite build 出力）があれば
+// 静的配信を有効化する。dev（tsx watch）時はこのディレクトリが無いため、
+// vite 側プロキシ経由の API 専用サーバーとして動く。
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clientDir = process.env.EM_CLIENT_DIR ?? path.join(here, "client");
 const app = createApp({ clientDir: existsSync(clientDir) ? clientDir : undefined });
@@ -38,15 +36,10 @@ function lifeLog(event: string, detail?: unknown): void {
   }
 }
 
-// docs/2nd_architecture/plan.md フェーズ2.7・リスクレジスタ: フェーズ2.5バッチ6の
-// 手動smoke testで、ローカルMLモデル読み込み中の例外がリクエストのawaitチェーンの
-// 外（ライブラリ内部の非同期処理）で発生し、app.onError（app.ts）では拾えずNode
-// プロセスごとクラッシュする事象を2026-09-19に実機再現・確認した
-// （@huggingface/transformersのloadResourceFileが投げる例外。モデル未ダウンロード
-// 環境で発生。詳細はplan.md参照）。単一プロセス配信になるフェーズ4以降はこの種の
-// クラッシュがAPIだけでなく静的UI配信も道連れにするため、ログを残してプロセスは
-// 継続させる（デフォルトの即クラッシュより可用性が高い。当該リクエストのクライアント
-// は応答なしでタイムアウトするのみに留まる）。
+// ローカル ML モデル読み込み中の例外がリクエストの await チェーン外で発生し、
+// app.onError では拾えずプロセスごとクラッシュしうる（例: @huggingface/transformers）。
+// 単一プロセス配信では API だけでなく静的 UI も道連れになるため、ログを残して
+// プロセスは継続させる（当該リクエストはタイムアウトするのみ）。
 process.on("uncaughtException", (err) => {
   lifeLog("uncaughtException", err);
 });
@@ -68,10 +61,8 @@ process.on("exit", (code) => {
 });
 lifeLog("boot");
 
-// フェーズ2〜3（Hono並走・dev並走）の間は HONO_PORT/HONO_HOST で別ポート常駐。
-// フェーズ4（単一プロセス配信）では scripts/emther が渡す PORT/HOSTNAME
-// （Next standalone server.js と同じ命名。docs/2nd_architecture/plan.md 4.4）を
-// 優先する。
+// 単一プロセス配信では scripts/emther が渡す PORT/HOSTNAME を優先する。
+// 並走 dev では HONO_PORT/HONO_HOST で別ポート常駐。
 const port = Number(process.env.PORT ?? process.env.HONO_PORT ?? 8787);
 const hostname = process.env.HOSTNAME ?? process.env.HONO_HOST ?? "127.0.0.1";
 

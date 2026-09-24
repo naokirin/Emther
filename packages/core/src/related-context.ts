@@ -5,14 +5,12 @@ import { searchSimilarEvents, type KnowledgeEvent } from "./knowledge-store";
 import { getRulesAndConstraints } from "./settings-store";
 import { maybeRerankByText, RERANK_CANDIDATE_LIMIT } from "./reranker";
 
-// docs/knowledge_distillation.md 後続 1・2。
 // 提案の embedding と、Journal/提案 横断の「関連束」＋繰り返しカウントを組み立て、
-// Agent プロンプトへ注入する。巨大な本文を run.task に載せない（U13 と同じ方針）。
+// Agent プロンプトへ注入する。巨大な本文を run.task に載せない。
 // 提案自身のembedding計算・永続化（refreshSuggestionEmbedding）はsuggestion-store.ts
 // 側にある（related-context⇄suggestion-storeの循環参照を避けるため）。
-//
 // localRerankEnabled（既定OFF）時は、cosine で足切りした候補を tiny reranker で並べ替えてから
-// 上位を取る（tools/eval-structured-models/RESULTS.md）。繰り返しカウントは cosine のまま。
+// 上位を取る。繰り返しカウントは cosine のまま。
 
 export const RELATED_SIMILARITY_THRESHOLD = 0.4;
 const RELATED_JOURNAL_LIMIT = 5;
@@ -115,7 +113,7 @@ export async function buildRelatedBundleBlock(opts: {
     excludeSuggestionId: opts.excludeSuggestionId,
   });
 
-  // U19: 空でも沈黙しない。「無い」を明示し、必要なら lookup で追加確認できる旨を伝える。
+  // 空でも沈黙しない。「無い」を明示し、必要なら lookup で追加確認できる旨を伝える。
   // （以前は空文字を返しており、エージェントが「注入されていない＝分からない」としか言えなかった）
   const lines: string[] = [];
   if (opts.mode === "journal-analysis") {

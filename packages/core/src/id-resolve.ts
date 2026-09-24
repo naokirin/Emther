@@ -20,7 +20,6 @@ function truncateLabel(text: string, max = 80): string {
   return `${t.slice(0, max)}…`;
 }
 
-// ユーザー指摘「ツールチップ内のメンバー名が{{PERSON_11}}のようなままになっている」対応。
 // listSuggestions/listJournalEntries/listRunsはいずれも保存時のマスク済み生データ（人名が
 // {{PERSON_n}}トークンのまま）を返す関数で、通常の一覧・詳細画面はtoSuggestionView/
 // toJournalEntryView/toRunViewを経由してunmaskNamesを適用してから表示している。

@@ -13,13 +13,11 @@ import { getTransformersCacheDir } from "./transformers-env";
 // このモジュールが提供するローカル推論は、機微情報を外部に一切送信しないことが目的。
 // journal-store.ts（ジャーナルの自動タグ付け）と people-directory.ts 経由の
 // agent-runtime.ts（クラウドLLMに送る前の人物名検出）の両方から共有で使う。
-//
 // 既定は検証環境（メモリ7.7GB、常時スワップ逼迫気味）での安定性を優先した 350M。
 // 1.5Bは人物抽出やJSON整形の精度は高いが、同環境では1リクエストでnext-serverのRSSが
 // 約5GBまで増加して空きメモリが逼迫し、生成失敗に至った実績がある。
 // メモリに余裕があるマシンでは設定（localChatModelPreset）で
 // 0.5B / 1.2B / 1.2B-JP / 1.5B を選べる。
-//
 // プリセット定義本体は local-chat-presets.ts（UIからも参照するため分離）。
 // 未キャッシュ時の起動ダウンロード＋進捗表示は model-loader.ts が担う。
 
@@ -84,7 +82,7 @@ export function getLocalGenerator(progress_callback?: ProgressCallback) {
   return generatorPromise;
 }
 
-/** pipeline() 失敗後・プリセット切替時に再試行できるよう、拒否済み Promise を捨てる。 */
+/** pipeline 失敗後・プリセット切替時に再試行できるよう、拒否済み Promise を捨てる。 */
 export function clearLocalGeneratorCache() {
   generatorPromise = null;
   loadedModelId = null;

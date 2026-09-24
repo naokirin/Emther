@@ -4,10 +4,9 @@ import { listEvents, listInterpretationsForPerson, recordEvent, toEventView } fr
 import { embedText } from "@emther/core/embeddings";
 import { getPersonId, maskForStorage, registerName } from "@emther/core/people-directory";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ7）: web/src/app/api/knowledge/interpretations/route.ts の移植。
-// docs/memo.md「H: 永続化データモデルの設計」対応。「Aさんはリーダー志向がある」のような
+// 「Aさんはリーダー志向がある」のような
 // 長期的な解釈（プロファイル）を記録する口。Quick Journal（一時的な出来事＝fact）とは
-// 意図的に分離しており、TTLを持たない（訂正されるまで有効）。
+// 意図的に分離しており、TTLを持たない（訂正されるまで有効）
 export const knowledgeInterpretationsRoute = new Hono()
   .get("/", (c) => {
     const person = c.req.query("person");
@@ -25,8 +24,8 @@ export const knowledgeInterpretationsRoute = new Hono()
       return c.json({ error: "personとtextは必須です" }, 400);
     }
 
-    // 個人情報の分離（ユーザー指摘対応）: peopleにはPERSON_n IDを、textはmaskForStorageで
-    // マスクした状態を保存する。埋め込みはローカル生成・ローカル利用のみなので生のtextで計算する。
+    // peopleにはPERSON_n IDを、textはmaskForStorageで
+    // マスクした状態を保存する。埋め込みはローカル生成・ローカル利用のみなので生のtextで計算する
     const personId = registerName(person);
     let embedding: number[] | undefined;
     try {

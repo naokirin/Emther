@@ -3,8 +3,7 @@ import type { AgentRunMutationResponse, PendingUnmaskedResponse } from "@emther/
 import { startGrowAnalysis, toRunView } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 
-// docs/2nd_architecture/plan.md フェーズ2.5（高リスク バッチ5）: web/src/app/api/growth/generate/route.ts の移植。
-// docs/2nd_pivot_version.md Phase 8。/api/themes/distillと同型のオンデマンド起動。
+// /api/themes/distillと同型のオンデマンド起動
 export const growthGenerateRoute = new Hono().post("/", async (c) => {
   try {
     const run = await startGrowAnalysis({ manual: true });

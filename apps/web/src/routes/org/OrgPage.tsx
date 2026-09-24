@@ -13,8 +13,7 @@ import { StrategyPanel } from "../../components/org/StrategyPanel";
 import { useGoals, useOrgBackgrounds, useOrgStrategy, usePolicies, useTeams, useThemes } from "../../lib/queries";
 import { teamDisplayName } from "@emther/core/types";
 
-// web/src/app/org/page.tsx（Next.js版）からの移植（フェーズ3.5 tier3）。
-// 設計: docs/design/goal/goal.pen — フラットナビ + 概要（全体スキャン → フォーカス）。
+// フラットナビ + 概要（全体スキャン → フォーカス）
 export function OrgPage() {
   const { strategy, strategyLoaded, refreshStrategy } = useOrgStrategy();
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();

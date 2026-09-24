@@ -4,9 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { GoalLinkSuggestPanel, SuggestionStrategyLinkSuggestPanel } from "./HierarchyLinkSuggestPanel";
 import type { GoalLinkSuggestion, SuggestionStrategyLinkSuggestion } from "@emther/core/types";
 
-// web/src/components/HierarchyLinkSuggestPanel.tsx（Next.js版）には専用テストが元々
-// 無かったため新規に追加する（フェーズ3.5 tier5 dashboardバッチ）。
-
 function goalSuggestion(overrides: Partial<GoalLinkSuggestion> = {}): GoalLinkSuggestion {
   return {
     sourceKind: "theme",

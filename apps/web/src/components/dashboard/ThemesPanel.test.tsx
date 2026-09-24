@@ -5,9 +5,6 @@ import { MemoryRouter } from "react-router";
 import { ThemesPanel } from "./ThemesPanel";
 import type { Goal, OrgTheme } from "@emther/core/types";
 
-// web/src/components/dashboard/ThemesPanel.tsx（Next.js版）には専用テストが元々無かった
-// ため新規に追加する（フェーズ3.5 tier5 dashboardバッチ）。
-
 function theme(overrides: Partial<OrgTheme> & { id: string }): OrgTheme {
   return {
     title: "テーマA",

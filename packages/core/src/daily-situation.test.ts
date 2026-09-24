@@ -251,7 +251,7 @@ describe("buildDailySituation", () => {
     });
   });
 
-  // ユーザー指摘「過去との比較に長期プロファイルが混ざってくる」対応。長期プロファイル
+  // 長期プロファイル
   // （KnowledgeEvent kind:interpretation）はTTLの無い恒常的な人物解釈であり、「今週→先週で
   // 何が変わったか」という比較の趣旨とは性質が異なるため、comparisonsには混ぜない。
   it("comparisonsには今週/先週のJournal傾向比較のみを入れ、長期プロファイルは混ぜない", () => {

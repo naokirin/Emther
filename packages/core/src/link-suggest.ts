@@ -255,7 +255,7 @@ export async function suggestSuggestionStrategyLinks(opts?: {
   };
 }
 
-// docs/goal_policy_model_plan.md Decision 1 / Phase 2。未リンクの採用テーマに、Goal候補を
+// 未リンクの採用テーマに、Goal候補を
 // AI（失敗時はヒューリスティック）で提案する。既存のHITLパターン（永続化はしない。採用は
 // 既存PATCH経由）。
 

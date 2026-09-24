@@ -10,9 +10,9 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
 
-// ユーザー要望「参考文献やWeb記事、書籍のリンクを乗せてほしい」対応。AIが実在を確信できる
+// AIが実在を確信できる
 // URLを付けた場合はそれを使い、無い場合（=ハルシネーション回避で意図的に省略された場合）は
-// トピック名からの検索リンクへフォールバックする（どちらの場合もクリックできる状態にする）。
+// トピック名からの検索リンクへフォールバックする（どちらの場合もクリックできる状態にする）
 function searchUrlFor(topic: string, note?: string): string {
   const query = note ? `${topic} ${note}` : topic;
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
@@ -24,14 +24,11 @@ function isSafeHttpUrl(url: string | undefined): url is string {
   return !!url && /^https?:\/\/\S+$/i.test(url);
 }
 
-// docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
-// 学びの提示）。組織の観測・解釈とEM自身の振り返りを横断した学びの材料を、評価ではなく
-// 判断材料として提示する。「確認済み」「見送る」は評価ではなく軽量な既読管理。
-//
-// ユーザー指摘「生成中でもボタンがdisabledにならない／完了がわかりにくい」対応。
-// POST /api/growth/generate は run 起動だけですぐ返るため、起動中フラグだけでは足りない。
+// Grow（EM自身の学びの提示）。組織の観測・解釈とEM自身の振り返りを横断した学びの材料を、評価ではなく
+// 判断材料として提示する。「確認済み」「見送る」は評価ではなく軽量な既読管理
+// POST /api/growth/generate は run 起動だけですぐ返るため、起動中フラグだけでは足りない
 // JournalDumpPanel と同様に runId を持ち、useRuns のポーリングで active/queued が終わるまで
-// ボタンを止め、終了後に一覧を再取得して件数付きの完了メッセージを出す。
+// ボタンを止め、終了後に一覧を再取得して件数付きの完了メッセージを出す
 export function GrowSuggestionsPanel() {
   const { growSuggestions, growSuggestionsLoaded, refreshGrowSuggestions } = useGrowSuggestions();
   const queryClient = useQueryClient();
@@ -42,8 +39,7 @@ export function GrowSuggestionsPanel() {
   const [generateStatus, setGenerateStatus] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
-  // ユーザー要望「折りたたみにしてデフォルトは閉じ、ヘッダーと件数のみ見せたい」対応。
-  // 一覧は情報量が多く画面を占有するため、必要なときだけ開く。
+  // 一覧は情報量が多く画面を占有するため、必要なときだけ開く
   const [expanded, setExpanded] = useState(false);
   // 同じ run の完了処理を二重に走らせない（runs ポーリングで status が何度も届くため）。
   const handledRunIdRef = useRef<string | null>(null);
@@ -142,8 +138,7 @@ export function GrowSuggestionsPanel() {
 
   return (
     <div className={styles.panel}>
-      {/* NN/G・WebAIMのdisclosure慣習: 左シェブロン＋見出し全体がトグル＋「開く/閉じる」文言。
-          ▸だけの控えめ表示では折りたたみと気づきにくい、という指摘への対応。 */}
+      {/* NN/G・WebAIMのdisclosure慣習: 左シェブロン＋見出し全体がトグル＋「開く/閉じる」文言 ▸だけの控えめ表示では折りたたみと気づきにくい、という */}
       <button
         type="button"
         className={styles.disclosureToggle}

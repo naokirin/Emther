@@ -23,7 +23,7 @@ export type {
  * ナレッジイベントドメイン。永続化は KnowledgeEventRepository 経由のみ。
  */
 export function createKnowledgeService(repo: KnowledgeEventRepository) {
-  // ユーザー指摘「確認したが対応不要だった、をUIに反映したい」対応。sentiment等の観測値は
+  // sentiment等の観測値は
   // そのままに、EMの確認結果だけをin-placeで上書きする（新しいイベントは作らない＝
   // このイベント自身のsupersedesチェーンや一覧の並び順には影響しない）。
   function setEventNoActionNeeded(id: string, note: string | undefined): KnowledgeEvent | undefined {
@@ -34,7 +34,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return repo.updateNoActionNeeded(id, { at: null, note: null });
   }
 
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。noActionNeededと同様の
+  // noActionNeededと同様の
   // in-place更新。重複記録・誤入力等のJournalを一覧・AIの判断材料から除外する用途。
   function setEventArchived(id: string, reason?: "name_leak"): KnowledgeEvent | undefined {
     return repo.updateArchived(id, { at: Date.now(), reason: reason ?? null });
@@ -53,9 +53,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return repo.updateSensitive(id, null);
   }
 
-  // ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
-  // 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要がある」
-  // 対応。people-directory.tsのdetectLeakedNamesが検知した登録名について、それを
+  // people-directory.tsのdetectLeakedNamesが検知した登録名について、それを
   // 本文・要約・タグ・対応メモに部分文字列として含む未アーカイブのイベントを特定し、
   // 即座にアーカイブする（searchSimilarEventsは既定でアーカイブ済みを除外するため、
   // 以降の他の分析への連鎖混入がその場で止まる）。実名そのものはここでもログに出さず、
@@ -87,7 +85,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return event;
   }
 
-  // docs/memo.md「C. Journalセンシング→行動」対応。イベントソーシング（イベントは削除・
+  // イベントソーシング（イベントは削除・
   // 上書きしない）を保ったまま「その場微修正」を実現するため、既存イベントを1件取得し、
   // supersedesで新イベントに繋ぐための参照用途。
   function getEventById(id: string): KnowledgeEvent | undefined {
@@ -132,7 +130,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return repo.list(filter);
   }
 
-  // ユーザー指摘「一覧の全件取得をページネーション化したい」対応。listEvents()は常に全件を
+  // listEventsは常に全件を
   // 返すため、件数が増えるほどAPIレスポンス・パース・マスク処理のコストが線形に増加する。
   // こちらはWHERE句・LIMIT/OFFSETをSQL側で組み立て、該当ページ分の行と総件数だけを返す。
   function listEventsPage(
@@ -145,8 +143,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     };
   }
 
-  // ユーザー指摘「Dashboardから特定のJournalエントリへ直接飛ぶ深いリンクを、ページネーション後も
-  // 保ちたい」対応。対象イベントが、同じfilter・並び順（occurred_at DESC, recorded_at DESC）の
+  // 対象イベントが、同じfilter・並び順（occurred_at DESC, recorded_at DESC）の
   // 何件目（0-indexed）に位置するかを1クエリで求める。クライアント側で全件を走査してインデックスを
   // 探す必要をなくす。
   function findEventOffset(
@@ -156,8 +153,8 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return repo.countBefore(target, filter);
   }
 
-  // ユーザー指摘「一覧の全件取得をページネーション化したい」対応。絞り込みドロップダウン
-  // （タグ・人物）の選択肢一覧。listEvents()（SELECT *）と違い、tags_json/people_jsonの
+  // 絞り込みドロップダウン
+  // （タグ・人物）の選択肢一覧。listEvents（SELECT *）と違い、tags_json/people_jsonの
   // 2カラムだけを読むため、件数が増えても本文・要約等の重いフィールドを読み込まずに済む。
   function listEventFacets(filter: {
     entityType?: KnowledgeEntityType;
@@ -183,14 +180,13 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
 
   // 特定の人物に関する「今も重みを持つファクト」。TTL切れのものと、supersedesで
   // 置き換えられた旧版・アーカイブ済みは除外する（Journal一覧のlistJournalEntriesと
-  // 同じ方針。削除はしない＝listEvents()で全履歴は引き続き参照可能）。アーカイブ除外は
-  // ユーザー指摘対応: 実名リーク検知時の自動隔離（quarantineEventsContainingNames）が
+  // 同じ方針。削除はしない＝listEventsで全履歴は引き続き参照可能）。アーカイブ除外は
+  // 実名リーク検知時の自動隔離（quarantineEventsContainingNames）が
   // このAgent動的ロード経路（名前の直接一致によるbuildJournalContextBlock）を通しても
   // 確実に効くようにするため（similarEvent検索経由の混入だけを塞いでも、こちらの経路が
   // 抜けていると連鎖が止まらない）。
   // personIdはpeople-directory.tsの`PERSON_n` ID（実名ではない）。
-  // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
-  // 『複数回報告されている』と誤って判定されてしまう」対応。excludeIdは、いま分析中の
+  // excludeIdは、いま分析中の
   // Journal自身のイベントIDを渡すことで、自分自身を「過去のファクト」として参照情報に
   // 混入させない（分析対象は既に保存・登録済みのため、素朴に検索すると自分自身がヒットする）。
   function listActiveFactsForPerson(personId: string, limit = 5, excludeId?: string): KnowledgeEvent[] {
@@ -214,7 +210,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return listEvents({ kind: "interpretation" }).filter((e) => e.people.includes(personId) && !e.archivedAt);
   }
 
-  // 個人情報の分離（ユーザー指摘対応）: 上記の関数群はマスクされた（PERSON_n ID化された）
+  // 個人情報の分離: 上記の関数群はマスクされた（PERSON_n ID化された）
   // テキストを返す内部表現。EM向けのAPI応答を組み立てる境界だけで、この関数を通して
   // 実名へ復元する（agent-runtime.tsから呼んではいけない）。
   function toEventView(event: KnowledgeEvent): KnowledgeEvent {
@@ -228,12 +224,12 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     };
   }
 
-  // docs/memo.md「H: Phase 2」対応。Suggestion/Teamの変更履歴を1つのentityId単位で取得する。
+  // Suggestion/Teamの変更履歴を1つのentityId単位で取得する。
   function listEventsForEntity(entityType: KnowledgeEntityType, entityId: string): KnowledgeEvent[] {
     return listEvents({}).filter((e) => e.entityId === entityId && e.entityType === entityType);
   }
 
-  // docs/memo.md「N. 時系列変化をEMが読む物語に」対応。特定のentityに絞らず、
+  // 特定のentityに絞らず、
   // Suggestion/Team/Goalの変更（recordChangeEventで記録されるkind:"fact" context:"official"）
   // を横断的に新しい順で返す。Journal（context:"observation"）は含めない
   // （「組織の状態がどう変わったか」の物語であり、日々の所感・出来事のログとは別軸）。
@@ -243,7 +239,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
       .slice(0, limit);
   }
 
-  // Suggestion/Team/人物の変更履歴（Phase 2、人物統合は後日追加）記録用の薄いヘルパー。変更は
+  // Suggestion/Team/人物の変更履歴記録用の薄いヘルパー。変更は
   // 「起きた出来事そのもの」なのでkind:"fact"、組織の管理された状態変化なのでcontext:"official"
   // で固定する。変更履歴は削除・上書きされるべきでない永続的な監査証跡のためttlDaysは付けない。
   function recordChangeEvent(
@@ -265,7 +261,6 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     });
   }
 
-  // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
   // people-directory.ts（対応表）の付け替えだけでは不十分で、既にSQLiteへ保存済みの
   // KnowledgeEvent（Journalのtext/summary/tags/people、Issueへの解決メモ等）に埋め込まれた
   // fromId（PERSON_n）をtoIdへ書き換える必要がある。text/summary/resolution_noteは
@@ -322,12 +317,12 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
     return row.occurredAt + row.ttlDays * 24 * 60 * 60 * 1000 < now;
   }
 
-  // docs/memo.md「H: Phase 3」ローカル完結の意味的検索。埋め込みを持つイベントに限定して
+  // 埋め込みを持つイベントに限定して
   // ブルートフォースでコサイン類似度を計算し、上位を返す。単一ローカルユーザー規模
   // （数百万件に達するには何年もかかる想定）ではこれで十分高速なため、専用のベクトル
   // インデックス（sqlite-vec等）は導入しない。TTL切れのfactは除外する（意味的に近くても、
   // 現在の判断への重みを失った一時的な情報を混ぜないため）。
-  // アーカイブ済み・supersedesで置き換え済みの旧版も既定で除外する（ユーザー指摘対応:
+  // アーカイブ済み・supersedesで置き換え済みの旧版も既定で除外する（
   // 実名リークしたJournalを修正してリセット→再分析しても、旧版が類似検索経由でAgentの
   // プロンプトに混入し実名が再発するバグがあったため）。呼び出し側は明示的にfalseを
   // 渡さない限りこの既定を変えられない。
@@ -340,8 +335,7 @@ export function createKnowledgeService(repo: KnowledgeEventRepository) {
       excludeExpired?: boolean;
       excludeArchived?: boolean;
       excludeSuperseded?: boolean;
-      // docs/memo.md「Journalから分析をするときに、分析元のJournalを検索等で検出して
-      // 『複数回報告されている』と誤って判定されてしまう」対応。分析対象イベント自身は
+      // 分析対象イベント自身は
       // 既に保存・埋め込み計算済みのため、素朴に検索すると類似度1.0近くで自分自身が
       // ヒットしてしまう。呼び出し元がいま分析中のイベントIDを渡して除外する。
       excludeId?: string;

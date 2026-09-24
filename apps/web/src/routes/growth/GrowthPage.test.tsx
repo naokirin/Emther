@@ -6,10 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { GrowthPage } from "./GrowthPage";
 
-// web/src/app/growth/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier3、最終バッチ）。ReflectionNoteForm/GrowSuggestionsPanel
+// ReflectionNoteForm/GrowSuggestionsPanel
 // 自体の詳細ロジックは個別テストで検証済みのため、ここでは「現在の改善方針」の
-// 完了/アーカイブフローに絞って検証する。
+// 完了/アーカイブフローに絞って検証する
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

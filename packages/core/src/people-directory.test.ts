@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "./test-helpers/store-env";
 
-// maskForStorage()は候補検出を経由せず既知名のマスクのみ行う。
+// maskForStorageは候補検出を経由せず既知名のマスクのみ行う。
 // 候補検出の敬称ルールは実コードを通し、kuromoji 辞書ロードだけ避ける
 // （形態素POSの検証は mask-check*.test.ts 側）。
 vi.mock("./local-model", () => ({
@@ -127,7 +127,7 @@ describe("registerName / maskNames / unmaskNames", () => {
   });
 
   it("対応表に無い裸IDは、短い既登録IDへの部分一致で別人の名前に化けさせず未解決のまま残す", async () => {
-    // ユーザー指摘の再現: カウンタのリセット等でPERSON_1のみ登録された状態で、
+    // カウンタのリセット等でPERSON_1のみ登録された状態で、
     // 本文中に(存在しない)PERSON_10が残っていても「田中さん0」のような誤帰属をしない。
     const pd = await loadModule();
     const id1 = pd.registerName("田中さん");
@@ -216,7 +216,6 @@ describe("listPeople / getPersonId / deletePerson", () => {
   });
 });
 
-// ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。
 describe("addAlias / removeAlias", () => {
   it("別名を追加すると、その別名でもmaskNamesで同じIDへ変換される", async () => {
     const pd = await loadModule();
@@ -293,7 +292,6 @@ describe("renamePerson", () => {
     });
   });
 
-  // ユーザー指摘「勝手にメンバーのプライマリの名前が変わる」対応の回帰テスト。
   // 以前は永続化ファイルの並び順（entriesの最初の出現）から正式名を推測していたため、
   // 明示改名の後に別名を1件追加しただけで、プロセス再起動時に正式名が改名前へ戻って
   // しまっていた。
@@ -313,7 +311,6 @@ describe("renamePerson", () => {
   });
 });
 
-// ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
 describe("mergePersons", () => {
   it("統合元の正式名は統合先の別名になり、以後同じIDへマスクされる", async () => {
     const pd = await loadModule();

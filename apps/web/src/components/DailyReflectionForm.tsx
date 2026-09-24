@@ -7,16 +7,8 @@ import { todayDateInputValue } from "./recordDate";
 import type { ReflectionTurn } from "@emther/core/local-summarizer";
 import type { JournalLocalSummarizeResponse } from "@emther/api-contract";
 
-// web/src/components/DailyReflectionForm.tsx（Next.js版）からの移植（フェーズ3.5
-// evening-reviewバッチ）。stylesのimportパス・`@core/*`のbare specifier化以外の
-// ロジックは変更していないが、1点だけ既存の不具合を修正した:
-// 元実装は<RecordDateField>へ`dateOpen`/`onToggleDateOpen`/`onChangeDate`という
-// 存在しないprops名を渡しており（RecordDateFieldの実際のpropsは`open`/`onOpen`/
-// `onDateChange`/`onReset`）、`onOpen`が未指定のままボタンを押すとランタイムエラーに
-// なる状態だった（web側の`tsc --noEmit`で検出済みの既存の型エラー、
-// docs/2nd_architecture/checklist.md フェーズ1.7の「web側の既存5件」の1つ）。
-// 同じRecordDateFieldを正しく使っている EmCheckinWidget.tsx / ReflectionNoteForm.tsx
-// と同じパターン（onOpenで初期値をセットしつつ開く、onResetで値と開閉状態を両方戻す）に揃えた。
+// RecordDateField は open/onOpen/onDateChange/onReset。onOpenで初期値をセットしつつ開き、
+// onResetで値と開閉状態を両方戻す（EmCheckinWidget / ReflectionNoteForm と同じパターン）。
 type Props = {
   onCreated: () => void;
 };
@@ -210,7 +202,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
         </p>
       )}
 
-      {/* Phase 1: 初期待機状態 */}
+      {/* 初期待機状態 */}
       {phase === "idle" && (
         <div
           style={{
@@ -236,7 +228,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
         </div>
       )}
 
-      {/* Phase 2: 対話セッション */}
+      {/* 対話セッション */}
       {phase === "chat" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {/* チャット履歴 */}
@@ -356,7 +348,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
         </div>
       )}
 
-      {/* Phase 3: 整理・確定保存 */}
+      {/* 整理・確定保存 */}
       {phase === "review" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div

@@ -33,8 +33,8 @@ function horizonLabel(horizon: GoalHorizon | undefined): string {
   return HORIZON_OPTIONS.find((o) => o.value === (horizon ?? ""))?.label ?? "";
 }
 
-// Goal（EMとして見据えている到達したい状態）。docs/goal_policy_model_plan.md Decision 1。
-// CRUD＋、未リンクの採用テーマへのAI紐づけ提案（HITLパターン）をここに集約する。
+// Goal（EMとして見据えている到達したい状態）。 Decision 1
+// CRUD＋、未リンクの採用テーマへのAI紐づけ提案（HITLパターン）をここに集約する
 export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refreshThemes }: Props) {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const selectedGoal = editingGoalId ? goals.find((g) => g.id === editingGoalId) ?? null : null;
@@ -59,7 +59,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // docs/goal_policy_model_plan.md Decision 3 / Phase 3。Goal起点で重点テーマ候補を先に置く。
+  // Goal起点で重点テーマ候補を先に置く
   const [themeGenerating, setThemeGenerating] = useState(false);
   const [themeGenerateError, setThemeGenerateError] = useState<string | null>(null);
   const [themeGenerateResult, setThemeGenerateResult] = useState<string | null>(null);

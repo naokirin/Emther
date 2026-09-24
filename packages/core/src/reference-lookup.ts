@@ -4,29 +4,22 @@ import { join } from "node:path";
 import { dataFilePath } from "./persistence";
 import { getRulesAndConstraints } from "./settings-store";
 
-// ユーザー要望「検索ばかりなので、もう少し直接知れるリンク先を探すようにしてほしい」対応。
-//
-// 当初はアプリ側からWikipedia（認証不要の公開API）へ問い合わせる方式で実装したが、ユーザーから
-// 「エージェントでネイティブツールを制約しているのはあくまで個人・機密情報の漏洩リスク低減の
-// ためであり、組織固有データを含まない汎用化済みのトピック文字列だけを渡すサブタスクであれば、
-// WebSearchを許可してもリスクにはならないはず」との指摘を受け、方針を変更した。
-//
+// Grow参考リンク解決用。組織固有データを含まない汎用トピック文字列だけを渡し、
+// Claude CLIの `--tools "WebSearch"` で WebSearch のみを構造的に許可する。
 // 実機検証で確認した事実（Claude CLI）:
 // - `--tools "WebSearch"`は、他のツール（Bash/Read/Write/Edit等）を一切選択肢に含めない
-//   「構造的な制約」であり、既存の`--tools ""`と同じ強さの保証を保ったまま、この1機能だけを
-//   開放できる。
+// 「構造的な制約」であり、既存の`--tools ""`と同じ強さの保証を保ったまま、この1機能だけを
+// 開放できる。
 // - ただし非対話（-p）モードは既定でツール承認を自動拒否するため、`--permission-mode
-//   bypassPermissions`を明示しないとWebSearch自体が実行されない（実機で
-//   `permission_denials: [{ tool_name: "WebSearch", ... }]`を確認済み）。
-//
+// bypassPermissions`を明示しないとWebSearch自体が実行されない（実機で
+// `permission_denials: [{ tool_name: "WebSearch", ... }]`を確認済み）。
 // これはこのモジュール専用の、AgentRunや組織のコンテキスト注入と一切繋がっていない孤立した
 // CLI呼び出しであり、送信するのはGrowのreferences[].topic（学びのテーマ・理論名・著者名等の
 // 一般知識、組織固有の情報を含まない）だけである。呼び出し元
 // （em-growth-store.tsのenrichGrowSuggestionReferences）はfire-and-forgetで呼ぶため、
 // ここでの失敗・タイムアウト・予算超過はすべて「見つからなかった」として吸収し、例外を
 // 伝播させない（呼び出し元のrun完了処理をブロックしないため）。
-//
-// ユーザー指摘「Claudeのみは制約が強すぎるので緩和したい」対応（Cursor CLI版の追加）:
+// （Cursor CLI版の追加）:
 // Claude Code CLIを許可していないユーザーのために、Cursor CLI（cursor-agent）でも同等の
 // 「WebSearch/WebFetchだけを許可し、他の全ツールを拒否する」制約を実現できないか実機検証した。
 // cursor-agentには`--tools`相当の「ツールカテゴリ全体の許可リスト」フラグが無いため、代わりに
@@ -34,25 +27,22 @@ import { getRulesAndConstraints } from "./settings-store";
 // （WebSearch/WebFetch以外は問答無用でdeny）を実装し、専用の空ワークスペースディレクトリ
 // （CURSOR_WEBSEARCH_WORKSPACE_DIR）に配置した。実機検証で以下を確認済み:
 // - `--mode ask`かつ`--force`無しだと、hookが`allow`を返してもWebSearch自体が
-//   「User Rejected」で実行されない（ask/print既定の承認层がhookのallowより先に働く）。
+// 「User Rejected」で実行されない（ask/print既定の承認层がhookのallowより先に働く）。
 // - `--force`（Force allow commands **unless explicitly denied**）を付けると、hookが
-//   `allow`を返したWebSearch/WebFetchは実行され、hookが`deny`を返したRead/Write/Shellは
-//   `--force`があっても実行されない（`--force`はhookのdenyを上書きしない）ことを、
-//   Read・Write・Shellそれぞれについて個別に実機確認済み（モデルの応答に
-//   「Read/ShellツールがpreToolUse hookによりブロックされました」という報告が明示的に出た）。
+// `allow`を返したWebSearch/WebFetchは実行され、hookが`deny`を返したRead/Write/Shellは
+// `--force`があっても実行されない（`--force`はhookのdenyを上書きしない）ことを、
+// Read・Write・Shellそれぞれについて個別に実機確認済み（モデルの応答に
+// 「Read/ShellツールがpreToolUse hookによりブロックされました」という報告が明示的に出た）。
 // - Autoモデルルーティングだと組み込みWebSearch/WebFetchに対してpreToolUseフック自体が
-//   発火しない既知バグがCursor側フォーラムで報告されているため、named model（既存の
-//   cursor-agentフォールバックと同じ"gpt-5.2"）を明示指定する。
+// 発火しない既知バグがCursor側フォーラムで報告されているため、named model（既存の
+// cursor-agentフォールバックと同じ"gpt-5.2"）を明示指定する。
 // この設計はhooks機構自体の堅牢性（deny優先・failClosed）に依存しており、Claudeの
 // `--tools`（ツールがそもそも存在しない）ほど構造的に強い保証ではないが、実機での
 // Read/Write/Shell拒否・WebSearch許可を確認した上で採用する。
-//
-// ユーザー指摘対応: Settings「CLI優先順位」（cliOrder）に基づき、claude/cursorのうち
+// Settings「CLI優先順位」（cliOrder）に基づき、claude/cursorのうち
 // cliOrderで最初に許可されているものを使う（詳細はfindReferenceUrls内のコメント参照）。
 // agy（Gemini CLI）はヘッドレス実行中のツール承認要求を構造的に自動拒否する仕様のため
 // WebSearch等のツールをそもそも実行できず、代替実装はしていない。
-//
-// ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
 // 日本語優先をプロンプトで強く指示していても、WebSearchが英語版Wikipedia（例:
 // en.wikipedia.org）のURLを返すことがある。Wikipediaはページ間の多言語対応関係を
 // MediaWikiの公開API（action=query&prop=langlinks、認証不要）で機械的に確認できるため、
@@ -76,8 +66,7 @@ export type ReferenceLookupResult = {
   url?: string;
 };
 
-// ユーザー要望「英語率が高いのと、有料の論文サイトへの案内もあった。日本語優先を強め、
-// 有料論文サイトは避けたい」対応。プロンプトでの指示（後述）に加え、モデルが指示に反した
+// プロンプトでの指示（後述）に加え、モデルが指示に反した
 // 場合の保険として、よく知られた有料学術ジャーナル・論文データベースのドメインへのURLは
 // 機械的に破棄する（見つからなかった扱いにし、EM側の画面では検索リンクへフォールバックする）。
 // 網羅的な検出ではなく「よくあるものを機械的に弾く」defense-in-depthである点に注意。
@@ -182,7 +171,6 @@ function extractLookupResults(resultText: string): IndexedLookupResult[] {
   }
 }
 
-// ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
 // `https://en.wikipedia.org/wiki/Foo_bar` のようなURLから言語コードとページタイトルを
 // 取り出す。`ja.wikipedia.org`（既に日本語版）や、Wikipedia以外のURL、Special:等の
 // 記事ページでないURLはundefinedを返し、呼び出し元は元のURLをそのまま使う。
@@ -280,8 +268,7 @@ function spawnAndCollectStdout(command: string, args: string[]): Promise<string>
 
 // claude CLIを`--tools "WebSearch"` + `--permission-mode bypassPermissions`で起動する。
 // WebSearch以外のツールは選択肢にすら無いため、ファイル・シェルへのアクセスは構造的に不可能。
-// ユーザー要望「この検索で使うモデル設定を追加してほしい。他のタスクに比べてもコストが
-// 低く軽量なモデルで良いはず」対応。設定でtierが指定されていれば`--model`に渡し、
+// 設定でtierが指定されていれば`--model`に渡し、
 // 未設定（""）ならclaude CLIの既定モデルのまま動く（既存の挙動を変えない）。
 function runClaudeWebSearchLookup(prompt: string): Promise<string> {
   const tier = getRulesAndConstraints().referenceLookupClaudeModel;
@@ -306,8 +293,7 @@ function runClaudeWebSearchLookup(prompt: string): Promise<string> {
 // （既存のcursor-agentフォールバック実装＝cli-runners/cursor.tsと同じモデルで揃える）。
 const CURSOR_WEBSEARCH_DEFAULT_MODEL = "gpt-5.2";
 
-// ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいてほしい」
-// 対応。設定（`/api/settings/rules`）側で保存時に"auto"を拒否しているが、それでも万一
+// 設定（`/api/settings/rules`）側で保存時に"auto"を拒否しているが、それでも万一
 // "auto"が設定値に残っていた場合の保険として、ここでも弾いて既定モデルへフォールバックする
 // （defense-in-depth。preToolUseフックが発火しないままWebSearchも実行できなくなる事態を防ぐ）。
 function resolveCursorWebSearchModel(): string {
@@ -402,8 +388,7 @@ function runCursorWebSearchLookup(prompt: string): Promise<string> {
 export async function findReferenceUrls(topics: ReferenceLookupTopic[]): Promise<ReferenceLookupResult[]> {
   const valid = topics.filter((t) => t.topic.trim());
   if (valid.length === 0) return [];
-  // ユーザー指摘「Claudeのみは制約が強すぎる」対応: Settings「CLI優先順位」（cliOrder）で
-  // ユーザーが並べた順のうち、このモジュールが対応している最初のCLI（claude/cursor）を使う。
+  // Settings「CLI優先順位」（cliOrder）で
   // 例: cliOrderが["cursor","claude"]ならcursorを使い、["agy"]や["claude"]でclaudeを
   // 除外している設定ならこの機能は無効（見つからなかった扱いにし、EM側の画面は既存の
   // 検索リンクへフォールバックする。機能が丸ごと無効になるだけで、不正な動作にはならない）。
@@ -427,7 +412,6 @@ export async function findReferenceUrls(topics: ReferenceLookupTopic[]): Promise
         return { topic, ...(r.url ? { url: r.url } : {}) };
       })
       .filter((r): r is ReferenceLookupResult => !!r);
-    // ユーザー要望「Wikipediaの場合、日本語のページがないかチェックしてほしい」対応。
     return await preferJapaneseWikipedia(mapped);
   } catch {
     return [];

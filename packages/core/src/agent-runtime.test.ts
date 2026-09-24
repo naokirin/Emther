@@ -22,7 +22,6 @@ vi.mock("./embeddings", () => ({
   cosineSimilarity: (...args: unknown[]) => cosineSimilarityRef.impl(...args),
 }));
 
-// docs/memo.md「テキストから検出されたメンバー名を確実に『人物』にすべて登録する」対応で
 // createJournalEventFromTextがdetectUnregisteredNameCandidatesを呼ぶようになったため、
 const nameCandidateDetectRef = vi.hoisted(() => ({
   detectNameCandidatesAsync: (async () => [] as string[]) as (text: string) => Promise<string[]>,
@@ -34,7 +33,7 @@ vi.mock("./name-candidate-detect", () => ({
 }));
 
 // vi.mockのファクトリはファイル先頭へホイストされるため、テストごとに差し替えたい実装は
-// vi.hoisted()で作った可変の参照（spawnRef.impl）越しに間接呼び出しする。実装の中身
+// vi.hoistedで作った可変の参照（spawnRef.impl）越しに間接呼び出しする。実装の中身
 // （FakeChildProcess等）は通常のimportが揃った後の、このファイルの下の方で定義してよい。
 const spawnRef = vi.hoisted(() => ({
   impl: (() => {
@@ -775,7 +774,6 @@ describe("relevantTeams", () => {
     expect(rt.relevantTeams([teamA, teamB], undefined, "Engineeringの状況について")).toEqual([teamA]);
   });
 
-  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
   it("rawTextに正式名ではなく別名の言及があっても絞り込む", async () => {
     const rt = await loadModule();
     expect(rt.relevantTeams([teamA, teamB], undefined, "エンジニアリングチームの状況について")).toEqual([teamA]);
@@ -802,7 +800,6 @@ describe("buildOrgContextBlock", () => {
     expect(block).toContain("Team A");
   });
 
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   it("selfPersonIdが設定されていれば利用者本人として明示する", async () => {
     const orgStore = await import("./org-context-store/index");
     const peopleDirectory = await import("./people-directory");
@@ -963,7 +960,7 @@ describe("buildSuggestionContextBlock / buildTeamCharterBlock / buildInterventio
     expect(block).toContain("制約: 予算内で行う");
   });
 
-  it("介入の型タグはPhase 7で廃止のためガイダンスは空", async () => {
+  it("介入の型タグは廃止のためガイダンスは空", async () => {
     const suggestionStore = await import("./suggestion-store");
     await suggestionStore.createSuggestion("1on1改善", { agentRunId: "run-1" });
     const rt = await loadModule();
@@ -1045,7 +1042,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("推測で埋めず、proposalではなくyieldしてください");
   });
 
-  it("Phase 7: sub_issuesブロック説明は付かない", async () => {
+  it("sub_issuesブロック説明は付かない", async () => {
     const suggestionStore = await import("./suggestion-store");
     await suggestionStore.createSuggestion("トップレベル提案", { agentRunId: "run-1" });
     const rt = await loadModule();
@@ -1067,7 +1064,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).not.toContain("```sub_issues");
   });
 
-  it("Phase 7: charterブロック説明は付かない（メモ追記のみ）", async () => {
+  it("charterブロック説明は付かない（メモ追記のみ）", async () => {
     const suggestionStore = await import("./suggestion-store");
     await suggestionStore.createSuggestion("提案", { agentRunId: "run-1" });
     const rt = await loadModule();
@@ -1290,7 +1287,6 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(rt.getRun("spec-1")?.reviewed).toBe(true);
   });
 
-  // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
   it("setRunArchivedはarchivedAtを設定・解除する（triageStatusとは独立）", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), { id: "run-1", triage_status: "watching" });
@@ -1355,7 +1351,6 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(await rt.adoptSuggestedSuggestionNotesFromRun("run-1")).toBeUndefined();
   });
 
-  // docs/suggestion_organize_via_consult.md。
   it("clearSuggestedSuggestionUpdatesは提案を消す", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), {
@@ -1439,7 +1434,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(await rt.adoptSuggestionUpdatesFromRun("run-1")).toBeUndefined();
   });
 
-  // docs/suggestion_organize_via_consult.md「3.2 やらないこと」対応。noteの追記は
+  // noteの追記は
   // addMemoにonUpdatedを渡さないため、autoSuggestionUpdateAnalysisEnabledがONでも
   // auto-suggestion-update分析を裏で起動してはならない。
   it("adoptSuggestionUpdatesFromRunのnote追記はauto-suggestion-update分析を起動しない", async () => {
@@ -1511,9 +1506,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(finished.log.some((l) => l.channel === "agent" && l.text === "検討しています…")).toBe(true);
   });
 
-  // ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
-  // ユーザー要望「リーク検知を登録時に移したので、相談における検知すべき対象は今回入力されたテキストのみ」
-  // 「すでに保存済み情報を自動でアーカイブしてしまうことは避ける」対応。過去のナレッジイベントが
+  // 過去のナレッジイベントが
   // 類似検索等でsystemPromptに含まれても、過去データを勝手に自動アーカイブしない。
   it("過去のナレッジイベントを自動アーカイブせず、入力テキストのみを確認対象とする", async () => {
     const pd = await import("./people-directory");
@@ -1569,7 +1562,6 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
       }),
     ).rejects.toThrow(UnconfirmedNameCandidatesError);
 
-    // ユーザーが「未登録のまま進める」と確認した場合は実行できる
     const run = await rt.startRun("Lead Agent", "佐藤さんと1on1を実施した", "manual", undefined, {
       allowUnmaskedCandidates: true,
     });
@@ -1744,12 +1736,8 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run.id)?.status).toBe("idle");
   });
 
-  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
-  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
-  // 「claude codeが外せないようになっている」対応。cliPriorityOrder（全エージェント
-  // 共通の並び順）とagyFallbackAgents/cursorFallbackAgents（エージェント種別ごとの
-  // ON/OFF）をcliOrder（全エージェント共通の単一のCLI優先順位リスト）に統合し、
-  // claudeも他の2つと同様に除外できるようにした後の挙動を検証する。
+  // cliOrder（全エージェント共通の単一CLI優先順位）へ統合し、claudeも他と同様に
+  // 除外できるようにした後の挙動を検証する。
   it("cliOrderにclaudeを含めなければ、claudeは一度も起動されずagyから始まる", async () => {
     const settingsStore = await import("./settings-store");
     settingsStore.updateRulesAndConstraints({ cliOrder: ["agy", "cursor"] });
@@ -1813,8 +1801,6 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     );
   });
 
-  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-  // できるようにしたい」対応。
   it("agentAgyModelsでこのエージェント種別のモデルを指定すると、agy起動時にそのモデルを渡す", async () => {
     const settingsStore = await import("./settings-store");
     settingsStore.updateRulesAndConstraints({
@@ -2005,7 +1991,7 @@ describe("Lead Agentのconsult協働ループ（handleConsult）", () => {
     closeChild(spawnCalls[0].child, 0);
 
     // consultを検知した時点でLead run自身はまだactive、専門エージェントrunが2件作られ
-    // それぞれのconsultQuestionFor()による個別質問がtaskに反映されている。
+    // それぞれのconsultQuestionForによる個別質問がtaskに反映されている。
     await vi.waitFor(() => {
       if (rt.listRuns().length < 3) throw new Error("specialist runs not created yet");
     });
@@ -2249,7 +2235,6 @@ describe("watchdog: checkMorningSummary", () => {
     expect(rt.listRuns().filter((r) => r.origin === "auto-summary")).toHaveLength(1);
   });
 
-  // docs/2nd_architecture/plan.md フェーズ2.7: Next↔Hono並走のように複数OSプロセスが
   // 同じデータディレクトリを見る構成では、globalThis／JSON永続化／DB run確認の
   // 「読み取り→書き込み」の組み合わせだけではTOCTOUを防げない（2026-09-19、2プロセスを
   // 実機起動して実際に重複起動を再現・確認した）。auto_batch_claimsテーブルへの原子的
@@ -2754,7 +2739,7 @@ describe("selectRelatedSpecialists", () => {
     ]);
   });
 
-  it("介入型タグはPhase 7で保持されないため全specialistを返す", async () => {
+  it("介入型タグは保持されないため全specialistを返す", async () => {
     const rt = await loadModule();
     const suggestionStore = await import("./suggestion-store");
     const issue = await suggestionStore.createSuggestion("課題");
@@ -2788,7 +2773,7 @@ describe("チーム先行並列（runTeamParallelKickoff）", () => {
     });
     const rt = await loadModule();
     const suggestionStore = await import("./suggestion-store");
-    // Phase 7: タグは保持されないため全 quadrant specialist が先行する
+    // タグは保持されないため全 quadrant specialist が先行する
     const issue = await suggestionStore.createSuggestion("課題");
 
     const leadRun = await rt.startRun("Lead Agent", "メンバーの1on1設計を見直したい", "manual", issue.id);

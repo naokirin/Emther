@@ -9,9 +9,7 @@ import { TeamEditPanel } from "../../components/teams/TeamEditPanel";
 import { useEntityHistory, useSuggestions, useJournal, useTeams } from "../../lib/queries";
 import type { Team } from "@emther/core/types";
 
-// web/src/app/teams/page.tsx（Next.js版）からの移植（フェーズ3.5 tier2）。react-routerの
-// useSearchParamsはSuspenseを要求しないため、元実装の<Suspense>ラッパーは不要（削除した）。
-// それ以外のロジック（focusIdの一度きりの適用等）は変更していない。
+// ?focus=<teamId> でツリー選択を一度だけ初期化する
 export function TeamsPage() {
   const [searchParams] = useSearchParams();
   const focusId = searchParams.get("focus");

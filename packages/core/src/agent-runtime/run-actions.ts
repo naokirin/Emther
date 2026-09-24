@@ -56,12 +56,11 @@ export async function confirmPendingUnmaskedSend(
   return undefined;
 }
 
-// 個人情報の分離（ユーザー指摘対応）: run.task・ログへ保存する文言は、SQLiteに書き込む
+// 個人情報の分離: run.task・ログへ保存する文言は、SQLiteに書き込む
 // 前に必ずマスクする（クラウド送信の直前ではなく、保存の直前にマスクするという設計に
 // 変更した）。runをrunsマップへ登録するのは、マスクが完了した後にする——マスク完了前に
 // 登録すると、その一瞬だけtaskが空文字列で見えるが、実名が見える瞬間は無い（安全側）。
-// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。linkedSuggestionIdを渡すと、実際にClaudeを起動する（runClaudeTurn）前に同期的に
+// linkedSuggestionIdを渡すと、実際にClaudeを起動する（runClaudeTurn）前に同期的に
 // Suggestion.agentRunIdを紐づける。buildSystemPrompt内のgetSuggestionByRunId（issueContext/
 // actionItemsRule/subIssuesRule/charterRuleが参照する）が、最初のターンから
 // 紐付き済みの状態を見られるようにするための順序保証（先にrunClaudeTurnを起動して
@@ -118,8 +117,7 @@ export async function startRun(
   return run;
 }
 
-// ユーザー依頼「Journal等から提案を生成する際、AIエージェントチームに内容を埋めさせる」
-// 対応。/api/suggestions・/api/suggestions/[id]/parentの両方（＝「素の提案作成」の全経路）から
+// api/suggestions・/api/suggestions/[id]/parentの両方（＝「素の提案作成」の全経路）から
 // 同じ文面でLead Agentへタスクを渡すための共通ビルダー。issueContext（buildIssueContextBlock）
 // が既に紐付き済みのWhy/What/Howをブロックとして注入するが、それが省略されるケース
 // （タイトルのみでWhy/What/How・タグが全て空の提案）でもタイトルだけは確実に伝わるよう、

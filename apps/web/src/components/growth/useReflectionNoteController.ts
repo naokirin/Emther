@@ -29,8 +29,8 @@ export function useReflectionNoteController(onCreated?: (note: EmReflectionNote)
     setNoteDateOpen(false);
   }
 
-  // 改修依頼対応。1回の送信＝1件のメモ。typeは直前の選択を保ったままにする
-  // （同じ種類のメモを立て続けに書きたい場面が多いため、毎回選び直させない）。
+  // 1回の送信＝1件のメモ。typeは直前の選択を保ったままにする
+  // （同じ種類のメモを立て続けに書きたい場面が多いため、毎回選び直させない）
   async function handleNoteSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!noteText.trim()) return;

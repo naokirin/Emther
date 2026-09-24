@@ -2,10 +2,9 @@ import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api-client";
 import styles from "../../styles/page.module.css";
 
-// ユーザー要望「メンバーの詳細でも長期プロファイルを入力できるようにしたい」対応。
-// これまでDashboardの「長期プロファイルを記録する」からしか登録できなかったが、
+// これまでDashboardの「長期プロファイルを記録する」からしか登録できなかったが
 // 人物詳細画面はすでにpersonNameが確定しているため、対象欄なしでその場で記録できる
-// ようにする。新規APIは追加せず、既存のPOST /api/knowledge/interpretationsをそのまま使う。
+// ようにする。新規APIは追加せず、既存のPOST /api/knowledge/interpretationsをそのまま使う
 export function PersonProfileComposer({
   personName,
   onCreated,

@@ -6,10 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { JournalPage } from "./JournalPage";
 
-// web/src/app/journal/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier4）。個々の子コンポーネント（JournalEntryCard/JournalInputSwitcher/
+// 個々の子コンポーネント（JournalEntryCard/JournalInputSwitcher/
 // useJournalEditing）は別テストで検証済みのため、ここでは一覧表示とフィルタ操作による
-// 再フェッチに絞って検証する。
+// 再フェッチに絞って検証する
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {

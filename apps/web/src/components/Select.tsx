@@ -4,17 +4,16 @@ import styles from "../styles/page.module.css";
 
 export type SelectOption = { value: string; label: string };
 
-// 改修依頼「selectの選択肢の選択のしにくさそのものの改善」対応。ネイティブ<select>は
-// 開いたポップアップ自体をCSSでスタイルできず（OS依存の見た目・小さい文字・当たり判定）、
+// ネイティブ<select>は
+// 開いたポップアップ自体をCSSでスタイルできず（OS依存の見た目・小さい文字・当たり判定）
 // これが選びにくさの本体だった。閉じた状態の見た目だけをカスタムCSSで整えても
 // （globals.cssのselect{}）解決しないため、WAI-ARIA「Select-Only Combobox」パターン
 // （https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/）
 // に沿った自前のリストボックスに置き換える。フォーカスはボタン自身に留め、矢印キーで
-// aria-activedescendantを動かす（DOM focusを選択肢へ移さない）。
-//
+// aria-activedescendantを動かす（DOM focusを選択肢へ移さない）
 // ポップアップはdocument.bodyへポータルし、position:fixedでトリガーボタンの位置に
-// 合わせて描く。Modal（.modalBoxがoverflow-y:autoでスクロールコンテナ）の中で使っても、
-// ポップアップがモーダルの枠でクリップされないようにするため。
+// 合わせて描く。Modal（.modalBoxがoverflow-y:autoでスクロールコンテナ）の中で使っても
+// ポップアップがモーダルの枠でクリップされないようにするため
 export function Select({
   value,
   onChange,

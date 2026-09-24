@@ -26,16 +26,12 @@ describe("getRulesAndConstraints", () => {
     expect(rules.decisionQueueLimit).toBe(3);
     expect(rules.observationQueueLimit).toBe(3);
     expect(rules.staleInterventionDays).toBe(14);
-    // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-    // できるようにしたい」対応。既定は全エージェント未設定。
+    // 既定は全エージェント未設定。
     expect(rules.agentAgyModels).toEqual({});
     expect(rules.agentCursorModels).toEqual({});
-    // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい」
-    // 対応。既定は両方とも未設定（各CLIの既定モデルのまま）。
+    // 既定は両方とも未設定（各CLIの既定モデルのまま）。
     expect(rules.referenceLookupClaudeModel).toBe("");
     expect(rules.referenceLookupCursorModel).toBe("");
-    // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
-    // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」対応。
     // 既定は["claude"]（＝claudeのみが候補、既存の挙動を変えない）。
     expect(rules.cliOrder).toEqual(["claude"]);
   });

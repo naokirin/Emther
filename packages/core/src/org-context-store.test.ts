@@ -35,7 +35,6 @@ describe("teams", () => {
     expect(team.name).toBe("Engineering/Team A");
     expect(team.members).toEqual(["PERSON_1", "PERSON_2"]);
     expect(team.archived).toBe(false);
-    // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
     // 既定は「自分が管理するチーム」（既存の挙動を変えない既定値）。
     expect(team.managedByEm).toBe(true);
   });
@@ -64,7 +63,6 @@ describe("teams", () => {
     expect(same?.updatedAt).toBe(updated?.updatedAt);
   });
 
-  // ユーザー要望「チーム名についても表記揺れ対応できると嬉しい」対応。
   it("addTeamはaliases:[]で作成し、updateTeamで別名を設定・重複排除・空文字除去できる", async () => {
     const store = await loadModule();
     const team = store.addTeam("Team A", []);
@@ -114,7 +112,6 @@ describe("teams", () => {
     expect(store.removeTeam(team.id)).toBe(false);
   });
 
-  // ユーザー要望「誤って複数登録されてしまったメンバーを統合する機能が欲しい」対応。
   it("reassignPersonIdInTeamsはfromIdをtoIdへ置き換える", async () => {
     const store = await loadModule();
     const team = store.addTeam("Team A", ["Aさん"]); // PERSON_1

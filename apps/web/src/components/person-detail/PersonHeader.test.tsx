@@ -4,8 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { PersonHeader } from "./PersonHeader";
 import type { PersonProfile } from "@emther/core/types";
 
-// web/src/components/person-detail/PersonHeader.tsx（Next.js版）には専用テストが
-// 元々無かったため新規に追加する（フェーズ3.5 tier2、人物バッチ）。
 const person: PersonProfile = {
   id: "p1",
   name: "田中さん",

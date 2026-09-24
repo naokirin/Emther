@@ -13,12 +13,8 @@ type Props = {
 };
 
 export function AiToolsSettingsGroup({ draft, onChange }: Props) {
-  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
-  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」対応。
-  // 以前のcliPriorityOrder（全エージェント共通の並び順）+ agyFallbackAgents/
-  // cursorFallbackAgents（エージェント種別ごとのON/OFF）という別々の2設定を、
-  // 全エージェント共通の単一のCLI優先順位リストへ統合した。
-
+  // 以前の cliPriorityOrder + agyFallbackAgents/cursorFallbackAgents を
+  // 全エージェント共通の単一の CLI 優先順位リストへ統合した。
   // チェックONで末尾（最も優先度低い）に追加、チェックOFFで除外する。claudeは
   // 無効化トグルが無い（常に含まれる）ため、ここへは渡さない。
   function toggleCli(cli: CliName, checked: boolean) {
@@ -65,19 +61,16 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
     onChange({ agentCursorModels: next });
   }
 
-  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
-  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。エージェント種別ごとの
-  // モデルとは別の、reference-lookup.ts専用の単一モデル設定。
+  // エージェント種別ごとの
+  // モデルとは別の、reference-lookup.ts専用の単一モデル設定
   const [referenceLookupCursorModelError, setReferenceLookupCursorModelError] = useState<string | null>(null);
 
   function setReferenceLookupClaudeModel(value: ModelTier | "") {
     onChange({ referenceLookupClaudeModel: value });
   }
 
-  // ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいて
-  // ほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を表示）」対応。
   // "auto"（大小文字・前後空白は無視）は保存前にブロックし、その場でメッセージを出す
-  // （APIも保険として同じ内容で拒否する。/api/settings/rules参照）。
+  // （APIも保険として同じ内容で拒否する。/api/settings/rules参照）
   function setReferenceLookupCursorModel(value: string) {
     if (value.trim().toLowerCase() === "auto") {
       setReferenceLookupCursorModelError(
@@ -263,14 +256,9 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
                 })}
               </div>
             ))}
-            {/* ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を
-                追加してほしい。他のタスクに比べてもコストが低く軽量なモデルで良いはず」
-                対応。他のエージェントとは独立した単一のモデル設定を、同じマトリクスに
-                専用の行として追加する。 */}
+            {/* Grow 参考リンク検索専用の単一モデル設定を、同じマトリクスに専用行として追加する。 */}
             <div className={styles.agentModelMatrixRow}>
-              {/* ユーザー指摘「軽量モデル推奨（コスト低減）の部分も行が増えてレイアウト
-                  バランスが悪くなっている」対応。他行と同じ1行の見出しに揃え、補足は
-                  agy列と同じ.axisTooltip（ツールチップ）に寄せた。 */}
+              {/* 他行と同じ1行の見出しに揃え、補足は agy列と同じ.axisTooltip（ツールチップ）に寄せた */}
               <div
                 className={`${styles.agentModelMatrixAgent} ${styles.axisTooltip}`}
                 data-tooltip="軽量モデル推奨（コスト低減）"
@@ -301,17 +289,15 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
                   );
                 }
                 if (cli === "agy") {
-                  // ユーザー要望「agyは安全のため機能しないことを明記して常に非アクティブ化
-                  // してほしい」対応。agyはヘッドレス実行時に全ツール呼び出しを構造的に
+                  // agyはヘッドレス実行時に全ツール呼び出しを構造的に
                   // 自動拒否するため、この検索（WebSearch）自体を実行できない
-                  // （findReferenceUrlsもagyを候補にしない）。設定できる余地を見せず、
-                  // 常に無効である旨だけを表示する。
-                  // ユーザー指摘「レイアウトバランスが悪いので説明をツールチップにして
-                  // 入力枠だけ並ぶようにしてほしい」対応。常時表示の説明文（<p>）を削除し、
+                  // （findReferenceUrlsもagyを候補にしない）。設定できる余地を見せず
+                  // 常に無効である旨だけを表示する
+                  // 常時表示の説明文（<p>）を削除し
                   // 既存の.axisTooltip（他の画面のラベル・ボタンでも使っている共通の
                   // カスタムツールチップ）をlabelに付け、ホバー・キーボードフォーカス
                   // （disabledなinputはフォーカスできないためlabel側にtabIndexを置く）
-                  // どちらでも読めるようにした。
+                  // どちらでも読めるようにした
                   return (
                     <div key={cli} className={styles.field}>
                       <label

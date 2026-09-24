@@ -133,9 +133,8 @@ describe("POST /api/journal", () => {
     expect(peopleDirectory.listPeople()).toHaveLength(0);
   });
 
-  // docs/memo.md「メンバーに登録がない名前をJournalで入力して分析にかけましたが、とくに
-  // 引っかからずにAIに渡されてしまいました」対応。データ入力（保存）時点で検出し、
-  // 未確認なら保存自体をブロックして確認を求めるように変更した。
+  // データ入力（保存）時点で検出し
+  // 未確認なら保存自体をブロックして確認を求めるように変更した
   it("人名らしいが未登録の語句があると、確認フラグ無しでは保存をブロックし409で候補を返す", async () => {
     mockExtraction = { tags: ["1on1"], people: [], urgency: "low", sentiment: "neutral", summary: "1on1した" };
     const { journalRoute } = await import("./journal");
@@ -177,7 +176,6 @@ describe("POST /api/journal", () => {
     expect(json.candidates).toContain("未登録太郎");
   });
 
-  // docs/memo.md「JournalのAIでの分析結果として、メンバーの長期プロファイルに入れる」対応。
   it("既登録の人物についての長期プロファイル候補をprofileCandidateとしてヒントに返す", async () => {
     mockExtraction = {
       tags: [],
@@ -340,7 +338,6 @@ describe("GET /api/journal/:id", () => {
   });
 });
 
-// docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。
 describe("POST/DELETE /api/journal/:id/archive", () => {
   it("存在しないIDは404", async () => {
     const { journalRoute } = await import("./journal");
@@ -410,7 +407,6 @@ describe("POST/DELETE /api/journal/:id/sensitive", () => {
   });
 });
 
-// ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
 describe("POST/DELETE /api/journal/:id/no-action-needed", () => {
   beforeEach(() => {
     mockExtraction = { tags: [], people: [], urgency: "mid", sentiment: "negative", summary: "" };
@@ -555,7 +551,6 @@ describe("POST /api/journal/:id/analyze", () => {
   });
 });
 
-// ユーザー要望「現場メモ（Journal）ページから、集約解釈を手動実行できるボタンを置きたい」対応。
 describe("GET /api/journal/batch", () => {
   it("前回解釈以降の未解釈件数を返す", async () => {
     const journalStore = await import("@emther/core/journal-store");

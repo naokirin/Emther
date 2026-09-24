@@ -7,10 +7,9 @@ import type { ReactNode } from "react";
 import { ChatPage } from "./ChatPage";
 import type { AgentRun } from "@emther/core/agent-runtime";
 
-// web/src/app/chat/page.tsx（Next.js版）には専用テストが元々無かったため新規に追加する
-// （フェーズ3.5 tier5 chatバッチ）。相談履歴の選択・新規相談フォームとの切り替えに絞って
+// 相談履歴の選択・新規相談フォームとの切り替えに絞って
 // 検証する（各パネルの内部動作はChatHistoryPanel/NewConsultForm/ConsultReviewPanelの
-// 各テストで個別に検証済み）。
+// 各テストで個別に検証済み）
 
 function run(overrides: Partial<AgentRun> = {}): AgentRun {
   return {

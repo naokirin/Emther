@@ -6,9 +6,9 @@ import styles from "../styles/page.module.css";
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-// ユーザー指摘「サイドピークの幅を自由に変更できるようにしたい」対応。左端のハンドルを
-// ドラッグ（またはキーボードの←→）して幅を変える。次回開いたときも同じ幅になるよう、
-// この端末のlocalStorageにだけ記憶する（他の閲覧者・他端末には共有されない軽量な設定）。
+// 左端のハンドルを
+// ドラッグ（またはキーボードの←→）して幅を変える。次回開いたときも同じ幅になるよう
+// この端末のlocalStorageにだけ記憶する（他の閲覧者・他端末には共有されない軽量な設定）
 const WIDTH_STORAGE_KEY = "em-slideover-width";
 const DEFAULT_WIDTH = 560;
 const MIN_WIDTH = 360;
@@ -42,11 +42,9 @@ function persistWidth(w: number): void {
   }
 }
 
-// 改修依頼「Notionのように詳細を右からスライドでオーバーレイ表示（サイドピーク）」対応。
 // Modal.tsxと同じa11yパターン（フォーカストラップ・Escape・aria-modal・フォーカス復元）を
 // 踏襲しつつ、レイアウトだけ右からのスライドインに変える。「しっかり確認したい場合」は
-// detailHrefで独立ページ（/issues/[id]等、フルページ表示のまま変更していない）へ
-// 遷移できるようにし、一覧⇄詳細の移動コストを状況に応じて選べるようにする。
+// detailHrefで独立ページへ遷移できるようにし、一覧⇄詳細の移動コストを状況に応じて選べるようにする
 export function SlideOver({
   title,
   onClose,
@@ -62,12 +60,11 @@ export function SlideOver({
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
-  // ユーザー指摘「サイドピークを開くとhydration mismatchのコンソールエラーが出る」対応。
   // 以前はuseState(readStoredWidth)の遅延初期化子がSSR時にも呼ばれ、サーバー側は
   // window未定義でDEFAULT_WIDTHを返す一方、クライアント側の初回描画（hydration）では
   // 同じ初期化子がlocalStorageの保存値を読んでしまい、EMが一度でも幅を変更していると
   // サーバー/クライアントでstyle.widthが食い違っていた。SSRとhydration直後は必ず
-  // DEFAULT_WIDTHで揃え、保存値の反映はマウント後のuseEffect（クライアント専用）に移す。
+  // DEFAULT_WIDTHで揃え、保存値の反映はマウント後のuseEffect（クライアント専用）に移す
   const [width, setWidth] = useState(DEFAULT_WIDTH);
 
   useEffect(() => {
@@ -153,8 +150,7 @@ export function SlideOver({
             {title}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* ユーザー指摘「サイドピークからの詳細画面移動のリンクをアイコン表示にしたい」対応。
-                テキストリンクからアイコンボタンにし、アクセシブルな名前はaria-label/titleで維持する。 */}
+            {/* テキストリンクからアイコンボタンにし、アクセシブルな名前はaria-label/titleで維持する */}
             {detailHref && (
               <Link
                 to={detailHref}
@@ -171,9 +167,7 @@ export function SlideOver({
           </div>
         </div>
         <div className={styles.slideOverBody}>{children}</div>
-        {/* ユーザー指摘「サイドピークの幅を自由に変更できるようにしたい」対応。DOM順は末尾に
-            置き、Tabキーの通常の巡回順（見出し→本文の操作）を邪魔しないようにする
-            （見た目はCSSのposition: absoluteで左端に固定するのでDOM順に依存しない）。 */}
+        {/* DOM順は末尾に 置き、Tabキーの通常の巡回順（見出し→本文の操作）を邪魔しないようにする （見た目はCSSのposition: absoluteで左端に固定するのでDOM順に依存しない） */}
         <div
           className={styles.slideOverResizeHandle}
           role="separator"

@@ -19,14 +19,12 @@ import {
 import { teamPathSegments } from "@emther/core/types";
 import { unmaskNames } from "@emther/core/people-directory";
 
-// docs/2nd_architecture/plan.md フェーズ2.5: web/src/app/api/teams/{route,[id]/route,[id]/archive/route,bulk/route}.ts の移植。
 function toView(team: Team): Team {
   return { ...team, members: team.members.map(unmaskNames) };
 }
 
 type ParsedLine = { name: string; members: string[] };
 
-// docs/memo.md「初回に組織情報やMVV、目標等の情報を大量に投入する必要がある」への対応。
 // フォーマット: `チーム名: メンバー1, メンバー2`（":"は全角も可、メンバー区切りは","/"、"も可）
 function parseBulkText(text: string): { parsed: ParsedLine[]; skipped: string[] } {
   const parsed: ParsedLine[] = [];

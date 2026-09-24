@@ -153,8 +153,7 @@ function UnlinkedRunsAsSuggestions({
 }
 
 /**
- * docs/design/suggestion/suggestion-tab.pen 改善案C「テーマメニュー切替 + 段階開示」。
- * 長文テーマ向けのメニュー切替、検索／ソート／絞り込みチップ、4列表のフル幅一覧。
+ * 長文テーマ向けのメニュー切替、検索／ソート／絞り込みチップ、4列表のフル幅一覧
  */
 export function SuggestionsPage() {
   const navigate = useNavigate();

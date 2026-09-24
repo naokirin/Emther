@@ -5,8 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { AppShell, TopNav } from "./TopNav";
 
-// web/src/components/TopNav.test.tsx（Next.js版）からの移植（フェーズ3.5、ルートシェル）。
-// docs/design/retrospective/retrospective-tab.pen: 振り返りサブナビに「1日を締めくくる」追加。
+// 振り返りサブナビに「1日を締めくくる」追加
 function renderAt(pathname: string, ui: React.ReactNode) {
   return render(<MemoryRouter initialEntries={[pathname]}>{ui}</MemoryRouter>);
 }

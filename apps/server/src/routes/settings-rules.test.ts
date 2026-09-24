@@ -138,9 +138,6 @@ describe("PATCH /api/settings/rules", () => {
     expect((await res.json()).rules.teamWindowDays).toBe(14);
   });
 
-  // ユーザー指摘「AIツールの優先度設定が増えたことでフォールバック設定との競合が
-  // 発生している」「エージェントごとに設定できる必要はない、全体で1つで大丈夫」
-  // 「claude codeが外せないようになっている」対応。
   describe("cliOrder", () => {
     it("CLIの優先順位・除外を設定できる", async () => {
       const { settingsRulesRoute } = await import("./settings-rules");
@@ -173,8 +170,6 @@ describe("PATCH /api/settings/rules", () => {
     });
   });
 
-  // ユーザー要望「エージェント種別ごとのモデル系統に関して、Cursor/agyについても調整
-  // できるようにしたい」対応。
   describe("agentAgyModels / agentCursorModels", () => {
     it("エージェント種別ごとのモデル名を設定できる", async () => {
       const { settingsRulesRoute } = await import("./settings-rules");
@@ -206,8 +201,6 @@ describe("PATCH /api/settings/rules", () => {
     });
   });
 
-  // ユーザー要望「この検索（Grow参考リンクのWebSearch）で使うモデル設定を追加してほしい。
-  // 他のタスクに比べてもコストが低く軽量なモデルで良いはず」対応。
   describe("referenceLookupClaudeModel / referenceLookupCursorModel", () => {
     it("claudeはtierエイリアスで設定できる", async () => {
       const { settingsRulesRoute } = await import("./settings-rules");
@@ -234,8 +227,6 @@ describe("PATCH /api/settings/rules", () => {
       expect((await res.json()).rules.referenceLookupCursorModel).toBe("gpt-5.2");
     });
 
-    // ユーザー要望「Cursorでは、AutoはHooksの不具合のため指定できないようにしておいて
-    // ほしい（設定しようとしたらユーザーにCursorの不具合で設定できない旨を表示）」対応。
     it.each(["auto", "Auto", "AUTO", "  auto  "])("cursorに%sを指定すると400エラーを返す", async (value) => {
       const { settingsRulesRoute } = await import("./settings-rules");
       const res = await settingsRulesRoute.request("/", patch({ referenceLookupCursorModel: value }));
@@ -253,7 +244,6 @@ describe("PATCH /api/settings/rules", () => {
     });
   });
 
-  // ユーザー要望「メンバーに自分自身を追加したいが区別できない」対応。
   describe("selfPersonId", () => {
     it("登録済み人物を利用者本人として設定・解除できる", async () => {
       const peopleDirectory = await import("@emther/core/people-directory");
@@ -272,7 +262,6 @@ describe("PATCH /api/settings/rules", () => {
     });
   });
 
-  // ユーザー要望「メモリに余裕がある場合にローカルAIをより大きいパラメータ数へ」対応。
   describe("localChatModelPreset", () => {
     it("既定は1.2b-jp", async () => {
       const { settingsRulesRoute } = await import("./settings-rules");
