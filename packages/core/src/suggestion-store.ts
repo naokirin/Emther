@@ -14,7 +14,6 @@ import type {
   Suggestion,
   SuggestionCharter,
   SuggestionDetail,
-  SuggestionMemo,
   SuggestionMemoSource,
   SuggestionReviewStatus,
 } from "./types";

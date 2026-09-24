@@ -3,7 +3,7 @@ import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "../peo
 import type { MaskOptions } from "../name-candidate-confirmation";
 import { guessImportSyntax, normalizeObservationInput } from "./observation-dump-normalize";
 import type { ImportMappingConfig } from "./observation-dump-mapping-types";
-import type { ObservationDump, ChunkDraft } from "./observation-dump-entity";
+import type { ObservationDump } from "./observation-dump-entity";
 import type { ObservationDumpRepository } from "./observation-dump-repository";
 import {
   isObservationSourceType,
