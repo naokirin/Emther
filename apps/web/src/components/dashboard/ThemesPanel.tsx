@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams } from "@/router";
 import styles from "../../styles/page.module.css";
 import { IdFragmentLink } from "../IdFragmentLink";
 import { IdLinkedText } from "../IdLinkedText";

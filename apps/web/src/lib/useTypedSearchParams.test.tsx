@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter } from "@/router";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { useTypedSearchParams } from "./useTypedSearchParams";

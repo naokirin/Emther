@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation } from "@/router";
 import type { ReactNode } from "react";
 import { JournalEntryCard } from "./JournalEntryCard";
 import { IdResolveProvider } from "./IdFragmentLink";

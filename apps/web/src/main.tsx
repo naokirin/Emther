@@ -14,9 +14,10 @@ import "@fontsource/zen-kaku-gothic-new/latin-900.css";
 import "@fontsource/jetbrains-mono/latin-400.css";
 import "@fontsource/jetbrains-mono/latin-600.css";
 import "./styles/globals.css";
+import "./router/register";
 import { createAppRouter } from "./router/appRouter";
 
-// TanStack Router。ルート定義は router/routeTree.tsx。
+// TanStack Router。ルート定義は router/routeTree.tsx。Register でパス型を有効化。
 const router = createAppRouter();
 
 // TanStack Query のサーバー状態層。queryClient はプロセス内シングルトン（画面遷移をまたいでキャッシュを共有）。

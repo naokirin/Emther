@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "@/router";
 import styles from "../../styles/page.module.css";
 import { JournalEntryCard } from "../../components/JournalEntryCard";
 import { JournalFilterBar, type JournalFilterState } from "../../components/JournalFilterBar";
@@ -7,7 +7,7 @@ import {
   decodeJournalListSearch,
   EMPTY_JOURNAL_LIST_FILTERS,
   encodeJournalListSearch,
-  journalListSearchSchema,
+  journalRouteSearchSchema,
 } from "../../components/journalListSearch";
 import { JournalInputSwitcher } from "../../components/JournalInputSwitcher";
 import { PageTitleRow } from "../../components/HelpLink";
@@ -45,13 +45,13 @@ const SENTIMENT_FILTER_OPTIONS = [
 
 export function JournalPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const focusId = searchParams.get("focus");
-  const focusDumpId = searchParams.get("dump");
-  const prefill = searchParams.get("prefill");
+  // ルート validateSearch と同じスキーマ（フィルタ + focus/dump/prefill）
+  const [search, setListSearchParams] = useTypedSearchParams(journalRouteSearchSchema);
+  const focusId = search.focus ?? null;
+  const focusDumpId = search.dump ?? null;
+  const prefill = search.prefill ?? null;
 
-  const [listSearchParams, setListSearchParams] = useTypedSearchParams(journalListSearchSchema);
-  const filterState = decodeJournalListSearch(listSearchParams);
+  const filterState = decodeJournalListSearch(search);
 
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);

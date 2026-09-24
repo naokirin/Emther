@@ -22,6 +22,15 @@ export const journalListSearchSchema = z.object({
   sensitive: z.enum(["1"]).optional().catch(undefined),
 });
 
+/** ルート validateSearch 用: フィルタ + focus/dump/prefill */
+export const journalRouteSearchSchema = journalListSearchSchema.merge(
+  z.object({
+    focus: z.string().optional(),
+    dump: z.string().optional(),
+    prefill: z.string().optional(),
+  }),
+);
+
 export type JournalListSearchParams = z.infer<typeof journalListSearchSchema>;
 
 export const EMPTY_JOURNAL_LIST_FILTERS: Omit<JournalFilterState, "query"> = {

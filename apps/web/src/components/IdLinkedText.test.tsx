@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter } from "@/router";
 import { IdLinkedText } from "./IdLinkedText";
 
 // 分割ロジック自体は

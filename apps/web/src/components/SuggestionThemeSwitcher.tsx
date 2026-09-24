@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../styles/page.module.css";
 import type { OrgTheme } from "@emther/core/types";
 

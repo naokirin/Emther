@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation } from "@/router";
 import { GoByIdPrefixPage } from "./GoByIdPrefixPage";
 import type { IdMatch } from "@emther/core/id-resolve";
 

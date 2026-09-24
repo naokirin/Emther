@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "@/router";
 import styles from "../../styles/page.module.css";
 import type { AgentRun, AgentStatus } from "@emther/core/agent-runtime";
 import { StatusBadge } from "../../components/RunDetail";

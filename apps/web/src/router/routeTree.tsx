@@ -1,8 +1,6 @@
-import {
-  createRootRoute,
-  createRoute,
-  redirect,
-} from "@tanstack/react-router";
+// App のルートツリー定義。createRouter ごとに新しいインスタンスを作る（共有禁止）。
+// validateSearch で既知キーを正規化し、未知キー（peek / focus 等）は落とさない。
+import { createRootRoute, createRoute, redirect } from "@tanstack/react-router";
 import type { ReactElement } from "react";
 import { RootLayout } from "../routes/RootLayout";
 import { DashboardPage } from "../routes/dashboard/DashboardPage";
@@ -25,12 +23,20 @@ import { SuggestionsPage } from "../routes/suggestions/SuggestionsPage";
 import { SuggestionDetailPage } from "../routes/suggestions/SuggestionDetailPage";
 import { AgentsPage } from "../routes/agents/AgentsPage";
 import { ChatPage } from "../routes/chat/ChatPage";
+import { agentsListSearchSchema } from "../components/agentsListSearch";
+import { journalRouteSearchSchema } from "../components/journalListSearch";
+import { suggestionsRouteSearchSchema } from "../components/suggestionListSearch";
+import {
+  chatSearchSchema,
+  growthSearchSchema,
+  peopleSearchSchema,
+  teamsSearchSchema,
+} from "./pageSearchSchemas";
+import { validateSearchWith } from "./validateSearch";
 
 export function createAppRouteTree() {
-  // search はルート横断で緩く通し、画面側の Zod（useTypedSearchParams）で解釈する。
   // ルートツリーは createRouter ごとに新規構築する（インスタンス共有不可）。
   const rootRoute = createRootRoute({
-    validateSearch: (search: Record<string, unknown>) => search,
     component: RootLayout,
   });
 
@@ -47,7 +53,12 @@ export function createAppRouteTree() {
     page("/help", HelpPage),
     page("/evening-review", EveningReviewPage),
     page("/mask-check", MaskCheckPage),
-    page("/teams", TeamsPage),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/teams",
+      component: TeamsPage,
+      validateSearch: validateSearchWith(teamsSearchSchema),
+    }),
     createRoute({
       getParentRoute: () => rootRoute,
       path: "/timeline",
@@ -57,17 +68,47 @@ export function createAppRouteTree() {
       component: () => null,
     }),
     page("/settings", SettingsPage),
-    page("/people", PeoplePage),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/people",
+      component: PeoplePage,
+      validateSearch: validateSearchWith(peopleSearchSchema),
+    }),
     page("/people/$id", PersonDetailPage),
     page("/org", OrgPage),
     page("/reports", ReportsPage),
     page("/checkin", CheckinPage),
-    page("/growth", GrowthPage),
-    page("/journal", JournalPage),
-    page("/suggestions", SuggestionsPage),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/growth",
+      component: GrowthPage,
+      validateSearch: validateSearchWith(growthSearchSchema),
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/journal",
+      component: JournalPage,
+      validateSearch: validateSearchWith(journalRouteSearchSchema),
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/suggestions",
+      component: SuggestionsPage,
+      validateSearch: validateSearchWith(suggestionsRouteSearchSchema),
+    }),
     page("/suggestions/$id", SuggestionDetailPage),
-    page("/agents", AgentsPage),
-    page("/chat", ChatPage),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/agents",
+      component: AgentsPage,
+      validateSearch: validateSearchWith(agentsListSearchSchema),
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/chat",
+      component: ChatPage,
+      validateSearch: validateSearchWith(chatSearchSchema),
+    }),
     page("/issues", IssuesRedirect),
     page("/issues/$id", IssueDetailRedirect),
     page("/go/$prefix", GoByIdPrefixPage),

@@ -1,4 +1,4 @@
-import { Link, Outlet, ScrollRestoration } from "react-router";
+import { Link, Outlet, ScrollRestoration } from "@/router";
 import styles from "../styles/page.module.css";
 import { LocalModelDownloadBanner } from "../components/LocalModelDownloadBanner";
 import { PersonQuickAdd } from "../components/PersonQuickAdd";

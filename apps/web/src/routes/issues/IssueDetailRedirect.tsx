@@ -1,4 +1,4 @@
-import { Navigate, useParams } from "react-router";
+import { Navigate, useParams } from "@/router";
 
 export function IssueDetailRedirect() {
   const { id } = useParams();

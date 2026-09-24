@@ -1,6 +1,6 @@
 import { useCallback, useContext, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { IdResolveContext } from "./idResolveContext";
-import { useNavigate } from "react-router";
+import { useNavigate } from "@/router";
 import { Modal } from "./Modal";
 import { api } from "../lib/api-client";
 import { goHrefForIdFragment } from "@emther/core/id-prefix";

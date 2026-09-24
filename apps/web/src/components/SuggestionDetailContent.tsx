@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../styles/page.module.css";
 import type { AgentRun } from "@emther/core/agent-runtime";
 import { CopilotChat, ExecutionState } from "./RunDetail";

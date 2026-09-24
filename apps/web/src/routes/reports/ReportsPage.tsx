@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
 import { PaginationControls } from "../../components/Pagination";

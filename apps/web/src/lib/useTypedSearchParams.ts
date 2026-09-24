@@ -1,5 +1,6 @@
 // クエリパラメータ連動（例: /chat?run=… , /journal?focus=…）を型安全に扱う薄いZodラッパー。
-// ルーティング本体は TanStack Router。search の読み書きは互換レイヤーの useSearchParams 経由。
+// ルーティング本体は TanStack Router。search の読み書きは @/router の useSearchParams 経由。
+// ルート側の validateSearch と同じ Zod スキーマを渡すことで、画面とルートが揃う。
 //
 // URL に載せる画面状態の方針:
 // - フィルタ・ソート: 必須（遷移して戻っても復元する）
@@ -10,7 +11,7 @@
 // フィールドを `z.string().optional()` にすることで「無ければundefined」。
 // enumや数値等、より厳密な検証をしたい呼び出し側は`.optional().catch(undefined)`を使う。
 import { useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams } from "@/router";
 import type { z } from "zod";
 
 type ParamUpdates<Shape extends z.ZodRawShape> = {

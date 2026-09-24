@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../styles/page.module.css";
 
 const FOCUSABLE_SELECTOR =

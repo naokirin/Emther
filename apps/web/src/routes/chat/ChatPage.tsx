@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import type { AgentRun } from "@emther/core/agent-runtime";
 import { listSuggestionCandidatesFromProposal } from "../../components/run-detail/run-view-helpers";
@@ -7,19 +6,21 @@ import { ChatHistoryPanel } from "../../components/chat/ChatHistoryPanel";
 import { ConsultReviewPanel } from "../../components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "../../components/chat/NewConsultForm";
 import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
+import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 import { useSuggestions, useJournalEntry, useRuns, useSettingsRules } from "../../lib/queries";
 import { api } from "../../lib/api-client";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { isConsultHistoryRun } from "@emther/core/origin-trace";
 import { isRunStale } from "@emther/core/types";
+import { chatSearchSchema } from "@/router";
 
 // Lead Agent の相談スレッドをこの画面で扱う。
 // 提案化後も履歴に残し、分割起票や提案に紐づかない続きの壁打ちができるようにする
 // （提案詳細専用の起票分析／更新分析だけ除外。isConsultHistoryRun）。
-// react-routerのuseSearchParamsはSuspenseを要求しないため、<Suspense>ラッパーは不要。
+// search はルート validateSearch と同じ chatSearchSchema。
 
 export function ChatPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [chatSearch, setChatSearch] = useTypedSearchParams(chatSearchSchema);
   const { runs, runsLoaded, refreshRuns } = useRuns();
   const { suggestions, suggestionsLoaded, refreshSuggestions } = useSuggestions();
   const { rules } = useSettingsRules();
@@ -47,7 +48,7 @@ export function ChatPage() {
   // 一覧に無いときは GET /api/agents/[id] で1件だけ拾って履歴へピン留めする
   // 選択の同期は queryRunId 変化時のみ（runs ポーリング依存にすると、履歴クリック直後に
   // URL の runId＝先頭付近の相談へ選択が引き戻される）
-  const queryRunId = searchParams.get("runId");
+  const queryRunId = chatSearch.runId ?? null;
   // マウント時点で既にrunsLoaded/issuesLoadedが揃っている（ダッシュボード等からの遷移で
   // React Queryのキャッシュが既に温まっている）場合、下のselectionSyncKeyは初回レンダーから
   // 変化しないため、初期値をnullのままにすると選択が同期されずデフォルト表示のままになる
@@ -115,27 +116,15 @@ export function ChatPage() {
     };
   }, [queryRunId, chatHistoryLoaded, runs]);
 
-  function replaceChatQuery(mutate: (params: URLSearchParams) => void) {
-    const params = new URLSearchParams(searchParams);
-    mutate(params);
-    // 旧 { scroll: false })と同じく
-    // 履歴一覧からの選択切り替えでは画面全体のスクロール位置を動かさない
-    setSearchParams(params, { replace: true, preventScrollReset: true });
-  }
-
   function selectHistoryRun(id: string) {
     setSelectedId(id);
     setCandidatePick(null);
-    replaceChatQuery((params) => {
-      params.set("runId", id);
-    });
+    setChatSearch({ runId: id });
   }
 
   function clearHistorySelection() {
     setSelectedId(null);
-    replaceChatQuery((params) => {
-      params.delete("runId");
-    });
+    setChatSearch({ runId: undefined });
   }
 
   // URLで指定されたLead runが一覧に無いときも履歴へピン留め（取得遅延の保険）。
@@ -163,7 +152,7 @@ export function ChatPage() {
   // selectHistoryRunが明示的にリセットする既存の挙動を保つため、ConsultReviewPanel側に
   // 移さずここに残している。
   const [candidatePick, setCandidatePick] = useState<{ runId: string; selected: boolean[] } | null>(null);
-  const queryJournalId = searchParams.get("journalId");
+  const queryJournalId = chatSearch.journalId ?? null;
   const { entry: sourceJournal } = useJournalEntry(selectedRun?.sourceJournalId);
 
   const suggestionCandidates = listSuggestionCandidatesFromProposal(selectedRun?.proposal);
@@ -206,7 +195,7 @@ export function ChatPage() {
           />
         ) : (
           <NewConsultForm
-            initialTask={searchParams.get("prefill") ?? ""}
+            initialTask={chatSearch.prefill ?? ""}
             queryJournalId={queryJournalId}
             fetchWithNameConfirm={fetchWithNameConfirm}
             onStarted={handleConsultStarted}

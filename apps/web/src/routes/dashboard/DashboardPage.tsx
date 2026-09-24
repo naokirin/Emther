@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "@/router";
 import styles from "../../styles/page.module.css";
 import { NameCandidateConfirmDialog } from "../../components/NameCandidateConfirmDialog";
 import { SetupGapsBanner } from "../../components/dashboard/SetupGapsBanner";

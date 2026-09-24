@@ -1,5 +1,5 @@
-// React Router 互換の薄い層。アプリ／テストの既存 import（Link / navigate 文字列 /
-// MemoryRouter / useSearchParams）を維持したまま TanStack Router へ移行する。
+// アプリ向けナビゲーション API。文字列 href の Link / navigate / MemoryRouter /
+// useSearchParams を提供し、内部は TanStack Router に委譲する。
 import {
   useCallback,
   useEffect,
@@ -262,7 +262,7 @@ export function MemoryRouter({
   return <RouterContextProvider router={router as AnyRouter}>{children}</RouterContextProvider>;
 }
 
-export { createMemoryRouter } from "./appRouter";
+export { parsePlainSearch, stringifyPlainSearch } from "./plainSearch";
 
 /** @deprecated テストは MemoryRouter + 実ページ直描画へ寄せる */
 export function Routes({ children }: { children: ReactNode }) {

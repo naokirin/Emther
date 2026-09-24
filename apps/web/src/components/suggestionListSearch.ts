@@ -28,6 +28,13 @@ export const suggestionListSearchSchema = z.object({
   theme: z.string().optional(),
 });
 
+/** ルート validateSearch 用: 一覧フィルタ + サイドピーク */
+export const suggestionsRouteSearchSchema = suggestionListSearchSchema.merge(
+  z.object({
+    suggestion: z.string().optional(),
+  }),
+);
+
 export type SuggestionListSearchParams = z.infer<typeof suggestionListSearchSchema>;
 
 export type SuggestionListSearchState = {

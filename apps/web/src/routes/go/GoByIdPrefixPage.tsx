@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router";
+import { Link, Navigate, useParams } from "@/router";
 import styles from "../../styles/page.module.css";
 import { api } from "../../lib/api-client";
 import { isHexIdPrefix } from "@emther/core/id-prefix";

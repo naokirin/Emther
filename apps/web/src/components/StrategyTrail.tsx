@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../styles/page.module.css";
 import { SuggestionLink } from "./SuggestionLink";
 import type { StrategyTrailNode } from "@emther/core/strategy-trail";

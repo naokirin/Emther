@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, renderHook, waitFor } from "@testing-library/react";
-import { MemoryRouter, useSearchParams } from "react-router";
+import { MemoryRouter, useSearchParams } from "@/router";
 import type { ReactNode } from "react";
 
 describe("MemoryRouter smoke", () => {

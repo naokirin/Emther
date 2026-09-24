@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "@/router";
 import styles from "../../styles/page.module.css";
 import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls } from "../../components/Pagination";
@@ -16,7 +16,7 @@ import {
 import {
   decodeSuggestionListSearch,
   encodeSuggestionListSearch,
-  suggestionListSearchSchema,
+  suggestionsRouteSearchSchema,
 } from "../../components/suggestionListSearch";
 import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 import {
@@ -203,7 +203,7 @@ export function SuggestionsPage() {
     };
   }, [themes, teams, suggestions, runs]);
 
-  const [searchParams, setSearchParams] = useTypedSearchParams(suggestionListSearchSchema);
+  const [searchParams, setSearchParams] = useTypedSearchParams(suggestionsRouteSearchSchema);
   const { themeKey, filters } = useMemo(() => decodeSuggestionListSearch(searchParams), [searchParams]);
 
   function commitListSearch(next: { themeKey: string; filters: SuggestionFilterState }) {

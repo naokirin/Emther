@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation } from "@/router";
 import styles from "../styles/page.module.css";
 import { useEmCheckins } from "../lib/queries";
 

@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router";
+import { Link, useParams } from "@/router";
 import styles from "../../styles/page.module.css";
 import { SuggestionDetailContent } from "../../components/SuggestionDetailContent";
 

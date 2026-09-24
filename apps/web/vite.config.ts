@@ -12,8 +12,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      // 既存の react-router import を TanStack 互換レイヤーへ indirection
-      "react-router": path.resolve(__dirname, "src/router/react-router-compat.tsx"),
+      "@/router": path.resolve(__dirname, "src/router/index.ts"),
     },
   },
   // 配布物レイアウトは dist/client（`apps/server` が単一プロセスで静的配信する際の既定の探索先）。

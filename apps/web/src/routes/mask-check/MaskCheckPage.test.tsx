@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter } from "@/router";
 import { MaskCheckPage } from "./MaskCheckPage";
 
 // quick→aiの2段階フェッチが順に反映されることを確認する

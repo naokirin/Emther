@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../styles/page.module.css";
 
 /** 画面内の仕組み説明をヘルプへ退避するための短いリンク。 */

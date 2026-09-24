@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation } from "@/router";
 import { IdFragmentLink, IdResolveProvider } from "./IdFragmentLink";
 
 function LocationProbe() {

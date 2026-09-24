@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link } from "@/router";
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { useSuggestionPeek } from "./useSuggestionPeek";
 

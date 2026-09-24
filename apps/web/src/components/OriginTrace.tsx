@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../styles/page.module.css";
 import { consultExcerpt, truncateExcerpt } from "@emther/core/origin-trace";
 

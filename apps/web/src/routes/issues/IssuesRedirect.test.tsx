@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation } from "@/router";
 import { IssuesRedirect } from "./IssuesRedirect";
 import { IssueDetailRedirect } from "./IssueDetailRedirect";
 

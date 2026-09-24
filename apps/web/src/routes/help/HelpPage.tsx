@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../../styles/page.module.css";
 
 const SECTIONS: { id: string; title: string; body: ReactNode }[] = [

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import { PageTitleRow } from "../../components/HelpLink";
 import { buildTeamTree } from "../../components/teams/buildTeamTree";
@@ -7,14 +6,16 @@ import { TeamTreeView } from "../../components/teams/TeamTree";
 import { TeamCreatePanel } from "../../components/teams/TeamCreatePanel";
 import { TeamEditPanel } from "../../components/teams/TeamEditPanel";
 import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
+import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 import { useEntityHistory, useSuggestions, useJournal, useTeams } from "../../lib/queries";
+import { teamsSearchSchema } from "@/router";
 import type { Team } from "@emther/core/types";
 
 // ?focus=<teamId> でツリー選択を一度だけ初期化する。選択自体はローカル（方針どおり）。
-// アーカイブ表示はフィルタとして URL 保持する。
+// アーカイブ表示はフィルタとして URL 保持する。ルート validateSearch と同じスキーマ。
 export function TeamsPage() {
-  const [searchParams] = useSearchParams();
-  const focusId = searchParams.get("focus");
+  const [search] = useTypedSearchParams(teamsSearchSchema);
+  const focusId = search.focus ?? null;
 
   const { teams, teamsLoaded, refreshTeams } = useTeams();
   const { suggestions } = useSuggestions();

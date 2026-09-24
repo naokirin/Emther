@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter } from "@/router";
 import { StrategyTrail } from "./StrategyTrail";
 import type { StrategyTrailNode } from "@emther/core/strategy-trail";
 

@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "react-router": path.resolve(__dirname, "src/router/react-router-compat.tsx"),
+      "@/router": path.resolve(__dirname, "src/router/index.ts"),
     },
   },
   test: {

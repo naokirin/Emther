@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link } from "@/router";
 import styles from "../../styles/page.module.css";
 import { ThemeGoalLinkEditor } from "../../components/ThemeGoalLinkEditor";
 import { api } from "../../lib/api-client";

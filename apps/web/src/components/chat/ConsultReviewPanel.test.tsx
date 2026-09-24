@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter } from "@/router";
 import { ConsultReviewPanel } from "./ConsultReviewPanel";
 import type { AgentRun } from "@emther/core/agent-runtime";
 import type { Suggestion } from "@emther/core/types";

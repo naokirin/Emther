@@ -1,4 +1,4 @@
-import { Navigate } from "react-router";
+import { Navigate } from "@/router";
 
 // 課題タブは提案に統合済み。/suggestions へ replace リダイレクトする。
 export function IssuesRedirect() {

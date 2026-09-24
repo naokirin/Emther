@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "@/router";
 import styles from "../styles/page.module.css";
 import { api, rpcInit, rpcData } from "../lib/api-client";
 import { MultiSelectAutocomplete, type MultiSelectOption } from "./MultiSelectAutocomplete";
