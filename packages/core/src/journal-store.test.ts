@@ -443,6 +443,16 @@ describe("listJournalEntries", () => {
     expect(store.listJournalEntries().map((e) => e.id)).not.toContain(entry.id);
     expect(store.listJournalEntries({ includeArchived: true }).map((e) => e.id)).toContain(entry.id);
   });
+
+  it("センシティブは既定で除外され、includeSensitiveで表示できる", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("機微なメモ", Date.now(), { sensitive: true });
+    await store.addJournalEntry("通常のエントリ", 2);
+
+    expect(entry.sensitiveAt).toBeTypeOf("number");
+    expect(store.listJournalEntries().map((e) => e.id)).not.toContain(entry.id);
+    expect(store.listJournalEntries({ includeSensitive: true }).map((e) => e.id)).toContain(entry.id);
+  });
 });
 
 describe("listJournalEntriesPage", () => {
@@ -575,6 +585,40 @@ describe("archiveJournalEntry / unarchiveJournalEntry", () => {
     const store = await loadModule();
     expect(store.archiveJournalEntry("missing")).toBeUndefined();
     expect(store.unarchiveJournalEntry("missing")).toBeUndefined();
+  });
+});
+
+describe("markJournalSensitive / unmarkJournalSensitive", () => {
+  it("一覧・ページングから除外され、解除すると戻る（現行版=headに反映される）", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("元のテキスト");
+    const confirmed = await store.updateJournalEntry(entry.id, { tags: ["確認済み"] });
+
+    const marked = store.markJournalSensitive(entry.id);
+    expect(marked?.id).toBe(confirmed!.id);
+    expect(marked?.sensitiveAt).toBeTypeOf("number");
+    expect(store.listJournalEntriesPage({}, { limit: 10, offset: 0 }).total).toBe(0);
+    expect(store.listJournalEntriesPage({ includeSensitive: true }, { limit: 10, offset: 0 }).total).toBe(1);
+
+    const unmarked = store.unmarkJournalSensitive(entry.id);
+    expect(unmarked?.id).toBe(confirmed!.id);
+    expect(unmarked?.sensitiveAt).toBeUndefined();
+    expect(store.listJournalEntriesPage({}, { limit: 10, offset: 0 }).total).toBe(1);
+  });
+
+  it("supersede後もセンシティブフラグを引き継ぐ", async () => {
+    const store = await loadModule();
+    const entry = await store.addJournalEntry("機微", Date.now(), { sensitive: true });
+    const updated = await store.updateJournalEntry(entry.id, { tags: ["校正"] });
+    expect(updated?.sensitiveAt).toBeTypeOf("number");
+    expect(store.listJournalEntries().map((e) => e.id)).not.toContain(updated!.id);
+    expect(store.listJournalEntries({ includeSensitive: true }).map((e) => e.id)).toContain(updated!.id);
+  });
+
+  it("存在しないIDはundefinedを返す", async () => {
+    const store = await loadModule();
+    expect(store.markJournalSensitive("missing")).toBeUndefined();
+    expect(store.unmarkJournalSensitive("missing")).toBeUndefined();
   });
 });
 

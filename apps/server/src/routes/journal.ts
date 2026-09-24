@@ -25,10 +25,12 @@ import {
   listJournalEntries,
   listJournalEntriesPage,
   listJournalFacets,
+  markJournalSensitive,
   setJournalNoActionNeeded,
   toJournalEntryView,
   toJournalEntryViews,
   unarchiveJournalEntry,
+  unmarkJournalSensitive,
   updateJournalEntry,
   type JournalListFilter,
   type Sentiment,
@@ -98,6 +100,7 @@ export const journalRoute = new Hono()
       ...(people && people.length > 0 ? { people } : {}),
       ...(teams && teams.length > 0 ? { teams } : {}),
       ...(teamIds && teamIds.length > 0 ? { teamIds } : {}),
+      ...(parsed.sensitive === true ? { sensitive: true } : {}),
     };
 
     try {
@@ -164,6 +167,7 @@ export const journalRoute = new Hono()
       excludeResolved: c.req.query("excludeResolved") === "1",
       includeArchived: c.req.query("includeArchived") === "1",
       quarantinedOnly: c.req.query("quarantinedOnly") === "1",
+      includeSensitive: c.req.query("includeSensitive") === "1",
     };
     const periodDays = c.req.query("periodDays");
     if (periodDays && periodDays !== "all") {
@@ -340,6 +344,21 @@ export const journalRoute = new Hono()
   .delete("/:id/archive", async (c) => {
     const id = c.req.param("id");
     const entry = unarchiveJournalEntry(id);
+    if (!entry) return c.json({ error: "not found" }, 404);
+    const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+    return c.json(resBody);
+  })
+  // Journal センシティブ設定。UI 一覧から既定で除外する（アーカイブと同型の in-place）。
+  .post("/:id/sensitive", async (c) => {
+    const id = c.req.param("id");
+    const entry = markJournalSensitive(id);
+    if (!entry) return c.json({ error: "not found" }, 404);
+    const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
+    return c.json(resBody);
+  })
+  .delete("/:id/sensitive", async (c) => {
+    const id = c.req.param("id");
+    const entry = unmarkJournalSensitive(id);
     if (!entry) return c.json({ error: "not found" }, 404);
     const resBody = { entry: toJournalEntryView(entry, await buildSourceConsultIndex()) } satisfies JournalEntryResponse;
     return c.json(resBody);

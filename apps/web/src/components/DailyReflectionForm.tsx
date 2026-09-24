@@ -40,6 +40,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
 
   const [dateOpen, setDateOpen] = useState(false);
   const [date, setDate] = useState("");
+  const [sensitive, setSensitive] = useState(false);
   const [asking, setAsking] = useState(false);
   const [structuring, setStructuring] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,6 +159,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
           body: {
             text: finalText,
             occurredAtDate: date || undefined,
+            ...(sensitive ? { sensitive: true } : {}),
           },
         },
         "保存する",
@@ -170,6 +172,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
       setPhase("idle");
       setDate("");
       setDateOpen(false);
+      setSensitive(false);
       onCreated();
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
@@ -394,6 +397,13 @@ export function DailyReflectionForm({ onCreated }: Props) {
               setDateOpen(false);
             }}
           />
+
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)" }}
+          >
+            <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} disabled={saving} />
+            センシティブ（一覧に出さない）
+          </label>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button

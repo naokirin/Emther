@@ -51,6 +51,7 @@ export function JournalEntryCard({
   editUrgency,
   editSentiment,
   editDate,
+  editSensitive,
   editSubmitting,
   editError,
   resolutionNoteDraft,
@@ -63,6 +64,7 @@ export function JournalEntryCard({
   onChangeEditUrgency,
   onChangeEditSentiment,
   onChangeEditDate,
+  onChangeEditSensitive,
   onChangeResolutionNoteDraft,
   onConfirmEdit,
   onConfirmAsIs,
@@ -76,6 +78,8 @@ export function JournalEntryCard({
   onClearSentimentAck,
   onArchive,
   onUnarchive,
+  onMarkSensitive,
+  onUnmarkSensitive,
   onDismissPendingError,
   onTagClick,
 }: {
@@ -90,6 +94,7 @@ export function JournalEntryCard({
   // ユーザー指摘「Journalのネガティブ・ポジティブを人が変更できない」対応。
   editSentiment: JournalEntry["sentiment"];
   editDate: string;
+  editSensitive: boolean;
   editSubmitting: boolean;
   editError: string | null;
   resolutionNoteDraft: string;
@@ -105,6 +110,7 @@ export function JournalEntryCard({
   onChangeEditUrgency: (value: JournalEntry["urgency"]) => void;
   onChangeEditSentiment: (value: JournalEntry["sentiment"]) => void;
   onChangeEditDate: (value: string) => void;
+  onChangeEditSensitive: (value: boolean) => void;
   onChangeResolutionNoteDraft: (value: string) => void;
   onConfirmEdit: () => void;
   // docs/usage_issues U16。未確認エントリを編集せずに確定する。
@@ -123,6 +129,9 @@ export function JournalEntryCard({
   // した場合はボタン自体を出さない（Dashboard等、まだ配線していない画面向け）。
   onArchive?: () => void;
   onUnarchive?: () => void;
+  // センシティブ設定。呼び出し側が省略した場合はメニュー項目自体を出さない。
+  onMarkSensitive?: () => void;
+  onUnmarkSensitive?: () => void;
   onDismissPendingError: () => void;
   /** タグクリックで Journal 一覧を絞り込む（未指定ならタグは表示のみ） */
   onTagClick?: (tag: string) => void;
@@ -319,6 +328,20 @@ export function JournalEntryCard({
             ))}
           </div>
         </div>
+        <label
+          className={styles.field}
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", color: "var(--text-muted)" }}
+        >
+          <input
+            type="checkbox"
+            checked={editSensitive}
+            onChange={(e) => onChangeEditSensitive(e.target.checked)}
+            disabled={editSubmitting}
+          />
+          <span className={styles.axisTooltip} data-tooltip="オンにすると、既定の一覧・Dashboard・人物詳細には表示されません">
+            センシティブ（一覧に出さない）
+          </span>
+        </label>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <button className={styles.primaryBtn} style={{ width: "auto" }} disabled={editSubmitting} onClick={handleConfirm}>
             {editSubmitting ? "確定中…" : "この内容で確定"}
@@ -517,6 +540,15 @@ export function JournalEntryCard({
               アーカイブ済み
             </span>
           )}
+          {entry.sensitiveAt && (
+            <span
+              className={`${styles.journalCardMeta} ${styles.axisTooltip}`}
+              data-tooltip="既定の一覧には表示されません（フィルタで「センシティブも表示する」をオンにすると見えます）"
+              tabIndex={0}
+            >
+              センシティブ
+            </span>
+          )}
         </div>
         <div className={styles.journalMoreMenu} ref={menuRef}>
           <button
@@ -609,6 +641,19 @@ export function JournalEntryCard({
                     {entry.archivedAt ? "アーカイブを解除" : "アーカイブする"}
                   </button>
                 </>
+              )}
+              {(entry.sensitiveAt ? onUnmarkSensitive : onMarkSensitive) && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.journalMoreItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    (entry.sensitiveAt ? onUnmarkSensitive : onMarkSensitive)?.();
+                  }}
+                >
+                  {entry.sensitiveAt ? "センシティブを解除" : "センシティブにする"}
+                </button>
               )}
             </div>
           )}

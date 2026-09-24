@@ -60,6 +60,31 @@ describe("useJournalEditing", () => {
     await waitFor(() => expect(getEntries().find((e) => e.id === "e1-v2")).toBeTruthy());
   });
 
+  it("confirmEditでセンシティブをオンにするとPATCH後にsensitiveへPOSTする", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ entry: baseEntry({ id: "e1-v2" }) }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ entry: baseEntry({ id: "e1-v2", sensitiveAt: 999 }) }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, getEntries } = setup([baseEntry()]);
+    act(() => result.current.startEditing(baseEntry()));
+    act(() => result.current.setEditSensitive(true));
+    act(() => result.current.confirmEdit("e1"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/journal/e1", expect.objectContaining({ method: "PATCH" })));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/journal/e1-v2/sensitive", expect.objectContaining({ method: "POST" })),
+    );
+    await waitFor(() => expect(getEntries().find((e) => e.id === "e1-v2")?.sensitiveAt).toBe(999));
+  });
+
   it("confirmAsIsは現在の内容のまま確定する", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entry: baseEntry() }) });
     vi.stubGlobal("fetch", fetchMock);
@@ -140,6 +165,17 @@ describe("useJournalEditing", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/journal/e1/archive", expect.objectContaining({ method: "POST" }));
     expect(getEntries()[0].archivedAt).toBe(123);
+  });
+
+  it("markSensitiveはpending状態を経てエントリを差し替える", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entry: baseEntry({ sensitiveAt: 456 }) }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result, getEntries } = setup([baseEntry()]);
+    await act(async () => {
+      await result.current.markSensitive("e1");
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/journal/e1/sensitive", expect.objectContaining({ method: "POST" }));
+    expect(getEntries()[0].sensitiveAt).toBe(456);
   });
 
   it("失敗時はpendingEntryErrorsに再試行用のretryを記録する", async () => {

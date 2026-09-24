@@ -174,6 +174,7 @@ export type JournalSearchFilter = {
   excludeResolved: boolean;
   includeArchived: boolean;
   quarantinedOnly: boolean;
+  includeSensitive: boolean;
 };
 
 export function useJournalSearch(
@@ -201,6 +202,7 @@ export function useJournalSearch(
             ...(filter.excludeResolved ? { excludeResolved: "1" } : {}),
             ...(filter.includeArchived ? { includeArchived: "1" } : {}),
             ...(filter.quarantinedOnly ? { quarantinedOnly: "1" } : {}),
+            ...(filter.includeSensitive ? { includeSensitive: "1" } : {}),
             ...(focusId ? { focusId } : {}),
             page: String(page),
             pageSize: String(pageSize),

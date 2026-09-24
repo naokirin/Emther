@@ -13,6 +13,7 @@ export type JournalFilterState = {
   excludeResolved: boolean;
   includeArchived: boolean;
   quarantinedOnly: boolean;
+  includeSensitive: boolean;
 };
 
 type Props = {
@@ -101,7 +102,12 @@ export function JournalFilterBar({
     if (key === "periodDays") {
       onChange("periodDays", "all");
       setDraftField("periodDays", "all");
-    } else if (key === "excludeResolved" || key === "includeArchived" || key === "quarantinedOnly") {
+    } else if (
+      key === "excludeResolved" ||
+      key === "includeArchived" ||
+      key === "quarantinedOnly" ||
+      key === "includeSensitive"
+    ) {
       onChange(key, false);
       setDraftField(key, false);
     } else if (key === "query") {
@@ -210,6 +216,17 @@ export function JournalFilterBar({
             </label>
             <label
               className={`${styles.journalFilterCheck} ${styles.axisTooltip}`}
+              data-tooltip="センシティブ指定したJournalも一覧に含めます（既定では非表示）"
+            >
+              <input
+                type="checkbox"
+                checked={draft.includeSensitive}
+                onChange={(e) => setDraftField("includeSensitive", e.target.checked)}
+              />
+              センシティブも表示する
+            </label>
+            <label
+              className={`${styles.journalFilterCheck} ${styles.axisTooltip}`}
               data-tooltip="実名を含んでいたため自動で隔離（アーカイブ）されたJournalだけに絞り込みます"
             >
               <input
@@ -281,6 +298,7 @@ function buildActiveChips(
   }
   if (value.excludeResolved) chips.push({ key: "excludeResolved", label: "対応済み除外" });
   if (value.includeArchived) chips.push({ key: "includeArchived", label: "アーカイブ含む" });
+  if (value.includeSensitive) chips.push({ key: "includeSensitive", label: "センシティブ含む" });
   if (value.quarantinedOnly) chips.push({ key: "quarantinedOnly", label: "実名隔離のみ" });
   return chips;
 }

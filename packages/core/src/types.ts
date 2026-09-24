@@ -48,6 +48,8 @@ export type JournalEntry = {
   // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。重複記録・誤入力等の
   // Journalを一覧・AIの判断材料から除外するためのフラグ（記録自体は削除しない）。
   archivedAt?: number;
+  // センシティブ設定。UI 一覧から既定で除外する（エージェント／分析入力からは除外しない）。
+  sensitiveAt?: number;
 };
 
 export function journalResolutionLabel(entry: JournalEntry): string {

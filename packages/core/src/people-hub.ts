@@ -149,7 +149,9 @@ export function listPersonSummaries(): PersonSummary[] {
   const { staleInterventionDays } = getRulesAndConstraints();
   const selfPersonId = getSelfPersonId();
   return listPeople().map((p) => {
-    const facts = listActiveFactsForPerson(p.id, FACTS_LIMIT);
+    const facts = listActiveFactsForPerson(p.id, FACTS_LIMIT * 2)
+      .filter((e) => !e.sensitiveAt)
+      .slice(0, FACTS_LIMIT);
     const isSelf = selfPersonId !== null && p.id === selfPersonId;
     const acknowledgedSuggestionIds = new Set(listPersonSuggestionConcernAcks(p.id).map((a) => a.suggestionId));
     return {
@@ -182,7 +184,11 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
   const id = person.id;
 
   const teams = listActiveTeams().filter((t) => t.members.includes(id));
-  const facts = listActiveFactsForPerson(id, FACTS_LIMIT).map(toEventView);
+  // センシティブ Journal は人物詳細 UI から除外（エージェント経路の listActiveFactsForPerson はそのまま）。
+  const facts = listActiveFactsForPerson(id, FACTS_LIMIT * 2)
+    .filter((e) => !e.sensitiveAt)
+    .slice(0, FACTS_LIMIT)
+    .map(toEventView);
   const interpretations = listInterpretationsForPerson(id)
     .map(toEventView)
     .map((e) => ({ id: e.id, text: e.text, occurredAt: e.occurredAt }));

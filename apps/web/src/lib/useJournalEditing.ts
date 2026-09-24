@@ -29,6 +29,8 @@ export function useJournalEditing(
   // docs/em_human_story_and_ux.md 改修依頼「まとめ入力・通常投入どちらでも日付レベルの
   // 訂正を扱えるように」対応。"YYYY-MM-DD"（<input type="date">の値）で保持する。
   const [editDate, setEditDate] = useState("");
+  // 編集フォーム内のセンシティブ設定（確定時に POST/DELETE /sensitive で反映）。
+  const [editSensitive, setEditSensitive] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -74,6 +76,7 @@ export function useJournalEditing(
     setEditUrgency(entry.urgency);
     setEditSentiment(entry.sentiment);
     setEditDate(timestampToDateInputValue(entry.createdAt));
+    setEditSensitive(!!entry.sensitiveAt);
     setResolutionNoteDraft(entry.resolutionNote ?? "");
     setEditError(null);
     dismissPendingError(entry.id);
@@ -133,16 +136,55 @@ export function useJournalEditing(
     }
   }
 
+  // PATCH 後のエントリに対し、編集フォームのセンシティブ希望を合わせる。
+  // supersede で id が変わっても、返ってきた現行版へ付ける。
+  async function syncSensitiveAfterSave(
+    entry: JournalEntry,
+    wantSensitive: boolean,
+    retry: () => void,
+  ): Promise<void> {
+    if (!!entry.sensitiveAt === wantSensitive) return;
+    setPendingEntryIds((prev) => new Set(prev).add(entry.id));
+    dismissPendingError(entry.id);
+    try {
+      const res = wantSensitive
+        ? await api.api.journal[":id"].sensitive.$post({ param: { id: entry.id } })
+        : await api.api.journal[":id"].sensitive.$delete({ param: { id: entry.id } });
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
+      if (!res.ok) throw new Error(data?.error ?? "センシティブ設定の更新に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? data.entry! : e)));
+    } catch (err) {
+      setPendingEntryErrors((prev) => ({ ...prev, [entry.id]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        return next;
+      });
+    }
+  }
+
   // tags/people/urgency/日付（必要なら本文）の確定。本文を触っていなければ
   // maskForStorageは走らないため通常は一瞬で終わるが、本文を編集した場合は
   // 他の更新と同じく時間がかかりうるので、待たずに編集フォームを閉じる。
   function confirmEdit(entryId: string) {
     const body = currentEditPatch();
+    const wantSensitive = editSensitive;
     setEditingEntryId(null);
     const retry = () => {
-      void sendJournalPatch(entryId, body, retry);
+      void runEditSave(entryId, body, wantSensitive, retry);
     };
-    void sendJournalPatch(entryId, body, retry);
+    void runEditSave(entryId, body, wantSensitive, retry);
+  }
+
+  async function runEditSave(
+    entryId: string,
+    body: Record<string, unknown>,
+    wantSensitive: boolean,
+    retry: () => void,
+  ) {
+    const entry = await sendJournalPatch(entryId, body, retry);
+    if (entry) await syncSensitiveAfterSave(entry, wantSensitive, retry);
   }
 
   // docs/usage_issues U16。編集フォームを開かず、現在の抽出内容のまま確定する。
@@ -205,11 +247,12 @@ export function useJournalEditing(
       return;
     }
     const body = { ...currentEditPatch(), resolutionNote: note };
+    const wantSensitive = editSensitive;
     setEditingEntryId(null);
     const retry = () => {
-      void sendJournalPatch(entryId, body, retry);
+      void runEditSave(entryId, body, wantSensitive, retry);
     };
-    void sendJournalPatch(entryId, body, retry);
+    void runEditSave(entryId, body, wantSensitive, retry);
   }
 
   // 「提案として残してこの件を追跡する」: 新規 Suggestion を作成し、紐付ける。
@@ -246,10 +289,14 @@ export function useJournalEditing(
           (data as { error?: string } | null)?.error ?? "提案への紐付けに失敗しました（提案自体は作成されています）",
         );
       }
-      setJournalEntries((prev) =>
-        prev.map((e) => (e.id === entry.id ? ((data as JournalEntryResponse).entry as JournalEntry) : e)),
-      );
+      const linked = (data as JournalEntryResponse).entry as JournalEntry;
+      setJournalEntries((prev) => prev.map((e) => (e.id === entry.id ? linked : e)));
       setEditingEntryId(null);
+      if (!!linked.sensitiveAt !== editSensitive) {
+        await syncSensitiveAfterSave(linked, editSensitive, () => {
+          void syncSensitiveAfterSave(linked, editSensitive, () => {});
+        });
+      }
       return suggestionId;
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
@@ -281,6 +328,11 @@ export function useJournalEditing(
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "更新に失敗しました");
       const entry = (data as JournalEntryResponse).entry as JournalEntry;
       setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? entry : e)));
+      if (!!entry.sensitiveAt !== editSensitive) {
+        await syncSensitiveAfterSave(entry, editSensitive, () => {
+          void syncSensitiveAfterSave(entry, editSensitive, () => {});
+        });
+      }
     } catch (err) {
       if ((err as Error).message !== "人名候補の確認をキャンセルしました") {
         setEditError((err as Error).message);
@@ -394,6 +446,54 @@ export function useJournalEditing(
     }
   }
 
+  async function markSensitive(entryId: string) {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
+    try {
+      const res = await api.api.journal[":id"].sensitive.$post({
+        param: { id: entryId },
+      });
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
+      if (!res.ok) throw new Error(data?.error ?? "センシティブ設定に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
+    } catch (err) {
+      const retry = () => {
+        void markSensitive(entryId);
+      };
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }
+
+  async function unmarkSensitive(entryId: string) {
+    setPendingEntryIds((prev) => new Set(prev).add(entryId));
+    dismissPendingError(entryId);
+    try {
+      const res = await api.api.journal[":id"].sensitive.$delete({
+        param: { id: entryId },
+      });
+      const data = (await res.json()) as JournalEntryResponse & { error?: string };
+      if (!res.ok) throw new Error(data?.error ?? "センシティブ解除に失敗しました");
+      setJournalEntries((prev) => prev.map((e) => (e.id === entryId ? data.entry! : e)));
+    } catch (err) {
+      const retry = () => {
+        void unmarkSensitive(entryId);
+      };
+      setPendingEntryErrors((prev) => ({ ...prev, [entryId]: { message: (err as Error).message, retry } }));
+    } finally {
+      setPendingEntryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }
+
   return {
     editingEntryId,
     editRawText,
@@ -413,6 +513,8 @@ export function useJournalEditing(
     setEditSentiment,
     editDate,
     setEditDate,
+    editSensitive,
+    setEditSensitive,
     editSubmitting,
     editError,
     startEditing,
@@ -429,6 +531,8 @@ export function useJournalEditing(
     clearSentimentAck,
     archiveEntry,
     unarchiveEntry,
+    markSensitive,
+    unmarkSensitive,
     isEntryPending,
     pendingEntryErrors,
     dismissPendingError,

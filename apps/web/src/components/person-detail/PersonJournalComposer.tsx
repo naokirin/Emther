@@ -17,6 +17,7 @@ export function PersonJournalComposer({
   const [isImpression, setIsImpression] = useState(false);
   const [occurredAtDate, setOccurredAtDate] = useState("");
   const [dateOpen, setDateOpen] = useState(false);
+  const [sensitive, setSensitive] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export function PersonJournalComposer({
             text: finalText,
             occurredAtDate: occurredAtDate || undefined,
             people: [personName],
+            ...(sensitive ? { sensitive: true } : {}),
           },
         },
         "保存する",
@@ -45,6 +47,7 @@ export function PersonJournalComposer({
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "記録に失敗しました");
       setText("");
       setIsImpression(false);
+      setSensitive(false);
       setOccurredAtDate("");
       setDateOpen(false);
       setStatus("記録しました（未確認）。タグ・緊急度はJournal一覧で校正できます。");
@@ -86,6 +89,12 @@ export function PersonJournalComposer({
         >
           <input type="checkbox" checked={isImpression} onChange={(e) => setIsImpression(e.target.checked)} disabled={pending} />
           感想を含む（事実と分けて記録したい単なる印象・感想のときにチェック）
+        </label>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}
+        >
+          <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} disabled={pending} />
+          センシティブ（一覧に出さない）
         </label>
         {dateOpen ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>

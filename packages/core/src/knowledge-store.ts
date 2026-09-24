@@ -69,6 +69,9 @@ export type KnowledgeEvent = {
   // 確認できるようにしたい」対応。手動アーカイブ（archivedAtのみ）と区別するため、
   // 自動隔離（quarantineEventsContainingNames）のときだけ"name_leak"を設定する。
   archivedReason?: "name_leak";
+  // Journal センシティブ設定。UI 一覧から既定で除外する（アーカイブと同様 in-place。
+  // エージェント／分析の入力からは除外しない）。
+  sensitiveAt?: number;
 };
 
 export type NewKnowledgeEvent = Omit<KnowledgeEvent, "id" | "recordedAt" | "teamIds"> & {
@@ -104,6 +107,7 @@ type Row = {
   no_action_needed_note: string | null;
   archived_at: number | null;
   archived_reason: string | null;
+  sensitive_at: number | null;
 };
 
 function rowToEvent(row: Row): KnowledgeEvent {
@@ -134,6 +138,7 @@ function rowToEvent(row: Row): KnowledgeEvent {
     noActionNeededNote: row.no_action_needed_note ?? undefined,
     archivedAt: row.archived_at ?? undefined,
     archivedReason: row.archived_reason === "name_leak" ? "name_leak" : undefined,
+    sensitiveAt: row.sensitive_at ?? undefined,
   };
 }
 
@@ -178,6 +183,22 @@ export function clearEventArchived(id: string): KnowledgeEvent | undefined {
   return rowToEvent({ ...row, archived_at: null, archived_reason: null });
 }
 
+// Journal センシティブ設定。アーカイブと同様の in-place 更新。UI 一覧から既定で除外する。
+export function setEventSensitive(id: string): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  if (!row) return undefined;
+  const now = Date.now();
+  getDb().prepare("UPDATE knowledge_events SET sensitive_at = ? WHERE id = ?").run(now, id);
+  return rowToEvent({ ...row, sensitive_at: now });
+}
+
+export function clearEventSensitive(id: string): KnowledgeEvent | undefined {
+  const row = getDb().prepare("SELECT * FROM knowledge_events WHERE id = ?").get(id) as Row | undefined;
+  if (!row) return undefined;
+  getDb().prepare("UPDATE knowledge_events SET sensitive_at = NULL WHERE id = ?").run(id);
+  return rowToEvent({ ...row, sensitive_at: null });
+}
+
 // ユーザー指摘「実名リークが1件検知されると、類似検索経由で無関係な他の分析にまで
 // 繰り返し混入して連鎖的に送信停止になり、しかもどのデータが原因か探し回る必要がある」
 // 対応。people-directory.tsのdetectLeakedNamesが検知した登録名について、それを
@@ -216,8 +237,8 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
   getDb()
     .prepare(
       `INSERT INTO knowledge_events
-        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_suggestion_id, resolution_note, source_dump_id, source_chunk_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, kind, context, entity_type, entity_id, people_json, team_ids_json, text, tags_json, urgency, sentiment, summary, occurred_at, recorded_at, ttl_days, supersedes, source_journal_id, embedding_json, resolved_suggestion_id, resolution_note, source_dump_id, source_chunk_id, sensitive_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       event.id,
@@ -242,6 +263,7 @@ export function recordEvent(input: NewKnowledgeEvent): KnowledgeEvent {
       event.resolutionNote ?? null,
       event.sourceDumpId ?? null,
       event.sourceChunkId ?? null,
+      event.sensitiveAt ?? null,
     );
   return event;
 }
@@ -346,6 +368,8 @@ export type EventPageFilter = {
   // 確認できるようにしたい」対応。excludeArchivedとは独立（隔離済みだけに絞り込みたい
   // ときはexcludeArchivedをfalseにした上でこれを指定する）。
   archivedReasonExact?: string;
+  // Journal センシティブ設定。UI 一覧から既定で除外する。
+  excludeSensitive?: boolean;
 };
 
 function buildEventPageWhere(filter: EventPageFilter): { where: string; params: (string | number)[] } {
@@ -419,6 +443,9 @@ function buildEventPageWhere(filter: EventPageFilter): { where: string; params: 
     conditions.push("archived_reason = ?");
     params.push(filter.archivedReasonExact);
   }
+  if (filter.excludeSensitive) {
+    conditions.push("sensitive_at IS NULL");
+  }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   return { where, params };
 }
@@ -460,6 +487,7 @@ export function listEventFacets(filter: {
   kind?: KnowledgeKind;
   excludeSuperseded?: boolean;
   excludeArchived?: boolean;
+  excludeSensitive?: boolean;
 }): { tags: string[]; people: string[] } {
   const conditions: string[] = [];
   const params: string[] = [];
@@ -476,6 +504,9 @@ export function listEventFacets(filter: {
   }
   if (filter.excludeArchived) {
     conditions.push("archived_at IS NULL");
+  }
+  if (filter.excludeSensitive) {
+    conditions.push("sensitive_at IS NULL");
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = getDb()

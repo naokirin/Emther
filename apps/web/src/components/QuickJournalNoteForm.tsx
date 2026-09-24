@@ -24,6 +24,7 @@ export function QuickJournalNoteForm({
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
   const [text, setText] = useState(initialText ?? "");
   const [isImpression, setIsImpression] = useState(false);
+  const [sensitive, setSensitive] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +42,14 @@ export function QuickJournalNoteForm({
       const finalText = isImpression ? `[感想を含む] ${trimmed}` : trimmed;
       const { res, data } = await fetchWithNameConfirm(
         "/api/journal",
-        { method: "POST", body: { text: finalText, occurredAtDate: date || undefined } },
+        {
+          method: "POST",
+          body: {
+            text: finalText,
+            occurredAtDate: date || undefined,
+            ...(sensitive ? { sensitive: true } : {}),
+          },
+        },
         "保存する",
       );
       if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? "保存に失敗しました");
@@ -51,6 +59,7 @@ export function QuickJournalNoteForm({
       }
       setText("");
       setIsImpression(false);
+      setSensitive(false);
       setDate("");
       setDateOpen(false);
       onCreated();
@@ -80,6 +89,14 @@ export function QuickJournalNoteForm({
           <input type="checkbox" checked={isImpression} onChange={(e) => setIsImpression(e.target.checked)} />
           <span className={styles.axisTooltip} data-tooltip="事実と分けて記録したい単なる印象・感想のときにチェック">
             感想を含む
+          </span>
+        </label>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 6 }}
+        >
+          <input type="checkbox" checked={sensitive} onChange={(e) => setSensitive(e.target.checked)} />
+          <span className={styles.axisTooltip} data-tooltip="オンにすると、既定の一覧・Dashboard・人物詳細には表示されません">
+            センシティブ（一覧に出さない）
           </span>
         </label>
         {dateOpen ? (

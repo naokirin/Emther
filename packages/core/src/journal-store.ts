@@ -40,6 +40,8 @@ export type AddJournalOpts = MaskOptions & {
   /** まとめ入力等で事前に走らせたローカル抽出結果を再利用する。 */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   prefetchedStructured?: any;
+  /** センシティブ（UI 一覧から既定で除外）。 */
+  sensitive?: boolean;
 };
 import {
   recordEvent,
@@ -53,6 +55,8 @@ import {
   clearEventNoActionNeeded,
   setEventArchived,
   clearEventArchived,
+  setEventSensitive,
+  clearEventSensitive,
   type EventPageFilter,
   type KnowledgeEvent,
 } from "./knowledge-store";
@@ -113,6 +117,9 @@ export type JournalEntry = {
   // 確認できるようにしたい」対応。archivedAtだけでは手動アーカイブと区別できないため、
   // 実名リーク検知による自動隔離のときだけ"name_leak"になる。
   archivedReason?: "name_leak";
+  // センシティブ設定。UI 一覧から既定で除外する（アーカイブと異なり、エージェント／分析
+  // の入力からは除外しない）。
+  sensitiveAt?: number;
 };
 
 /**
@@ -150,6 +157,7 @@ function eventToJournalEntry(e: KnowledgeEvent): JournalEntry {
     noActionNeededNote: e.noActionNeededNote,
     archivedAt: e.archivedAt,
     archivedReason: e.archivedReason,
+    sensitiveAt: e.sensitiveAt,
   };
 }
 
@@ -215,6 +223,21 @@ export function unarchiveJournalEntry(id: string): JournalEntry | undefined {
   const head = getEventHeadById(id);
   if (!head || head.entityType !== "journal") return undefined;
   const event = clearEventArchived(head.id);
+  return event ? eventToJournalEntry(event) : undefined;
+}
+
+// Journal センシティブ設定。アーカイブと同様の in-place（内容の訂正ではないため supersedes は使わない）。
+export function markJournalSensitive(id: string): JournalEntry | undefined {
+  const head = getEventHeadById(id);
+  if (!head || head.entityType !== "journal") return undefined;
+  const event = setEventSensitive(head.id);
+  return event ? eventToJournalEntry(event) : undefined;
+}
+
+export function unmarkJournalSensitive(id: string): JournalEntry | undefined {
+  const head = getEventHeadById(id);
+  if (!head || head.entityType !== "journal") return undefined;
+  const event = clearEventSensitive(head.id);
   return event ? eventToJournalEntry(event) : undefined;
 }
 
@@ -485,6 +508,7 @@ async function createJournalEventFromText(
     embedding,
     sourceDumpId: opts.sourceDumpId,
     sourceChunkId: opts.sourceChunkId,
+    sensitiveAt: opts.sensitive ? Date.now() : undefined,
   });
   // 保存前ダイアログで完結するため、保存後ヒント用の nameCandidates は常に空。
   return { event, profileCandidate, nameCandidates: [] };
@@ -611,7 +635,7 @@ export async function addJournalEntriesBulk(rawText: string, opts: MaskOptions =
   return { entries, skippedLines, nameCandidateSuggestions: [] };
 }
 
-export function listJournalEntries(opts: { includeArchived?: boolean } = {}): JournalEntry[] {
+export function listJournalEntries(opts: { includeArchived?: boolean; includeSensitive?: boolean } = {}): JournalEntry[] {
   const events = listEvents({ entityType: "journal", kind: "fact" });
   // docs/memo.md「C」対応。イベントは不変のまま、supersedesで置き換えられた（＝EMが
   // 修正した）版だけを一覧から除外する。履歴自体はSQLiteに残り続ける（削除しない）。
@@ -621,6 +645,8 @@ export function listJournalEntries(opts: { includeArchived?: boolean } = {}): Jo
     // docs/memo.md「相談、Journal、提案を削除（アーカイブ）したい」対応。既定では
     // アーカイブ済み（重複記録・誤入力等）を一覧・AIの判断材料から除外する。
     .filter((e) => opts.includeArchived || !e.archivedAt)
+    // センシティブは UI 一覧から既定で除外（エージェント経路は別）。
+    .filter((e) => opts.includeSensitive || !e.sensitiveAt)
     .map(eventToJournalEntry);
 }
 
@@ -641,6 +667,8 @@ export type JournalListFilter = {
   // 確認できるようにしたい」対応。trueのときはincludeArchivedの値によらず、実名リークで
   // 自動隔離されたJournalだけに絞り込む。
   quarantinedOnly?: boolean;
+  // センシティブ Journal を一覧に含める（既定は除外）。
+  includeSensitive?: boolean;
 };
 
 // 未登録の人物名（people-directoryにgetPersonIdで見つからない名前）が渡された場合、
@@ -663,6 +691,7 @@ function toEventFilter(filter: JournalListFilter): EventPageFilter {
     excludeSuperseded: true,
     excludeArchived: filter.quarantinedOnly ? false : !filter.includeArchived,
     archivedReasonExact: filter.quarantinedOnly ? "name_leak" : undefined,
+    excludeSensitive: !filter.includeSensitive,
   };
 }
 
@@ -693,6 +722,7 @@ export function listJournalFacets(): { tags: string[]; people: string[] } {
     kind: "fact",
     excludeSuperseded: true,
     excludeArchived: true,
+    excludeSensitive: true,
   });
   return {
     tags: tags.map(unmaskNames).sort((a, b) => a.localeCompare(b, "ja")),
@@ -842,6 +872,7 @@ export async function updateJournalEntry(
     resolutionNote,
     sourceDumpId: original.sourceDumpId,
     sourceChunkId: original.sourceChunkId,
+    sensitiveAt: original.sensitiveAt,
   });
 
   return eventToJournalEntry(event);

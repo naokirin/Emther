@@ -13,6 +13,7 @@ const EMPTY: JournalFilterState = {
   excludeResolved: false,
   includeArchived: false,
   quarantinedOnly: false,
+  includeSensitive: false,
 };
 
 describe("JournalFilterBar", () => {

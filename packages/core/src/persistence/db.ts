@@ -302,6 +302,10 @@ function migrate(database: DatabaseSync): void {
   // （自動隔離時のみ"name_leak"を設定。手動アーカイブはNULLのまま）。
   addColumnIfMissing(database, "knowledge_events", "archived_reason", "TEXT");
 
+  // Journal センシティブ設定。一覧 UI から既定で除外するためのフラグ（アーカイブと同様
+  // in-place。エージェント／分析入力からは除外しない）。
+  addColumnIfMissing(database, "knowledge_events", "sensitive_at", "INTEGER");
+
   // メンバー詳細の「関連提案（停滞・ブロッカーあり）」アラートは、提案そのものではなく
   // 「この人物にとって」対応不要と判断した、という人物×提案単位の判断のため、
   // 既存のknowledge_events/person_evaluation_logsとは別に person_id×suggestion_id のペアで持つ。

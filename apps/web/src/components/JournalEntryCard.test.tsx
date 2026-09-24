@@ -48,6 +48,7 @@ function baseProps(overrides: Partial<Parameters<typeof JournalEntryCard>[0]> = 
     editUrgency: "mid" as const,
     editSentiment: "neutral" as const,
     editDate: "",
+    editSensitive: false,
     editSubmitting: false,
     editError: null,
     resolutionNoteDraft: "",
@@ -59,6 +60,7 @@ function baseProps(overrides: Partial<Parameters<typeof JournalEntryCard>[0]> = 
     onChangeEditUrgency: noop,
     onChangeEditSentiment: noop,
     onChangeEditDate: noop,
+    onChangeEditSensitive: noop,
     onChangeResolutionNoteDraft: noop,
     onConfirmEdit: noop,
     onCancelEdit: noop,
@@ -249,6 +251,14 @@ describe("JournalEntryCard（編集モード）", () => {
     renderCard(baseProps({ editing: true, onConfirmEdit }));
     await user.click(screen.getByRole("button", { name: "この内容で確定" }));
     expect(onConfirmEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it("センシティブチェックでonChangeEditSensitiveを呼ぶ", async () => {
+    const onChangeEditSensitive = vi.fn();
+    const user = userEvent.setup();
+    renderCard(baseProps({ editing: true, editSensitive: false, onChangeEditSensitive }));
+    await user.click(screen.getByRole("checkbox", { name: /センシティブ/ }));
+    expect(onChangeEditSensitive).toHaveBeenCalledWith(true);
   });
 
   it("editSubmitting中は確定/キャンセルボタンがdisabledになる", () => {

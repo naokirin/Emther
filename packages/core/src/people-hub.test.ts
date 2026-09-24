@@ -263,6 +263,40 @@ describe("getPersonProfile", () => {
     expect(profile?.facts.map((f) => f.text)).toEqual(["fact-1"]);
     expect(profile?.interpretations.map((i) => i.text)).toEqual(["interpretation-1"]);
   });
+
+  it("センシティブなJournal factは人物詳細から除外する", async () => {
+    const peopleDirectory = await import("./people-directory");
+    const knowledgeStore = await import("./knowledge-store");
+    const hub = await loadModule();
+    const id = peopleDirectory.registerName("Aさん");
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [id],
+      text: "通常のメモ",
+      tags: [],
+      occurredAt: 1,
+    });
+    knowledgeStore.recordEvent({
+      kind: "fact",
+      context: "observation",
+      entityType: "journal",
+      people: [id],
+      text: "機微なメモ",
+      tags: [],
+      occurredAt: 2,
+      sensitiveAt: Date.now(),
+    });
+
+    const profile = hub.getPersonProfile(id);
+    expect(profile?.facts.map((f) => f.text)).toEqual(["通常のメモ"]);
+    expect(hub.listPersonSummaries().find((s) => s.id === id)?.factCount).toBe(1);
+    // エージェント経路の listActiveFactsForPerson はセンシティブも残す
+    expect(knowledgeStore.listActiveFactsForPerson(id).map((e) => e.text)).toEqual(
+      expect.arrayContaining(["通常のメモ", "機微なメモ"]),
+    );
+  });
 });
 
 // ユーザー要望「メンバーの表記揺れに対応できる仕組みが欲しい」対応。

@@ -368,6 +368,48 @@ describe("POST/DELETE /api/journal/:id/archive", () => {
   });
 });
 
+describe("POST/DELETE /api/journal/:id/sensitive", () => {
+  it("存在しないIDは404", async () => {
+    const { journalRoute } = await import("./journal");
+    const res = await journalRoute.request("/missing/sensitive", post({}));
+    expect(res.status).toBe(404);
+  });
+
+  it("センシティブにし、DELETEで解除できる", async () => {
+    const journalStore = await import("@emther/core/journal-store");
+    const entry = await journalStore.addJournalEntry("機微なメモ");
+    const { journalRoute } = await import("./journal");
+
+    const postRes = await journalRoute.request(`/${entry.id}/sensitive`, post({}));
+    expect(postRes.status).toBe(200);
+    const posted = await postRes.json();
+    expect(posted.entry.sensitiveAt).toBeTypeOf("number");
+    expect(journalStore.listJournalEntries().map((e) => e.id)).not.toContain(entry.id);
+
+    const deleteRes = await journalRoute.request(`/${entry.id}/sensitive`, { method: "DELETE" });
+    expect(deleteRes.status).toBe(200);
+    const deleted = await deleteRes.json();
+    expect(deleted.entry.sensitiveAt).toBeUndefined();
+    expect(journalStore.listJournalEntries().map((e) => e.id)).toContain(entry.id);
+  });
+
+  it("POST時にsensitive:trueで作成でき、searchはincludeSensitiveで拾える", async () => {
+    const { journalRoute } = await import("./journal");
+    const createRes = await journalRoute.request("/", post({ text: "機微な作成", sensitive: true }));
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json();
+    expect(created.entry.sensitiveAt).toBeTypeOf("number");
+
+    const hidden = await journalRoute.request("/search");
+    const hiddenBody = await hidden.json();
+    expect(hiddenBody.entries.map((e: { id: string }) => e.id)).not.toContain(created.entry.id);
+
+    const shown = await journalRoute.request("/search?includeSensitive=1");
+    const shownBody = await shown.json();
+    expect(shownBody.entries.map((e: { id: string }) => e.id)).toContain(created.entry.id);
+  });
+});
+
 // ユーザー指摘「確認したが対応不要だった、を示せずネガポジの強調を減らせない」対応。
 describe("POST/DELETE /api/journal/:id/no-action-needed", () => {
   beforeEach(() => {

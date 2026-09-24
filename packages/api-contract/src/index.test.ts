@@ -30,6 +30,7 @@ describe("@emther/api-contract 寛容パース（既存 journal/settings 方針�
       occurredAtDate: undefined,
       teams: undefined,
       teamIds: undefined,
+      sensitive: undefined,
     });
   });
 

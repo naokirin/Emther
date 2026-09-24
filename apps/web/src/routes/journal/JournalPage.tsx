@@ -48,6 +48,7 @@ const EMPTY_FILTERS: Omit<JournalFilterState, "query"> = {
   excludeResolved: false,
   includeArchived: false,
   quarantinedOnly: false,
+  includeSensitive: false,
 };
 
 export function JournalPage() {
@@ -85,6 +86,7 @@ export function JournalPage() {
   const [excludeResolved, setExcludeResolved] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [quarantinedOnly, setQuarantinedOnly] = useState(false);
+  const [includeSensitive, setIncludeSensitive] = useState(false);
   const [page, setPage] = useState(1);
 
   const filterState: JournalFilterState = {
@@ -97,6 +99,7 @@ export function JournalPage() {
     excludeResolved,
     includeArchived,
     quarantinedOnly,
+    includeSensitive,
   };
 
   function handleFilterChange<K extends keyof JournalFilterState>(key: K, next: JournalFilterState[K]) {
@@ -129,6 +132,9 @@ export function JournalPage() {
       case "quarantinedOnly":
         setQuarantinedOnly(next as boolean);
         break;
+      case "includeSensitive":
+        setIncludeSensitive(next as boolean);
+        break;
     }
   }
 
@@ -142,6 +148,7 @@ export function JournalPage() {
     setExcludeResolved(EMPTY_FILTERS.excludeResolved);
     setIncludeArchived(EMPTY_FILTERS.includeArchived);
     setQuarantinedOnly(EMPTY_FILTERS.quarantinedOnly);
+    setIncludeSensitive(EMPTY_FILTERS.includeSensitive);
   }
 
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
@@ -158,6 +165,7 @@ export function JournalPage() {
       excludeResolved,
       includeArchived,
       quarantinedOnly,
+      includeSensitive,
     },
     page,
     PAGE_SIZE,
@@ -270,6 +278,7 @@ export function JournalPage() {
                   editUrgency={editing.editUrgency}
                   editSentiment={editing.editSentiment}
                   editDate={editing.editDate}
+                  editSensitive={editing.editSensitive}
                   editSubmitting={editing.editSubmitting}
                   editError={editing.editError}
                   resolutionNoteDraft={editing.resolutionNoteDraft}
@@ -283,6 +292,7 @@ export function JournalPage() {
                   onChangeEditUrgency={editing.setEditUrgency}
                   onChangeEditSentiment={editing.setEditSentiment}
                   onChangeEditDate={editing.setEditDate}
+                  onChangeEditSensitive={editing.setEditSensitive}
                   onChangeResolutionNoteDraft={editing.setResolutionNoteDraft}
                   onConfirmEdit={() => editing.confirmEdit(entry.id)}
                   onConfirmAsIs={() => editing.confirmAsIs(entry)}
@@ -296,6 +306,8 @@ export function JournalPage() {
                   onClearSentimentAck={() => editing.clearSentimentAck(entry.id)}
                   onArchive={() => editing.archiveEntry(entry.id)}
                   onUnarchive={() => editing.unarchiveEntry(entry.id)}
+                  onMarkSensitive={() => editing.markSensitive(entry.id)}
+                  onUnmarkSensitive={() => editing.unmarkSensitive(entry.id)}
                   onTagClick={(tag) => handleFilterChange("tagFilter", tag)}
                 />
               </div>
