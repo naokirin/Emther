@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TagInput } from "./TagInput";
 
@@ -26,6 +26,17 @@ describe("TagInput", () => {
     render(<TagInput values={[]} onAdd={onAdd} onRemove={vi.fn()} />);
     await user.type(screen.getByRole("textbox"), "田中{Enter}");
     expect(onAdd).toHaveBeenCalledWith("田中");
+  });
+
+  it("IME変換確定のEnterでは追加しない", async () => {
+    const onAdd = vi.fn();
+    const user = userEvent.setup();
+    render(<TagInput values={[]} onAdd={onAdd} onRemove={vi.fn()} />);
+    const input = screen.getByRole("textbox");
+    await user.type(input, "たなか");
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: true });
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(input).toHaveValue("たなか");
   });
 
   it("空文字・空白のみは追加できない（追加ボタンが無効）", async () => {

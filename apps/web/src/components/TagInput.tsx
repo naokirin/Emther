@@ -58,7 +58,8 @@ export function TagInput({
           disabled={disabled}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            // IME変換確定のEnter（isComposing / keyCode 229）はタグ追加にしない
+            if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
               e.preventDefault();
               commit();
             } else if (e.key === "Backspace" && draft === "" && values.length > 0) {
