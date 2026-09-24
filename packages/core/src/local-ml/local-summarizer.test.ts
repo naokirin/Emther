@@ -56,13 +56,26 @@ describe("local-summarizer", () => {
     mockRunLocalChat.mockResolvedValueOnce(
       "普段遅刻のない田中さんがスキップされたとなると、何か急なトラブルがないか心配になりますね。\n最近の田中さんの業務負荷で、気になる変化や兆候は思い当たりますか？",
     );
-    const res = await generateNextReflectionQuestionLocally([
-      { role: "assistant", content: "今日はどんな一日でしたか？" },
-      { role: "user", content: "本日は田中さんの1on1がスキップされたことに気づきました。普段は遅刻もしないメンバーなので少し心配です。" },
-    ]);
+    const history = [
+      { role: "assistant" as const, content: "今日はどんな一日でしたか？" },
+      {
+        role: "user" as const,
+        content: "本日は田中さんの1on1がスキップされたことに気づきました。普段は遅刻もしないメンバーなので少し心配です。",
+      },
+    ];
+    const res = await generateNextReflectionQuestionLocally(history);
     expect(res).toContain("普段遅刻のない田中さんがスキップされたとなると");
     expect(res).toContain("最近の田中さんの業務負荷で、気になる変化や兆候は思い当たりますか？");
     expect(mockRunLocalChat).toHaveBeenCalled();
+    // Journal 等の外部メモは渡さず、チャット履歴だけを材料にする
+    const messages = mockRunLocalChat.mock.calls[0][0] as { role: string; content: string }[];
+    expect(messages.some((m) => m.content.includes("今日のメモ"))).toBe(false);
+    expect(messages.filter((m) => m.role === "user" || m.role === "assistant").slice(-2)).toEqual(history);
+  });
+
+  it("1on1対話: オープニングにJournalメモへの言及を含めない", async () => {
+    const q0 = await generateNextReflectionQuestionLocally([]);
+    expect(q0).not.toContain("今日のメモ");
   });
 
   it("1on1対話フォールバック: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、相手の業務負荷や兆候を深掘りする", async () => {

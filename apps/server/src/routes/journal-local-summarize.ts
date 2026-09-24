@@ -13,10 +13,10 @@ export const journalLocalSummarizeRoute = new Hono().post("/", async (c) => {
   const mode = body?.mode ?? "log";
 
   if (mode === "question") {
+    // 問いかけはチャット履歴のみを材料にする（Journal を混ぜると文脈混同しやすい）
     const history: ReflectionTurn[] = Array.isArray(body?.history) ? body.history : [];
-    const todayJournals: string[] = Array.isArray(body?.todayJournals) ? body.todayJournals : [];
     try {
-      const question = await generateNextReflectionQuestionLocally(history, todayJournals);
+      const question = await generateNextReflectionQuestionLocally(history);
       const resBody = { question } satisfies JournalLocalSummarizeResponse;
       return c.json(resBody);
     } catch (err) {

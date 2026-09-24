@@ -26,8 +26,9 @@ type Phase = "idle" | "chat" | "review";
 /**
  * 1日の終わりのAI対話リフレクション（振り返り）フォーム。
  * EMが日々の出来事を逐一記録するのではなく、「振り返りを始める」を押すとAIが
- * 「お疲れ様でした、今日はどんな一日でしたか？」と語りかけ、EMの回答や今日のJournalメモを
+ * 「お疲れ様でした、今日はどんな一日でしたか？」と語りかけ、チャット上の回答だけを
  * もとに、無理に深掘りせず幅広く今日の出来事・メンバー・判断・気づきを引き出す。
+ * Journal 等の別コンテキストは混ぜない（問いかけの文脈混同を避けるため）。
  */
 export function DailyReflectionForm({ onCreated }: Props) {
   const { fetchWithNameConfirm, nameCandidateDialog } = useNameCandidateConfirm();
@@ -35,7 +36,6 @@ export function DailyReflectionForm({ onCreated }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [messages, setMessages] = useState<ReflectionTurn[]>([]);
   const [currentInput, setCurrentInput] = useState("");
-  const [todayJournals, setTodayJournals] = useState<string[]>([]);
   const [structuredText, setStructuredText] = useState("");
 
   const [dateOpen, setDateOpen] = useState(false);
@@ -62,26 +62,6 @@ export function DailyReflectionForm({ onCreated }: Props) {
     }
   }, [messages, asking, phase]);
 
-  useEffect(() => {
-    async function loadTodayJournals() {
-      try {
-        const res = await api.api.journal.$get();
-        const data = await res.json().catch(() => null);
-        if (res.ok && Array.isArray(data?.entries)) {
-          const todayStart = new Date();
-          todayStart.setHours(0, 0, 0, 0);
-          const entries = data.entries
-            .filter((e: { createdAt: number; rawText: string }) => e.createdAt >= todayStart.getTime())
-            .map((e: { rawText: string }) => e.rawText);
-          setTodayJournals(entries);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    void loadTodayJournals();
-  }, []);
-
   async function handleStart() {
     setAsking(true);
     setError(null);
@@ -90,7 +70,6 @@ export function DailyReflectionForm({ onCreated }: Props) {
         json: {
           mode: "question",
           history: [],
-          todayJournals,
         },
       });
       const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
@@ -125,7 +104,6 @@ export function DailyReflectionForm({ onCreated }: Props) {
         json: {
           mode: "question",
           history: updatedHistory,
-          todayJournals,
         },
       });
       const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
@@ -151,7 +129,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
     try {
       const combinedText = userMessages.join("\n\n");
       const res = await api.api.journal["local-summarize"].$post({
-        json: { text: combinedText, mode: "reflection", todayJournals },
+        json: { text: combinedText, mode: "reflection" },
       });
       const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
       if (!res.ok) throw new Error(data?.error ?? "振り返りの整理に失敗しました");
@@ -221,11 +199,6 @@ export function DailyReflectionForm({ onCreated }: Props) {
         <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
           日々の出来事を逐一記録する必要はありません。AIの問いかけに答えながら、今日あったこと・判断したこと・気づきを短文で気軽に思い起こしましょう。
         </p>
-        {todayJournals.length > 0 && (
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>
-            💡 本日のJournalメモ（{todayJournals.length}件）も振り返りのコンテキストとして参照されます。
-          </div>
-        )}
       </div>
 
       {error && (

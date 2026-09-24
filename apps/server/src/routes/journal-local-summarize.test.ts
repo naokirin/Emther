@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@emther/core/local-summarizer", () => ({
   summarizeLogLocally: vi.fn(async (text: string) => `[要約ログ] ${text}`),
   structureDailyReflectionLocally: vi.fn(async (text: string) => `[振り返り構造化] ${text}`),
+  generateNextReflectionQuestionLocally: vi.fn(async () => "今日はどんな一日でしたか？"),
 }));
 
 function post(body: unknown) {

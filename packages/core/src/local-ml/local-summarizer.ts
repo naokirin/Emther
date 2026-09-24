@@ -69,25 +69,23 @@ export interface ReflectionTurn {
  * 外部APIへの送信は行わず、端末内のローカルLLM（Few-Shot学習）を活用して
  * EMの具体的な発言に応じた血の通った深掘りと内省促進を行う。
  * オフライン時やモデル未ロード時は、ルールベースの1on1対話生成へフォールバックする。
+ *
+ * コンテキストはチャット上のやり取り（dialogHistory）のみ。Journal 等の外部メモは
+ * 混ぜない（別文脈の混同で不適切な問いかけになるため）。
  */
 export async function generateNextReflectionQuestionLocally(
   dialogHistory: ReflectionTurn[],
-  todayJournalTexts: string[] = [],
 ): Promise<string> {
   const userTurns = dialogHistory.filter((t) => t.role === "user");
 
   // Turn 0: オープニングの問いかけは定型で温かく開始
   if (userTurns.length === 0) {
-    const extra =
-      todayJournalTexts.length > 0
-        ? `\n（今日のメモ: 「${todayJournalTexts[0].slice(0, 30)}…」なども含め振り返っていただけます）`
-        : "";
-    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）${extra}`;
+    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）`;
   }
 
   // Turn 1以降: ローカルLLMによる文脈を捉えた深い1on1問いかけを試みる
   try {
-    const aiQuestion = await generateReflectionQuestionViaLocalAI(dialogHistory, todayJournalTexts);
+    const aiQuestion = await generateReflectionQuestionViaLocalAI(dialogHistory);
     if (aiQuestion && aiQuestion.trim().length > 0) {
       return aiQuestion.trim();
     }
@@ -95,7 +93,7 @@ export async function generateNextReflectionQuestionLocally(
     // ローカルLLMが利用できない環境ではルールベースへフォールバック
   }
 
-  return generate1on1ReflectionQuestion(dialogHistory, todayJournalTexts);
+  return generate1on1ReflectionQuestion(dialogHistory);
 }
 
 const REFLECTION_COACH_FEW_SHOT: { user: string; assistant: string }[] = [
@@ -119,30 +117,27 @@ const REFLECTION_COACH_FEW_SHOT: { user: string; assistant: string }[] = [
 
 async function generateReflectionQuestionViaLocalAI(
   dialogHistory: ReflectionTurn[],
-  todayJournalTexts: string[] = [],
 ): Promise<string | null> {
   const userTurns = dialogHistory.filter((t) => t.role === "user");
   const latestUser = userTurns[userTurns.length - 1]?.content ?? "";
   if (!latestUser.trim()) return null;
 
-  const previousUser = userTurns.length > 1 ? userTurns[userTurns.length - 2]?.content : null;
-  const contextNote = previousUser ? `（直前の文脈: ${previousUser.slice(0, 40)}…）\n` : "";
-  const journalNote =
-    todayJournalTexts.length > 0
-      ? `（今日のメモ参考: ${todayJournalTexts[0].slice(0, 30)}…）\n`
-      : "";
-
   const systemPrompt = `あなたはエンジニアリングマネージャー（EM）のための親身な1on1振り返りパートナーです。
 EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を掘り下げる「問いかけ」を投げかけてください。
-前置きや見出し・解説（「共感：」「問いかけ：」などのラベル）は書かず、EMへの返答文のみ（共感と問いかけ）を直接出力してください。推測で無関係な人名を補わないでください。`;
+前置きや見出し・解説（「共感：」「問いかけ：」などのラベル）は書かず、EMへの返答文のみ（共感と問いかけ）を直接出力してください。
+この対話履歴に書かれている内容だけを根拠にしてください。対話にない人物・出来事・メモを推測で補わないでください。`;
 
+  // Few-Shot のあとに、チャット上のやり取りだけをそのまま渡す（Journal 等は混ぜない）
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: systemPrompt },
     ...REFLECTION_COACH_FEW_SHOT.flatMap((ex) => [
       { role: "user" as const, content: ex.user },
       { role: "assistant" as const, content: ex.assistant },
     ]),
-    { role: "user", content: `${journalNote}${contextNote}${latestUser}` },
+    ...dialogHistory.map((t) => ({
+      role: t.role as "user" | "assistant",
+      content: t.content,
+    })),
   ];
 
   try {
@@ -269,10 +264,7 @@ function extractTopicPhrase(text: string): string {
   return cleaned.length > 25 ? cleaned.slice(0, 25) + "…" : cleaned;
 }
 
-function generate1on1ReflectionQuestion(
-  dialogHistory: ReflectionTurn[],
-  todayJournalTexts: string[] = [],
-): string {
+function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string {
   const userTurns = dialogHistory.filter((t) => t.role === "user");
   const count = userTurns.length;
   const latestText = userTurns[count - 1]?.content ?? "";
@@ -281,11 +273,7 @@ function generate1on1ReflectionQuestion(
 
   // Turn 0: オープニングの問いかけ
   if (count === 0) {
-    const extra =
-      todayJournalTexts.length > 0
-        ? `\n（今日のメモ: 「${todayJournalTexts[0].slice(0, 30)}…」なども含め振り返っていただけます）`
-        : "";
-    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）${extra}`;
+    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）`;
   }
 
   // Turn 1: EMが最初の出来事・状況を共有。その出来事の背景・兆候・ボトルネックを1歩深掘りする。
