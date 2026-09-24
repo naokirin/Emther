@@ -20,7 +20,8 @@
 // 候補検出は allowUnmaskedCandidates / registerNameCandidates の明示オプトイン時だけ使う
 // （実装は name-candidate-detect＝mask-check と同系統）。
 
-import { loadSecureJSON, peekSecureJSON, saveSecureJSON } from "./persistence";
+import { createJsonPeopleDirectoryRepository } from "./persistence/adapters/json-people-directory-repository";
+import type { PeopleDirectoryPersistedState } from "./people/people-directory-repository";
 import { UnconfirmedNameCandidatesError, type MaskOptions } from "./name-candidate-confirmation";
 import { PERSON_HONORIFICS, stripPersonHonorific } from "./person-honorific";
 import { detectNameCandidatesAsync, registerNameCandidateFilters } from "./name-candidate-detect";
@@ -32,26 +33,7 @@ import {
 
 export { stripPersonHonorific };
 
-type PersistedState = {
-  entries: [string, string][]; // [name, id][]
-  // 正式名（idToName、1id=1名）。ユーザー指摘「勝手にメンバーのプライマリの名前が変わる」
-  // 対応。以前はここを持たず、読み込み時に entries の並び順から正式名を推測していたが、
-  // entries は「新しい表記ほど末尾に足される」Map（nameToId）由来のため、renamePerson
-  // （明示改名）の後にaddAliasで別名を1件足しただけでも並び順が変わり、次回読み込み時に
-  // 正式名がEMの意図と無関係に入れ替わってしまっていた。正式名はEMの明示操作
-  // （renamePerson/registerNameでの新規登録）の結果のみを唯一の真実として別フィールドで
-  // 永続化し、読み込み時は常にこちらを優先する。
-  canonical?: [string, string][]; // [id, name][]
-  counter: number;
-  // EMが「人名として登録せず未マスクのまま進めてよい」と確認した語句。
-  // 再確認を避けつつ、people（PERSON_n）にも載せないための許可リスト。
-  acknowledgedUnmasked?: string[];
-  // 退職等で一覧の既定表示から外す人物ID。誤登録削除（deletePerson）とは別。
-  // マスク／アンマスクには残し、過去Journalの実名復元を壊さない。
-  archived?: string[];
-};
-
-const PEOPLE_DIRECTORY_FILE = "people-directory.json";
+type PersistedState = PeopleDirectoryPersistedState;
 
 /**
  * 正式名（idToName）をPersistedStateから復元する。canonicalフィールドを最優先し、
@@ -88,7 +70,8 @@ export function isInvalidPersonNameEntry(name: string): boolean {
   return false;
 }
 
-const initial = loadSecureJSON<PersistedState>(PEOPLE_DIRECTORY_FILE, { entries: [], counter: 0 });
+const peopleDirectoryRepo = createJsonPeopleDirectoryRepository();
+const initial = peopleDirectoryRepo.load();
 
 const nameToId = new Map<string, string>();
 const idToName = new Map<string, string>();
@@ -139,7 +122,7 @@ function persist(): void {
   // ロード失敗→空 fallback のまま ack 等で persist すると名簿が消える。
   // ディスク／.bak にエントリがあるのにメモリが空なら拒否してディスクから戻す。
   if (nameToId.size === 0 && !allowEmptyPersist) {
-    const onDisk = peekSecureJSON<PersistedState>(PEOPLE_DIRECTORY_FILE);
+    const onDisk = peopleDirectoryRepo.peek();
     const diskEntries = onDisk?.entries ?? [];
     if (diskEntries.length > 0) {
       console.error(
@@ -149,7 +132,7 @@ function persist(): void {
       return;
     }
   }
-  saveSecureJSON(PEOPLE_DIRECTORY_FILE, {
+  peopleDirectoryRepo.save({
     entries: Array.from(nameToId.entries()),
     canonical: Array.from(idToName.entries()),
     counter,

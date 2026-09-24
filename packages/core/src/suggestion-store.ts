@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
 import {
   mapAdviceStructuredStrings,
   normalizeAdviceStructured,
   type AdviceStructured,
 } from "./advice";
-import { dataFilePath, loadJSON, peekJSON, saveJSON } from "./persistence";
+import { createJsonSuggestionRepository } from "./persistence/adapters/json-suggestion-repository";
 import { embedText } from "./embeddings";
 import { recordChangeEvent } from "./knowledge-store";
 import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "./people-directory";
@@ -19,9 +18,11 @@ import type {
   SuggestionMemoSource,
   SuggestionReviewStatus,
 } from "./types";
+import { migrateLegacyIssueToSuggestion } from "./suggestion/suggestion-normalize";
+export type { LegacyIssueRecord } from "./suggestion/suggestion-legacy";
 
 export type { Suggestion, ConfirmPriority, SuggestionReviewStatus, SuggestionMemo, SuggestionMemoSource, SuggestionDetail } from "./types";
-import { CONFIRM_PRIORITIES, SUGGESTION_REVIEW_STATUSES } from "./types";
+export { migrateLegacyIssueToSuggestion };
 
 /** Proposal / API から detail へ載せるアドバイス欄を組み立てる。 */
 export function adviceFieldsFromProposal(proposal: {
@@ -34,120 +35,11 @@ export function adviceFieldsFromProposal(proposal: {
   return structured ? { adviceStructured: structured } : {};
 }
 
-const SUGGESTION_MEMO_SOURCES: SuggestionMemoSource[] = ["user", "agent"];
-
-function normalizeMemoSource(raw: unknown): SuggestionMemoSource | undefined {
-  return typeof raw === "string" && SUGGESTION_MEMO_SOURCES.includes(raw as SuggestionMemoSource)
-    ? (raw as SuggestionMemoSource)
-    : undefined;
-}
-
 // docs/2nd_pivot_version.md Phase 7。Issue を廃し Suggestion を第一級エンティティにする。
 // 既存 issues.json は suggestions.json が無い初回起動時に一度だけ移行し、以降は suggestions のみ書き込む。
 
-/** 移行専用の旧 Issue レコード形（issue-store に依存しない）。 */
-export type LegacyIssueRecord = {
-  id: string;
-  title: string;
-  agentRunId?: string;
-  sourceRunId?: string;
-  sourceJournalId?: string;
-  charter?: { why?: string; what?: string; how?: string };
-  logEntries?: { id: string; text: string; createdAt: number }[];
-  parentId?: string;
-  status?: string;
-  priority?: ConfirmPriority;
-  focusOrder?: number;
-  archived?: boolean;
-  archivedAt?: number;
-  themeId?: string;
-  teamId?: string;
-  embedding?: number[];
-  createdAt: number;
-  updatedAt: number;
-};
-
-export function migrateLegacyIssueToSuggestion(raw: LegacyIssueRecord): Suggestion {
-  const memos: SuggestionMemo[] = (raw.logEntries ?? []).map((l) => ({
-    id: l.id,
-    text: l.text,
-    createdAt: l.createdAt,
-  }));
-
-  const why = raw.charter?.why?.trim() ?? "";
-  const what = raw.charter?.what?.trim() ?? "";
-  const how = raw.charter?.how?.trim() ?? "";
-  if (why || what || how) {
-    const parts = [
-      why ? `Why: ${why}` : "",
-      what ? `What: ${what}` : "",
-      how ? `How: ${how}` : "",
-    ].filter(Boolean);
-    memos.unshift({
-      id: randomUUID(),
-      text: `（旧 Why/What/How）\n${parts.join("\n")}`,
-      createdAt: raw.createdAt,
-      source: "agent",
-    });
-  }
-
-  const done = raw.archived === true || raw.status === "done";
-  const confirmPriority: ConfirmPriority =
-    raw.priority && CONFIRM_PRIORITIES.includes(raw.priority) ? raw.priority : "normal";
-
-  return {
-    id: raw.id,
-    title: raw.title,
-    reviewStatus: done ? "done" : "unreviewed",
-    confirmPriority,
-    focusOrder: confirmPriority === "focus" ? (raw.focusOrder ?? 0) : undefined,
-    memos,
-    agentRunId: raw.agentRunId,
-    sourceRunId: raw.sourceRunId,
-    sourceJournalId: raw.sourceJournalId,
-    teamId: raw.teamId,
-    themeId: raw.themeId,
-    embedding: raw.embedding,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    reviewedAt: done ? (raw.archivedAt ?? raw.updatedAt) : undefined,
-  };
-}
-
-function normalizeSuggestion(raw: Suggestion): Suggestion {
-  const reviewStatus: SuggestionReviewStatus = SUGGESTION_REVIEW_STATUSES.includes(raw.reviewStatus)
-    ? raw.reviewStatus
-    : "unreviewed";
-  const confirmPriority: ConfirmPriority = CONFIRM_PRIORITIES.includes(raw.confirmPriority)
-    ? raw.confirmPriority
-    : "normal";
-  const memos = (raw.memos ?? []).map((m) => {
-    const source = normalizeMemoSource(m.source);
-    return source ? { ...m, source } : { ...m, source: undefined };
-  });
-  return {
-    ...raw,
-    reviewStatus,
-    confirmPriority,
-    memos,
-    focusOrder: confirmPriority === "focus" ? (raw.focusOrder ?? 0) : undefined,
-  };
-}
-
-function loadInitialSuggestions(): Suggestion[] {
-  if (existsSync(dataFilePath("suggestions.json")) || peekJSON<Suggestion[]>("suggestions.json") !== undefined) {
-    return loadJSON<Suggestion[]>("suggestions.json", []).map(normalizeSuggestion);
-  }
-  const legacy = loadJSON<LegacyIssueRecord[]>("issues.json", []);
-  const migrated = legacy.map(migrateLegacyIssueToSuggestion);
-  if (migrated.length > 0 || legacy.length === 0) {
-    // 空でも suggestions.json を作り、次回以降の再移行を防ぐ。
-    saveJSON("suggestions.json", migrated, { allowEmpty: true });
-  }
-  return migrated;
-}
-
-const suggestions: Suggestion[] = loadInitialSuggestions();
+const suggestionRepo = createJsonSuggestionRepository();
+const suggestions: Suggestion[] = suggestionRepo.load();
 
 {
   const focus = suggestions
@@ -159,7 +51,7 @@ const suggestions: Suggestion[] = loadInitialSuggestions();
 }
 
 function persist(): void {
-  saveJSON("suggestions.json", suggestions);
+  suggestionRepo.save(suggestions);
 }
 
 export function toSuggestionView(s: Suggestion): Suggestion {

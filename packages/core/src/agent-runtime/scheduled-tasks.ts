@@ -1,6 +1,10 @@
 import { getDb } from "../db";
 import { periodWindow } from "../daily-trends";
-import { getDataDir, loadJSON, saveJSON } from "../persistence";
+import { getDataDir } from "../persistence";
+import {
+  createJsonScheduleMarkersRepository,
+  type ScheduleMarkersRepository,
+} from "../persistence/adapters/json-schedule-markers-repository";
 import { getSuggestion } from "../suggestion-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "../name-candidate-confirmation";
 import { unmaskNames } from "../people-directory";
@@ -13,6 +17,13 @@ import {
 import { decideRun, parkPendingUnmaskedSend, startRun } from "./run-actions";
 import { checkStaleRuns, persistRunMeta, runs, WATCHDOG_INTERVAL_MS } from "./store";
 import type { AgentRun, PendingAgentStart } from "./types";
+
+let scheduleMarkers: ScheduleMarkersRepository = createJsonScheduleMarkersRepository();
+
+/** テスト用: スケジュールマーカー repo 差し替え。 */
+export function setScheduleMarkersRepositoryForTest(next: ScheduleMarkersRepository): void {
+  scheduleMarkers = next;
+}
 
 // docs/first_implession 3.6「トリガー（起動条件）: バッチ駆動（朝のサマリー）」対応。
 // 専用のジョブスケジューラは導入せず、既存のwatchdog間隔に相乗りする軽量な実装。
@@ -34,11 +45,11 @@ import type { AgentRun, PendingAgentStart } from "./types";
 // 重複起動を再現・確認済み）。(4)のSQLite UNIQUE制約INSERTはOSのファイルロックで
 // プロセスをまたいで直列化されるため、これが唯一プロセス境界をまたいで安全な層。
 function loadLastAutoMorningSummaryDate(): string | null {
-  return loadJSON<{ date: string | null }>("auto-morning-summary.json", { date: null }).date;
+  return scheduleMarkers.loadMorningSummaryDate();
 }
 
 function saveLastAutoMorningSummaryDate(date: string): void {
-  saveJSON("auto-morning-summary.json", { date });
+  scheduleMarkers.saveMorningSummaryDate(date);
 }
 
 /**
@@ -275,7 +286,7 @@ function normalizeClaimedWeekdays(value: unknown): number[] {
 }
 
 function loadDistillationPersisted(): DistillationPersisted {
-  const raw = loadJSON<{ week?: string | null; claimedWeekdays?: unknown }>("auto-distillation.json", {});
+  const raw = scheduleMarkers.loadDistillationRaw();
   const week = typeof raw.week === "string" ? raw.week : null;
   // 旧形式は { week } のみ = 単一曜日時代の「今週は1回実行済み」。
   // 以前は全曜日クレームしていたが、複数曜日移行後に後続スロット（例: 月曜実行後の水曜）が
@@ -286,7 +297,7 @@ function loadDistillationPersisted(): DistillationPersisted {
 }
 
 function saveDistillationPersisted(state: DistillationPersisted): void {
-  saveJSON("auto-distillation.json", {
+  scheduleMarkers.saveDistillation({
     week: state.week,
     claimedWeekdays: normalizeClaimedWeekdays(state.claimedWeekdays),
   });
@@ -366,11 +377,11 @@ export async function startDistillationAnalysis(
 // docs/2nd_pivot_version.md Phase 8。pivot_policy.mdの5番目のAI役割「Grow」（EM自身の
 // 学びの提示）。週次蒸留と同様に watchdog へ相乗りし、ISO 週キーを永続化して二重起動を防ぐ。
 function loadLastAutoGrowWeek(): string | null {
-  return loadJSON<{ week: string | null }>("auto-grow.json", { week: null }).week;
+  return scheduleMarkers.loadGrowWeek();
 }
 
 function saveLastAutoGrowWeek(week: string): void {
-  saveJSON("auto-grow.json", { week });
+  scheduleMarkers.saveGrowWeek(week);
 }
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildGrowContextBlock（batch-context-blocks.ts）へ。 */
@@ -526,11 +537,11 @@ export async function startPeriodReviewAnalysis(
 }
 
 function loadLastAutoWeeklyReportWeek(): string | null {
-  return loadJSON<{ week: string | null }>("auto-weekly-report.json", { week: null }).week;
+  return scheduleMarkers.loadWeeklyReportWeek();
 }
 
 function saveLastAutoWeeklyReportWeek(week: string): void {
-  saveJSON("auto-weekly-report.json", { week });
+  scheduleMarkers.saveWeeklyReportWeek(week);
 }
 
 /** ローカル日付の年月キー（例: 2026-09）。月次バッチの二重起動ガードに使う（isoWeekKeyの月版）。 */
@@ -539,11 +550,11 @@ export function monthKey(now: Date): string {
 }
 
 function loadLastAutoMonthlyReportMonth(): string | null {
-  return loadJSON<{ month: string | null }>("auto-monthly-report.json", { month: null }).month;
+  return scheduleMarkers.loadMonthlyReportMonth();
 }
 
 function saveLastAutoMonthlyReportMonth(month: string): void {
-  saveJSON("auto-monthly-report.json", { month });
+  scheduleMarkers.saveMonthlyReportMonth(month);
 }
 
 function hasOriginRunInMonth(origin: AgentRun["origin"], month: string): boolean {
