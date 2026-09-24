@@ -14,7 +14,8 @@
 
 - 相談経由の既存 Suggestion 整理（`docs/suggestion_organize_via_consult.md`）— アイデアレベルの追加機能
 - OpenAPI（`@hono/zod-openapi`）の一括導入
-- `people-directory` の独立パッケージ化、ストアごとの npm 分割、永続化のポート／アダプタ徹底
+- `people-directory` の独立パッケージ化、ストアごとの npm 分割
+- 永続化ポート／アダプタの**一括**徹底（Phase D でパイロットから段階導入。ホットスポット一括書き換えはしない）
 
 ---
 
@@ -104,12 +105,43 @@ packages/core/src/
 
 ---
 
+## 2.5 Phase D — 永続化ポート（DIP）
+
+方針: **公開 deep import（`@emther/core/*-store`）は維持**し、内部だけ port／アダプタに分離する。DI コンテナや server composition root は導入しない（ファサードが既定アダプタを束ねる）。
+
+```text
+Phase D1（パイロット）glossary
+  → Phase D2（類似 2〜3 本をコピーパターンで移行）
+  → Phase D3（重複から共通 JSON アダプタを抽出）
+```
+
+### 境界ルール
+
+| 層 | 知ってよい | 知ってはいけない |
+|---|---|---|
+| ドメイン | エンティティ型、バリデーション、並び順、コンテキスト文字列 | ファイル名、`loadJSON`、`EM_DATA_DIR`、SQL |
+| アダプタ | ファイル名、atomic write、パス、空配列許可 | ドメイン固有の trim／ソート規則を増やしすぎない |
+| ファサード（`*-store.ts`） | 既定アダプタの束ね、公開関数の re-export | — |
+
+### 置き場
+
+- ドメイン port / サービス: 例 `packages/core/src/glossary/`
+- JSON アダプタ: `packages/core/src/persistence/adapters/`
+- 公開面: ルートの `glossary-store.ts` 等（互換 shim）
+
+### 意図的に後回し
+
+`people-directory`、`knowledge-store`、`suggestion-store`、`journal-store`、`agent-runtime/store`（複雑・横断依存が大きい）。
+
+---
+
 ## 3. 成功条件
 
 1. ドメイン判断の純関数は `packages/core` にあり、web は表示と配線だけである
 2. 同じ概念の型が実質1系統である（少なくとも `AgentRun`。View が必要なら contract が core をラップする）
 3. 新規・改修 API は `api-contract` を通さずにマージしない運用ができている（全ルート厳密化は不要）
 4. core 内で「ML / persistence / agent-runtime / stores」の置き場がディレクトリで読める（公開 API の厳選は任意）
+5. （Phase D）ドメインモジュールが `loadJSON` / `saveJSON` / `getDb` 等の永続化具象を import せず、port 経由であること（パイロット対象から順次）
 
 ---
 
@@ -120,3 +152,4 @@ packages/core/src/
 | Phase A | 完了 | AgentRun 型を `@emther/core/agent-runtime` に一本化。run meta（`runFallbackTitle` / `runKindLabel` / `shouldOmitRunFromNextActions` / `isDraftAwaitingTriage` / `draftKindLabel`）を core へ。`daily-situation` / `today-state` / `dashboard-next-actions` を core 化し、NextAction/SituationItem は `target` を持ち web で `attach*Handlers` により onSelect 配線。STATUS_META と React コンポーネントは web 残留。`packages/core/src/agent-runtime.ts` は **ブラウザ安全な subset のみ**（types / run-meta）。サーバー用フルバレルは `@emther/core/agent-runtime/index`。 |
 | Phase B | 完了 | `AgentRunView`＝core `AgentRun`。id-resolve / mask-check / models-status を api-contract エンベロープ化（`satisfies`）。teams POST に寛容リクエスト parse。`core-type-drift.test.ts` で Team〜AgentRun 等の型一致を検知。settings/data/backup はバイナリのため契約外と README 明記。 |
 | Phase C | 完了 | `local-ml/`・`persistence/`・`observation-dump/` を新設。`cloud-chat` → `agent-runtime/`。旧 deep import はルート shim で互換維持。`types.ts` はルート据え置き（分割見送り）。 |
+| Phase D | 完了（D1–D3） | D1: glossary を port／アダプタ分離。D2: em-growth / policies / settings を同パターンで移行。D3: `persistence/json-document.ts` に `createJsonArrayDocument` / `createJsonSingletonDocument` を抽出（ドメイン port は固有のまま）。公開 `*-store` deep import は維持。 |
