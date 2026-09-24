@@ -12,7 +12,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client"],
+    "paths": {
+      "react-router": ["./src/router/react-router-compat.tsx"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "vitest.config.mts", "vitest.setup.ts"],
   "exclude": ["node_modules"]

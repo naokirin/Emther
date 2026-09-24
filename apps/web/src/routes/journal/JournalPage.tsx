@@ -3,13 +3,19 @@ import { useNavigate, useSearchParams } from "react-router";
 import styles from "../../styles/page.module.css";
 import { JournalEntryCard } from "../../components/JournalEntryCard";
 import { JournalFilterBar, type JournalFilterState } from "../../components/JournalFilterBar";
+import {
+  decodeJournalListSearch,
+  EMPTY_JOURNAL_LIST_FILTERS,
+  encodeJournalListSearch,
+  journalListSearchSchema,
+} from "../../components/journalListSearch";
 import { JournalInputSwitcher } from "../../components/JournalInputSwitcher";
 import { PageTitleRow } from "../../components/HelpLink";
 import { PaginationControls } from "../../components/Pagination";
 import { paginationMeta } from "../../components/usePagination";
 import { api } from "../../lib/api-client";
 import { useSuggestions, useJournalSearch, useJournalBatchStatus } from "../../lib/queries";
-import type { JournalEntry } from "@emther/core/types";
+import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 import type { AgentRunMutationResponse } from "@emther/api-contract";
 import { useJournalEditing } from "../../lib/useJournalEditing";
 
@@ -37,24 +43,15 @@ const SENTIMENT_FILTER_OPTIONS = [
   { value: "negative", label: "ネガティブ" },
 ];
 
-const EMPTY_FILTERS: Omit<JournalFilterState, "query"> = {
-  periodDays: "all",
-  personFilter: "",
-  tagFilter: "",
-  urgencyFilter: "",
-  sentimentFilter: "",
-  excludeResolved: false,
-  includeArchived: false,
-  quarantinedOnly: false,
-  includeSensitive: false,
-};
-
 export function JournalPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const focusId = searchParams.get("focus");
   const focusDumpId = searchParams.get("dump");
   const prefill = searchParams.get("prefill");
+
+  const [listSearchParams, setListSearchParams] = useTypedSearchParams(journalListSearchSchema);
+  const filterState = decodeJournalListSearch(listSearchParams);
 
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
@@ -75,78 +72,21 @@ export function JournalPage() {
     }
   }
 
-  const [query, setQuery] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
-  const [personFilter, setPersonFilter] = useState("");
-  const [urgencyFilter, setUrgencyFilter] = useState<JournalEntry["urgency"] | "">("");
-  const [sentimentFilter, setSentimentFilter] = useState<JournalEntry["sentiment"] | "">("");
-  const [periodDays, setPeriodDays] = useState("all");
-  const [excludeResolved, setExcludeResolved] = useState(false);
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const [quarantinedOnly, setQuarantinedOnly] = useState(false);
-  const [includeSensitive, setIncludeSensitive] = useState(false);
   const [page, setPage] = useState(1);
 
-  const filterState: JournalFilterState = {
-    query,
-    periodDays,
-    personFilter,
-    tagFilter,
-    urgencyFilter,
-    sentimentFilter,
-    excludeResolved,
-    includeArchived,
-    quarantinedOnly,
-    includeSensitive,
-  };
-
-  function handleFilterChange<K extends keyof JournalFilterState>(key: K, next: JournalFilterState[K]) {
+  function handleFilterChange(patch: Partial<JournalFilterState>) {
     setPage(1);
-    switch (key) {
-      case "query":
-        setQuery(next as string);
-        break;
-      case "periodDays":
-        setPeriodDays(next as string);
-        break;
-      case "personFilter":
-        setPersonFilter(next as string);
-        break;
-      case "tagFilter":
-        setTagFilter(next as string);
-        break;
-      case "urgencyFilter":
-        setUrgencyFilter(next as JournalEntry["urgency"] | "");
-        break;
-      case "sentimentFilter":
-        setSentimentFilter(next as JournalEntry["sentiment"] | "");
-        break;
-      case "excludeResolved":
-        setExcludeResolved(next as boolean);
-        break;
-      case "includeArchived":
-        setIncludeArchived(next as boolean);
-        break;
-      case "quarantinedOnly":
-        setQuarantinedOnly(next as boolean);
-        break;
-      case "includeSensitive":
-        setIncludeSensitive(next as boolean);
-        break;
-    }
+    setListSearchParams(encodeJournalListSearch({ ...filterState, ...patch }));
   }
 
   function clearFilters() {
     setPage(1);
-    setPeriodDays(EMPTY_FILTERS.periodDays);
-    setPersonFilter(EMPTY_FILTERS.personFilter);
-    setTagFilter(EMPTY_FILTERS.tagFilter);
-    setUrgencyFilter(EMPTY_FILTERS.urgencyFilter);
-    setSentimentFilter(EMPTY_FILTERS.sentimentFilter);
-    setExcludeResolved(EMPTY_FILTERS.excludeResolved);
-    setIncludeArchived(EMPTY_FILTERS.includeArchived);
-    setQuarantinedOnly(EMPTY_FILTERS.quarantinedOnly);
-    setIncludeSensitive(EMPTY_FILTERS.includeSensitive);
+    setListSearchParams(
+      encodeJournalListSearch({
+        query: filterState.query,
+        ...EMPTY_JOURNAL_LIST_FILTERS,
+      }),
+    );
   }
 
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
@@ -154,16 +94,16 @@ export function JournalPage() {
 
   const { entries, total, resolvedPage, facets, setEntries, searchLoaded, refreshSearch } = useJournalSearch(
     {
-      query,
-      tag: tagFilter,
-      person: personFilter,
-      urgency: urgencyFilter,
-      sentiment: sentimentFilter,
-      periodDays,
-      excludeResolved,
-      includeArchived,
-      quarantinedOnly,
-      includeSensitive,
+      query: filterState.query,
+      tag: filterState.tagFilter,
+      person: filterState.personFilter,
+      urgency: filterState.urgencyFilter,
+      sentiment: filterState.sentimentFilter,
+      periodDays: filterState.periodDays,
+      excludeResolved: filterState.excludeResolved,
+      includeArchived: filterState.includeArchived,
+      quarantinedOnly: filterState.quarantinedOnly,
+      includeSensitive: filterState.includeSensitive,
     },
     page,
     PAGE_SIZE,
@@ -306,7 +246,7 @@ export function JournalPage() {
                   onUnarchive={() => editing.unarchiveEntry(entry.id)}
                   onMarkSensitive={() => editing.markSensitive(entry.id)}
                   onUnmarkSensitive={() => editing.unmarkSensitive(entry.id)}
-                  onTagClick={(tag) => handleFilterChange("tagFilter", tag)}
+                  onTagClick={(tag) => handleFilterChange({ tagFilter: tag })}
                 />
               </div>
             ))

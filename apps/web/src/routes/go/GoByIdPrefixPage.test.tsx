@@ -1,17 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { GoByIdPrefixPage } from "./GoByIdPrefixPage";
 import type { IdMatch } from "@emther/core/id-resolve";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
 
 // fetchをモックして3分岐（0件/1件/複数件）+ 不正プレフィックスを検証する
 function renderAt(prefix: string) {
   return render(
     <MemoryRouter initialEntries={[`/go/${prefix}`]}>
-      <Routes>
-        <Route path="/go/:prefix" element={<GoByIdPrefixPage />} />
-        <Route path="/suggestions/:id" element={<div>提案詳細ページ</div>} />
-      </Routes>
+      <GoByIdPrefixPage />
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
@@ -28,11 +31,11 @@ afterEach(() => {
 });
 
 describe("GoByIdPrefixPage", () => {
-  it("十六進のプレフィックスでない場合はエラー表示のみでfetchしない", () => {
+  it("十六進のプレフィックスでない場合はエラー表示のみでfetchしない", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     renderAt("not-hex");
-    expect(screen.getByRole("heading", { name: "IDを解決できません" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "IDを解決できません" })).toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -45,7 +48,7 @@ describe("GoByIdPrefixPage", () => {
   it("一致件数1件ならそのhrefへ自動遷移する", async () => {
     mockMatches([{ kind: "suggestion", id: "abcdef1234567890", label: "サンプル提案", href: "/suggestions/abcdef1234567890" }]);
     renderAt("abcdef12");
-    await waitFor(() => expect(screen.getByText("提案詳細ページ")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/suggestions/abcdef1234567890"));
   });
 
   it("一致件数が複数なら候補一覧を表示する", async () => {

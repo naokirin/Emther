@@ -47,6 +47,11 @@ describe("SuggestionFilterBar", () => {
     const dialog = screen.getByRole("dialog", { name: "絞り込み" });
     await user.click(within(dialog).getByLabelText(/確認済み（もう追わない）も表示する/));
     await user.click(within(dialog).getByRole("button", { name: /適用する/ }));
-    expect(onChange).toHaveBeenCalledWith("showDone", true);
+    expect(onChange).toHaveBeenCalledWith({
+      statusFilter: new Set(DEFAULT_SUGGESTION_STATUS_FILTER),
+      priorityFilter: new Set(),
+      showDone: true,
+      showArchived: false,
+    });
   });
 });

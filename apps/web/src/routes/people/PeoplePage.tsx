@@ -4,6 +4,7 @@ import { PersonScoreBadge } from "../../components/PersonScoreBadge";
 import { PersonDetailContent } from "../../components/PersonDetailContent";
 import { PageTitleRow } from "../../components/HelpLink";
 import { SlideOver } from "../../components/SlideOver";
+import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
 import { usePeekParam } from "../../lib/usePeekParam";
 import { api } from "../../lib/api-client";
 import { usePeople } from "../../lib/queries";
@@ -42,7 +43,7 @@ export function PeoplePage() {
   const [newName, setNewName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [showArchivedPeople, setShowArchivedPeople] = useState(false);
+  const [showArchivedPeople, setShowArchivedPeople] = useFlagSearchParam("archived");
   const sorted = [...people]
     .filter((p) => showArchivedPeople || !p.archived || p.id === peek.id)
     .sort((a, b) => b.factCount - a.factCount || a.name.localeCompare(b.name, "ja"));

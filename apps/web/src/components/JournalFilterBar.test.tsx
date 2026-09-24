@@ -47,7 +47,7 @@ describe("JournalFilterBar", () => {
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "適用する" }));
-    expect(onChange).toHaveBeenCalledWith("periodDays", "30");
+    expect(onChange).toHaveBeenCalledWith({ periodDays: "30" });
     expect(screen.queryByRole("dialog", { name: "絞り込み" })).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import { listSuggestionCandidatesFromProposal } from "../../components/run-detai
 import { ChatHistoryPanel } from "../../components/chat/ChatHistoryPanel";
 import { ConsultReviewPanel } from "../../components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "../../components/chat/NewConsultForm";
+import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
 import { useSuggestions, useJournalEntry, useRuns, useSettingsRules } from "../../lib/queries";
 import { api } from "../../lib/api-client";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
@@ -28,7 +29,7 @@ export function ChatPage() {
   );
 
   // （誤って起票した・テストで作った等）を履歴一覧から除外し、必要なときだけ表示できるようにする
-  const [showArchivedConsults, setShowArchivedConsults] = useState(false);
+  const [showArchivedConsults, setShowArchivedConsults] = useFlagSearchParam("archived");
 
   // 提案化済みでも相談履歴に残す（提案詳細専用の分析 Run だけ除外）。
   const consultRuns = runs.filter(isConsultHistoryRun);

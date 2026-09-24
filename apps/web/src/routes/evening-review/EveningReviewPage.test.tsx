@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { EveningReviewPage } from "./EveningReviewPage";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
 
 // 3ステップ（journal→checkin→kpt→done）を
 // 「この工程をスキップ」で最短経路で進め、doneの遷移ボタンだけ確認する（各ステップの
@@ -15,12 +20,8 @@ function createWrapper() {
     return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/evening-review"]}>
-          <Routes>
-            <Route path="/evening-review" element={children} />
-            <Route path="/checkin" element={<div>自己チェックイン</div>} />
-            <Route path="/growth" element={<div>EM週次振り返り</div>} />
-            <Route path="/" element={<div>ダッシュボード</div>} />
-          </Routes>
+          {children}
+          <LocationProbe />
         </MemoryRouter>
       </QueryClientProvider>
     );
@@ -49,6 +50,6 @@ describe("EveningReviewPage", () => {
 
     expect(await screen.findByText("お疲れさまでした。今日の締めくくりが完了しました。")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "ダッシュボードへ戻る" }));
-    await waitFor(() => expect(screen.getByText("ダッシュボード")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/"));
   });
 });

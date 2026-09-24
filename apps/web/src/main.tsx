@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router";
+import { RouterProvider } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // 配布ビルドが Google Fonts へのネットワーク取得に依存しないよう、npm 同梱の @fontsource を使う。
 import "@fontsource/zen-kaku-gothic-new/japanese-400.css";
@@ -14,58 +14,10 @@ import "@fontsource/zen-kaku-gothic-new/latin-900.css";
 import "@fontsource/jetbrains-mono/latin-400.css";
 import "@fontsource/jetbrains-mono/latin-600.css";
 import "./styles/globals.css";
-import { RootLayout } from "./routes/RootLayout";
-import { DashboardPage } from "./routes/dashboard/DashboardPage";
-import { HelpPage } from "./routes/help/HelpPage";
-import { IssuesRedirect } from "./routes/issues/IssuesRedirect";
-import { IssueDetailRedirect } from "./routes/issues/IssueDetailRedirect";
-import { GoByIdPrefixPage } from "./routes/go/GoByIdPrefixPage";
-import { EveningReviewPage } from "./routes/evening-review/EveningReviewPage";
-import { MaskCheckPage } from "./routes/mask-check/MaskCheckPage";
-import { TeamsPage } from "./routes/teams/TeamsPage";
-import { SettingsPage } from "./routes/settings/SettingsPage";
-import { PeoplePage } from "./routes/people/PeoplePage";
-import { PersonDetailPage } from "./routes/people/PersonDetailPage";
-import { OrgPage } from "./routes/org/OrgPage";
-import { ReportsPage } from "./routes/reports/ReportsPage";
-import { GrowthPage } from "./routes/growth/GrowthPage";
-import { CheckinPage } from "./routes/checkin/CheckinPage";
-import { JournalPage } from "./routes/journal/JournalPage";
-import { SuggestionsPage } from "./routes/suggestions/SuggestionsPage";
-import { SuggestionDetailPage } from "./routes/suggestions/SuggestionDetailPage";
-import { AgentsPage } from "./routes/agents/AgentsPage";
-import { ChatPage } from "./routes/chat/ChatPage";
+import { createAppRouter } from "./router/appRouter";
 
-// index（"/"）はダッシュボード本体。/timeline はナビから外し /reports へリダイレクト。日次は /checkin。
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <RootLayout />,
-    children: [
-      { index: true, element: <DashboardPage /> },
-      { path: "help", element: <HelpPage /> },
-      { path: "evening-review", element: <EveningReviewPage /> },
-      { path: "mask-check", element: <MaskCheckPage /> },
-      { path: "teams", element: <TeamsPage /> },
-      { path: "timeline", element: <Navigate to="/reports" replace /> },
-      { path: "settings", element: <SettingsPage /> },
-      { path: "people", element: <PeoplePage /> },
-      { path: "people/:id", element: <PersonDetailPage /> },
-      { path: "org", element: <OrgPage /> },
-      { path: "reports", element: <ReportsPage /> },
-      { path: "checkin", element: <CheckinPage /> },
-      { path: "growth", element: <GrowthPage /> },
-      { path: "journal", element: <JournalPage /> },
-      { path: "suggestions", element: <SuggestionsPage /> },
-      { path: "suggestions/:id", element: <SuggestionDetailPage /> },
-      { path: "agents", element: <AgentsPage /> },
-      { path: "chat", element: <ChatPage /> },
-      { path: "issues", element: <IssuesRedirect /> },
-      { path: "issues/:id", element: <IssueDetailRedirect /> },
-      { path: "go/:prefix", element: <GoByIdPrefixPage /> },
-    ],
-  },
-]);
+// TanStack Router。ルート定義は router/routeTree.tsx。
+const router = createAppRouter();
 
 // TanStack Query のサーバー状態層。queryClient はプロセス内シングルトン（画面遷移をまたいでキャッシュを共有）。
 const queryClient = new QueryClient();

@@ -1,32 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router";
 import { IssuesRedirect } from "./IssuesRedirect";
 import { IssueDetailRedirect } from "./IssueDetailRedirect";
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
+
 // 課題タブは提案に統合済み（/issues → /suggestions）
 describe("IssuesRedirect / IssueDetailRedirect", () => {
-  it("/issues は /suggestions へリダイレクトする", () => {
+  it("/issues は /suggestions へリダイレクトする", async () => {
     render(
       <MemoryRouter initialEntries={["/issues"]}>
-        <Routes>
-          <Route path="/issues" element={<IssuesRedirect />} />
-          <Route path="/suggestions" element={<div>提案一覧</div>} />
-        </Routes>
+        <IssuesRedirect />
+        <LocationProbe />
       </MemoryRouter>,
     );
-    expect(screen.getByText("提案一覧")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/suggestions"));
   });
 
-  it("/issues/:id は /suggestions/:id へリダイレクトする", () => {
+  it("/issues/:id は /suggestions/:id へリダイレクトする", async () => {
     render(
       <MemoryRouter initialEntries={["/issues/abc123"]}>
-        <Routes>
-          <Route path="/issues/:id" element={<IssueDetailRedirect />} />
-          <Route path="/suggestions/:id" element={<div>提案詳細</div>} />
-        </Routes>
+        <IssueDetailRedirect />
+        <LocationProbe />
       </MemoryRouter>,
     );
-    expect(screen.getByText("提案詳細")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/suggestions/abc123"));
   });
 });

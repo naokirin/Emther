@@ -6,10 +6,12 @@ import { buildTeamTree } from "../../components/teams/buildTeamTree";
 import { TeamTreeView } from "../../components/teams/TeamTree";
 import { TeamCreatePanel } from "../../components/teams/TeamCreatePanel";
 import { TeamEditPanel } from "../../components/teams/TeamEditPanel";
+import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
 import { useEntityHistory, useSuggestions, useJournal, useTeams } from "../../lib/queries";
 import type { Team } from "@emther/core/types";
 
-// ?focus=<teamId> でツリー選択を一度だけ初期化する
+// ?focus=<teamId> でツリー選択を一度だけ初期化する。選択自体はローカル（方針どおり）。
+// アーカイブ表示はフィルタとして URL 保持する。
 export function TeamsPage() {
   const [searchParams] = useSearchParams();
   const focusId = searchParams.get("focus");
@@ -19,7 +21,7 @@ export function TeamsPage() {
   const { journalEntries } = useJournal();
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [showArchivedTeams, setShowArchivedTeams] = useState(false);
+  const [showArchivedTeams, setShowArchivedTeams] = useFlagSearchParam("archived");
   const [appliedFocusId, setAppliedFocusId] = useState<string | null>(null);
 
   const selectedTeam = selectedTeamId ? teams.find((t) => t.id === selectedTeamId) ?? null : null;

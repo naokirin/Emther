@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import styles from "../../styles/page.module.css";
 import type { AgentRun, AgentStatus } from "@emther/core/agent-runtime";
@@ -7,9 +7,15 @@ import { STATUS_META, runKindLabel } from "../../components/runDetailMeta";
 import { PaginationControls } from "../../components/Pagination";
 import { paginationMeta } from "../../components/usePagination";
 import { Select } from "../../components/Select";
+import {
+  agentsListSearchSchema,
+  decodeAgentsListSearch,
+  encodeAgentsListSearch,
+} from "../../components/agentsListSearch";
 import { useSuggestionPeek } from "../../components/useSuggestionPeek";
 import { useGoToRunSuggestion, useSuggestions, useRuns, useRunsInbox, useSettingsRules } from "../../lib/queries";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
+import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 import { AGENT_OPTIONS, isRunStale, truncateForTitle } from "@emther/core/types";
 
 // Agent Fleet状態・横断Activity Stream・「相談・起動」パネル（エージェント起動フォーム＋
@@ -68,8 +74,8 @@ export function AgentsPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<AgentStatus | "">("");
-  const [showDismissedRuns, setShowDismissedRuns] = useState(false);
+  const [listSearch, setListSearch] = useTypedSearchParams(agentsListSearchSchema);
+  const { statusFilter, showDismissedRuns } = useMemo(() => decodeAgentsListSearch(listSearch), [listSearch]);
   // フィルタ・ページ番号を
   // サーバーへ渡し、そのページ分のrunsだけを受け取る（Fleet状態・Activity Streamは
   // 引き続き上のuseRuns()＝全件取得のまま。今回のスコープ外）
@@ -82,12 +88,12 @@ export function AgentsPage() {
   const inboxMeta = paginationMeta(inboxTotal, inboxPage, INBOX_PAGE_SIZE);
 
   function handleStatusFilterChange(v: AgentStatus | "") {
-    setStatusFilter(v);
+    setListSearch(encodeAgentsListSearch({ statusFilter: v, showDismissedRuns }));
     setInboxPage(1);
   }
 
   function handleShowDismissedChange(v: boolean) {
-    setShowDismissedRuns(v);
+    setListSearch(encodeAgentsListSearch({ statusFilter, showDismissedRuns: v }));
     setInboxPage(1);
   }
 

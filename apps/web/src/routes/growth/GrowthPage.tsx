@@ -8,6 +8,7 @@ import { PageTitleRow } from "../../components/HelpLink";
 import { GrowSuggestionsPanel } from "../../components/growth/GrowSuggestionsPanel";
 import { ReflectionNoteForm } from "../../components/growth/ReflectionNoteForm";
 import { useReflectionNoteController } from "../../components/growth/useReflectionNoteController";
+import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
 import { reflectionNotesQueryKey } from "../../lib/queries";
 import { api, rpcInit } from "../../lib/api-client";
 import type { EmReflectionNote, ReflectionNoteType } from "@emther/core/types";
@@ -72,7 +73,7 @@ export function GrowthPage() {
 
   const [policyUpdating, setPolicyUpdating] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
-  const [showArchivedPolicies, setShowArchivedPolicies] = useState(false);
+  const [showArchivedPolicies, setShowArchivedPolicies] = useFlagSearchParam("archived");
 
   const latestTryNote = notes.find((n) => n.type === "try" && !n.archivedAt);
   const archivedTryNotes = notes

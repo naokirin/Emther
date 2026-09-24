@@ -7,16 +7,18 @@ import { usePagination } from "../../components/usePagination";
 import { StatusBadge } from "../../components/RunDetail";
 import { useSuggestionPeek } from "../../components/useSuggestionPeek";
 import { SuggestionFilterBar } from "../../components/SuggestionFilterBar";
-import {
-  DEFAULT_SUGGESTION_STATUS_FILTER,
-  type SuggestionFilterState,
-  type SuggestionSortKey,
-} from "../../components/suggestionFilter";
+import { type SuggestionFilterState, type SuggestionSortKey } from "../../components/suggestionFilter";
 import {
   SUGGESTION_THEME_ALL,
   SUGGESTION_THEME_UNLINKED,
   SuggestionThemeSwitcher,
 } from "../../components/SuggestionThemeSwitcher";
+import {
+  decodeSuggestionListSearch,
+  encodeSuggestionListSearch,
+  suggestionListSearchSchema,
+} from "../../components/suggestionListSearch";
+import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 import {
   useSuggestionExportColumns,
 } from "../../components/useSuggestionExportColumns";
@@ -201,32 +203,37 @@ export function SuggestionsPage() {
     };
   }, [themes, teams, suggestions, runs]);
 
-  const [themeKey, setThemeKey] = useState(SUGGESTION_THEME_ALL);
-  const [filters, setFilters] = useState<SuggestionFilterState>(() => ({
-    query: "",
-    sort: "due",
-    statusFilter: new Set(DEFAULT_SUGGESTION_STATUS_FILTER),
-    priorityFilter: new Set(),
-    showDone: false,
-    showArchived: false,
-  }));
+  const [searchParams, setSearchParams] = useTypedSearchParams(suggestionListSearchSchema);
+  const { themeKey, filters } = useMemo(() => decodeSuggestionListSearch(searchParams), [searchParams]);
+
+  function commitListSearch(next: { themeKey: string; filters: SuggestionFilterState }) {
+    setSearchParams(encodeSuggestionListSearch(next));
+  }
+
   const [focusMovingId, setFocusMovingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const { columnIds, setColumnIds } = useSuggestionExportColumns();
 
-  function handleFilterChange<K extends keyof SuggestionFilterState>(key: K, next: SuggestionFilterState[K]) {
-    setFilters((prev) => ({ ...prev, [key]: next }));
+  function handleFilterChange(patch: Partial<SuggestionFilterState>) {
+    commitListSearch({ themeKey, filters: { ...filters, ...patch } });
   }
 
   function clearFilters() {
-    setFilters((prev) => ({
-      ...prev,
-      statusFilter: new Set(),
-      priorityFilter: new Set(),
-      showDone: true,
-      showArchived: false,
-    }));
+    commitListSearch({
+      themeKey,
+      filters: {
+        ...filters,
+        statusFilter: new Set(),
+        priorityFilter: new Set(),
+        showDone: true,
+        showArchived: false,
+      },
+    });
+  }
+
+  function handleThemeChange(nextTheme: string) {
+    commitListSearch({ themeKey: nextTheme, filters });
   }
 
   const themeCounts = useMemo(() => {
@@ -369,7 +376,7 @@ export function SuggestionsPage() {
 
         <SuggestionThemeSwitcher
           value={themeKey}
-          onChange={setThemeKey}
+          onChange={handleThemeChange}
           themes={adoptedThemes}
           counts={themeCounts}
           statusSummary={statusSummary}

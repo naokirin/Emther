@@ -142,6 +142,40 @@ describe("SuggestionsPage", () => {
     await user.type(screen.getByLabelText(/このテーマ内を検索/), "存在しないキーワード");
     expect(screen.queryByText("未確認の提案")).not.toBeInTheDocument();
     expect(screen.getByText("条件に一致する提案はありません。")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("q=");
+  });
+
+  it("テーマ選択と絞り込みが URL に残り、初期エントリから復元できる", async () => {
+    const user = userEvent.setup();
+    render(<SuggestionsPage />, { wrapper: createWrapper() });
+    await screen.findByText("未確認の提案");
+    await user.click(screen.getByRole("combobox", { name: "いま向き合うテーマ" }));
+    await user.click(await screen.findByRole("option", { name: /優先度の高いセキュリティリスク/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent("theme=theme-1");
+
+    await user.click(screen.getByRole("button", { name: "絞り込み" }));
+    const dialog = screen.getByRole("dialog", { name: "絞り込み" });
+    await user.click(within(dialog).getByLabelText(/確認済み（もう追わない）も表示する/));
+    await user.click(within(dialog).getByRole("button", { name: /適用する/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent("done=1");
+  });
+
+  it("URL の theme/q から初期状態を復元する", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/suggestions?theme=theme-1&q=テーマ付き"]}>
+            <IdResolveProvider>{children}</IdResolveProvider>
+            <LocationProbe />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    }
+    render(<SuggestionsPage />, { wrapper: Wrapper });
+    expect(await screen.findByText("テーマ付き提案")).toBeInTheDocument();
+    expect(screen.queryByText("未確認の提案")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/このテーマ内を検索/)).toHaveValue("テーマ付き");
   });
 
   it("タイトルをクリックするとサイドピークを開く", async () => {

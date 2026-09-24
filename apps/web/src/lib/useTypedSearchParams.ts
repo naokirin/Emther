@@ -1,6 +1,11 @@
 // クエリパラメータ連動（例: /chat?run=… , /journal?focus=…）を型安全に扱う薄いZodラッパー。
-// TanStack Router のような専用ルーティング機構は導入せず、React Router の
-// useSearchParams + Zod スキーマで必要な型安全性だけを確保する。
+// ルーティング本体は TanStack Router。search の読み書きは互換レイヤーの useSearchParams 経由。
+//
+// URL に載せる画面状態の方針:
+// - フィルタ・ソート: 必須（遷移して戻っても復元する）
+// - タブ／テーマ切替: ある方が良い
+// - 行選択など一時的な操作焦点: 原則載せない（deep link / サイドピークは例外）
+//
 // 値はURLSearchParams由来で常に文字列のため型不一致は起きない。
 // フィールドを `z.string().optional()` にすることで「無ければundefined」。
 // enumや数値等、より厳密な検証をしたい呼び出し側は`.optional().catch(undefined)`を使う。

@@ -18,30 +18,34 @@ function wrapperWith(initialEntries: string[]) {
 }
 
 describe("useTypedSearchParams", () => {
-  it("クエリが無ければ全フィールドundefined", () => {
+  it("クエリが無ければ全フィールドundefined", async () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), { wrapper: wrapperWith(["/"]) });
+    await waitFor(() => expect(result.current).not.toBeNull());
     const [values] = result.current;
     expect(values).toEqual({ issue: undefined, urgency: undefined });
   });
 
-  it("存在するクエリを型どおりにパースする", () => {
+  it("存在するクエリを型どおりにパースする", async () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), {
       wrapper: wrapperWith(["/?issue=abc&urgency=high"]),
     });
+    await waitFor(() => expect(result.current).not.toBeNull());
     const [values] = result.current;
     expect(values).toEqual({ issue: "abc", urgency: "high" });
   });
 
-  it("enumに一致しない値は.catch(undefined)で無視される（不正値は黙って未指定扱い）", () => {
+  it("enumに一致しない値は.catch(undefined)で無視される（不正値は黙って未指定扱い）", async () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), {
       wrapper: wrapperWith(["/?urgency=invalid"]),
     });
+    await waitFor(() => expect(result.current).not.toBeNull());
     const [values] = result.current;
     expect(values.urgency).toBeUndefined();
   });
 
   it("setParamsでクエリを更新できる（usePeekParamのopen()相当）", async () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), { wrapper: wrapperWith(["/"]) });
+    await waitFor(() => expect(result.current).not.toBeNull());
     act(() => {
       result.current[1]({ issue: "xyz" });
     });
@@ -52,7 +56,7 @@ describe("useTypedSearchParams", () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), {
       wrapper: wrapperWith(["/?issue=xyz"]),
     });
-    expect(result.current[0].issue).toBe("xyz");
+    await waitFor(() => expect(result.current[0]?.issue).toBe("xyz"));
     act(() => {
       result.current[1]({ issue: undefined });
     });
@@ -63,6 +67,7 @@ describe("useTypedSearchParams", () => {
     const { result } = renderHook(() => useTypedSearchParams(schema), {
       wrapper: wrapperWith(["/?issue=xyz"]),
     });
+    await waitFor(() => expect(result.current).not.toBeNull());
     act(() => {
       result.current[1]({ urgency: "low" });
     });

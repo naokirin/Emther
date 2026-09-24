@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { JournalPage } from "./JournalPage";
@@ -9,12 +9,20 @@ import { JournalPage } from "./JournalPage";
 // 個々の子コンポーネント（JournalEntryCard/JournalInputSwitcher/
 // useJournalEditing）は別テストで検証済みのため、ここでは一覧表示とフィルタ操作による
 // 再フェッチに絞って検証する
-function createWrapper() {
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
+function createWrapper(initialEntries: string[] = ["/journal"]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
+          {children}
+          <LocationProbe />
+        </MemoryRouter>
       </QueryClientProvider>
     );
   };
@@ -69,6 +77,21 @@ describe("JournalPage", () => {
       });
       expect(called).toBe(true);
     });
+    expect(screen.getByTestId("location")).toHaveTextContent("q=%E3%83%AA%E3%83%95%E3%82%A1%E3%82%AF%E3%82%BF");
+  });
+
+  it("?person= から人物フィルタを初期化する", async () => {
+    render(<JournalPage />, { wrapper: createWrapper(["/journal?person=A%E3%81%95%E3%82%93"]) });
+    await waitFor(() => {
+      const called = fetchMock.mock.calls.some((call: unknown[]) => {
+        const url = call[0] as string;
+        if (!url.startsWith("/api/journal/search")) return false;
+        const params = new URLSearchParams(url.split("?")[1] ?? "");
+        return params.get("person") === "Aさん";
+      });
+      expect(called).toBe(true);
+    });
+    expect(screen.getByTestId("location")).toHaveTextContent("person=");
   });
 
   it("条件に一致するJournalが無ければその旨を表示する", async () => {
@@ -138,12 +161,7 @@ describe("JournalPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     function FocusWrapper({ children }: { children: ReactNode }) {
-      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      return (
-        <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={["/journal?focus=focus-me"]}>{children}</MemoryRouter>
-        </QueryClientProvider>
-      );
+      return createWrapper(["/journal?focus=focus-me"])({ children });
     }
 
     render(<JournalPage />, { wrapper: FocusWrapper });

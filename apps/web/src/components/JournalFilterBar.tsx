@@ -18,7 +18,7 @@ export type JournalFilterState = {
 
 type Props = {
   value: JournalFilterState;
-  onChange: <K extends keyof JournalFilterState>(key: K, next: JournalFilterState[K]) => void;
+  onChange: (patch: Partial<JournalFilterState>) => void;
   onClear: () => void;
   periodOptions: { value: string; label: string }[];
   urgencyOptions: { value: string; label: string }[];
@@ -85,10 +85,14 @@ export function JournalFilterBar({
   }
 
   function applyDraft() {
+    const patch: Partial<JournalFilterState> = {};
     (Object.keys(draft) as (keyof JournalFilterState)[]).forEach((key) => {
       if (key === "query") return;
-      if (draft[key] !== value[key]) onChange(key, draft[key]);
+      if (draft[key] !== value[key]) {
+        (patch as Record<string, unknown>)[key] = draft[key];
+      }
     });
+    if (Object.keys(patch).length > 0) onChange(patch);
     setOpen(false);
   }
 
@@ -99,7 +103,7 @@ export function JournalFilterBar({
 
   function removeChip(key: keyof JournalFilterState) {
     if (key === "periodDays") {
-      onChange("periodDays", "all");
+      onChange({ periodDays: "all" });
       setDraftField("periodDays", "all");
     } else if (
       key === "excludeResolved" ||
@@ -107,13 +111,13 @@ export function JournalFilterBar({
       key === "quarantinedOnly" ||
       key === "includeSensitive"
     ) {
-      onChange(key, false);
+      onChange({ [key]: false });
       setDraftField(key, false);
     } else if (key === "query") {
-      onChange("query", "");
+      onChange({ query: "" });
       setDraftField("query", "");
     } else {
-      onChange(key, "" as JournalFilterState[typeof key]);
+      onChange({ [key]: "" } as Partial<JournalFilterState>);
       setDraftField(key, "" as JournalFilterState[typeof key]);
     }
   }
@@ -125,7 +129,7 @@ export function JournalFilterBar({
           type="search"
           className={styles.journalSearchInput}
           value={value.query}
-          onChange={(e) => onChange("query", e.target.value)}
+          onChange={(e) => onChange({ query: e.target.value })}
           placeholder="本文・人物・タグで検索"
           aria-label="本文・人物・タグで検索"
         />

@@ -15,7 +15,7 @@ export type { SuggestionFilterState, SuggestionSortKey } from "./suggestionFilte
 
 type Props = {
   value: SuggestionFilterState;
-  onChange: <K extends keyof SuggestionFilterState>(key: K, next: SuggestionFilterState[K]) => void;
+  onChange: (patch: Partial<SuggestionFilterState>) => void;
   onClearFilters: () => void;
   doneCount: number;
   archivedCount: number;
@@ -100,10 +100,12 @@ export function SuggestionFilterBar({
   }
 
   function applyDraft() {
-    onChange("statusFilter", draftStatus);
-    onChange("priorityFilter", draftPriority);
-    onChange("showDone", draftShowDone);
-    onChange("showArchived", draftShowArchived);
+    onChange({
+      statusFilter: draftStatus,
+      priorityFilter: draftPriority,
+      showDone: draftShowDone,
+      showArchived: draftShowArchived,
+    });
     setOpen(false);
   }
 
@@ -119,7 +121,7 @@ export function SuggestionFilterBar({
           type="search"
           className={styles.journalSearchInput}
           value={value.query}
-          onChange={(e) => onChange("query", e.target.value)}
+          onChange={(e) => onChange({ query: e.target.value })}
           placeholder="このテーマ内を検索…"
           aria-label="このテーマ内を検索"
         />
@@ -129,7 +131,7 @@ export function SuggestionFilterBar({
           </span>
           <Select
             value={value.sort}
-            onChange={(v) => onChange("sort", v as SuggestionSortKey)}
+            onChange={(v) => onChange({ sort: v as SuggestionSortKey })}
             options={SUGGESTION_SORT_OPTIONS}
             label="並び替え"
             style={{ minWidth: 140 }}
@@ -268,7 +270,7 @@ function buildActiveChips(
       key: "status",
       label: `確認状態: ${labels.join("・")}`,
       clear: () => {
-        onChange("statusFilter", new Set());
+        onChange({ statusFilter: new Set() });
         draft.setDraftStatus(new Set());
       },
     });
@@ -281,7 +283,7 @@ function buildActiveChips(
       key: "priority",
       label: `確認優先度: ${labels.join("・")}`,
       clear: () => {
-        onChange("priorityFilter", new Set());
+        onChange({ priorityFilter: new Set() });
         draft.setDraftPriority(new Set());
       },
     });
@@ -291,7 +293,7 @@ function buildActiveChips(
       key: "hideDone",
       label: "確認済みを隠す",
       clear: () => {
-        onChange("showDone", true);
+        onChange({ showDone: true });
         draft.setDraftShowDone(true);
       },
     });
@@ -301,7 +303,7 @@ function buildActiveChips(
       key: "archived",
       label: "アーカイブ含む",
       clear: () => {
-        onChange("showArchived", false);
+        onChange({ showArchived: false });
         draft.setDraftShowArchived(false);
       },
     });
