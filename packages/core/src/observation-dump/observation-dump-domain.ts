@@ -37,6 +37,7 @@ export function createObservationDumpService(repo: ObservationDumpRepository) {
       id: dump.id,
       sourceType: dump.sourceType,
       title: dump.title !== undefined ? unmaskNames(dump.title) : undefined,
+      prependTitleToJournals: dump.prependTitleToJournals === true ? true : undefined,
       rawText: unmaskNames(dump.rawTextMasked),
       status: dump.status,
       createdAt: dump.createdAt,
@@ -65,6 +66,7 @@ export function createObservationDumpService(repo: ObservationDumpRepository) {
       sourceType: ObservationSourceType;
       text: string;
       title?: string;
+      prependTitleToJournals?: boolean;
       occurredRangeHint?: { start?: string; end?: string };
       mapping?: ImportMappingConfig;
     },
@@ -99,10 +101,14 @@ export function createObservationDumpService(repo: ObservationDumpRepository) {
     const rawTextMasked = await maskForStorage(text, opts);
     const title = input.title?.trim() ? await maskForStorage(input.title.trim(), opts) : undefined;
 
+    const prependTitleToJournals =
+      input.prependTitleToJournals === true && Boolean(title) ? true : undefined;
+
     const dump: ObservationDump = {
       id: randomUUID(),
       sourceType: input.sourceType,
       title,
+      prependTitleToJournals,
       rawTextMasked,
       status: "received",
       createdAt: now,

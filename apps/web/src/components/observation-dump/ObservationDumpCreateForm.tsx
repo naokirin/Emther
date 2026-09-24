@@ -33,6 +33,7 @@ type Props = {
 export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCreated }: Props) {
   const [sourceType, setSourceType] = useState("chat_log");
   const [title, setTitle] = useState("");
+  const [prependTitleToJournals, setPrependTitleToJournals] = useState(false);
   const [text, setText] = useState("");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
@@ -176,6 +177,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
             text,
             mapping,
             ...(title.trim() ? { title: title.trim() } : {}),
+            ...(title.trim() && prependTitleToJournals ? { prependTitleToJournals: true } : {}),
             ...(rangeStart || rangeEnd
               ? {
                   occurredRangeHint: {
@@ -194,6 +196,7 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
       const dump = (data as ObservationDumpMutationResponse).dump as ObservationDumpView;
       setText("");
       setTitle("");
+      setPrependTitleToJournals(false);
       setRangeStart("");
       setRangeEnd("");
       setPreview(null);
@@ -270,11 +273,39 @@ export function ObservationDumpCreateForm({ fetchWithNameConfirm, reload, onCrea
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setTitle(next);
+                if (!next.trim()) setPrependTitleToJournals(false);
+              }}
               placeholder="例: 9/10 週次 / #team-foo スレッド"
             />
           </label>
         </div>
+        {title.trim() ? (
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              marginBottom: 8,
+              fontSize: "0.875rem",
+              color: "var(--text-muted)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={prependTitleToJournals}
+              onChange={(e) => setPrependTitleToJournals(e.target.checked)}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              Journal化時、各本文の先頭へ{" "}
+              <code>[{title.trim()}]</code>{" "}
+              を付ける（分割後も出典コンテキストを残す）
+            </span>
+          </label>
+        ) : null}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
           <label style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
             期間ヒント（任意）:

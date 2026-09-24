@@ -65,6 +65,7 @@ describe("POST /api/journal/dumps", () => {
     expect(created.dump.sourceType).toBe("meeting_log");
     expect(created.dump.parseSource).toBe("heuristic");
     expect(created.dump.chunkDrafts.length).toBeGreaterThanOrEqual(2);
+    expect(created.dump.prependTitleToJournals).toBeUndefined();
 
     const dumpId = created.dump.id as string;
     const chunkIds = created.dump.chunkDrafts.map((c: { id: string }) => c.id);
@@ -75,7 +76,54 @@ describe("POST /api/journal/dumps", () => {
     const accepted = await acceptRes.json();
     expect(accepted.entries).toHaveLength(chunkIds.length);
     expect(accepted.entries[0].sourceDumpId).toBe(dumpId);
+    expect(accepted.entries[0].rawText).not.toMatch(/^\[週次\]/);
     expect(accepted.dump.status).toBe("done");
+  });
+
+  it("prependTitleToJournals:trueなら採用Journalの先頭に[タイトル]が付く（プレビュー原文はそのまま）", async () => {
+    const { journalDumpsRoute } = await import("./journal-dumps");
+    const createRes = await journalDumpsRoute.request(
+      "/",
+      post({
+        sourceType: "meeting_log",
+        title: "9/10 週次",
+        prependTitleToJournals: true,
+        text: ["決定: 来週リリースを延期する。", "", "未決: 人員の補充時期。"].join("\n"),
+      }),
+    );
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json();
+    expect(created.dump.prependTitleToJournals).toBe(true);
+    expect(created.dump.chunkDrafts[0].text).not.toMatch(/^\[9\/10 週次\]/);
+
+    const dumpId = created.dump.id as string;
+    const chunkIds = created.dump.chunkDrafts.map((c: { id: string }) => c.id);
+    const acceptRes = await journalDumpsRoute.request(
+      `/${dumpId}/accept`,
+      post({ chunkIds, allowUnmaskedNameCandidates: true }),
+    );
+    expect(acceptRes.status).toBe(201);
+    const accepted = await acceptRes.json();
+    expect(accepted.entries.length).toBeGreaterThanOrEqual(1);
+    for (const entry of accepted.entries as { rawText: string }[]) {
+      expect(entry.rawText.startsWith("[9/10 週次] ")).toBe(true);
+    }
+  });
+
+  it("タイトル無しでprependTitleToJournals:trueでもフラグは保存されない", async () => {
+    const { journalDumpsRoute } = await import("./journal-dumps");
+    const createRes = await journalDumpsRoute.request(
+      "/",
+      post({
+        sourceType: "other_log",
+        prependTitleToJournals: true,
+        text: "メモ本文だけ",
+        parse: false,
+      }),
+    );
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json();
+    expect(created.dump.prependTitleToJournals).toBeUndefined();
   });
 
   it("採用しようとしたチャンクに未登録の人名らしい語句があれば、確認フラグ無しでは409でブロックする", async () => {

@@ -26,6 +26,19 @@ function dateHintToOccurredAt(hint: string | undefined, fallback: number): numbe
   return d.getTime();
 }
 
+/** Journal採用本文。prepend 時は先頭へ `[タイトル]` を付ける（チャンク原文はそのまま）。 */
+export function journalTextWithOptionalTitlePrefix(
+  text: string,
+  title: string | undefined,
+  prepend: boolean | undefined,
+): string {
+  const body = text.trim();
+  if (!prepend) return body;
+  const t = title?.trim();
+  if (!t) return body;
+  return `[${t}] ${body}`;
+}
+
 function defaultOccurredAt(dump: ObservationDump): number {
   const start = dump.occurredRangeHint?.start;
   if (start) return dateHintToOccurredAt(start, dump.createdAt);
@@ -101,9 +114,15 @@ export async function acceptDumpChunks(
     structured: any;
   }[] = [];
   const allUnresolved: string[] = [];
+  const dumpTitle = dump.title ? unmaskNames(dump.title) : undefined;
   for (const chunk of targets) {
-    const text = unmaskNames(chunk.textMasked).trim();
-    if (!text) continue;
+    const chunkText = unmaskNames(chunk.textMasked).trim();
+    if (!chunkText) continue;
+    const text = journalTextWithOptionalTitlePrefix(
+      chunkText,
+      dumpTitle,
+      dump.prependTitleToJournals,
+    );
     const occurredAt = dateHintToOccurredAt(chunk.suggestedOccurredAt, fallbackOccurred);
     const people = chunk.people.map(unmaskNames).filter(Boolean);
     const { structured, unresolvedExtractedNames } = await prefetchJournalExtraction(text);

@@ -179,6 +179,11 @@ export function ObservationDumpDetailPanel({ selected, fetchWithNameConfirm, rel
           {selected.parseError}
         </p>
       )}
+      {selected.prependTitleToJournals && selected.title?.trim() ? (
+        <p className={styles.subtitle} style={{ marginTop: 6 }}>
+          Journal化時、各本文の先頭へ <code>[{selected.title.trim()}]</code> を付けます
+        </p>
+      ) : null}
       {selected.droppedNotes.length > 0 && (
         <p className={styles.subtitle} style={{ marginTop: 6 }}>
           除外メモ: {selected.droppedNotes.join(" / ")}

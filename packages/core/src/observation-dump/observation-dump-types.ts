@@ -29,6 +29,8 @@ export type ObservationDumpView = {
   id: string;
   sourceType: ObservationSourceType;
   title?: string;
+  /** Journal採用時、各本文先頭へ `[タイトル]` を付けるか */
+  prependTitleToJournals?: boolean;
   rawText: string;
   status: ObservationDumpStatus;
   createdAt: number;

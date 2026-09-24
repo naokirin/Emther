@@ -42,6 +42,7 @@ export const journalDumpsRoute = new Hono()
     const text = typeof body?.text === "string" ? body.text : "";
     const sourceType = body?.sourceType;
     const title = typeof body?.title === "string" ? body.title : undefined;
+    const prependTitleToJournals = body?.prependTitleToJournals === true;
     const parse = body?.parse !== false;
     const mapping = parseImportMappingConfig(body?.mapping);
     const occurredRangeHint =
@@ -60,7 +61,10 @@ export const journalDumpsRoute = new Hono()
     }
 
     try {
-      let dump = await createObservationDump({ sourceType, text, title, occurredRangeHint, mapping }, maskOptionsFromBody(body));
+      let dump = await createObservationDump(
+        { sourceType, text, title, prependTitleToJournals, occurredRangeHint, mapping },
+        maskOptionsFromBody(body),
+      );
       if (parse) {
         dump = await runParseOnDump(dump.id);
       }
