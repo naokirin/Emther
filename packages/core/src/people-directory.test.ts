@@ -63,7 +63,7 @@ describe("registerName / maskNames / unmaskNames", () => {
     expect(id1).toBe(id2);
     expect(id1).toBe(id3);
     expect(pd.listPeople()).toEqual([
-      { id: id1, name: "田中さん", aliases: expect.arrayContaining(["田中くん", "田中"]) },
+      { id: id1, name: "田中さん", aliases: expect.arrayContaining(["田中くん", "田中"]), archived: false },
     ]);
   });
 
@@ -189,8 +189,8 @@ describe("listPeople / getPersonId / deletePerson", () => {
     pd.registerName("Bさん");
     expect(pd.listPeople()).toEqual(
       expect.arrayContaining([
-        { id: "PERSON_1", name: "Aさん", aliases: [] },
-        { id: "PERSON_2", name: "Bさん", aliases: [] },
+        { id: "PERSON_1", name: "Aさん", aliases: [], archived: false },
+        { id: "PERSON_2", name: "Bさん", aliases: [], archived: false },
       ]),
     );
   });
@@ -232,7 +232,7 @@ describe("addAlias / removeAlias", () => {
     const pd = await loadModule();
     const id = pd.registerName("田中さん");
     pd.addAlias(id, "田中");
-    expect(pd.listPeople()).toEqual([{ id, name: "田中さん", aliases: ["田中"] }]);
+    expect(pd.listPeople()).toEqual([{ id, name: "田中さん", aliases: ["田中"], archived: false }]);
   });
 
   it("既に別の人物として登録済みの名前はエラーになる（統合を促す）", async () => {
@@ -278,7 +278,7 @@ describe("renamePerson", () => {
     const pd = await loadModule();
     const id = pd.registerName("田中さん");
     expect(pd.renamePerson(id, "田中")).toEqual({ ok: true });
-    expect(pd.listPeople()).toEqual([{ id, name: "田中", aliases: ["田中さん"] }]);
+    expect(pd.listPeople()).toEqual([{ id, name: "田中", aliases: ["田中さん"], archived: false }]);
     expect(pd.maskNames("田中さんと話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
     expect(pd.unmaskNames(id)).toBe("田中");
   });
@@ -307,7 +307,7 @@ describe("renamePerson", () => {
     const pd2 = await loadModule();
 
     expect(pd2.listPeople()).toEqual(
-      expect.arrayContaining([{ id, name: "田中一郎", aliases: expect.arrayContaining(["田中太郎", "たなかさん"]) }]),
+      expect.arrayContaining([{ id, name: "田中一郎", aliases: expect.arrayContaining(["田中太郎", "たなかさん"]), archived: false }]),
     );
     expect(pd2.unmaskNames(id)).toBe("田中一郎");
   });
@@ -321,7 +321,7 @@ describe("mergePersons", () => {
     const toId = pd.registerName("田中さん");
     expect(pd.mergePersons(fromId, toId)).toEqual({ ok: true });
 
-    expect(pd.listPeople()).toEqual([{ id: toId, name: "田中さん", aliases: ["たなかさん"] }]);
+    expect(pd.listPeople()).toEqual([{ id: toId, name: "田中さん", aliases: ["たなかさん"], archived: false }]);
     expect(pd.maskNames("たなかさんと話した")).toBe(`${pd.formatPersonToken(toId)}と話した`);
     expect(pd.unmaskNames(fromId)).toBe(fromId); // 統合元のIDはもう実名に戻らない
   });
@@ -452,7 +452,7 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
   it("registerNameCandidates で候補を人名登録する", async () => {
     const pd = await loadModule();
     await pd.ensureNameCandidatesAllowed(["田中さんと話した"], { registerNameCandidates: true });
-    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "田中さん", aliases: [] }]);
+    expect(pd.listPeople()).toEqual([{ id: "PERSON_1", name: "田中さん", aliases: [], archived: false }]);
     expect(await pd.detectUnregisteredNameCandidates("田中さんと話した")).toEqual([]);
     expect(pd.maskNames("田中くんと話した")).toBe("{{PERSON_1}}と話した");
   });
@@ -501,5 +501,34 @@ describe("detectUnregisteredNameCandidates / ensureNameCandidatesAllowed", () =>
   it("registerName は無効な人名（動詞語尾・ストップワード）の登録を拒否する", async () => {
     const pd = await loadModule();
     expect(() => pd.registerName("れている様")).toThrow("無効な人名候補");
+  });
+});
+
+// 退職等。誤登録削除とは別のアーカイブ。
+describe("setPersonArchived", () => {
+  it("アーカイブすると listActivePeople から外れ、listPeople には残りマスクも効く", async () => {
+    const pd = await loadModule();
+    const id = pd.registerName("退職者さん");
+    expect(pd.setPersonArchived(id, true)?.archived).toBe(true);
+    expect(pd.listActivePeople()).toEqual([]);
+    expect(pd.listPeople()).toEqual([{ id, name: "退職者さん", aliases: [], archived: true }]);
+    expect(pd.maskNames("退職者さんと話した")).toBe(`${pd.formatPersonToken(id)}と話した`);
+    expect(pd.unmaskNames(pd.formatPersonToken(id))).toBe("退職者さん");
+  });
+
+  it("アーカイブ解除でき、再読み込み後も状態が残る", async () => {
+    const pd1 = await loadModule();
+    const id = pd1.registerName("一時退職さん");
+    pd1.setPersonArchived(id, true);
+    vi.resetModules();
+    const pd2 = await loadModule();
+    expect(pd2.listPeople().find((p) => p.id === id)?.archived).toBe(true);
+    expect(pd2.setPersonArchived(id, false)?.archived).toBe(false);
+    expect(pd2.listActivePeople().map((p) => p.id)).toEqual([id]);
+  });
+
+  it("存在しないIDは undefined", async () => {
+    const pd = await loadModule();
+    expect(pd.setPersonArchived("PERSON_999", true)).toBeUndefined();
   });
 });

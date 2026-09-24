@@ -38,6 +38,7 @@ function person(overrides: Partial<PersonSummary> & { id: string; name: string }
     isDirectReport: true,
     isSelf: false,
     hasConcerningSuggestion: false,
+    archived: false,
     ...overrides,
   };
 }

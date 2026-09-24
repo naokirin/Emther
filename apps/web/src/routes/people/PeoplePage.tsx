@@ -17,12 +17,13 @@ function PersonCardGrid({ people, onOpen }: { people: PersonSummary[]; onOpen: (
   return (
     <div className={styles.personCardGrid}>
       {people.map((p) => (
-        <button key={p.id} type="button" className={styles.personCard} onClick={() => onOpen(p.id)}>
+        <button key={p.id} type="button" className={styles.personCard} onClick={() => onOpen(p.id)} style={p.archived ? { opacity: 0.65 } : undefined}>
           <PersonScoreBadge trend={p.trend} factCount={p.factCount} hasConcerningSuggestion={p.hasConcerningSuggestion} />
           <div className={styles.personCardBody}>
             <div className={styles.personCardName}>
               {p.name}
               {p.isSelf && <span className={styles.tag} style={{ marginLeft: 6 }}>自分</span>}
+              {p.archived && <span className={styles.tag} style={{ marginLeft: 6 }}>アーカイブ</span>}
             </div>
             <div className={styles.tableMuted}>
               {p.isSelf
@@ -42,11 +43,15 @@ export function PeoplePage() {
   const [newName, setNewName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const sorted = [...people].sort((a, b) => b.factCount - a.factCount || a.name.localeCompare(b.name, "ja"));
+  const [showArchivedPeople, setShowArchivedPeople] = useState(false);
+  const sorted = [...people]
+    .filter((p) => showArchivedPeople || !p.archived || p.id === peek.id)
+    .sort((a, b) => b.factCount - a.factCount || a.name.localeCompare(b.name, "ja"));
   const selfPeople = sorted.filter((p) => p.isSelf);
   const reports = sorted.filter((p) => p.isDirectReport);
   const others = sorted.filter((p) => !p.isDirectReport && !p.isSelf);
-  const peekedPerson = peek.id ? sorted.find((p) => p.id === peek.id) : undefined;
+  const peekedPerson = peek.id ? people.find((p) => p.id === peek.id) : undefined;
+  const archivedCount = people.filter((p) => p.archived).length;
 
   async function handleAddPerson(e: React.FormEvent) {
     e.preventDefault();
@@ -94,6 +99,11 @@ export function PeoplePage() {
             </p>
           )}
         </form>
+
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 12px" }}>
+          <input type="checkbox" checked={showArchivedPeople} onChange={(e) => setShowArchivedPeople(e.target.checked)} />
+          アーカイブ済みも表示する{archivedCount > 0 ? `（${archivedCount}）` : ""}
+        </label>
 
         {sorted.length === 0 ? (
           <p className={styles.subtitle}>

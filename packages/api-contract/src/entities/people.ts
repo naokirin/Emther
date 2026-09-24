@@ -18,6 +18,7 @@ export const personSummarySchema: z.ZodType<PersonSummary> = z
     isDirectReport: z.boolean(),
     isSelf: z.boolean(),
     hasConcerningSuggestion: z.boolean(),
+    archived: z.boolean(),
   })
   .passthrough() as z.ZodType<PersonSummary>;
 
@@ -32,6 +33,7 @@ export const personProfileSchema: z.ZodType<PersonProfile> = z
     isDirectReport: z.boolean(),
     isSelf: z.boolean(),
     hasConcerningSuggestion: z.boolean(),
+    archived: z.boolean(),
     facts: z.array(
       z
         .object({

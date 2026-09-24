@@ -46,6 +46,9 @@ type PersistedState = {
   // EMが「人名として登録せず未マスクのまま進めてよい」と確認した語句。
   // 再確認を避けつつ、people（PERSON_n）にも載せないための許可リスト。
   acknowledgedUnmasked?: string[];
+  // 退職等で一覧の既定表示から外す人物ID。誤登録削除（deletePerson）とは別。
+  // マスク／アンマスクには残し、過去Journalの実名復元を壊さない。
+  archived?: string[];
 };
 
 const PEOPLE_DIRECTORY_FILE = "people-directory.json";
@@ -91,6 +94,7 @@ const nameToId = new Map<string, string>();
 const idToName = new Map<string, string>();
 let counter = 0;
 const acknowledgedUnmasked = new Set<string>();
+const archivedIds = new Set<string>();
 
 /** deletePerson で最後の1人を消すなど、意図的に空へ落とすときだけ true。 */
 let allowEmptyPersist = false;
@@ -120,6 +124,10 @@ function hydrateFromPersisted(state: PersistedState): void {
     const trimmed = raw.trim();
     if (trimmed) acknowledgedUnmasked.add(trimmed);
   }
+  archivedIds.clear();
+  for (const id of state.archived ?? []) {
+    if (id && idToName.has(id)) archivedIds.add(id);
+  }
   if (cleansed) {
     persist();
   }
@@ -146,6 +154,7 @@ function persist(): void {
     canonical: Array.from(idToName.entries()),
     counter,
     acknowledgedUnmasked: Array.from(acknowledgedUnmasked),
+    archived: Array.from(archivedIds),
   });
 }
 
@@ -154,7 +163,13 @@ function persist(): void {
 // だった（1つのIDに複数の別名がぶら下がる形）。idToName（表示用の正式名、1id=1名）と
 // 組み合わせ、「正式名以外でこのIDを指しているnameToIdのキー」を別名（aliases）として
 // 扱う。
-export type PersonRecord = { id: string; name: string; aliases: string[] };
+export type PersonRecord = {
+  id: string;
+  name: string;
+  aliases: string[];
+  // 退職等。誤登録削除とは別。既定の一覧・1on1 Coverage等から外すが、マスク対象には残す。
+  archived: boolean;
+};
 
 /** マスク用に bare 形を載せる最小文字数（1文字は誤マスクが多すぎる） */
 const MIN_BARE_NAME_LENGTH_FOR_MASK = 2;
@@ -356,7 +371,32 @@ export function listPeople(): PersonRecord[] {
     if (!aliasesById.has(id)) aliasesById.set(id, []);
     aliasesById.get(id)!.push(name);
   }
-  return [...idToName.entries()].map(([id, name]) => ({ id, name, aliases: aliasesById.get(id) ?? [] }));
+  return [...idToName.entries()].map(([id, name]) => ({
+    id,
+    name,
+    aliases: aliasesById.get(id) ?? [],
+    archived: archivedIds.has(id),
+  }));
+}
+
+// vitals / ダッシュボード等では、退職アーカイブ済みは既に活動していない人物として除外する
+// （チームの listActiveTeams と同じ考え方）。
+export function listActivePeople(): PersonRecord[] {
+  return listPeople().filter((p) => !p.archived);
+}
+
+export function isPersonArchived(id: string): boolean {
+  return archivedIds.has(id);
+}
+
+export function setPersonArchived(id: string, archived: boolean): PersonRecord | undefined {
+  if (!idToName.has(id)) return undefined;
+  const currently = archivedIds.has(id);
+  if (currently === archived) return listPeople().find((p) => p.id === id);
+  if (archived) archivedIds.add(id);
+  else archivedIds.delete(id);
+  persist();
+  return listPeople().find((p) => p.id === id);
 }
 
 // docs/em_human_story_and_ux.md P2-12 / docs/memo.md TODO「ローカルNER誤検出対策」対応。
@@ -372,6 +412,7 @@ export function deletePerson(id: string): boolean {
   const name = idToName.get(id);
   if (name === undefined) return false;
   idToName.delete(id);
+  archivedIds.delete(id);
   for (const [n, i] of nameToId.entries()) {
     if (i === id) nameToId.delete(n);
   }
@@ -454,6 +495,7 @@ export function mergePersons(fromId: string, toId: string): { ok: true } | { ok:
     if (id === fromId) nameToId.set(name, toId);
   }
   idToName.delete(fromId);
+  archivedIds.delete(fromId);
   persist();
   return { ok: true };
 }

@@ -348,7 +348,7 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
   // 「今日の状況」と同じく、自分が管理するチーム（PersonSummary.isDirectReport）の
   // メンバーだけを対象にする。
   const attentionPeople = people
-    .filter((p) => p.isDirectReport)
+    .filter((p) => p.isDirectReport && !p.archived)
     .filter((p) => p.trend.negative >= 2 && p.trend.negative > p.trend.positive)
     .sort((a, b) => b.trend.negative - a.trend.negative)
     .slice(0, 3);

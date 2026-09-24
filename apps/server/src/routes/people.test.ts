@@ -193,6 +193,33 @@ describe("POST /api/people/:id/merge", () => {
   });
 });
 
+describe("POST /api/people/:id/archive", () => {
+  it("存在しないIDは404", async () => {
+    const { peopleRoute } = await import("./people");
+    const res = await peopleRoute.request("/missing/archive", post({}));
+    expect(res.status).toBe(404);
+  });
+
+  it("archived省略時はトグルする", async () => {
+    const peopleDirectory = await import("@emther/core/people-directory");
+    const id = peopleDirectory.registerName("退職予定さん");
+    const { peopleRoute } = await import("./people");
+    const res = await peopleRoute.request(`/${id}/archive`, post({}));
+    expect(res.status).toBe(200);
+    expect((await res.json()).person.archived).toBe(true);
+  });
+
+  it("archived=falseで解除できる", async () => {
+    const peopleDirectory = await import("@emther/core/people-directory");
+    const id = peopleDirectory.registerName("復職さん");
+    peopleDirectory.setPersonArchived(id, true);
+    const { peopleRoute } = await import("./people");
+    const res = await peopleRoute.request(`/${id}/archive`, post({ archived: false }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).person.archived).toBe(false);
+  });
+});
+
 // ユーザー指摘「メンバーのアラート表示を確認したが対応不要だったことを示せない」対応。
 describe("PATCH /api/people/:id/concern-acks/:suggestionId", () => {
   it("存在しない人物は404", async () => {

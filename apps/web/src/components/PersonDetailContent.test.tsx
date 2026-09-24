@@ -39,6 +39,7 @@ describe("PersonDetailContent", () => {
                 isDirectReport: true,
                 isSelf: false,
                 hasConcerningSuggestion: false,
+                archived: false,
                 facts: [],
                 interpretations: [],
                 relatedSuggestions: [],
@@ -47,7 +48,7 @@ describe("PersonDetailContent", () => {
           };
         }
         if (url === "/api/people/p1/evaluation-logs") return { ok: true, json: async () => ({ logs: [] }) };
-        if (url === "/api/people") return { ok: true, json: async () => ({ people: [{ id: "p2", name: "鈴木さん" }] }) };
+        if (url === "/api/people") return { ok: true, json: async () => ({ people: [{ id: "p2", name: "鈴木さん", archived: false }] }) };
         if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
         return { ok: true, json: async () => ({}) };
       }),

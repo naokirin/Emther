@@ -41,6 +41,8 @@ export type PersonSummary = {
   // ものが1件でもあればtrue。personVitalStatusでJournalのsentimentが穏やかでも
   // 「やや注意」以上に引き上げるためのシグナル。
   hasConcerningSuggestion: boolean;
+  // 退職等。誤登録削除とは別。メンバー一覧の既定表示・1on1 Coverage等から外す。
+  archived: boolean;
 };
 
 export type PersonFact = {
@@ -166,6 +168,7 @@ export function listPersonSummaries(): PersonSummary[] {
         staleInterventionDays,
         acknowledgedSuggestionIds,
       ),
+      archived: p.archived,
     };
   });
 }
@@ -223,6 +226,7 @@ export function getPersonProfile(idOrName: string): PersonProfile | undefined {
       staleInterventionDays,
       new Set(acks.keys()),
     ),
+    archived: person.archived,
   };
 }
 

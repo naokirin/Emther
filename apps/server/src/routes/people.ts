@@ -9,7 +9,7 @@ import type {
   PersonProfileResponse,
 } from "@emther/api-contract";
 import type { PersonProfile } from "@emther/core/types";
-import { deletePerson, registerName, renamePerson } from "@emther/core/people-directory";
+import { deletePerson, registerName, renamePerson, setPersonArchived, listPeople } from "@emther/core/people-directory";
 import { addPersonAlias, getPersonProfile, listPersonSummaries, mergePersons, removePersonAlias } from "@emther/core/people-hub";
 import { reassignSelfPersonId } from "@emther/core/settings-store";
 import { acknowledgePersonSuggestionConcern, clearPersonSuggestionConcernAck } from "@emther/core/person-concern-ack-store";
@@ -141,6 +141,25 @@ export const peopleRoute = new Hono()
     const result = mergePersons(duplicateId, id);
     if (!result.ok) return c.json({ error: result.error }, 400);
 
+    const profile = getPersonProfile(id);
+    if (!profile) return c.json({ error: "not found" }, 404);
+    const resBody = { person: profile } satisfies PersonMutationResponse;
+    return c.json(resBody);
+  })
+  // 退職等。誤登録削除（DELETE）とは別。一覧の既定表示・1on1 Coverage等から外すが、
+  // 名簿・マスク対象には残す（過去Journalの実名復元のため）。
+  .post("/:id/archive", async (c) => {
+    const id = c.req.param("id");
+    const current = listPeople().find((p) => p.id === id);
+    if (!current) {
+      return c.json({ error: "not found" }, 404);
+    }
+    const body = await c.req.json().catch(() => null);
+    const archived = typeof body?.archived === "boolean" ? body.archived : !current.archived;
+    const updated = setPersonArchived(id, archived);
+    if (!updated) {
+      return c.json({ error: "not found" }, 404);
+    }
     const profile = getPersonProfile(id);
     if (!profile) return c.json({ error: "not found" }, 404);
     const resBody = { person: profile } satisfies PersonMutationResponse;

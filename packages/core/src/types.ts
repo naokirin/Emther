@@ -771,6 +771,8 @@ export type PersonSummary = {
   // settings.selfPersonId と一致する人物。本人は部下一覧・1on1 Coverageから除外する。
   isSelf: boolean;
   hasConcerningSuggestion: boolean;
+  // 退職等。誤登録削除とは別。メンバー一覧の既定表示・1on1 Coverage等から外す。
+  archived: boolean;
 };
 
 export type PersonFact = {

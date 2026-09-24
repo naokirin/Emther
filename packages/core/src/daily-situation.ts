@@ -289,7 +289,8 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
   // docs/memo.md「今日の状況に表示するメンバーを自分の管理するチームのメンバーだけに
   // する」対応。ステータスチップ・比較欄で扱う「メンバー」は、自分が管理するチーム
   // （Team.managedByEm、兼務含む）に所属する人物（PersonSummary.isDirectReport）に限る。
-  const people = allPeople.filter((p) => p.isDirectReport);
+  // 退職アーカイブ済みは既に活動していない人物として除外する。
+  const people = allPeople.filter((p) => p.isDirectReport && !p.archived);
 
   // 1. 昨日から変わったこと: 直近24時間に記録されたJournal。
   const changes: SituationItem[] = journalEntries

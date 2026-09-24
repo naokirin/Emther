@@ -98,7 +98,7 @@ export function buildTodayStateMeters(params: BuildTodayStateMetersParams): Toda
     decisionQueueLimit,
     observationQueueLimit,
   } = params;
-  const people = allPeople.filter((p) => p.isDirectReport);
+  const people = allPeople.filter((p) => p.isDirectReport && !p.archived);
 
   // ソフト上限 = 判断待ち初期上限 + 観測不足初期上限 + 整備の目安1。
   // 表示用の目安であり、current は nextActions の実数（キャップしない）。

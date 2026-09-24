@@ -141,6 +141,21 @@ describe("computeOrgVitals", () => {
     expect(result.teams[0].members).toEqual([otherId]);
   });
 
+  // 退職アーカイブ。誤登録削除とは別。
+  it("アーカイブ済みメンバーは1on1カバレッジとTeamVital.membersから除外する", async () => {
+    const { vitals, orgStore } = await loadModules();
+    const peopleDirectory = await import("./people-directory");
+    const activeId = peopleDirectory.registerName("在籍さん");
+    const archivedId = peopleDirectory.registerName("退職さん");
+    peopleDirectory.setPersonArchived(archivedId, true);
+    orgStore.addTeam("Team A", ["在籍さん", "退職さん"]);
+
+    const result = vitals.computeOrgVitals();
+    expect(result.oneOnOneCoverage.total).toBe(1);
+    expect(result.oneOnOneCoverage.uncoveredMembers).toEqual([activeId]);
+    expect(result.teams[0].members).toEqual([activeId]);
+  });
+
   // ユーザー要望「チームの状態を自分が管理するチームのみに」対応。
   it("自分が管理していないチーム(managedByEm:false)はTeam Vitalsの対象外", async () => {
     const { vitals, orgStore } = await loadModules();

@@ -1,4 +1,5 @@
 import { getTeam, listActiveTeams, type Team } from "./org-context-store/index";
+import { isPersonArchived } from "./people-directory";
 import { getRulesAndConstraints, getSelfPersonId } from "./settings-store";
 import { listJournalEntries, type JournalEntry, isJournalRelatedToTeam } from "./journal-store";
 import { isSuggestionStalled, teamDisplayName } from "./types";
@@ -69,8 +70,11 @@ function hasConcerningTeamSuggestion(teamId: string, now: number, staleDays: num
 function computeTeamVital(team: Team, entries: JournalEntry[], rules: ReturnType<typeof getRulesAndConstraints>): TeamVital {
   const concerning = hasConcerningTeamSuggestion(team.id, Date.now(), rules.staleInterventionDays);
   // 1on1記録CTA向け。利用者本人は「EMが1on1を実施すべき相手」ではないので除外する。
+  // 退職アーカイブ済みも同様に除外する。
   const selfPersonId = getSelfPersonId();
-  const membersForAction = selfPersonId ? team.members.filter((m) => m !== selfPersonId) : team.members;
+  const membersForAction = team.members.filter(
+    (m) => m !== selfPersonId && !isPersonArchived(m),
+  );
   // hasConcerningSuggestionがtrueの場合、Journal起因の判定が"good"/"unknown"でも"warn"以上に
   // 引き上げる（"warn"/"bad"は据え置き＝提案の状況で評価を下げることはあっても甘くはしない）。
   function withSuggestionEscalation(status: VitalStatus, reason: string): { status: VitalStatus; label: string; reason: string } {
@@ -158,14 +162,14 @@ function computeCoverageVital(
   // ユーザー要望「部下(自分が管理するチームのメンバー)とそれ以外を分けたい」対応。
   // 1on1 Coverageは「EMが1on1を実施すべき相手」の充足率なので、自分が管理するチーム
   // （managedByEm）のメンバーだけを対象にする（兼務で他チームにも所属していれば対象に含む）。
-  // さらに利用者本人(selfPersonId)は「1on1を実施すべき相手」ではないので除外する。
+  // さらに利用者本人(selfPersonId)と退職アーカイブ済みは「1on1を実施すべき相手」ではないので除外する。
   const selfPersonId = getSelfPersonId();
   const allMembers = Array.from(
     new Set(
       teams
         .filter((t) => t.managedByEm)
         .flatMap((t) => t.members)
-        .filter((m) => m !== selfPersonId),
+        .filter((m) => m !== selfPersonId && !isPersonArchived(m)),
     ),
   );
   if (allMembers.length === 0) {

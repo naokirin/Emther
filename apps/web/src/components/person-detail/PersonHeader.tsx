@@ -16,6 +16,7 @@ export function PersonHeader({
   onDeleted: () => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
@@ -33,6 +34,22 @@ export function PersonHeader({
       onDeleted();
     } catch {
       setDeleting(false);
+    }
+  }
+
+  // 退職等。誤登録削除とは別。名簿・過去Journalのマスクは残し、一覧の既定表示から外す。
+  async function handleToggleArchived() {
+    setArchiving(true);
+    try {
+      const res = await api.api.people[":id"].archive.$post(
+        rpcInit({
+          param: { id: person.id },
+          json: { archived: !person.archived },
+        }),
+      );
+      if (res.ok) await Promise.all([refreshPerson(), refreshPeople()]);
+    } finally {
+      setArchiving(false);
     }
   }
 
@@ -118,6 +135,7 @@ export function PersonHeader({
               <h2 style={{ margin: 0 }}>
                 {person.name}
                 {person.isSelf && <span className={styles.tag} style={{ marginLeft: 8, verticalAlign: "middle" }}>自分</span>}
+                {person.archived && <span className={styles.tag} style={{ marginLeft: 8, verticalAlign: "middle" }}>アーカイブ</span>}
               </h2>
               <button
                 className={`${styles.detailToggle} ${styles.detailToggleButton}`}
@@ -138,6 +156,14 @@ export function PersonHeader({
             </button>
             <button
               className={`${styles.btnOutline} ${styles.axisTooltip}`}
+              onClick={handleToggleArchived}
+              disabled={archiving}
+              data-tooltip="退職などで名簿から外す場合に使います。誤登録の削除とは異なり、過去の記録や名前のマスクは残ります。"
+            >
+              {archiving ? "更新中…" : person.archived ? "アーカイブを解除" : "アーカイブする"}
+            </button>
+            <button
+              className={`${styles.btnOutline} ${styles.axisTooltip}`}
               onClick={handleDelete}
               disabled={deleting}
               data-tooltip="自由記述からの人物抽出（ローカルNER）が一般語やチーム名を人物として誤登録した場合に、この人物エントリを削除します。"
@@ -147,6 +173,11 @@ export function PersonHeader({
           </div>
         </div>
         {selfError && <p className={styles.errorText} role="alert">{selfError}</p>}
+        {person.archived && (
+          <p className={styles.subtitle}>
+            アーカイブ済み（メンバー一覧の既定表示・1on1 Coverage の対象外。過去の記録は残ります）
+          </p>
+        )}
         <p className={styles.subtitle}>
           {person.isSelf ? "自分（利用者本人）" : person.isDirectReport ? "部下" : "その他（自分が管理するチーム以外）"} ／
           {person.teamNames.length > 0 ? ` 所属: ${person.teamNames.join(", ")}` : " 所属チームなし"} ／ 直近Journal {person.factCount}件

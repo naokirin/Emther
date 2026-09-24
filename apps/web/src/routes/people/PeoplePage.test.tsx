@@ -30,6 +30,7 @@ const PERSON_A = {
   isDirectReport: true,
   isSelf: false,
   hasConcerningSuggestion: false,
+  archived: false,
 };
 
 describe("PeoplePage", () => {
@@ -87,5 +88,37 @@ describe("PeoplePage", () => {
   it("?person=<id>が既にあれば初期表示からサイドピークが開いた状態になる", async () => {
     render(<PeoplePage />, { wrapper: createWrapper(["/people?person=p1"]) });
     await waitFor(() => expect(screen.getByRole("dialog", { name: "田中さん" })).toBeInTheDocument());
+  });
+
+  it("アーカイブ済みは既定で非表示、チェックで表示できる", async () => {
+    const archived = {
+      ...PERSON_A,
+      id: "p-arch",
+      name: "退職さん",
+      archived: true,
+      isDirectReport: true,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/people") return { ok: true, json: async () => ({ people: [PERSON_A, archived] }) };
+        if (url.startsWith("/api/people/")) {
+          return {
+            ok: true,
+            json: async () => ({
+              person: { ...PERSON_A, facts: [], interpretations: [], relatedSuggestions: [] },
+            }),
+          };
+        }
+        if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
+        return { ok: true, json: async () => ({}) };
+      }),
+    );
+    const user = userEvent.setup();
+    render(<PeoplePage />, { wrapper: createWrapper() });
+    expect(await screen.findByText("田中さん")).toBeInTheDocument();
+    expect(screen.queryByText("退職さん")).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText(/アーカイブ済みも表示する/));
+    expect(await screen.findByText("退職さん")).toBeInTheDocument();
   });
 });

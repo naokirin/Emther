@@ -48,6 +48,7 @@ function person(overrides: Partial<PersonSummary> & { id: string; name: string }
     factCount: 0,
     trend: { positive: 2, negative: 0, neutral: 1 },
     hasConcerningSuggestion: false,
+    archived: false,
     ...overrides,
   };
 }

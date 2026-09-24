@@ -16,6 +16,7 @@ const person: PersonProfile = {
   isDirectReport: true,
   isSelf: false,
   hasConcerningSuggestion: false,
+  archived: false,
   facts: [],
   interpretations: [],
   relatedSuggestions: [],
@@ -81,6 +82,21 @@ describe("PersonHeader", () => {
         "/api/settings/rules",
         expect.objectContaining({ method: "PATCH", body: JSON.stringify({ selfPersonId: "p1" }) }),
       ),
+    );
+  });
+
+  it("アーカイブするとPOSTしrefreshPerson/refreshPeopleを呼ぶ", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const { refreshPerson, refreshPeople } = renderHeader();
+
+    await user.click(screen.getByRole("button", { name: "アーカイブする" }));
+    await waitFor(() => expect(refreshPerson).toHaveBeenCalledTimes(1));
+    expect(refreshPeople).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/people/p1/archive",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ archived: true }) }),
     );
   });
 });
