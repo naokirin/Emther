@@ -31,12 +31,10 @@ export const agentThemesAdoptResponseSchema = z.object({
 export const agentSuggestionUpdatesResponseSchema = z.object({
   run: agentRunViewSchema,
   applied: z.array(
-    z
-      .object({
-        suggestionId: z.string(),
-        reason: z.string(),
-      })
-      .passthrough(),
+    z.looseObject({
+      suggestionId: z.string(),
+      reason: z.string(),
+    }),
   ),
   skipped: z.array(z.string()),
 });
@@ -44,12 +42,10 @@ export const agentSuggestionUpdatesResponseSchema = z.object({
 export const agentSuggestionNotesResponseSchema = z.object({
   run: agentRunViewSchema,
   written: z.array(
-    z
-      .object({
-        suggestionId: z.string(),
-        text: z.string(),
-      })
-      .passthrough(),
+    z.looseObject({
+      suggestionId: z.string(),
+      text: z.string(),
+    }),
   ),
   skipped: z.array(z.string()),
 });

@@ -47,12 +47,10 @@ export const journalAnalyzeResponseSchema = z.object({
 });
 
 /** POST /api/journal/local-summarize（modeにより question / summary） */
-export const journalLocalSummarizeResponseSchema = z
-  .object({
-    question: z.string().optional(),
-    summary: z.string().optional(),
-  })
-  .passthrough();
+export const journalLocalSummarizeResponseSchema = z.looseObject({
+  question: z.string().optional(),
+  summary: z.string().optional(),
+});
 
 export type JournalListResponse = z.infer<typeof journalListResponseSchema>;
 export type JournalSearchResponse = z.infer<typeof journalSearchResponseSchema>;
