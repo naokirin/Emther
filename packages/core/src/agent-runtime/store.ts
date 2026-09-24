@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
-import { getDb } from "../db";
 import { findByIdPrefix } from "../id-prefix";
 import { mapAdviceStructuredStrings, normalizeAdviceStructured } from "../advice";
 import { maskForStorage, unmaskNames } from "../people-directory";
+import { createSqliteAgentRunRepository } from "../persistence/adapters/sqlite-agent-run-repository";
 import { getRulesAndConstraints } from "../settings-store";
 import {
   addMemo as addSuggestionMemo,
@@ -15,9 +15,8 @@ import {
   unarchiveSuggestion,
 } from "../suggestion-store";
 import { adoptTheme, createThemeCandidate } from "../theme-store";
-import type { SuggestedTheme } from "../theme-store";
-import { parseSuggestedPriority } from "./extraction";
-import type { AgentRun, AgentStatus, LogLine, SuggestedSuggestionNote } from "./types";
+import type { AgentRunRepository } from "./agent-run-repository";
+import type { AgentRun, AgentStatus, LogLine } from "./types";
 
 // docs/memo.md「H: 永続化データモデルの設計」対応。以前は`.data/agent-runs.json`へ
 // 全run・全ログを含む配列をベタ書きしており、標準出力1行ごと（appendLog呼び出しごと）に
@@ -27,196 +26,33 @@ import type { AgentRun, AgentStatus, LogLine, SuggestedSuggestionNote } from "./
 // メモリ上の`AgentRun`（log配列を含む可変オブジェクト）はこれまで通り「作業中の実体」として
 // 扱い続け、SQLiteへの書き込みはその都度の永続化先を切り替えただけ——呼び出し側の
 // runClaudeTurn/handleStreamEvent等は一切変更していない。
+// 永続化は AgentRunRepository（SQLite アダプタ）経由。ドメインは SQL / getDb を知らない。
 
-type AgentRunRow = {
-  id: string;
-  agent_name: string;
-  task: string;
-  status: string;
-  session_id: string | null;
-  agy_conversation_id: string | null;
-  cursor_session_id: string | null;
-  yield_request_json: string | null;
-  proposal_json: string | null;
-  suggested_action_items_json: string | null;
-  suggested_sub_suggestions_json: string | null;
-  suggested_charter_json: string | null;
-  suggested_priority_json: string | null;
-  suggested_themes_json: string | null;
-  suggested_suggestion_notes_json: string | null;
-  suggested_suggestion_updates_json: string | null;
-  period_review_json: string | null;
-  source_report_id: string | null;
-  total_cost_usd: number;
-  created_at: number;
-  updated_at: number;
-  consulted_by: string | null;
-  source_journal_id: string | null;
-  origin: string;
-  reviewed: number;
-  triage_status: string | null;
-  triage_at: number | null;
-  triage_next_review_at: number | null;
-  archived_at: number | null;
-};
+const agentRunRepository: AgentRunRepository = createSqliteAgentRunRepository();
 
-type AgentRunLogRow = {
-  run_id: string;
-  ts: number;
-  channel: string;
-  text: string;
-};
-
-function insertRunLog(runId: string, line: LogLine): void {
-  getDb()
-    .prepare("INSERT INTO agent_run_logs (run_id, ts, channel, text) VALUES (?, ?, ?, ?)")
-    .run(runId, line.ts, line.channel, line.text);
+export function insertRunLog(runId: string, line: LogLine): void {
+  agentRunRepository.insertRunLog(runId, line);
 }
 
-function persistRunMeta(run: AgentRun): void {
-  getDb()
-    .prepare(
-      `INSERT INTO agent_runs
-        (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, triage_next_review_at, archived_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         status = excluded.status,
-         session_id = excluded.session_id,
-         agy_conversation_id = excluded.agy_conversation_id,
-         cursor_session_id = excluded.cursor_session_id,
-         yield_request_json = excluded.yield_request_json,
-         proposal_json = excluded.proposal_json,
-         suggested_action_items_json = excluded.suggested_action_items_json,
-         suggested_sub_suggestions_json = excluded.suggested_sub_suggestions_json,
-         suggested_charter_json = excluded.suggested_charter_json,
-         suggested_priority_json = excluded.suggested_priority_json,
-         suggested_themes_json = excluded.suggested_themes_json,
-         suggested_suggestion_notes_json = excluded.suggested_suggestion_notes_json,
-         suggested_suggestion_updates_json = excluded.suggested_suggestion_updates_json,
-         period_review_json = excluded.period_review_json,
-         source_report_id = excluded.source_report_id,
-         total_cost_usd = excluded.total_cost_usd,
-         updated_at = excluded.updated_at,
-         reviewed = excluded.reviewed,
-         triage_status = excluded.triage_status,
-         triage_at = excluded.triage_at,
-         triage_next_review_at = excluded.triage_next_review_at,
-         archived_at = excluded.archived_at`,
-    )
-    .run(
-      run.id,
-      run.agentName,
-      run.task,
-      run.status,
-      run.sessionId ?? null,
-      run.agyConversationId ?? null,
-      run.cursorSessionId ?? null,
-      run.yieldRequest ? JSON.stringify(run.yieldRequest) : null,
-      run.proposal ? JSON.stringify(run.proposal) : null,
-      run.suggestedActionItems ? JSON.stringify(run.suggestedActionItems) : null,
-      null,
-      null,
-      run.suggestedPriority ? JSON.stringify(run.suggestedPriority) : null,
-      run.suggestedThemes ? JSON.stringify(run.suggestedThemes) : null,
-      run.suggestedSuggestionNotes ? JSON.stringify(run.suggestedSuggestionNotes) : null,
-      run.suggestedSuggestionUpdates ? JSON.stringify(run.suggestedSuggestionUpdates) : null,
-      run.periodReview ? JSON.stringify(run.periodReview) : null,
-      run.sourceReportId ?? null,
-      run.totalCostUsd,
-      run.createdAt,
-      run.updatedAt,
-      run.consultedBy ?? null,
-      run.sourceJournalId ?? null,
-      run.origin,
-      run.reviewed ? 1 : 0,
-      run.triageStatus ?? null,
-      run.triageAt ?? null,
-      run.triageNextReviewAt ?? null,
-      run.archivedAt ?? null,
-    );
+export function persistRunMeta(run: AgentRun): void {
+  agentRunRepository.upsertRunMeta(run);
 }
-
-export { insertRunLog, persistRunMeta };
 
 // 起動時にSQLiteからrunメタデータ＋ログを読み込み、メモリ上のMapを組み立てる。
 // 再起動時に残っていた"active"は、実体の子プロセスがもう存在しないため、
 // 安全側に倒して"error"へ変換し、即座に永続化する（従来はappendLog等をトリガーに
 // 遅れて反映されていたが、SQLiteでは対象行のみの更新なのでコストなく即時反映できる）。
 function loadRunsFromDb(): Map<string, AgentRun> {
-  const db = getDb();
-  const runRows = db.prepare("SELECT * FROM agent_runs").all() as unknown as AgentRunRow[];
-  const logRows = db
-    .prepare("SELECT run_id, ts, channel, text FROM agent_run_logs ORDER BY id ASC")
-    .all() as unknown as AgentRunLogRow[];
-
-  const logsByRun = new Map<string, LogLine[]>();
-  for (const row of logRows) {
-    const list = logsByRun.get(row.run_id) ?? [];
-    list.push({ ts: row.ts, channel: row.channel as LogLine["channel"], text: row.text });
-    logsByRun.set(row.run_id, list);
-  }
-
   const map = new Map<string, AgentRun>();
-  for (const row of runRows) {
-    let run: AgentRun = {
-      id: row.id,
-      agentName: row.agent_name,
-      task: row.task,
-      status: row.status as AgentStatus,
-      sessionId: row.session_id ?? undefined,
-      agyConversationId: row.agy_conversation_id ?? undefined,
-      cursorSessionId: row.cursor_session_id ?? undefined,
-      log: logsByRun.get(row.id) ?? [],
-      yieldRequest: row.yield_request_json ? JSON.parse(row.yield_request_json) : undefined,
-      // 旧永続runは expansions/challenges 欠落がありうるため、読み込み時に空配列で補う。
-      proposal: row.proposal_json
-        ? (() => {
-            const p = JSON.parse(row.proposal_json) as AgentRun["proposal"];
-            if (!p) return undefined;
-            return {
-              ...p,
-              expansions: p.expansions ?? [],
-              challenges: p.challenges ?? [],
-            };
-          })()
-        : undefined,
-      suggestedActionItems: row.suggested_action_items_json ? JSON.parse(row.suggested_action_items_json) : undefined,
-      suggestedPriority: row.suggested_priority_json
-        ? parseSuggestedPriority(JSON.parse(row.suggested_priority_json))
-        : undefined,
-      // 旧DBはevidenceIssueIdsキーで永続化されているため、読み込み時に新キー名へ揃える。
-      suggestedThemes: row.suggested_themes_json
-        ? (JSON.parse(row.suggested_themes_json) as Array<SuggestedTheme & { evidenceIssueIds?: string[] }>).map(
-            (t) => ({ ...t, evidenceSuggestionIds: t.evidenceSuggestionIds ?? t.evidenceIssueIds }),
-          )
-        : undefined,
-      // 旧DBはキー名issueIdで永続化されているため、読み込み時に新キー名suggestionIdへ揃える。
-      suggestedSuggestionNotes: row.suggested_suggestion_notes_json
-        ? (JSON.parse(row.suggested_suggestion_notes_json) as Array<SuggestedSuggestionNote & { issueId?: string }>).map(
-            (n) => ({ suggestionId: n.suggestionId ?? n.issueId!, text: n.text }),
-          )
-        : undefined,
-      suggestedSuggestionUpdates: row.suggested_suggestion_updates_json
-        ? JSON.parse(row.suggested_suggestion_updates_json)
-        : undefined,
-      periodReview: row.period_review_json ? JSON.parse(row.period_review_json) : undefined,
-      totalCostUsd: row.total_cost_usd,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      consultedBy: row.consulted_by ?? undefined,
-      sourceJournalId: row.source_journal_id ?? undefined,
-      sourceReportId: row.source_report_id ?? undefined,
-      origin: (row.origin as AgentRun["origin"]) ?? "manual",
-      reviewed: !!row.reviewed,
-      triageStatus: (row.triage_status as AgentRun["triageStatus"]) ?? undefined,
-      triageAt: row.triage_at ?? undefined,
-      triageNextReviewAt: row.triage_next_review_at ?? undefined,
-      archivedAt: row.archived_at ?? undefined,
-    };
+  for (let run of agentRunRepository.loadAllRunsWithLogs()) {
     // "queued"（同時実行数の上限による起動待ち）もキュー自体がメモリ上にしか無いため、
     // "active"と同じく再起動をまたいで復元できない。
     if (run.status === "active" || run.status === "queued") {
-      const line: LogLine = { ts: Date.now(), channel: "system", text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。" };
+      const line: LogLine = {
+        ts: Date.now(),
+        channel: "system",
+        text: "サーバー再起動により実行状態が不明になったため、エラー扱いにしました。",
+      };
       run = { ...run, status: "error", updatedAt: line.ts, log: [...run.log, line] };
       insertRunLog(run.id, line);
       persistRunMeta(run);

@@ -1,10 +1,11 @@
-import { getDb } from "../db";
 import { periodWindow } from "../daily-trends";
 import { getDataDir } from "../persistence";
 import {
   createJsonScheduleMarkersRepository,
   type ScheduleMarkersRepository,
 } from "../persistence/adapters/json-schedule-markers-repository";
+import { createSqliteAgentRunRepository } from "../persistence/adapters/sqlite-agent-run-repository";
+import type { AgentRunRepository } from "./agent-run-repository";
 import { getSuggestion } from "../suggestion-store";
 import { isUnconfirmedNameCandidatesError, type MaskOptions } from "../name-candidate-confirmation";
 import { unmaskNames } from "../people-directory";
@@ -19,6 +20,7 @@ import { checkStaleRuns, persistRunMeta, runs, WATCHDOG_INTERVAL_MS } from "./st
 import type { AgentRun, PendingAgentStart } from "./types";
 
 let scheduleMarkers: ScheduleMarkersRepository = createJsonScheduleMarkersRepository();
+const agentRunQueries: AgentRunRepository = createSqliteAgentRunRepository();
 
 /** テスト用: スケジュールマーカー repo 差し替え。 */
 export function setScheduleMarkersRepositoryForTest(next: ScheduleMarkersRepository): void {
@@ -59,12 +61,7 @@ function saveLastAutoMorningSummaryDate(date: string): void {
  * start*()を呼んでよい。
  */
 function tryClaimAutoBatchSlot(claimKey: string): boolean {
-  try {
-    getDb().prepare("INSERT INTO auto_batch_claims (claim_key, claimed_at) VALUES (?, ?)").run(claimKey, Date.now());
-    return true;
-  } catch {
-    return false;
-  }
+  return scheduleMarkers.tryClaim(claimKey);
 }
 
 export function todayDateString(now: Date): string {
@@ -83,10 +80,7 @@ function hasOriginRunOnLocalDate(origin: AgentRun["origin"], date: string): bool
   for (const run of runs.values()) {
     if (run.origin === origin && run.createdAt >= start && run.createdAt < end) return true;
   }
-  const row = getDb()
-    .prepare("SELECT 1 AS ok FROM agent_runs WHERE origin = ? AND created_at >= ? AND created_at < ? LIMIT 1")
-    .get(origin, start, end) as { ok: number } | undefined;
-  return !!row;
+  return agentRunQueries.existsByOriginInRange(origin, start, end);
 }
 
 /** 指定ローカル日における origin run の最古 createdAt の「時」（0〜23）。無ければ null。 */
@@ -97,14 +91,8 @@ function earliestOriginRunLocalHour(origin: AgentRun["origin"], date: string): n
     if (run.origin !== origin || run.createdAt < start || run.createdAt >= end) continue;
     if (earliest == null || run.createdAt < earliest) earliest = run.createdAt;
   }
-  const row = getDb()
-    .prepare(
-      "SELECT MIN(created_at) AS t FROM agent_runs WHERE origin = ? AND created_at >= ? AND created_at < ?",
-    )
-    .get(origin, start, end) as { t: number | null } | undefined;
-  if (typeof row?.t === "number" && Number.isFinite(row.t)) {
-    if (earliest == null || row.t < earliest) earliest = row.t;
-  }
+  const fromDb = agentRunQueries.minCreatedAtByOriginInRange(origin, start, end);
+  if (fromDb != null && (earliest == null || fromDb < earliest)) earliest = fromDb;
   if (earliest == null) return null;
   return new Date(earliest).getHours();
 }
@@ -113,12 +101,10 @@ function hasOriginRunInIsoWeek(origin: AgentRun["origin"], week: string): boolea
   for (const run of runs.values()) {
     if (run.origin === origin && isoWeekKey(new Date(run.createdAt)) === week) return true;
   }
-  // 週境界の厳密スキャンは重いので、直近14日の DB 行だけ見て判定する。
   const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
-  const rows = getDb()
-    .prepare("SELECT created_at FROM agent_runs WHERE origin = ? AND created_at >= ?")
-    .all(origin, since) as Array<{ created_at: number }>;
-  return rows.some((r) => isoWeekKey(new Date(r.created_at)) === week);
+  return agentRunQueries
+    .listCreatedAtByOriginSince(origin, since)
+    .some((createdAt) => isoWeekKey(new Date(createdAt)) === week);
 }
 
 export function checkMorningSummary(): void {
@@ -311,13 +297,9 @@ function originRunWeekdaysInIsoWeek(origin: AgentRun["origin"], week: string): n
     if (isoWeekKey(new Date(run.createdAt)) !== week) continue;
     days.add(new Date(run.createdAt).getDay());
   }
-  // 週境界の厳密スキャンは重いので、直近14日の DB 行だけ見て補完する（hasOriginRunInIsoWeek と同方針）。
   const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
-  const rows = getDb()
-    .prepare("SELECT created_at FROM agent_runs WHERE origin = ? AND created_at >= ?")
-    .all(origin, since) as Array<{ created_at: number }>;
-  for (const r of rows) {
-    const created = new Date(r.created_at);
+  for (const createdAt of agentRunQueries.listCreatedAtByOriginSince(origin, since)) {
+    const created = new Date(createdAt);
     if (isoWeekKey(created) === week) days.add(created.getDay());
   }
   return [...days].sort((a, b) => a - b);
@@ -561,12 +543,10 @@ function hasOriginRunInMonth(origin: AgentRun["origin"], month: string): boolean
   for (const run of runs.values()) {
     if (run.origin === origin && monthKey(new Date(run.createdAt)) === month) return true;
   }
-  // 月境界の厳密スキャンは重いので、直近40日のDB行だけ見て判定する（hasOriginRunInIsoWeekと同方針）。
   const since = Date.now() - 40 * 24 * 60 * 60 * 1000;
-  const rows = getDb()
-    .prepare("SELECT created_at FROM agent_runs WHERE origin = ? AND created_at >= ?")
-    .all(origin, since) as Array<{ created_at: number }>;
-  return rows.some((r) => monthKey(new Date(r.created_at)) === month);
+  return agentRunQueries
+    .listCreatedAtByOriginSince(origin, since)
+    .some((createdAt) => monthKey(new Date(createdAt)) === month);
 }
 
 export function checkWeeklyReport(): void {

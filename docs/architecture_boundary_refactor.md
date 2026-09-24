@@ -131,7 +131,11 @@ Phase D1（パイロット）glossary
 
 ### 意図的に後回し
 
-`people-directory`、`knowledge-store`、`suggestion-store`、`journal-store`、`agent-runtime/store`（複雑・横断依存が大きい）。
+（SQLite 系も含め Phase D で段階導入済み。追加の npm 分割・独立パッケージ化は対象外のまま。）
+
+### SQLite 境界（JSON との差分）
+
+JSON は「ドキュメント load/save」、SQLite は **操作指向のドメイン Repository**（upsert / list / update…）が自然。SQL・行マッピング・テーブル名はアダプタのみ。共通抽象は `persistence/sqlite-executor.ts`（`run` / `all` / `get`）。ドメイン固有 port は汎用 `Repository<T>` に無理に統一しない。
 
 ---
 
@@ -152,4 +156,4 @@ Phase D1（パイロット）glossary
 | Phase A | 完了 | AgentRun 型を `@emther/core/agent-runtime` に一本化。run meta（`runFallbackTitle` / `runKindLabel` / `shouldOmitRunFromNextActions` / `isDraftAwaitingTriage` / `draftKindLabel`）を core へ。`daily-situation` / `today-state` / `dashboard-next-actions` を core 化し、NextAction/SituationItem は `target` を持ち web で `attach*Handlers` により onSelect 配線。STATUS_META と React コンポーネントは web 残留。`packages/core/src/agent-runtime.ts` は **ブラウザ安全な subset のみ**（types / run-meta）。サーバー用フルバレルは `@emther/core/agent-runtime/index`。 |
 | Phase B | 完了 | `AgentRunView`＝core `AgentRun`。id-resolve / mask-check / models-status を api-contract エンベロープ化（`satisfies`）。teams POST に寛容リクエスト parse。`core-type-drift.test.ts` で Team〜AgentRun 等の型一致を検知。settings/data/backup はバイナリのため契約外と README 明記。 |
 | Phase C | 完了 | `local-ml/`・`persistence/`・`observation-dump/` を新設。`cloud-chat` → `agent-runtime/`。旧 deep import はルート shim で互換維持。`types.ts` はルート据え置き（分割見送り）。 |
-| Phase D | 完了（JSON 系全体） | JSON ストアは port／アダプタ化済み（glossary〜org-context・theme・em-self・observation-dump・suggestion・people-directory・auto-* マーカー）。`json-document` + secure ヘルパ。未着手は SQLite 系（knowledge / report / person-* / agent-runtime/store）。 |
+| Phase D | 完了（JSON＋SQLite） | JSON 系は port／アダプタ化済み。SQLite: パイロット `person-concern-ack` → report / person-evaluation → 共通 `SqliteExecutor` → knowledge / agent-runtime store / scheduled-tasks の SQL もアダプタへ。ドメインは `getDb` を直接呼ばない。 |

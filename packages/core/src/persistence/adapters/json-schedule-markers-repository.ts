@@ -1,4 +1,5 @@
 import { createJsonSingletonDocument } from "../json-document";
+import { createSqliteExecutor, type SqliteExecutor } from "../sqlite-executor";
 
 export type DistillationPersistedRaw = {
   week?: string | null;
@@ -6,8 +7,8 @@ export type DistillationPersistedRaw = {
 };
 
 /**
- * 自動バッチの二重起動ガード用 JSON マーカー群。
- * ドメイン（scheduled-tasks）はファイル名を知らない。
+ * 自動バッチの二重起動ガード用 JSON マーカー群 + SQLite claim。
+ * ドメイン（scheduled-tasks）はファイル名 / SQL を知らない。
  */
 export type ScheduleMarkersRepository = {
   loadMorningSummaryDate(): string | null;
@@ -20,9 +21,13 @@ export type ScheduleMarkersRepository = {
   saveWeeklyReportWeek(week: string): void;
   loadMonthlyReportMonth(): string | null;
   saveMonthlyReportMonth(month: string): void;
+  /** プロセス横断の最終クレーム。UNIQUE 制約で最初の1件だけ成功。 */
+  tryClaim(claimKey: string, claimedAt?: number): boolean;
 };
 
-export function createJsonScheduleMarkersRepository(): ScheduleMarkersRepository {
+export function createJsonScheduleMarkersRepository(
+  db: SqliteExecutor = createSqliteExecutor(),
+): ScheduleMarkersRepository {
   const morning = createJsonSingletonDocument<{ date: string | null }>("auto-morning-summary.json", {
     date: null,
   });
@@ -46,5 +51,13 @@ export function createJsonScheduleMarkersRepository(): ScheduleMarkersRepository
     saveWeeklyReportWeek: (week) => weekly.save({ week }),
     loadMonthlyReportMonth: () => monthly.load().month,
     saveMonthlyReportMonth: (month) => monthly.save({ month }),
+    tryClaim(claimKey: string, claimedAt = Date.now()): boolean {
+      try {
+        db.run("INSERT INTO auto_batch_claims (claim_key, claimed_at) VALUES (?, ?)", claimKey, claimedAt);
+        return true;
+      } catch {
+        return false;
+      }
+    },
   };
 }
