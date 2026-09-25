@@ -1,20 +1,14 @@
 // アプリ公開のルーター API（ナビゲーション + ページ横断 search スキーマ）。
 // createAppRouter / routeTree は main から直接 import（循環参照防止）。
 export {
-  Link,
-  MemoryRouter,
-  Navigate,
   Outlet,
-  Route,
   RouterProvider,
-  Routes,
   ScrollRestoration,
   redirect,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "./navigation";
+} from "@tanstack/react-router";
+
+export { Link, MemoryRouter, Navigate, Route, Routes } from "./navigation";
+export { useLocation, useNavigate, useParams, useSearchParams } from "./navigationHooks";
 
 export { parsePlainSearch, stringifyPlainSearch } from "./plainSearch";
 export { validateSearchWith } from "./validateSearch";

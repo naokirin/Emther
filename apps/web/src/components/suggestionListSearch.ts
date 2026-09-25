@@ -4,7 +4,6 @@ import { z } from "zod";
 import {
   CONFIRM_PRIORITIES,
   SUGGESTION_REVIEW_STATUSES,
-  type ConfirmPriority,
   type SuggestionReviewStatus,
 } from "@emther/core/types";
 import { SUGGESTION_THEME_ALL, SUGGESTION_THEME_UNLINKED } from "./SuggestionThemeSwitcher";
