@@ -26034,6 +26034,3740 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "H9MsN",
+      "x": 7613,
+      "y": 7412,
+      "name": "比較: Goal階層 × Themes",
+      "width": 2680,
+      "fill": "$background",
+      "cornerRadius": 12,
+      "stroke": "$border",
+      "layout": "vertical",
+      "gap": 28,
+      "padding": 28,
+      "children": [
+        {
+          "type": "text",
+          "id": "ZdMYY",
+          "name": "Board Title",
+          "fill": "$foreground",
+          "content": "比較: Goal階層 × Themes（概要スキャン）",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "600"
+        },
+        {
+          "type": "text",
+          "id": "hByUn",
+          "name": "Board Sub",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "接続案3b（実辺・スキャン／フォーカス）を前提に、Goal↔Goal階層を足したとき Themes をどう置くかを並べる。サンプルは共通（親2・共有子1）。",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "NpAYD",
+          "name": "共通サンプル",
+          "width": "fill_container",
+          "fill": "$panel",
+          "cornerRadius": 8,
+          "stroke": "$border",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": 14,
+          "children": [
+            {
+              "type": "text",
+              "id": "ZMFlQ",
+              "name": "Sample H",
+              "fill": "$foreground",
+              "content": "共通サンプル",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "Uobhr",
+              "name": "Sample B",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "MVV → Goal P1『自律性』／Goal P2『信頼性』 → 共有子 Goal C『意思決定を速く』（parentGoalIds: P1,P2）。Theme: T-P1（P1のみ）／T-C1・T-C2（Cに紐づく）。未リンク Theme: U1。",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "S5TwOx",
+          "name": "比較軸",
+          "width": "fill_container",
+          "fill": "$panel",
+          "cornerRadius": 8,
+          "stroke": "$border",
+          "layout": "vertical",
+          "gap": 6,
+          "padding": 14,
+          "children": [
+            {
+              "type": "text",
+              "id": "EEWTp",
+              "name": "Axes H",
+              "fill": "$foreground",
+              "content": "比較軸",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "mXGCR",
+              "name": "Axes B",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "① Goal階層の見え方　② Themes の置き場（親／子／葉のみ）　③ 多対多で同一 Theme が重複しないか　④ 未リンク手入れが残るか　⑤ 件数耐性（縦長・横幅）　⑥ 3bの実辺ルールとの整合",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qCCZ2",
+          "name": "レイアウト案 行",
+          "width": "fill_container",
+          "gap": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Vb6rV",
+              "name": "案A 親列ネスト（Themesは各Goal下）",
+              "width": 860,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hx8UI",
+                  "name": "CardCode",
+                  "fill": "$foreground",
+                  "content": "案A · 親列ネスト（Themesは各Goal下）",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "HKgPw",
+                  "name": "CardBlurb",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "親列の中に子Goalを入れ、親・子どちらにも Themes 束ね枠を置く。共有子は親列ごとに重複表示。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "Uggya",
+                  "name": "Scan Body",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "J0zDZ",
+                      "name": "MVV",
+                      "fill": "$foreground",
+                      "content": "MVV · 自律的に価値を届ける組織",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tejkB",
+                      "name": "Edge ↓ Goal",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": [
+                        2,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 1,
+                          "id": "XrMIx",
+                          "name": "EdgeLine",
+                          "fill": "$blue",
+                          "width": 2,
+                          "height": 14
+                        },
+                        {
+                          "type": "text",
+                          "id": "VWs4X",
+                          "name": "EdgeLbl",
+                          "fill": "$blue",
+                          "content": "↓ Goal",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "igBnZ",
+                      "name": "Cols A",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "KbYJO",
+                          "name": "Col P1",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "V1WdST",
+                              "name": "Goal P1 自律性",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "nc2Hx",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P1 自律性",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "SPXFZ",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "親",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "PcH3W",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "l5f2M",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "nmPK2",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "eoVsn",
+                              "name": "Themes Themes · 1",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "kwKh3",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "GAg6J",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-P1 1on1の質",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "QdPBy",
+                              "name": "Edge ↓ 子Goal",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "Quycf",
+                                  "name": "EdgeLine",
+                                  "fill": "$blue",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "npV2K",
+                                  "name": "EdgeLbl",
+                                  "fill": "$blue",
+                                  "content": "↓ 子Goal",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Imb83",
+                              "name": "Goal C 意思決定を速く",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "mcvpm",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 意思決定を速く",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "w9Tmrj",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "共有子 · ここにも表示",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "R2J3j",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "zXPTe",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "ia1GB",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "wQxN2",
+                              "name": "Themes Themes · 2",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "hhpfx",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "dcAYR",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1 レビュー短縮",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "MXV2o",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2 決裁ルート",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "wWLVJ",
+                          "name": "Col P2",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Zw2GW",
+                              "name": "Goal P2 信頼性",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "KFaMW",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P2 信頼性",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "PAhX5",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "親",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dpmao",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "ILZjX",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "HjqEy",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FjvNj",
+                              "name": "Themes Themes · 0",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "BUWgV",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 0",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "WMpKJ",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· （なし）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Q2y4j",
+                              "name": "Edge ↓ 子Goal",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "p6oUI",
+                                  "name": "EdgeLine",
+                                  "fill": "$blue",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "HLZJM",
+                                  "name": "EdgeLbl",
+                                  "fill": "$blue",
+                                  "content": "↓ 子Goal",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dlf1A",
+                              "name": "Goal C 意思決定を速く",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "s1ljMu",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 意思決定を速く",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "FMbDm",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "共有子 · 重複",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "w0RF2",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "TBe6r",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "JyKKu",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "BV6Oi",
+                              "name": "Themes Themes · 2（重複）",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "SGzLg",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2（重複）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "gI4ny",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1 レビュー短縮",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "ZImhs",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2 決裁ルート",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "hwNBb",
+                  "name": "ProsCons A",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "+ 構造がそのまま見える　− 共有子・Themeが親数ぶん重複　− 列が縦に伸びやすい",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "j5j8vj",
+              "name": "案B 階層段＋Themesは葉のみ",
+              "width": 860,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hdkpZ",
+                  "name": "CardCode",
+                  "fill": "$foreground",
+                  "content": "案B · 階層段＋Themesは葉のみ",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "A8BTNb",
+                  "name": "CardBlurb",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "親段→子段の二段。Themes は葉（子）だけ。親直下 Theme は『葉でないGoalの注意』として別扱いが必要。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "YxGXn",
+                  "name": "Scan Body",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zTdoS",
+                      "name": "MVV",
+                      "fill": "$foreground",
+                      "content": "MVV · 自律的に価値を届ける組織",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fyrpW",
+                      "name": "Edge ↓ Goal",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": [
+                        2,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 1,
+                          "id": "kZtB9",
+                          "name": "EdgeLine",
+                          "fill": "$blue",
+                          "width": 2,
+                          "height": 14
+                        },
+                        {
+                          "type": "text",
+                          "id": "cRwP5",
+                          "name": "EdgeLbl",
+                          "fill": "$blue",
+                          "content": "↓ Goal",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "bVPZz",
+                      "name": "Tier1",
+                      "fill": "$text-muted",
+                      "content": "親段",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OfRCp",
+                      "name": "Parent Tier",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Z8n3L",
+                          "name": "Goal P1 自律性",
+                          "width": "fill_container",
+                          "fill": "$blue-bg",
+                          "cornerRadius": 6,
+                          "stroke": "$blue",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": [
+                            8,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "WRDKH",
+                              "name": "GLabel",
+                              "fill": "$blue-text",
+                              "content": "P1 自律性",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "FgUXY",
+                              "name": "GNote",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "親 · Themeなし",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rEJ1n",
+                          "name": "Goal P2 信頼性",
+                          "width": "fill_container",
+                          "fill": "$blue-bg",
+                          "cornerRadius": 6,
+                          "stroke": "$blue",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": [
+                            8,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "u50I7c",
+                              "name": "GLabel",
+                              "fill": "$blue-text",
+                              "content": "P2 信頼性",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "hnrzg",
+                              "name": "GNote",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "親 · Themeなし",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "F3MeM",
+                      "name": "Edge ↓ 子段",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": [
+                        2,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 1,
+                          "id": "cdCOw",
+                          "name": "EdgeLine",
+                          "fill": "$blue",
+                          "width": 2,
+                          "height": 14
+                        },
+                        {
+                          "type": "text",
+                          "id": "tPGas",
+                          "name": "EdgeLbl",
+                          "fill": "$blue",
+                          "content": "↓ 子段",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "K6q48",
+                      "name": "Tier2",
+                      "fill": "$text-muted",
+                      "content": "子段（葉）· C は共有子なので1列",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wzoac",
+                      "name": "Child Tier",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "JHjXd",
+                          "name": "Goal C 意思決定を速く",
+                          "width": "fill_container",
+                          "fill": "$blue-bg",
+                          "cornerRadius": 6,
+                          "stroke": "$blue",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": [
+                            8,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "xrUfC",
+                              "name": "GLabel",
+                              "fill": "$blue-text",
+                              "content": "C 意思決定を速く",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "OhOrh",
+                              "name": "GNote",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "葉 · parents: P1,P2",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Q2VBG",
+                          "name": "Edge ↓ Theme",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "padding": [
+                            2,
+                            0
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "BXfog",
+                              "name": "EdgeLine",
+                              "fill": "$green-fg",
+                              "width": 2,
+                              "height": 14
+                            },
+                            {
+                              "type": "text",
+                              "id": "F0BJxA",
+                              "name": "EdgeLbl",
+                              "fill": "$green-fg",
+                              "content": "↓ Theme",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "MK65j",
+                          "name": "Themes Themes · 2",
+                          "width": "fill_container",
+                          "fill": "$green-bg",
+                          "cornerRadius": 6,
+                          "stroke": "$green-border",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 8,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "WyzGa",
+                              "name": "THead",
+                              "fill": "$green-fg",
+                              "content": "Themes · 2",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "utTpB",
+                              "name": "TItem",
+                              "fill": "$foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "· T-C1 レビュー短縮",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "UBC7R",
+                              "name": "TItem",
+                              "fill": "$foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "· T-C2 決裁ルート",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "aHI9o",
+                      "name": "B Warn",
+                      "fill": "$yellow-fg",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "⚠ T-P1（親P1直下）の置き場が無い → 『親専用Theme』を捨てる／別レーン化する必要",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "BK4mk",
+                  "name": "ProsCons B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "+ 共有子の重複なし　+ 段が読みやすい　− 親直下Themeの扱いが要設計　− 深い階層で段が増える",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mNXwJ",
+              "name": "案C 実辺ラベル＋Themesは現状どおり",
+              "width": 860,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "G26I87",
+                  "name": "CardCode",
+                  "fill": "$foreground",
+                  "content": "案C · 実辺ラベル＋Themesは現状どおり",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "TXLGp",
+                  "name": "CardBlurb",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Goal列はフラット（現状）。親子は青辺のラベルやチップで示す。Themesは各Goal下（現状）。共有子列は1つ。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "Mrpbl",
+                  "name": "Scan Body",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lvOtY",
+                      "name": "MVV",
+                      "fill": "$foreground",
+                      "content": "MVV · 自律的に価値を届ける組織",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D3QVSP",
+                      "name": "Edge ↓ Goal",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": [
+                        2,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 1,
+                          "id": "BxcZR",
+                          "name": "EdgeLine",
+                          "fill": "$blue",
+                          "width": 2,
+                          "height": 14
+                        },
+                        {
+                          "type": "text",
+                          "id": "cngxk",
+                          "name": "EdgeLbl",
+                          "fill": "$blue",
+                          "content": "↓ Goal",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ggIZy",
+                      "name": "Cols C",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "D4AFxt",
+                          "name": "Col P1 自律性",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "TJx44",
+                              "name": "Goal P1 自律性",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "riR0e",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P1 自律性",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "W0OWkd",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "↑親 · 子: C",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "uHOeF",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "iBc2C",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "C16nUb",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "WW3YG",
+                              "name": "Themes Themes · 1",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "DzXfO",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "hIfZZ",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-P1 1on1の質",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "y1j1HD",
+                          "name": "Col P2 信頼性",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "eZJRV",
+                              "name": "Goal P2 信頼性",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "yJ1Re",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P2 信頼性",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "sztLw",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "↑親 · 子: C",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "oDqR1",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "Z8ViWH",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "O9OdE8",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "EWS7d",
+                              "name": "Themes Themes · 0",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "GjBOA",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 0",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "LNiWx",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· （なし）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KGTWB",
+                          "name": "Col C 意思決定を速く",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "BsKJ4",
+                              "name": "Goal C 意思決定を速く",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "jOLMi",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 意思決定を速く",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Nhzin",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "↑子 · parents: P1,P2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "t0X16",
+                              "name": "Edge ↓ Theme",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                2,
+                                0
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 1,
+                                  "id": "Y9mTGF",
+                                  "name": "EdgeLine",
+                                  "fill": "$green-fg",
+                                  "width": 2,
+                                  "height": 14
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "yI0zt",
+                                  "name": "EdgeLbl",
+                                  "fill": "$green-fg",
+                                  "content": "↓ Theme",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "LDyIJ",
+                              "name": "Themes Themes · 2",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "O65gNG",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "j87HG",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1 レビュー短縮",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "kBVXE",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2 決裁ルート",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "DKVpu",
+                  "name": "ProsCons C",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "+ 現行UIに近い　+ Theme重複なし　− 階層の『入れ子感』は弱い　− 親子辺をどう描くかが論点（列間の斜め辺？）",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "NI41U",
+          "name": "Section2 Title",
+          "fill": "$foreground",
+          "content": "論点2 · 多対多（共有子 C）のとき Themes をどう見せるか",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "600"
+        },
+        {
+          "type": "text",
+          "id": "mH6E5",
+          "name": "Section2 Sub",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "レイアウト案Aをベースに、共有子に紐づく Theme（T-C1/T-C2）の表示だけを変える。未リンク U1 は全案で辺なし黄色帯のまま。",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "RwTis",
+          "name": "多対多 Themes 行",
+          "width": "fill_container",
+          "gap": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "qrFzl",
+              "name": "M1 親ごとに重複表示",
+              "width": 860,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aITqH",
+                  "name": "H",
+                  "fill": "$foreground",
+                  "content": "M1 · 親ごとに重複表示",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "uqk80",
+                  "name": "B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "案Aの素直な帰結。P1列・P2列の両方に C と T-C* が出る。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "kDWdA",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "R9nkRA",
+                      "name": "cols",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "a2dkI",
+                          "name": "colP1",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "G1kzEa",
+                              "name": "Goal P1",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "W3fP3",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "eijxZ",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "親",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Izii0",
+                              "name": "Goal C 共有子",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "YRrBp",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 共有子",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "jU2Ro",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "重複",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fDvjE",
+                              "name": "Themes Themes · 2（重複）",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "GZwMn",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2（重複）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "qN9hk",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "qWV4o",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "lttZy",
+                          "name": "colP2",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "RogPj",
+                              "name": "Goal P2",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "yu5zu",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Q6gcGd",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "親",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fbPQC",
+                              "name": "Goal C 共有子",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "nLkl0",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 共有子",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "T4aEIY",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "重複",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "uDtzb",
+                              "name": "Themes Themes · 2（重複）",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Y3j2c",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2（重複）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "UfzLG",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "M7z1W",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "pfcFu",
+                      "name": "Themes 未リンク · 1",
+                      "width": "fill_container",
+                      "fill": "$yellow-bg",
+                      "cornerRadius": 6,
+                      "stroke": "$yellow-fg",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "dNgko",
+                          "name": "THead",
+                          "fill": "$yellow-fg",
+                          "content": "未リンク · 1",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "h4Ghz",
+                          "name": "TItem",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "· U1",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "PAdjs",
+                      "name": "pc",
+                      "fill": "$text-muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "− 同じ注意が二重に見え、件数感が膨らむ",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fLidY",
+              "name": "M2 代表親に1回だけ",
+              "width": 860,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "G7Ssl",
+                  "name": "H",
+                  "fill": "$foreground",
+                  "content": "M2 · 代表親に1回だけ",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "CvmME",
+                  "name": "B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "C と T-C* は代表親（例: 先頭 parentGoalId）側だけ。他親は『子: C →』参照チップ。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "ngrzU",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Pzo83",
+                      "name": "cols",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "pBYCc",
+                          "name": "colP1",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "bDR2Z",
+                              "name": "Goal P1",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "hcNEc",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "u1LQ3P",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "代表親",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "EEqRf",
+                              "name": "Goal C 共有子",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "E7lSK",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 共有子",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "IjQoG",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "本体はここ",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "MyJ4S",
+                              "name": "Themes Themes · 2",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "pVK52",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "qbrwK",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "xiCxm",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "pJhUT",
+                          "name": "colP2",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "QsC3s",
+                              "name": "Goal P2",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "hedQ8",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "AWWsJ",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "非代表",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "WMhl8",
+                              "name": "Ref",
+                              "width": "fill_container",
+                              "fill": "$gray-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$input-border",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "mG1pY",
+                                  "name": "RefT",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "子参照 · C（ThemesはP1側）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "zOllQ",
+                      "name": "Themes 未リンク · 1",
+                      "width": "fill_container",
+                      "fill": "$yellow-bg",
+                      "cornerRadius": 6,
+                      "stroke": "$yellow-fg",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ot95A",
+                          "name": "THead",
+                          "fill": "$yellow-fg",
+                          "content": "未リンク · 1",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Q4nWtV",
+                          "name": "TItem",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "· U1",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "qL8UG",
+                      "name": "pc",
+                      "fill": "$text-muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "+ 重複なし　− 代表親の決め方が恣意的　− 非代表親から Theme が見えにくい",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RJXcq",
+              "name": "M3 共有子を独立列（案C寄り）",
+              "width": 860,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 14,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "EzyIK",
+                  "name": "H",
+                  "fill": "$foreground",
+                  "content": "M3 · 共有子を独立列（案C寄り）",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "G0vlew",
+                  "name": "B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "C を独立列にし、親列からは親子ラベルのみ。ThemeはC列に1回。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "pUP5F",
+                  "name": "Body",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "LGE74",
+                      "name": "cols",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TB9rM",
+                          "name": "colP1",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "JEYSr",
+                              "name": "Goal P1",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "g268ad",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "acZfw",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "子: C",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "klGw8",
+                              "name": "Themes Themes · 1",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "MVvJv",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Ypk80",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-P1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "gOZ6h",
+                          "name": "colP2",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "cLYoq",
+                              "name": "Goal P2",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "RM1oA",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "P2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "y3Xn1e",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "子: C",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "OYe1w",
+                              "name": "Themes Themes · 0",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "mGld8",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 0",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "I0C249",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· （なし）",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "cRK4q",
+                          "name": "colC",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "DafJL",
+                              "name": "Goal C 共有子",
+                              "width": "fill_container",
+                              "fill": "$blue-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$blue",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                8,
+                                10
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "B2SxEI",
+                                  "name": "GLabel",
+                                  "fill": "$blue-text",
+                                  "content": "C 共有子",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "tWzRA",
+                                  "name": "GNote",
+                                  "fill": "$text-muted",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "parents: P1,P2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "uqneU",
+                              "name": "Themes Themes · 2",
+                              "width": "fill_container",
+                              "fill": "$green-bg",
+                              "cornerRadius": 6,
+                              "stroke": "$green-border",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "OaoXN",
+                                  "name": "THead",
+                                  "fill": "$green-fg",
+                                  "content": "Themes · 2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 9,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "K5YPWZ",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C1",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "c4sNk",
+                                  "name": "TItem",
+                                  "fill": "$foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "· T-C2",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "yQipr",
+                      "name": "Themes 未リンク · 1",
+                      "width": "fill_container",
+                      "fill": "$yellow-bg",
+                      "cornerRadius": 6,
+                      "stroke": "$yellow-fg",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "t44P2",
+                          "name": "THead",
+                          "fill": "$yellow-fg",
+                          "content": "未リンク · 1",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ZdYwd",
+                          "name": "TItem",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "· U1",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "giyjB",
+                      "name": "pc",
+                      "fill": "$text-muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "+ Theme重複なし　+ 親固有Themeも残る　− 親子の入れ子感は弱い（辺で補う）",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cWbK6",
+          "name": "方針メモ: 選び方",
+          "width": "fill_container",
+          "fill": "$panel",
+          "cornerRadius": 8,
+          "stroke": "$border",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": 14,
+          "children": [
+            {
+              "type": "text",
+              "id": "udKub",
+              "name": "DH",
+              "fill": "$foreground",
+              "content": "方針メモ · どう選ぶか（未決定）",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "nGD4e",
+              "name": "前提",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "n5ICR3",
+                  "name": "前提H",
+                  "fill": "$blue-text",
+                  "content": "前提",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "vBZlC",
+                  "name": "前提B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "接続案3b（実辺・スキャン↔フォーカス・未リンクは無辺）は維持。Goal↔Goal は青辺、Goal↔Theme は緑辺。",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "zezJ5",
+              "name": "レイアウト",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "veEzk",
+                  "name": "レイアウトH",
+                  "fill": "$blue-text",
+                  "content": "レイアウト",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "jbdPq",
+                  "name": "レイアウトB",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "案A=入れ子の強さ／案B=段の明快さ（親Theme問題）／案C=現行踏襲＋ラベル。件数と『階層を感じたい度』で選ぶ。",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Xmmeo",
+              "name": "多対多Themes",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "YwE7h",
+                  "name": "多対多ThemesH",
+                  "fill": "$blue-text",
+                  "content": "多対多Themes",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "O8sACF",
+                  "name": "多対多ThemesB",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "M1=素直だが重複／M2=代表親（恣意性）／M3=独立列（案Cと相性良）。Themeは『EMの注意』なので重複表示は避けたい方向が自然。",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OvEN7",
+              "name": "有力な組み合わせ",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rMNAX",
+                  "name": "有力な組み合わせH",
+                  "fill": "$blue-text",
+                  "content": "有力な組み合わせ",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Dgsls",
+                  "name": "有力な組み合わせB",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "検討候補① 案C + M3（フラット列＋共有子独立）　② 案A + M2（入れ子＋代表親で重複回避）。",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "EoH8z",
+              "name": "フォーカス",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aBfQZ",
+                  "name": "フォーカスH",
+                  "fill": "$blue-text",
+                  "content": "フォーカス",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "bibXq",
+                  "name": "フォーカスB",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "スキャンで選んだ1 Goalを拡大。親子・Themesはその Goal 基準で再構成（全体の重複問題はスキャン側の論点）。",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qx5lc",
+              "name": "次",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "J5LK4n",
+                  "name": "次H",
+                  "fill": "$blue-text",
+                  "content": "次",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "rWz1x",
+                  "name": "次B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "このボードを見てレイアウト案と多対多案を1つずつ選ぶ → 選んだ組み合わせで接続案3bスキャン／フォーカスを更新 → 実装。",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "u2oXt",
+              "name": "確定",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sg910",
+                  "name": "確定H",
+                  "fill": "$green-fg",
+                  "content": "確定（採用）",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "b45Tt",
+                  "name": "確定B",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "スキャンは Goal 階層＋Theme件数のみ。Themes 本体はフォーカス時。→ フレーム『確定: スキャン=Goal階層 / フォーカス=Themes』",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "At4Xc",
+      "x": 7613,
+      "y": 9256,
+      "name": "確定: スキャン=Goal階層 / フォーカス=Themes",
+      "width": 2480,
+      "fill": "$background",
+      "cornerRadius": 12,
+      "stroke": "$border",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 28,
+      "children": [
+        {
+          "type": "text",
+          "id": "Psg39",
+          "name": "Title",
+          "fill": "$foreground",
+          "content": "確定案 · スキャンは Goal 階層に注力／Themes はフォーカス時",
+          "fontFamily": "Inter",
+          "fontSize": 22,
+          "fontWeight": "600"
+        },
+        {
+          "type": "text",
+          "id": "c5TY3P",
+          "name": "Why",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "多対多の Goal 階層＋Theme 接続制限なしでは、スキャンで両方をきれいに見せるのは限界。スキャンでは Goal のみ（Theme 件数バッジ）に絞り、紐づく Theme 本体は 1 Goal フォーカスで点検する。未リンク Theme の手入れは Themes 一覧側。",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "CF3ML",
+          "name": "Screens Row",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Qjzrk",
+              "name": "スキャン（確定）",
+              "width": 1180,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sfh0O",
+                  "name": "SH",
+                  "fill": "$foreground",
+                  "content": "全体スキャン · Goal 階層のみ",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "PyCDu",
+                  "name": "SB",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "ルート Goal を列にし、子を青辺＋インデントでネスト。共有子（多対多）は親ごと重複表示し『共有』。Theme は件数バッジのみ。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "HS9hI",
+                  "name": "ScanBody",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RkXx6",
+                      "name": "MVV",
+                      "fill": "$foreground",
+                      "content": "錨 · MVV · 自律的に価値を届ける組織",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "y69zLL",
+                      "name": "BlueEdge",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        4,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 1,
+                          "id": "V0AFu",
+                          "name": "line",
+                          "fill": "$blue",
+                          "width": 2,
+                          "height": 16
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eaKsr",
+                      "name": "GoalCols",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "vZI8p",
+                          "name": "Goal G1 自律性",
+                          "width": "fill_container",
+                          "fill": "$blue-bg",
+                          "cornerRadius": 8,
+                          "stroke": "$blue",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "padding": [
+                            10,
+                            12
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "wJoml",
+                              "name": "id",
+                              "fill": "$blue-text",
+                              "content": "G1 自律性",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "XP3dQ",
+                              "name": "meta",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "↓子: G3",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "DplOl",
+                              "name": "badgeRow",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "s5pDIv",
+                                  "name": "ThemeCount",
+                                  "fill": "$green-bg",
+                                  "cornerRadius": 999,
+                                  "stroke": "$green-border",
+                                  "padding": [
+                                    3,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "R9eDdW",
+                                      "name": "bc",
+                                      "fill": "$green-fg",
+                                      "content": "Theme 1",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eVWtN",
+                          "name": "Goal G2 信頼性",
+                          "width": "fill_container",
+                          "fill": "$blue-bg",
+                          "cornerRadius": 8,
+                          "stroke": "$blue",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "padding": [
+                            10,
+                            12
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "DZxI0",
+                              "name": "id",
+                              "fill": "$blue-text",
+                              "content": "G2 信頼性",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "D2bAP",
+                              "name": "meta",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "↓子: G3",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "B3Et7D",
+                              "name": "badgeRow",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "XLR4D",
+                                  "name": "ThemeCount",
+                                  "fill": "$green-bg",
+                                  "cornerRadius": 999,
+                                  "stroke": "$green-border",
+                                  "padding": [
+                                    3,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Q45m2u",
+                                      "name": "bc",
+                                      "fill": "$green-fg",
+                                      "content": "Theme 0",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "w0WU2",
+                          "name": "Goal G3 意思決定を速く",
+                          "width": "fill_container",
+                          "fill": "$blue-bg",
+                          "cornerRadius": 8,
+                          "stroke": "$blue",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "padding": [
+                            10,
+                            12
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Y7fxq",
+                              "name": "id",
+                              "fill": "$blue-text",
+                              "content": "G3 意思決定を速く",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Es9Dl",
+                              "name": "meta",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "↑親: G1, G2",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Qw1Oc",
+                              "name": "badgeRow",
+                              "width": "fill_container",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "JNW94",
+                                  "name": "ThemeCount",
+                                  "fill": "$green-bg",
+                                  "cornerRadius": 999,
+                                  "stroke": "$green-border",
+                                  "padding": [
+                                    3,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "gGaQM",
+                                      "name": "bc",
+                                      "fill": "$green-fg",
+                                      "content": "Theme 2",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "rkTs6",
+                      "name": "Care",
+                      "fill": "$yellow-fg",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "手入れ · 未リンク Theme 2件 → Themes 一覧へ（スキャン上では列挙しない）",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dDW3q",
+                      "name": "Policy",
+                      "fill": "$text-muted",
+                      "content": "Policy 横断 · 2（変更なし）",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DQQVa",
+              "name": "フォーカス（確定）",
+              "width": 1180,
+              "fill": "$panel",
+              "cornerRadius": 8,
+              "stroke": "$border",
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AG3Jx",
+                  "name": "FH",
+                  "fill": "$foreground",
+                  "content": "1 Goal フォーカス · ここで Themes を出す",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "dd2S3",
+                  "name": "FB",
+                  "fill": "$text-muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "選んだ Goal の見出し＋補足、上下 Goal、紐づく Theme 全件。未リンク Theme はここに出さない（一覧側の手入れ）。",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "eN7XG",
+                  "name": "FocusBody",
+                  "width": "fill_container",
+                  "fill": "$gray-bg",
+                  "cornerRadius": 6,
+                  "stroke": "$gray-border",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": 14,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mvIxW",
+                      "name": "Back",
+                      "fill": "$blue-text",
+                      "content": "← スキャンへ",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "SwNGd",
+                      "name": "Parents",
+                      "fill": "$text-muted",
+                      "content": "上位 Goal · G1 自律性 · G2 信頼性",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "DloNC",
+                      "name": "MVVf",
+                      "fill": "$text-muted",
+                      "content": "MVV · 錨",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EB8zB",
+                      "name": "FocusGoal",
+                      "width": "fill_container",
+                      "fill": "$blue-bg",
+                      "cornerRadius": 8,
+                      "stroke": "$blue",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Hq9X4",
+                          "name": "fgId",
+                          "fill": "$blue-text",
+                          "content": "G3 · フォーカス中 · Theme 2",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "V2Ozg",
+                          "name": "fgTitle",
+                          "fill": "$foreground",
+                          "content": "意思決定を速くする",
+                          "fontFamily": "Inter",
+                          "fontSize": 16,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "QktbP",
+                          "name": "fgElab",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "レビューと決裁の待ちを減らす",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "w2n8lc",
+                      "name": "GreenEdge",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "padding": [
+                        2,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 1,
+                          "id": "vi34j",
+                          "name": "gline",
+                          "fill": "$green-fg",
+                          "width": 2,
+                          "height": 14
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "j3XYrx",
+                      "name": "ThemeRow",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "K4EX8",
+                          "name": "T-C1 レビュー短縮",
+                          "width": "fill_container",
+                          "fill": "$green-bg",
+                          "cornerRadius": 6,
+                          "stroke": "$green-border",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Bn9nh",
+                              "name": "tk",
+                              "fill": "$green-fg",
+                              "content": "Theme · EMの焦点",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "J8UZAa",
+                              "name": "tt",
+                              "fill": "$foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "T-C1 レビュー短縮",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "wuhGS",
+                              "name": "ts",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "待ち時間を測る",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JYs2l",
+                          "name": "T-C2 決裁ルート",
+                          "width": "fill_container",
+                          "fill": "$green-bg",
+                          "cornerRadius": 6,
+                          "stroke": "$green-border",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "eWPmm",
+                              "name": "tk",
+                              "fill": "$green-fg",
+                              "content": "Theme · EMの焦点",
+                              "fontFamily": "Inter",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Xz86p",
+                              "name": "tt",
+                              "fill": "$foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "T-C2 決裁ルート",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "EJze3",
+                              "name": "ts",
+                              "fill": "$text-muted",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "誰が止めるかを明示",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "UnLCw",
+                      "name": "Pol",
+                      "fill": "$text-muted",
+                      "content": "Policy 横断 · 2",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ORd1S",
+          "name": "確定ルール",
+          "width": "fill_container",
+          "fill": "$panel",
+          "cornerRadius": 8,
+          "stroke": "$border",
+          "layout": "vertical",
+          "gap": 6,
+          "padding": 14,
+          "children": [
+            {
+              "type": "text",
+              "id": "z8xb3",
+              "name": "RH",
+              "fill": "$foreground",
+              "content": "確定ルール",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "o5cejj",
+              "name": "r",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "· スキャン: Goal ノード＋親子ラベル＋Theme件数。緑辺・Themes束ね枠・未リンクTheme列挙は置かない。",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "QFFy7",
+              "name": "r",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "· フォーカス: 選んだ Goal の Theme 全件を緑辺で表示。上位／下位 Goal への導線を出す。",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "d7l0hH",
+              "name": "r",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "· 未リンク Theme の手入れは Themes 一覧（スキャンは件数リンク程度の導線のみ可）。",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "yJg5e",
+              "name": "r",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "· 比較ボードの案C＋件数バッジに近い。多対多でもスキャンが破綻しにくい。",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "muxtW",
+              "name": "r hierarchy",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "· スキャンの Goal はルート列＋子ネストの森表示（閉路なし前提）。共有子は親列ごとに重複し『共有』表記。Themes 本体は引き続きフォーカス時のみ。",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {
