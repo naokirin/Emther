@@ -21,6 +21,7 @@ import { buildGlossaryContextBlock } from "../glossary-store";
 import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "../types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import { LENS_USAGE_GUIDANCE, METHODOLOGY_CANDIDATE_GUIDANCE, PHILOSOPHY_LENSES } from "./philosophy-lenses";
+import { buildObservationCoverageBlock } from "./observation-coverage";
 import {
   buildDistillationContextBlock,
   buildGrowContextBlock,
@@ -576,13 +577,22 @@ export function buildSystemPrompt(
     "",
     ...LENS_USAGE_GUIDANCE,
     "",
-    // いきなり解決策に飛ばず Expand → Challenge → Suggest。
+    // いきなり解決策に飛ばず Expand → Challenge → Explore → Suggest。
     // Lens SelectionとHypothesisを明示ステップとして追加。
-    "分析の順序（Observe / Remember / Interpret → Lens Selection → Expand → Challenge → Hypothesis → Scope Check のあと、Suggestの前に必ず通すこと）:",
+    "分析の順序（Observe / Remember / Interpret → Lens Selection → Expand → Challenge → Explore → Hypothesis → Scope Check のあと、Suggestの前に必ず通すこと）:",
     "- Lens Selection: 上記の哲学レンズのうち、この状況に有効そうなものを判断して選ぶ（個数のノルマは無い。1つも無理に使わなくてよいし、複数が同時に効くならその分だけ使ってよい）。",
     "- Expand: 選んだレンズを使い、現在のEMの認識・仮説から離れて、別の解釈・別の仮説・見えていない情報・別の問題設定・過去記録やチーム全体から見える可能性を列挙する（EMの仮説を否定するのではなく「他にもこういう見方があり得る」を示す）。レンズ同士で異なる解釈・矛盾する見立てがあれば、それも書く。",
     "- Challenge: 選んだレンズを使い、前提・事実と解釈の混同・別原因の可能性・EM自身の影響・「本当に解くべき問題か」を問い直す（批判ではなく問題設定の精度向上のため）。",
-    "- Hypothesis: Expand/Challengeを踏まえて結論（仮説）を形づくる。まだ断定できない場合は、結論を仮説のまま扱ってよい（recommendation: watch、またはyieldのkind: decide/informを使う）。",
+    "- Explore: 現在の入力・Expand/Challengeから一歩離れ、「EMが見ていない重要なものはないか」を検討する。観測カバレッジ要約・Goal / Policy / Theme・過去Journalを材料に、次の観点で候補を挙げ、関連性・重要性・新規性で最大3件に絞る（無関係な領域は出さない）:",
+    "  - blind_spot: 重要そうだが最近ほとんど観測されていない領域",
+    "  - missing_evidence: 主張・認識はあるが裏付け観測が不足",
+    "  - contradiction: 複数記録から認識と別のシグナルがある",
+    "  - drift: 以前は扱われていた重要テーマが最近の記録から消えている",
+    "  - unexplored_area: Goal / Policy / Theme上重要そうだがほとんど観測されていない",
+    "  Expand（別解釈）や Challenge（前提への問い）と混同しないこと。Exploreは思考空間の外側の観測ギャップを探す。",
+    "  「重要課題です。解決すべきです」と断定しない。観測ギャップ・確認したいこととして書く。必ずSuggestionにする必要はない（recommendation: watch や confirmationQuestion でよい）。",
+    "  記録が少ない＝問題、ではない。Goal/Policy/過去記録との関連が弱い候補は提示しない。",
+    "- Hypothesis: Expand/Challenge/Exploreを踏まえて結論（仮説）を形づくる。まだ断定できない場合は、結論を仮説のまま扱ってよい（recommendation: watch、またはyieldのkind: decide/informを使う）。",
     "- Scope Check（必須）: 元のタスク・問いが想定しているスケール（個人 / チーム / 組織全体）を判定する。注入された参考情報（人物ファクト・Journal・類似提案等）の中に、それより小さいスケールの個別事象（例: 特定の1人の1回の予定変更）が混ざっている場合、それを結論の主語や解決策そのものにしないこと。個別事象は「一事例」としてfacts/logicで引用する程度に留め、結論（conclusion）の粒度は元の問いのスケールに合わせる。複数人・複数件で同じ構造が繰り返し観測されている場合に限り、それを一般化した結論の根拠として使ってよい。",
     "- Suggest: Scope Checkを踏まえ、元の問いのスケールに見合った結論を出す。解決策だけに限らず、次に観測・確認・考えるべき点でもよい。",
     "- 入力の要約・言い換えだけで終わらせないこと。「心理的安全性」「1on1」など一般論の羅列も避けること。蓄積された具体的な記録に根ざした発見を優先する。",
@@ -599,6 +609,14 @@ export function buildSystemPrompt(
     '  "logic": "その結論に至った判断ロジック",',
     '  "expansions": ["別の解釈・仮説・不足情報・別問題設定など（Expand。無い場合は空配列）"],',
     '  "challenges": ["前提・思い込み・問題設定への問い（Challenge。無い場合は空配列）"],',
+    '  "explorations": [',
+    "    {",
+    '      "kind": "blind_spot | missing_evidence | contradiction | drift | unexplored_area",',
+    '      "observation": "観測ギャップの記述（断定しない）",',
+    '      "relevance": "Goal/Policy/記録との関連性",',
+    '      "confirmationQuestion": "EMへの確認質問（任意）"',
+    "    }",
+    "  ],",
     '  "lensesUsed": [ { "lens": "実際に使った哲学レンズ名（例: Systems Thinking）", "insight": "そのレンズで見て気づいたこと（一言）" } ],',
     '  "rejectedAlternatives": [ { "option": "検討したが採用しなかった案", "reason": "棄却理由" } ],',
     '  "recommendation": "suggestion | dismiss | watch  （任意。EMが提案として残すべきかのときだけ。次の観測・確認が主眼なら watch）",',
@@ -623,6 +641,7 @@ export function buildSystemPrompt(
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
     "expansions / challenges は状況分析では原則1件以上を書く（本当に無いときだけ空配列）。rejectedAlternatives（行動案の棄却）と混同しないこと。",
+    "explorations は最大3件。Exploreで意味のある観測ギャップが無いときは空配列。expansions / challenges と役割を混ぜないこと。",
     "lensesUsed は任意です。expansions / challengesの根拠として明確に使ったレンズがあれば書いてください（監査・振り返りに使えます）。無理に埋めず、無ければ省略してください。",
     '提案として残すことを勧める場合（recommendation: "suggestion"）は、短いタイトルを付けてください。',
     "- 論点が1つなら suggestionTitle のみ。別チーム・別KR・別の観測に分かれるなら suggestionCandidates に最大5件まで列挙すること。",
@@ -664,6 +683,7 @@ export function buildSystemPrompt(
   const backgroundContext = buildOrgBackgroundBlock(runId, rawText);
   const themesContext = buildThemesContextBlock();
   const glossaryContext = buildGlossaryContextBlock();
+  const observationCoverageContext = buildObservationCoverageBlock();
   // 状況蒸留・朝サマリー: 材料は task ではなくここで注入（task を短く保ち相談履歴に載せるため）。
   // 再開（decideRun）でも origin 判定だけで再注入する。
   const run = runId ? runs.get(runId) : undefined;
@@ -697,6 +717,7 @@ export function buildSystemPrompt(
     backgroundContext,
     themesContext,
     glossaryContext,
+    observationCoverageContext,
   ]
     .filter(Boolean)
     .join("\n\n");

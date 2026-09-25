@@ -238,6 +238,7 @@ describe("POST /api/suggestions", () => {
       rejectedAlternatives: [],
       expansions: ["別の問題設定もあり得る"],
       challenges: ["本当に発言量が問題か"],
+      explorations: [],
       advice: "計画のアドバイス",
     });
     const { suggestionsRoute } = await import("./suggestions");
@@ -405,6 +406,7 @@ describe("PATCH /api/suggestions/:id refreshDetailFromRunId", () => {
       rejectedAlternatives: [],
       expansions: [],
       challenges: [],
+      explorations: [],
     });
     const { suggestionsRoute } = await import("./suggestions");
     const res = await suggestionsRoute.request(`/${s.id}`, patch({ refreshDetailFromRunId: "run-updated" }));

@@ -87,6 +87,7 @@ export const suggestionsRoute = new Hono()
           logic: sourceRun.proposal.logic,
           ...(sourceRun.proposal.expansions?.length ? { expansions: sourceRun.proposal.expansions } : {}),
           ...(sourceRun.proposal.challenges?.length ? { challenges: sourceRun.proposal.challenges } : {}),
+          ...(sourceRun.proposal.explorations?.length ? { explorations: sourceRun.proposal.explorations } : {}),
           ...adviceFieldsFromProposal(sourceRun.proposal),
         }
       : undefined;
@@ -297,6 +298,7 @@ export const suggestionsRoute = new Hono()
             logic: run.proposal.logic,
             ...(run.proposal.expansions?.length ? { expansions: run.proposal.expansions } : {}),
             ...(run.proposal.challenges?.length ? { challenges: run.proposal.challenges } : {}),
+            ...(run.proposal.explorations?.length ? { explorations: run.proposal.explorations } : {}),
             ...adviceFieldsFromProposal(run.proposal),
           }) ?? suggestion;
       }

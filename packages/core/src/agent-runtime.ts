@@ -9,6 +9,8 @@ export type {
   AgentStatus,
   ConsultRequest,
   SuggestionCandidate,
+  ExplorationFinding,
+  ExplorationKind,
   LogLine,
   PendingAgentStart,
   PendingAgentStartKind,
@@ -24,7 +26,7 @@ export type {
   YieldOption,
   YieldRequest,
 } from "./agent-runtime/types";
-export { originLabel } from "./agent-runtime/types";
+export { EXPLORATION_KINDS, EXPLORATION_MAX_FINDINGS, originLabel } from "./agent-runtime/types";
 
 export {
   draftKindLabel,

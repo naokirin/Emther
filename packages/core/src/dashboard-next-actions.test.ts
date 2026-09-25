@@ -81,6 +81,7 @@ function proposal(conclusion: string) {
     rejectedAlternatives: [] as { option: string; reason: string }[],
     expansions: [] as string[],
     challenges: [] as string[],
+    explorations: [],
     recommendation: "suggestion" as const,
   };
 }

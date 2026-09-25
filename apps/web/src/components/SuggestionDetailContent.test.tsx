@@ -157,7 +157,7 @@ describe("SuggestionDetailContent", () => {
     expect(screen.getByText("旧メモ")).toBeInTheDocument();
   });
 
-  it("詳細を結論・進め方 / 問い直し / 根拠のタブで切り替える", async () => {
+  it("詳細を結論・進め方 / 問い直し / 探索 / 根拠のタブで切り替える", async () => {
     suggestion = baseSuggestion({
       detail: {
         conclusion: "結論本文",
@@ -165,6 +165,14 @@ describe("SuggestionDetailContent", () => {
         logic: "判断の筋道",
         expansions: ["別視点"],
         challenges: ["前提は妥当か"],
+        explorations: [
+          {
+            kind: "blind_spot",
+            observation: "User Valueの観測が少ない",
+            relevance: "Goalに成果が含まれる",
+            confirmationQuestion: "最近User Valueに変化はありましたか？",
+          },
+        ],
         updatedAt: 1,
       },
     });
@@ -174,14 +182,21 @@ describe("SuggestionDetailContent", () => {
     expect(await screen.findByText("結論本文")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "結論・進め方" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "問い直し（2）" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "探索（1）" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "根拠（3）" })).toBeInTheDocument();
     expect(screen.queryByText("別視点")).not.toBeInTheDocument();
     expect(screen.queryByText("事実A")).not.toBeInTheDocument();
+    expect(screen.queryByText("User Valueの観測が少ない")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "問い直し（2）" }));
     expect(screen.getByText("別視点")).toBeInTheDocument();
     expect(screen.getByText("前提は妥当か")).toBeInTheDocument();
     expect(screen.queryByText("結論本文")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "探索（1）" }));
+    expect(screen.getByText("User Valueの観測が少ない")).toBeInTheDocument();
+    expect(screen.getByText("最近User Valueに変化はありましたか？")).toBeInTheDocument();
+    expect(screen.getByText("観測の偏り")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "根拠（3）" }));
     expect(screen.getByText("事実A")).toBeInTheDocument();

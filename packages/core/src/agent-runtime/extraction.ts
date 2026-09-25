@@ -13,6 +13,8 @@ import type {
   AgentRun,
   ConsultRequest,
   SuggestionCandidate,
+  ExplorationFinding,
+  ExplorationKind,
   LensUsage,
   PeriodReview,
   PeriodReviewBlindSpot,
@@ -24,8 +26,38 @@ import type {
   YieldOption,
   YieldRequest,
 } from "./types";
+import { EXPLORATION_KINDS, EXPLORATION_MAX_FINDINGS } from "./types";
 
 const PERIOD_REVIEW_ASSESSMENTS = ["improved", "worsened", "changed", "uncertain"] as const;
+const EXPLORATION_KIND_SET = new Set<string>(EXPLORATION_KINDS);
+
+function normalizeExplorations(parsed: unknown): ExplorationFinding[] {
+  if (!Array.isArray(parsed)) return [];
+  const out: ExplorationFinding[] = [];
+  for (const entry of parsed) {
+    if (out.length >= EXPLORATION_MAX_FINDINGS) break;
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as {
+      kind?: unknown;
+      observation?: unknown;
+      relevance?: unknown;
+      confirmationQuestion?: unknown;
+    };
+    if (typeof raw.kind !== "string" || !EXPLORATION_KIND_SET.has(raw.kind)) continue;
+    if (typeof raw.observation !== "string" || !raw.observation.trim()) continue;
+    if (typeof raw.relevance !== "string" || !raw.relevance.trim()) continue;
+    const finding: ExplorationFinding = {
+      kind: raw.kind as ExplorationKind,
+      observation: raw.observation.trim(),
+      relevance: raw.relevance.trim(),
+    };
+    if (typeof raw.confirmationQuestion === "string" && raw.confirmationQuestion.trim()) {
+      finding.confirmationQuestion = raw.confirmationQuestion.trim();
+    }
+    out.push(finding);
+  }
+  return out;
+}
 
 /** proposal から起票用タイトル候補を返す。suggestionCandidates があればそれを使い、無ければ suggestionTitle 1件。 */
 export function listSuggestionCandidatesFromProposal(proposal?: Proposal | null): SuggestionCandidate[] {
@@ -109,7 +141,7 @@ function normalizeStringList(parsed: unknown): string[] {
 }
 
 // 結論・参照ファクト・判断ロジック・棄却した代替案を
-// 必ず含めさせる。 で expansions / challenges を追加
+// 必ず含めさせる。 で expansions / challenges / explorations を追加
 // （欠落時は空配列＝旧run互換）。抽出できない（規約に従わなかった）場合はundefinedを返し、
 // UI側は素のテキストログのみを表示する（無理に構造化して見せない）。
 export function extractProposal(resultText: string): Proposal | undefined {
@@ -142,6 +174,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
           : [],
         expansions: normalizeStringList(parsed.expansions),
         challenges: normalizeStringList(parsed.challenges),
+        explorations: normalizeExplorations(parsed.explorations),
         ...(recommendation ? { recommendation } : {}),
         ...(suggestionTitle ? { suggestionTitle } : {}),
         ...(suggestionCandidates ? { suggestionCandidates } : {}),

@@ -5,6 +5,7 @@ import type { AgentRun } from "@emther/core/agent-runtime";
 import { CopilotChat, ExecutionState } from "./RunDetail";
 import { AdviceBlock } from "./AdviceBlock";
 import { IdLinkedText } from "./IdLinkedText";
+import { ExplorationFindingsList } from "./run-detail/ExplorationFindingsList";
 import { OriginTrace } from "./OriginTrace";
 import { PendingAgentStartNotice } from "./PendingAgentStartNotice";
 import { Select } from "./Select";
@@ -91,9 +92,9 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const [detailDraftAdvice, setDetailDraftAdvice] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
-  // 案B。詳細を「結論・進め方 / 問い直し / 根拠」に分割し
-  // Expand・Challenge を Collapse に埋めず専用タブへ出す
-  const [detailTab, setDetailTab] = useState<"conclusion" | "rethink" | "evidence">("conclusion");
+  // 案B。詳細を「結論・進め方 / 問い直し / 探索 / 根拠」に分割し
+  // Expand・Challenge・Explore を Collapse に埋めず専用タブへ出す
+  const [detailTab, setDetailTab] = useState<"conclusion" | "rethink" | "explore" | "evidence">("conclusion");
   const [columnsMode, setColumnsMode] = useState<"split" | "agent" | "chat">("split");
   const [mdCopied, setMdCopied] = useState(false);
   const [mdDownloaded, setMdDownloaded] = useState(false);
@@ -276,11 +277,14 @@ export function SuggestionDetailContent({ id }: { id: string }) {
   const trail = buildSuggestionStrategyTrail({ id: suggestion.id, title: suggestion.title });
   const detailExpansions = suggestion.detail?.expansions ?? [];
   const detailChallenges = suggestion.detail?.challenges ?? [];
+  const detailExplorations = suggestion.detail?.explorations ?? [];
   const rethinkCount = detailExpansions.length + detailChallenges.length;
+  const exploreCount = detailExplorations.length;
   const evidenceCount = suggestion.detail
     ? suggestion.detail.facts.length + (suggestion.detail.logic.trim() ? 1 : 0)
     : 0;
   const rethinkTabLabel = rethinkCount > 0 ? `問い直し（${rethinkCount}）` : "問い直し";
+  const exploreTabLabel = exploreCount > 0 ? `探索（${exploreCount}）` : "探索";
   const evidenceTabLabel = evidenceCount > 0 ? `根拠（${evidenceCount}）` : "根拠";
 
   return (
@@ -594,6 +598,15 @@ export function SuggestionDetailContent({ id }: { id: string }) {
               <button
                 type="button"
                 role="tab"
+                aria-selected={detailTab === "explore"}
+                className={`${styles.tabBtn} ${detailTab === "explore" ? styles.tabBtnActive : ""}`}
+                onClick={() => setDetailTab("explore")}
+              >
+                {exploreTabLabel}
+              </button>
+              <button
+                type="button"
+                role="tab"
                 aria-selected={detailTab === "evidence"}
                 className={`${styles.tabBtn} ${detailTab === "evidence" ? styles.tabBtnActive : ""}`}
                 onClick={() => setDetailTab("evidence")}
@@ -679,6 +692,15 @@ export function SuggestionDetailContent({ id }: { id: string }) {
                     )}
                   </>
                 )}
+              </div>
+            )}
+
+            {detailTab === "explore" && (
+              <div style={{ marginBottom: 12 }}>
+                <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+                  現在の思考の外側で、まだ見えていない可能性のある観測ギャップです。重要課題と断定するものではありません。
+                </p>
+                <ExplorationFindingsList findings={detailExplorations} />
               </div>
             )}
 

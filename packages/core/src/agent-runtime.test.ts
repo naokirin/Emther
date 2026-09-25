@@ -197,6 +197,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
       rejectedAlternatives: [{ option: "案B", reason: "コスト大" }],
       expansions: [],
       challenges: [],
+      explorations: [],
     });
   });
 
@@ -211,6 +212,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
         rejectedAlternatives: [],
         expansions: ["チーム全体で発言が減っている可能性", "  ", 123],
         challenges: ["発言量自体が問題なのか"],
+        explorations: [],
       }),
       "```",
     ].join("\n");
@@ -221,7 +223,47 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
       rejectedAlternatives: [],
       expansions: ["チーム全体で発言が減っている可能性"],
       challenges: ["発言量自体が問題なのか"],
+      explorations: [],
     });
+  });
+
+  it("extractProposalはexplorationsを拾い上限3・不正kindをスキップする", async () => {
+    const rt = await loadModule();
+    const text = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
+        explorations: [
+          {
+            kind: "blind_spot",
+            observation: "User Valueの観測が少ない",
+            relevance: "Goalに成果が含まれる",
+            confirmationQuestion: "最近User Valueに変化はありましたか？",
+          },
+          { kind: "not_a_kind", observation: "不正", relevance: "x" },
+          { kind: "drift", observation: "  ", relevance: "空観測" },
+          { kind: "contradiction", observation: "速度向上とレビュー待ち増", relevance: "同時期の記録" },
+          { kind: "missing_evidence", observation: "主張のみ", relevance: "記録不足" },
+          { kind: "unexplored_area", observation: "4件目は落ちる", relevance: "上限" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+    expect(rt.extractProposal(text)?.explorations).toEqual([
+      {
+        kind: "blind_spot",
+        observation: "User Valueの観測が少ない",
+        relevance: "Goalに成果が含まれる",
+        confirmationQuestion: "最近User Valueに変化はありましたか？",
+      },
+      { kind: "contradiction", observation: "速度向上とレビュー待ち増", relevance: "同時期の記録" },
+      { kind: "missing_evidence", observation: "主張のみ", relevance: "記録不足" },
+    ]);
   });
 
   it("extractProposalはrecommendationを拾う", async () => {
@@ -315,6 +357,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
         recommendation: "suggestion",
         suggestionCandidates: [
           { title: "燃え尽きへの介入", rationale: "個人軸" },
@@ -343,6 +386,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
         suggestionTitle: "代表",
         suggestionCandidates: [{ title: "A" }, { title: "B" }],
       }),
@@ -355,6 +399,7 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
         suggestionTitle: "単一",
       }),
     ).toEqual([{ title: "単一" }]);
@@ -976,6 +1021,18 @@ describe("buildSuggestionContextBlock / buildTeamCharterBlock / buildInterventio
 });
 
 describe("buildSystemPrompt", () => {
+  it("Lead AgentのプロンプトにExpand/Challenge/Exploreとexplorationsスキーマが含まれる", async () => {
+    const orgStore = await import("./org-context-store/index");
+    await orgStore.addGoal({ title: "プロダクト価値を届ける" });
+    const rt = await loadModule();
+    const prompt = rt.buildSystemPrompt("Lead Agent", true);
+    expect(prompt).toContain("Expand → Challenge → Explore");
+    expect(prompt).toContain('"explorations"');
+    expect(prompt).toContain("blind_spot");
+    expect(prompt).toContain("unexplored_area");
+    expect(prompt).toContain("観測カバレッジ要約");
+  });
+
   it("Lead Agent + allowConsult:trueの場合はconsultブロックの説明を含む", async () => {
     const rt = await loadModule();
     const prompt = rt.buildSystemPrompt("Lead Agent", true);
@@ -990,6 +1047,10 @@ describe("buildSystemPrompt", () => {
     for (const prompt of [lead, people]) {
       expect(prompt).toContain("Lens Selection");
       expect(prompt).toContain("Hypothesis");
+      expect(prompt).toContain("Expand → Challenge → Explore");
+      expect(prompt).toContain('"explorations"');
+      expect(prompt).toContain("blind_spot");
+      expect(prompt).toContain("unexplored_area");
       expect(prompt).toContain("Agile");
       expect(prompt).toContain("Scrum / Empiricism");
       expect(prompt).toContain("Lean");

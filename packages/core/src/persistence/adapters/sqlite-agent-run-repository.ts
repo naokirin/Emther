@@ -63,6 +63,7 @@ function rowToRun(row: AgentRunRow, log: LogLine[]): AgentRun {
             ...p,
             expansions: p.expansions ?? [],
             challenges: p.challenges ?? [],
+            explorations: p.explorations ?? [],
           };
         })()
       : undefined,

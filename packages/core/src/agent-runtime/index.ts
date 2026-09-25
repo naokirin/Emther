@@ -19,6 +19,8 @@ export type {
   AgentStatus,
   ConsultRequest,
   SuggestionCandidate,
+  ExplorationFinding,
+  ExplorationKind,
   LogLine,
   PendingAgentStart,
   PendingAgentStartKind,
@@ -34,7 +36,7 @@ export type {
   YieldOption,
   YieldRequest,
 } from "./types";
-export { originLabel } from "./types";
+export { EXPLORATION_KINDS, EXPLORATION_MAX_FINDINGS, originLabel } from "./types";
 
 export {
   draftKindLabel,
@@ -93,6 +95,14 @@ export {
   relevantTeams,
   selectRelatedSpecialists,
 } from "./context-blocks";
+
+export {
+  buildObservationCoverageBlock,
+  computeObservationCoverage,
+  COVERAGE_LOOKBACK_DAYS,
+  COVERAGE_PRIOR_DAYS,
+  COVERAGE_RECENT_DAYS,
+} from "./observation-coverage";
 
 export {
   buildDistillationContextBlock,

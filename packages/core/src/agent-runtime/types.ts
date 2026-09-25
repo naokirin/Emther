@@ -3,6 +3,8 @@ import type { LookupRequest } from "../agent-knowledge-tools";
 import type { AdviceStructured } from "../advice";
 import type {
   ConfirmPriority,
+  ExplorationFinding,
+  ExplorationKind,
   PendingAgentStart,
   PendingAgentStartKind,
   PendingUnmaskedSend,
@@ -11,6 +13,7 @@ import type {
 } from "../types";
 
 export type { PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend };
+export type { ExplorationFinding, ExplorationKind };
 
 // "queued"は同時実行数の上限（settings-store.tsのmaxParallelAgentRuns）に達しているため、
 // CLI子プロセスの起動を待っている状態（acquireRunSlot参照）。"active"は実際にCLI子プロセスが
@@ -48,6 +51,16 @@ export type LensUsage = {
   insight: string;
 };
 
+export const EXPLORATION_MAX_FINDINGS = 3;
+
+export const EXPLORATION_KINDS: readonly ExplorationKind[] = [
+  "blind_spot",
+  "missing_evidence",
+  "contradiction",
+  "drift",
+  "unexplored_area",
+] as const;
+
 // Intake（相談／Journal）から親なしの独立提案を複数切る候補。
 // 子提案（sub_issues）とは別：こちらは最初から別介入として並列起票する。
 export type SuggestionCandidate = {
@@ -65,6 +78,8 @@ export type Proposal = {
   expansions: string[];
   // 前提・事実と解釈の混同・問題設定への問い。批判ではなく精度向上のため。
   challenges: string[];
+  // 現在の思考空間の外側（観測ギャップ・未探索領域等）。Expand/Challengeとは別。旧runは空配列。
+  explorations: ExplorationFinding[];
   // Expand/Challengeで実際に使った哲学レンズ（任意）。
   lensesUsed?: LensUsage[];
   // Journal自動分析など「追跡要否」を聞かれたときだけ使う。

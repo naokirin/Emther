@@ -35,6 +35,7 @@ function sug(overrides: Partial<Suggestion> = {}): Suggestion {
       advice: "こう進める",
       expansions: ["別の見方"],
       challenges: ["前提は正しいか"],
+      explorations: [],
       updatedAt: 1,
     },
     themeId: "th-1",
@@ -89,6 +90,30 @@ describe("formatSuggestionMarkdown", () => {
     expect(md).toContain("Emther URL: http://127.0.0.1:3000/suggestions/sug-1");
   });
 
+  it("explorationsがあれば探索セクションを出す", () => {
+    const md = formatSuggestionMarkdown(
+      sug({
+        detail: {
+          conclusion: "結論です",
+          facts: [],
+          logic: "ロジック",
+          explorations: [
+            {
+              kind: "blind_spot",
+              observation: "User Valueの観測が少ない",
+              relevance: "Goalと関連",
+              confirmationQuestion: "変化はありましたか？",
+            },
+          ],
+          updatedAt: 1,
+        },
+      }),
+    );
+    expect(md).toContain("## 探索（Explore）");
+    expect(md).toContain("[blind_spot] User Valueの観測が少ない");
+    expect(md).toContain("確認質問: 変化はありましたか？");
+  });
+
   it("メモの source を Markdown に反映する", () => {
     const md = formatSuggestionMarkdown(
       sug({
@@ -121,6 +146,7 @@ describe("formatSuggestionMarkdown", () => {
           advice: "AI助言",
           expansions: ["AI Expand"],
           challenges: ["AI Challenge"],
+          explorations: [],
           rejectedAlternatives: [{ option: "案B", reason: "効果が薄い" }],
         },
         log: [
@@ -197,6 +223,7 @@ describe("formatSuggestionsTsv / MarkdownTable", () => {
               advice: "AI助言",
               expansions: [],
               challenges: [],
+              explorations: [],
               rejectedAlternatives: [],
             },
             log: [

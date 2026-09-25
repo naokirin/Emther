@@ -3,12 +3,13 @@ import { IdLinkedText } from "../IdLinkedText";
 import { AdviceBlock } from "../AdviceBlock";
 import styles from "../../styles/page.module.css";
 import type { Proposal } from "@emther/core/agent-runtime";
+import { ExplorationFindingsList } from "./ExplorationFindingsList";
 import { listSuggestionCandidatesFromProposal } from "./run-view-helpers";
 
-type DetailTab = "conclusion" | "rethink" | "evidence";
+type DetailTab = "conclusion" | "rethink" | "explore" | "evidence";
 
-// 結論・参照ファクト・Expand/Challenge・判断ロジック・棄却した代替案・提案化候補の表示。
-// 提案詳細（SuggestionDetailContent）と同じ「結論・進め方 / 問い直し / 根拠」タブ構成にし、
+// 結論・参照ファクト・Expand/Challenge/Explore・判断ロジック・棄却した代替案・提案化候補の表示。
+// 提案詳細（SuggestionDetailContent）と同じ「結論・進め方 / 問い直し / 探索 / 根拠」タブ構成にし、
 // 相談画面でも読みやすさを揃える。呼び出し側（ExecutionState）が
 // `<div className={styles.proposalBlock}>`で囲み、このコンポーネントの直後に各種
 // 「AIが提案するX」ブロックを並べるDOM構造を保つため、外側のdivは持たずFragmentのみ返す。
@@ -17,14 +18,17 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
   const candidates = listSuggestionCandidatesFromProposal(proposal);
   const expansions = proposal.expansions ?? [];
   const challenges = proposal.challenges ?? [];
+  const explorations = proposal.explorations ?? [];
   const lensesUsed = proposal.lensesUsed ?? [];
   const rethinkCount = expansions.length + challenges.length;
+  const exploreCount = explorations.length;
   const evidenceCount =
     proposal.facts.length +
     (proposal.logic.trim() ? 1 : 0) +
     lensesUsed.length +
     proposal.rejectedAlternatives.length;
   const rethinkTabLabel = rethinkCount > 0 ? `問い直し（${rethinkCount}）` : "問い直し";
+  const exploreTabLabel = exploreCount > 0 ? `探索（${exploreCount}）` : "探索";
   const evidenceTabLabel = evidenceCount > 0 ? `根拠（${evidenceCount}）` : "根拠";
 
   return (
@@ -47,6 +51,15 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
           onClick={() => setDetailTab("rethink")}
         >
           {rethinkTabLabel}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={detailTab === "explore"}
+          className={`${styles.tabBtn} ${detailTab === "explore" ? styles.tabBtnActive : ""}`}
+          onClick={() => setDetailTab("explore")}
+        >
+          {exploreTabLabel}
         </button>
         <button
           type="button"
@@ -122,6 +135,15 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {detailTab === "explore" && (
+        <div style={{ marginBottom: 12 }}>
+          <p className={styles.subtitle} style={{ marginBottom: 10 }}>
+            現在の思考の外側で、まだ見えていない可能性のある観測ギャップです。重要課題と断定するものではありません。
+          </p>
+          <ExplorationFindingsList findings={explorations} />
         </div>
       )}
 

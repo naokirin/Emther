@@ -78,7 +78,15 @@ export type SuggestionExportAgentSource = {
   agentName?: string;
   proposal?: Pick<
     Proposal,
-    "conclusion" | "facts" | "logic" | "advice" | "adviceStructured" | "expansions" | "challenges" | "rejectedAlternatives"
+    | "conclusion"
+    | "facts"
+    | "logic"
+    | "advice"
+    | "adviceStructured"
+    | "expansions"
+    | "challenges"
+    | "explorations"
+    | "rejectedAlternatives"
   >;
   /** Agent Run のログ（壁打ち用）。channel は agent / meta 等。 */
   log?: Array<{ channel: string; text: string }>;
@@ -186,6 +194,16 @@ function appendProposalSections(
   if (proposal.challenges?.length) {
     lines.push(`${headingPrefix}前提への問い（Challenge）`, ...proposal.challenges.map((c) => `- ${c}`), "");
   }
+  if (proposal.explorations?.length) {
+    lines.push(
+      `${headingPrefix}探索（Explore）`,
+      ...proposal.explorations.map((e) => {
+        const q = e.confirmationQuestion ? `\n  確認質問: ${e.confirmationQuestion}` : "";
+        return `- [${e.kind}] ${e.observation}\n  関連性: ${e.relevance}${q}`;
+      }),
+      "",
+    );
+  }
   if (proposal.adviceStructured || proposal.advice) {
     const text =
       (proposal.adviceStructured ? flattenAdviceStructured(proposal.adviceStructured) : "") ||
@@ -258,6 +276,16 @@ export function formatSuggestionMarkdown(
   }
   if (s.detail?.challenges?.length) {
     lines.push("## 前提への問い（Challenge）", ...s.detail.challenges.map((c) => `- ${c}`), "");
+  }
+  if (s.detail?.explorations?.length) {
+    lines.push(
+      "## 探索（Explore）",
+      ...s.detail.explorations.map((e) => {
+        const q = e.confirmationQuestion ? `\n  確認質問: ${e.confirmationQuestion}` : "";
+        return `- [${e.kind}] ${e.observation}\n  関連性: ${e.relevance}${q}`;
+      }),
+      "",
+    );
   }
   const adviceText = s.detail ? effectiveAdviceText(s.detail) : "";
   if (adviceText) {

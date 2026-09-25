@@ -38,6 +38,7 @@ describe("runFallbackTitle", () => {
             rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
             suggestionTitle: "五木さんの目標設定の悩み",
           },
         }),
@@ -57,6 +58,7 @@ describe("runFallbackTitle", () => {
             rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
             suggestionCandidates: [{ title: "候補A" }, { title: "候補B" }],
           },
         }),
@@ -76,6 +78,7 @@ describe("runFallbackTitle", () => {
             rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
           },
         }),
       ),
@@ -250,7 +253,7 @@ describe("ExecutionState", () => {
     expect(screen.getByText(/Inform/)).toBeInTheDocument();
   });
 
-  it("idle+proposalの場合は結論タブを既定表示し、問い直し・根拠はタブで切り替える", async () => {
+  it("idle+proposalの場合は結論タブを既定表示し、問い直し・探索・根拠はタブで切り替える", async () => {
     const user = userEvent.setup();
     const run = baseRun({
       status: "idle",
@@ -261,6 +264,13 @@ describe("ExecutionState", () => {
         rejectedAlternatives: [{ option: "案X", reason: "理由Y" }],
         expansions: ["チーム全体の傾向かもしれない"],
         challenges: ["発言量自体が問題なのか"],
+        explorations: [
+          {
+            kind: "unexplored_area",
+            observation: "Goalに対する観測が少ない",
+            relevance: "到達したい状態と記録のギャップ",
+          },
+        ],
       },
     });
     render(
@@ -269,6 +279,7 @@ describe("ExecutionState", () => {
     expect(screen.getByText("結論テキスト")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "結論・進め方" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "問い直し（2）" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "探索（1）" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "根拠（3）" })).toBeInTheDocument();
     expect(screen.queryByText("ロジック説明")).not.toBeInTheDocument();
     expect(screen.queryByText("チーム全体の傾向かもしれない")).not.toBeInTheDocument();
@@ -277,6 +288,10 @@ describe("ExecutionState", () => {
     expect(screen.getByText("チーム全体の傾向かもしれない")).toBeInTheDocument();
     expect(screen.getByText("発言量自体が問題なのか")).toBeInTheDocument();
     expect(screen.queryByText("結論テキスト")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "探索（1）" }));
+    expect(screen.getByText("Goalに対する観測が少ない")).toBeInTheDocument();
+    expect(screen.getByText("未探索領域")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "根拠（3）" }));
     expect(screen.getByText("fact1")).toBeInTheDocument();

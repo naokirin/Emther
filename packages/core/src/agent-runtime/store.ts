@@ -156,9 +156,17 @@ export function toRunView(run: AgentRun): AgentRun {
             option: unmaskNames(r.option),
             reason: unmaskNames(r.reason),
           })),
-          // 旧永続runは expansions/challenges 欠落がありうるため空配列で補う。
+          // 旧永続runは expansions/challenges/explorations 欠落がありうるため空配列で補う。
           expansions: (run.proposal.expansions ?? []).map(unmaskNames),
           challenges: (run.proposal.challenges ?? []).map(unmaskNames),
+          explorations: (run.proposal.explorations ?? []).map((e) => ({
+            kind: e.kind,
+            observation: unmaskNames(e.observation),
+            relevance: unmaskNames(e.relevance),
+            ...(e.confirmationQuestion
+              ? { confirmationQuestion: unmaskNames(e.confirmationQuestion) }
+              : {}),
+          })),
           ...(run.proposal.recommendation ? { recommendation: run.proposal.recommendation } : {}),
           ...(run.proposal.suggestionTitle ? { suggestionTitle: unmaskNames(run.proposal.suggestionTitle) } : {}),
           ...(run.proposal.suggestionCandidates

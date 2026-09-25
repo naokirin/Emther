@@ -11,6 +11,7 @@ import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "./peop
 import type { MaskOptions } from "./name-candidate-confirmation";
 import type {
   ConfirmPriority,
+  ExplorationFinding,
   Suggestion,
   SuggestionCharter,
   SuggestionDetail,
@@ -69,6 +70,18 @@ export function toSuggestionView(s: Suggestion): Suggestion {
             : {}),
           ...(s.detail.challenges?.length
             ? { challenges: s.detail.challenges.map(unmaskNames) }
+            : {}),
+          ...(s.detail.explorations?.length
+            ? {
+                explorations: s.detail.explorations.map((e) => ({
+                  kind: e.kind,
+                  observation: unmaskNames(e.observation),
+                  relevance: unmaskNames(e.relevance),
+                  ...(e.confirmationQuestion
+                    ? { confirmationQuestion: unmaskNames(e.confirmationQuestion) }
+                    : {}),
+                })),
+              }
             : {}),
           ...(s.detail.advice ? { advice: unmaskNames(s.detail.advice) } : {}),
           ...(s.detail.adviceOverride ? { adviceOverride: unmaskNames(s.detail.adviceOverride) } : {}),
@@ -151,6 +164,7 @@ export type SuggestionDetailInput = {
   logic: string;
   expansions?: string[];
   challenges?: string[];
+  explorations?: ExplorationFinding[];
   /** @deprecated 新規は adviceStructured */
   advice?: string;
   adviceStructured?: AdviceStructured;
@@ -199,6 +213,7 @@ export async function createSuggestion(
             logic: detailInput.logic,
             ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
             ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
+            ...(detailInput.explorations?.length ? { explorations: detailInput.explorations } : {}),
             ...(adviceStructured ? { adviceStructured } : {}),
             updatedAt: now,
           };
@@ -443,6 +458,7 @@ export function setSuggestionDetail(id: string, detailInput: SuggestionDetailInp
     logic: detailInput.logic,
     ...(detailInput.expansions?.length ? { expansions: detailInput.expansions } : {}),
     ...(detailInput.challenges?.length ? { challenges: detailInput.challenges } : {}),
+    ...(detailInput.explorations?.length ? { explorations: detailInput.explorations } : {}),
     ...(adviceStructured ? { adviceStructured } : {}),
     ...(preservedOverride ? { adviceOverride: preservedOverride } : {}),
     updatedAt: Date.now(),
@@ -506,6 +522,7 @@ export async function updateSuggestionDetail(
     logic: maskedLogic,
     ...(current?.expansions?.length ? { expansions: current.expansions } : {}),
     ...(current?.challenges?.length ? { challenges: current.challenges } : {}),
+    ...(current?.explorations?.length ? { explorations: current.explorations } : {}),
     ...(current?.adviceStructured ? { adviceStructured: current.adviceStructured } : {}),
     ...(maskedOverride ? { adviceOverride: maskedOverride } : {}),
     ...(keepLegacyAdvice && current?.advice ? { advice: current.advice } : {}),

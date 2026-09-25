@@ -48,6 +48,7 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
         suggestionCandidates: [
           { title: "候補A: 1on1の改善", rationale: "理由A" },
           { title: "候補B: 評価基準の統一", rationale: "理由B" },
@@ -139,6 +140,7 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
         suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
       },
     });
@@ -173,6 +175,7 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
         rejectedAlternatives: [],
         expansions: [],
         challenges: [],
+        explorations: [],
         suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
       },
     });
@@ -200,6 +203,7 @@ describe("ConsultReviewPanel - 様子見の継続", () => {
       rejectedAlternatives: [],
       expansions: [],
       challenges: [],
+      explorations: [],
       suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
     },
   });

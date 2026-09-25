@@ -476,6 +476,25 @@ export type SuggestionMemo = {
 // アドバイスは AI の半構造化（adviceStructured）と、EM 編集の非構造（adviceOverride）を分ける。
 // 表示は adviceOverride → 旧 advice → adviceStructured の順。AI 更新（refresh）は structured
 // のみ差し替え、override は保持する。
+/** Explore段階の観点。Expand（別解釈）/ Challenge（前提への問い）とは別。 */
+export type ExplorationKind =
+  | "blind_spot"
+  | "missing_evidence"
+  | "contradiction"
+  | "drift"
+  | "unexplored_area";
+
+/** EMが見ていない可能性のある領域。断定せず観測ギャップ・確認質問として提示する。最大3件。 */
+export type ExplorationFinding = {
+  kind: ExplorationKind;
+  /** 観測ギャップの記述（「重要な問題です」等の断定は避ける） */
+  observation: string;
+  /** Goal / Policy / 過去記録との関連性 */
+  relevance: string;
+  /** EMへの確認質問（任意） */
+  confirmationQuestion?: string;
+};
+
 export type SuggestionDetail = {
   conclusion: string;
   facts: string[];
@@ -483,6 +502,8 @@ export type SuggestionDetail = {
   // 起票時点の Expand / Challenge（無い旧detailは未定義）。
   expansions?: string[];
   challenges?: string[];
+  // 起票時点の Explore（無い旧detailは未定義）。最大3件。
+  explorations?: ExplorationFinding[];
   /** @deprecated 旧フリーテキスト。新規は adviceStructured / adviceOverride を使う */
   advice?: string;
   adviceStructured?: AdviceStructured;

@@ -32,6 +32,7 @@ function proposal(conclusion: string): Proposal {
     rejectedAlternatives: [],
     expansions: [],
     challenges: [],
+    explorations: [],
     recommendation: "suggestion",
   };
 }
