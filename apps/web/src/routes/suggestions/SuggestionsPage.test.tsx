@@ -94,6 +94,7 @@ describe("SuggestionsPage", () => {
                 evidenceJournalIds: [],
                 evidenceSuggestionIds: [],
                 status: "adopted",
+                sortOrder: 0,
                 createdAt: 1,
                 updatedAt: 1,
                 adoptedAt: 1,

@@ -177,6 +177,7 @@ export {
   goalMutationResponseSchema,
   policyMutationResponseSchema,
   orgBackgroundMutationResponseSchema,
+  reorderIdsRequestSchema,
   type GoalsResponse,
   type OrgBackgroundsResponse,
   type OrgStrategyResponse,
@@ -184,6 +185,7 @@ export {
   type GoalMutationResponse,
   type PolicyMutationResponse,
   type OrgBackgroundMutationResponse,
+  type ReorderIdsRequest,
 } from "./responses/org";
 export {
   themesResponseSchema,

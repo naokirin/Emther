@@ -38,6 +38,23 @@ describe("GET /api/org/goals", () => {
   });
 });
 
+describe("POST /api/org/goals/reorder", () => {
+  it("全件の並びを更新する", async () => {
+    const { goalsRoute } = await import("./goals");
+    const a = await (await goalsRoute.request("/", post({ title: "A" }))).json();
+    const b = await (await goalsRoute.request("/", post({ title: "B" }))).json();
+    const c = await (await goalsRoute.request("/", post({ title: "C" }))).json();
+
+    const res = await goalsRoute.request(
+      "/reorder",
+      post({ ids: [c.goal.id, a.goal.id, b.goal.id] }),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.goals.map((g: { title: string }) => g.title)).toEqual(["C", "A", "B"]);
+  });
+});
+
 describe("POST /api/org/goals", () => {
   it("titleは必須。既定statusはactive", async () => {
     const { goalsRoute } = await import("./goals");

@@ -15,6 +15,8 @@ export type Goal = {
   parentGoalIds?: string[];
   horizon?: GoalHorizon;
   status: GoalStatus;
+  /** 一覧の手動並び順（昇順）。 */
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
 };

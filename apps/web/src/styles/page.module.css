@@ -4446,12 +4446,15 @@ button.situationChip:hover {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--gray-bg, #1b1e26);
+  min-width: 0;
 }
 
 .nowStateHealthContent {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .nowStateHealthPie {
@@ -4483,30 +4486,48 @@ button.situationChip:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* 固定幅＋狭いカードでは縮む → 中央寄せを保ったまま ellipsis が効く */
+  box-sizing: border-box;
+  width: 12rem;
+  max-width: 100%;
   min-width: 0;
+  overflow: hidden;
+  flex: 0 1 auto;
 }
 
 .nowStateHealthTitle {
   font-size: 0.8125rem;
   font-weight: 700;
   margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nowStateHealthLine {
-  display: flex;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
   color: var(--text-muted);
   line-height: 1.4;
+  min-width: 0;
+  width: 100%;
+}
+
+.nowStateHealthLineText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nowStateHealthSwatch {
-  display: inline-block;
+  display: block;
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  flex-shrink: 0;
 }
 
 .nowStatePulse {
@@ -5832,6 +5853,67 @@ button.situationChip:hover {
 
 .suggestionExportColRowOver {
   box-shadow: inset 0 0 0 1px var(--blue, #3b6fd6);
+}
+
+.sortableList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sortableRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--panel-bg, transparent);
+  min-width: 0;
+}
+
+.sortableRowDragging {
+  opacity: 0.45;
+}
+
+.sortableRowOver {
+  box-shadow: inset 0 0 0 1px var(--blue, #3b6fd6);
+}
+
+.sortableHandle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  letter-spacing: -0.05em;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  border-right: 1px solid var(--input-border);
+}
+
+.sortableHandle:active {
+  cursor: grabbing;
+}
+
+.sortableHandle:focus-visible {
+  outline: 2px solid var(--blue, #3b6fd6);
+  outline-offset: -2px;
+}
+
+.sortableRowBody {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
 }
 
 .suggestionExportColName {

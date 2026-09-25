@@ -15,6 +15,8 @@ export type OrgTheme = {
   sourceRunId?: string;
   teamId?: string;
   supersedes?: string;
+  /** 一覧の手動並び順（昇順）。 */
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
   adoptedAt?: number;

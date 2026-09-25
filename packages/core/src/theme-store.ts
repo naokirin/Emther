@@ -16,3 +16,4 @@ export const adoptTheme = service.adoptTheme;
 export const dismissTheme = service.dismissTheme;
 export const reviseTheme = service.reviseTheme;
 export const listCurrentThemes = service.listCurrentThemes;
+export const reorderThemes = service.reorderThemes;

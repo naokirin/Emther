@@ -13,4 +13,5 @@ export const getPolicy = service.getPolicy;
 export const addPolicy = service.addPolicy;
 export const updatePolicy = service.updatePolicy;
 export const removePolicy = service.removePolicy;
+export const reorderPolicies = service.reorderPolicies;
 export const toPolicyView = service.toPolicyView;

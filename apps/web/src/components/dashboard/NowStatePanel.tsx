@@ -24,6 +24,19 @@ const BUCKET_LABEL: Record<VitalStatus, string> = {
   unknown: "未観測",
 };
 
+/** 凡例1行。examples は最大2件のため、残りがあるときは末尾に「…」を付ける。 */
+export function formatHealthBucketLine(bucket: {
+  status: VitalStatus;
+  count: number;
+  examples: string[];
+}): string {
+  const names =
+    bucket.examples.length > 0
+      ? ` · ${bucket.examples.join("、")}${bucket.count > bucket.examples.length ? "…" : ""}`
+      : "";
+  return `${BUCKET_LABEL[bucket.status]} ${bucket.count}${names}`;
+}
+
 const BUCKET_COLOR: Record<VitalStatus, string> = {
   good: "var(--green-border, #22c55e)",
   warn: "var(--yellow-border, #eab308)",
@@ -118,13 +131,17 @@ function HealthSide({ title, breakdown }: { title: string; breakdown: EntityHeal
           {breakdown.buckets.length === 0 ? (
             <span className={styles.nowStateHealthLine}>—</span>
           ) : (
-            breakdown.buckets.map((b) => (
-              <span key={b.status} className={styles.nowStateHealthLine}>
-                <i className={styles.nowStateHealthSwatch} style={{ background: BUCKET_COLOR[b.status] }} aria-hidden />
-                {BUCKET_LABEL[b.status]} {b.count}
-                {b.examples.length > 0 ? ` · ${b.examples.join("、")}` : ""}
-              </span>
-            ))
+            breakdown.buckets.map((b) => {
+              const line = formatHealthBucketLine(b);
+              return (
+                <span key={b.status} className={styles.nowStateHealthLine}>
+                  <i className={styles.nowStateHealthSwatch} style={{ background: BUCKET_COLOR[b.status] }} aria-hidden />
+                  <span className={styles.nowStateHealthLineText} title={line}>
+                    {line}
+                  </span>
+                </span>
+              );
+            })
           )}
         </div>
       </div>

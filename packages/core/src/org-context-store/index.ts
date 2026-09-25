@@ -36,7 +36,16 @@ export {
 } from "./backgrounds";
 
 export type { Goal, GoalHorizon, GoalStatus } from "./goals";
-export { addGoal, getGoal, listActiveGoals, listGoals, removeGoal, toGoalView, updateGoal } from "./goals";
+export {
+  addGoal,
+  getGoal,
+  listActiveGoals,
+  listGoals,
+  removeGoal,
+  reorderGoals,
+  toGoalView,
+  updateGoal,
+} from "./goals";
 export { childGoalIds, normalizeIdList, resolveParentGoalIds, wouldCreateGoalCycle, buildGoalForest } from "./goal-hierarchy";
 export type { GoalForestNode } from "./goal-hierarchy";
 
@@ -47,6 +56,7 @@ export {
   listActivePolicies,
   listPolicies,
   removePolicy,
+  reorderPolicies,
   toPolicyView,
   updatePolicy,
 } from "./policies";

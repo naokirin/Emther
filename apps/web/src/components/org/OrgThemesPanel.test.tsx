@@ -14,6 +14,7 @@ function makeTheme(overrides: Partial<OrgTheme> & Pick<OrgTheme, "id" | "title" 
     evidenceJournalIds: [],
     evidenceSuggestionIds: [],
     goalIds: [],
+    sortOrder: 0,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     ...overrides,

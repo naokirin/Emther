@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { recordChangeEvent } from "../knowledge-store";
 import { maskForStorage, unmaskNames } from "../people-directory";
+import {
+  applyReorderByIds,
+  compareBySortOrder,
+  ensureSortOrders,
+  nextSortOrder,
+} from "../sort-order";
 import type { PolicyRepository } from "./policy-repository";
 import type { NewPolicyInput, PolicyCategory, PolicyEntry } from "./policy-types";
 
@@ -11,14 +17,17 @@ function normalizeCategory(value: unknown): PolicyCategory | undefined {
 }
 
 export function createPolicyService(repo: PolicyRepository) {
-  const policies: PolicyEntry[] = [...repo.load()];
+  const policies: PolicyEntry[] = [...repo.load()] as PolicyEntry[];
+  if (ensureSortOrders(policies)) {
+    repo.save(policies);
+  }
 
   function persist(): void {
     repo.save(policies);
   }
 
   function listPolicies(): PolicyEntry[] {
-    return [...policies].sort((a, b) => b.updatedAt - a.updatedAt);
+    return [...policies].sort(compareBySortOrder);
   }
 
   function listActivePolicies(): PolicyEntry[] {
@@ -41,6 +50,7 @@ export function createPolicyService(repo: PolicyRepository) {
       text: await maskForStorage(text),
       ...(elaboration ? { elaboration: await maskForStorage(elaboration) } : {}),
       category: normalizeCategory(input.category),
+      sortOrder: nextSortOrder(policies),
       createdAt: now,
       updatedAt: now,
     };
@@ -114,6 +124,12 @@ export function createPolicyService(repo: PolicyRepository) {
     return true;
   }
 
+  function reorderPolicies(ids: string[]): PolicyEntry[] {
+    applyReorderByIds(policies, ids);
+    persist();
+    return listPolicies();
+  }
+
   function toPolicyView(entry: PolicyEntry): PolicyEntry {
     return {
       ...entry,
@@ -129,6 +145,7 @@ export function createPolicyService(repo: PolicyRepository) {
     addPolicy,
     updatePolicy,
     removePolicy,
+    reorderPolicies,
     toPolicyView,
   };
 }

@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { recordChangeEvent } from "../knowledge-store";
 import { maskForStorage, unmaskNames } from "../people-directory";
+import {
+  applyReorderByIds,
+  compareBySortOrder,
+  ensureSortOrders,
+  nextSortOrder,
+} from "../sort-order";
 import type { GoalRepository } from "./goal-repository";
 import type { Goal, GoalHorizon, GoalStatus } from "./goal-types";
 import { resolveParentGoalIds } from "./goal-hierarchy";
@@ -22,14 +28,17 @@ function sameIdList(a: string[] | undefined, b: string[] | undefined): boolean {
 }
 
 export function createGoalService(repo: GoalRepository) {
-  const goals: Goal[] = [...repo.load()];
+  const goals: Goal[] = [...repo.load()] as Goal[];
+  if (ensureSortOrders(goals)) {
+    repo.save(goals);
+  }
 
   function persist(): void {
     repo.save(goals);
   }
 
   function listGoals(): Goal[] {
-    return [...goals].sort((a, b) => b.updatedAt - a.updatedAt);
+    return [...goals].sort(compareBySortOrder);
   }
 
   function listActiveGoals(): Goal[] {
@@ -70,6 +79,7 @@ export function createGoalService(repo: GoalRepository) {
       ...(parentGoalIds ? { parentGoalIds } : {}),
       horizon: normalizeHorizon(input.horizon),
       status: "active",
+      sortOrder: nextSortOrder(goals),
       createdAt: now,
       updatedAt: now,
     };
@@ -188,6 +198,12 @@ export function createGoalService(repo: GoalRepository) {
     return true;
   }
 
+  function reorderGoals(ids: string[]): Goal[] {
+    applyReorderByIds(goals, ids);
+    persist();
+    return listGoals();
+  }
+
   function toGoalView<T extends Goal>(goal: T): T {
     return {
       ...goal,
@@ -204,6 +220,7 @@ export function createGoalService(repo: GoalRepository) {
     addGoal,
     updateGoal,
     removeGoal,
+    reorderGoals,
     toGoalView,
   };
 }

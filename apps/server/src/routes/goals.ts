@@ -1,6 +1,23 @@
 import { Hono } from "hono";
 import type { GoalMutationResponse, GoalsResponse, OkResponse } from "@emther/api-contract";
-import { addGoal, listGoals, removeGoal, toGoalView, updateGoal, type GoalHorizon, type GoalStatus } from "@emther/core/org-context-store/index";
+import {
+  addGoal,
+  listGoals,
+  removeGoal,
+  reorderGoals,
+  toGoalView,
+  updateGoal,
+  type GoalHorizon,
+  type GoalStatus,
+} from "@emther/core/org-context-store/index";
+
+function parseReorderIds(body: unknown): string[] | null {
+  if (!body || typeof body !== "object") return null;
+  const ids = (body as { ids?: unknown }).ids;
+  if (!Array.isArray(ids) || ids.length === 0) return null;
+  if (!ids.every((id): id is string => typeof id === "string" && !!id)) return null;
+  return ids;
+}
 
 function parseHorizon(value: unknown): GoalHorizon | undefined {
   return value === "long" || value === "mid" || value === "near" ? value : undefined;
@@ -38,6 +55,19 @@ export const goalsRoute = new Hono()
       const goal = await addGoal({ title, teamId, elaboration, note, horizon, parentGoalIds });
       const resBody = { goal: toGoalView(goal) } satisfies GoalMutationResponse;
       return c.json(resBody, 201);
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 400);
+    }
+  })
+  .post("/reorder", async (c) => {
+    const ids = parseReorderIds(await c.req.json().catch(() => null));
+    if (!ids) {
+      return c.json({ error: "idsは1件以上の文字列配列です" }, 400);
+    }
+    try {
+      const goals = reorderGoals(ids).map(toGoalView);
+      const resBody = { goals } satisfies GoalsResponse;
+      return c.json(resBody);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }

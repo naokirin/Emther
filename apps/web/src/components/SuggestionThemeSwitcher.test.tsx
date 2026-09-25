@@ -17,6 +17,7 @@ function theme(overrides: Partial<OrgTheme> & Pick<OrgTheme, "id" | "title">): O
     evidenceJournalIds: [],
     evidenceSuggestionIds: [],
     status: "adopted",
+    sortOrder: 0,
     createdAt: 1,
     updatedAt: 1,
     adoptedAt: 1,

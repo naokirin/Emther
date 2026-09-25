@@ -74,9 +74,19 @@ describe("OrgPage", () => {
     render(<OrgPage />, { wrapper: createWrapper() });
 
     await user.click(screen.getByRole("button", { name: /^Goal/ }));
-    await screen.findByText("新規追加");
+    await user.click(await screen.findByRole("button", { name: "＋ 新規追加" }));
+    expect(screen.getByText("新規追加")).toBeInTheDocument();
 
-    const created = { id: "g1", title: "チームの自律性を高めたい", teamId: null, note: "", status: "active" };
+    const created = {
+      id: "g1",
+      title: "チームの自律性を高めたい",
+      teamId: null,
+      note: "",
+      status: "active",
+      sortOrder: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    };
     let goals: (typeof created)[] = [];
     const fetchWithCreated = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "/api/org/goals" && init?.method === "POST") {
@@ -104,6 +114,7 @@ describe("OrgPage", () => {
         id: "g1",
         title: "テックリードが自律的に設計判断できる状態",
         status: "active",
+        sortOrder: 0,
         createdAt: 1,
         updatedAt: 2,
         horizon: "mid",
@@ -120,6 +131,7 @@ describe("OrgPage", () => {
         evidenceSuggestionIds: [],
         goalIds: ["g1"],
         status: "adopted",
+        sortOrder: 0,
         createdAt: 1,
         updatedAt: 2,
       },

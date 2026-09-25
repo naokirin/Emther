@@ -8,6 +8,8 @@ export type PolicyEntry = {
   /** 補足（解釈を閉じる説明・任意） */
   elaboration?: string;
   category?: PolicyCategory;
+  /** 一覧の手動並び順（昇順）。 */
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
   archivedAt?: number;

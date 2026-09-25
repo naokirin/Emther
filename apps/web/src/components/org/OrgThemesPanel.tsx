@@ -4,7 +4,10 @@ import styles from "../../styles/page.module.css";
 import { ThemeGoalLinkEditor } from "../../components/ThemeGoalLinkEditor";
 import { api } from "../../lib/api-client";
 import { type Goal, type OrgTheme } from "@emther/core/types";
-import type { ThemeMutationResponse } from "@emther/api-contract";
+import { mergeSubsequenceOrder } from "@emther/core/sort-order";
+import type { ThemeMutationResponse, ThemesResponse } from "@emther/api-contract";
+import { SortableList } from "./SortableList";
+import type { ReactNode } from "react";
 
 type Props = {
   themes: OrgTheme[];
@@ -44,6 +47,54 @@ export function OrgThemesPanel({
   const [newRationale, setNewRationale] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+
+  async function handleReorderSection(sectionIds: string[], orderedSectionIds: string[]) {
+    setReorderError(null);
+    // セクション内の相対順だけ差し替え、現行テーマ全体の並びにマージして送信
+    const currentIds = themes.map((t) => t.id);
+    const sectionMerged = mergeSubsequenceOrder(sectionIds, orderedSectionIds);
+    const fullMerged = mergeSubsequenceOrder(currentIds, sectionMerged);
+    const res = await api.api.themes.reorder.$post({ json: { ids: fullMerged } });
+    const data = (await res.json().catch(() => null)) as (ThemesResponse & { error?: string }) | null;
+    if (!res.ok) throw new Error(data?.error ?? "並べ替えに失敗しました");
+    await refreshThemes();
+  }
+
+  function renderThemeCard(t: OrgTheme, handle: ReactNode) {
+    const goalSummary = themeGoalSummary(t, goals);
+    const isAdopted = t.status === "adopted";
+    return (
+      <>
+        {handle}
+        <button type="button" className={styles.sortableRowBody} onClick={() => onSelectTheme(t)}>
+          <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{t.title}</div>
+          <div className={styles.subtitle} style={{ margin: "4px 0 0" }}>
+            {t.summary}
+          </div>
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: "0.75rem",
+              color: isAdopted
+                ? goalSummary
+                  ? "var(--text-muted)"
+                  : "var(--warning, #b45309)"
+                : "var(--text-muted)",
+            }}
+          >
+            {isAdopted
+              ? goalSummary
+                ? `🎯 ${goalSummary}`
+                : "⚠ Goal未リンク"
+              : goalSummary
+                ? `🎯 ${goalSummary}`
+                : "Goal未リンク（候補）"}
+          </div>
+        </button>
+      </>
+    );
+  }
 
   async function handleCreateTheme() {
     if (!newTitle.trim()) return;
@@ -192,76 +243,55 @@ export function OrgThemesPanel({
         )}
 
         <h3 style={{ marginTop: 4, marginBottom: 8, fontSize: "0.875rem" }}>採用中</h3>
+        {reorderError && (
+          <p className={styles.errorText} role="alert">
+            {reorderError}
+          </p>
+        )}
         {!themesLoaded ? (
           <p className={styles.subtitle}>読み込み中…</p>
         ) : adoptedThemes.length === 0 ? (
           <p className={styles.subtitle}>採用中のテーマはまだありません。上の「＋ テーマを直接設定」から作成するか、AIと壁打ちして作成してください。</p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {adoptedThemes.map((t) => {
-              const goalSummary = themeGoalSummary(t, goals);
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => onSelectTheme(t)}
-                  style={{
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    border: "1px solid var(--input-border)",
-                    borderRadius: 8,
-                    background: "var(--panel-bg, transparent)",
-                    cursor: "pointer",
-                    font: "inherit",
-                    color: "inherit",
-                  }}
-                >
-                  <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{t.title}</div>
-                  <div className={styles.subtitle} style={{ margin: "4px 0 0" }}>
-                    {t.summary}
-                  </div>
-                  <div style={{ marginTop: 4, fontSize: "0.75rem", color: goalSummary ? "var(--text-muted)" : "var(--warning, #b45309)" }}>
-                    {goalSummary ? `🎯 ${goalSummary}` : "⚠ Goal未リンク"}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <SortableList
+            ids={adoptedThemes.map((t) => t.id)}
+            onReorder={async (orderedIds) => {
+              try {
+                await handleReorderSection(
+                  adoptedThemes.map((t) => t.id),
+                  orderedIds,
+                );
+              } catch (err) {
+                setReorderError((err as Error).message);
+              }
+            }}
+            renderItem={(id, handle) => {
+              const t = adoptedThemes.find((x) => x.id === id);
+              return t ? renderThemeCard(t, handle) : null;
+            }}
+          />
         )}
 
         {candidateThemes.length > 0 && (
           <>
             <h3 style={{ marginTop: 20, marginBottom: 8, fontSize: "0.875rem" }}>候補</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {candidateThemes.map((t) => {
-                const goalSummary = themeGoalSummary(t, goals);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => onSelectTheme(t)}
-                    style={{
-                      textAlign: "left",
-                      padding: "10px 12px",
-                      border: "1px solid var(--input-border)",
-                      borderRadius: 8,
-                      background: "var(--panel-bg, transparent)",
-                      cursor: "pointer",
-                      font: "inherit",
-                      color: "inherit",
-                    }}
-                  >
-                    <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{t.title}</div>
-                    <div className={styles.subtitle} style={{ margin: "4px 0 0" }}>
-                      {t.summary}
-                    </div>
-                    <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                      {goalSummary ? `🎯 ${goalSummary}` : "Goal未リンク（候補）"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <SortableList
+              ids={candidateThemes.map((t) => t.id)}
+              onReorder={async (orderedIds) => {
+                try {
+                  await handleReorderSection(
+                    candidateThemes.map((t) => t.id),
+                    orderedIds,
+                  );
+                } catch (err) {
+                  setReorderError((err as Error).message);
+                }
+              }}
+              renderItem={(id, handle) => {
+                const t = candidateThemes.find((x) => x.id === id);
+                return t ? renderThemeCard(t, handle) : null;
+              }}
+            />
           </>
         )}
       </>

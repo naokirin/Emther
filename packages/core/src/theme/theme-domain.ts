@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { maskForStorage, unmaskNames } from "../people-directory";
+import {
+  applyReorderByIds,
+  compareBySortOrder,
+  ensureSortOrders,
+  mergeSubsequenceOrder,
+  nextSortOrder,
+} from "../sort-order";
 import type { ThemeRepository } from "./theme-repository";
 import type { LegacyOrgTheme, OrgTheme, SuggestedTheme, ThemeStatus } from "./theme-types";
 
@@ -8,8 +15,8 @@ function normalizeIdList(ids: string[] | undefined): string[] {
   return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
 }
 
-function normalizeTheme(raw: LegacyOrgTheme): OrgTheme {
-  const { embedding: _unused, evidenceIssueIds: legacyEvidenceIssueIds, ...rest } = raw;
+function normalizeTheme(raw: LegacyOrgTheme): Omit<OrgTheme, "sortOrder"> & { sortOrder?: number } {
+  const { embedding: _unused, evidenceIssueIds: legacyEvidenceIssueIds, sortOrder, ...rest } = raw;
   void _unused;
   return {
     ...rest,
@@ -17,6 +24,7 @@ function normalizeTheme(raw: LegacyOrgTheme): OrgTheme {
     evidenceJournalIds: rest.evidenceJournalIds ?? [],
     evidenceSuggestionIds: rest.evidenceSuggestionIds ?? legacyEvidenceIssueIds ?? [],
     facts: rest.facts ?? [],
+    ...(typeof sortOrder === "number" ? { sortOrder } : {}),
   };
 }
 
@@ -48,14 +56,17 @@ async function maskThemeFields(input: {
 }
 
 export function createThemeService(repo: ThemeRepository) {
-  const themes: OrgTheme[] = repo.load().map(normalizeTheme);
+  const themes = repo.load().map(normalizeTheme) as OrgTheme[];
+  if (ensureSortOrders(themes)) {
+    repo.save(themes);
+  }
 
   function persist(): void {
     repo.save(themes);
   }
 
   function listThemes(filter?: { status?: ThemeStatus }): OrgTheme[] {
-    const all = [...themes].sort((a, b) => b.updatedAt - a.updatedAt);
+    const all = [...themes].sort(compareBySortOrder);
     if (!filter?.status) return all;
     return all.filter((t) => t.status === filter.status);
   }
@@ -108,6 +119,7 @@ export function createThemeService(repo: ThemeRepository) {
       status,
       sourceRunId: input.sourceRunId,
       teamId: input.teamId,
+      sortOrder: nextSortOrder(themes),
       createdAt: now,
       updatedAt: now,
       adoptedAt: status === "adopted" ? now : undefined,
@@ -216,6 +228,7 @@ export function createThemeService(repo: ThemeRepository) {
       rootCause: masked.rootCause,
       suggestedDirection: masked.suggestedDirection,
       supersedes: original.id,
+      sortOrder: original.sortOrder,
       createdAt: now,
       updatedAt: now,
       adoptedAt: original.status === "adopted" ? now : original.adoptedAt,
@@ -232,6 +245,19 @@ export function createThemeService(repo: ThemeRepository) {
     return listThemes(filter).filter((t) => !superseded.has(t.id));
   }
 
+  function reorderThemes(visibleOrderedIds: string[]): OrgTheme[] {
+    for (const id of visibleOrderedIds) {
+      if (!themes.some((t) => t.id === id)) {
+        throw new Error(`unknown id: ${id}`);
+      }
+    }
+    const fullIds = [...themes].sort(compareBySortOrder).map((t) => t.id);
+    const merged = mergeSubsequenceOrder(fullIds, visibleOrderedIds);
+    applyReorderByIds(themes, merged);
+    persist();
+    return listThemes();
+  }
+
   return {
     listThemes,
     listAdoptedThemes,
@@ -244,5 +270,6 @@ export function createThemeService(repo: ThemeRepository) {
     dismissTheme,
     reviseTheme,
     listCurrentThemes,
+    reorderThemes,
   };
 }

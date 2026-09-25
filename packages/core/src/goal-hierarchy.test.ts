@@ -32,6 +32,7 @@ function createMemoryGoalRepository(initial: Goal[] = []): GoalRepository {
 function baseGoal(partial: Partial<Goal> & Pick<Goal, "id" | "title">): Goal {
   return {
     status: "active",
+    sortOrder: 0,
     createdAt: 1,
     updatedAt: 1,
     ...partial,

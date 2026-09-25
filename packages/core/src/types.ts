@@ -215,6 +215,8 @@ export type PolicyEntry = {
   /** 補足（解釈を閉じる説明・任意）。メモではない。 */
   elaboration?: string;
   category?: PolicyCategory;
+  /** 一覧の手動並び順（昇順）。 */
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
   archivedAt?: number;
@@ -241,6 +243,8 @@ export type Goal = {
   parentGoalIds?: string[];
   horizon?: GoalHorizon;
   status: GoalStatus;
+  /** 一覧の手動並び順（昇順）。 */
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -820,6 +824,8 @@ export type OrgTheme = {
   status: ThemeStatus;
   sourceRunId?: string;
   teamId?: string;
+  /** 一覧の手動並び順（昇順）。 */
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
   adoptedAt?: number;

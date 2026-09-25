@@ -27,6 +27,8 @@ export function OrgPage() {
 
   const [selection, setSelection] = useState<Selection>({ kind: "overview" });
   const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
   // 各パネルは選択中(kind一致)のときだけマウントされ、内部stateはアンマウントで
   // 自然にリセットされる。ただし「同じツリー項目を選択中にもう一度クリックする」場合は
@@ -50,13 +52,13 @@ export function OrgPage() {
   }
 
   function selectPoliciesView() {
+    setEditingPolicyId(null);
     setSelection({ kind: "policies" });
-    setNavToken((n) => n + 1);
   }
 
   function selectGoalsView() {
+    setEditingGoalId(null);
     setSelection({ kind: "goals" });
-    setNavToken((n) => n + 1);
   }
 
   function selectThemesView() {
@@ -129,17 +131,26 @@ export function OrgPage() {
 
           {selection?.kind === "goals" && (
             <GoalsPanel
-              key={navToken}
               goals={goals}
               goalsLoaded={goalsLoaded}
               refreshGoals={refreshGoals}
               teamOptions={teamOptions}
               refreshThemes={refreshThemes}
+              editingGoalId={editingGoalId}
+              onSelectGoal={(goal) => setEditingGoalId(goal.id)}
+              onBack={() => setEditingGoalId(null)}
             />
           )}
 
           {selection?.kind === "policies" && (
-            <PolicyPanel key={navToken} policies={policies} policiesLoaded={policiesLoaded} refreshPolicies={refreshPolicies} />
+            <PolicyPanel
+              policies={policies}
+              policiesLoaded={policiesLoaded}
+              refreshPolicies={refreshPolicies}
+              editingPolicyId={editingPolicyId}
+              onSelectPolicy={(policy) => setEditingPolicyId(policy.id)}
+              onBack={() => setEditingPolicyId(null)}
+            />
           )}
 
           {selection?.kind === "themes" && (

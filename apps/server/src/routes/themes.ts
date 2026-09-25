@@ -7,6 +7,7 @@ import {
   dismissTheme,
   getTheme,
   listCurrentThemes,
+  reorderThemes,
   reviseTheme,
   toThemeView,
   updateThemeLinks,
@@ -17,6 +18,14 @@ import { listGoals } from "@emther/core/org-context-store/index";
 function stringIdList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.filter((id): id is string => typeof id === "string");
+}
+
+function parseReorderIds(body: unknown): string[] | null {
+  if (!body || typeof body !== "object") return null;
+  const ids = (body as { ids?: unknown }).ids;
+  if (!Array.isArray(ids) || ids.length === 0) return null;
+  if (!ids.every((id): id is string => typeof id === "string" && !!id)) return null;
+  return ids;
 }
 
 export const themesRoute = new Hono()
@@ -48,6 +57,19 @@ export const themesRoute = new Hono()
 
     const resBody = { theme: toThemeView(theme) } satisfies ThemeMutationResponse;
     return c.json(resBody, 201);
+  })
+  .post("/reorder", async (c) => {
+    const ids = parseReorderIds(await c.req.json().catch(() => null));
+    if (!ids) {
+      return c.json({ error: "idsは1件以上の文字列配列です" }, 400);
+    }
+    try {
+      reorderThemes(ids);
+      const body = { themes: listCurrentThemes().map(toThemeView) } satisfies ThemesResponse;
+      return c.json(body);
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 400);
+    }
   })
 // Goal起点で先にテーマ候補を置く経路。ヒューリスティック（AIなし）。人間が採用するまでcandidate。
   .post("/from-goal", async (c) => {

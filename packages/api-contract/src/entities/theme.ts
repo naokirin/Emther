@@ -16,6 +16,7 @@ export const orgThemeSchema = z.object({
   status: themeStatusSchema,
   sourceRunId: z.string().optional(),
   teamId: z.string().optional(),
+  sortOrder: z.number(),
   createdAt: z.number(),
   updatedAt: z.number(),
   adoptedAt: z.number().optional(),

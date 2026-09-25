@@ -37,6 +37,7 @@ export const policyEntrySchema = z.object({
   text: z.string(),
   elaboration: z.string().optional(),
   category: policyCategorySchema.optional(),
+  sortOrder: z.number(),
   createdAt: z.number(),
   updatedAt: z.number(),
   archivedAt: z.number().optional(),
@@ -55,6 +56,7 @@ export const goalSchema = z.object({
   parentGoalIds: z.array(z.string()).optional(),
   horizon: goalHorizonSchema.optional(),
   status: goalStatusSchema,
+  sortOrder: z.number(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
