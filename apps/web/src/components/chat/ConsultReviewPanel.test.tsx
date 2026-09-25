@@ -1,9 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "@/router";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "@/router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConsultReviewPanel } from "./ConsultReviewPanel";
 import type { AgentRun } from "@emther/core/agent-runtime";
 import type { Suggestion } from "@emther/core/types";
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
 
 function baseRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -34,26 +41,50 @@ function baseSuggestion(overrides: Partial<Suggestion> = {}): Suggestion {
   };
 }
 
-function renderPanel(ui: React.ReactElement) {
-  return render(<MemoryRouter>{ui}</MemoryRouter>);
+function renderPanel(ui: React.ReactElement, initialEntries: string[] = ["/chat"]) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <LocationProbe />
+        {ui}
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function emptyProposal(overrides: Partial<NonNullable<AgentRun["proposal"]>> = {}): NonNullable<AgentRun["proposal"]> {
+  return {
+    conclusion: "結論です",
+    facts: [],
+    logic: "ロジック",
+    rejectedAlternatives: [],
+    expansions: [],
+    challenges: [],
+    explorations: [],
+    ...overrides,
+  };
 }
 
 describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ themes: [] }) }),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const defaultProps = {
     selectedRun: baseRun({
-      proposal: {
-        conclusion: "結論です",
-        facts: [],
-        logic: "ロジック",
-        rejectedAlternatives: [],
-        expansions: [],
-        challenges: [],
-        explorations: [],
+      proposal: emptyProposal({
         suggestionCandidates: [
           { title: "候補A: 1on1の改善", rationale: "理由A" },
           { title: "候補B: 評価基準の統一", rationale: "理由B" },
         ],
-      },
+      }),
     }),
     sourceJournal: null,
     suggestionCandidates: [
@@ -195,17 +226,20 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
 });
 
 describe("ConsultReviewPanel - 様子見の継続", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ themes: [] }) }),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const proposalRun = baseRun({
-    proposal: {
-      conclusion: "結論です",
-      facts: [],
-      logic: "ロジック",
-      rejectedAlternatives: [],
-      expansions: [],
-      challenges: [],
-      explorations: [],
+    proposal: emptyProposal({
       suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
-    },
+    }),
   });
 
   const baseProps = {
@@ -227,7 +261,10 @@ describe("ConsultReviewPanel - 様子見の継続", () => {
 
   it("様子見中なら「継続して様子見する」と表示し、押すとwatchingを再設定できる", async () => {
     const watchingRun = { ...proposalRun, triageStatus: "watching" as const, triageAt: 1000, reviewed: true };
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/themes") return Promise.resolve({ ok: true, json: async () => ({ themes: [] }) });
+      return Promise.resolve({ ok: true, json: async () => ({ ok: true }) });
+    });
     vi.stubGlobal("fetch", mockFetch);
     const refreshRuns = vi.fn().mockResolvedValue(undefined);
 
@@ -248,12 +285,159 @@ describe("ConsultReviewPanel - 様子見の継続", () => {
       );
       expect(refreshRuns).toHaveBeenCalled();
     });
+  });
+});
 
+describe("ConsultReviewPanel - テーマ壁打ちからの定着", () => {
+  const themeProposalRun = baseRun({
+    consultIntent: "theme",
+    proposal: emptyProposal({
+      conclusion: "テックリードの自立を進める",
+      suggestionTitle: "テックリード自立支援",
+      logic: "ボトルネック解消のため",
+      suggestionCandidates: [{ title: "テックリード自立支援", rationale: "理由" }],
+    }),
+  });
+
+  const baseProps = {
+    sourceJournal: null,
+    suggestionCandidates: [{ title: "テックリード自立支援", rationale: "理由" }],
+    candidatePick: null,
+    setCandidatePick: vi.fn(),
+    stale: false,
+    fetchWithNameConfirm: vi.fn(),
+    refreshRuns: vi.fn().mockResolvedValue(undefined),
+    refreshSuggestions: vi.fn().mockResolvedValue(undefined),
+    suggestions: [],
+  };
+
+  afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("通常相談ではテーマ定着CTAを出さない", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ themes: [] }) }),
+    );
+    renderPanel(
+      <ConsultReviewPanel
+        {...baseProps}
+        selectedRun={baseRun({
+          proposal: emptyProposal({
+            suggestionCandidates: [{ title: "単一候補", rationale: "理由" }],
+          }),
+        })}
+        suggestionCandidates={[{ title: "単一候補", rationale: "理由" }]}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /テーマとして定着/ })).not.toBeInTheDocument();
+  });
+
+  it("consultIntent=theme ならテーマ定着CTAを出す", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ themes: [] }) }),
+    );
+    renderPanel(<ConsultReviewPanel {...baseProps} selectedRun={themeProposalRun} />);
+    expect(await screen.findByRole("button", { name: "🎯 テーマとして定着" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "📌 提案として残す" })).toBeInTheDocument();
+  });
+
+  it("テーマ定着を押すとPOST /api/themesしてThemesへ遷移する", async () => {
+    const user = userEvent.setup();
+    const mockFetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/themes" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            theme: {
+              id: "theme-new",
+              title: "テックリード自立支援",
+              summary: "テックリードの自立を進める",
+              rationale: "ボトルネック解消のため",
+              facts: [],
+              evidenceJournalIds: [],
+              evidenceSuggestionIds: [],
+              status: "adopted",
+              sourceRunId: "run-consult-1",
+              sortOrder: 0,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          }),
+        });
+      }
+      if (url === "/api/themes") {
+        return Promise.resolve({ ok: true, json: async () => ({ themes: [] }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    renderPanel(<ConsultReviewPanel {...baseProps} selectedRun={themeProposalRun} />, [
+      "/chat?runId=run-consult-1",
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "🎯 テーマとして定着" }));
+
+    await vi.waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/themes",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"sourceRunId":"run-consult-1"'),
+        }),
+      );
+    });
+    expect(await screen.findByTestId("location")).toHaveTextContent("/org?section=themes&themeId=theme-new");
+  });
+
+  it("作成済みテーマがあればリンクを表示しボタンを無効化する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          themes: [
+            {
+              id: "theme-1",
+              title: "テックリード自立支援",
+              summary: "要約",
+              rationale: "理由",
+              facts: [],
+              evidenceJournalIds: [],
+              evidenceSuggestionIds: [],
+              status: "adopted",
+              sourceRunId: "run-consult-1",
+              sortOrder: 0,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderPanel(<ConsultReviewPanel {...baseProps} selectedRun={themeProposalRun} />);
+
+    expect(await screen.findByRole("button", { name: "🎯 テーマ作成済み" })).toBeDisabled();
+    const link = await screen.findByRole("link", { name: /テックリード自立支援/ });
+    expect(link).toHaveAttribute("href", "/org?section=themes&themeId=theme-1");
   });
 });
 
 describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ themes: [] }) }),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("sourceJournalIdがない手動相談でもstatusがerrorならリセットボタンを表示する", () => {
     const errorRun = baseRun({
       status: "error",
@@ -293,6 +477,9 @@ describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
     const mockFetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes("/review")) {
         return Promise.resolve({ ok: true, json: async () => ({ ok: true }) });
+      }
+      if (url === "/api/themes") {
+        return Promise.resolve({ ok: true, json: async () => ({ themes: [] }) });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
@@ -342,7 +529,5 @@ describe("ConsultReviewPanel - エラー時のリセットと再分析", () => {
       );
       expect(onReanalyzed).toHaveBeenCalledWith("new-run-456");
     });
-
-    vi.unstubAllGlobals();
   });
 });

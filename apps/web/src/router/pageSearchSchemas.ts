@@ -10,7 +10,13 @@ export const chatSearchSchema = z.object({
   runId: z.string().optional(),
   journalId: z.string().optional(),
   prefill: z.string().optional(),
+  intent: z.enum(["theme"]).optional(),
   archived: z.enum(["1"]).optional().catch(undefined),
+});
+
+export const orgSearchSchema = z.object({
+  section: z.enum(["themes"]).optional(),
+  themeId: z.string().optional(),
 });
 
 export const peopleSearchSchema = z.object({

@@ -29,6 +29,7 @@ import { suggestionsRouteSearchSchema } from "../components/suggestionListSearch
 import {
   chatSearchSchema,
   growthSearchSchema,
+  orgSearchSchema,
   peopleSearchSchema,
   teamsSearchSchema,
 } from "./pageSearchSchemas";
@@ -75,7 +76,12 @@ export function createAppRouteTree() {
       validateSearch: validateSearchWith(peopleSearchSchema),
     }),
     page("/people/$id", PersonDetailPage),
-    page("/org", OrgPage),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/org",
+      component: OrgPage,
+      validateSearch: validateSearchWith(orgSearchSchema),
+    }),
     page("/reports", ReportsPage),
     page("/checkin", CheckinPage),
     createRoute({

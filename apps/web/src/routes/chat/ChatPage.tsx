@@ -197,6 +197,7 @@ export function ChatPage() {
           <NewConsultForm
             initialTask={chatSearch.prefill ?? ""}
             queryJournalId={queryJournalId}
+            consultIntent={chatSearch.intent === "theme" ? "theme" : undefined}
             fetchWithNameConfirm={fetchWithNameConfirm}
             onStarted={handleConsultStarted}
           />

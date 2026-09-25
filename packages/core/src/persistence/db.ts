@@ -205,6 +205,7 @@ function migrate(database: DatabaseSync): void {
   // Journal自動分析・Journalからの手動相談で、生成元Journalへ戻れるようにする。
   // origin=auto-anomaly だけでは ID が残らず、相談画面で「なぜ生まれたか」が分からなかった。
   addColumnIfMissing(database, "agent_runs", "source_journal_id", "TEXT");
+  addColumnIfMissing(database, "agent_runs", "consult_intent", "TEXT");
 
   // 誤って起票した・
   // テストで作った等の相談を、相談履歴一覧・AIの判断材料（context-blocks等）から除外する。

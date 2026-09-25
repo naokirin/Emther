@@ -240,6 +240,8 @@ export type AgentRun = {
     | "auto-monthly-report";
   // Journal自動分析・Journalからの手動相談の生成元。originだけでは ID が残らない。
   sourceJournalId?: string;
+  // Themes「AIと壁打ち」起点の相談。結論後に「テーマとして定着」CTAを出す判定に使う。
+  consultIntent?: "theme";
   // 週次・月次レビューの材料となったreportsテーブルの行への逆リンク
   // （正確なperiodStart/periodEndをここから取得する。起動時刻からの再計算はしない）。
   sourceReportId?: string;

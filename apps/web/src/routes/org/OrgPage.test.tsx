@@ -53,6 +53,12 @@ describe("OrgPage", () => {
     expect(screen.getByRole("link", { name: "相談で考える" })).toHaveAttribute("href", "/chat");
   });
 
+  it("/org?section=themes では Themes パネルを開く", async () => {
+    render(<OrgPage />, { wrapper: createWrapper(["/org?section=themes"]) });
+    expect(await screen.findByText("Themes（組織テーマ）")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /AIと壁打ち/ })).toBeInTheDocument();
+  });
+
   it("フラットナビからMVVを選び、編集して保存できる", async () => {
     const user = userEvent.setup();
     render(<OrgPage />, { wrapper: createWrapper() });

@@ -73,4 +73,11 @@ describe("OrgThemesPanel", () => {
     expect(screen.getByText("🎯 EMとしての注力テーマを直接登録")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("例: テックリードの自立支援と権限委譲")).toBeInTheDocument();
   });
+
+  it("AIと壁打ちリンクにintent=themeが含まれる", () => {
+    renderPanel();
+    const link = screen.getByRole("link", { name: /AIと壁打ち/ });
+    expect(link.getAttribute("href")).toContain("intent=theme");
+    expect(link.getAttribute("href")).toContain("prefill=");
+  });
 });

@@ -73,6 +73,17 @@ describe("POST /api/themes", () => {
     expect(json.theme.status).toBe("adopted");
     expect(json.theme.rationale).toBe("要約文"); // rationale省略時はsummaryを使う
   });
+
+  it("sourceRunIdを渡すと保存する", async () => {
+    const { themesRoute } = await import("./themes");
+    const res = await themesRoute.request(
+      "/",
+      post({ title: "壁打ち由来", summary: "要約", sourceRunId: "run-wallbash-1" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.theme.sourceRunId).toBe("run-wallbash-1");
+  });
 });
 
 describe("GET /api/themes/:id", () => {

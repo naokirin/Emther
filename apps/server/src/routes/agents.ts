@@ -72,6 +72,7 @@ export const agentsRoute = new Hono()
     const task = typeof body?.task === "string" ? body.task.trim() : "";
     const sourceJournalId =
       typeof body?.sourceJournalId === "string" && body.sourceJournalId.trim() ? body.sourceJournalId.trim() : undefined;
+    const consultIntent = body?.consultIntent === "theme" ? ("theme" as const) : undefined;
     // 何でも相談の「経営／役員目線の厳しいレビューも聞く」チェック。LeadがExec Agentを必須consultする。
     const requireExecConsult = body?.requireExecConsult === true;
 
@@ -83,6 +84,7 @@ export const agentsRoute = new Hono()
       const run = await startRun(agentName, task, "manual", undefined, {
         ...maskOptionsFromBodyStrict(body),
         sourceJournalId,
+        consultIntent,
         ...(requireExecConsult && agentName === "Lead Agent" ? { requiredConsultAgents: [EXEC_AGENT_NAME] } : {}),
       });
       const resBody = { run: toRunView(run) } satisfies AgentRunMutationResponse;

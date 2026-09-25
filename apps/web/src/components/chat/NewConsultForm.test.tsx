@@ -55,7 +55,13 @@ describe("NewConsultForm", () => {
       "/api/agents",
       {
         method: "POST",
-        body: { agentName: "Lead Agent", task: "相談内容", sourceJournalId: "journal-1", requireExecConsult: undefined },
+        body: {
+          agentName: "Lead Agent",
+          task: "相談内容",
+          sourceJournalId: "journal-1",
+          consultIntent: undefined,
+          requireExecConsult: undefined,
+        },
       },
       "送信する",
     );
@@ -82,6 +88,25 @@ describe("NewConsultForm", () => {
     expect(fetchWithNameConfirm).toHaveBeenCalledWith(
       "/api/agents",
       expect.objectContaining({ body: expect.objectContaining({ requireExecConsult: true }) }),
+      "送信する",
+    );
+  });
+
+  it("consultIntent=theme を渡すと送信bodyに含める", async () => {
+    const fetchWithNameConfirm = vi.fn().mockResolvedValue({ res: { ok: true }, data: { run: { id: "run-theme" } } });
+    const user = userEvent.setup();
+    renderForm({
+      initialTask: "テーマ壁打ち",
+      queryJournalId: null,
+      consultIntent: "theme",
+      fetchWithNameConfirm,
+      onStarted: vi.fn(),
+    });
+    await user.click(screen.getByRole("button", { name: "相談を始める" }));
+
+    expect(fetchWithNameConfirm).toHaveBeenCalledWith(
+      "/api/agents",
+      expect.objectContaining({ body: expect.objectContaining({ consultIntent: "theme" }) }),
       "送信する",
     );
   });

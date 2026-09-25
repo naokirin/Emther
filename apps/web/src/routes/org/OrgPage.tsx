@@ -12,9 +12,12 @@ import { StandingBackgroundPanel } from "../../components/org/StandingBackground
 import { StrategyPanel } from "../../components/org/StrategyPanel";
 import { useGoals, useOrgBackgrounds, useOrgStrategy, usePolicies, useTeams, useThemes } from "../../lib/queries";
 import { teamDisplayName } from "@emther/core/types";
+import { orgSearchSchema } from "@/router";
+import { useTypedSearchParams } from "../../lib/useTypedSearchParams";
 
 // フラットナビ + 概要（全体スキャン → フォーカス）
 export function OrgPage() {
+  const [orgSearch] = useTypedSearchParams(orgSearchSchema);
   const { strategy, strategyLoaded, refreshStrategy } = useOrgStrategy();
   const { backgrounds, backgroundsLoaded, refreshBackgrounds } = useOrgBackgrounds();
   const { policies, policiesLoaded, refreshPolicies } = usePolicies();
@@ -25,8 +28,12 @@ export function OrgPage() {
   const teamOptions = activeTeams.map((t) => ({ value: t.id, label: teamDisplayName(t.name) }));
   const adoptedThemes = themes.filter((t) => t.status === "adopted");
 
-  const [selection, setSelection] = useState<Selection>({ kind: "overview" });
-  const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>(() =>
+    orgSearch.section === "themes" ? { kind: "themes" } : { kind: "overview" },
+  );
+  const [editingThemeId, setEditingThemeId] = useState<string | null>(() =>
+    orgSearch.section === "themes" && orgSearch.themeId ? orgSearch.themeId : null,
+  );
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
@@ -35,6 +42,17 @@ export function OrgPage() {
   // kindが変わらずマウントされ続けるため、navTokenをkeyに含めて強制的に再マウントし、
   // 元の実装（クリックのたびに一覧へ戻す）と同じ挙動にする。
   const [navToken, setNavToken] = useState(0);
+
+  // URL の section/themeId が変わったら Themes へ寄せる（壁打ち定着後の遷移用）
+  const deepLinkKey = `${orgSearch.section ?? ""}:${orgSearch.themeId ?? ""}`;
+  const [appliedDeepLinkKey, setAppliedDeepLinkKey] = useState(deepLinkKey);
+  if (appliedDeepLinkKey !== deepLinkKey) {
+    setAppliedDeepLinkKey(deepLinkKey);
+    if (orgSearch.section === "themes") {
+      setSelection({ kind: "themes" });
+      setEditingThemeId(orgSearch.themeId ?? null);
+    }
+  }
 
   function selectOverview() {
     setSelection({ kind: "overview" });

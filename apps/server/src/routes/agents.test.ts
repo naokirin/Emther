@@ -81,6 +81,17 @@ describe("POST /api/agents", () => {
     expect(json.run.sourceJournalId).toBe("j-1");
   });
 
+  it("consultIntent=theme を渡すとrunに保存する", async () => {
+    const { agentsRoute } = await import("./agents");
+    const res = await agentsRoute.request(
+      "/",
+      post({ agentName: "Lead Agent", task: "テーマ壁打ち", consultIntent: "theme" }),
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.run.consultIntent).toBe("theme");
+  });
+
   it("requireExecConsultでrequiredConsultAgentsにExec Agentが入る", async () => {
     const { agentsRoute } = await import("./agents");
     const res = await agentsRoute.request("/", post({ agentName: "Lead Agent", task: "方針相談", requireExecConsult: true }));

@@ -52,6 +52,7 @@ export const themesRoute = new Hono()
       rationale: rationale || summary || title,
       facts: Array.isArray(body?.facts) ? body.facts : [],
       teamId: typeof body?.teamId === "string" ? body.teamId : undefined,
+      sourceRunId: typeof body?.sourceRunId === "string" && body.sourceRunId.trim() ? body.sourceRunId.trim() : undefined,
       status: body?.status === "candidate" ? "candidate" : "adopted",
     });
 

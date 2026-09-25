@@ -13,7 +13,9 @@ import { truncateForTitle } from "@emther/core/types";
 import { journalExcerptFromTask } from "@emther/core/origin-trace";
 import { dateStringToNoonTimestamp } from "@emther/core/journal-date-parser";
 import type { Suggestion } from "@emther/core/types";
-import type { AgentRunMutationResponse, SuggestionMutationResponse } from "@emther/api-contract";
+import type { AgentRunMutationResponse, SuggestionMutationResponse, ThemeMutationResponse } from "@emther/api-contract";
+import { Link, useNavigate } from "@/router";
+import { useThemes } from "../../lib/queries";
 
 const ORIGIN_LABEL: Record<AgentRun["origin"], string> = {
   manual: "",
@@ -85,6 +87,8 @@ export function ConsultReviewPanel({
   onReanalyzed,
 }: Props) {
   const suggestionPeek = useSuggestionPeek();
+  const navigate = useNavigate();
+  const { themes, refreshThemes } = useThemes();
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [deciding, setDeciding] = useState(false);
@@ -92,6 +96,7 @@ export function ConsultReviewPanel({
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [themesSubmitting, setThemesSubmitting] = useState(false);
+  const [themeSettleSubmitting, setThemeSettleSubmitting] = useState(false);
   const [suggestionNotesSubmitting, setSuggestionNotesSubmitting] = useState(false);
   const [suggestionUpdatesSubmitting, setSuggestionUpdatesSubmitting] = useState(false);
   const currentSuggestions = new Map(suggestions.map((s) => [s.id, s]));
@@ -102,6 +107,9 @@ export function ConsultReviewPanel({
   const createdSuggestionsFromRun = suggestions.filter(
     (s) => s.sourceRunId === selectedRun.id || s.agentRunId === selectedRun.id,
   );
+  const themesFromThisRun = themes.filter((t) => t.sourceRunId === selectedRun.id);
+  const themeIntent = selectedRun.consultIntent === "theme";
+  const themeAlreadySettled = themesFromThisRun.length > 0;
   const existingTitles = new Set(
     createdSuggestionsFromRun.flatMap((s) => [s.title.trim(), truncateForTitle(s.title).trim()]),
   );
@@ -316,6 +324,41 @@ export function ConsultReviewPanel({
       setDecideError((err as Error).message);
     } finally {
       setThemesSubmitting(false);
+    }
+  }
+
+  async function handleSettleAsTheme() {
+    const proposal = selectedRun.proposal;
+    if (!proposal) return;
+    setThemeSettleSubmitting(true);
+    setDecideError(null);
+    try {
+      const title = (proposal.suggestionTitle?.trim() || proposal.conclusion.trim() || "").slice(0, 200);
+      if (!title) throw new Error("テーマの見出しにできる結論がありません");
+      const summary = proposal.conclusion.trim() || title;
+      const rationale = proposal.logic.trim() || summary;
+      const res = await api.api.themes.$post({
+        json: {
+          title,
+          summary,
+          rationale,
+          status: "adopted",
+          sourceRunId: selectedRun.id,
+        },
+      });
+      const data = (await res.json().catch(() => null)) as (ThemeMutationResponse & { error?: string }) | null;
+      if (!res.ok) throw new Error(data?.error ?? "テーマの作成に失敗しました");
+      await refreshThemes();
+      const themeId = data?.theme?.id;
+      navigate(
+        themeId
+          ? `/org?section=themes&themeId=${encodeURIComponent(themeId)}`
+          : "/org?section=themes",
+      );
+    } catch (err) {
+      setDecideError((err as Error).message);
+    } finally {
+      setThemeSettleSubmitting(false);
     }
   }
 
@@ -587,11 +630,26 @@ export function ConsultReviewPanel({
             </div>
           )}
           <div className={styles.yieldActions} style={{ marginTop: suggestionCandidates.length > 1 ? 0 : 8 }}>
+            {themeIntent && (
+              <button
+                className={styles.primaryBtn}
+                style={{ width: "auto" }}
+                disabled={reviewSubmitting || themeSettleSubmitting || themeAlreadySettled}
+                onClick={handleSettleAsTheme}
+              >
+                {themeAlreadySettled
+                  ? "🎯 テーマ作成済み"
+                  : themeSettleSubmitting
+                    ? "作成中…"
+                    : "🎯 テーマとして定着"}
+              </button>
+            )}
             <button
-              className={styles.primaryBtn}
+              className={themeIntent ? styles.btnOutline : styles.primaryBtn}
               style={{ width: "auto" }}
               disabled={
                 reviewSubmitting ||
+                themeSettleSubmitting ||
                 (suggestionCandidates.length > 1 ? selectedCandidateTitles.length === 0 : isSinglePromoted)
               }
               onClick={handlePromoteToSuggestion}
@@ -606,13 +664,38 @@ export function ConsultReviewPanel({
                   ? "📌 提案済み"
                   : "📌 提案として残す"}
             </button>
-            <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("watching")}>
+            <button
+              className={styles.btnOutline}
+              disabled={reviewSubmitting || themeSettleSubmitting}
+              onClick={() => handleTriage("watching")}
+            >
               {selectedRun.triageStatus === "watching" ? "👀 継続して様子見する" : "👀 様子見する"}
             </button>
-            <button className={styles.btnOutline} disabled={reviewSubmitting} onClick={() => handleTriage("dismissed")}>
+            <button
+              className={styles.btnOutline}
+              disabled={reviewSubmitting || themeSettleSubmitting}
+              onClick={() => handleTriage("dismissed")}
+            >
               却下する（対応不要）
             </button>
           </div>
+          {themeIntent && themesFromThisRun.length > 0 && (
+            <div style={{ marginTop: 10, fontSize: "0.875rem" }}>
+              <p style={{ margin: "0 0 4px", color: "var(--text-muted)", fontSize: "0.75rem" }}>作成済みテーマ</p>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                {themesFromThisRun.map((t) => (
+                  <li key={t.id} style={{ marginBottom: 4 }}>
+                    <Link
+                      to={`/org?section=themes&themeId=${encodeURIComponent(t.id)}`}
+                      style={{ color: "var(--accent)" }}
+                    >
+                      🎯 {t.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div style={{ marginTop: 8 }}>
             <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
               把握済みで日次に出したくないとき — 次の確認日を指定して様子見（トリアージ時点からの日数）
@@ -624,7 +707,7 @@ export function ConsultReviewPanel({
                   type="button"
                   className={styles.btnOutline}
                   style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                  disabled={reviewSubmitting}
+                  disabled={reviewSubmitting || themeSettleSubmitting}
                   onClick={() => handleTriage("watching", noonDaysFromNow(p.days))}
                 >
                   {p.label}に確認

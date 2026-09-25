@@ -308,6 +308,8 @@ export type PendingUnmaskedSend = {
     | "auto-monthly-report";
   linkedSuggestionId?: string;
   sourceJournalId?: string;
+  /** Themes「AIと壁打ち」起点の相談 */
+  consultIntent?: "theme";
   /** 何でも相談で経営／役員目線レビューを必須consultするとき */
   requiredConsultAgents?: string[];
   runId?: string;

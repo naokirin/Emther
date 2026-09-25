@@ -7,6 +7,7 @@ import type { AgentRunMutationResponse } from "@emther/api-contract";
 type Props = {
   initialTask: string;
   queryJournalId: string | null;
+  consultIntent?: "theme";
   fetchWithNameConfirm: ReturnType<typeof useNameCandidateConfirm>["fetchWithNameConfirm"];
   onStarted: (runId: string) => void;
 };
@@ -39,7 +40,13 @@ function writeStoredDraft(value: string) {
 
 // Quick Journalの@人物クリックや
 // 「要注目Journal」カードから、相談内容を書いた状態でこの画面を開けるようにする
-export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfirm, onStarted }: Props) {
+export function NewConsultForm({
+  initialTask,
+  queryJournalId,
+  consultIntent,
+  fetchWithNameConfirm,
+  onStarted,
+}: Props) {
   // 明示的なprefill（Journal等からの導線）が無いときだけ、退避していた下書きを初期値に使う。
   const [task, setTask] = useState(() => initialTask || readStoredDraft());
   const [requireExecConsult, setRequireExecConsult] = useState(false);
@@ -65,6 +72,7 @@ export function NewConsultForm({ initialTask, queryJournalId, fetchWithNameConfi
             agentName: "Lead Agent",
             task,
             sourceJournalId: queryJournalId || undefined,
+            consultIntent: consultIntent === "theme" ? "theme" : undefined,
             requireExecConsult: requireExecConsult || undefined,
           },
         },

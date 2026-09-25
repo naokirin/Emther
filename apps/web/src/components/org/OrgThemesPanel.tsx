@@ -142,7 +142,7 @@ export function OrgThemesPanel({
                 ＋ テーマを直接設定
               </button>
               <Link
-                to="/chat?prefill=EMとしての注力テーマを壁打ち・言語化したい"
+                to={`/chat?prefill=${encodeURIComponent("EMとしての注力テーマを壁打ち・言語化したい")}&intent=theme`}
                 className={styles.btnOutline}
                 style={{ textDecoration: "none", fontSize: "0.8rem", display: "inline-flex", alignItems: "center" }}
               >

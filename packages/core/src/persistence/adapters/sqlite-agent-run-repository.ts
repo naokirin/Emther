@@ -28,6 +28,7 @@ type AgentRunRow = {
   updated_at: number;
   consulted_by: string | null;
   source_journal_id: string | null;
+  consult_intent: string | null;
   origin: string;
   reviewed: number;
   triage_status: string | null;
@@ -94,6 +95,7 @@ function rowToRun(row: AgentRunRow, log: LogLine[]): AgentRun {
     updatedAt: row.updated_at,
     consultedBy: row.consulted_by ?? undefined,
     sourceJournalId: row.source_journal_id ?? undefined,
+    consultIntent: row.consult_intent === "theme" ? "theme" : undefined,
     sourceReportId: row.source_report_id ?? undefined,
     origin: (row.origin as AgentRun["origin"]) ?? "manual",
     reviewed: !!row.reviewed,
@@ -121,8 +123,8 @@ export function createSqliteAgentRunRepository(
     upsertRunMeta(run: AgentRun): void {
       db.run(
         `INSERT INTO agent_runs
-          (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, origin, reviewed, triage_status, triage_at, triage_next_review_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, agent_name, task, status, session_id, agy_conversation_id, cursor_session_id, yield_request_json, proposal_json, suggested_action_items_json, suggested_sub_suggestions_json, suggested_charter_json, suggested_priority_json, suggested_themes_json, suggested_suggestion_notes_json, suggested_suggestion_updates_json, period_review_json, source_report_id, total_cost_usd, created_at, updated_at, consulted_by, source_journal_id, consult_intent, origin, reviewed, triage_status, triage_at, triage_next_review_at, archived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            status = excluded.status,
            session_id = excluded.session_id,
@@ -141,6 +143,7 @@ export function createSqliteAgentRunRepository(
            source_report_id = excluded.source_report_id,
            total_cost_usd = excluded.total_cost_usd,
            updated_at = excluded.updated_at,
+           consult_intent = excluded.consult_intent,
            reviewed = excluded.reviewed,
            triage_status = excluded.triage_status,
            triage_at = excluded.triage_at,
@@ -169,6 +172,7 @@ export function createSqliteAgentRunRepository(
         run.updatedAt,
         run.consultedBy ?? null,
         run.sourceJournalId ?? null,
+        run.consultIntent ?? null,
         run.origin,
         run.reviewed ? 1 : 0,
         run.triageStatus ?? null,

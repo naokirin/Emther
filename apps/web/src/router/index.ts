@@ -16,6 +16,7 @@ export {
   archivedFlagSearchSchema,
   chatSearchSchema,
   growthSearchSchema,
+  orgSearchSchema,
   peopleSearchSchema,
   teamsSearchSchema,
 } from "./pageSearchSchemas";

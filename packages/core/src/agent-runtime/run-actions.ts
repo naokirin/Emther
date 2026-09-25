@@ -49,6 +49,7 @@ export async function confirmPendingUnmaskedSend(
       {
         ...allow,
         sourceJournalId: pending.sourceJournalId,
+        consultIntent: pending.consultIntent,
         requiredConsultAgents: pending.requiredConsultAgents,
       },
     );
@@ -71,9 +72,13 @@ export async function startRun(
   rawTask: string,
   origin: AgentRun["origin"] = "manual",
   linkedSuggestionId?: string,
-  opts: MaskOptions & { sourceJournalId?: string; requiredConsultAgents?: string[] } = {},
+  opts: MaskOptions & {
+    sourceJournalId?: string;
+    consultIntent?: AgentRun["consultIntent"];
+    requiredConsultAgents?: string[];
+  } = {},
 ): Promise<AgentRun> {
-  const { sourceJournalId, requiredConsultAgents, ...maskOpts } = opts;
+  const { sourceJournalId, consultIntent, requiredConsultAgents, ...maskOpts } = opts;
   await ensureNameCandidatesAllowed([rawTask], maskOpts);
   // Journal集約解釈: 人名確認を通過したあと、CLI非同期起動より前に材料窓を固定する。
   if (origin === "auto-journal-batch") beginJournalBatchWindow();
@@ -94,6 +99,7 @@ export async function startRun(
     origin,
     reviewed: origin === "manual",
     sourceJournalId,
+    ...(consultIntent === "theme" ? { consultIntent } : {}),
     ...(normalizedRequired && normalizedRequired.length > 0 ? { requiredConsultAgents: normalizedRequired } : {}),
   };
   const maskedTask = await sanitizeForCloud(run, rawTask);
