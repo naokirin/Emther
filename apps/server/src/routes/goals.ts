@@ -10,6 +10,11 @@ function parseStatus(value: unknown): GoalStatus | undefined {
   return value === "active" || value === "achieved" || value === "abandoned" ? value : undefined;
 }
 
+function parseParentGoalIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((id): id is string => typeof id === "string");
+}
+
 // Policy ルートと同型の Goal CRUD。
 export const goalsRoute = new Hono()
   .get("/", (c) => {
@@ -27,9 +32,10 @@ export const goalsRoute = new Hono()
       typeof body?.elaboration === "string" && body.elaboration.trim() ? body.elaboration.trim() : undefined;
     const note = typeof body?.note === "string" && body.note.trim() ? body.note.trim() : undefined;
     const horizon = parseHorizon(body?.horizon);
+    const parentGoalIds = parseParentGoalIds(body?.parentGoalIds);
 
     try {
-      const goal = await addGoal({ title, teamId, elaboration, note, horizon });
+      const goal = await addGoal({ title, teamId, elaboration, note, horizon, parentGoalIds });
       const resBody = { goal: toGoalView(goal) } satisfies GoalMutationResponse;
       return c.json(resBody, 201);
     } catch (err) {
@@ -50,6 +56,7 @@ export const goalsRoute = new Hono()
       note?: string | null;
       horizon?: GoalHorizon | null;
       status?: GoalStatus;
+      parentGoalIds?: string[] | null;
     } = {};
 
     if ("title" in body && typeof body.title === "string") patch.title = body.title;
@@ -70,17 +77,32 @@ export const goalsRoute = new Hono()
       if (!status) return c.json({ error: "statusは active / achieved / abandoned のいずれかです" }, 400);
       patch.status = status;
     }
+    if ("parentGoalIds" in body) {
+      if (body.parentGoalIds === null) {
+        patch.parentGoalIds = null;
+      } else {
+        const parsed = parseParentGoalIds(body.parentGoalIds);
+        if (parsed === undefined) {
+          return c.json({ error: "parentGoalIdsは文字列配列またはnullです" }, 400);
+        }
+        patch.parentGoalIds = parsed;
+      }
+    }
 
     if (Object.keys(patch).length === 0) {
       return c.json({ error: "更新フィールドがありません" }, 400);
     }
 
-    const goal = await updateGoal(id, patch);
-    if (!goal) {
-      return c.json({ error: "not found" }, 404);
+    try {
+      const goal = await updateGoal(id, patch);
+      if (!goal) {
+        return c.json({ error: "not found" }, 404);
+      }
+      const resBody = { goal: toGoalView(goal) } satisfies GoalMutationResponse;
+      return c.json(resBody);
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 400);
     }
-    const resBody = { goal: toGoalView(goal) } satisfies GoalMutationResponse;
-    return c.json(resBody);
   })
   .delete("/:id", (c) => {
     const removed = removeGoal(c.req.param("id"));

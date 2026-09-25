@@ -51,6 +51,8 @@ export const goalSchema = z.object({
   elaboration: z.string().optional(),
   note: z.string().optional(),
   teamId: z.string().optional(),
+  /** 上位 Goal（多対多）。チーム階層とは独立。 */
+  parentGoalIds: z.array(z.string()).optional(),
   horizon: goalHorizonSchema.optional(),
   status: goalStatusSchema,
   createdAt: z.number(),

@@ -74,6 +74,9 @@ export function TeamCreatePanel({
         <div className={styles.field}>
           <label>チーム名
           <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="例: Engineering / Team A" /></label>
+          <p className={styles.subtitle} style={{ margin: "4px 0 0" }}>
+            「親 / 子」のように <code>/</code> で階層化できます。左のツリーに反映されます。
+          </p>
         </div>
         <div className={styles.field}>
           <label>メンバー（カンマ区切り）
@@ -102,6 +105,9 @@ export function TeamCreatePanel({
               placeholder={"例:\nEngineering / Team A: Aさん, Bさん\nEngineering / Team B: Cさん\nDesign: Dさん, Eさん"}
               style={{ width: "100%", fontFamily: "inherit", fontSize: "0.875rem" }}
             /></label>
+            <p className={styles.subtitle} style={{ margin: "4px 0 0" }}>
+              チーム名に <code>/</code> を入れると階層になります（例: Engineering / Team A）。
+            </p>
           </div>
           <button className={styles.primaryBtn} type="submit" disabled={bulkSubmitting || !bulkText.trim()}>
             {bulkSubmitting ? "登録中…" : "一括登録"}

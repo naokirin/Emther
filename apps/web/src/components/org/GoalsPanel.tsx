@@ -2,9 +2,11 @@ import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
 import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
+import { GoalParentLinkEditor, GoalParentLinkPicker } from "../GoalParentLinkEditor";
 import { api, rpcInit } from "../../lib/api-client";
 import { useEntityHistory } from "../../lib/queries";
 import { type Goal, type GoalHorizon, type GoalLinkSuggestion, type GoalStatus } from "@emther/core/types";
+import { childGoalIds } from "@emther/core/org-context-store/goal-hierarchy";
 import type { GoalMutationResponse, ThemeGoalLinkSuggestResponse } from "@emther/api-contract";
 import { treeTitle } from "./treeTitle";
 
@@ -33,6 +35,24 @@ function horizonLabel(horizon: GoalHorizon | undefined): string {
   return HORIZON_OPTIONS.find((o) => o.value === (horizon ?? ""))?.label ?? "";
 }
 
+function goalTitlesByIds(ids: string[], goals: Goal[]): string {
+  return ids
+    .map((id) => goals.find((g) => g.id === id))
+    .filter((g): g is Goal => !!g)
+    .map((g) => treeTitle(g.title))
+    .join(" · ");
+}
+
+function hierarchySummary(goal: Goal, goals: Goal[]): string {
+  const parents = goal.parentGoalIds?.length ? goalTitlesByIds(goal.parentGoalIds, goals) : "";
+  const children = childGoalIds(goal.id, goals);
+  const childTitles = children.length ? goalTitlesByIds(children, goals) : "";
+  const parts: string[] = [];
+  if (parents) parts.push(`↑ ${parents}`);
+  if (childTitles) parts.push(`↓ ${childTitles}`);
+  return parts.join(" ｜ ");
+}
+
 // Goal（EMとして見据えている到達したい状態）。 Decision 1
 // CRUD＋、未リンクの採用テーマへのAI紐づけ提案（HITLパターン）をここに集約する
 export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refreshThemes }: Props) {
@@ -47,6 +67,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
   const [newNote, setNewNote] = useState("");
   const [newTeamId, setNewTeamId] = useState("");
   const [newHorizon, setNewHorizon] = useState<GoalHorizon | "">("");
+  const [newParentGoalIds, setNewParentGoalIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +94,9 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
     fallbackReason?: string;
   } | null>(null);
   const [suggestApplyingId, setSuggestApplyingId] = useState<string | null>(null);
+
+  const selectedChildIds = selectedGoal ? childGoalIds(selectedGoal.id, goals) : [];
+  const selectedChildSummary = selectedChildIds.length ? goalTitlesByIds(selectedChildIds, goals) : "";
 
   function beginEdit(goal: Goal) {
     setEditTitle(goal.title);
@@ -103,6 +127,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
           note: newNote.trim() || undefined,
           teamId: newTeamId || undefined,
           horizon: newHorizon || undefined,
+          parentGoalIds: newParentGoalIds.length ? newParentGoalIds : undefined,
         },
       });
       const data = (await res.json()) as GoalMutationResponse & { error?: string };
@@ -112,6 +137,7 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
       setNewNote("");
       setNewTeamId("");
       setNewHorizon("");
+      setNewParentGoalIds([]);
       await refreshGoals();
       beginEdit(data.goal!);
     } catch (err) {
@@ -290,9 +316,19 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
                 {error}
               </p>
             )}
-            <button className={styles.primaryBtn} type="submit" style={{ width: "auto" }} disabled={submitting || !newTitle.trim()}>
+            <button className={styles.primaryBtn} type="submit" style={{ width: "auto", marginTop: 12 }} disabled={submitting || !newTitle.trim()}>
               {submitting ? "追加中…" : "追加"}
             </button>
+            <p className={styles.subtitle} style={{ margin: "6px 0 0" }}>
+              見出しを入力すると追加できます。上位 Goal の紐づけは任意です。
+            </p>
+            <GoalParentLinkPicker
+              goals={goals}
+              value={newParentGoalIds}
+              onChange={setNewParentGoalIds}
+              disabled={submitting}
+              compact
+            />
           </form>
 
           <hr style={{ margin: "20px 0", border: 0, borderTop: "1px solid var(--input-border)" }} />
@@ -310,32 +346,38 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
             <p className={styles.subtitle}>まだGoalが登録されていません。</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {visibleGoals.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => beginEdit(g)}
-                  style={{
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    border: "1px solid var(--input-border)",
-                    borderRadius: 8,
-                    background: "var(--panel-bg, transparent)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{treeTitle(g.title)}</div>
-                  {g.elaboration ? (
+              {visibleGoals.map((g) => {
+                const summary = hierarchySummary(g, goals);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => beginEdit(g)}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      border: "1px solid var(--input-border)",
+                      borderRadius: 8,
+                      background: "var(--panel-bg, transparent)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{treeTitle(g.title)}</div>
+                    {g.elaboration ? (
+                      <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                        {treeTitle(g.elaboration)}
+                      </div>
+                    ) : null}
                     <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                      {treeTitle(g.elaboration)}
+                      {horizonLabel(g.horizon) || "時間軸なし"}
+                      {g.status !== "active" ? ` · ${STATUS_OPTIONS.find((o) => o.value === g.status)?.label}` : ""}
                     </div>
-                  ) : null}
-                  <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                    {horizonLabel(g.horizon) || "時間軸なし"}
-                    {g.status !== "active" ? ` · ${STATUS_OPTIONS.find((o) => o.value === g.status)?.label}` : ""}
-                  </div>
-                </button>
-              ))}
+                    {summary ? (
+                      <div style={{ marginTop: 4, fontSize: "0.75rem", color: "var(--text-muted)" }}>{summary}</div>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           )}
         </>
@@ -409,6 +451,21 @@ export function GoalsPanel({ goals, goalsLoaded, refreshGoals, teamOptions, refr
               <Select label="状態" value={editStatus} onChange={(v) => setEditStatus(v as GoalStatus)} options={STATUS_OPTIONS} />
             </div>
           </div>
+          <GoalParentLinkEditor
+            goalId={selectedGoal.id}
+            parentGoalIds={selectedGoal.parentGoalIds ?? []}
+            goals={goals}
+            onSaved={refreshGoals}
+          />
+          {selectedChildSummary ? (
+            <p className={styles.subtitle} style={{ marginTop: 8 }}>
+              下位 Goal（導出）: {selectedChildSummary}
+            </p>
+          ) : (
+            <p className={styles.subtitle} style={{ marginTop: 8 }}>
+              下位 Goal はまだありません（他 Goal がこの Goal を上位に指定するとここに表示されます）。
+            </p>
+          )}
           {goalHistory.length > 0 && (
             <>
               <h3 style={{ marginTop: 20, marginBottom: 6, fontSize: "0.875rem" }}>変更履歴</h3>

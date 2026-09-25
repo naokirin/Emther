@@ -8,6 +8,11 @@ export type Goal = {
   elaboration?: string;
   note?: string;
   teamId?: string;
+  /**
+   * 上位 Goal の ID（多対多）。チーム階層とは独立。
+   * 空・未定義＝上位リンクなし。下位側は他 Goal の parentGoalIds から導出する。
+   */
+  parentGoalIds?: string[];
   horizon?: GoalHorizon;
   status: GoalStatus;
   createdAt: number;

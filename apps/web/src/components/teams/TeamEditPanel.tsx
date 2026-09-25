@@ -156,7 +156,10 @@ export function TeamEditPanel({
       )}
       <div className={styles.field}>
         <label>チーム名
-        <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} /></label>
+        <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="例: Engineering / Team A" /></label>
+        <p className={styles.subtitle} style={{ margin: "4px 0 0" }}>
+          「親 / 子」のように <code>/</code> で階層化できます。左のツリーに反映されます。
+        </p>
       </div>
       <div className={styles.field}>
         <label>メンバー（カンマ区切り）

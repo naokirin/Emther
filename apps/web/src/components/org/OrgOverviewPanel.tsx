@@ -6,6 +6,7 @@ import {
   type OrgTheme,
   type PolicyEntry,
 } from "@emther/core/types";
+import { buildGoalForest, childGoalIds, type GoalForestNode } from "@emther/core/org-context-store/goal-hierarchy";
 import styles from "../../styles/page.module.css";
 import { OrgEmptyGuidance, type OrgEmptyKind } from "./OrgEmptyGuidance";
 import { treeTitle } from "./treeTitle";
@@ -59,6 +60,59 @@ function goalLabel(index: number): string {
 
 function clampScanScale(n: number): number {
   return Math.min(SCAN_SCALE_MAX, Math.max(SCAN_SCALE_MIN, Math.round(n * 100) / 100));
+}
+
+function ScanGoalTreeNode({
+  node,
+  labelById,
+  themesByGoal,
+  onFocus,
+}: {
+  node: GoalForestNode<Goal>;
+  labelById: Map<string, string>;
+  themesByGoal: Map<string, OrgTheme[]>;
+  onFocus: (id: string) => void;
+}) {
+  const g = node.goal;
+  const linkedCount = themesByGoal.get(g.id)?.length ?? 0;
+  const label = labelById.get(g.id) ?? "G?";
+
+  return (
+    <div className={styles.orgScanGoalTreeNode}>
+      <button type="button" className={styles.orgScanGoalNode} onClick={() => onFocus(g.id)}>
+        <span className={styles.orgScanGoalId}>
+          {label}
+          {g.horizon ? ` · ${HORIZON_LABEL[g.horizon] ?? g.horizon}` : ""}
+          {node.shared ? " · 共有" : ""}
+        </span>
+        <span className={styles.orgScanStmt}>{treeTitle(g.title)}</span>
+        {g.elaboration ? (
+          <span className={styles.orgOverviewSub}>{shortText(g.elaboration, 40)}</span>
+        ) : null}
+        <span
+          className={`${styles.orgScanThemeCount} ${linkedCount === 0 ? styles.orgScanThemeCountEmpty : ""}`}
+        >
+          Theme {linkedCount}
+        </span>
+      </button>
+      {node.children.length > 0 ? (
+        <div className={styles.orgScanGoalChildren}>
+          <EdgeArrow tone="blue" />
+          <div className={styles.orgScanGoalChildList}>
+            {node.children.map((child) => (
+              <ScanGoalTreeNode
+                key={`${g.id}->${child.goal.id}`}
+                node={child}
+                labelById={labelById}
+                themesByGoal={themesByGoal}
+                onFocus={onFocus}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /** Goal→Theme / MVV→Goal の縦辺（スキャン・フォーカス共通） */
@@ -236,6 +290,14 @@ export function OrgOverviewPanel({
     return map;
   }, [activeGoals, adoptedThemes]);
 
+  const labelById = useMemo(() => {
+    const map = new Map<string, string>();
+    activeGoals.forEach((g, i) => map.set(g.id, goalLabel(i)));
+    return map;
+  }, [activeGoals]);
+
+  const goalForest = useMemo(() => buildGoalForest(activeGoals), [activeGoals]);
+
   const orphanThemes = useMemo(
     () => adoptedThemes.filter((t) => isThemeGoalUnlinked(t)),
     [adoptedThemes],
@@ -298,6 +360,16 @@ export function OrgOverviewPanel({
   const focusIndex = focusGoalId ? activeGoals.findIndex((g) => g.id === focusGoalId) : -1;
   const focusGoal = focusIndex >= 0 ? activeGoals[focusIndex] : null;
   const focusThemes = focusGoal ? (themesByGoal.get(focusGoal.id) ?? []) : [];
+  const parentGoals = focusGoal
+    ? (focusGoal.parentGoalIds ?? [])
+        .map((id) => activeGoals.find((g) => g.id === id))
+        .filter((g): g is Goal => !!g)
+    : [];
+  const childGoals = focusGoal
+    ? childGoalIds(focusGoal.id, activeGoals)
+        .map((id) => activeGoals.find((g) => g.id === id))
+        .filter((g): g is Goal => !!g)
+    : [];
   const siblingGoals = focusGoal
     ? activeGoals.map((g, i) => ({ g, i })).filter(({ g }) => g.id !== focusGoal.id)
     : [];
@@ -329,6 +401,43 @@ export function OrgOverviewPanel({
             <span className={styles.orgFocusBadge}>{gLabel} フォーカス</span>
           </div>
         </div>
+
+        {parentGoals.length > 0 || childGoals.length > 0 ? (
+          <div className={styles.orgFocusSiblings}>
+            {parentGoals.length > 0 ? (
+              <>
+                <span className={styles.orgFocusSiblingsLabel}>上位 Goal</span>
+                {parentGoals.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={styles.orgFocusSiblingChip}
+                    onClick={() => setFocusGoalId(g.id)}
+                    title={g.title}
+                  >
+                    {labelById.get(g.id)} {shortText(treeTitle(g.title), 10)}
+                  </button>
+                ))}
+              </>
+            ) : null}
+            {childGoals.length > 0 ? (
+              <>
+                <span className={styles.orgFocusSiblingsLabel}>下位 Goal</span>
+                {childGoals.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={styles.orgFocusSiblingChip}
+                    onClick={() => setFocusGoalId(g.id)}
+                    title={g.title}
+                  >
+                    {labelById.get(g.id)} {shortText(treeTitle(g.title), 10)}
+                  </button>
+                ))}
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
         {siblingGoals.length > 0 ? (
           <div className={styles.orgFocusSiblings}>
@@ -375,6 +484,7 @@ export function OrgOverviewPanel({
               <div className={styles.orgFocusGoalMeta}>
                 <span className={styles.orgFocusGoalId}>{gLabel} · フォーカス中</span>
                 {horizon ? <span className={styles.orgFocusGoalHorizon}>{horizon}</span> : null}
+                <span className={styles.orgScanThemeCount}>Theme {focusThemes.length}</span>
               </div>
               <p className={styles.orgFocusGoalStmt}>{focusGoal.title}</p>
               {focusGoal.elaboration ? (
@@ -403,7 +513,9 @@ export function OrgOverviewPanel({
                   </div>
                 ))}
               </div>
-            ) : null}
+            ) : (
+              <p className={styles.orgOverviewSub}>この Goal に紐づく Theme はまだありません。</p>
+            )}
 
             <div className={styles.orgFocusPolicyRail}>
               <span className={styles.orgFocusPolicyLabel}>
@@ -531,82 +643,32 @@ export function OrgOverviewPanel({
               </div>
             ) : null}
 
-            {hasMvv && activeGoals.length > 0 ? (
+            {hasMvv && goalForest.length > 0 ? (
               <div className={styles.orgScanMvvGoalEdges}>
-                <FanEdges count={activeGoals.length} tone="blue" />
+                <FanEdges count={goalForest.length} tone="blue" />
               </div>
             ) : null}
 
-            {activeGoals.length > 0 ? (
+            {goalForest.length > 0 ? (
               <div
                 className={`${styles.orgScanGoals} ${
-                  activeGoals.length <= 6 ? styles.orgScanGoalsSpread : ""
+                  goalForest.length <= 6 ? styles.orgScanGoalsSpread : ""
                 }`}
                 style={
-                  activeGoals.length <= 6
-                    ? ({ ["--org-goal-cols" as string]: activeGoals.length } as CSSProperties)
+                  goalForest.length <= 6
+                    ? ({ ["--org-goal-cols" as string]: goalForest.length } as CSSProperties)
                     : undefined
                 }
               >
-                {activeGoals.map((g, index) => {
-                  const linked = themesByGoal.get(g.id) ?? [];
-                  return (
-                    <div key={g.id} className={styles.orgScanGoalCol}>
-                      <button
-                        type="button"
-                        className={styles.orgScanGoalNode}
-                        onClick={() => setFocusGoalId(g.id)}
-                      >
-                        <span className={styles.orgScanGoalId}>
-                          {goalLabel(index)}
-                          {g.horizon ? ` · ${HORIZON_LABEL[g.horizon] ?? g.horizon}` : ""}
-                        </span>
-                        <span className={styles.orgScanStmt}>{treeTitle(g.title)}</span>
-                        {g.elaboration ? (
-                          <span className={styles.orgOverviewSub}>{shortText(g.elaboration, 40)}</span>
-                        ) : null}
-                      </button>
-                      <EdgeArrow tone="green" />
-                      <div
-                        className={`${styles.orgScanThemeCluster} ${
-                          linked.length === 0 ? styles.orgScanThemeClusterEmpty : ""
-                        }`}
-                      >
-                        <span className={styles.orgScanThemeClusterHead}>
-                          Themes · {linked.length}
-                          {linked.length === 0 ? " · なし" : ""}
-                        </span>
-                        {linked.map((t) => (
-                          <button
-                            key={t.id}
-                            type="button"
-                            className={styles.orgScanThemeChip}
-                            onClick={() => setFocusGoalId(g.id)}
-                          >
-                            {treeTitle(t.title)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {orphanThemes.length > 0 ? (
-              <div className={styles.orgScanOrphan}>
-                <span className={styles.orgScanOrphanTitle}>未リンク Theme（辺なし）</span>
-                <span className={styles.orgScanThemeClusterHead}>Themes · {orphanThemes.length}</span>
-                {orphanThemes.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={styles.orgScanThemeChip}
-                    style={{ borderColor: "var(--yellow-fg)" }}
-                    onClick={onOpenThemes}
-                  >
-                    {treeTitle(t.title)}
-                  </button>
+                {goalForest.map((root) => (
+                  <div key={root.goal.id} className={styles.orgScanGoalCol}>
+                    <ScanGoalTreeNode
+                      node={root}
+                      labelById={labelById}
+                      themesByGoal={themesByGoal}
+                      onFocus={setFocusGoalId}
+                    />
+                  </div>
                 ))}
               </div>
             ) : null}
@@ -616,7 +678,7 @@ export function OrgOverviewPanel({
                 <p className={styles.orgCareTitle}>手入れの起点</p>
                 <p className={styles.orgCareBody}>
                   未リンクの Theme が {orphanThemes.length}{" "}
-                  件ある。どの到達状態に効かせるか、Themes 一覧で Goal と結ぶ。
+                  件ある。スキャンでは列挙せず、Themes 一覧で Goal と結ぶ。
                 </p>
                 <button type="button" className={styles.btnOutline} onClick={onOpenThemes}>
                   Themes でリンクする

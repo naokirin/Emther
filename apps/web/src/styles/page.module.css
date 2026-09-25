@@ -1912,9 +1912,8 @@ font-familyだけをボタンの既定UIフォントから引き剥がす */
 .orgScanGoals {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
-  grid-template-rows: auto auto auto;
   column-gap: 10px;
-  row-gap: 0;
+  row-gap: 10px;
   align-items: stretch;
 }
 
@@ -1930,11 +1929,34 @@ font-familyだけをボタンの既定UIフォントから引き剥がす */
 }
 
 .orgScanGoalCol {
-  display: grid;
-  grid-template-rows: subgrid;
-  grid-row: span 3;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   width: 100%;
+}
+
+.orgScanGoalTreeNode {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.orgScanGoalChildren {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 2px;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--blue-text) 45%, transparent);
+}
+
+.orgScanGoalChildList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
 
 .orgScanGoalNode {
@@ -1950,7 +1972,6 @@ font-familyだけをボタンの既定UIフォントから引き剥がす */
   color: inherit;
   text-align: left;
   width: 100%;
-  height: 100%;
   box-sizing: border-box;
   align-self: stretch;
 }
@@ -1963,6 +1984,32 @@ font-familyだけをボタンの既定UIフォントから引き剥がす */
   font-size: 0.6875rem;
   font-weight: 700;
   color: var(--blue-text);
+}
+
+.orgScanGoalMeta {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.orgScanThemeCount {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--green-fg);
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+}
+
+.orgScanThemeCountEmpty {
+  color: var(--text-muted);
+  background: var(--gray-bg);
+  border-color: var(--border);
 }
 
 .orgScanEdge {

@@ -51,6 +51,17 @@ describe("POST /api/org/goals", () => {
     expect(json.goal.horizon).toBe("mid");
     expect(json.goal.status).toBe("active");
   });
+
+  it("parentGoalIds を指定して作成できる", async () => {
+    const { goalsRoute } = await import("./goals");
+    const parentRes = await goalsRoute.request("/", post({ title: "親Goal" }));
+    const { goal: parent } = await parentRes.json();
+
+    const childRes = await goalsRoute.request("/", post({ title: "子Goal", parentGoalIds: [parent.id] }));
+    expect(childRes.status).toBe(201);
+    const { goal: child } = await childRes.json();
+    expect(child.parentGoalIds).toEqual([parent.id]);
+  });
 });
 
 describe("PATCH/DELETE /api/org/goals/:id", () => {
@@ -69,6 +80,22 @@ describe("PATCH/DELETE /api/org/goals/:id", () => {
     expect(deleted.status).toBe(200);
     const list = await (await goalsRoute.request("/")).json();
     expect(list.goals).toEqual([]);
+  });
+
+  it("parentGoalIds の更新と閉路拒否", async () => {
+    const { goalsRoute } = await import("./goals");
+    const aRes = await goalsRoute.request("/", post({ title: "A" }));
+    const bRes = await goalsRoute.request("/", post({ title: "B" }));
+    const { goal: a } = await aRes.json();
+    const { goal: b } = await bRes.json();
+
+    const linked = await goalsRoute.request(`/${b.id}`, patch({ parentGoalIds: [a.id] }));
+    expect(linked.status).toBe(200);
+    expect((await linked.json()).goal.parentGoalIds).toEqual([a.id]);
+
+    const cycle = await goalsRoute.request(`/${a.id}`, patch({ parentGoalIds: [b.id] }));
+    expect(cycle.status).toBe(400);
+    expect((await cycle.json()).error).toMatch(/循環/);
   });
 
   it("不正なstatusは400", async () => {

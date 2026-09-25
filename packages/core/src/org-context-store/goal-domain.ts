@@ -3,6 +3,7 @@ import { recordChangeEvent } from "../knowledge-store";
 import { maskForStorage, unmaskNames } from "../people-directory";
 import type { GoalRepository } from "./goal-repository";
 import type { Goal, GoalHorizon, GoalStatus } from "./goal-types";
+import { resolveParentGoalIds } from "./goal-hierarchy";
 
 function normalizeHorizon(value: unknown): GoalHorizon | undefined {
   return value === "long" || value === "mid" || value === "near" ? value : undefined;
@@ -10,6 +11,14 @@ function normalizeHorizon(value: unknown): GoalHorizon | undefined {
 
 function normalizeStatus(value: unknown): GoalStatus {
   return value === "achieved" || value === "abandoned" ? value : "active";
+}
+
+function sameIdList(a: string[] | undefined, b: string[] | undefined): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  if (left.length !== right.length) return false;
+  const sortedRight = [...right].sort();
+  return [...left].sort().every((id, i) => id === sortedRight[i]);
 }
 
 export function createGoalService(repo: GoalRepository) {
@@ -37,6 +46,7 @@ export function createGoalService(repo: GoalRepository) {
     elaboration?: string;
     note?: string;
     horizon?: GoalHorizon;
+    parentGoalIds?: string[];
   }): Promise<Goal> {
     const title = input.title.trim();
     if (!title) {
@@ -45,12 +55,19 @@ export function createGoalService(repo: GoalRepository) {
     const now = Date.now();
     const elaboration = input.elaboration?.trim();
     const note = input.note?.trim();
+    const id = randomUUID();
+    // 新規 ID はまだ goals に無いので、検証用に仮エントリを足した一覧で親を解決する
+    const parentGoalIds = resolveParentGoalIds(id, input.parentGoalIds, [
+      ...goals,
+      { id, parentGoalIds: undefined },
+    ]);
     const goal: Goal = {
-      id: randomUUID(),
+      id,
       title: await maskForStorage(title),
       ...(elaboration ? { elaboration: await maskForStorage(elaboration) } : {}),
       ...(note ? { note: await maskForStorage(note) } : {}),
       teamId: input.teamId,
+      ...(parentGoalIds ? { parentGoalIds } : {}),
       horizon: normalizeHorizon(input.horizon),
       status: "active",
       createdAt: now,
@@ -71,6 +88,7 @@ export function createGoalService(repo: GoalRepository) {
       note?: string | null;
       horizon?: GoalHorizon | null;
       status?: GoalStatus;
+      parentGoalIds?: string[] | null;
     },
   ): Promise<Goal | undefined> {
     const goal = getGoal(id);
@@ -124,6 +142,22 @@ export function createGoalService(repo: GoalRepository) {
         goal.status = next;
       }
     }
+    if (patch.parentGoalIds !== undefined) {
+      const next = resolveParentGoalIds(
+        id,
+        patch.parentGoalIds === null ? [] : patch.parentGoalIds,
+        goals,
+      );
+      if (!sameIdList(goal.parentGoalIds, next)) {
+        changes.push(
+          next?.length
+            ? `上位Goalを更新しました（${next.length}件）`
+            : "上位Goalの紐づけを解除しました",
+        );
+        if (next) goal.parentGoalIds = next;
+        else delete goal.parentGoalIds;
+      }
+    }
 
     if (changes.length === 0) return goal;
     goal.updatedAt = Date.now();
@@ -136,8 +170,20 @@ export function createGoalService(repo: GoalRepository) {
     const idx = goals.findIndex((g) => g.id === id);
     if (idx === -1) return false;
     const goal = goals[idx];
+    let cleaned = false;
+    for (const other of goals) {
+      if (!other.parentGoalIds?.includes(id)) continue;
+      const next = other.parentGoalIds.filter((pid) => pid !== id);
+      if (next.length > 0) other.parentGoalIds = next;
+      else delete other.parentGoalIds;
+      other.updatedAt = Date.now();
+      cleaned = true;
+    }
     goals.splice(idx, 1);
     persist();
+    if (cleaned) {
+      recordChangeEvent("org", goal.id, `Goal削除に伴い他Goalの上位リンクを掃除しました`);
+    }
     recordChangeEvent("org", goal.id, `Goalを削除しました: 「${goal.title}」`);
     return true;
   }
