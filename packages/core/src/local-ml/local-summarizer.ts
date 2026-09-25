@@ -41,7 +41,8 @@ ${glossary ? `\n${glossary}\n` : ""}
 /**
  * 1日の終わりにEMが入力した振り返りメモ（または対話ログ）から、
  * 「事実・出来事」「EMの判断・対応」「気づき・シグナル」に整理・構造化する。
- * 外部に一切送信せず、ローカルLLM（Few-Shot付与）で構造化を試み、不可時はルールベースへフォールバックする。
+ * 外部に一切送信せず、ローカルLLM（system + 入力のみ。few-shot は注入しない）で構造化を試み、
+ * 不可時はルールベースへフォールバックする。
  */
 export async function structureDailyReflectionLocally(reflectionText: string): Promise<string> {
   const trimmed = reflectionText.trim();
@@ -66,8 +67,8 @@ export interface ReflectionTurn {
 
 /**
  * 1日の振り返り対話で、1on1のようにEMの発言を受容・傾聴しながら次の問いかけを行う。
- * 外部APIへの送信は行わず、端末内のローカルLLM（Few-Shot学習）を活用して
- * EMの具体的な発言に応じた血の通った深掘りと内省促進を行う。
+ * 外部APIへの送信は行わず、端末内のローカルLLM（対話履歴 + system のみ）で深掘りする。
+ * few-shot 例の注入はしない（小型モデルが例の話題・感情を実対話へコピーする漏洩を避ける）。
  * オフライン時やモデル未ロード時は、ルールベースの1on1対話生成へフォールバックする。
  * コンテキストはチャット上のやり取り（dialogHistory）のみ。Journal 等の外部メモは
  * 混ぜない（別文脈の混同で不適切な問いかけになるため）。
@@ -95,24 +96,40 @@ export async function generateNextReflectionQuestionLocally(
   return generate1on1ReflectionQuestion(dialogHistory);
 }
 
-const REFLECTION_COACH_FEW_SHOT: { user: string; assistant: string }[] = [
-  {
-    user: "本日はメンバーとの面談が急遽リスケになりました。最近少し疲れ気味に見えていたので気になっています。",
-    assistant: "普段と違うリスケや疲れの様子があると、何か無理をしていないか心配になりますね。\n最近の業務負荷や関わっているタスクで、負担になっていそうな要因として思い当たることはありますか？",
-  },
-  {
-    user: "QAの残業が増えていて、テスト工程がボトルネックになっています。",
-    assistant: "テスト工程での詰まりやメンバーの残業は、全体のリリースにも影響するため気がかりですね。\n仕様の手戻りやリソースの偏りなど、ボトルネックになっていそうな要因として何が一番大きそうでしょうか？",
-  },
-  {
-    user: "直前の仕様変更が重なり、開発メンバーから反発が出てしまって対応に苦慮しました。",
-    assistant: "直前の仕様変更に対する現場の反発と調整、精神的にも大きなエネルギーを使う対応でしたね。本当にお疲れ様でした。\nメンバーの納得感を得たりチームの負荷を減らすために、今日ご自身で判断したことやすり合わせた内容はありましたか？",
-  },
-  {
-    user: "明日朝イチで優先度の棚卸しを一緒にやろうと思います。",
-    assistant: "朝イチですぐに棚卸しに伴走するという次の一手が明確になりましたね。メンバーも安心すると思います。\n今日一日を振り返ってみて、他に頭の片隅に引っかかっている違和感や心残りはありますか？",
-  },
-];
+function dialogUserText(dialogHistory: ReflectionTurn[]): string {
+  return dialogHistory
+    .filter((t) => t.role === "user")
+    .map((t) => t.content)
+    .join("\n");
+}
+
+/** 出力に含まれる「〜さん／くん／ちゃん」が入力に根拠を持つか（幻覚のゲート）。 */
+function reflectionPersonNamesGroundedInInput(output: string, input: string): boolean {
+  const re = /([一-龥ぁ-んァ-ヶーA-Za-z]{1,12})(さん|くん|ちゃん)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(output)) !== null) {
+    const bare = m[1];
+    const hon = m[2];
+    const full = bare + hon;
+    if (input.includes(full)) continue;
+    // 「普段遅刻のない田中さん」のように直前語まで食うことがあるので、末尾1〜4文字を人名候補として見る
+    let grounded = false;
+    for (let len = 1; len <= Math.min(4, bare.length); len++) {
+      const candidateBare = bare.slice(-len);
+      const candidate = candidateBare + hon;
+      if (input.includes(candidate)) {
+        grounded = true;
+        break;
+      }
+      if (candidateBare.length >= 2 && input.includes(candidateBare)) {
+        grounded = true;
+        break;
+      }
+    }
+    if (!grounded) return false;
+  }
+  return true;
+}
 
 async function generateReflectionQuestionViaLocalAI(
   dialogHistory: ReflectionTurn[],
@@ -124,15 +141,11 @@ async function generateReflectionQuestionViaLocalAI(
   const systemPrompt = `あなたはエンジニアリングマネージャー（EM）のための親身な1on1振り返りパートナーです。
 EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を掘り下げる「問いかけ」を投げかけてください。
 前置きや見出し・解説（「共感：」「問いかけ：」などのラベル）は書かず、EMへの返答文のみ（共感と問いかけ）を直接出力してください。
-この対話履歴に書かれている内容だけを根拠にしてください。対話にない人物・出来事・メモを推測で補わないでください。`;
+この対話履歴に書かれている内容だけを根拠にしてください。対話にない人物・出来事・感情・状態（例: 疲れ・不安・反発）を推測で補ったり、問いかけの前提にしたりしないでください。`;
 
-  // Few-Shot のあとに、チャット上のやり取りだけをそのまま渡す（Journal 等は混ぜない）
+  // system + チャット履歴のみ（few-shot・Journal 等は混ぜない）
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: systemPrompt },
-    ...REFLECTION_COACH_FEW_SHOT.flatMap((ex) => [
-      { role: "user" as const, content: ex.user },
-      { role: "assistant" as const, content: ex.assistant },
-    ]),
     ...dialogHistory.map((t) => ({
       role: t.role as "user" | "assistant",
       content: t.content,
@@ -151,7 +164,11 @@ EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を
       .split(/\n(?:ユーザー|EM|User)[:：]/i)[0]
       .trim();
 
-    if (cleaned.length >= 15 && /[?？]|でしょうか|ですか|ありますか|でしたか|ですかね/.test(cleaned)) {
+    if (
+      cleaned.length >= 15 &&
+      /[?？]|でしょうか|ですか|ありますか|でしたか|ですかね/.test(cleaned) &&
+      reflectionPersonNamesGroundedInInput(cleaned, dialogUserText(dialogHistory))
+    ) {
       return cleaned;
     }
   } catch {
@@ -163,24 +180,16 @@ EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を
 
 async function structureDailyReflectionViaLocalAI(text: string): Promise<string | null> {
   const systemPrompt = `あなたはエンジニアリングマネージャー（EM）の振り返りを整理するアシスタントです。
-入力テキストから以下の3つの見出しに構造化してMarkdown箇条書きで出力してください。推測で嘘の情報を足さないでください。
+入力テキストから以下の3つの見出しに構造化してMarkdown箇条書きで出力してください。
+入力に書かれていない人物名・固有の出来事・判断は推測で足さないでください。
+出力フォーマット:
 - **【事実・出来事】**
 - **【EMの判断・対応】**
 - **【気づき・シグナル】**`;
 
-  const FEW_SHOT = [
-    {
-      user: "本日は田中さんの1on1がスキップされたことに気づきました。新しい案件が重なっていて少し抱え込み気味だったようです。明日朝イチで田中さんに声かけして案件の棚卸しを一緒にやろうと思います。",
-      assistant: `**【事実・出来事】**\n- 田中さんの1on1がスキップされた\n- 新しい案件が複数重なっている\n\n**【EMの判断・対応】**\n- 明日の朝イチで田中さんに声かけし、案件の棚卸しを一緒に実施する\n\n**【気づき・シグナル】**\n- 田中さんがタスクを抱え込み気味になっている兆候がある`,
-    },
-  ];
-
+  // system + 入力のみ（few-shot は注入しない。議事録要約と同じ方針）
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
     { role: "system", content: systemPrompt },
-    ...FEW_SHOT.flatMap((ex) => [
-      { role: "user" as const, content: ex.user },
-      { role: "assistant" as const, content: ex.assistant },
-    ]),
     { role: "user", content: text },
   ];
 
@@ -190,9 +199,10 @@ async function structureDailyReflectionViaLocalAI(text: string): Promise<string 
 
     const cleaned = raw.trim();
     if (
-      cleaned.includes("【事実・出来事】") ||
-      cleaned.includes("【EMの判断・対応】") ||
-      cleaned.includes("【気づき・シグナル】")
+      (cleaned.includes("【事実・出来事】") ||
+        cleaned.includes("【EMの判断・対応】") ||
+        cleaned.includes("【気づき・シグナル】")) &&
+      reflectionPersonNamesGroundedInInput(cleaned, text)
     ) {
       return cleaned;
     }
@@ -280,9 +290,12 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
     let empathy = "";
     let nextPrompt = "";
 
-    if (person && /1on1|面談|メンター|スキップ|キャンセル|リスケ|振替/i.test(latestText)) {
+    if (person && /スキップ|キャンセル|リスケ|振替/i.test(latestText) && /1on1|面談|メンター/i.test(latestText)) {
       empathy = `${person}との1on1がスキップになっていたのですね。日々の調整や急なタスクもある中で、メンバーとの接点は気にかかる出来事でしたね。`;
       nextPrompt = `${person}について、最近の業務負荷や様子などで何か気になっているサインや、スキップに至った背景として思い当たることはありますか？`;
+    } else if (person && /1on1|面談|メンター/i.test(latestText)) {
+      empathy = `${person}との1on1の様子を共有いただきありがとうございます。メンバーとの対話の時間は大事な接点ですね。`;
+      nextPrompt = `${person}とのやり取りの中で、印象に残った発言や、日頃と少し違う変化・兆候などはありましたか？`;
     } else if (person && /苦戦|悩み|困っ|体調|疲れ|モチベ|詰ま/i.test(latestText)) {
       empathy = `${person}の様子に気を配っていらっしゃるのですね。メンバーの変化をよく観察されていますね。`;
       nextPrompt = `${person}が直面している難しさや負荷について、具体的にどんな部分で詰まっていそうでしょうか？また、ご自身から見て何が一番のボトルネックだと感じますか？`;

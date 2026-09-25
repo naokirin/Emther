@@ -47,6 +47,30 @@ describe("local-summarizer", () => {
     expect(res).toContain("【気づき・シグナル】");
   });
 
+  it("構造化プロンプトは system + 入力のみ（few-shot ターンを注入しない）", async () => {
+    const rawText = "今日はリリース準備で忙しかった。明日のスコープを少し削ることにした。";
+    mockRunLocalChat.mockResolvedValueOnce(
+      "**【事実・出来事】**\n- リリース準備で忙しかった\n\n**【EMの判断・対応】**\n- 明日のスコープを削る\n\n**【気づき・シグナル】**\n- なし",
+    );
+    await structureDailyReflectionLocally(rawText);
+    const messages = mockRunLocalChat.mock.calls[0][0] as { role: string; content: string }[];
+    expect(messages).toEqual([
+      { role: "system", content: expect.any(String) },
+      { role: "user", content: rawText },
+    ]);
+  });
+
+  it("構造化: 入力にない人名を含む出力は棄却してフォールバックする", async () => {
+    mockRunLocalChat.mockResolvedValueOnce(
+      "**【事実・出来事】**\n- 田中さんの1on1がスキップされた\n\n**【EMの判断・対応】**\n- 明日声かけする\n\n**【気づき・シグナル】**\n- 抱え込み気味",
+    );
+    const rawText = "今日はリリース準備で忙しかった。明日のスコープを少し削ることにした。";
+    const res = await structureDailyReflectionLocally(rawText);
+    expect(res).not.toContain("田中");
+    expect(res).toContain("【事実・出来事】");
+    expect(res).toContain("リリース準備で忙しかった");
+  });
+
   it("1on1対話: 最初の問いかけ（Turn 0）で1日の全体感を優しく尋ねる", async () => {
     const q0 = await generateNextReflectionQuestionLocally([]);
     expect(q0).toContain("お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？");
@@ -67,15 +91,61 @@ describe("local-summarizer", () => {
     expect(res).toContain("普段遅刻のない田中さんがスキップされたとなると");
     expect(res).toContain("最近の田中さんの業務負荷で、気になる変化や兆候は思い当たりますか？");
     expect(mockRunLocalChat).toHaveBeenCalled();
-    // Journal 等の外部メモは渡さず、チャット履歴だけを材料にする
+    // Journal・few-shot は渡さず、system + チャット履歴だけを材料にする
     const messages = mockRunLocalChat.mock.calls[0][0] as { role: string; content: string }[];
+    expect(messages[0]?.role).toBe("system");
     expect(messages.some((m) => m.content.includes("今日のメモ"))).toBe(false);
-    expect(messages.filter((m) => m.role === "user" || m.role === "assistant").slice(-2)).toEqual(history);
+    expect(messages.filter((m) => m.role === "user" || m.role === "assistant")).toEqual(history);
+  });
+
+  it("問いかけプロンプトは system + 対話履歴のみ（few-shot ターンを注入しない）", async () => {
+    mockRunLocalChat.mockResolvedValueOnce(
+      "共有ありがとうございます。今日特に印象に残ったことはありますか？",
+    );
+    const history = [
+      { role: "assistant" as const, content: "今日はどんな一日でしたか？" },
+      { role: "user" as const, content: "今日は忙しかったです。" },
+    ];
+    await generateNextReflectionQuestionLocally(history);
+    const messages = mockRunLocalChat.mock.calls[0][0] as { role: string; content: string }[];
+    expect(messages).toHaveLength(1 + history.length);
+    expect(messages[0]?.role).toBe("system");
+    expect(messages.slice(1)).toEqual(history);
+  });
+
+  it("問いかけ: 対話にない人名を含む出力は棄却してフォールバックする", async () => {
+    mockRunLocalChat.mockResolvedValueOnce(
+      "佐藤さんの様子が気になりますね。最近の業務負荷で思い当たることはありますか？",
+    );
+    const history = [
+      { role: "assistant" as const, content: "今日はどんな一日でしたか？" },
+      {
+        role: "user" as const,
+        content: "今日は田中さんと1on1を実施し、元気な様子を確認することができました。",
+      },
+    ];
+    const res = await generateNextReflectionQuestionLocally(history);
+    expect(res).not.toContain("佐藤");
+    expect(res).toContain("田中さんとの1on1の様子を共有いただき");
   });
 
   it("1on1対話: オープニングにJournalメモへの言及を含めない", async () => {
     const q0 = await generateNextReflectionQuestionLocally([]);
     expect(q0).not.toContain("今日のメモ");
+  });
+
+  it("1on1対話フォールバック: 実施できた1on1をスキップ扱いしない", async () => {
+    mockRunLocalChat.mockRejectedValueOnce(new Error("local model error"));
+    const q1 = await generateNextReflectionQuestionLocally([
+      { role: "assistant", content: "今日はどんな一日でしたか？" },
+      {
+        role: "user",
+        content: "今日は田中さんと1on1を実施し、元気な様子を確認することができました。",
+      },
+    ]);
+    expect(q1).not.toContain("スキップ");
+    expect(q1).toContain("田中さんとの1on1の様子を共有いただき");
+    expect(q1).toContain("印象に残った発言や、日頃と少し違う変化・兆候などはありましたか？");
   });
 
   it("1on1対話フォールバック: 1on1スキップの報告（Turn 1）に対して詰問せず受容し、相手の業務負荷や兆候を深掘りする", async () => {
