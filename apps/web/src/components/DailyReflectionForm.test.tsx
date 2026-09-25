@@ -19,7 +19,7 @@ describe("DailyReflectionForm", () => {
                 question:
                   body.history?.length > 0
                     ? "なるほど、そのようなことがあったのですね。チームメンバーの様子や変化はどうでしたか？"
-                    : "お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？",
+                    : "お疲れ様でした。今日一日を振り返って、印象に残っている出来事や進んだことはありますか？会議、1on1、トラブル対応など、事実ベースでざっと挙げていただいて構いません。",
               }),
             };
           }
@@ -59,8 +59,8 @@ describe("DailyReflectionForm", () => {
     // 開始
     await user.click(screen.getByRole("button", { name: "✨ 振り返りを始める" }));
 
-    // AIの最初の問いかけが表示される
-    expect(await screen.findByText(/お疲れ様でした！今日も一日お疲れ様でした/)).toBeInTheDocument();
+    // AIの最初の問いかけ（定型: 出来事・事実）が表示される
+    expect(await screen.findByText(/印象に残っている出来事や進んだこと/)).toBeInTheDocument();
 
     // ユーザーが返答を入力して送信
     const input = screen.getByPlaceholderText(/回答を入力/);

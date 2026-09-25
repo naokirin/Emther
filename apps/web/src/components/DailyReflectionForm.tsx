@@ -18,8 +18,8 @@ type Phase = "idle" | "chat" | "review";
 /**
  * 1日の終わりのAI対話リフレクション（振り返り）フォーム。
  * EMが日々の出来事を逐一記録するのではなく、「振り返りを始める」を押すとAIが
- * 「お疲れ様でした、今日はどんな一日でしたか？」と語りかけ、チャット上の回答だけを
- * もとに、無理に深掘りせず幅広く今日の出来事・メンバー・判断・気づきを引き出す。
+ * 定型3視点（出来事・事実／人・チーム／EMの判断・対応）で今日を引き出し、
+ * その後チャット上の回答だけをもとに文脈深掘りする。
  * Journal 等の別コンテキストは混ぜない（問いかけの文脈混同を避けるため）。
  */
 export function DailyReflectionForm({ onCreated }: Props) {
@@ -68,7 +68,7 @@ export function DailyReflectionForm({ onCreated }: Props) {
       const data = await rpcData<JournalLocalSummarizeResponse & { error?: string }>(res);
       const question =
         data?.question ??
-        "お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や、全体の雰囲気など、ざっくりとした一言でも構いません）";
+        "お疲れ様でした。今日一日を振り返って、印象に残っている出来事や進んだことはありますか？会議、1on1、トラブル対応など、事実ベースでざっと挙げていただいて構いません。";
 
       setMessages([{ role: "assistant", content: question }]);
       setPhase("chat");

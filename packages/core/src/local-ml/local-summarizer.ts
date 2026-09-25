@@ -65,8 +65,22 @@ export interface ReflectionTurn {
   content: string;
 }
 
+/** 定型フェーズの問いかけ数（出来事・人・チーム・EMの判断）。この後から文脈深掘りに入る。 */
+export const FIXED_REFLECTION_QUESTION_COUNT = 3;
+
 /**
- * 1日の振り返り対話で、1on1のようにEMの発言を受容・傾聴しながら次の問いかけを行う。
+ * 多視点振り返りの定型問いかけ。
+ * index 0: 出来事・事実 / 1: 人・チーム / 2: EMの判断・対応
+ */
+export const FIXED_REFLECTION_QUESTIONS = [
+  "お疲れ様でした。今日一日を振り返って、印象に残っている出来事や進んだことはありますか？会議、1on1、トラブル対応など、事実ベースでざっと挙げていただいて構いません。",
+  "ありがとうございます。メンバーや関係者とのやり取りで、気になった様子・変化・サインはありましたか？特になければ『特にない』で大丈夫です。",
+  "了解です。今日ご自身が判断・決定したことや、前に進めた対応はありますか？小さな合意や声かけでも構いません。特になければ『特にない』で大丈夫です。",
+] as const;
+
+/**
+ * 1日の振り返り対話で、まず定型3視点（事実／人・チーム／EMの判断）で幅広く引き出し、
+ * その後に1on1のようにEMの発言を受容・傾聴しながら文脈深掘りする。
  * 外部APIへの送信は行わず、端末内のローカルLLM（対話履歴 + system のみ）で深掘りする。
  * few-shot 例の注入はしない（小型モデルが例の話題・感情を実対話へコピーする漏洩を避ける）。
  * オフライン時やモデル未ロード時は、ルールベースの1on1対話生成へフォールバックする。
@@ -78,12 +92,12 @@ export async function generateNextReflectionQuestionLocally(
 ): Promise<string> {
   const userTurns = dialogHistory.filter((t) => t.role === "user");
 
-  // Turn 0: オープニングの問いかけは定型で温かく開始
-  if (userTurns.length === 0) {
-    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）`;
+  // 定型フェーズ: LLMを呼ばず、常に同じ3問を返す
+  if (userTurns.length < FIXED_REFLECTION_QUESTION_COUNT) {
+    return FIXED_REFLECTION_QUESTIONS[userTurns.length];
   }
 
-  // Turn 1以降: ローカルLLMによる文脈を捉えた深い1on1問いかけを試みる
+  // 深掘りフェーズ: ローカルLLMによる文脈を捉えた深い1on1問いかけを試みる
   try {
     const aiQuestion = await generateReflectionQuestionViaLocalAI(dialogHistory);
     if (aiQuestion && aiQuestion.trim().length > 0) {
@@ -139,9 +153,10 @@ async function generateReflectionQuestionViaLocalAI(
   if (!latestUser.trim()) return null;
 
   const systemPrompt = `あなたはエンジニアリングマネージャー（EM）のための親身な1on1振り返りパートナーです。
-EMの発言を温かく受け止めて共感し、背景や兆候、打ち手を掘り下げる「問いかけ」を投げかけてください。
+対話の前半では、出来事・事実／人・チーム／EMの判断・対応の3視点で今日を振り返ってもらっています。
+その回答を踏まえ、EMの発言を温かく受け止めて共感し、対話にある内容だけを根拠に背景や兆候、打ち手を掘り下げる「問いかけ」を投げかけてください。
 前置きや見出し・解説（「共感：」「問いかけ：」などのラベル）は書かず、EMへの返答文のみ（共感と問いかけ）を直接出力してください。
-この対話履歴に書かれている内容だけを根拠にしてください。対話にない人物・出来事・感情・状態（例: 疲れ・不安・反発）を推測で補ったり、問いかけの前提にしたりしないでください。`;
+対話にない人物・出来事・感情・状態（例: 疲れ・不安・反発）を推測で補ったり、問いかけの前提にしたりしないでください。`;
 
   // system + チャット履歴のみ（few-shot・Journal 等は混ぜない）
   const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
@@ -273,53 +288,82 @@ function extractTopicPhrase(text: string): string {
   return cleaned.length > 25 ? cleaned.slice(0, 25) + "…" : cleaned;
 }
 
+function isThinReflectionAnswer(text: string): boolean {
+  const t = text.trim();
+  return (
+    t.length === 0 ||
+    /^(特に(ない|なし|ありません)|なし|大丈夫|問題ない)[。．.!！]?$/i.test(t)
+  );
+}
+
+/**
+ * 定型3回答のうち、深掘りの起点にしやすい発言を選ぶ（「特にない」は後回し）。
+ */
+function pickDeepDiveFocusText(userTurns: ReflectionTurn[]): string {
+  const texts = userTurns.map((t) => t.content);
+  const substantive = texts.filter((t) => !isThinReflectionAnswer(t));
+  for (const t of substantive) {
+    if (findPersonInText(t)) return t;
+  }
+  return substantive[0] ?? texts[texts.length - 1] ?? "";
+}
+
 function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string {
   const userTurns = dialogHistory.filter((t) => t.role === "user");
   const count = userTurns.length;
-  const latestText = userTurns[count - 1]?.content ?? "";
-  const prevText = userTurns[count - 2]?.content ?? "";
-  const person = findPersonInText(latestText) || findPersonInText(prevText);
 
-  // Turn 0: オープニングの問いかけ
-  if (count === 0) {
-    return `お疲れ様でした！今日も一日お疲れ様でした。今日はどんな一日でしたか？（印象に残っている出来事や全体の雰囲気など、ざっくりとした一言でも構いません）`;
+  // 定型フェーズ（通常は generateNextReflectionQuestionLocally 側で返す）
+  if (count < FIXED_REFLECTION_QUESTION_COUNT) {
+    return FIXED_REFLECTION_QUESTIONS[count];
   }
 
-  // Turn 1: EMが最初の出来事・状況を共有。その出来事の背景・兆候・ボトルネックを1歩深掘りする。
-  if (count === 1) {
+  const latestText = userTurns[count - 1]?.content ?? "";
+  const prevText = userTurns[count - 2]?.content ?? "";
+  // 深掘り初回（定型3回答直後）は3視点全体から焦点を選ぶ。以降は直前のやり取りを優先。
+  const focusText =
+    count === FIXED_REFLECTION_QUESTION_COUNT ? pickDeepDiveFocusText(userTurns) : latestText;
+  const person =
+    findPersonInText(focusText) ||
+    findPersonInText(latestText) ||
+    findPersonInText(prevText) ||
+    userTurns.map((t) => findPersonInText(t.content)).find(Boolean) ||
+    null;
+
+  // 定型3回答直後: ここまでの内容を受け止め、背景・兆候・ボトルネックを1歩深掘りする。
+  if (count === FIXED_REFLECTION_QUESTION_COUNT) {
     let empathy = "";
     let nextPrompt = "";
 
-    if (person && /スキップ|キャンセル|リスケ|振替/i.test(latestText) && /1on1|面談|メンター/i.test(latestText)) {
+    if (person && /スキップ|キャンセル|リスケ|振替/i.test(focusText) && /1on1|面談|メンター/i.test(focusText)) {
       empathy = `${person}との1on1がスキップになっていたのですね。日々の調整や急なタスクもある中で、メンバーとの接点は気にかかる出来事でしたね。`;
       nextPrompt = `${person}について、最近の業務負荷や様子などで何か気になっているサインや、スキップに至った背景として思い当たることはありますか？`;
-    } else if (person && /1on1|面談|メンター/i.test(latestText)) {
+    } else if (person && /1on1|面談|メンター/i.test(focusText)) {
       empathy = `${person}との1on1の様子を共有いただきありがとうございます。メンバーとの対話の時間は大事な接点ですね。`;
       nextPrompt = `${person}とのやり取りの中で、印象に残った発言や、日頃と少し違う変化・兆候などはありましたか？`;
-    } else if (person && /苦戦|悩み|困っ|体調|疲れ|モチベ|詰ま/i.test(latestText)) {
+    } else if (person && /苦戦|悩み|困っ|体調|疲れ|モチベ|詰ま/i.test(focusText)) {
       empathy = `${person}の様子に気を配っていらっしゃるのですね。メンバーの変化をよく観察されていますね。`;
       nextPrompt = `${person}が直面している難しさや負荷について、具体的にどんな部分で詰まっていそうでしょうか？また、ご自身から見て何が一番のボトルネックだと感じますか？`;
     } else if (person) {
       empathy = `${person}の様子を気にかけていらっしゃったのですね。日頃からメンバーをよく見ていらっしゃいますね。`;
       nextPrompt = `${person}とのやり取りの中で、印象に残った発言や、日頃と少し違う変化・兆候などはありましたか？`;
-    } else if (/QA|テスト|残業|詰まり|遅延|遅れ|バグ|障害|トラブル/i.test(latestText)) {
-      const focus = /QA/i.test(latestText) ? "QAの現場の詰まりや残業" : "現場のトラブルや負荷";
+    } else if (/QA|テスト|残業|詰まり|遅延|遅れ|バグ|障害|トラブル/i.test(focusText)) {
+      const focus = /QA/i.test(focusText) ? "QAの現場の詰まりや残業" : "現場のトラブルや負荷";
       empathy = `${focus}への対応、緊張感の続く一日でしたね。現場に向き合われ本当にお疲れ様でした。`;
       nextPrompt = `その${focus}について、仕様の変更や手戻り、あるいはリソースの偏りなど、ボトルネックになっていそうな要因として何が一番大きそうでしょうか？`;
-    } else if (/会議|ミーティング|議論|合意|すり合わせ|打ち合わせ|MTG/i.test(latestText)) {
+    } else if (/会議|ミーティング|議論|合意|すり合わせ|打ち合わせ|MTG/i.test(focusText)) {
       empathy = `ミーティングや議論が続き、頭をフル回転させた一日でしたね。お疲れ様でした。`;
       nextPrompt = `今日こなされた議論や打ち合わせの中で、特にエネルギーを使ったテーマや、一番論点・焦点になったポイントはどんなことでしたか？`;
-    } else if (/ロードマップ|優先度|スコープ|決めた|判断|決定/i.test(latestText)) {
+    } else if (/ロードマップ|優先度|スコープ|決めた|判断|決定/i.test(focusText)) {
       empathy = `重要な意思決定や方針の見直しを前に進められたのですね。勇気ある判断だったと思います。`;
       nextPrompt = `その合意形成や判断に至る中で、関係者とのすり合わせで一番意識したことや、トレードオフとして悩まれた部分はどんなところでしたか？`;
-    } else if (/疲れ|へとへと|ヘトヘト|大変|忙し|逼迫|バタバタ/i.test(latestText)) {
+    } else if (/疲れ|へとへと|ヘトヘト|大変|忙し|逼迫|バタバタ/i.test(focusText)) {
       empathy = `様々な調整や対応に追われて、エネルギーを使われた一日でしたね。本当にお疲れ様でした。`;
       nextPrompt = `今日一番ご自身の時間を取られたり、頭を悩ませた業務や出来事はどんなことでしたか？`;
-    } else if (/順調|良かった|解決|安心|落ち着|感謝|自律|いい感じ/i.test(latestText)) {
+    } else if (/順調|良かった|解決|安心|落ち着|感謝|自律|いい感じ/i.test(focusText)) {
       empathy = `落ち着いて物事が進んだようで何よりです。一日お疲れ様でした。`;
       nextPrompt = `そうした順調な進捗を支えている要因として、メンバーの動きやチーム内の連携で「うまく機能したな」と感じるポイントはありましたか？`;
     } else {
-      const topic = extractTopicPhrase(latestText);
+      const topic = extractTopicPhrase(focusText);
       empathy = `「${topic}」について共有していただきありがとうございます。慌ただしい中でも様々なことが動いていた一日でしたね。`;
       nextPrompt = `その出来事について、ご自身として特に気にかかっているポイントや、背景として感じていることはどんなところでしょうか？`;
     }
@@ -327,8 +371,8 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
     return `${empathy}\n\n${nextPrompt}`;
   }
 
-  // Turn 2: EMが背景・要因・状況を深掘りして回答。それを受け止め、EM自身のアクションやチーム全体への展開を促す。
-  if (count === 2) {
+  // 深掘り2回目: 背景・要因の回答を受け止め、EM自身のアクションやチーム全体への展開を促す。
+  if (count === FIXED_REFLECTION_QUESTION_COUNT + 1) {
     let empathy = "";
     let nextPrompt = "";
 
@@ -352,8 +396,8 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
     return `${empathy}\n\n${nextPrompt}`;
   }
 
-  // Turn 3: EMが取ったアクション・判断・チームの様子を回答。モヤモヤ・違和感・内省へ誘う。
-  if (count === 3) {
+  // 深掘り3回目: アクション・判断を受け、モヤモヤ・違和感・内省へ誘う。
+  if (count === FIXED_REFLECTION_QUESTION_COUNT + 2) {
     let empathy = "";
     let nextPrompt = "";
 
@@ -372,7 +416,7 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
     return `${empathy}\n\n${nextPrompt}`;
   }
 
-  // Turn 4+: モヤモヤの受容とまとめへの誘導
+  // 以降: モヤモヤの受容とまとめへの誘導
   let empathy = "";
   let nextPrompt = "";
 
