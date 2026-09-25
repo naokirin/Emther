@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { coverageTone, healthTone, loadTone } from "./dialTones";
-import { formatHealthBucketLine } from "./NowStatePanel";
+import { formatHealthBucketLine } from "./formatHealthBucketLine";
 
 describe("dial tones", () => {
   it("EM負荷は高いほど bad", () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
 import { GoalLinkSuggestPanel } from "../HierarchyLinkSuggestPanel";
@@ -100,12 +100,12 @@ export function GoalsPanel({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [editTitle, setEditTitle] = useState("");
-  const [editElaboration, setEditElaboration] = useState("");
-  const [editNote, setEditNote] = useState("");
-  const [editTeamId, setEditTeamId] = useState("");
-  const [editHorizon, setEditHorizon] = useState<GoalHorizon | "">("");
-  const [editStatus, setEditStatus] = useState<GoalStatus>("active");
+  const [editTitle, setEditTitle] = useState(selectedGoal?.title ?? "");
+  const [editElaboration, setEditElaboration] = useState(selectedGoal?.elaboration ?? "");
+  const [editNote, setEditNote] = useState(selectedGoal?.note ?? "");
+  const [editTeamId, setEditTeamId] = useState(selectedGoal?.teamId ?? "");
+  const [editHorizon, setEditHorizon] = useState<GoalHorizon | "">(selectedGoal?.horizon ?? "");
+  const [editStatus, setEditStatus] = useState<GoalStatus>(selectedGoal?.status ?? "active");
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -125,8 +125,11 @@ export function GoalsPanel({
   const selectedChildIds = selectedGoal ? childGoalIds(selectedGoal.id, goals) : [];
   const selectedChildSummary = selectedChildIds.length ? goalTitlesByIds(selectedChildIds, goals) : "";
 
-  useEffect(() => {
-    if (!selectedGoal) return;
+  // 選択Goalが変わったときだけ編集フォームを載せ替える。
+  // effect 内 setState を避け、描画中の「prev id との差分」で調整する。
+  const [syncedGoalId, setSyncedGoalId] = useState(selectedGoal?.id ?? null);
+  if (selectedGoal && selectedGoal.id !== syncedGoalId) {
+    setSyncedGoalId(selectedGoal.id);
     setEditTitle(selectedGoal.title);
     setEditElaboration(selectedGoal.elaboration ?? "");
     setEditNote(selectedGoal.note ?? "");
@@ -136,7 +139,7 @@ export function GoalsPanel({
     setEditError(null);
     setThemeGenerateError(null);
     setThemeGenerateResult(null);
-  }, [selectedGoal?.id]);
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();

@@ -42,7 +42,7 @@ export type ObservationCoverageSnapshot = {
 function tokenizeForMatch(text: string): string[] {
   return text
     .toLowerCase()
-    .split(/[\s　、。．，,./／|｜・:：;；\-—–_()（）\[\]「」『』【】]+/)
+    .split(/[\s　、。．，,./／|｜・:：;；\-—–_()（）[\]「」『』【】]+/)
     .map((t) => t.trim())
     .filter((t) => t.length >= 2);
 }

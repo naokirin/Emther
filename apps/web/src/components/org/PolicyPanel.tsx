@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "../../styles/page.module.css";
 import { Select } from "../Select";
 import { api, rpcInit } from "../../lib/api-client";
@@ -53,21 +53,24 @@ export function PolicyPanel({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [editText, setEditText] = useState("");
-  const [editElaboration, setEditElaboration] = useState("");
-  const [editCategory, setEditCategory] = useState<PolicyCategory | "">("");
-  const [editArchived, setEditArchived] = useState(false);
+  const [editText, setEditText] = useState(selectedPolicy?.text ?? "");
+  const [editElaboration, setEditElaboration] = useState(selectedPolicy?.elaboration ?? "");
+  const [editCategory, setEditCategory] = useState<PolicyCategory | "">(selectedPolicy?.category ?? "");
+  const [editArchived, setEditArchived] = useState(!!selectedPolicy?.archivedAt);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!selectedPolicy) return;
+  // 選択Policyが変わったときだけ編集フォームを載せ替える。
+  // effect 内 setState を避け、描画中の「prev id との差分」で調整する。
+  const [syncedPolicyId, setSyncedPolicyId] = useState(selectedPolicy?.id ?? null);
+  if (selectedPolicy && selectedPolicy.id !== syncedPolicyId) {
+    setSyncedPolicyId(selectedPolicy.id);
     setEditText(selectedPolicy.text);
     setEditElaboration(selectedPolicy.elaboration ?? "");
     setEditCategory(selectedPolicy.category ?? "");
     setEditArchived(!!selectedPolicy.archivedAt);
     setEditError(null);
-  }, [selectedPolicy?.id]);
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
