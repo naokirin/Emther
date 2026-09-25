@@ -4,6 +4,7 @@ import {
   structureDailyReflectionLocally,
   generateNextReflectionQuestionLocally,
   FIXED_REFLECTION_QUESTIONS,
+  MAX_REFLECTION_QUESTIONS,
 } from "./local-summarizer";
 
 const mockRunLocalChat = vi.fn();
@@ -222,6 +223,55 @@ describe("local-summarizer", () => {
     ]);
     expect(q).toContain("次の一手や判断を明確に描けていらっしゃいますね");
     expect(q).toContain("頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？");
+  });
+
+  it(`上限: ${MAX_REFLECTION_QUESTIONS}問目以降はLLMを呼ばずまとめ誘導に入る`, async () => {
+    mockRunLocalChat.mockResolvedValue(
+      "さらに深掘りします。田中さんの案件負荷について、他にも気になる点はありますか？",
+    );
+    const wrapUpHistory = [
+      ...fixedPhaseHistory([
+        "本日は田中さんの1on1がスキップされたことに気づきました。",
+        "特にない",
+        "特にない",
+      ]),
+      { role: "assistant" as const, content: "深掘り1" },
+      { role: "user" as const, content: "新しい案件が重なっていて少し抱え込み気味だったようです。" },
+      { role: "assistant" as const, content: "深掘り2" },
+      { role: "user" as const, content: "明日朝イチで田中さんに声かけします。" },
+    ];
+    // userTurns=5 → 次は6問目（まとめ誘導）。LLMは呼ばない。
+    const q6 = await generateNextReflectionQuestionLocally(wrapUpHistory);
+    expect(mockRunLocalChat).not.toHaveBeenCalled();
+    expect(q6).toContain("この内容で振り返りをまとめる");
+
+    mockRunLocalChat.mockClear();
+    const q7 = await generateNextReflectionQuestionLocally([
+      ...wrapUpHistory,
+      { role: "assistant", content: q6 },
+      { role: "user", content: "特にない" },
+    ]);
+    expect(mockRunLocalChat).not.toHaveBeenCalled();
+    expect(q7).toContain("この内容で振り返りをまとめる");
+  });
+
+  it("深掘りフェーズ（4〜5問目）では引き続きローカルLLMを呼ぶ", async () => {
+    mockRunLocalChat.mockResolvedValueOnce(
+      "案件が重なっているのですね。田中さんへどんなフォローを考えていますか？",
+    );
+    const history = [
+      ...fixedPhaseHistory([
+        "本日は田中さんの1on1がスキップされたことに気づきました。",
+        "特にない",
+        "特にない",
+      ]),
+      { role: "assistant" as const, content: "深掘り1" },
+      { role: "user" as const, content: "新しい案件が重なっていて少し抱え込み気味だったようです。" },
+    ];
+    // userTurns=4 → 次は5問目（まだ深掘り可）
+    const q5 = await generateNextReflectionQuestionLocally(history);
+    expect(mockRunLocalChat).toHaveBeenCalled();
+    expect(q5).toContain("どんなフォローを考えていますか");
   });
 
   it("対話のまとめフォールバック: 各ターンの発言を事実・EMの判断・気づきに構造化できる", async () => {

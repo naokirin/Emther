@@ -69,6 +69,25 @@ export interface ReflectionTurn {
 export const FIXED_REFLECTION_QUESTION_COUNT = 3;
 
 /**
+ * 1日の振り返りで問いかけを続ける上限（次に返す問いの番号がこれ以上ならまとめ誘導）。
+ * 定型 FIXED 問 + 深掘りのあと、MAX 問目以降は深掘りせずまとめへ誘導する。
+ */
+export const MAX_REFLECTION_QUESTIONS = 6;
+
+/**
+ * 次に返す問いの番号（1始まり）。ユーザー回答数 + 1。
+ * まとめ誘導の判定は常にこの値と MAX_REFLECTION_QUESTIONS の比較で行う。
+ */
+function nextReflectionQuestionNumber(userTurnCount: number): number {
+  return userTurnCount + 1;
+}
+
+/** 次の問いが MAX 問目以上ならまとめ誘導フェーズ。 */
+function isReflectionWrapUpPhase(userTurnCount: number): boolean {
+  return nextReflectionQuestionNumber(userTurnCount) >= MAX_REFLECTION_QUESTIONS;
+}
+
+/**
  * 多視点振り返りの定型問いかけ。
  * index 0: 出来事・事実 / 1: 人・チーム / 2: EMの判断・対応
  */
@@ -80,7 +99,7 @@ export const FIXED_REFLECTION_QUESTIONS = [
 
 /**
  * 1日の振り返り対話で、まず定型3視点（事実／人・チーム／EMの判断）で幅広く引き出し、
- * その後に1on1のようにEMの発言を受容・傾聴しながら文脈深掘りする。
+ * その後に短く文脈深掘りし、全体で MAX_REFLECTION_QUESTIONS 問以上になったらまとめ誘導に入る。
  * 外部APIへの送信は行わず、端末内のローカルLLM（対話履歴 + system のみ）で深掘りする。
  * few-shot 例の注入はしない（小型モデルが例の話題・感情を実対話へコピーする漏洩を避ける）。
  * オフライン時やモデル未ロード時は、ルールベースの1on1対話生成へフォールバックする。
@@ -97,7 +116,12 @@ export async function generateNextReflectionQuestionLocally(
     return FIXED_REFLECTION_QUESTIONS[userTurns.length];
   }
 
-  // 深掘りフェーズ: ローカルLLMによる文脈を捉えた深い1on1問いかけを試みる
+  // まとめ誘導フェーズ: 深掘りせずルールベースへ（1日の振り返りとしての終わり感）
+  if (isReflectionWrapUpPhase(userTurns.length)) {
+    return generate1on1ReflectionQuestion(dialogHistory);
+  }
+
+  // 深掘りフェーズ（定型後〜MAX問目の手前）: ローカルLLMによる文脈を捉えた深い1on1問いかけを試みる
   try {
     const aiQuestion = await generateReflectionQuestionViaLocalAI(dialogHistory);
     if (aiQuestion && aiQuestion.trim().length > 0) {
@@ -311,6 +335,7 @@ function pickDeepDiveFocusText(userTurns: ReflectionTurn[]): string {
 function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string {
   const userTurns = dialogHistory.filter((t) => t.role === "user");
   const count = userTurns.length;
+  const nextQuestion = nextReflectionQuestionNumber(count);
 
   // 定型フェーズ（通常は generateNextReflectionQuestionLocally 側で返す）
   if (count < FIXED_REFLECTION_QUESTION_COUNT) {
@@ -319,7 +344,7 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
 
   const latestText = userTurns[count - 1]?.content ?? "";
   const prevText = userTurns[count - 2]?.content ?? "";
-  // 深掘り初回（定型3回答直後）は3視点全体から焦点を選ぶ。以降は直前のやり取りを優先。
+  // 深掘り初回（定型直後）は3視点全体から焦点を選ぶ。以降は直前のやり取りを優先。
   const focusText =
     count === FIXED_REFLECTION_QUESTION_COUNT ? pickDeepDiveFocusText(userTurns) : latestText;
   const person =
@@ -329,7 +354,44 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
     userTurns.map((t) => findPersonInText(t.content)).find(Boolean) ||
     null;
 
-  // 定型3回答直後: ここまでの内容を受け止め、背景・兆候・ボトルネックを1歩深掘りする。
+  // まとめ誘導（MAX問目）: モヤモヤ・違和感へ誘いつつ、まとめるボタンを案内する
+  if (nextQuestion === MAX_REFLECTION_QUESTIONS) {
+    let empathy = "";
+    let nextPrompt = "";
+
+    const topic = extractTopicPhrase(latestText);
+    if (/声かけ|フォロー|棚卸し|整理|相談|合意|決めた|判断|打診|見直し/i.test(latestText)) {
+      empathy = `「${topic}」という次の一手や判断を明確に描けていらっしゃいますね。現場への確かな前進を感じます。`;
+      nextPrompt = `状況の把握から背景の洞察、そして次の一手までしっかりと思考を深められましたね。今日を終えてみて、ふと頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？特になければ、『📝 この内容で振り返りをまとめる』を押して本日の振り返りとしてまとめられます。`;
+    } else if (/特に(ない|なし|ありません)|大丈夫|落ち着/i.test(latestText)) {
+      empathy = `チームやメンバーが落ち着いて動けているのは安心ですね。日頃のコミュニケーションの積み重ねの賜物だと思います。`;
+      nextPrompt = `今日一日を振り返ってみて、ふと頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？特になければ、『📝 この内容で振り返りをまとめる』を押して本日の振り返りとしてまとめられます。`;
+    } else {
+      empathy = `EMとして一つひとつ判断と対応を積み重ね、前進された一日でしたね。`;
+      nextPrompt = `一日を通して様々な判断や対応をこなされましたね。今日を振り返ってみて、ふと頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？特になければ、『📝 この内容で振り返りをまとめる』を押して本日の振り返りとしてまとめられます。`;
+    }
+
+    return `${empathy}\n\n${nextPrompt}`;
+  }
+
+  // まとめ誘導（MAX問目より後）: モヤモヤの受容とまとめへの誘導
+  if (nextQuestion > MAX_REFLECTION_QUESTIONS) {
+    let empathy = "";
+    let nextPrompt = "";
+
+    if (/特になし|特にありません|大丈夫|ない|問題ない/i.test(latestText)) {
+      empathy = `気になる点を整理した上で、すっきりと一日を終えられそうですね。充実した一日でした、本当にお疲れ様でした！`;
+      nextPrompt = `今日一日の出来事や判断、チームの様子をしっかり言語化できましたね。よろしければ『📝 この内容で振り返りをまとめる』を押して、本日の振り返りをジャーナルとして保存しましょう。`;
+    } else {
+      const topic = extractTopicPhrase(latestText);
+      empathy = `「${topic}」について、率直なモヤモヤや気づきを言語化していただき、ありがとうございます。そうした小さな違和感に気づけること自体が、EMとして大切なシグナルですね。`;
+      nextPrompt = `今日一日、チームのことやご自身の判断、そして気になる違和感までしっかり深く振り返ることができましたね。よろしければ『📝 この内容で振り返りをまとめる』を押して、本日の振り返りをジャーナルとして保存しましょう。`;
+    }
+
+    return `${empathy}\n\n${nextPrompt}`;
+  }
+
+  // 定型直後の深掘り1回目: 背景・兆候・ボトルネックを1歩深掘りする。
   if (count === FIXED_REFLECTION_QUESTION_COUNT) {
     let empathy = "";
     let nextPrompt = "";
@@ -371,62 +433,25 @@ function generate1on1ReflectionQuestion(dialogHistory: ReflectionTurn[]): string
     return `${empathy}\n\n${nextPrompt}`;
   }
 
-  // 深掘り2回目: 背景・要因の回答を受け止め、EM自身のアクションやチーム全体への展開を促す。
-  if (count === FIXED_REFLECTION_QUESTION_COUNT + 1) {
-    let empathy = "";
-    let nextPrompt = "";
-
-    if (person) {
-      const topic = extractTopicPhrase(latestText);
-      empathy = `なるほど、${person}に関して「${topic}」という背景やサインに気づかれたのですね。EMとしてそこに目を向けられたのは非常に大きな気づきですね。`;
-      nextPrompt = `この件について、${person}へどんなフォローや声かけをしてみようと思いますか？また、他のメンバーやチーム全体でも同じような負荷や兆候は見られますか？`;
-    } else if (/QA|テスト|手戻り|仕様|残業|ボトルネック|リソース/i.test(latestText)) {
-      const topic = extractTopicPhrase(latestText);
-      empathy = `「${topic}」が影響していたのですね。構造的なボトルネックを的確に捉えられていますね。`;
-      nextPrompt = `そうした要因に対して、開発チームや関係者との調整など、今日EMご自身が判断したことや明日以降に打とうと考えている手はありますか？`;
-    } else if (/トレードオフ|バランス|合意|納得|反発|優先/i.test(latestText)) {
-      empathy = `チームの持続可能性や事業の優先度を熟慮して判断された様子がよく伝わってきます。素晴らしいリーダーシップですね。`;
-      nextPrompt = `その決断を踏まえ、チームメンバーの受け止めや、明日以降の動き出しに向けて意識していることや気になっている点はありますか？`;
-    } else {
-      const topic = extractTopicPhrase(latestText);
-      empathy = `「${topic}」という背景を教えていただきありがとうございます。状況の根っこにある要因が見えてきましたね。`;
-      nextPrompt = `そうした状況を踏まえつつ、今日一日の中で、EMご自身として『判断・決定したこと』や、新しく前に進められたタスクなどはどんなことがありましたか？`;
-    }
-
-    return `${empathy}\n\n${nextPrompt}`;
-  }
-
-  // 深掘り3回目: アクション・判断を受け、モヤモヤ・違和感・内省へ誘う。
-  if (count === FIXED_REFLECTION_QUESTION_COUNT + 2) {
-    let empathy = "";
-    let nextPrompt = "";
-
-    const topic = extractTopicPhrase(latestText);
-    if (/声かけ|フォロー|棚卸し|整理|相談|合意|決めた|判断|打診|見直し/i.test(latestText)) {
-      empathy = `「${topic}」という次の一手や判断を明確に描けていらっしゃいますね。現場への確かな前進を感じます。`;
-      nextPrompt = `状況の把握から背景の洞察、そして次の一手までしっかりと思考を深められましたね。今日を終えてみて、ふと頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？特になければ、『📝 この内容で振り返りをまとめる』を押して本日の振り返りとしてまとめられます。`;
-    } else if (/特に(ない|なし|ありません)|大丈夫|落ち着/i.test(latestText)) {
-      empathy = `チームやメンバーが落ち着いて動けているのは安心ですね。日頃のコミュニケーションの積み重ねの賜物だと思います。`;
-      nextPrompt = `今日一日を振り返ってみて、ふと頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？特になければ、『📝 この内容で振り返りをまとめる』を押して本日の振り返りとしてまとめられます。`;
-    } else {
-      empathy = `EMとして一つひとつ判断と対応を積み重ね、前進された一日でしたね。`;
-      nextPrompt = `一日を通して様々な判断や対応をこなされましたね。今日を振り返ってみて、ふと頭の片隅に引っかかっている違和感や、明日以降に意識しておきたいモヤモヤ・課題などはありますか？特になければ、『📝 この内容で振り返りをまとめる』を押して本日の振り返りとしてまとめられます。`;
-    }
-
-    return `${empathy}\n\n${nextPrompt}`;
-  }
-
-  // 以降: モヤモヤの受容とまとめへの誘導
+  // 深掘り2回目以降（まとめ直前まで）: 背景・要因を受け止め、EMのアクションやチーム展開を促す。
   let empathy = "";
   let nextPrompt = "";
 
-  if (/特になし|特にありません|大丈夫|ない|問題ない/i.test(latestText)) {
-    empathy = `気になる点を整理した上で、すっきりと一日を終えられそうですね。充実した一日でした、本当にお疲れ様でした！`;
-    nextPrompt = `今日一日の出来事や判断、チームの様子をしっかり言語化できましたね。よろしければ『📝 この内容で振り返りをまとめる』を押して、本日の振り返りをジャーナルとして保存しましょう。`;
+  if (person) {
+    const topic = extractTopicPhrase(latestText);
+    empathy = `なるほど、${person}に関して「${topic}」という背景やサインに気づかれたのですね。EMとしてそこに目を向けられたのは非常に大きな気づきですね。`;
+    nextPrompt = `この件について、${person}へどんなフォローや声かけをしてみようと思いますか？また、他のメンバーやチーム全体でも同じような負荷や兆候は見られますか？`;
+  } else if (/QA|テスト|手戻り|仕様|残業|ボトルネック|リソース/i.test(latestText)) {
+    const topic = extractTopicPhrase(latestText);
+    empathy = `「${topic}」が影響していたのですね。構造的なボトルネックを的確に捉えられていますね。`;
+    nextPrompt = `そうした要因に対して、開発チームや関係者との調整など、今日EMご自身が判断したことや明日以降に打とうと考えている手はありますか？`;
+  } else if (/トレードオフ|バランス|合意|納得|反発|優先/i.test(latestText)) {
+    empathy = `チームの持続可能性や事業の優先度を熟慮して判断された様子がよく伝わってきます。素晴らしいリーダーシップですね。`;
+    nextPrompt = `その決断を踏まえ、チームメンバーの受け止めや、明日以降の動き出しに向けて意識していることや気になっている点はありますか？`;
   } else {
     const topic = extractTopicPhrase(latestText);
-    empathy = `「${topic}」について、率直なモヤモヤや気づきを言語化していただき、ありがとうございます。そうした小さな違和感に気づけること自体が、EMとして大切なシグナルですね。`;
-    nextPrompt = `今日一日、チームのことやご自身の判断、そして気になる違和感までしっかり深く振り返ることができましたね。よろしければ『📝 この内容で振り返りをまとめる』を押して、本日の振り返りをジャーナルとして保存しましょう。`;
+    empathy = `「${topic}」という背景を教えていただきありがとうございます。状況の根っこにある要因が見えてきましたね。`;
+    nextPrompt = `そうした状況を踏まえつつ、今日一日の中で、EMご自身として『判断・決定したこと』や、新しく前に進められたタスクなどはどんなことがありましたか？`;
   }
 
   return `${empathy}\n\n${nextPrompt}`;
