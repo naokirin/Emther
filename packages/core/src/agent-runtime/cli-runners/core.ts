@@ -18,6 +18,7 @@ import {
 } from "../extraction";
 import { appendLog, runs, sanitizeForCloud, setRunTriageStatus } from "../store";
 import type { AgentRun, AgentStatus, ConsultRequest } from "../types";
+import { originRequiresProposalTriage } from "../run-meta";
 import { runAgyCliAttempt } from "./agy";
 import { runClaudeCliAttempt } from "./claude";
 import { runCursorCliAttempt } from "./cursor";
@@ -146,6 +147,12 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       run.origin === "auto-weekly-report" || run.origin === "auto-monthly-report"
         ? extractPeriodReview(resultText)
         : undefined;
+    // 学びの提案・週次／月次レビューは相談詳細で起票トリアージできず、
+    // 成果物は別経路へ確定済み。reviewed を立てて「未確認」／朝キューに残さない。
+    // （appendLog が persistRunMeta するため、以降のログ追記で永続化される。）
+    if (!originRequiresProposalTriage(run.origin)) {
+      run.reviewed = true;
+    }
     appendLog(
       run,
       "system",

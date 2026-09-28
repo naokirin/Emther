@@ -1,4 +1,4 @@
-import type { AgentRun } from "@emther/core/agent-runtime";
+import { originRequiresProposalTriage, type AgentRun } from "@emther/core/agent-runtime";
 
 const STATUS_SHORT: Record<AgentRun["status"], string> = {
   active: "実行中",
@@ -48,7 +48,8 @@ export function consultListMetaParts(
   parts.push(opts.stale && run.status === "active" ? "応答なし" : STATUS_SHORT[run.status]);
   const origin = ORIGIN_SHORT[run.origin] || (run.sourceJournalId ? "Journalから" : "");
   if (origin) parts.push(origin);
-  if (run.origin !== "manual" && !run.reviewed) parts.push("未確認");
+  // 学び・週次／月次は起票トリアージ対象外のため「未確認」にしない。
+  if (originRequiresProposalTriage(run.origin) && !run.reviewed) parts.push("未確認");
   // 様子見セクション内では「様子見」ラベルは冗長なので省略できる。
   if (run.triageStatus && !opts.omitTriage) parts.push(TRIAGE_SHORT[run.triageStatus]);
   if (run.archivedAt) parts.push("🗄 アーカイブ済み");

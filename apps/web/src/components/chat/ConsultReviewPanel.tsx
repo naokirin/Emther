@@ -3,7 +3,7 @@ import styles from "../../styles/page.module.css";
 import type { AgentRun } from "@emther/core/agent-runtime";
 import { CopilotChat, ExecutionState } from "../RunDetail";
 import { listSuggestionCandidatesFromProposal } from "../run-detail/run-view-helpers";
-import { runFallbackTitle } from "../runDetailMeta";
+import { isDraftAwaitingTriage, runFallbackTitle } from "../runDetailMeta";
 import { OriginTrace, type OriginTraceJournal } from "../OriginTrace";
 import { IdLinkedText } from "../IdLinkedText";
 import { useSuggestionPeek } from "../useSuggestionPeek";
@@ -502,7 +502,7 @@ export function ConsultReviewPanel({
         }
       />
       <div style={{ marginBottom: 12 }}>
-        {selectedRun.origin !== "manual" && !selectedRun.reviewed && (
+        {isDraftAwaitingTriage(selectedRun) && (
           <div style={{ marginTop: 8 }}>
             <strong>📋 ドラフト提案（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
           </div>

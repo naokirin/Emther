@@ -45,6 +45,18 @@ describe("consultListMetaParts", () => {
     expect(parts).toContain("Journal自動分析");
   });
 
+  it("学びの提案・週次／月次は未reviewedでも「未確認」にしない", () => {
+    expect(
+      consultListMetaParts(baseRun({ origin: "auto-grow", reviewed: false }), { omitTime: true }),
+    ).not.toContain("未確認");
+    expect(
+      consultListMetaParts(baseRun({ origin: "auto-weekly-report", reviewed: false }), { omitTime: true }),
+    ).not.toContain("未確認");
+    expect(
+      consultListMetaParts(baseRun({ origin: "auto-monthly-report", reviewed: false }), { omitTime: true }),
+    ).not.toContain("未確認");
+  });
+
   it("アーカイブ済みなら🗄ラベルを含む", () => {
     const parts = consultListMetaParts(baseRun({ archivedAt: Date.now() }), { omitTime: true });
     expect(parts).toContain("🗄 アーカイブ済み");

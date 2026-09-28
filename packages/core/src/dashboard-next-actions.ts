@@ -133,8 +133,6 @@ const BATCH_DRAFT_ORIGINS = new Set([
   "auto-summary",
   "auto-journal-batch",
   "auto-distill",
-  "auto-weekly-report",
-  "auto-monthly-report",
 ]);
 
 /**

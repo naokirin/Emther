@@ -6,6 +6,7 @@ import type { AgentStatus } from "@emther/core/agent-runtime";
 export {
   draftKindLabel,
   isDraftAwaitingTriage,
+  originRequiresProposalTriage,
   runFallbackTitle,
   runKindLabel,
   shouldOmitRunFromNextActions,

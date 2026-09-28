@@ -364,6 +364,18 @@ describe("buildNextActions の確認済み提案に紐づく run", () => {
     const actions = buildNextActions(baseParams({ runs: [draft], suggestions }));
     expect(actions.some((a) => a.id === "auto-run-draft-open")).toBe(true);
   });
+
+  it("学びの提案・週次／月次レビューは起票トリアージ対象外のため朝キューに出さない", () => {
+    const runs: AgentRun[] = [
+      run({ id: "run-grow", origin: "auto-grow", reviewed: false, status: "idle" }),
+      run({ id: "run-weekly", origin: "auto-weekly-report", reviewed: false, status: "idle" }),
+      run({ id: "run-monthly", origin: "auto-monthly-report", reviewed: false, status: "idle" }),
+    ];
+    const actions = buildNextActions(baseParams({ runs }));
+    expect(actions.some((a) => a.id === "auto-run-grow")).toBe(false);
+    expect(actions.some((a) => a.id === "auto-run-weekly")).toBe(false);
+    expect(actions.some((a) => a.id === "auto-run-monthly")).toBe(false);
+  });
 });
 
 describe("urgencyMeter", () => {

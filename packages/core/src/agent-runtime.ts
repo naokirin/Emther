@@ -31,6 +31,7 @@ export { EXPLORATION_KINDS, EXPLORATION_MAX_FINDINGS, originLabel } from "./agen
 export {
   draftKindLabel,
   isDraftAwaitingTriage,
+  originRequiresProposalTriage,
   runFallbackTitle,
   runKindLabel,
   shouldOmitRunFromNextActions,

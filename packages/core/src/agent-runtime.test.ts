@@ -2463,6 +2463,8 @@ describe("watchdog: checkWeeklyGrow", () => {
     });
     expect(growStore.listGrowSuggestions()[0].title).toBe("学びA");
     expect(growStore.listGrowSuggestions()[0].sourceRunId).toBe(run.id);
+    expect(rt.getRun(run.id)?.reviewed).toBe(true);
+    expect(rt.getRun(run.id)?.status).toBe("idle");
 
     // 同週の再呼び出しでは再度起動しない（重複生成の防止）。
     rt.checkWeeklyGrow();
@@ -2507,6 +2509,16 @@ describe("watchdog: checkWeeklyReport", () => {
       if (rt.listRuns().length < 1) throw new Error("run not created yet");
     });
     expect(rt.listRuns()[0].origin).toBe("auto-weekly-report");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```period_review\n{"overview":"週の概観","observations":[],"interpretation":"解釈","comparisons":[],"blindSpots":[],"learnings":[],"nextQuestions":[]}\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(rt.listRuns()[0].id)?.status !== "idle") throw new Error("not idle yet");
+    });
+    expect(rt.listRuns()[0].reviewed).toBe(true);
+
     rt.checkWeeklyReport();
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns().filter((r) => r.origin === "auto-weekly-report")).toHaveLength(1);

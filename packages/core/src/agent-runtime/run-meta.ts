@@ -68,12 +68,26 @@ export function shouldOmitRunFromNextActions(
   );
 }
 
+/**
+ * proposal の起票／様子見／却下が相談詳細の主アクションになる origin。
+ * 学びの提案・週次／月次レビューは成果物が別経路（Grow store / periodReview）へ
+ * 確定し、相談詳細ではアーカイブしか取れないため対象外。
+ */
+export function originRequiresProposalTriage(origin: AgentRun["origin"]): boolean {
+  return (
+    origin !== "manual" &&
+    origin !== "auto-grow" &&
+    origin !== "auto-weekly-report" &&
+    origin !== "auto-monthly-report"
+  );
+}
+
 /** 自動起動かつ未トリアージ（起票／様子見／却下前）のドラフト。Issue行ではなく AgentRun が正。 */
 export function isDraftAwaitingTriage(
   run: Pick<AgentRun, "origin" | "reviewed" | "triageStatus">,
 ): boolean {
   return (
-    run.origin !== "manual" &&
+    originRequiresProposalTriage(run.origin) &&
     !run.reviewed &&
     run.triageStatus !== "watching" &&
     run.triageStatus !== "dismissed"

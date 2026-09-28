@@ -128,6 +128,12 @@ describe("isDraftAwaitingTriage / draftKindLabel", () => {
     ).toBe(false);
   });
 
+  it("学びの提案・週次／月次レビューは起票トリアージ対象外のためドラフトにしない", () => {
+    expect(isDraftAwaitingTriage(baseRun({ origin: "auto-grow", reviewed: false }))).toBe(false);
+    expect(isDraftAwaitingTriage(baseRun({ origin: "auto-weekly-report", reviewed: false }))).toBe(false);
+    expect(isDraftAwaitingTriage(baseRun({ origin: "auto-monthly-report", reviewed: false }))).toBe(false);
+  });
+
   it("idleのドラフトはドラフト提案、実行中はドラフト分析中", () => {
     expect(draftKindLabel(baseRun({ origin: "auto-summary", reviewed: false, status: "idle" }))).toBe(
       "ドラフト提案",
