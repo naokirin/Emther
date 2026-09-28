@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe("related-context", () => {
-  it("searchSimilarOpenSuggestionsは閾値以上の未完了提案だけ返す", async () => {
+  it("searchSimilarOpenSuggestionsは閾値以上の未確認提案だけ返す", async () => {
     const suggestionStore = await import("./suggestion-store");
     const a = await suggestionStore.createSuggestion("類似A");
     const b = await suggestionStore.createSuggestion("類似B");
@@ -99,7 +99,7 @@ describe("related-context", () => {
       excludeSuggestionId: self.id,
       mode: "suggestion-wallbash",
     });
-    expect(block).toContain("関連する未完了の提案");
+    expect(block).toContain("関連する未確認の提案");
     expect(block).toContain("関連");
     expect(block).not.toContain(self.id);
   });
@@ -111,7 +111,7 @@ describe("related-context", () => {
       queryText: "全く無関係なクエリで類似ゼロを狙う",
       mode: "suggestion-wallbash",
     });
-    expect(block).toContain("閾値以上の類似未完了提案なし");
+    expect(block).toContain("閾値以上の類似未確認提案なし");
     expect(block).toContain("lookup");
     expect(block).toContain("閾値以上の類似Journalなし");
   });

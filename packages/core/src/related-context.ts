@@ -122,7 +122,7 @@ export async function buildRelatedBundleBlock(opts: {
     );
     if (bundle.recurrenceCount >= 2) {
       lines.push(
-        `【繰り返しシグナル】直近の有効期間内で意味的に近い Journal が ${bundle.recurrenceCount} 件あります（2件以上なら構造課題・既存提案の続きの可能性を優先して検討すること）。`,
+        `【繰り返しシグナル】直近の有効期間内で意味的に近い Journal が ${bundle.recurrenceCount} 件あります（2件以上なら構造課題の可能性、または既出の同趣旨提案があるかを優先して検討すること。新しい観測があれば再提案してよい。提案の進行・解決管理はしないこと）。`,
       );
     } else if (bundle.recurrenceCount === 1) {
       lines.push("【繰り返しシグナル】近い Journal はこの件を含めて1件程度（単発の可能性も残る）。");
@@ -131,15 +131,15 @@ export async function buildRelatedBundleBlock(opts: {
     }
   } else {
     lines.push(
-      "この提案に意味的に関連する過去の情報（ベクトル類似の上位最大5件・閾値以上のみ。横断の材料として扱うこと。確度は類似度を見て参考程度に。打ち切り外・完了済みの確認はlookupを使うこと）:",
+      "この提案に意味的に関連する過去の情報（ベクトル類似の上位最大5件・閾値以上のみ。横断の材料として扱うこと。確度は類似度を見て参考程度に。打ち切り外・確認済みの確認はlookupを使うこと）:",
     );
   }
 
-  lines.push("", "【関連する未完了の提案】");
+  lines.push("", "【関連する未確認の提案】");
   if (bundle.suggestions.length > 0) {
     lines.push(...bundle.suggestions.map(formatSuggestionLine));
   } else {
-    lines.push("- （閾値以上の類似未完了提案なし。不在の確証が必要なら lookup でキーワード検索や done/archived 込みの確認を行うこと）");
+    lines.push("- （閾値以上の類似未確認提案なし。不在の確証が必要なら lookup でキーワード検索や done/archived 込みの確認を行うこと）");
   }
 
   lines.push("", "【関連するJournal】");

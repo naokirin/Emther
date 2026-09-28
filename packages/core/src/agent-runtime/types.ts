@@ -82,9 +82,9 @@ export type Proposal = {
   explorations: ExplorationFinding[];
   // Expand/Challengeで実際に使った哲学レンズ（任意）。
   lensesUsed?: LensUsage[];
-  // Journal自動分析など「追跡要否」を聞かれたときだけ使う。
+  // Journal自動分析など「提案化要否」を聞かれたときだけ使う。
   // 未指定の従来出力は手動トリアージのまま。
-  // 「次に観測・確認すべき」が主眼で介入の起票まで不要なら watch を使う（解決策必須ではない）。
+  // 「次に観測・確認すべき」が主眼で一覧に残すまでもないなら watch を使う（解決策必須ではない）。
   recommendation?: ProposalRecommendation;
   // 提案化時に使う短い課題名。conclusion（判断の一文）とは別に持たせ、タイトルの途中切れを抑える。
   // 単一課題のとき。複数なら suggestionCandidates を優先（suggestionTitleは代表名として任意）。

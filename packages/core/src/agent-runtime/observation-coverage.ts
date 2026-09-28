@@ -211,7 +211,7 @@ export function buildObservationCoverageBlock(nowMs: number = Date.now()): strin
   const lines: string[] = [
     "観測カバレッジ要約（Exploreの候補材料。重要課題の断定には使わないこと。記録が少ない＝問題、とは限らない）:",
     `- 集計窓: 直近${COVERAGE_RECENT_DAYS}日（Journal ${snap.recentJournalCount}件） / その直前${COVERAGE_PRIOR_DAYS}日（Journal ${snap.priorJournalCount}件）`,
-    `- 未完了提案: ${openSuggestions.length}件（Theme紐付けあり ${themedOpen} / なし ${unthemedOpen}）`,
+    `- 未確認提案: ${openSuggestions.length}件（Theme紐付けあり ${themedOpen} / なし ${unthemedOpen}）`,
   ];
 
   if (snap.topRecentTags.length > 0) {

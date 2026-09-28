@@ -63,7 +63,7 @@ export function isSuggestionDeferredFromDaily(
   return false;
 }
 
-/** 日次で触るべき未完了提案（延期・期日前を除く）。 */
+/** 日次で触るべき未確認提案（延期・期日前を除く）。 */
 export function listDailyRelevantOpenSuggestions(
   suggestions: Suggestion[],
   now: number,

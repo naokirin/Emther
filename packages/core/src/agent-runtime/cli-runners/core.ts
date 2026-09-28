@@ -183,14 +183,14 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
         void enrichGrowSuggestionReferences(created).catch(() => {});
       }
     }
-    // Journal分析（EM明示の個別分析／日次の集約解釈）が追跡不要と
+    // Journal分析（EM明示の個別分析／日次の集約解釈）が提案化不要と
     // 明示したときだけ自動却下する。手動相談や提案更新分析はEMのトリアージ対象のまま残す。
     if (
       (run.origin === "auto-anomaly" || run.origin === "auto-journal-batch") &&
       run.proposal?.recommendation === "dismiss"
     ) {
       setRunTriageStatus(run.id, "dismissed");
-      appendLog(run, "system", "AIが追跡不要と判断したため、自動で却下しました。");
+      appendLog(run, "system", "AIが提案化不要と判断したため、自動で却下しました。");
     }
   }
 }

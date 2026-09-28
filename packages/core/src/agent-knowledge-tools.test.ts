@@ -150,7 +150,7 @@ describe("agent-knowledge-tools", () => {
     const text = await executeLookup({
       queries: [{ type: "similar", query: "育成の停滞", limit: 10 }],
     });
-    expect(text).toContain("【類似・未完了の提案】");
+    expect(text).toContain("【類似・未確認の提案】");
     expect(text).toContain("【類似・状態不問の提案");
     expect(text).toContain("類似オープン");
   });

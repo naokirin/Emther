@@ -208,7 +208,7 @@ export function checkJournalBatchReview(): void {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildJournalBatchContextBlock（batch-context-blocks.ts）へ。 */
 export const JOURNAL_BATCH_TASK =
-  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式で提案化を検討し、未確定なら watch＋advice にしてください。追跡不要なものは無理に提案化しないでください。";
+  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式で提案化を検討し、未確定なら watch＋advice にしてください。提案化不要なものは無理に提案化しないでください。";
 
 // startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
 // manual時はEMが明示起動したものとしてreviewed=trueにする。
@@ -310,7 +310,7 @@ export function isoWeekKey(now: Date): string {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildDistillationContextBlock（context-blocks.ts）へ。 */
 export const DISTILLATION_TASK =
-  "直近の組織状況（Journal・未完了の提案・採用済みテーマ）を統括し、より根本の課題のテーマ解釈を蒸留してください。proposalとthemesブロックを出力してください。";
+  "直近の組織状況（Journal・未確認の提案・採用済みテーマ）を統括し、より根本の課題のテーマ解釈を蒸留してください。proposalとthemesブロックを出力してください。";
 
 /** @deprecated 互換用。短いタスク文を返す。材料は buildDistillationContextBlock。 */
 export function buildDistillationTask(): string {
@@ -776,14 +776,15 @@ export function reactToSuggestionUpdate(
 /** EM明示の手動分析タスク文。本文マーカーは origin-trace と揃える。 */
 export function buildJournalAnalysisTask(rawText: string): string {
   return [
-    "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、提案として追跡すべき実質的な問題かどうかを判断してください。",
+    "EMがこのJournalエントリの分析を依頼しました（内容は確認済みです）。内容を確認し、課題候補として一覧に残す価値がある実質的な問題かどうかを判断してください。",
+    "提案（Suggestion）は、観測・分析の結果として「課題となりうる／EMが組織側で進行・管理した方がよいもの」の判断材料です。Emther上での進行・解決・帰結の管理や、その欠如の指摘（「確定しましょう」「後追いできていない」等）はしないでください。以前の提案と同趣旨でも、同じ問題が新たに観測されていれば再提案して構いません。",
     "ただし、この提案化判定はあくまで一覧に残すかどうかの分類に過ぎません。判定結果がsuggestionでもwatchでもdismissでも、それだけで終わらせず、EMがこの状況にどう向き合うとよいかという実務的な気づき・助言を回答本文に必ず書いてください（判定を言い渡すだけの素っ気ない回答にしないこと）。",
     // EMの問題設定をなぞるだけの提案を避ける。
     "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別の解釈・仮説・不足情報・別問題設定）と Challenge（前提・事実と解釈の混同・本当に解くべき問題か）を必ず経てください。入力の要約や言い換えだけで終わらせないこと。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・expansions・challenges・判断ロジック・棄却した代替案）で示し、結論の中で提案化を検討する旨を明記してください。あわせて proposal の suggestionTitle（単一）または suggestionCandidates（複数・親なしの独立提案）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "内容が別責任・別チーム・別KRになりうる複数の介入を含む場合は、無理に1件へまとめず suggestionCandidates に分けてください（親提案は作らない）。同じ介入の具体作業への分解はここではしないこと。",
-    "提案として追跡するほどではないが、様子を見続けたい・追加で確認したい・問題設定をまだ確定できないと判断した場合は、recommendation を \"watch\" にしてください。次に観測・確認すべき点は advice に書いてください（解決策を無理に出さなくてよい）。",
-    "単なる一時的な感情の吐露などで追跡も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理に提案化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。提案化すべきなら recommendation は \"suggestion\" です。",
+    "一覧に残すほどではないが、様子を見続けたい・追加で確認したい・問題設定をまだ確定できないと判断した場合は、recommendation を \"watch\" にしてください。次に観測・確認すべき点は advice に書いてください（解決策を無理に出さなくてよい）。",
+    "単なる一時的な感情の吐露などで提案化も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理に提案化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。提案化すべきなら recommendation は \"suggestion\" です。",
     "",
     `対象のJournalエントリ: "${rawText}"`,
   ].join("\n");

@@ -254,9 +254,9 @@ async function searchSimilarBundle(opts: { query: string; limit: number }): Prom
   ).slice(0, opts.limit);
 
   const lines: string[] = [];
-  lines.push("【類似・未完了の提案】");
+  lines.push("【類似・未確認の提案】");
   if (rankedSuggestions.length === 0) {
-    lines.push("- （閾値以上の未完了提案なし）");
+    lines.push("- （閾値以上の未確認提案なし）");
   } else {
     lines.push(...rankedSuggestions.map((s) => formatSuggestionBrief(s, `（類似度: ${s.similarity.toFixed(2)}）`)));
   }

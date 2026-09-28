@@ -605,6 +605,8 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     expect(ctx).toContain(issue.id);
     expect(ctx).toContain("頻度抑制");
     expect(ctx).toContain("日次抑制中の提案");
+    expect(ctx).toContain("提案の進行・解決管理を求める指摘は出さない");
+    expect(ctx).not.toContain("週次レビュー向けに留める");
     expect(rt.MORNING_SUMMARY_TASK.length).toBeLessThan(200);
 
     const run = await rt.startRun("Lead Agent", rt.MORNING_SUMMARY_TASK, "auto-summary");
@@ -684,6 +686,8 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     expect(ctx).toContain("Journal集約解釈の材料");
     expect(ctx).toContain("前回解釈以降のJournal");
     expect(ctx).toContain("1on1が空回りした");
+    expect(ctx).toContain("同じ現象が新たに観測された場合の再提案は妥当");
+    expect(ctx).not.toContain("動きのある提案");
     expect(rt.JOURNAL_BATCH_TASK.length).toBeLessThan(200);
   });
 
@@ -1060,6 +1064,9 @@ describe("buildSystemPrompt", () => {
       expect(prompt).toContain("lensesUsed");
       expect(prompt).toContain("試す価値がある候補のひとつ");
       expect(prompt).toContain("advice（overview / groups の候補のひとつ）");
+      expect(prompt).toContain("提案（Suggestion）の扱い");
+      expect(prompt).toContain("Issue管理的な指摘は禁止");
+      expect(prompt).toContain("再提案は妥当");
     }
   });
 
@@ -1655,6 +1662,10 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     const rt = await loadModule();
     const task = rt.buildJournalAnalysisTask("1on1が空回りした");
     expect(task).toContain("EMがこのJournalエントリの分析を依頼しました");
+    expect(task).toContain("課題候補として一覧に残す価値");
+    expect(task).toContain("進行・解決・帰結の管理");
+    expect(task).toContain("再提案して構いません");
+    expect(task).not.toContain("提案として追跡すべき");
     expect(rt.extractJournalAutoAnalysisText(task)).toBe("1on1が空回りした");
   });
 
