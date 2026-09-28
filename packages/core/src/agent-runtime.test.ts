@@ -2508,7 +2508,16 @@ describe("watchdog: checkWeeklyReport", () => {
     await vi.waitFor(() => {
       if (rt.listRuns().length < 1) throw new Error("run not created yet");
     });
-    expect(rt.listRuns()[0].origin).toBe("auto-weekly-report");
+    const run = rt.listRuns()[0];
+    expect(run.origin).toBe("auto-weekly-report");
+    // 自動起動は「先週」を対象にする（月曜起動で今週はまだ材料が薄いため）
+    expect(run.task.startsWith("先週のレビューを作成してください。")).toBe(true);
+    const { periodWindow } = await import("./daily-trends");
+    const lastWeek = periodWindow("week", -1);
+    const reportStore = await import("./report-store");
+    const report = reportStore.getReport(run.sourceReportId!);
+    expect(report?.periodStart).toBe(lastWeek.start);
+    expect(report?.periodEnd).toBe(lastWeek.end);
     await waitForSpawnCount(1);
     emitClaudeResult(spawnCalls[0].child, {
       text: '```period_review\n{"overview":"週の概観","observations":[],"interpretation":"解釈","comparisons":[],"blindSpots":[],"learnings":[],"nextQuestions":[]}\n```',
@@ -2560,7 +2569,16 @@ describe("watchdog: checkMonthlyReport", () => {
     await vi.waitFor(() => {
       if (rt.listRuns().length < 1) throw new Error("run not created yet");
     });
-    expect(rt.listRuns()[0].origin).toBe("auto-monthly-report");
+    const run = rt.listRuns()[0];
+    expect(run.origin).toBe("auto-monthly-report");
+    // 自動起動は「先月」を対象にする（月初起動で今月はまだ材料が薄いため）
+    expect(run.task.startsWith("先月のレビューを作成してください。")).toBe(true);
+    const { periodWindow } = await import("./daily-trends");
+    const lastMonth = periodWindow("month", -1);
+    const reportStore = await import("./report-store");
+    const report = reportStore.getReport(run.sourceReportId!);
+    expect(report?.periodStart).toBe(lastMonth.start);
+    expect(report?.periodEnd).toBe(lastMonth.end);
     rt.checkMonthlyReport();
     await new Promise((r) => setTimeout(r, 5));
     expect(rt.listRuns().filter((r) => r.origin === "auto-monthly-report")).toHaveLength(1);

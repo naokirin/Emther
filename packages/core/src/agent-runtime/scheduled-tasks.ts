@@ -466,11 +466,26 @@ export function checkWeeklyDistillation(): void {
 // 週次・月次レビュー。状況蒸留・学びの提案と同じくwatchdogへ相乗りし、
 // 材料（reports行の統計スナップショット）を先に生成してからLead Agent runを起動する。
 // 相談履歴・Inboxに載せる短いタスク文。材料の本体はbuildPeriodReviewContextBlock（batch-context-blocks.ts）へ。
+// offset=0（今期間）向けの既定文言。自動起動の週次は先週（offset=1）を対象にするため periodReviewTask を使う。
 export const WEEKLY_REPORT_TASK =
   "今週のレビューを作成してください。今週のJournal・提案・組織イベントの材料と前週の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・前週比較(Before/After)・見落としていそうな点への問い・学び・来週考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
 
 export const MONTHLY_REPORT_TASK =
   "今月のレビューを作成してください。今月のJournal・提案・組織イベント・EM自身の行動（チェックイン・KPTメモ）の材料と先月の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・先月比較(Before/After)・見落としていそうな点への問い・学び・来月考えたい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+
+/** offset=0が今期間、1以上が前期間。自動起動の週次は月曜などに「先週分」を取りまとめる想定で offset=1。 */
+export function periodReviewTask(unit: "week" | "month", offset: number): string {
+  if (unit === "week") {
+    if (offset >= 1) {
+      return "先週のレビューを作成してください。先週のJournal・提案・組織イベントの材料と前々週の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・前期間比較(Before/After)・見落としていそうな点への問い・学び・次の期間へ持ち越したい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+    }
+    return WEEKLY_REPORT_TASK;
+  }
+  if (offset >= 1) {
+    return "先月のレビューを作成してください。先月のJournal・提案・組織イベント・EM自身の行動（チェックイン・KPTメモ）の材料と前々月の統計を踏まえ、period_reviewブロックで概観・事実の整理・横断的な解釈・前期間比較(Before/After)・見落としていそうな点への問い・学び・次の期間へ持ち越したい問いを出力してください。複数の出来事に共通する繰り返しテーマがあればthemesブロックも添えてください。";
+  }
+  return MONTHLY_REPORT_TASK;
+}
 
 /**
  * 対象期間（暦週/暦月。offset=0が今期間、1が前期間）の統計スナップショット（reports行）を
@@ -484,7 +499,7 @@ export async function startPeriodReviewAnalysis(
 ): Promise<{ report: Report; run: AgentRun } | undefined> {
   const { manual, ...maskOpts } = opts;
   const origin = unit === "month" ? "auto-monthly-report" : "auto-weekly-report";
-  const task = unit === "month" ? MONTHLY_REPORT_TASK : WEEKLY_REPORT_TASK;
+  const task = periodReviewTask(unit, offset);
   const window = periodWindow(unit, -offset);
   const report = generateReportForWindow(unit, window.start, window.end);
   try {
@@ -559,7 +574,8 @@ export function checkWeeklyReport(): void {
   saveLastAutoWeeklyReportWeek(week);
   // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
   if (!tryClaimAutoBatchSlot(`auto-weekly-report:${week}`)) return;
-  void startPeriodReviewAnalysis("week", 0).catch(() => {
+  // 月曜などの起動想定に合わせ、完成済みの「先週」を対象にする（今週だと週初は材料が薄い）。
+  void startPeriodReviewAnalysis("week", 1).catch(() => {
     // 学びの提案・状況蒸留と同様、起動失敗は無視（次週まで再試行しない）。
   });
 }
@@ -582,7 +598,8 @@ export function checkMonthlyReport(): void {
   saveLastAutoMonthlyReportMonth(month);
   // 複数プロセス（Next↔Hono並走等）が同時にここへ到達した場合の最終防波堤。
   if (!tryClaimAutoBatchSlot(`auto-monthly-report:${month}`)) return;
-  void startPeriodReviewAnalysis("month", 0).catch(() => {
+  // 月初の起動想定に合わせ、完成済みの「先月」を対象にする（今月だと材料が薄い）。
+  void startPeriodReviewAnalysis("month", 1).catch(() => {
     // 起動失敗は無視（翌月の同スロットまで再試行しない）。
   });
 }

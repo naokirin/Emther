@@ -218,7 +218,7 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
       <label
         className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
-        data-tooltip="今週のJournal・提案・組織イベントを横断し、概観・解釈・前週比較・見落としの問い・学び・来週への問いをLead Agentが提示します（レポート画面から手動でも起動できます）"
+        data-tooltip="先週のJournal・提案・組織イベントを横断し、概観・解釈・前期間比較・見落としの問い・学び・次期間への問いをLead Agentが提示します（レポート画面から手動でも起動できます）"
       >
         <input
           type="checkbox"
@@ -259,7 +259,7 @@ export function AutomationSettingsGroup({ draft, onChange }: Props) {
       <label
         className={styles.axisTooltip}
         style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.875rem", marginBottom: 6 }}
-        data-tooltip="今月のJournal・提案・組織イベント・EM自身の行動を横断し、概観・解釈・先月比較・見落としの問い・学び・来月への問いをLead Agentが提示します（レポート画面から手動でも起動できます）"
+        data-tooltip="先月のJournal・提案・組織イベント・EM自身の行動を横断し、概観・解釈・前期間比較・見落としの問い・学び・次期間への問いをLead Agentが提示します（レポート画面から手動でも起動できます）"
       >
         <input
           type="checkbox"

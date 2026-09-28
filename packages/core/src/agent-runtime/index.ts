@@ -133,6 +133,7 @@ export {
   monthKey,
   MONTHLY_REPORT_TASK,
   MORNING_SUMMARY_TASK,
+  periodReviewTask,
   reactToSuggestionUpdate,
   setSuggestionUpdateDebounceMsForTest,
   startDistillationAnalysis,
