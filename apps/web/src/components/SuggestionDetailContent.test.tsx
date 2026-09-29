@@ -129,6 +129,39 @@ describe("SuggestionDetailContent", () => {
     );
   });
 
+  it("未確認のAI自動作成提案には「残す／不要」の確認バナーを出し、残すと確認中にする", async () => {
+    suggestion = baseSuggestion({ autoCreated: true });
+    const user = userEvent.setup();
+    render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "残す（確認中にする）" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/suggestions/sug-1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ reviewStatus: "in_review" }) }),
+      ),
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "残す（確認中にする）" })).toBeNull());
+  });
+
+  it("AI自動作成提案を不要にするとアーカイブする", async () => {
+    suggestion = baseSuggestion({ autoCreated: true });
+    const user = userEvent.setup();
+    render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: "不要（アーカイブ）" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/suggestions/sug-1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ archived: true }) }),
+      ),
+    );
+  });
+
+  it("手動で残した提案には自動作成の確認バナーを出さない", async () => {
+    render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });
+    await screen.findByText("提案タイトル");
+    expect(screen.queryByRole("button", { name: "残す（確認中にする）" })).toBeNull();
+  });
+
   it("メモを追記できる", async () => {
     const user = userEvent.setup();
     render(<SuggestionDetailContent id="sug-1" />, { wrapper: createWrapper() });

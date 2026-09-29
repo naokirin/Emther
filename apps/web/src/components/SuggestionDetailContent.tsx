@@ -29,6 +29,7 @@ import {
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUSES,
   SUGGESTION_REVIEW_STATUS_META,
+  isAutoSuggestionAwaitingDecision,
   isRunStale,
   isSuggestionReviewOverdue,
   isSuggestionStrategyUnlinked,
@@ -382,6 +383,34 @@ export function SuggestionDetailContent({ id }: { id: string }) {
           )}
         </div>
       </div>
+
+      {isAutoSuggestionAwaitingDecision(suggestion) && (
+        <div className={styles.autoSuggestionNotice} role="status">
+          <span>
+            🤖 AIが提案化を勧めたため自動で作成した提案です（まだ未確認）。内容を見て、残すか不要かを決めてください。
+          </span>
+          <span style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              className={styles.primaryBtn}
+              style={{ width: "auto", fontSize: "0.75rem", padding: "4px 10px" }}
+              disabled={saving}
+              onClick={() => void patchSuggestion({ reviewStatus: "in_review" })}
+            >
+              残す（確認中にする）
+            </button>
+            <button
+              type="button"
+              className={styles.btnOutline}
+              style={{ fontSize: "0.75rem", padding: "4px 10px" }}
+              disabled={saving}
+              onClick={() => void patchSuggestion({ archived: true })}
+            >
+              不要（アーカイブ）
+            </button>
+          </span>
+        </div>
+      )}
 
       {suggestion.archivedAt && (
         <p className={styles.subtitle} style={{ marginBottom: 10 }}>

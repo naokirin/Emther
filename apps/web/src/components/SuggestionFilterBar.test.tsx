@@ -12,6 +12,7 @@ function state(overrides: Partial<SuggestionFilterState> = {}): SuggestionFilter
     priorityFilter: new Set(),
     showDone: false,
     showArchived: false,
+    autoPendingOnly: false,
     ...overrides,
   };
 }
@@ -52,6 +53,39 @@ describe("SuggestionFilterBar", () => {
       priorityFilter: new Set(),
       showDone: true,
       showArchived: false,
+      autoPendingOnly: false,
     });
+  });
+
+  it("AI自動作成・未確認のみの絞り込みを適用でき、チップで見せる", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <SuggestionFilterBar
+        value={state()}
+        onChange={onChange}
+        onClearFilters={() => {}}
+        doneCount={0}
+        archivedCount={0}
+        autoPendingCount={2}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "絞り込み" }));
+    const dialog = screen.getByRole("dialog", { name: "絞り込み" });
+    await user.click(within(dialog).getByLabelText(/AI自動作成・未確認のみ（2件）/));
+    await user.click(within(dialog).getByRole("button", { name: /適用する/ }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ autoPendingOnly: true }));
+
+    rerender(
+      <SuggestionFilterBar
+        value={state({ autoPendingOnly: true })}
+        onChange={onChange}
+        onClearFilters={() => {}}
+        doneCount={0}
+        archivedCount={0}
+        autoPendingCount={2}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "AI自動作成・未確認のみを解除" })).toBeInTheDocument();
   });
 });

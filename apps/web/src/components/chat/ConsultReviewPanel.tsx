@@ -7,6 +7,7 @@ import { isDraftAwaitingTriage, runFallbackTitle } from "../runDetailMeta";
 import { OriginTrace, type OriginTraceJournal } from "../OriginTrace";
 import { IdLinkedText } from "../IdLinkedText";
 import { useSuggestionPeek } from "../useSuggestionPeek";
+import { SuggestionLink } from "../SuggestionLink";
 import type { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { api, rpcInit } from "../../lib/api-client";
 import { truncateForTitle } from "@emther/core/types";
@@ -135,6 +136,13 @@ export function ConsultReviewPanel({
       : existingTitles.has(fallbackTitle.trim()) ||
         existingTitles.has(truncateForTitle(fallbackTitle).trim()) ||
         createdSuggestionsFromRun.length > 0;
+
+  // 提案化済み（AIの自動提案化を含む）なら、要否の判断は提案側（確認済み・アーカイブ）で行う。
+  // 相談側の様子見/却下は出さず、未起票の候補が残るときだけ追加の提案化を残す。
+  const alreadyPromoted = createdSuggestionsFromRun.length > 0;
+  const hasUnpromotedCandidate =
+    suggestionCandidates.length > 1 ? candidatePromotedFlags.some((f) => !f) : !isSinglePromoted;
+  const showPromoteButton = !alreadyPromoted || hasUnpromotedCandidate;
 
   function toggleCandidate(index: number) {
     if (candidatePromotedFlags[index]) return;
@@ -629,6 +637,22 @@ export function ConsultReviewPanel({
               </ul>
             </div>
           )}
+          {alreadyPromoted && (
+            <div style={{ width: "100%", margin: "8px 0", fontSize: "0.875rem" }}>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 4px" }}>
+                提案に追加済みです。不要なら提案側で「確認済み」またはアーカイブにしてください。
+              </p>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                {createdSuggestionsFromRun.map((s) => (
+                  <li key={s.id} style={{ marginBottom: 4 }}>
+                    <SuggestionLink id={s.id} style={{ color: "var(--accent)" }}>
+                      📌 {s.title}
+                    </SuggestionLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className={styles.yieldActions} style={{ marginTop: suggestionCandidates.length > 1 ? 0 : 8 }}>
             {themeIntent && (
               <button
@@ -644,40 +668,46 @@ export function ConsultReviewPanel({
                     : "🎯 テーマとして定着"}
               </button>
             )}
-            <button
-              className={themeIntent ? styles.btnOutline : styles.primaryBtn}
-              style={{ width: "auto" }}
-              disabled={
-                reviewSubmitting ||
-                themeSettleSubmitting ||
-                (suggestionCandidates.length > 1 ? selectedCandidateTitles.length === 0 : isSinglePromoted)
-              }
-              onClick={handlePromoteToSuggestion}
-            >
-              {suggestionCandidates.length > 1
-                ? selectedCandidateTitles.length > 0
-                  ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
-                  : candidatePromotedFlags.every(Boolean)
-                    ? "すべての候補を提案済み"
-                    : "起票する候補を選択"
-                : isSinglePromoted
-                  ? "📌 提案済み"
-                  : "📌 提案として残す"}
-            </button>
-            <button
-              className={styles.btnOutline}
-              disabled={reviewSubmitting || themeSettleSubmitting}
-              onClick={() => handleTriage("watching")}
-            >
-              {selectedRun.triageStatus === "watching" ? "👀 継続して様子見する" : "👀 様子見する"}
-            </button>
-            <button
-              className={styles.btnOutline}
-              disabled={reviewSubmitting || themeSettleSubmitting}
-              onClick={() => handleTriage("dismissed")}
-            >
-              却下する（対応不要）
-            </button>
+            {showPromoteButton && (
+              <button
+                className={themeIntent ? styles.btnOutline : styles.primaryBtn}
+                style={{ width: "auto" }}
+                disabled={
+                  reviewSubmitting ||
+                  themeSettleSubmitting ||
+                  (suggestionCandidates.length > 1 ? selectedCandidateTitles.length === 0 : isSinglePromoted)
+                }
+                onClick={handlePromoteToSuggestion}
+              >
+                {suggestionCandidates.length > 1
+                  ? selectedCandidateTitles.length > 0
+                    ? `📌 選択した${selectedCandidateTitles.length}件を提案として残す`
+                    : candidatePromotedFlags.every(Boolean)
+                      ? "すべての候補を提案済み"
+                      : "起票する候補を選択"
+                  : isSinglePromoted
+                    ? "📌 提案済み"
+                    : "📌 提案として残す"}
+              </button>
+            )}
+            {!alreadyPromoted && (
+              <>
+                <button
+                  className={styles.btnOutline}
+                  disabled={reviewSubmitting || themeSettleSubmitting}
+                  onClick={() => handleTriage("watching")}
+                >
+                  {selectedRun.triageStatus === "watching" ? "👀 継続して様子見する" : "👀 様子見する"}
+                </button>
+                <button
+                  className={styles.btnOutline}
+                  disabled={reviewSubmitting || themeSettleSubmitting}
+                  onClick={() => handleTriage("dismissed")}
+                >
+                  却下する（対応不要）
+                </button>
+              </>
+            )}
           </div>
           {themeIntent && themesFromThisRun.length > 0 && (
             <div style={{ marginTop: 10, fontSize: "0.875rem" }}>
@@ -696,25 +726,27 @@ export function ConsultReviewPanel({
               </ul>
             </div>
           )}
-          <div style={{ marginTop: 8 }}>
-            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
-              把握済みで日次に出したくないとき — 次の確認日を指定して様子見（トリアージ時点からの日数）
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {WATCH_NEXT_REVIEW_PRESETS.map((p) => (
-                <button
-                  key={p.days}
-                  type="button"
-                  className={styles.btnOutline}
-                  style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                  disabled={reviewSubmitting || themeSettleSubmitting}
-                  onClick={() => handleTriage("watching", noonDaysFromNow(p.days))}
-                >
-                  {p.label}に確認
-                </button>
-              ))}
+          {!alreadyPromoted && (
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 6px" }}>
+                把握済みで日次に出したくないとき — 次の確認日を指定して様子見（トリアージ時点からの日数）
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {WATCH_NEXT_REVIEW_PRESETS.map((p) => (
+                  <button
+                    key={p.days}
+                    type="button"
+                    className={styles.btnOutline}
+                    style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                    disabled={reviewSubmitting || themeSettleSubmitting}
+                    onClick={() => handleTriage("watching", noonDaysFromNow(p.days))}
+                  >
+                    {p.label}に確認
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
       <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--border)" }} />

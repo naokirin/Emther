@@ -24,6 +24,7 @@ export const suggestionListSearchSchema = z.object({
   priority: z.string().optional(),
   done: z.enum(["1"]).optional().catch(undefined),
   archived: z.enum(["1"]).optional().catch(undefined),
+  auto: z.enum(["1"]).optional().catch(undefined),
   theme: z.string().optional(),
 });
 
@@ -51,6 +52,7 @@ export function defaultSuggestionListSearchState(): SuggestionListSearchState {
       priorityFilter: new Set(),
       showDone: false,
       showArchived: false,
+      autoPendingOnly: false,
     },
   };
 }
@@ -99,6 +101,7 @@ export function decodeSuggestionListSearch(params: SuggestionListSearchParams): 
       priorityFilter: parseCsvSet(params.priority, CONFIRM_PRIORITIES),
       showDone: params.done === "1",
       showArchived: params.archived === "1",
+      autoPendingOnly: params.auto === "1",
     },
   };
 }
@@ -125,6 +128,7 @@ export function encodeSuggestionListSearch(
     priority: formatCsvSet(filters.priorityFilter, CONFIRM_PRIORITIES),
     done: filters.showDone ? "1" : undefined,
     archived: filters.showArchived ? "1" : undefined,
+    auto: filters.autoPendingOnly ? "1" : undefined,
     theme,
   };
 }

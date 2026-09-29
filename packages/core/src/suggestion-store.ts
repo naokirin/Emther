@@ -181,6 +181,7 @@ export async function createSuggestion(
     confirmPriority?: ConfirmPriority;
     id?: string;
     detail?: SuggestionDetailInput;
+    autoCreated?: boolean;
   } = {},
 ): Promise<Suggestion> {
   const {
@@ -192,6 +193,7 @@ export async function createSuggestion(
     confirmPriority: requestedPriority,
     id: forcedId,
     detail: detailInput,
+    autoCreated,
     ...maskOpts
   } = opts;
   const titleTrimmed = title.trim();
@@ -231,6 +233,7 @@ export async function createSuggestion(
     sourceJournalId,
     themeId,
     teamId,
+    ...(autoCreated ? { autoCreated: true } : {}),
     createdAt: now,
     updatedAt: now,
   };

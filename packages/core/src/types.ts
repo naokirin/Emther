@@ -539,7 +539,17 @@ export type Suggestion = {
   // 日付レベルの粒度（lib/journal-date-parser.tsのdateStringToNoonTimestampと同じ、
   // その日の正午のタイムスタンプ）で持つ。
   reviewDueAt?: number;
+  // AIが提案化を勧めた相談から自動で作られた提案（EMが「提案として残す」を押していない）。
+  // 未確認のうちは「残す／不要」をEMが決める対象として一覧・ダッシュボードで目立たせる。
+  autoCreated?: boolean;
 };
+
+/** AIが自動作成し、EMがまだ残すか決めていない提案（未確認・未アーカイブ）。 */
+export function isAutoSuggestionAwaitingDecision(
+  s: Pick<Suggestion, "autoCreated" | "reviewStatus" | "archivedAt">,
+): boolean {
+  return !!s.autoCreated && s.reviewStatus === "unreviewed" && !s.archivedAt;
+}
 
 export function isSuggestionOpen(s: Pick<Suggestion, "reviewStatus" | "archivedAt">): boolean {
   return s.reviewStatus !== "done" && !s.archivedAt;

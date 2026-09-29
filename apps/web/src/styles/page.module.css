@@ -6027,3 +6027,32 @@ button.situationChip:hover {
   align-items: center;
 }
 
+
+/* AIが自動作成し、EMがまだ残すか決めていない提案の目印 */
+.autoSuggestionBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--yellow-fg);
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+  border-radius: 4px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.autoSuggestionNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+  border-radius: 6px;
+}

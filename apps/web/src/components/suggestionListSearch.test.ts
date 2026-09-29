@@ -28,6 +28,13 @@ describe("suggestionListSearch", () => {
     });
   });
 
+  it("auto=1 で AI自動作成・未確認のみの絞り込みを往復できる", () => {
+    const state = decodeSuggestionListSearch({ auto: "1" });
+    expect(state.filters.autoPendingOnly).toBe(true);
+    expect(encodeSuggestionListSearch(state)).toMatchObject({ auto: "1" });
+    expect(decodeSuggestionListSearch({}).filters.autoPendingOnly).toBe(false);
+  });
+
   it("status=all は確認状態フィルタなし（すべて表示）", () => {
     const state = decodeSuggestionListSearch({ status: "all", done: "1" });
     expect(state.filters.statusFilter.size).toBe(0);
@@ -45,6 +52,7 @@ describe("suggestionListSearch", () => {
         priorityFilter: new Set(["focus"]),
         showDone: false,
         showArchived: true,
+        autoPendingOnly: false,
       },
     });
     expect(encoded).toEqual({
@@ -54,6 +62,7 @@ describe("suggestionListSearch", () => {
       priority: "focus",
       done: undefined,
       archived: "1",
+      auto: undefined,
       theme: "unlinked",
     });
     const decoded = decodeSuggestionListSearch(encoded);

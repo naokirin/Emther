@@ -40,6 +40,7 @@ import {
   CONFIRM_PRIORITY_META,
   SUGGESTION_REVIEW_STATUS_META,
   compareSuggestionsByConfirmPriority,
+  isAutoSuggestionAwaitingDecision,
   isRunStale,
   isSuggestionReviewOverdue,
   suggestionMatchesKeyword,
@@ -228,6 +229,7 @@ export function SuggestionsPage() {
         priorityFilter: new Set(),
         showDone: true,
         showArchived: false,
+        autoPendingOnly: false,
       },
     });
   }
@@ -271,6 +273,7 @@ export function SuggestionsPage() {
         if (!filters.showArchived && s.archivedAt) return false;
         if (!filters.showDone && s.reviewStatus === "done") return false;
         if (filters.statusFilter.size > 0 && !filters.statusFilter.has(s.reviewStatus)) return false;
+        if (filters.autoPendingOnly && !isAutoSuggestionAwaitingDecision(s)) return false;
         return true;
       })
       .filter((s) => filters.priorityFilter.size === 0 || filters.priorityFilter.has(s.confirmPriority));
@@ -280,6 +283,7 @@ export function SuggestionsPage() {
   const pagination = usePagination(filtered, PAGE_SIZE);
   const doneCount = suggestions.filter((s) => s.reviewStatus === "done").length;
   const archivedCount = suggestions.filter((s) => s.archivedAt).length;
+  const autoPendingCount = themeScoped.filter(isAutoSuggestionAwaitingDecision).length;
 
   const exportTargets = useMemo(() => {
     if (selectedIds.size === 0) return filtered;
@@ -389,6 +393,7 @@ export function SuggestionsPage() {
             onClearFilters={clearFilters}
             doneCount={doneCount}
             archivedCount={archivedCount}
+            autoPendingCount={autoPendingCount}
             trailing={
               <SuggestionExportMenu
                 selectedCount={selectedIds.size}
@@ -405,6 +410,22 @@ export function SuggestionsPage() {
               />
             }
           />
+
+          {autoPendingCount > 0 && !filters.autoPendingOnly && (
+            <div className={styles.autoSuggestionNotice} role="status">
+              <span>
+                🤖 AIが自動で作成した未確認の提案が <strong>{autoPendingCount}件</strong> あります。残すなら確認状態を進め、不要ならアーカイブしてください。
+              </span>
+              <button
+                type="button"
+                className={styles.btnOutline}
+                style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                onClick={() => handleFilterChange({ autoPendingOnly: true })}
+              >
+                これだけ表示
+              </button>
+            </div>
+          )}
 
           <div className={styles.tableWrap}>
             <table className={styles.table}>
@@ -442,6 +463,7 @@ export function SuggestionsPage() {
                       : s.confirmPriority === "parked"
                         ? styles.suggestionRowParked
                         : undefined;
+                  const autoPending = isAutoSuggestionAwaitingDecision(s);
                   return (
                     <tr key={s.id} className={priorityRowClass}>
                       <td>
@@ -464,6 +486,11 @@ export function SuggestionsPage() {
                         <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {linkedRun && (
                             <StatusBadge status={linkedRun.status} stale={staleRunIds.has(linkedRun.id)} />
+                          )}
+                          {autoPending ? (
+                            <span className={styles.autoSuggestionBadge}>🤖 AI自動作成・未確認</span>
+                          ) : (
+                            s.autoCreated && <span className={styles.tableMuted}>🤖 AI自動作成</span>
                           )}
                           {s.sourceJournalId && <span className={styles.tableMuted}>📝 Journalから</span>}
                           {s.sourceRunId && <span className={styles.tableMuted}>💬 相談から</span>}

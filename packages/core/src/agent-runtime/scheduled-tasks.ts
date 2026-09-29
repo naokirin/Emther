@@ -208,7 +208,7 @@ export function checkJournalBatchReview(): void {
 
 /** 相談履歴・Inboxに載せる短いタスク文。材料の本体は buildJournalBatchContextBlock（batch-context-blocks.ts）へ。 */
 export const JOURNAL_BATCH_TASK =
-  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、繰り返しや横断の問題があれば提案形式で提案化を検討し、未確定なら watch＋advice にしてください。提案化不要なものは無理に提案化しないでください。";
+  "直近のJournalをまとめて解釈してください。ExpandとChallengeを経たうえで、課題名を付けられる繰り返し・横断の問題は recommendation: suggestion に、課題名もまだ付けられない弱い兆候だけ watch＋advice にしてください。";
 
 // startDistillationAnalysis/startGrowAnalysisと同型のオンデマンド起動ラッパー。
 // manual時はEMが明示起動したものとしてreviewed=trueにする。

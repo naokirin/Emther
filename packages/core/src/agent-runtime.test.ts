@@ -1651,6 +1651,59 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(run.id)?.reviewed).toBe(true);
   });
 
+  it("auto-anomalyでrecommendation:suggestionなら候補を提案まで自動作成する（追記提案は採用待ちのまま）", async () => {
+    const rt = await loadModule();
+    const store = await import("./suggestion-store");
+    const existing = await store.createSuggestion("既存の提案");
+    const run = await rt.startRun("Lead Agent", "Journalの内容", "auto-anomaly");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: [
+        '```proposal\n{ "conclusion": "c", "facts": ["f"], "logic": "l", "rejectedAlternatives": [], "recommendation": "suggestion",',
+        ' "suggestionCandidates": [{ "title": "候補A" }, { "title": "候補B" }] }\n```',
+        `\`\`\`suggestion_note\n[{ "suggestionId": "${existing.id}", "text": "追記したい内容" }]\n\`\`\``,
+      ].join(""),
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (store.listSuggestions().filter((s) => s.sourceRunId === run.id).length < 2) throw new Error("not promoted");
+    });
+    const created = store.listSuggestions().filter((s) => s.sourceRunId === run.id);
+    expect(created.map((s) => s.title).sort()).toEqual(["候補A", "候補B"]);
+    expect(created[0].detail?.conclusion).toBe("c");
+    expect(created.every((s) => s.autoCreated)).toBe(true);
+    expect(rt.getRun(run.id)?.reviewed).toBe(true);
+    expect(rt.getRun(run.id)?.triageStatus).toBeUndefined();
+    // 既存提案への追記は自動反映しない
+    expect(store.getSuggestion(existing.id)?.memos).toHaveLength(0);
+    expect(rt.getRun(run.id)?.suggestedSuggestionNotes).toHaveLength(1);
+  });
+
+  it("recommendation:watchやテーマ壁打ちは自動提案化しない", async () => {
+    const rt = await loadModule();
+    const store = await import("./suggestion-store");
+    const watchRun = await rt.startRun("Lead Agent", "Journalの内容", "auto-anomaly");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: '```proposal\n{ "conclusion": "c", "facts": [], "logic": "l", "rejectedAlternatives": [], "recommendation": "watch", "suggestionTitle": "様子見の件" }\n```',
+    });
+    closeChild(spawnCalls[0].child, 0);
+    const themeRun = await rt.startRun("Lead Agent", "テーマ壁打ち", "manual", undefined, { consultIntent: "theme" });
+    await waitForSpawnCount(2);
+    emitClaudeResult(spawnCalls[1].child, {
+      text: '```proposal\n{ "conclusion": "c", "facts": [], "logic": "l", "rejectedAlternatives": [], "recommendation": "suggestion", "suggestionTitle": "テーマの件" }\n```',
+    });
+    closeChild(spawnCalls[1].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(watchRun.id)?.status !== "idle" || rt.getRun(themeRun.id)?.status !== "idle") {
+        throw new Error("still running");
+      }
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.listSuggestions()).toHaveLength(0);
+    expect(rt.getRun(watchRun.id)?.reviewed).toBe(false);
+  });
+
   it("startJournalAnalysisはsourceJournalIdを保存する", async () => {
     const rt = await loadModule();
     const run = await rt.startJournalAnalysis("現場が疲弊している", "journal-1");

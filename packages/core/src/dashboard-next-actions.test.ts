@@ -126,6 +126,42 @@ describe("buildNextActions の要注目人物（観測不足レーン）", () =>
   });
 });
 
+describe("buildNextActions のAI自動作成提案（判断待ちレーン）", () => {
+  it("未確認の自動作成提案を「残す／不要」の判断カードとして出す（手動作成・確認済み・アーカイブは出さない）", () => {
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-auto", title: "自動で作られた提案", autoCreated: true }),
+      suggestion({ id: "s-manual" }),
+      suggestion({ id: "s-auto-kept", autoCreated: true, reviewStatus: "in_review" }),
+      suggestion({ id: "s-auto-archived", autoCreated: true, archivedAt: NOW }),
+    ];
+    const actions = buildNextActions(baseParams({ suggestions }));
+    const cards = actions.filter((a) => a.id.startsWith("ai-suggestion-"));
+    expect(cards.map((a) => a.id)).toEqual(["ai-suggestion-s-auto"]);
+    expect(cards[0].lane).toBe("decision");
+    expect(cards[0].text).toContain("自動で作られた提案");
+    expect(cards[0].target).toEqual({ type: "path", path: "/suggestions/s-auto" });
+    expect(heroRank(cards[0])).toBe(3);
+  });
+
+  it("3件以上たまったら提案一覧（AI自動作成・未確認の絞り込み）への1枚に束ねる", () => {
+    const suggestions: Suggestion[] = ["a", "b", "c"].map((id) => suggestion({ id, autoCreated: true }));
+    const actions = buildNextActions(baseParams({ suggestions }));
+    const cards = actions.filter((a) => a.id.startsWith("ai-suggestion-"));
+    expect(cards).toHaveLength(1);
+    expect(cards[0].target).toEqual({ type: "path", path: "/suggestions?auto=1" });
+    expect(cards[0].text).toContain("3件");
+  });
+
+  it("未確認の自動作成提案は停滞カードとは二重に出さない", () => {
+    const suggestions: Suggestion[] = [
+      suggestion({ id: "s-auto-old", autoCreated: true, createdAt: NOW - 30 * DAY_MS, updatedAt: NOW - 30 * DAY_MS }),
+    ];
+    const actions = buildNextActions(baseParams({ suggestions }));
+    expect(actions.some((a) => a.id === "stale-suggestion-s-auto-old")).toBe(false);
+    expect(actions.some((a) => a.id === "ai-suggestion-s-auto-old")).toBe(true);
+  });
+});
+
 describe("buildNextActions の確認期日超過（判断待ちレーン）", () => {
   it("reviewDueAtを過ぎている提案を判断待ちレーンへ出す", () => {
     const suggestions: Suggestion[] = [

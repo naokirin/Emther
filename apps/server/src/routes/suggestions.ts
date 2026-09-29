@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import type { SuggestionDetailResponse, SuggestionMutationResponse, SuggestionsResponse } from "@emther/api-contract";
 import {
   addMemo,
-  adviceFieldsFromProposal,
   archiveSuggestion,
   createSuggestion,
   getSuggestion,
@@ -20,7 +19,7 @@ import {
   updateSuggestionCharter,
   updateSuggestionDetail,
 } from "@emther/core/suggestion-store";
-import { buildSuggestionDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun } from "@emther/core/agent-runtime/index";
+import { buildSuggestionDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun, suggestionDetailFromProposal } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { linkJournalToSuggestion, listSourceJournalsForSuggestion, toJournalEntryViews } from "@emther/core/journal-store";
 import { buildSourceConsultIndex } from "@emther/core/journal-consult-index";
@@ -80,17 +79,7 @@ export const suggestionsRoute = new Hono()
     // （マスク済み）にproposalがあれば、起票直後にそのままdetailとして持たせる。判断・提案
     // （Agent）パネルは紐づくAgent Runが差し替わると内容も変わりうるため、起票時点の結論・
     // 根拠・ロジック・アドバイスを提案自体に固定するのがねらい
-    const detail = sourceRun?.proposal
-      ? {
-          conclusion: sourceRun.proposal.conclusion,
-          facts: sourceRun.proposal.facts,
-          logic: sourceRun.proposal.logic,
-          ...(sourceRun.proposal.expansions?.length ? { expansions: sourceRun.proposal.expansions } : {}),
-          ...(sourceRun.proposal.challenges?.length ? { challenges: sourceRun.proposal.challenges } : {}),
-          ...(sourceRun.proposal.explorations?.length ? { explorations: sourceRun.proposal.explorations } : {}),
-          ...adviceFieldsFromProposal(sourceRun.proposal),
-        }
-      : undefined;
+    const detail = sourceRun?.proposal ? suggestionDetailFromProposal(sourceRun.proposal) : undefined;
 
     try {
       const suggestion = await createSuggestion(title, {
@@ -292,15 +281,7 @@ export const suggestionsRoute = new Hono()
           return c.json({ error: "指定されたAgent Runに判断・提案がありません" }, 400);
         }
         suggestion =
-          setSuggestionDetail(suggestionId, {
-            conclusion: run.proposal.conclusion,
-            facts: run.proposal.facts,
-            logic: run.proposal.logic,
-            ...(run.proposal.expansions?.length ? { expansions: run.proposal.expansions } : {}),
-            ...(run.proposal.challenges?.length ? { challenges: run.proposal.challenges } : {}),
-            ...(run.proposal.explorations?.length ? { explorations: run.proposal.explorations } : {}),
-            ...adviceFieldsFromProposal(run.proposal),
-          }) ?? suggestion;
+          setSuggestionDetail(suggestionId, suggestionDetailFromProposal(run.proposal)) ?? suggestion;
       }
 
       const resBody = { suggestion: toSuggestionView(suggestion) } satisfies SuggestionMutationResponse;

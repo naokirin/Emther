@@ -155,4 +155,11 @@ export {
   startRun,
 } from "./run-actions";
 
+export {
+  autoPromoteRunProposal,
+  createSuggestionFromConsultRun,
+  shouldAutoPromoteRunProposal,
+  suggestionDetailFromProposal,
+} from "./proposal-promotion";
+
 export { runCloudChat } from "./cloud-chat";

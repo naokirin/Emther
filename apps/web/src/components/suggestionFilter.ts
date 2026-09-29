@@ -9,6 +9,8 @@ export type SuggestionFilterState = {
   priorityFilter: Set<ConfirmPriority>;
   showDone: boolean;
   showArchived: boolean;
+  /** AIが自動作成し、まだ残すか決めていない提案だけに絞る。 */
+  autoPendingOnly: boolean;
 };
 
 export const DEFAULT_SUGGESTION_STATUS_FILTER: SuggestionReviewStatus[] = [

@@ -19,6 +19,8 @@ type Props = {
   onClearFilters: () => void;
   doneCount: number;
   archivedCount: number;
+  /** AIが自動作成し、まだ残すか決めていない提案の件数。 */
+  autoPendingCount?: number;
   /** 適用中チップ行の右端（エクスポートなど）。 */
   trailing?: ReactNode;
 };
@@ -34,6 +36,7 @@ export function SuggestionFilterBar({
   onClearFilters,
   doneCount,
   archivedCount,
+  autoPendingCount = 0,
   trailing,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -41,6 +44,7 @@ export function SuggestionFilterBar({
   const [draftPriority, setDraftPriority] = useState(() => new Set(value.priorityFilter));
   const [draftShowDone, setDraftShowDone] = useState(value.showDone);
   const [draftShowArchived, setDraftShowArchived] = useState(value.showArchived);
+  const [draftAutoPendingOnly, setDraftAutoPendingOnly] = useState(value.autoPendingOnly);
   const rootRef = useRef<HTMLDivElement>(null);
 
   function syncDraftFromValue() {
@@ -48,6 +52,7 @@ export function SuggestionFilterBar({
     setDraftPriority(new Set(value.priorityFilter));
     setDraftShowDone(value.showDone);
     setDraftShowArchived(value.showArchived);
+    setDraftAutoPendingOnly(value.autoPendingOnly);
   }
 
   function toggleOpen() {
@@ -83,12 +88,14 @@ export function SuggestionFilterBar({
     setDraftPriority,
     setDraftShowDone,
     setDraftShowArchived,
+    setDraftAutoPendingOnly,
   });
   const draftFilterCount =
     (draftStatus.size > 0 ? 1 : 0) +
     (draftPriority.size > 0 ? 1 : 0) +
     (!draftShowDone ? 1 : 0) +
-    (draftShowArchived ? 1 : 0);
+    (draftShowArchived ? 1 : 0) +
+    (draftAutoPendingOnly ? 1 : 0);
   const appliedFilterCount = chips.length;
 
   function toggleDraftStatus(status: SuggestionReviewStatus) {
@@ -105,6 +112,7 @@ export function SuggestionFilterBar({
       priorityFilter: draftPriority,
       showDone: draftShowDone,
       showArchived: draftShowArchived,
+      autoPendingOnly: draftAutoPendingOnly,
     });
     setOpen(false);
   }
@@ -206,6 +214,14 @@ export function SuggestionFilterBar({
               />
               🗄 アーカイブ済みも表示する（{archivedCount}件）
             </label>
+            <label className={styles.journalFilterCheck}>
+              <input
+                type="checkbox"
+                checked={draftAutoPendingOnly}
+                onChange={(e) => setDraftAutoPendingOnly(e.target.checked)}
+              />
+              🤖 AI自動作成・未確認のみ（{autoPendingCount}件）
+            </label>
             <div className={styles.journalFilterPopoverFoot}>
               <button type="button" className={styles.btnOutline} onClick={clearAll}>
                 すべてクリア
@@ -259,6 +275,7 @@ function buildActiveChips(
     setDraftPriority: (next: Set<ConfirmPriority>) => void;
     setDraftShowDone: (next: boolean) => void;
     setDraftShowArchived: (next: boolean) => void;
+    setDraftAutoPendingOnly: (next: boolean) => void;
   },
 ): Chip[] {
   const chips: Chip[] = [];
@@ -305,6 +322,16 @@ function buildActiveChips(
       clear: () => {
         onChange({ showArchived: false });
         draft.setDraftShowArchived(false);
+      },
+    });
+  }
+  if (value.autoPendingOnly) {
+    chips.push({
+      key: "autoPending",
+      label: "AI自動作成・未確認のみ",
+      clear: () => {
+        onChange({ autoPendingOnly: false });
+        draft.setDraftAutoPendingOnly(false);
       },
     });
   }

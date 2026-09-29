@@ -140,7 +140,7 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
     expect(screen.getByRole("button", { name: /選択した1件を提案として残す/ })).toBeEnabled();
   });
 
-  it("すべての候補が提案済みの場合はボタンが無効化される", () => {
+  it("すべての候補が提案済みの場合は提案化ボタンと様子見/却下を出さず、提案へのリンクを出す", () => {
     const suggestionsAllCandidates = [
       baseSuggestion({ id: "i1", title: "候補A: 1on1の改善", sourceRunId: "run-consult-1" }),
       baseSuggestion({ id: "i2", title: "候補B: 評価基準の統一", sourceRunId: "run-consult-1" }),
@@ -158,11 +158,26 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
     expect(checkboxes[1]).toBeDisabled();
     expect(screen.getAllByText("提案済み")).toHaveLength(2);
 
-    const button = screen.getByRole("button", { name: /すべての候補を提案済み/ });
-    expect(button).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /提案として残す|すべての候補を提案済み/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /様子見する/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /却下する/ })).toBeNull();
+    expect(screen.getByText(/不要なら提案側で/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /候補A: 1on1の改善/ })).toHaveAttribute("href", "/suggestions/i1");
   });
 
-  it("単一候補で既に提案化されている場合はボタンが「提案済み」となり無効化される", () => {
+  it("一部の候補だけ提案済みなら、残りの候補の提案化ボタンは残し様子見/却下は出さない", () => {
+    renderPanel(
+      <ConsultReviewPanel
+        {...defaultProps}
+        suggestions={[baseSuggestion({ id: "i1", title: "候補A: 1on1の改善", sourceRunId: "run-consult-1" })]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /選択した1件を提案として残す/ })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /却下する/ })).toBeNull();
+  });
+
+  it("単一候補で既に提案化されている場合は提案化ボタンを出さない", () => {
     const singleRun = baseRun({
       proposal: {
         conclusion: "単一結論",
@@ -189,8 +204,8 @@ describe("ConsultReviewPanel - 提案済み候補の再追加防止", () => {
       />,
     );
 
-    const button = screen.getByRole("button", { name: "📌 提案済み" });
-    expect(button).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /提案済み|提案として残す/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /単一候補/ })).toBeInTheDocument();
   });
 
   it("reviewedがtrueなだけ（手動相談は常にtrue）では提案化済み扱いにならない", () => {

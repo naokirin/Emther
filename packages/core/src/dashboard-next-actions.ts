@@ -12,6 +12,7 @@ import { truncateExcerpt } from "./origin-trace";
 import { isSuggestionDeferredFromDaily } from "./agent-runtime/suggestion-cadence";
 import { formatPendingAgentStartText } from "./pending-agent-start";
 import {
+  isAutoSuggestionAwaitingDecision,
   isJournalEntryResolved,
   isSuggestionReviewOverdue,
   type Suggestion,
@@ -65,7 +66,14 @@ export function heroRank(a: NextActionRankFields): number {
   // （朝サマリー等が毎日積もって本物の決断を埋もれさせないため）。
   if (a.id.startsWith("yield-") || a.id.startsWith("stale-") || a.id.startsWith("error-")) return 1;
   if (a.id.startsWith("journal-unconfirmed-")) return 2;
-  if (a.kindLabel === "ドラフト提案" || a.id.startsWith("auto-") || a.id === "auto-bundle") return 3;
+  if (
+    a.kindLabel === "ドラフト提案" ||
+    a.id.startsWith("auto-") ||
+    a.id === "auto-bundle" ||
+    a.id.startsWith(AUTO_SUGGESTION_ACTION_PREFIX)
+  ) {
+    return 3;
+  }
   if (a.kindLabel === "ドラフト分析中") return 4;
   if (a.lane === "decision" && a.severity === "urgent") return 5;
   if (a.lane === "decision") return 6;
@@ -90,6 +98,11 @@ export function urgencyMeter(a: NextActionRankFields): UrgencyMeter {
   const tone: UrgencyMeter["tone"] = ratio >= 0.75 ? "high" : ratio >= 0.45 ? "mid" : "low";
   return { ratio, tone };
 }
+
+// AIが自動作成した提案（未確認）のカードID接頭辞。自動ドラフト（auto-<runId>）の束ね対象とは分ける。
+export const AUTO_SUGGESTION_ACTION_PREFIX = "ai-suggestion-";
+// これを超えたら個別カードをやめ、提案一覧（AI自動作成・未確認の絞り込み）への1枚に束ねる。
+const AUTO_SUGGESTION_BUNDLE_THRESHOLD = 3;
 
 // 「次の1手」を単一のヒーローだけでなく「今日やるべき3つ」
 // として上位N件をまとめて取り出せるよう、単一ピック関数をランキング関数に一般化する。
@@ -360,6 +373,8 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       (s) =>
         !s.archivedAt &&
         s.reviewStatus !== "done" &&
+        // 未確認の自動作成提案は下の「AI自動作成の提案」カードで扱う（二重に出さない）。
+        !isAutoSuggestionAwaitingDecision(s) &&
         now - s.updatedAt > STALE_INTERVENTION_MS &&
         !isSuggestionDeferredFromDailyQueue(s, now),
     )
@@ -404,6 +419,38 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
       // 期限切れ自体は「以前からの期日設定」なので新着扱いにはしない（watch-expiredと同じ）。
       since: 0,
     });
+  }
+
+  // 自動提案化で相談側のドラフトカードは消えるため、代わりに「残す／不要」の判断をここへ出す。
+  const autoSuggestions = suggestions
+    .filter(isAutoSuggestionAwaitingDecision)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  if (autoSuggestions.length >= AUTO_SUGGESTION_BUNDLE_THRESHOLD) {
+    nextActions.push({
+      id: `${AUTO_SUGGESTION_ACTION_PREFIX}bundle`,
+      severity: "warn",
+      lane: "decision",
+      icon: "🤖",
+      kindLabel: "AI自動作成の提案",
+      text: `AIが自動で作成した未確認の提案が${autoSuggestions.length}件あります。残すか不要かを決めてください`,
+      target: { type: "path", path: "/suggestions?auto=1" },
+      since: autoSuggestions[0].createdAt,
+      ctaLabel: "一覧を開く",
+    });
+  } else {
+    for (const suggestion of autoSuggestions) {
+      nextActions.push({
+        id: `${AUTO_SUGGESTION_ACTION_PREFIX}${suggestion.id}`,
+        severity: "warn",
+        lane: "decision",
+        icon: "🤖",
+        kindLabel: "AI自動作成の提案",
+        text: `「${truncateExcerpt(suggestion.title, 50)}」を残すか決めてください`,
+        target: { type: "path", path: `/suggestions/${suggestion.id}` },
+        since: suggestion.createdAt,
+        ctaLabel: "残す／不要を決める",
+      });
+    }
   }
 
   // 「次の一手未設定」（Action Itemを設定する

@@ -6,6 +6,7 @@ import { getRulesAndConstraints } from "../settings-store";
 import { SPECIALIST_AGENTS } from "./agent-catalog";
 import { runClaudeTurn, runTeamParallelKickoff } from "./cli-runners/index";
 import { beginJournalBatchWindow } from "./journal-batch-window";
+import { autoPromoteRunProposal } from "./proposal-promotion";
 import { appendLog, runs, sanitizeForCloud } from "./store";
 import { originLabel, type AgentRun, type PendingUnmaskedSend } from "./types";
 
@@ -118,7 +119,7 @@ export async function startRun(
   if (shouldTeamKickoff && linkedSuggestionId) {
     void runTeamParallelKickoff(run, rawTask, maskedTask, linkedSuggestionId);
   } else {
-    void runClaudeTurn(run, rawTask, true, maskedTask);
+    void runClaudeTurn(run, rawTask, true, maskedTask).then(() => autoPromoteAfterTurn(run.id));
   }
   return run;
 }
@@ -162,6 +163,15 @@ export async function decideRun(
     }
   }
 
-  void runClaudeTurn(run, rawMessage, true, maskedMessage);
+  void runClaudeTurn(run, rawMessage, true, maskedMessage).then(() => autoPromoteAfterTurn(run.id));
   return run;
+}
+
+// ターン完了（consult/lookupの再帰を含む）後に、AIが提案化を勧めていれば提案まで自動で作る。
+// チーム先行並列は提案紐付きのLead起動（＝既存提案の分析）専用のため対象外。
+function autoPromoteAfterTurn(runId: string): Promise<void> {
+  return autoPromoteRunProposal(runId).then(
+    () => undefined,
+    () => undefined,
+  );
 }
