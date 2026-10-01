@@ -298,14 +298,46 @@ export async function runClaudeTurn(
     const lookup = run.pendingLookup;
     run.pendingLookup = undefined;
     await handleLookup(run, lookup, allowConsult);
-    return;
-  }
-
-  if (run.pendingConsult) {
+  } else if (run.pendingConsult) {
     const consult = run.pendingConsult;
     run.pendingConsult = undefined;
     await handleConsult(run, consult);
   }
+
+  await maybeRetryMissingProposal(run);
+}
+
+/** proposal が主成果物の origin か（Grow・期間レビューは別形式のため除外）。 */
+function originExpectsProposal(origin: AgentRun["origin"]): boolean {
+  return origin !== "auto-grow" && origin !== "auto-weekly-report" && origin !== "auto-monthly-report";
+}
+
+const PROPOSAL_FORMAT_RETRY_PROMPT = [
+  "直前の回答は proposal / yield の規定形式（fenced code block）ではありませんでした。",
+  "追加の lookup や専門エージェントへの consult はせず、回答の最後に次のいずれか1つだけを出力し直してください。",
+  "- 結論を出す場合: ```proposal に続く JSON（conclusion / facts / logic / rejectedAlternatives 必須。必要なら recommendation / suggestionTitle / suggestionCandidates）",
+  "- EMの判断が必要な場合: ```yield に続く JSON",
+].join("\n");
+
+/**
+ * idle 完了なのに proposal が無いとき、設定回数まで同一 run で再取得ターンを挟む。
+ * yield・専門子 run・Grow/期間レビュー origin は対象外。
+ */
+async function maybeRetryMissingProposal(run: AgentRun): Promise<void> {
+  if (run.status !== "idle" || run.proposal) return;
+  if (run.consultedBy) return;
+  if (!originExpectsProposal(run.origin)) return;
+
+  const max = Math.max(0, Math.round(getRulesAndConstraints().proposalFormatRetryMax ?? 0));
+  if (max <= 0) return;
+
+  const used = run.proposalFormatRetries ?? 0;
+  if (used >= max) return;
+
+  const next = used + 1;
+  run.proposalFormatRetries = next;
+  appendLog(run, "system", `proposal形式が得られなかったため再取得します（${next}/${max}）`);
+  await runClaudeTurn(run, PROPOSAL_FORMAT_RETRY_PROMPT, false, PROPOSAL_FORMAT_RETRY_PROMPT);
 }
 
 function buildSpecialistKickoffQuestion(task: string): string {

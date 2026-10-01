@@ -1704,6 +1704,69 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(rt.getRun(watchRun.id)?.reviewed).toBe(false);
   });
 
+  it("proposal欠落時は設定回数まで再取得し、2回目で取れれば提案化する", async () => {
+    const settingsStore = await import("./settings-store");
+    settingsStore.updateRulesAndConstraints({ proposalFormatRetryMax: 1 });
+    const rt = await loadModule();
+    const store = await import("./suggestion-store");
+    const run = await rt.startRun("Lead Agent", "Journalの内容", "auto-journal-batch");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, { text: "提案化するもの（2件）を自然文だけで述べます。" });
+    closeChild(spawnCalls[0].child, 0);
+    await waitForSpawnCount(2);
+    expect(rt.getRun(run.id)?.log.some((l) => l.text.includes("proposal形式が得られなかったため再取得します（1/1）"))).toBe(
+      true,
+    );
+    emitClaudeResult(spawnCalls[1].child, {
+      text: '```proposal\n{ "conclusion": "c", "facts": [], "logic": "l", "rejectedAlternatives": [], "recommendation": "suggestion", "suggestionTitle": "再取得できた課題" }\n```',
+    });
+    closeChild(spawnCalls[1].child, 0);
+    await vi.waitFor(() => {
+      if (!store.listSuggestions().some((s) => s.sourceRunId === run.id)) throw new Error("not promoted");
+    });
+    expect(rt.getRun(run.id)?.proposal?.suggestionTitle).toBe("再取得できた課題");
+    expect(spawnCalls).toHaveLength(2);
+  });
+
+  it("proposal再取得が上限に達してもproposalが無ければidleのまま止まる", async () => {
+    const settingsStore = await import("./settings-store");
+    settingsStore.updateRulesAndConstraints({ proposalFormatRetryMax: 1 });
+    const rt = await loadModule();
+    const store = await import("./suggestion-store");
+    const run = await rt.startRun("Lead Agent", "Journalの内容", "auto-journal-batch");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, { text: "形式なしの回答1" });
+    closeChild(spawnCalls[0].child, 0);
+    await waitForSpawnCount(2);
+    emitClaudeResult(spawnCalls[1].child, { text: "形式なしの回答2" });
+    closeChild(spawnCalls[1].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status !== "idle") throw new Error("still running");
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(spawnCalls).toHaveLength(2);
+    expect(rt.getRun(run.id)?.proposal).toBeUndefined();
+    expect(rt.getRun(run.id)?.reviewed).toBe(false);
+    expect(store.listSuggestions()).toHaveLength(0);
+    expect(rt.getRun(run.id)?.log.filter((l) => l.text.includes("再取得します")).length).toBe(1);
+  });
+
+  it("proposalFormatRetryMaxが0なら再取得しない", async () => {
+    const settingsStore = await import("./settings-store");
+    settingsStore.updateRulesAndConstraints({ proposalFormatRetryMax: 0 });
+    const rt = await loadModule();
+    const run = await rt.startRun("Lead Agent", "Journalの内容", "auto-journal-batch");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, { text: "形式なし" });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (rt.getRun(run.id)?.status !== "idle") throw new Error("still running");
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(spawnCalls).toHaveLength(1);
+    expect(rt.getRun(run.id)?.log.some((l) => l.text.includes("再取得します"))).toBe(false);
+  });
+
   it("startJournalAnalysisはsourceJournalIdを保存する", async () => {
     const rt = await loadModule();
     const run = await rt.startJournalAnalysis("現場が疲弊している", "journal-1");
@@ -1816,7 +1879,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
 
   it("claude失敗→agyを含まずcursorが候補に含まれていれば起動し、成功すればidleになる", async () => {
     const settingsStore = await import("./settings-store");
-    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "cursor"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "cursor"], proposalFormatRetryMax: 0 });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -1840,7 +1903,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
 
   it("claude失敗→agyも失敗→cursorが候補にあれば3段目として起動し成功する", async () => {
     const settingsStore = await import("./settings-store");
-    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy", "cursor"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["claude", "agy", "cursor"], proposalFormatRetryMax: 0 });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -1865,7 +1928,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
   // 除外できるようにした後の挙動を検証する。
   it("cliOrderにclaudeを含めなければ、claudeは一度も起動されずagyから始まる", async () => {
     const settingsStore = await import("./settings-store");
-    settingsStore.updateRulesAndConstraints({ cliOrder: ["agy", "cursor"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["agy", "cursor"], proposalFormatRetryMax: 0 });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "タスク");
 
@@ -1903,7 +1966,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
 
   it("cursorを先頭にして失敗した場合、次の候補（agy）へフォールバックする", async () => {
     const settingsStore = await import("./settings-store");
-    settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "agy", "claude"] });
+    settingsStore.updateRulesAndConstraints({ cliOrder: ["cursor", "agy", "claude"], proposalFormatRetryMax: 0 });
     const rt = await loadModule();
     const run = await rt.startRun("Lead Agent", "落ちるタスク");
 
@@ -2169,6 +2232,9 @@ describe("Lead Agentのconsult協働ループ（handleConsult）", () => {
   });
 
   it("フォローアップターンの応答に再びconsultブロックが含まれても孫consultとして扱わない", async () => {
+    const settingsStore = await import("./settings-store");
+    // 本テストは孫consult抑止が主題。proposal再取得でspawnが増えると件数アサーションが崩れるため無効化。
+    settingsStore.updateRulesAndConstraints({ proposalFormatRetryMax: 0 });
     const rt = await loadModule();
     const leadRun = await rt.startRun("Lead Agent", "課題");
     await waitForSpawnCount(1);

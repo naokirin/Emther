@@ -218,6 +218,8 @@ export type AgentRun = {
   // consultと同様の一時フィールド。lookupRoundsは同一run内の追加照会回数（上限あり）。
   pendingLookup?: LookupRequest;
   lookupRounds?: number;
+  // proposal未検出時の自動再取得回数（同一 startRun/decideRun 内。永続化しない）。
+  proposalFormatRetries?: number;
   // 既定の"manual"はこれまで通りEM/提案経由での起動。"auto-anomaly"はEMが明示的に依頼した
   // Journal個別分析（POST /api/journal/[id]/analyze。かつてはJournal校正時の自動即時分析にも
   // 使われていたが、その事前フィルタ駆動の即時発火は廃止し"auto-journal-batch"へ一本化した）、

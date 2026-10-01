@@ -34,6 +34,22 @@ export function AgentRunSettingsGroup({ draft, onChange }: Props) {
         /></label>
       </div>
 
+      <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>proposal形式の再取得</h3>
+      <div className={styles.field} style={{ maxWidth: 160 }}>
+        <label
+          className={styles.axisTooltip}
+          data-tooltip="proposal未検出で完了したとき、同一相談内で自動再取得する回数。0で無効。増やすとAIコストが増えます（上限5）"
+        >
+          再取得回数の上限
+        <input
+          type="number"
+          min={0}
+          max={5}
+          value={draft.proposalFormatRetryMax}
+          onChange={(e) => onChange({ proposalFormatRetryMax: Number(e.target.value) })}
+        /></label>
+      </div>
+
       <h3 style={{ fontSize: "0.875rem", marginTop: 20, marginBottom: 4 }}>提案分析時のチーム先行並列</h3>
       <label
         className={styles.axisTooltip}

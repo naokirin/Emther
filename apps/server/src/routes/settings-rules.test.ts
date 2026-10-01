@@ -58,6 +58,18 @@ describe("PATCH /api/settings/rules", () => {
     expect((await clamped.json()).rules.perTurnBudgetUsd).toBe(0.01);
   });
 
+  it("proposalFormatRetryMaxは0を許容し、負数は0・過大は5に丸める", async () => {
+    const { settingsRulesRoute } = await import("./settings-rules");
+    const zero = await settingsRulesRoute.request("/", patch({ proposalFormatRetryMax: 0 }));
+    expect((await zero.json()).rules.proposalFormatRetryMax).toBe(0);
+    const ok = await settingsRulesRoute.request("/", patch({ proposalFormatRetryMax: 2 }));
+    expect((await ok.json()).rules.proposalFormatRetryMax).toBe(2);
+    const negative = await settingsRulesRoute.request("/", patch({ proposalFormatRetryMax: -3 }));
+    expect((await negative.json()).rules.proposalFormatRetryMax).toBe(0);
+    const capped = await settingsRulesRoute.request("/", patch({ proposalFormatRetryMax: 99 }));
+    expect((await capped.json()).rules.proposalFormatRetryMax).toBe(5);
+  });
+
   it("decisionQueueLimit/observationQueueLimit/staleInterventionDaysを更新できる", async () => {
     const { settingsRulesRoute } = await import("./settings-rules");
     const res = await settingsRulesRoute.request(

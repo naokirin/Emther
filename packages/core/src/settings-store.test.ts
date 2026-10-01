@@ -19,6 +19,7 @@ describe("getRulesAndConstraints", () => {
     expect(rules.teamWindowDays).toBe(14);
     expect(rules.maxParallelAgentRuns).toBe(2);
     expect(rules.perTurnBudgetUsd).toBe(0.5);
+    expect(rules.proposalFormatRetryMax).toBe(1);
     expect(rules.autoJournalBatchEnabled).toBe(false);
     expect(rules.autoJournalBatchHours).toEqual([7]);
     expect(rules.autoDistillationWeekdays).toEqual([1]);

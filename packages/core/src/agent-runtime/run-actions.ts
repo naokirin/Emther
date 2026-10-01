@@ -155,6 +155,9 @@ export async function decideRun(
   const maskedMessage = await sanitizeForCloud(run, rawMessage);
   appendLog(run, "meta", `EMからの入力: ${maskedMessage}`);
 
+  // 新しいターンでは proposal 再取得カウンタをリセットする。
+  run.proposalFormatRetries = 0;
+
   if (teamParallelKickoff && run.agentName === "Lead Agent") {
     const linkedSuggestion = getSuggestionByRunId(id);
     if (linkedSuggestion) {

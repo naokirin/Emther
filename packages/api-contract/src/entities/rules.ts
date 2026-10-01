@@ -36,6 +36,7 @@ export const rulesAndConstraintsSchema: z.ZodType<RulesAndConstraints> = z.loose
   autoMonthlyReportHour: z.number(),
   maxParallelAgentRuns: z.number(),
   perTurnBudgetUsd: z.number(),
+  proposalFormatRetryMax: z.number(),
   teamParallelKickoffEnabled: z.boolean(),
   decisionQueueLimit: z.number(),
   observationQueueLimit: z.number(),

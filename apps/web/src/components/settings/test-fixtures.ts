@@ -33,6 +33,7 @@ export function makeRules(overrides: Partial<RulesAndConstraints> = {}): RulesAn
     autoMonthlyReportHour: 8,
     maxParallelAgentRuns: 2,
     perTurnBudgetUsd: 0.5,
+    proposalFormatRetryMax: 1,
     teamParallelKickoffEnabled: true,
     decisionQueueLimit: 3,
     observationQueueLimit: 3,

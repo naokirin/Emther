@@ -33,6 +33,8 @@ export type RulesAndConstraints = {
   autoMonthlyReportHour: number;
   maxParallelAgentRuns: number;
   perTurnBudgetUsd: number;
+  /** proposal 未検出で idle 完了したときの自動再取得回数上限。0で無効。既定1。 */
+  proposalFormatRetryMax: number;
   teamParallelKickoffEnabled: boolean;
   decisionQueueLimit: number;
   observationQueueLimit: number;
@@ -85,6 +87,7 @@ export const DEFAULT_RULES: RulesAndConstraints = {
   autoMonthlyReportHour: 8,
   maxParallelAgentRuns: 2,
   perTurnBudgetUsd: 0.5,
+  proposalFormatRetryMax: 1,
   teamParallelKickoffEnabled: true,
   decisionQueueLimit: 3,
   observationQueueLimit: 3,

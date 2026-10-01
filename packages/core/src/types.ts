@@ -358,6 +358,8 @@ export type RulesAndConstraints = {
   // claude CLIの1ターンあたりの予算上限（USD、--max-budget-usd）。既定0.5。
   // Opus既定環境では引き上げが必要なことがある。agy/cursorには効かない。
   perTurnBudgetUsd: number;
+  // proposal未検出でidle完了したときの自動再取得回数上限。0で無効。既定1。
+  proposalFormatRetryMax: number;
   // 提案紐付きLead起動時に関連specialistを先行並列起動し、Leadが統合する（既定ON）。
   teamParallelKickoffEnabled: boolean;
   // Morning Modeで前面に出す「判断待ち」「観測不足」レーンそれぞれの表示上限。

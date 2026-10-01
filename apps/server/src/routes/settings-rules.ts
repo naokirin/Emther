@@ -28,6 +28,13 @@ function positiveUsd(value: unknown): number | undefined {
   return n !== undefined ? Math.max(0.01, Math.round(n * 100) / 100) : undefined;
 }
 
+// proposal形式の再取得回数。0で無効。負数は0、事故防止で上限5。
+const PROPOSAL_FORMAT_RETRY_MAX_CAP = 5;
+function nonNegativeIntCapped(value: unknown, cap: number): number | undefined {
+  const n = num(value);
+  return n !== undefined ? Math.min(cap, Math.max(0, Math.round(n))) : undefined;
+}
+
 // AGENT_OPTIONSに無いキーやMODEL_TIER_OPTIONSに無い値は黙って落とす（不正な--model値を
 // そのままclaude CLIに渡さないため）。値が空文字列のエージェントはキー自体を落とし、
 // 「claude CLIの既定モデルのまま」に戻す。
@@ -207,6 +214,7 @@ export const settingsRulesRoute = new Hono()
           : undefined,
       maxParallelAgentRuns: positiveInt(body?.maxParallelAgentRuns),
       perTurnBudgetUsd: positiveUsd(body?.perTurnBudgetUsd),
+      proposalFormatRetryMax: nonNegativeIntCapped(body?.proposalFormatRetryMax, PROPOSAL_FORMAT_RETRY_MAX_CAP),
       teamParallelKickoffEnabled: parsed.teamParallelKickoffEnabled,
       decisionQueueLimit: positiveInt(body?.decisionQueueLimit),
       observationQueueLimit: positiveInt(body?.observationQueueLimit),
