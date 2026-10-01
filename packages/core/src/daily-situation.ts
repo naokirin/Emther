@@ -39,6 +39,8 @@ export type SituationItem = {
   entityKind?: "team" | "person";
   /** 気になる兆候カードの種別ラベル用。status付き個体チップとは別物。 */
   signalKind?: ConcernSignalKind;
+  /** 「昨日から変わったこと」のネガ／ポジ区別用。neutral は載せない。 */
+  tone?: "negative" | "positive";
 };
 
 export type DailySituation = {
@@ -286,16 +288,25 @@ export function buildDailySituation(params: BuildDailySituationParams): DailySit
   // 退職アーカイブ済みは既に活動していない人物として除外する。
   const people = allPeople.filter((p) => p.isDirectReport && !p.archived);
 
-  // 1. 昨日から変わったこと: 直近24時間に記録されたJournal。
+  // 1. 昨日から変わったこと: 直近24時間のネガ／ポジ Journal（neutralは一覧価値が薄いので除外）。
+  // ネガを先に見せ、同トーン内は新しい順。
   const changes: SituationItem[] = journalEntries
-    .filter((e) => now - e.createdAt <= CHANGES_WINDOW_MS)
-    .sort((a, b) => b.createdAt - a.createdAt)
+    .filter(
+      (e) =>
+        now - e.createdAt <= CHANGES_WINDOW_MS &&
+        (e.sentiment === "negative" || e.sentiment === "positive"),
+    )
+    .sort((a, b) => {
+      if (a.sentiment !== b.sentiment) return a.sentiment === "negative" ? -1 : 1;
+      return b.createdAt - a.createdAt;
+    })
     .slice(0, CATEGORY_LIMIT)
     .map((e) => ({
       id: `changes-journal-${e.id}`,
       text: truncate(e.summary || e.rawText, 60),
       since: e.createdAt,
       target: { type: "path" as const, path: `/journal?focus=${e.id}` },
+      tone: e.sentiment as "negative" | "positive",
     }));
 
   // 2. 気になる兆候: 組織レベルのパターン材料（Vitals集約・傾向・横断・観測量・停滞提案）。

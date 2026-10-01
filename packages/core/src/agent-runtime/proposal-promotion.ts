@@ -1,5 +1,7 @@
-import { linkJournalToSuggestion } from "../journal-store";
+import { embedText } from "../embeddings";
+import { getCurrentJournalEntry, linkJournalToSuggestion } from "../journal-store";
 import type { MaskOptions } from "../name-candidate-confirmation";
+import { searchSimilarOpenSuggestions } from "../related-context";
 import {
   adviceFieldsFromProposal,
   createSuggestion,
@@ -72,17 +74,54 @@ export function shouldAutoPromoteRunProposal(run: AgentRun, existing: Suggestion
   return listSuggestionCandidatesFromProposal(run.proposal).length > 0;
 }
 
+/** 類似の未完了提案に、この Run の Journal がまだ結びついていない＝新しい観測とみなす。 */
+export function hasNewJournalObservationForSimilar(run: AgentRun, similar: Suggestion): boolean {
+  const journalId = run.sourceJournalId?.trim();
+  if (!journalId) return false;
+  if (similar.sourceJournalId === journalId) return false;
+  const entry = getCurrentJournalEntry(journalId);
+  if (entry?.resolvedSuggestionId === similar.id) return false;
+  return true;
+}
+
+/**
+ * 同趣旨の未完了提案があり、新しい Journal 観測も無い候補は自動起票しない。
+ * 埋め込み失敗時は抑止せず起票する（fail-open）。
+ */
+export async function shouldSkipSimilarCandidate(run: AgentRun, title: string): Promise<Suggestion | undefined> {
+  const trimmed = title.trim();
+  if (!trimmed) return undefined;
+  let embedding: number[];
+  try {
+    embedding = await embedText(trimmed);
+  } catch {
+    return undefined;
+  }
+  if (!embedding.length) return undefined;
+  const similar = searchSimilarOpenSuggestions(embedding, { limit: 1 })[0];
+  if (!similar) return undefined;
+  if (hasNewJournalObservationForSimilar(run, similar)) return undefined;
+  return similar;
+}
+
 /** 条件を満たす相談 Run の提案候補をすべて提案化する。作成件数を返す（失敗時は0でログのみ）。 */
 export async function autoPromoteRunProposal(runId: string): Promise<number> {
   const run = runs.get(runId);
   if (!run || !shouldAutoPromoteRunProposal(run, listSuggestions())) return 0;
   const candidates = listSuggestionCandidatesFromProposal(run.proposal);
   let created = 0;
+  const skipped: string[] = [];
   try {
-    for (let i = 0; i < candidates.length; i++) {
-      // Journal紐付けは先頭の1件のみ（手動の複数起票と揃える）。
-      await createSuggestionFromConsultRun(run, truncateForTitle(candidates[i].title), {
-        linkJournal: i === 0,
+    for (const candidate of candidates) {
+      const title = truncateForTitle(candidate.title);
+      const similar = await shouldSkipSimilarCandidate(run, title);
+      if (similar) {
+        skipped.push(`「${title}」←既存「${similar.title}」`);
+        continue;
+      }
+      // Journal紐付けは先頭の起票成功分のみ（手動の複数起票と揃える）。
+      await createSuggestionFromConsultRun(run, title, {
+        linkJournal: created === 0,
         autoCreated: true,
       });
       created++;
@@ -95,6 +134,19 @@ export async function autoPromoteRunProposal(runId: string): Promise<number> {
     );
     return created;
   }
-  appendLog(run, "system", `AIが提案化を勧めたため、提案を${created}件自動で作成しました。不要なら提案側で確認済み・アーカイブにしてください。`);
+  if (skipped.length > 0) {
+    appendLog(
+      run,
+      "system",
+      `同趣旨の未完了提案があり新しい観測も無いため、自動起票をスキップしました: ${skipped.join(" / ")}。必要なら相談画面から手動で提案として残せます。`,
+    );
+  }
+  if (created > 0) {
+    appendLog(
+      run,
+      "system",
+      `AIが提案化を勧めたため、提案を${created}件自動で作成しました。不要なら提案側で確認済み・アーカイブにしてください。`,
+    );
+  }
   return created;
 }

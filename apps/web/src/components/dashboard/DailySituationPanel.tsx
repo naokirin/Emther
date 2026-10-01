@@ -15,6 +15,13 @@ function NarrativeList({ items, emptyText }: { items: SituationItem[]; emptyText
     <ul className={styles.situationList}>
       {items.map((item) => (
         <li key={item.id} className={styles.situationItem}>
+          {item.tone ? (
+            <span
+              className={item.tone === "negative" ? styles.situationToneNeg : styles.situationTonePos}
+            >
+              {item.tone === "negative" ? "ネガ" : "ポジ"}
+            </span>
+          ) : null}
           {item.onSelect ? (
             <button type="button" className={styles.situationItemBtn} onClick={item.onSelect}>
               {item.text}
@@ -99,7 +106,7 @@ export function DailySituationPanel({ situation, loaded, weeklyTone, attentionCh
           <div className={styles.situationCardHead}>
             <span className={styles.situationCardTitle}>昨日から変わったこと</span>
           </div>
-          <NarrativeList items={situation.changes} emptyText="直近24時間の新しい記録はありません" />
+          <NarrativeList items={situation.changes} emptyText="直近24時間にネガ／ポジの記録はありません" />
         </div>
 
         <div className={styles.situationCard}>

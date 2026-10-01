@@ -342,28 +342,12 @@ describe("buildNextActions のバッチ系ドラフト束ねと優先度", () =>
 });
 
 describe("buildNextActions のJournalカードとnoActionNeededAt除外", () => {
-  it("確認済み（対応不要）にしたJournalは「要注目Journal」に出さない", () => {
-    const journalEntries: JournalEntry[] = [
-      journal({
-        id: "j-noaction",
-        urgency: "mid",
-        sentiment: "negative",
-        noActionNeededAt: NOW - 1000,
-      }),
-    ];
-    const actions = buildNextActions(baseParams({ journalEntries }));
-    expect(actions.some((a) => a.id === "journal-j-noaction")).toBe(false);
-  });
-
-  // このJournalにはまだ相談が無いため、相談画面ではなくJournal自体へ遷移させる。
-  it("「要注目Journal」はJournal自体（focus指定）へ遷移する", () => {
+  it("mid＋ネガティブのJournalは要注目カードとして出さない", () => {
     const journalEntries: JournalEntry[] = [
       journal({ id: "j-warn", urgency: "mid", sentiment: "negative" }),
     ];
     const actions = buildNextActions(baseParams({ journalEntries }));
-    const card = actions.find((a) => a.id === "journal-j-warn");
-    expect(card).toBeDefined();
-    expect(card?.target).toEqual({ type: "path", path: "/journal?focus=j-warn" });
+    expect(actions.some((a) => a.id === "journal-j-warn" || a.kindLabel === "要注目Journal")).toBe(false);
   });
 
   it("確認済み（対応不要）にしたJournalは「Journal未確認」に出さない", () => {

@@ -160,7 +160,9 @@ export {
 export {
   autoPromoteRunProposal,
   createSuggestionFromConsultRun,
+  hasNewJournalObservationForSimilar,
   shouldAutoPromoteRunProposal,
+  shouldSkipSimilarCandidate,
   suggestionDetailFromProposal,
 } from "./proposal-promotion";
 

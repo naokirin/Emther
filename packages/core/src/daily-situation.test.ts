@@ -81,13 +81,30 @@ function build(overrides: Partial<Parameters<typeof buildDailySituation>[0]> = {
 }
 
 describe("buildDailySituation", () => {
-  it("直近24時間のJournalだけをchangesに入れる", () => {
+  it("直近24時間のネガ／ポジJournalだけをchangesに入れる", () => {
     const entries = [
-      journal({ id: "recent", createdAt: NOW - 1 * 60 * 60 * 1000, summary: "最近の記録" }),
-      journal({ id: "old", createdAt: NOW - 2 * DAY_MS, summary: "古い記録" }),
+      journal({ id: "recent-neu", createdAt: NOW - 1 * 60 * 60 * 1000, summary: "ニュートラル", sentiment: "neutral" }),
+      journal({ id: "recent-neg", createdAt: NOW - 2 * 60 * 60 * 1000, summary: "ネガ", sentiment: "negative" }),
+      journal({ id: "recent-pos", createdAt: NOW - 30 * 60 * 1000, summary: "ポジ", sentiment: "positive" }),
+      journal({ id: "old-neg", createdAt: NOW - 2 * DAY_MS, summary: "古いネガ", sentiment: "negative" }),
     ];
     const result = build({ journalEntries: entries });
-    expect(result.changes.map((i) => i.id)).toEqual(["changes-journal-recent"]);
+    expect(result.changes.map((i) => i.id)).toEqual(["changes-journal-recent-neg", "changes-journal-recent-pos"]);
+    expect(result.changes.map((i) => i.tone)).toEqual(["negative", "positive"]);
+  });
+
+  it("changesはネガを先に、同トーン内は新しい順", () => {
+    const entries = [
+      journal({ id: "pos-new", createdAt: NOW - 1000, summary: "新しいポジ", sentiment: "positive" }),
+      journal({ id: "neg-old", createdAt: NOW - 3 * 60 * 60 * 1000, summary: "古いネガ", sentiment: "negative" }),
+      journal({ id: "neg-new", createdAt: NOW - 60 * 60 * 1000, summary: "新しいネガ", sentiment: "negative" }),
+    ];
+    const result = build({ journalEntries: entries });
+    expect(result.changes.map((i) => i.id)).toEqual([
+      "changes-journal-neg-new",
+      "changes-journal-neg-old",
+      "changes-journal-pos-new",
+    ]);
   });
 
   it("good/unknownのTeam・Person振り分けは維持し、concernsは個体ではなく集約シグナルにする", () => {
@@ -302,7 +319,7 @@ describe("buildDailySituation", () => {
   });
 
   it("changesのtargetはJournal focusパスになる", () => {
-    const entries = [journal({ id: "j1", createdAt: NOW - 1000, summary: "記録" })];
+    const entries = [journal({ id: "j1", createdAt: NOW - 1000, summary: "記録", sentiment: "negative" })];
     const result = build({ journalEntries: entries });
     expect(result.changes[0].target).toEqual({ type: "path", path: "/journal?focus=j1" });
   });

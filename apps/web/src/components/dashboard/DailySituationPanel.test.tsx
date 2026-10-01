@@ -68,13 +68,21 @@ describe("DailySituationPanel", () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     const situation = baseSituation({
-      changes: [item({ id: "change-1", text: "新しい記録", onSelect })],
+      changes: [item({ id: "change-1", text: "新しい記録", tone: "negative", onSelect })],
     });
     render(
       <DailySituationPanel situation={situation} loaded={true} weeklyTone={emptyTone} attentionChips={[]} />,
     );
+    expect(screen.getByText("ネガ")).toBeInTheDocument();
     await user.click(screen.getByText("新しい記録"));
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("ネガ／ポジが無いときのempty文を出す", () => {
+    render(
+      <DailySituationPanel situation={baseSituation()} loaded={true} weeklyTone={emptyTone} attentionChips={[]} />,
+    );
+    expect(screen.getByText("直近24時間にネガ／ポジの記録はありません")).toBeInTheDocument();
   });
 
   it("注目チップを表示する", async () => {

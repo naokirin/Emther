@@ -651,6 +651,8 @@ export function buildSystemPrompt(
     '提案として残すことを勧める場合（recommendation: "suggestion"）は、短いタイトルを付けてください。',
     "- 論点が1つなら suggestionTitle のみ。別チーム・別KR・別の観測に分かれるなら suggestionCandidates に最大5件まで列挙すること。",
     "- suggestionCandidates を出すときは recommendation は \"suggestion\" とし、suggestionTitle は代表の1件を書いても省略してもよい。",
+    "- suggestionTitle / suggestionCandidates[].title は「解決すると良さそうな課題」の名前にすること（例: 「1on1の効果が薄い」「評価基準がメンバーに伝わっていない」）。手段・施策形（「1on1を増やす」「フィードバックを変える」）をタイトルにしない。手段や方向性は suggestedDirection / advice / rejectedAlternatives に書く。",
+    "- suggestionCandidates は別々の課題だけを列挙すること。同一課題に対する別々の手段を複数候補に分けない。",
     "- advice は任意。次に観測・確認・考えるべき点、または計画・進行・検証の実務助言があるときだけ書く（結論の繰り返しは禁止。特に無ければ省略してよい）。",
     "- advice.overview は『何を押さえて動くか』の要約（1〜2文）。『3ステップ計画です』『以下の構成で進めます』などメタな構成説明は書かない（構成は groups[].title で示す）。",
     "- advice.groups はアクションの塊。1塊なら groups は1要素（title は省略可）。複数の独立した進め方の塊があるときだけ複数要素にし、各 title を付ける（title は目次にも使うので、内容が分かる短文にすること）。",

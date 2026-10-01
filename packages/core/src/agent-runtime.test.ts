@@ -687,6 +687,8 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     expect(ctx).toContain("前回解釈以降のJournal");
     expect(ctx).toContain("1on1が空回りした");
     expect(ctx).toContain("同じ現象が新たに観測された場合の再提案は妥当");
+    expect(ctx).toContain("解決すると良さそうな課題");
+    expect(ctx).toContain("手段・施策形");
     expect(ctx).not.toContain("動きのある提案");
     expect(rt.JOURNAL_BATCH_TASK.length).toBeLessThan(200);
   });
@@ -1067,6 +1069,9 @@ describe("buildSystemPrompt", () => {
       expect(prompt).toContain("提案（Suggestion）の扱い");
       expect(prompt).toContain("Issue管理的な指摘は禁止");
       expect(prompt).toContain("再提案は妥当");
+      expect(prompt).toContain("解決すると良さそうな課題");
+      expect(prompt).toContain("手段・施策形");
+      expect(prompt).toContain("同一課題に対する別々の手段を複数候補に分けない");
     }
   });
 
@@ -1810,6 +1815,8 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     expect(task).toContain("課題候補として一覧に残す価値");
     expect(task).toContain("進行・解決・帰結の管理");
     expect(task).toContain("再提案して構いません");
+    expect(task).toContain("解決すると良さそうな課題");
+    expect(task).toContain("手段・施策形");
     expect(task).not.toContain("提案として追跡すべき");
     expect(rt.extractJournalAutoAnalysisText(task)).toBe("1on1が空回りした");
   });

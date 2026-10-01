@@ -164,6 +164,8 @@ export function buildJournalBatchContextBlock(): string {
       "直近約7日の朝サマリー／集約解釈と同趣旨の結論を、新しいJournalシグナルが無い限り再掲しないこと（抑制はローリング。曜日固定にしない）。",
       "「後追いが無い」「提案が動いていない」「帰結を追跡できていない」等、提案の進行・解決管理を求める指摘は新規提案にしないこと。",
       "recommendation の境界: 複数エントリにまたがる・繰り返し観測された現象で、短い課題名（suggestionTitle / suggestionCandidates）を付けられるなら suggestion とすること。解決策や原因が未確定でも、課題候補として一覧に残す価値があれば suggestion でよい（suggestion は提案一覧へ自動で追加され、EMが残すか不要かを判断する）。",
+      "suggestionTitle / suggestionCandidates[].title は「解決すると良さそうな課題」の名前にすること（例: 「1on1の効果が薄い」）。手段・施策形（「1on1を増やす」）をタイトルにしない。手段や方向性は suggestedDirection / advice / rejectedAlternatives に書く。",
+      "suggestionCandidates は別々の課題だけを列挙すること。同一課題に対する別々の手段を複数候補に分けない。",
       "watch は、単発で繰り返しが見えない・シグナルが弱く課題名もまだ付けられない場合に限ること。次に確認すべき点を advice に書く。課題名を付けられているのに watch にしない（suggestionTitle を付けたなら suggestion）。",
       "独立した複数の問題が見つかった場合は、無理に1件へまとめず proposal の suggestionCandidates に分けてください。",
       "",

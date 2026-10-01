@@ -115,10 +115,8 @@ export function rankActions<T extends NextActionRankFields>(actions: T[]): T[] {
   });
 }
 
-// urgency:highは既に自動検知(auto-anomaly)
-// で拾われているため、「要注目だが自動起動しない」層（mid＋ネガティブ）を一定期間だけ
-// 「次にすべきこと」に載せる。Journalには却下/確認済みの概念が無いため、無期限に残り続けない
-// よう表示ウィンドウで自然に外れるようにする。
+// 緊急度highの未確認Journalは校正判断が必要なため朝キューに載せる。
+// 無期限に残り続けないよう表示ウィンドウで自然に外れる。
 const JOURNAL_ATTENTION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // 「様子見」に決めたまま長期間放置されている
@@ -300,28 +298,13 @@ export function buildNextActions(params: BuildNextActionsParams): NextAction[] {
     if (now - entry.createdAt > JOURNAL_ATTENTION_WINDOW_MS) continue;
     // 表示ウィンドウ
     // （24時間）だけで自然に外れる設計だったため、対応済み/提案化済みのJournalも
-    // ウィンドウ内は「観測不足」レーンに載り続けていた。すでに解決済みなら観測を
-    // 増やす必要はないため、ここで除外する。
+    // ウィンドウ内は判断待ちレーンに載り続けていた。すでに解決済みなら校正を
+    // 促す必要はないため、ここで除外する。
     if (isJournalEntryResolved(entry)) continue;
     if (entry.noActionNeededAt) continue;
-    // sourceConsultRunIdがあれば、すでにこのJournalからLead Agent runが生まれている
-    // （＝提案が生成済み・進行中）。相談を促すカードを重ねて出すと「さらに提案を作る」
-    // 案内に見えてしまうため、そのJournalはここでは出さない。
-    if (entry.urgency === "mid" && entry.sentiment === "negative" && !entry.sourceConsultRunId) {
-      // このJournalにはまだ相談が存在しない（sourceConsultRunIdなし）ため、いきなり相談の
-      // 入力状態へ連れて行かず、Journal自体（focus指定）へ遷移させる。相談を始めるかどうかは
-      // Journal詳細を見てからEMが判断する。
-      nextActions.push({
-        id: `journal-${entry.id}`,
-        severity: "warn",
-        lane: "observation",
-        icon: "📝",
-        kindLabel: "要注目Journal",
-        text: truncateExcerpt(entry.summary || entry.rawText, 44),
-        target: { type: "path", path: `/journal?focus=${entry.id}` },
-        since: entry.createdAt,
-      });
-    } else if (entry.urgency === "high" && !entry.confirmed) {
+    // mid＋ネガティブの「要注目Journal」は朝キューに載せない。書いた直後に出ると鬱陶しく、
+    // すぐ提案が欲しければJournal側で分析すればよい。
+    if (entry.urgency === "high" && !entry.confirmed) {
       // 緊急度highの自動検知はEMの校正後にしか
       // 起動しないため、校正されないまま放置されると誰にも気づかれない恐れがある。
       // 未確認のままのhighエントリは、様子見にできる「観測不足」ではなく「判断待ち」
