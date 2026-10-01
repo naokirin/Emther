@@ -209,6 +209,21 @@ describe("POST /api/suggestions", () => {
     startSpy.mockRestore();
   });
 
+  it("様子見中の相談を提案化すると triageStatus を解除する", async () => {
+    await insertRun("run-watching", 1);
+    const runtime = await import("@emther/core/agent-runtime/index");
+    runtime.setRunTriageStatus("run-watching", "watching", { nextReviewAt: Date.now() + 86_400_000 });
+    expect(runtime.getRun("run-watching")?.triageStatus).toBe("watching");
+
+    const { suggestionsRoute } = await import("./suggestions");
+    const res = await suggestionsRoute.request("/", post({ title: "様子見からの提案", sourceRunId: "run-watching" }));
+    expect(res.status).toBe(201);
+    const promoted = runtime.getRun("run-watching");
+    expect(promoted?.reviewed).toBe(true);
+    expect(promoted?.triageStatus).toBeUndefined();
+    expect(promoted?.triageNextReviewAt).toBeUndefined();
+  });
+
   it("agentRunIdもsourceRunIdも無いときは分析Runを起動する", async () => {
     const runtime = await import("@emther/core/agent-runtime/index");
     const startSpy = vi.spyOn(runtime, "startRun").mockResolvedValue({

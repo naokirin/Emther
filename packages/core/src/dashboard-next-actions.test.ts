@@ -3,6 +3,7 @@ import {
   buildNextActions,
   heroRank,
   isSuggestionDeferredFromDailyQueue,
+  selectWatchingItems,
   type BuildNextActionsParams,
   type NextAction,
 } from "./dashboard-next-actions";
@@ -268,6 +269,30 @@ describe("buildNextActions の様子見次確認日", () => {
     });
     const actions = buildNextActions(baseParams({ watchingItems: [watching] }));
     expect(actions.some((a) => a.id === "watch-expired-w2")).toBe(true);
+  });
+});
+
+describe("selectWatchingItems", () => {
+  it("sourceRunIdで提案化済みの様子見は一覧から外す", () => {
+    const watching = run({
+      id: "w-promoted",
+      origin: "manual",
+      reviewed: true,
+      triageStatus: "watching",
+      triageAt: NOW - DAY_MS,
+    });
+    const stillWatching = run({
+      id: "w-open",
+      origin: "manual",
+      reviewed: true,
+      triageStatus: "watching",
+      triageAt: NOW - DAY_MS,
+    });
+    const items = selectWatchingItems(
+      [watching, stillWatching],
+      [suggestion({ id: "s1", sourceRunId: "w-promoted" })],
+    );
+    expect(items.map((r) => r.id)).toEqual(["w-open"]);
   });
 });
 

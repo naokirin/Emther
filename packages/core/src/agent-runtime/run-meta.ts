@@ -52,17 +52,26 @@ export function runKindLabel(run: AgentRun): string {
 /**
  * ダッシュボードの「次の1手」から外す run。
  * 専門Agentへの相談子run、EMが却下したもの、相談自体がアーカイブ済みのもの、
+ * 相談から提案化済み（sourceRunId）のもの、
  * 紐づく提案がアーカイブ済み／確認済み(done)のもの。
  * （確認済みとアーカイブは独立フィールドだが、どちらも「もう追わない」ため朝キューから外す。）
  * 様子見は呼び出し側で別扱い（期限内は非表示、期限切れは再浮上）。
+ * 提案化済みの様子見は sourceRunId 一致でここに入り、様子見キューからも外れる。
  */
 export function shouldOmitRunFromNextActions(
   run: Pick<AgentRun, "id" | "consultedBy" | "triageStatus" | "archivedAt">,
-  suggestions: { agentRunId?: string; archivedAt?: number; reviewStatus?: SuggestionReviewStatus }[],
+  suggestions: {
+    agentRunId?: string;
+    sourceRunId?: string;
+    archivedAt?: number;
+    reviewStatus?: SuggestionReviewStatus;
+  }[],
 ): boolean {
   if (run.consultedBy) return true;
   if (run.triageStatus === "dismissed") return true;
   if (run.archivedAt) return true;
+  // 相談からの提案化: 要否の判断は提案側へ移す（様子見のまま提案化した場合の残骸も含む）。
+  if (suggestions.some((s) => s.sourceRunId === run.id)) return true;
   return suggestions.some(
     (s) => s.agentRunId === run.id && (!!s.archivedAt || s.reviewStatus === "done"),
   );

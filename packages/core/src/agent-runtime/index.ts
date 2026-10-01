@@ -75,6 +75,8 @@ export {
   killLiveAgentProcesses,
   listRuns,
   listRunsPage,
+  clearRunTriageStatus,
+  markRunPromoted,
   markRunReviewed,
   setRunArchived,
   setRunTriageStatus,

@@ -515,7 +515,7 @@ export function ConsultReviewPanel({
             <strong>📋 ドラフト提案（起票待ち）— {ORIGIN_LABEL[selectedRun.origin]}</strong>
           </div>
         )}
-        {selectedRun.triageStatus && (
+        {selectedRun.triageStatus && !alreadyPromoted && (
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 8, marginBottom: 0 }}>
             {TRIAGE_LABEL[selectedRun.triageStatus]}
             {selectedRun.triageStatus === "watching" && selectedRun.triageNextReviewAt
@@ -577,7 +577,13 @@ export function ConsultReviewPanel({
             📋 この相談への結論
             {(selectedRun.triageStatus || createdSuggestionsFromRun.length > 0) && (
               <span style={{ marginLeft: 8, color: "var(--yellow-fg)" }}>
-                [{selectedRun.triageStatus ? (selectedRun.triageStatus === "watching" ? "様子見" : "却下") : "提案化済み"}]
+                {`[${
+                  createdSuggestionsFromRun.length > 0
+                    ? "提案化済み"
+                    : selectedRun.triageStatus === "watching"
+                      ? "様子見"
+                      : "却下"
+                }]`}
               </span>
             )}
           </strong>

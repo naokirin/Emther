@@ -29,7 +29,7 @@ export function ConsultHistoryItem({
   const [mountedAt] = useState(() => Date.now());
   const isRecent = (now ?? mountedAt) - run.updatedAt < 24 * 60 * 60 * 1000;
   const metaParts = [
-    ...consultListMetaParts(run, { stale, now }),
+    ...consultListMetaParts(run, { stale, now, omitTriage: promoted }),
     ...(promoted ? ["提案化済み"] : []),
   ];
 

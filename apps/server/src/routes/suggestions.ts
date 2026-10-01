@@ -19,7 +19,7 @@ import {
   updateSuggestionCharter,
   updateSuggestionDetail,
 } from "@emther/core/suggestion-store";
-import { buildSuggestionDraftTask, getRun, markRunReviewed, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun, suggestionDetailFromProposal } from "@emther/core/agent-runtime/index";
+import { buildSuggestionDraftTask, getRun, markRunPromoted, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun, suggestionDetailFromProposal } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { linkJournalToSuggestion, listSourceJournalsForSuggestion, toJournalEntryViews } from "@emther/core/journal-store";
 import { buildSourceConsultIndex } from "@emther/core/journal-consult-index";
@@ -100,7 +100,7 @@ export const suggestionsRoute = new Hono()
         await addMemo(suggestion.id, `（旧 Why/What/How）\n${parts.join("\n")}`, { ...opts, source: "agent" });
       }
       if (agentRunId) {
-        markRunReviewed(agentRunId);
+        markRunPromoted(agentRunId);
         if (sourceJournalId) {
           await linkJournalToSuggestion(sourceJournalId, suggestion.id, opts).catch(() => {
             // Journal 紐付け失敗で提案作成自体は失敗させない。
@@ -108,7 +108,8 @@ export const suggestionsRoute = new Hono()
         }
       } else if (sourceRunId) {
         // 相談からの提案化: 相談 Run を提案の主分析に吸収せず、履歴・続きの壁打ちを残す。
-        markRunReviewed(sourceRunId);
+        // 様子見／却下は解除し、要否の判断を提案側へ移す。
+        markRunPromoted(sourceRunId);
         if (sourceJournalId) {
           await linkJournalToSuggestion(sourceJournalId, suggestion.id, opts).catch(() => {
             // Journal 紐付け失敗で提案作成自体は失敗させない。

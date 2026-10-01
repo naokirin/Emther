@@ -1324,6 +1324,34 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
     expect(updated?.reviewed).toBe(true);
   });
 
+  it("markRunPromotedはreviewedにし様子見/却下を解除する", async () => {
+    const { getDb } = await import("./db");
+    insertRunRow(getDb(), { id: "run-1", reviewed: 0 });
+    const rt = await loadModule();
+    rt.setRunTriageStatus("run-1", "watching", { nextReviewAt: Date.now() + 86_400_000 });
+    expect(rt.getRun("run-1")?.triageStatus).toBe("watching");
+    expect(rt.getRun("run-1")?.triageNextReviewAt).toBeDefined();
+
+    const updated = rt.markRunPromoted("run-1");
+    expect(updated?.reviewed).toBe(true);
+    expect(updated?.triageStatus).toBeUndefined();
+    expect(updated?.triageAt).toBeUndefined();
+    expect(updated?.triageNextReviewAt).toBeUndefined();
+  });
+
+  it("markRunPromotedはconsult子runのtriageも解除する", async () => {
+    const { getDb } = await import("./db");
+    insertRunRow(getDb(), { id: "lead-1", reviewed: 1 });
+    insertRunRow(getDb(), { id: "spec-1", reviewed: 1, consulted_by: "lead-1" });
+    const rt = await loadModule();
+    rt.setRunTriageStatus("lead-1", "watching");
+    expect(rt.getRun("spec-1")?.triageStatus).toBe("watching");
+
+    rt.markRunPromoted("lead-1");
+    expect(rt.getRun("lead-1")?.triageStatus).toBeUndefined();
+    expect(rt.getRun("spec-1")?.triageStatus).toBeUndefined();
+  });
+
   it("setRunTriageStatusはtriageStatus/triageAt/reviewedを設定する", async () => {
     const { getDb } = await import("./db");
     insertRunRow(getDb(), { id: "run-1", reviewed: 0 });
@@ -1528,6 +1556,7 @@ describe("run一覧・状態遷移（DB直接投入によりCLI起動を回避�
   it("存在しないIDへの操作はundefinedを返す", async () => {
     const rt = await loadModule();
     expect(rt.markRunReviewed("missing")).toBeUndefined();
+    expect(rt.markRunPromoted("missing")).toBeUndefined();
     expect(rt.setRunTriageStatus("missing", "dismissed")).toBeUndefined();
     expect(rt.setRunArchived("missing", true)).toBeUndefined();
     expect(rt.getRun("missing")).toBeUndefined();

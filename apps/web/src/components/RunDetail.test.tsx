@@ -172,6 +172,16 @@ describe("shouldOmitRunFromNextActions", () => {
     expect(shouldOmitRunFromNextActions(baseRun({ id: "run-done" }), suggestions)).toBe(true);
     expect(shouldOmitRunFromNextActions(baseRun({ id: "run-open" }), suggestions)).toBe(false);
   });
+
+  it("sourceRunIdで提案化された相談は様子見のままでも除外する", () => {
+    const suggestions = [{ sourceRunId: "run-promoted", reviewStatus: "unreviewed" as const }];
+    expect(
+      shouldOmitRunFromNextActions(baseRun({ id: "run-promoted", triageStatus: "watching" }), suggestions),
+    ).toBe(true);
+    expect(shouldOmitRunFromNextActions(baseRun({ id: "run-other", triageStatus: "watching" }), suggestions)).toBe(
+      false,
+    );
+  });
 });
 
 describe("StatusBadge", () => {

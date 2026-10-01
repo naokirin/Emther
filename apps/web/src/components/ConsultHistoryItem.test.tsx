@@ -77,6 +77,19 @@ describe("ConsultHistoryItem", () => {
     expect(screen.getByText(/提案化済み/)).toBeInTheDocument();
   });
 
+  it("promotedなら様子見ラベルを出さず提案化済みだけにする", () => {
+    render(
+      <ConsultHistoryItem
+        run={baseRun({ triageStatus: "watching" })}
+        selected={false}
+        promoted
+        onSelect={() => {}}
+      />,
+    );
+    expect(screen.getByText(/提案化済み/)).toBeInTheDocument();
+    expect(screen.queryByText(/様子見/)).not.toBeInTheDocument();
+  });
+
   it("直近24時間以内の更新はNEWバッジを出す", () => {
     render(<ConsultHistoryItem run={baseRun({ updatedAt: Date.now() })} selected={false} onSelect={() => {}} />);
     expect(screen.getByText("NEW")).toBeInTheDocument();

@@ -301,6 +301,28 @@ describe("ConsultReviewPanel - 様子見の継続", () => {
       expect(refreshRuns).toHaveBeenCalled();
     });
   });
+
+  it("様子見のあと提案化済みなら結論バッジは提案化済みを優先する", () => {
+    const watchingPromoted = {
+      ...proposalRun,
+      triageStatus: "watching" as const,
+      triageAt: 1000,
+      reviewed: true,
+    };
+    renderPanel(
+      <ConsultReviewPanel
+        {...baseProps}
+        selectedRun={watchingPromoted}
+        suggestions={[
+          baseSuggestion({ id: "i1", title: "単一候補", sourceRunId: "run-consult-1" }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("[提案化済み]")).toBeInTheDocument();
+    expect(screen.queryByText("[様子見]")).not.toBeInTheDocument();
+    expect(screen.queryByText(/👀 様子見/)).not.toBeInTheDocument();
+  });
 });
 
 describe("ConsultReviewPanel - テーマ壁打ちからの定着", () => {

@@ -268,6 +268,37 @@ export function markRunReviewed(id: string): AgentRun | undefined {
   return run;
 }
 
+function clearTriageFields(run: AgentRun): boolean {
+  if (!run.triageStatus && run.triageAt === undefined && run.triageNextReviewAt === undefined) {
+    return false;
+  }
+  run.triageStatus = undefined;
+  run.triageAt = undefined;
+  run.triageNextReviewAt = undefined;
+  return true;
+}
+
+// 提案化後は要否の判断を提案側（確認済み・アーカイブ）へ移すため、
+// 相談側の様子見／却下を外す。子runにも同様に伝播する。
+export function clearRunTriageStatus(id: string): AgentRun | undefined {
+  const run = runs.get(id);
+  if (!run) return undefined;
+  if (clearTriageFields(run)) persistRunMeta(run);
+  for (const child of runs.values()) {
+    if (child.consultedBy === id && clearTriageFields(child)) {
+      persistRunMeta(child);
+    }
+  }
+  return run;
+}
+
+// 相談から提案化したときの一括更新。reviewed 化と triage 解除を同時に行う
+// （様子見のあとに提案化しても、結論バッジや様子見キューに残さない）。
+export function markRunPromoted(id: string): AgentRun | undefined {
+  markRunReviewed(id);
+  return clearRunTriageStatus(id);
+}
+
 function applyTriageStatus(
   run: AgentRun,
   status: "watching" | "dismissed",

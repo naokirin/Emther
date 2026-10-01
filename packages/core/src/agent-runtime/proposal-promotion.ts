@@ -9,7 +9,7 @@ import {
 } from "../suggestion-store";
 import { truncateForTitle, type Suggestion } from "../types";
 import { listSuggestionCandidatesFromProposal } from "./extraction";
-import { appendLog, markRunReviewed, runs } from "./store";
+import { appendLog, markRunPromoted, runs } from "./store";
 import type { AgentRun, Proposal } from "./types";
 
 // 起票時点の結論・根拠・ロジック・アドバイスを提案自体に固定する。判断・提案（Agent）パネルは
@@ -28,7 +28,7 @@ export function suggestionDetailFromProposal(proposal: Proposal): SuggestionDeta
 
 /**
  * 相談 Run（sourceRunId）から提案を1件作る。相談 Run は提案の主分析（agentRunId）に吸収せず、
- * 履歴・続きの壁打ちを残す。reviewed 化と Journal 紐付け（linkJournal=true のとき）もここで行う。
+ * 履歴・続きの壁打ちを残す。reviewed 化・様子見解除と Journal 紐付け（linkJournal=true のとき）もここで行う。
  */
 export async function createSuggestionFromConsultRun(
   run: AgentRun,
@@ -43,7 +43,7 @@ export async function createSuggestionFromConsultRun(
     detail: run.proposal ? suggestionDetailFromProposal(run.proposal) : undefined,
     autoCreated,
   });
-  markRunReviewed(run.id);
+  markRunPromoted(run.id);
   if (linkJournal && sourceJournalId) {
     await linkJournalToSuggestion(sourceJournalId, suggestion.id, maskOpts).catch(() => {
       // Journal 紐付け失敗で提案作成自体は失敗させない。
