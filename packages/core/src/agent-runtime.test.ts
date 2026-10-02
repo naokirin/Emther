@@ -376,6 +376,51 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     ]);
   });
 
+  it("extractProposalはsuggestionCandidatesの候補本文を拾う", async () => {
+    const rt = await loadModule();
+    const text = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "横断サマリ",
+        logic: "親ロジック",
+        facts: ["親ファクト"],
+        rejectedAlternatives: [],
+        expansions: [],
+        challenges: [],
+        explorations: [],
+        recommendation: "suggestion",
+        suggestionCandidates: [
+          {
+            title: "燃え尽きへの介入",
+            rationale: "個人軸",
+            conclusion: "燃え尽きが進行している",
+            facts: ["残業が続いている"],
+            logic: "継続観測から",
+            advice: { overview: "負荷を下げる", groups: [{ nextActions: ["1on1で確認"] }] },
+          },
+          { title: "リリース属人化の解消", conclusion: "属人化が進んでいる", facts: ["担当が固定"], logic: "交代がない" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+    const candidates = rt.extractProposal(text)?.suggestionCandidates;
+    expect(candidates).toHaveLength(2);
+    expect(candidates?.[0]).toMatchObject({
+      title: "燃え尽きへの介入",
+      rationale: "個人軸",
+      conclusion: "燃え尽きが進行している",
+      facts: ["残業が続いている"],
+      logic: "継続観測から",
+    });
+    expect(candidates?.[0].adviceStructured?.overview).toBe("負荷を下げる");
+    expect(candidates?.[1]).toEqual({
+      title: "リリース属人化の解消",
+      conclusion: "属人化が進んでいる",
+      facts: ["担当が固定"],
+      logic: "交代がない",
+    });
+  });
+
   it("listSuggestionCandidatesFromProposalはsuggestionCandidatesを優先する", async () => {
     const rt = await loadModule();
     expect(
@@ -419,10 +464,11 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
 
   it("extractProposalはfacts/rejectedAlternativesが不正な要素を含む場合フィルタする", async () => {
     const rt = await loadModule();
-    const text = '```proposal\n{ "conclusion": "c", "logic": "l", "facts": ["ok", 123], "rejectedAlternatives": ["bad", { "option": "ok" }] }\n```';
+    const text =
+      '```proposal\n{ "conclusion": "c", "logic": "l", "facts": ["ok", 123], "rejectedAlternatives": ["bad", { "option": "reason欠落" }, { "option": "ok", "reason": "r" }] }\n```';
     const proposal = rt.extractProposal(text);
     expect(proposal?.facts).toEqual(["ok"]);
-    expect(proposal?.rejectedAlternatives).toEqual([{ option: "ok" }]);
+    expect(proposal?.rejectedAlternatives).toEqual([{ option: "ok", reason: "r" }]);
   });
 
   it("extractSuggestionNotesはsuggestionId/textが揃った要素だけをパースする", async () => {
@@ -1704,6 +1750,7 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     });
     const created = store.listSuggestions().filter((s) => s.sourceRunId === run.id);
     expect(created.map((s) => s.title).sort()).toEqual(["候補A", "候補B"]);
+    // 旧形式（候補本文なし）は親 proposal へフォールバック
     expect(created[0].detail?.conclusion).toBe("c");
     expect(created.every((s) => s.autoCreated)).toBe(true);
     expect(rt.getRun(run.id)?.reviewed).toBe(true);
@@ -1711,6 +1758,55 @@ describe("startRun（CLI起動・claude→agy→cursorのフォールバック�
     // 既存提案への追記は自動反映しない
     expect(store.getSuggestion(existing.id)?.memos).toHaveLength(0);
     expect(rt.getRun(run.id)?.suggestedSuggestionNotes).toHaveLength(1);
+  });
+
+  it("suggestionCandidatesに候補本文がある場合は起票時に候補ごとのdetailを使う", async () => {
+    const rt = await loadModule();
+    const store = await import("./suggestion-store");
+    const run = await rt.startRun("Lead Agent", "Journalの内容", "auto-anomaly");
+    await waitForSpawnCount(1);
+    emitClaudeResult(spawnCalls[0].child, {
+      text: [
+        "```proposal",
+        JSON.stringify({
+          conclusion: "横断サマリ",
+          facts: ["親ファクト"],
+          logic: "親ロジック",
+          rejectedAlternatives: [],
+          recommendation: "suggestion",
+          suggestionCandidates: [
+            {
+              title: "候補A",
+              conclusion: "Aの結論",
+              facts: ["Aの根拠"],
+              logic: "Aのロジック",
+              advice: { overview: "Aの進め方", groups: [{ nextActions: ["Aを確認"] }] },
+            },
+            {
+              title: "候補B",
+              conclusion: "Bの結論",
+              facts: ["Bの根拠"],
+              logic: "Bのロジック",
+              advice: { overview: "Bの進め方", groups: [{ nextActions: ["Bを確認"] }] },
+            },
+          ],
+        }),
+        "```",
+      ].join("\n"),
+    });
+    closeChild(spawnCalls[0].child, 0);
+    await vi.waitFor(() => {
+      if (store.listSuggestions().filter((s) => s.sourceRunId === run.id).length < 2) throw new Error("not promoted");
+    });
+    const byTitle = Object.fromEntries(
+      store.listSuggestions().filter((s) => s.sourceRunId === run.id).map((s) => [s.title, s]),
+    );
+    expect(byTitle["候補A"].detail?.conclusion).toBe("Aの結論");
+    expect(byTitle["候補A"].detail?.facts).toEqual(["Aの根拠"]);
+    expect(byTitle["候補A"].detail?.logic).toBe("Aのロジック");
+    expect(byTitle["候補A"].detail?.adviceStructured?.overview).toBe("Aの進め方");
+    expect(byTitle["候補B"].detail?.conclusion).toBe("Bの結論");
+    expect(byTitle["候補B"].detail?.adviceStructured?.overview).toBe("Bの進め方");
   });
 
   it("recommendation:watchやテーマ壁打ちは自動提案化しない", async () => {

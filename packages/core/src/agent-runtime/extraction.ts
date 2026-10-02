@@ -59,6 +59,24 @@ function normalizeExplorations(parsed: unknown): ExplorationFinding[] {
   return out;
 }
 
+function normalizeStringList(parsed: unknown): string[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter((f: unknown): f is string => typeof f === "string" && f.trim().length > 0)
+    .map((f) => f.trim());
+}
+
+function normalizeRejectedAlternatives(parsed: unknown): RejectedAlternative[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (r: unknown): r is RejectedAlternative =>
+      typeof r === "object" &&
+      r !== null &&
+      typeof (r as RejectedAlternative).option === "string" &&
+      typeof (r as RejectedAlternative).reason === "string",
+  );
+}
+
 /** proposal から起票用タイトル候補を返す。suggestionCandidates があればそれを使い、無ければ suggestionTitle 1件。 */
 export function listSuggestionCandidatesFromProposal(proposal?: Proposal | null): SuggestionCandidate[] {
   if (!proposal) return [];
@@ -66,6 +84,16 @@ export function listSuggestionCandidatesFromProposal(proposal?: Proposal | null)
   if (fromArray && fromArray.length > 0) return fromArray;
   const single = proposal.suggestionTitle?.trim();
   return single ? [{ title: single }] : [];
+}
+
+/** 起票タイトルに一致する候補を返す（完全一致。無ければ undefined）。 */
+export function findSuggestionCandidate(
+  proposal: Proposal | null | undefined,
+  title: string,
+): SuggestionCandidate | undefined {
+  const trimmed = title.trim();
+  if (!proposal || !trimmed) return undefined;
+  return listSuggestionCandidatesFromProposal(proposal).find((c) => c.title === trimmed);
 }
 
 export function normalizeSuggestionCandidates(parsed: unknown): SuggestionCandidate[] | undefined {
@@ -77,12 +105,44 @@ export function normalizeSuggestionCandidates(parsed: unknown): SuggestionCandid
       continue;
     }
     if (!entry || typeof entry !== "object") continue;
-    const title = (entry as { title?: unknown }).title;
-    if (typeof title !== "string" || !title.trim()) continue;
-    const rationaleRaw = (entry as { rationale?: unknown }).rationale;
+    const raw = entry as {
+      title?: unknown;
+      rationale?: unknown;
+      conclusion?: unknown;
+      facts?: unknown;
+      logic?: unknown;
+      expansions?: unknown;
+      challenges?: unknown;
+      explorations?: unknown;
+      rejectedAlternatives?: unknown;
+      advice?: unknown;
+      adviceStructured?: unknown;
+    };
+    if (typeof raw.title !== "string" || !raw.title.trim()) continue;
     const rationale =
-      typeof rationaleRaw === "string" && rationaleRaw.trim() ? rationaleRaw.trim() : undefined;
-    items.push(rationale ? { title: title.trim(), rationale } : { title: title.trim() });
+      typeof raw.rationale === "string" && raw.rationale.trim() ? raw.rationale.trim() : undefined;
+    const conclusion =
+      typeof raw.conclusion === "string" && raw.conclusion.trim() ? raw.conclusion.trim() : undefined;
+    const logic = typeof raw.logic === "string" && raw.logic.trim() ? raw.logic.trim() : undefined;
+    const facts = normalizeStringList(raw.facts);
+    const expansions = normalizeStringList(raw.expansions);
+    const challenges = normalizeStringList(raw.challenges);
+    const explorations = normalizeExplorations(raw.explorations);
+    const rejectedAlternatives = normalizeRejectedAlternatives(raw.rejectedAlternatives);
+    const adviceStructured = normalizeAdviceStructured(
+      raw.advice !== undefined ? raw.advice : raw.adviceStructured,
+    );
+    const item: SuggestionCandidate = { title: raw.title.trim() };
+    if (rationale) item.rationale = rationale;
+    if (conclusion) item.conclusion = conclusion;
+    if (facts.length) item.facts = facts;
+    if (logic) item.logic = logic;
+    if (expansions.length) item.expansions = expansions;
+    if (challenges.length) item.challenges = challenges;
+    if (explorations.length) item.explorations = explorations;
+    if (rejectedAlternatives.length) item.rejectedAlternatives = rejectedAlternatives;
+    if (adviceStructured) item.adviceStructured = adviceStructured;
+    items.push(item);
   }
   return items.length > 0 ? items : undefined;
 }
@@ -133,13 +193,6 @@ export function extractYield(resultText: string): YieldRequest | undefined {
   return undefined;
 }
 
-function normalizeStringList(parsed: unknown): string[] {
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((f: unknown): f is string => typeof f === "string" && f.trim().length > 0)
-    .map((f) => f.trim());
-}
-
 // 結論・参照ファクト・判断ロジック・棄却した代替案を
 // 必ず含めさせる。 で expansions / challenges / explorations を追加
 // （欠落時は空配列＝旧run互換）。抽出できない（規約に従わなかった）場合はundefinedを返し、
@@ -166,12 +219,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         conclusion: parsed.conclusion,
         facts: normalizeStringList(parsed.facts),
         logic: parsed.logic,
-        rejectedAlternatives: Array.isArray(parsed.rejectedAlternatives)
-          ? parsed.rejectedAlternatives.filter(
-              (r: unknown): r is RejectedAlternative =>
-                typeof r === "object" && r !== null && typeof (r as RejectedAlternative).option === "string",
-            )
-          : [],
+        rejectedAlternatives: normalizeRejectedAlternatives(parsed.rejectedAlternatives),
         expansions: normalizeStringList(parsed.expansions),
         challenges: normalizeStringList(parsed.challenges),
         explorations: normalizeExplorations(parsed.explorations),

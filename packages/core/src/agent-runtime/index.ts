@@ -60,6 +60,7 @@ export {
   extractThemes,
   extractYield,
   listSuggestionCandidatesFromProposal,
+  findSuggestionCandidate,
   normalizeSuggestionCandidates,
 } from "./extraction";
 

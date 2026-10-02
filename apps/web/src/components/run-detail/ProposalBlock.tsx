@@ -225,6 +225,11 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
                     — <IdLinkedText text={c.rationale} />
                   </span>
                 ) : null}
+                {c.conclusion ? (
+                  <div style={{ color: "var(--text-muted)", marginTop: 2, fontSize: "0.7rem" }}>
+                    結論: <IdLinkedText text={c.conclusion} />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

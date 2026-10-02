@@ -174,6 +174,35 @@ export function toRunView(run: AgentRun): AgentRun {
                 suggestionCandidates: run.proposal.suggestionCandidates.map((c) => ({
                   title: unmaskNames(c.title),
                   ...(c.rationale ? { rationale: unmaskNames(c.rationale) } : {}),
+                  ...(c.conclusion ? { conclusion: unmaskNames(c.conclusion) } : {}),
+                  ...(c.facts?.length ? { facts: c.facts.map(unmaskNames) } : {}),
+                  ...(c.logic ? { logic: unmaskNames(c.logic) } : {}),
+                  ...(c.expansions?.length ? { expansions: c.expansions.map(unmaskNames) } : {}),
+                  ...(c.challenges?.length ? { challenges: c.challenges.map(unmaskNames) } : {}),
+                  ...(c.explorations?.length
+                    ? {
+                        explorations: c.explorations.map((e) => ({
+                          kind: e.kind,
+                          observation: unmaskNames(e.observation),
+                          relevance: unmaskNames(e.relevance),
+                          ...(e.confirmationQuestion
+                            ? { confirmationQuestion: unmaskNames(e.confirmationQuestion) }
+                            : {}),
+                        })),
+                      }
+                    : {}),
+                  ...(c.rejectedAlternatives?.length
+                    ? {
+                        rejectedAlternatives: c.rejectedAlternatives.map((r) => ({
+                          option: unmaskNames(r.option),
+                          reason: unmaskNames(r.reason),
+                        })),
+                      }
+                    : {}),
+                  ...(c.advice ? { advice: unmaskNames(c.advice) } : {}),
+                  ...(c.adviceStructured
+                    ? { adviceStructured: mapAdviceStructuredStrings(c.adviceStructured, unmaskNames) }
+                    : {}),
                 })),
               }
             : {}),

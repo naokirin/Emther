@@ -19,7 +19,7 @@ import {
   updateSuggestionCharter,
   updateSuggestionDetail,
 } from "@emther/core/suggestion-store";
-import { buildSuggestionDraftTask, getRun, markRunPromoted, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun, suggestionDetailFromProposal } from "@emther/core/agent-runtime/index";
+import { buildSuggestionDraftTask, findSuggestionCandidate, getRun, markRunPromoted, parkPendingUnmaskedSend, reactToSuggestionUpdate, startRun, suggestionDetailFromProposal } from "@emther/core/agent-runtime/index";
 import { isUnconfirmedNameCandidatesError } from "@emther/core/name-candidate-confirmation";
 import { linkJournalToSuggestion, listSourceJournalsForSuggestion, toJournalEntryViews } from "@emther/core/journal-store";
 import { buildSourceConsultIndex } from "@emther/core/journal-consult-index";
@@ -78,8 +78,15 @@ export const suggestionsRoute = new Hono()
 
     // （マスク済み）にproposalがあれば、起票直後にそのままdetailとして持たせる。判断・提案
     // （Agent）パネルは紐づくAgent Runが差し替わると内容も変わりうるため、起票時点の結論・
-    // 根拠・ロジック・アドバイスを提案自体に固定するのがねらい
-    const detail = sourceRun?.proposal ? suggestionDetailFromProposal(sourceRun.proposal) : undefined;
+    // 根拠・ロジック・アドバイスを提案自体に固定するのがねらい。複数候補時はタイトル一致の
+    // 候補本文を優先する。
+    const candidate =
+      sourceRun?.proposal && title
+        ? findSuggestionCandidate(sourceRun.proposal, title)
+        : undefined;
+    const detail = sourceRun?.proposal
+      ? suggestionDetailFromProposal(sourceRun.proposal, candidate)
+      : undefined;
 
     try {
       const suggestion = await createSuggestion(title, {
@@ -275,14 +282,17 @@ export const suggestionsRoute = new Hono()
             opts,
           )) ?? suggestion;
       }
-      // 判断・提案（Agent）の内容が起票時から変わった場合に、EMが明示して詳細を更新し直す
+      // 判断・提案（Agent）の内容が起票時から変わった場合に、EMが明示して詳細を更新し直す。
+      // 複数候補の Run なら提案タイトルに一致する候補本文を優先する。
       if (typeof body?.refreshDetailFromRunId === "string" && body.refreshDetailFromRunId.trim()) {
         const run = getRun(body.refreshDetailFromRunId.trim());
         if (!run || !run.proposal) {
           return c.json({ error: "指定されたAgent Runに判断・提案がありません" }, 400);
         }
+        const candidate = findSuggestionCandidate(run.proposal, suggestion.title);
         suggestion =
-          setSuggestionDetail(suggestionId, suggestionDetailFromProposal(run.proposal)) ?? suggestion;
+          setSuggestionDetail(suggestionId, suggestionDetailFromProposal(run.proposal, candidate)) ??
+          suggestion;
       }
 
       const resBody = { suggestion: toSuggestionView(suggestion) } satisfies SuggestionMutationResponse;

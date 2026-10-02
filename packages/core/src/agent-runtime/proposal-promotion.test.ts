@@ -146,3 +146,53 @@ describe("proposal-promotion 同趣旨スキップ", () => {
     expect(suggestionStore.listSuggestions().some((s) => s.sourceRunId === run.id)).toBe(true);
   });
 });
+
+describe("suggestionDetailFromProposal 候補本文", () => {
+  it("候補にconclusion+logicが揃っていれば候補本文を使い親の横断サマリは混ざらない", async () => {
+    const { suggestionDetailFromProposal } = await import("./proposal-promotion");
+    const proposal = {
+      conclusion: "横断サマリ",
+      facts: ["親ファクト"],
+      logic: "親ロジック",
+      rejectedAlternatives: [],
+      expansions: ["親Expand"],
+      challenges: ["親Challenge"],
+      explorations: [],
+      adviceStructured: { overview: "親advice", groups: [] },
+      suggestionCandidates: [
+        {
+          title: "候補A",
+          conclusion: "Aの結論",
+          facts: ["Aの根拠"],
+          logic: "Aのロジック",
+          adviceStructured: { overview: "Aの進め方", groups: [{ nextActions: ["確認"] }] },
+        },
+      ],
+    };
+    const detail = suggestionDetailFromProposal(proposal, proposal.suggestionCandidates[0]);
+    expect(detail.conclusion).toBe("Aの結論");
+    expect(detail.facts).toEqual(["Aの根拠"]);
+    expect(detail.logic).toBe("Aのロジック");
+    expect(detail.expansions).toBeUndefined();
+    expect(detail.adviceStructured?.overview).toBe("Aの進め方");
+  });
+
+  it("候補にconclusion+logicが無い旧形式は親proposalへフォールバックする", async () => {
+    const { suggestionDetailFromProposal } = await import("./proposal-promotion");
+    const proposal = {
+      conclusion: "親結論",
+      facts: ["親ファクト"],
+      logic: "親ロジック",
+      rejectedAlternatives: [],
+      expansions: ["親Expand"],
+      challenges: [],
+      explorations: [],
+      adviceStructured: { overview: "親advice", groups: [] },
+    };
+    const detail = suggestionDetailFromProposal(proposal, { title: "候補A" });
+    expect(detail.conclusion).toBe("親結論");
+    expect(detail.facts).toEqual(["親ファクト"]);
+    expect(detail.expansions).toEqual(["親Expand"]);
+    expect(detail.adviceStructured?.overview).toBe("親advice");
+  });
+});

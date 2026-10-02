@@ -16,13 +16,25 @@ export function resolveYieldKind(kind: YieldKind | undefined, optionsLength: num
 
 /** proposal から起票タイトル候補を返す（suggestionCandidates優先、なければ suggestionTitle）。 */
 export function listSuggestionCandidatesFromProposal(
-  proposal?: { suggestionCandidates?: { title: string; rationale?: string }[]; suggestionTitle?: string } | null,
-): { title: string; rationale?: string }[] {
+  proposal?: {
+    suggestionCandidates?: {
+      title: string;
+      rationale?: string;
+      conclusion?: string;
+      facts?: string[];
+      logic?: string;
+    }[];
+    suggestionTitle?: string;
+  } | null,
+): { title: string; rationale?: string; conclusion?: string; facts?: string[]; logic?: string }[] {
   if (!proposal) return [];
   const fromArray = (proposal.suggestionCandidates ?? [])
     .map((c) => ({
       title: c.title.trim(),
       ...(c.rationale?.trim() ? { rationale: c.rationale.trim() } : {}),
+      ...(c.conclusion?.trim() ? { conclusion: c.conclusion.trim() } : {}),
+      ...(c.facts?.length ? { facts: c.facts } : {}),
+      ...(c.logic?.trim() ? { logic: c.logic.trim() } : {}),
     }))
     .filter((c) => c.title.length > 0);
   if (fromArray.length > 0) return fromArray;

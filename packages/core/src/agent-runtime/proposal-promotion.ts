@@ -10,13 +10,29 @@ import {
   type SuggestionDetailInput,
 } from "../suggestion-store";
 import { truncateForTitle, type Suggestion } from "../types";
-import { listSuggestionCandidatesFromProposal } from "./extraction";
+import { findSuggestionCandidate, listSuggestionCandidatesFromProposal } from "./extraction";
 import { appendLog, markRunPromoted, runs } from "./store";
-import type { AgentRun, Proposal } from "./types";
+import type { AgentRun, Proposal, SuggestionCandidate } from "./types";
 
 // 起票時点の結論・根拠・ロジック・アドバイスを提案自体に固定する。判断・提案（Agent）パネルは
 // 紐づくAgent Runが差し替わると内容も変わりうるため、提案作成時にコピーしておく。
-export function suggestionDetailFromProposal(proposal: Proposal): SuggestionDetailInput {
+// 複数候補時は候補自身の本文を優先し、親 proposal の横断サマリが混ざるのを防ぐ。
+// 候補に conclusion+logic が揃っていない旧出力は親 proposal へフォールバックする。
+export function suggestionDetailFromProposal(
+  proposal: Proposal,
+  candidate?: SuggestionCandidate | null,
+): SuggestionDetailInput {
+  if (candidate?.conclusion?.trim() && candidate?.logic?.trim()) {
+    return {
+      conclusion: candidate.conclusion.trim(),
+      facts: candidate.facts?.length ? candidate.facts : [],
+      logic: candidate.logic.trim(),
+      ...(candidate.expansions?.length ? { expansions: candidate.expansions } : {}),
+      ...(candidate.challenges?.length ? { challenges: candidate.challenges } : {}),
+      ...(candidate.explorations?.length ? { explorations: candidate.explorations } : {}),
+      ...adviceFieldsFromProposal(candidate),
+    };
+  }
   return {
     conclusion: proposal.conclusion,
     facts: proposal.facts,
@@ -38,11 +54,12 @@ export async function createSuggestionFromConsultRun(
   opts: MaskOptions & { sourceJournalId?: string; linkJournal?: boolean; autoCreated?: boolean } = {},
 ): Promise<Suggestion> {
   const { sourceJournalId = run.sourceJournalId, linkJournal = true, autoCreated, ...maskOpts } = opts;
+  const candidate = run.proposal ? findSuggestionCandidate(run.proposal, title) : undefined;
   const suggestion = await createSuggestion(title, {
     ...maskOpts,
     sourceRunId: run.id,
     sourceJournalId: linkJournal ? sourceJournalId : undefined,
-    detail: run.proposal ? suggestionDetailFromProposal(run.proposal) : undefined,
+    detail: run.proposal ? suggestionDetailFromProposal(run.proposal, candidate) : undefined,
     autoCreated,
   });
   markRunPromoted(run.id);

@@ -635,6 +635,11 @@ export function ConsultReviewPanel({
                               <IdLinkedText text={c.rationale} />
                             </span>
                           ) : null}
+                          {c.conclusion ? (
+                            <span style={{ color: "var(--text-muted)", display: "block", fontSize: "0.75rem" }}>
+                              結論: <IdLinkedText text={c.conclusion} />
+                            </span>
+                          ) : null}
                         </span>
                       </label>
                     </li>

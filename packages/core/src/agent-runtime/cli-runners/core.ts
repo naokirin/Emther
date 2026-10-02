@@ -315,7 +315,7 @@ function originExpectsProposal(origin: AgentRun["origin"]): boolean {
 const PROPOSAL_FORMAT_RETRY_PROMPT = [
   "直前の回答は proposal / yield の規定形式（fenced code block）ではありませんでした。",
   "追加の lookup や専門エージェントへの consult はせず、回答の最後に次のいずれか1つだけを出力し直してください。",
-  "- 結論を出す場合: ```proposal に続く JSON（conclusion / facts / logic / rejectedAlternatives 必須。必要なら recommendation / suggestionTitle / suggestionCandidates）",
+  "- 結論を出す場合: ```proposal に続く JSON（conclusion / facts / logic / rejectedAlternatives 必須。必要なら recommendation / suggestionTitle / suggestionCandidates。複数候補時は各候補に conclusion / facts / logic を自己完結で含める）",
   "- EMの判断が必要な場合: ```yield に続く JSON",
 ].join("\n");
 

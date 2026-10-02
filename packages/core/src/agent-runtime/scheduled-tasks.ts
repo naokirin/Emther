@@ -783,7 +783,7 @@ export function buildJournalAnalysisTask(rawText: string): string {
     "Suggestの前に、システムプロンプト末尾の哲学レンズからLens Selectionし、それを使って Expand（別の解釈・仮説・不足情報・別問題設定）と Challenge（前提・事実と解釈の混同・本当に解くべき問題か）を必ず経てください。入力の要約や言い換えだけで終わらせないこと。",
     "問題だと判断した場合は、通常の提案形式（結論・参照ファクト・expansions・challenges・判断ロジック・棄却した代替案）で示し、結論の中で提案化を検討する旨を明記してください。あわせて proposal の suggestionTitle（単一）または suggestionCandidates（複数・親なしの独立提案）に一覧向きの短い課題名（各40文字以内・「〜と判断します」等は入れない）を付けてください。",
     "suggestionTitle / suggestionCandidates[].title は「解決すると良さそうな課題」の名前にすること（例: 「1on1の効果が薄い」「評価基準がメンバーに伝わっていない」）。手段・施策形（「1on1を増やす」「フィードバックを変える」）をタイトルにしない。手段や方向性は suggestedDirection / advice / rejectedAlternatives に書く。",
-    "内容が別責任・別チーム・別KRになりうる複数の課題を含む場合は、無理に1件へまとめず suggestionCandidates に分けてください（親提案は作らない）。同一課題に対する別々の手段を複数候補に分けないこと。同じ介入の具体作業への分解はここではしないこと。",
+    "内容が別責任・別チーム・別KRになりうる複数の課題を含む場合は、無理に1件へまとめず suggestionCandidates に分けてください（親提案は作らない）。2件以上にするときは各候補にその課題だけの conclusion / facts / logic（必須）と advice（任意）を自己完結で書き、他候補の内容を混ぜないこと。親の conclusion / advice は横断サマリに留める。同一課題に対する別々の手段を複数候補に分けないこと。同じ介入の具体作業への分解はここではしないこと。",
     "一覧に残すほどではないが、様子を見続けたい・追加で確認したい・問題設定をまだ確定できないと判断した場合は、recommendation を \"watch\" にしてください。次に観測・確認すべき点は advice に書いてください（解決策を無理に出さなくてよい）。",
     "単なる一時的な感情の吐露などで提案化も監視も不要と判断した場合は、proposalの recommendation を \"dismiss\" にしてください（無理に提案化を勧めないこと）。この場合も、EMが一声かけるとよいか・様子見でよいかなど、状況への向き合い方には触れてください。提案化すべきなら recommendation は \"suggestion\" です。",
     "",

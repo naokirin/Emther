@@ -63,9 +63,20 @@ export const EXPLORATION_KINDS: readonly ExplorationKind[] = [
 
 // Intake（相談／Journal）から親なしの独立提案を複数切る候補。
 // 子提案（sub_issues）とは別：こちらは最初から別介入として並列起票する。
+  // 複数候補時は各候補が自己完結した conclusion / facts / logic / advice を持ち、
+  // 親 proposal の横断サマリが全提案に混ざるのを防ぐ（旧出力は conclusion+logic 欠落時に親へフォールバック）。
 export type SuggestionCandidate = {
   title: string;
   rationale?: string;
+  conclusion?: string;
+  facts?: string[];
+  logic?: string;
+  expansions?: string[];
+  challenges?: string[];
+  explorations?: ExplorationFinding[];
+  rejectedAlternatives?: RejectedAlternative[];
+  advice?: string;
+  adviceStructured?: AdviceStructured;
 };
 
 export type Proposal = {
