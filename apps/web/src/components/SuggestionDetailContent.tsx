@@ -6,6 +6,7 @@ import { CopilotChat, ExecutionState } from "./RunDetail";
 import { AdviceBlock } from "./AdviceBlock";
 import { IdLinkedText } from "./IdLinkedText";
 import { ExplorationFindingsList } from "./run-detail/ExplorationFindingsList";
+import { RethinkItemsList } from "./run-detail/RethinkItemsList";
 import { OriginTrace } from "./OriginTrace";
 import { PendingAgentStartNotice } from "./PendingAgentStartNotice";
 import { Select } from "./Select";
@@ -698,25 +699,13 @@ export function SuggestionDetailContent({ id }: { id: string }) {
                     {detailExpansions.length > 0 && (
                       <div style={{ marginBottom: 14 }}>
                         <strong style={{ fontSize: "0.85rem" }}>🔭 視点の広がり（Expand）</strong>
-                        <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
-                          {detailExpansions.map((e, i) => (
-                            <li key={i} style={{ marginBottom: 4 }}>
-                              <IdLinkedText text={e} />
-                            </li>
-                          ))}
-                        </ul>
+                        <RethinkItemsList items={detailExpansions} />
                       </div>
                     )}
                     {detailChallenges.length > 0 && (
                       <div style={{ marginBottom: 14 }}>
                         <strong style={{ fontSize: "0.85rem" }}>❓ 前提への問い（Challenge）</strong>
-                        <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
-                          {detailChallenges.map((c, i) => (
-                            <li key={i} style={{ marginBottom: 4 }}>
-                              <IdLinkedText text={c} />
-                            </li>
-                          ))}
-                        </ul>
+                        <RethinkItemsList items={detailChallenges} />
                       </div>
                     )}
                   </>

@@ -271,8 +271,43 @@ function buildTokenMaskMapping(): Map<string, string> {
 // 名前を区切り付きトークンに置換する。同じ長さ・重なり合う候補がある場合は長い名前を優先する
 // （例: "Aさん"と"A"を両方登録していても、"Aさん"が先に一致する）。
 // 敬称の有無・違い（さん／くん等）は buildMaskMapping で吸収する。
+export type ContentMaskHooks = {
+  mask: (text: string) => string;
+  unmask: (text: string) => string;
+  detectLeaks: (text: string) => string[];
+};
+
+const contentMaskHooks: ContentMaskHooks[] = [];
+
+/** Glossary / チーム名など、人名以外のマスク層を登録する（循環参照回避）。 */
+export function registerContentMaskHooks(hooks: ContentMaskHooks): void {
+  contentMaskHooks.push(hooks);
+}
+
+function applyExtraMask(text: string): string {
+  let out = text;
+  for (const hooks of contentMaskHooks) out = hooks.mask(out);
+  return out;
+}
+
+function applyExtraUnmask(text: string): string {
+  let out = text;
+  for (const hooks of contentMaskHooks) out = hooks.unmask(out);
+  return out;
+}
+
+function detectExtraLeaks(text: string): string[] {
+  const hits: string[] = [];
+  for (const hooks of contentMaskHooks) {
+    for (const hit of hooks.detectLeaks(text)) {
+      if (!hits.includes(hit)) hits.push(hit);
+    }
+  }
+  return hits;
+}
+
 export function maskNames(text: string): string {
-  return replaceAllAtOnce(text, buildTokenMaskMapping());
+  return applyExtraMask(replaceAllAtOnce(text, buildTokenMaskMapping()));
 }
 
 /**
@@ -335,7 +370,8 @@ export function findMentionedPersonIds(text: string): string[] {
 // 未解決のまま残す方が安全なので置換しない。
 export function unmaskNames(text: string): string {
   const fromTokens = text.replace(/\{\{(PERSON_\d+)\}\}/g, (full, id: string) => idToName.get(id) ?? full);
-  return fromTokens.replace(/PERSON_\d+/g, (full) => idToName.get(full) ?? full);
+  const people = fromTokens.replace(/PERSON_\d+/g, (full) => idToName.get(full) ?? full);
+  return applyExtraUnmask(people);
 }
 
 // idToName（正式名、1id=1名）を主軸に列挙する。nameToIdを主軸にすると、別名を
@@ -495,7 +531,9 @@ export function getPersonId(name: string): string | undefined {
 // 毎ターンの線形スキャンで性能上の問題にはならない。
 export function assertNoRealNamesLeaked(text: string): void {
   if (detectLeakedNames(text).length > 0) {
-    throw new Error("実名が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。");
+    throw new Error(
+      "マスク対象（人名・社内用語・チーム名）が外部送信直前のテキストに含まれていたため送信を中止しました（詳細はログに残しません）。",
+    );
   }
 }
 
@@ -507,6 +545,9 @@ export function detectLeakedNames(text: string): string[] {
   // maskNames と同じ拡大集合で検査し、敬称違いの漏れも止める
   for (const name of buildMaskMapping().keys()) {
     if (name && text.includes(name)) hits.push(name);
+  }
+  for (const hit of detectExtraLeaks(text)) {
+    if (!hits.includes(hit)) hits.push(hit);
   }
   return hits;
 }

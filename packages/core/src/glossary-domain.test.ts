@@ -36,6 +36,13 @@ describe("glossary-domain (in-memory repository)", () => {
     const block = service.buildGlossaryContextBlock();
     expect(block).toContain("PRD");
     expect(block).toContain("プロダクト要求仕様書");
+    expect(entry.maskEnabled).toBe(false);
+
+    const masked = service.updateGlossaryEntry(entry.id, { maskEnabled: true });
+    expect(masked?.maskEnabled).toBe(true);
+    const maskedBlock = service.buildGlossaryContextBlock();
+    expect(maskedBlock).toContain(entry.maskId);
+    expect(maskedBlock).not.toMatch(/PRD:/);
 
     expect(service.deleteGlossaryEntry(entry.id)).toBe(true);
     expect(service.listGlossaryEntries()).toHaveLength(0);

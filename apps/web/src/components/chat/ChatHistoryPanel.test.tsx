@@ -40,6 +40,11 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof ChatHistoryPan
     showArchivedConsults: false,
     onChangeShowArchivedConsults: vi.fn(),
     archivedConsultCount: 0,
+    panelTab: "history" as const,
+    onChangePanelTab: vi.fn(),
+    draftCount: 0,
+    originFilter: "all" as const,
+    onChangeOriginFilter: vi.fn(),
     onSelect: vi.fn(),
     onNewConsult: vi.fn(),
     ...overrides,
@@ -49,7 +54,7 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof ChatHistoryPan
 describe("ChatHistoryPanel", () => {
   it("履歴が空でロード済みなら空メッセージを表示する", () => {
     renderPanel(baseProps());
-    expect(screen.getByText("まだ相談履歴はありません。")).toBeInTheDocument();
+    expect(screen.getByText("この種別の相談履歴はありません。")).toBeInTheDocument();
   });
 
   it("未ロード中は読み込み中を表示する", () => {

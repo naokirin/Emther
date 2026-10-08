@@ -196,8 +196,8 @@ describe("SuggestionDetailContent", () => {
         conclusion: "結論本文",
         facts: ["事実A", "事実B"],
         logic: "判断の筋道",
-        expansions: ["別視点"],
-        challenges: ["前提は妥当か"],
+        expansions: [{ category: "視点", text: "別視点" }],
+        challenges: [{ category: "前提", text: "前提は妥当か" }],
         explorations: [
           {
             kind: "blind_spot",

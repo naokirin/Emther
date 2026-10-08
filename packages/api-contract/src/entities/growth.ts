@@ -7,7 +7,7 @@ export const growReferenceSchema = z.object({
   url: z.string().optional(),
 });
 
-export const growSuggestionStatusSchema = z.enum(["unread", "acknowledged", "dismissed"]);
+export const growSuggestionStatusSchema = z.enum(["unread", "acknowledged", "confirmed", "dismissed"]);
 
 export const growSuggestionSchema = z.object({
   id: z.string(),

@@ -19,9 +19,17 @@ export type GrowSuggestionDraft = {
   references: GrowReference[];
 };
 
-export type GrowSuggestionStatus = "unread" | "acknowledged" | "dismissed";
+// unread: 未確認 / acknowledged: 確認中（一覧に残す）
+// confirmed: 確認済みで非表示 / dismissed: 見送りで非表示（意図は違うが既定一覧からは同じ）
+export type GrowSuggestionStatus = "unread" | "acknowledged" | "confirmed" | "dismissed";
 
-export const GROW_SUGGESTION_STATUSES: GrowSuggestionStatus[] = ["unread", "acknowledged", "dismissed"];
+export const GROW_SUGGESTION_STATUSES: GrowSuggestionStatus[] = [
+  "unread",
+  "acknowledged",
+  "confirmed",
+  "dismissed",
+];
+
 
 export type GrowSuggestion = GrowSuggestionDraft & {
   id: string;

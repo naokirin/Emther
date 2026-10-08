@@ -4,6 +4,7 @@ import { AdviceBlock } from "../AdviceBlock";
 import styles from "../../styles/page.module.css";
 import type { Proposal } from "@emther/core/agent-runtime";
 import { ExplorationFindingsList } from "./ExplorationFindingsList";
+import { RethinkItemsList } from "./RethinkItemsList";
 import { listSuggestionCandidatesFromProposal } from "./run-view-helpers";
 
 type DetailTab = "conclusion" | "rethink" | "explore" | "evidence";
@@ -112,25 +113,13 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
               {expansions.length > 0 && (
                 <div style={{ marginBottom: 14 }}>
                   <strong style={{ fontSize: "0.85rem" }}>🔭 視点の広がり（Expand）</strong>
-                  <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
-                    {expansions.map((e, i) => (
-                      <li key={i} style={{ marginBottom: 4 }}>
-                        <IdLinkedText text={e} />
-                      </li>
-                    ))}
-                  </ul>
+                  <RethinkItemsList items={expansions} />
                 </div>
               )}
               {challenges.length > 0 && (
                 <div style={{ marginBottom: 14 }}>
                   <strong style={{ fontSize: "0.85rem" }}>❓ 前提への問い（Challenge）</strong>
-                  <ul style={{ margin: "6px 0 0 18px", fontSize: "0.875rem", lineHeight: 1.55 }}>
-                    {challenges.map((c, i) => (
-                      <li key={i} style={{ marginBottom: 4 }}>
-                        <IdLinkedText text={c} />
-                      </li>
-                    ))}
-                  </ul>
+                  <RethinkItemsList items={challenges} />
                 </div>
               )}
             </>

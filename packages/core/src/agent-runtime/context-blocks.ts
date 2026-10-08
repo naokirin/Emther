@@ -8,6 +8,7 @@ import {
   listActiveOrgBackgrounds,
   listActivePolicies,
   listActiveTeams,
+  teamLabelForPrompt,
   type OrgBackgroundEntry,
   type Team,
 } from "../org-context-store/index";
@@ -18,7 +19,7 @@ import { LOOKUP_MAX_QUERIES, LOOKUP_MAX_ROUNDS } from "../agent-knowledge-tools"
 import { getRulesAndConstraints, getSelfPersonId } from "../settings-store";
 import { listAdoptedThemes } from "../theme-store";
 import { buildGlossaryContextBlock } from "../glossary-store";
-import { INTERVENTION_TYPES, teamDisplayName, teamPathSegments } from "../types";
+import { INTERVENTION_TYPES, teamPathSegments } from "../types";
 import { CONSULT_ROUTING_TABLE, EXEC_AGENT_NAME, INTERVENTION_TYPE_AGENTS, QUADRANT_SPECIALISTS, ROLE_BLOCKS, SPECIALIST_AGENTS, SPECIALIST_ROLE_TAIL } from "./agent-catalog";
 import { LENS_USAGE_GUIDANCE, METHODOLOGY_CANDIDATE_GUIDANCE, PHILOSOPHY_LENSES } from "./philosophy-lenses";
 import { buildObservationCoverageBlock } from "./observation-coverage";
@@ -267,11 +268,13 @@ export function buildOrgContextBlock(runId?: string, rawText?: string): string {
   if (teams.length === 0) return "";
   const scoped = relevantTeams(teams, runId, rawText);
   const selfPersonId = getSelfPersonId();
+  const maskTeams = getRulesAndConstraints().maskTeamNamesEnabled;
 
   const lines = scoped.map((t) => {
-    if (t.members.length === 0) return `- ${teamDisplayName(t.name)}: (メンバー未登録)`;
+    const label = teamLabelForPrompt(t, maskTeams);
+    if (t.members.length === 0) return `- ${label}: (メンバー未登録)`;
     const labeled = t.members.map((m) => (selfPersonId && m === selfPersonId ? `${m}（利用者本人）` : m));
-    return `- ${teamDisplayName(t.name)}: ${labeled.join(", ")}`;
+    return `- ${label}: ${labeled.join(", ")}`;
   });
   if (selfPersonId) {
     lines.unshift(`利用者本人（このアプリを使うEM）: ${selfPersonId}`);
@@ -311,7 +314,8 @@ export function buildTeamCharterBlock(runId: string): string {
   const { mission, constraints } = team.charter;
   if (!mission && !constraints) return "";
 
-  const lines = [`このタスクが紐づくチームの前提（${teamDisplayName(team.name)}、絶対の前提として扱うこと）:`];
+  const teamLabel = teamLabelForPrompt(team, getRulesAndConstraints().maskTeamNamesEnabled);
+  const lines = [`このタスクが紐づくチームの前提（${teamLabel}、絶対の前提として扱うこと）:`];
   if (mission) lines.push(`Mission: ${mission}`);
   if (constraints) lines.push(`制約: ${constraints}`);
   return lines.join("\n");
@@ -612,8 +616,8 @@ export function buildSystemPrompt(
     '  "conclusion": "結論（一文で）",',
     '  "facts": ["判断の根拠にした参照ファクト（与えられた情報の中から）"],',
     '  "logic": "その結論に至った判断ロジック",',
-    '  "expansions": ["別の解釈・仮説・不足情報・別問題設定など（Expand。無い場合は空配列）"],',
-    '  "challenges": ["前提・思い込み・問題設定への問い（Challenge。無い場合は空配列）"],',
+    '  "expansions": [{ "category": "短い分類ラベル（例: 属人化・心理的負荷・コミュニケーション）", "text": "別の解釈・仮説・不足情報・別問題設定など（Expand。無い場合は空配列）" }],',
+    '  "challenges": [{ "category": "短い分類ラベル", "text": "前提・思い込み・問題設定への問い（Challenge。無い場合は空配列）" }],',
     '  "explorations": [',
     "    {",
     '      "kind": "blind_spot | missing_evidence | contradiction | drift | unexplored_area",',
@@ -633,8 +637,8 @@ export function buildSystemPrompt(
     '      "conclusion": "この課題だけの結論（一文）",',
     '      "facts": ["この課題の根拠ファクト"],',
     '      "logic": "この課題に至った判断ロジック",',
-    '      "expansions": ["この課題向けのExpand（任意・無い場合は省略可）"],',
-    '      "challenges": ["この課題向けのChallenge（任意・無い場合は省略可）"],',
+    '      "expansions": [{ "category": "短い分類ラベル", "text": "この課題向けのExpand（任意・無い場合は省略可）" }],',
+    '      "challenges": [{ "category": "短い分類ラベル", "text": "この課題向けのChallenge（任意・無い場合は省略可）" }],',
     '      "advice": { "overview": "この課題だけの進め方要点", "groups": [{ "nextActions": ["やること"] }] }',
     "    },",
     '    { "title": "独立した提案案2", "conclusion": "…", "facts": ["…"], "logic": "…", "advice": { "overview": "…", "groups": [] } }',
@@ -657,7 +661,7 @@ export function buildSystemPrompt(
     "}",
     "```",
     "棄却した代替案が無い場合は rejectedAlternatives: [] としてください。ブラックボックスの提案は禁止です。",
-    "expansions / challenges は状況分析では原則1件以上を書く（本当に無いときだけ空配列）。rejectedAlternatives（行動案の棄却）と混同しないこと。",
+    "expansions / challenges は状況分析では原則1件以上を書く（本当に無いときだけ空配列）。各要素は { category, text }。category は内容の短い分類ラベル（属人化・心理的負荷など、状況に合わせて自由に付ける）。rejectedAlternatives（行動案の棄却）と混同しないこと。",
     "explorations は最大3件。Exploreで意味のある観測ギャップが無いときは空配列。expansions / challenges と役割を混ぜないこと。",
     "lensesUsed は任意です。expansions / challengesの根拠として明確に使ったレンズがあれば書いてください（監査・振り返りに使えます）。無理に埋めず、無ければ省略してください。",
     '提案として残すことを勧める場合（recommendation: "suggestion"）は、短いタイトルを付けてください。',

@@ -47,6 +47,7 @@ export function makeRules(overrides: Partial<RulesAndConstraints> = {}): RulesAn
     selfPersonId: null,
     localChatModelPreset: "1.2b-jp",
     localRerankEnabled: false,
+    maskTeamNamesEnabled: false,
     ...overrides,
   };
 }

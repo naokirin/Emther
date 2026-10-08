@@ -8,12 +8,13 @@ import type {
   PendingAgentStart,
   PendingAgentStartKind,
   PendingUnmaskedSend,
+  RethinkItem,
   SuggestionReviewStatus,
   YieldKind,
 } from "../types";
 
 export type { PendingAgentStart, PendingAgentStartKind, PendingUnmaskedSend };
-export type { ExplorationFinding, ExplorationKind };
+export type { ExplorationFinding, ExplorationKind, RethinkItem };
 
 // "queued"は同時実行数の上限（settings-store.tsのmaxParallelAgentRuns）に達しているため、
 // CLI子プロセスの起動を待っている状態（acquireRunSlot参照）。"active"は実際にCLI子プロセスが
@@ -71,8 +72,8 @@ export type SuggestionCandidate = {
   conclusion?: string;
   facts?: string[];
   logic?: string;
-  expansions?: string[];
-  challenges?: string[];
+  expansions?: RethinkItem[];
+  challenges?: RethinkItem[];
   explorations?: ExplorationFinding[];
   rejectedAlternatives?: RejectedAlternative[];
   advice?: string;
@@ -86,9 +87,9 @@ export type Proposal = {
   rejectedAlternatives: RejectedAlternative[];
   // EMの認識から離れた別解釈・別仮説・不足情報・別問題設定。
   // 解決策の代替案（rejectedAlternatives）とは別。旧runは空配列。
-  expansions: string[];
+  expansions: RethinkItem[];
   // 前提・事実と解釈の混同・問題設定への問い。批判ではなく精度向上のため。
-  challenges: string[];
+  challenges: RethinkItem[];
   // 現在の思考空間の外側（観測ギャップ・未探索領域等）。Expand/Challengeとは別。旧runは空配列。
   explorations: ExplorationFinding[];
   // Expand/Challengeで実際に使った哲学レンズ（任意）。

@@ -399,6 +399,8 @@ export type RulesAndConstraints = {
   // 関連束・紐づけ heuristic 等で、MiniLM cosine 後段に日本語 tiny reranker を使う（既定 OFF）。
   // ON 時のみ遅延ロード。失敗時は従来の cosine / overlap にフォールバック。
   localRerankEnabled: boolean;
+  /** 外部AI送信時にチーム名を TEAM_n へマスクする（既定OFF）。 */
+  maskTeamNamesEnabled: boolean;
 };
 
 // statusが"active"のままログ更新（updatedAt）が閾値以上無ければ「応答なし」とみなす。
@@ -499,13 +501,19 @@ export type ExplorationFinding = {
   confirmationQuestion?: string;
 };
 
+/** Expand / Challenge の1項目。category は AI が自由に付ける短い分類ラベル（旧 string 形式は category 空）。 */
+export type RethinkItem = {
+  category: string;
+  text: string;
+};
+
 export type SuggestionDetail = {
   conclusion: string;
   facts: string[];
   logic: string;
-  // 起票時点の Expand / Challenge（無い旧detailは未定義）。
-  expansions?: string[];
-  challenges?: string[];
+  // 起票時点の Expand / Challenge（無い旧detailは未定義）。旧 string[] も正規化して読む。
+  expansions?: RethinkItem[];
+  challenges?: RethinkItem[];
   // 起票時点の Explore（無い旧detailは未定義）。最大3件。
   explorations?: ExplorationFinding[];
   /** @deprecated 旧フリーテキスト。新規は adviceStructured / adviceOverride を使う */
@@ -585,8 +593,18 @@ export function suggestionMatchesKeyword(
   const haystacks: string[] = [s.title, ...s.memos.map((m) => m.text)];
   if (s.detail) {
     haystacks.push(s.detail.conclusion, s.detail.logic, ...s.detail.facts);
-    if (s.detail.expansions?.length) haystacks.push(...s.detail.expansions);
-    if (s.detail.challenges?.length) haystacks.push(...s.detail.challenges);
+    if (s.detail.expansions?.length) {
+      for (const item of s.detail.expansions) {
+        if (item.category) haystacks.push(item.category);
+        haystacks.push(item.text);
+      }
+    }
+    if (s.detail.challenges?.length) {
+      for (const item of s.detail.challenges) {
+        if (item.category) haystacks.push(item.category);
+        haystacks.push(item.text);
+      }
+    }
     const adviceText = effectiveAdviceText(s.detail);
     if (adviceText) haystacks.push(adviceText);
   }
@@ -991,7 +1009,11 @@ export type GrowReference = {
   url?: string;
 };
 
-export type GrowSuggestionStatus = "unread" | "acknowledged" | "dismissed";
+export type GrowSuggestionStatus = "unread" | "acknowledged" | "confirmed" | "dismissed";
+
+export function isGrowSuggestionHidden(status: GrowSuggestionStatus): boolean {
+  return status === "confirmed" || status === "dismissed";
+}
 
 export type GrowSuggestion = {
   id: string;

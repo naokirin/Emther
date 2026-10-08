@@ -18,7 +18,7 @@ export const growthSuggestionsRoute = new Hono()
     const body = await c.req.json().catch(() => null);
     const status = body?.status;
     if (typeof status !== "string" || !GROW_SUGGESTION_STATUSES.includes(status as GrowSuggestionStatus)) {
-      return c.json({ error: "statusはunread/acknowledged/dismissedのいずれかである必要があります" }, 400);
+      return c.json({ error: "statusはunread/acknowledged/confirmed/dismissedのいずれかである必要があります" }, 400);
     }
     const updated = setGrowSuggestionStatus(id, status as GrowSuggestionStatus);
     if (!updated) {

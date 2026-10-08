@@ -10,6 +10,7 @@ export type {
   GrowSuggestionStatus,
 } from "./em-growth/em-growth-types";
 export { GROW_SUGGESTION_STATUSES } from "./em-growth/em-growth-types";
+export { isGrowSuggestionHidden } from "./types";
 
 const service = createEmGrowthService(createJsonEmGrowthRepository());
 

@@ -48,6 +48,8 @@ export type RulesAndConstraints = {
   selfPersonId: string | null;
   localChatModelPreset: LocalChatModelPresetId;
   localRerankEnabled: boolean;
+  /** 外部AI送信時にチーム名を TEAM_n へマスクする（既定OFF）。 */
+  maskTeamNamesEnabled: boolean;
 };
 
 /** 旧キーを含む永続化ファイル形（アダプタが返す生データ）。 */
@@ -101,4 +103,5 @@ export const DEFAULT_RULES: RulesAndConstraints = {
   selfPersonId: null,
   localChatModelPreset: "1.2b-jp",
   localRerankEnabled: false,
+  maskTeamNamesEnabled: false,
 };

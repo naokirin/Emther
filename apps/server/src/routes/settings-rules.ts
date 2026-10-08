@@ -228,6 +228,7 @@ export const settingsRulesRoute = new Hono()
       selfPersonId: selfPersonParsed?.ok ? selfPersonParsed.value : undefined,
       localChatModelPreset: localChatModelPreset(body?.localChatModelPreset),
       localRerankEnabled: parsed.localRerankEnabled,
+      maskTeamNamesEnabled: parsed.maskTeamNamesEnabled,
     };
     const filtered = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
     const rules = updateRulesAndConstraints(filtered);

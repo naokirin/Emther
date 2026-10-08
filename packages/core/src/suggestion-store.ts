@@ -8,10 +8,12 @@ import { createJsonSuggestionRepository } from "./persistence/adapters/json-sugg
 import { embedText } from "./embeddings";
 import { recordChangeEvent } from "./knowledge-store";
 import { ensureNameCandidatesAllowed, maskForStorage, unmaskNames } from "./people-directory";
+import { mapRethinkItemStrings, normalizeRethinkItems } from "./rethink-item";
 import type { MaskOptions } from "./name-candidate-confirmation";
 import type {
   ConfirmPriority,
   ExplorationFinding,
+  RethinkItem,
   Suggestion,
   SuggestionCharter,
   SuggestionDetail,
@@ -66,10 +68,10 @@ export function toSuggestionView(s: Suggestion): Suggestion {
           facts: s.detail.facts.map(unmaskNames),
           logic: unmaskNames(s.detail.logic),
           ...(s.detail.expansions?.length
-            ? { expansions: s.detail.expansions.map(unmaskNames) }
+            ? { expansions: mapRethinkItemStrings(normalizeRethinkItems(s.detail.expansions), unmaskNames) }
             : {}),
           ...(s.detail.challenges?.length
-            ? { challenges: s.detail.challenges.map(unmaskNames) }
+            ? { challenges: mapRethinkItemStrings(normalizeRethinkItems(s.detail.challenges), unmaskNames) }
             : {}),
           ...(s.detail.explorations?.length
             ? {
@@ -162,8 +164,8 @@ export type SuggestionDetailInput = {
   conclusion: string;
   facts: string[];
   logic: string;
-  expansions?: string[];
-  challenges?: string[];
+  expansions?: RethinkItem[];
+  challenges?: RethinkItem[];
   explorations?: ExplorationFinding[];
   /** @deprecated 新規は adviceStructured */
   advice?: string;

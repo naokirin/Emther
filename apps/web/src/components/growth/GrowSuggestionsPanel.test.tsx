@@ -45,8 +45,37 @@ describe("GrowSuggestionsPanel", () => {
     expect(screen.getByText("1on1の頻度を見直す")).toBeInTheDocument();
   });
 
-  it("確認済みにするとPATCHし、一覧に反映する", async () => {
+  it("確認中にするとPATCHし、一覧に残る", async () => {
     const updated = { ...SUGGESTION, status: "acknowledged" as const };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/growth/suggestions/gs1" && init?.method === "PATCH") {
+        return { ok: true, json: async () => ({ suggestion: updated }) };
+      }
+      if (url === "/api/growth/suggestions") return { ok: true, json: async () => ({ suggestions: [SUGGESTION] }) };
+      if (url === "/api/agents") return { ok: true, json: async () => ({ runs: [], pendingAgentStarts: [], pendingUnmaskedSends: [] }) };
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<GrowSuggestionsPanel />, { wrapper: createWrapper() });
+    await user.click(await screen.findByRole("button", { name: /AIからの学びの提案/ }));
+    await screen.findByText("1on1の頻度を見直す");
+
+    await user.click(screen.getByRole("button", { name: "確認中にする" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/growth/suggestions/gs1",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "acknowledged" }) }),
+      ),
+    );
+    expect(screen.queryByText("未確認")).not.toBeInTheDocument();
+    expect(screen.getByText("確認中")).toBeInTheDocument();
+  });
+
+  it("確認済みにするとPATCHし、既定一覧から外れる", async () => {
+    const updated = { ...SUGGESTION, status: "confirmed" as const };
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "/api/growth/suggestions/gs1" && init?.method === "PATCH") {
         return { ok: true, json: async () => ({ suggestion: updated }) };
@@ -67,9 +96,9 @@ describe("GrowSuggestionsPanel", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/growth/suggestions/gs1",
-        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "acknowledged" }) }),
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "confirmed" }) }),
       ),
     );
-    expect(screen.queryByText("未確認")).not.toBeInTheDocument();
+    expect(screen.queryByText("1on1の頻度を見直す")).not.toBeInTheDocument();
   });
 });

@@ -7,17 +7,21 @@
 export type { Team, TeamCharter } from "./teams";
 export {
   addTeam,
+  detectLeakedTeamNames,
   filterValidTeamIds,
   findMentionedTeamIds,
   getTeam,
   listActiveTeams,
   listTeams,
+  maskTeamNames,
   reassignPersonIdInTeams,
   removeTeam,
   resolveTeamIdsByLabels,
   setTeamArchived,
+  teamLabelForPrompt,
   teamMatchLabels,
   toTeamView,
+  unmaskTeamNames,
   updateTeam,
 } from "./teams";
 

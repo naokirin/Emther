@@ -9,7 +9,7 @@ import type {
 } from "./em-growth-types";
 
 // Grow（EM自身の学びの提示）専用。組織向けのSuggestionとは性質が異なり、生成時点で確定として扱う。
-// EM側の反応は軽量な既読管理のみ（unread / acknowledged / dismissed）。
+// EM側の反応は軽量な既読管理のみ（unread / acknowledged=確認中 / confirmed=確認済み非表示 / dismissed=見送り非表示）。
 
 // scheduled-tasks.tsのisoWeekKeyと同じロジック（循環import回避のため複製）。
 function isoWeekKey(now: Date): string {

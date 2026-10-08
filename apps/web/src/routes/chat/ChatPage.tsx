@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import styles from "../../styles/page.module.css";
 import type { AgentRun } from "@emther/core/agent-runtime";
+import { isDraftAwaitingTriage } from "@emther/core/agent-runtime";
 import { listSuggestionCandidatesFromProposal } from "../../components/run-detail/run-view-helpers";
-import { ChatHistoryPanel } from "../../components/chat/ChatHistoryPanel";
+import { ChatHistoryPanel, type ChatPanelTab } from "../../components/chat/ChatHistoryPanel";
+import { matchesConsultOriginFilter } from "../../components/chat/consultOriginFilter";
 import { ConsultReviewPanel } from "../../components/chat/ConsultReviewPanel";
 import { NewConsultForm } from "../../components/chat/NewConsultForm";
 import { useFlagSearchParam } from "../../lib/useFlagSearchParam";
@@ -12,7 +14,7 @@ import { api } from "../../lib/api-client";
 import { useNameCandidateConfirm } from "../../lib/useNameCandidateConfirm";
 import { isConsultHistoryRun } from "@emther/core/origin-trace";
 import { isRunStale } from "@emther/core/types";
-import { chatSearchSchema } from "@/router";
+import { chatSearchSchema, type ConsultOriginFilter } from "@/router";
 
 // Lead Agent の相談スレッドをこの画面で扱う。
 // 提案化後も履歴に残し、分割起票や提案に紐づかない続きの壁打ちができるようにする
@@ -31,13 +33,21 @@ export function ChatPage() {
 
   // （誤って起票した・テストで作った等）を履歴一覧から除外し、必要なときだけ表示できるようにする
   const [showArchivedConsults, setShowArchivedConsults] = useFlagSearchParam("archived");
+  const panelTab: ChatPanelTab = chatSearch.tab === "draft" ? "draft" : "history";
+  const originFilter: ConsultOriginFilter = chatSearch.origin ?? "all";
 
   // 提案化済みでも相談履歴に残す（提案詳細専用の分析 Run だけ除外）。
   const consultRuns = runs.filter(isConsultHistoryRun);
-  const archivedConsultCount = consultRuns.filter((r) => r.archivedAt).length;
-  const chatRuns = consultRuns
-    .filter((r) => showArchivedConsults || !r.archivedAt)
+  const draftRuns = consultRuns
+    .filter((r) => isDraftAwaitingTriage(r) && (showArchivedConsults || !r.archivedAt))
     .sort((a, b) => b.updatedAt - a.updatedAt);
+  const archivedConsultCount = consultRuns.filter((r) => r.archivedAt && !isDraftAwaitingTriage(r)).length;
+  const chatRuns = consultRuns
+    .filter((r) => !isDraftAwaitingTriage(r))
+    .filter((r) => showArchivedConsults || !r.archivedAt)
+    .filter((r) => matchesConsultOriginFilter(r, originFilter))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const listSourceRuns = panelTab === "draft" ? draftRuns : chatRuns;
   const promotedRunIds = new Set(
     suggestions.flatMap((s) => [s.agentRunId, s.sourceRunId].filter((id): id is string => Boolean(id))),
   );
@@ -129,12 +139,20 @@ export function ChatPage() {
 
   // URLで指定されたLead runが一覧に無いときも履歴へピン留め（取得遅延の保険）。
   const historyRuns = (() => {
-    if (!pinnedRun || !isConsultHistoryRun(pinnedRun)) return chatRuns;
-    if (chatRuns.some((r) => r.id === pinnedRun.id)) {
-      return chatRuns.map((r) => (r.id === pinnedRun.id ? pinnedRun : r));
+    if (!pinnedRun || !isConsultHistoryRun(pinnedRun)) return listSourceRuns;
+    if (listSourceRuns.some((r) => r.id === pinnedRun.id)) {
+      return listSourceRuns.map((r) => (r.id === pinnedRun.id ? pinnedRun : r));
     }
-    return [pinnedRun, ...chatRuns];
+    return [pinnedRun, ...listSourceRuns];
   })();
+
+  function setPanelTab(tab: ChatPanelTab) {
+    setChatSearch({ tab: tab === "history" ? undefined : tab });
+  }
+
+  function setOriginFilter(origin: ConsultOriginFilter) {
+    setChatSearch({ origin: origin === "all" ? undefined : origin });
+  }
 
   const selectedRun: AgentRun | null = selectedId
     ? (historyRuns.find((r) => r.id === selectedId) ??
@@ -174,6 +192,11 @@ export function ChatPage() {
         showArchivedConsults={showArchivedConsults}
         onChangeShowArchivedConsults={setShowArchivedConsults}
         archivedConsultCount={archivedConsultCount}
+        panelTab={panelTab}
+        onChangePanelTab={setPanelTab}
+        draftCount={draftRuns.length}
+        originFilter={originFilter}
+        onChangeOriginFilter={setOriginFilter}
         onSelect={selectHistoryRun}
         onNewConsult={clearHistorySelection}
       />

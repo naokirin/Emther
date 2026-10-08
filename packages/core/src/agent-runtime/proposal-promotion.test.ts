@@ -155,8 +155,8 @@ describe("suggestionDetailFromProposal 候補本文", () => {
       facts: ["親ファクト"],
       logic: "親ロジック",
       rejectedAlternatives: [],
-      expansions: ["親Expand"],
-      challenges: ["親Challenge"],
+      expansions: [{ category: "", text: "親Expand" }],
+      challenges: [{ category: "", text: "親Challenge" }],
       explorations: [],
       adviceStructured: { overview: "親advice", groups: [] },
       suggestionCandidates: [
@@ -184,7 +184,7 @@ describe("suggestionDetailFromProposal 候補本文", () => {
       facts: ["親ファクト"],
       logic: "親ロジック",
       rejectedAlternatives: [],
-      expansions: ["親Expand"],
+      expansions: [{ category: "", text: "親Expand" }],
       challenges: [],
       explorations: [],
       adviceStructured: { overview: "親advice", groups: [] },
@@ -192,7 +192,7 @@ describe("suggestionDetailFromProposal 候補本文", () => {
     const detail = suggestionDetailFromProposal(proposal, { title: "候補A" });
     expect(detail.conclusion).toBe("親結論");
     expect(detail.facts).toEqual(["親ファクト"]);
-    expect(detail.expansions).toEqual(["親Expand"]);
+    expect(detail.expansions).toEqual([{ category: "", text: "親Expand" }]);
     expect(detail.adviceStructured?.overview).toBe("親advice");
   });
 });

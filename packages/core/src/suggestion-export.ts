@@ -189,10 +189,18 @@ function appendProposalSections(
     lines.push(`${headingPrefix}判断ロジック`, proposal.logic, "");
   }
   if (proposal.expansions?.length) {
-    lines.push(`${headingPrefix}視点の広がり（Expand）`, ...proposal.expansions.map((e) => `- ${e}`), "");
+    lines.push(
+      `${headingPrefix}視点の広がり（Expand）`,
+      ...proposal.expansions.map((e) => `- ${e.category ? `[${e.category}] ${e.text}` : e.text}`),
+      "",
+    );
   }
   if (proposal.challenges?.length) {
-    lines.push(`${headingPrefix}前提への問い（Challenge）`, ...proposal.challenges.map((c) => `- ${c}`), "");
+    lines.push(
+      `${headingPrefix}前提への問い（Challenge）`,
+      ...proposal.challenges.map((c) => `- ${c.category ? `[${c.category}] ${c.text}` : c.text}`),
+      "",
+    );
   }
   if (proposal.explorations?.length) {
     lines.push(
@@ -272,10 +280,18 @@ export function formatSuggestionMarkdown(
     lines.push("## 判断ロジック", s.detail.logic, "");
   }
   if (s.detail?.expansions?.length) {
-    lines.push("## 視点の広がり（Expand）", ...s.detail.expansions.map((e) => `- ${e}`), "");
+    lines.push(
+      "## 視点の広がり（Expand）",
+      ...s.detail.expansions.map((e) => `- ${e.category ? `[${e.category}] ${e.text}` : e.text}`),
+      "",
+    );
   }
   if (s.detail?.challenges?.length) {
-    lines.push("## 前提への問い（Challenge）", ...s.detail.challenges.map((c) => `- ${c}`), "");
+    lines.push(
+      "## 前提への問い（Challenge）",
+      ...s.detail.challenges.map((c) => `- ${c.category ? `[${c.category}] ${c.text}` : c.text}`),
+      "",
+    );
   }
   if (s.detail?.explorations?.length) {
     lines.push(

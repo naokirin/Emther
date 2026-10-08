@@ -14,12 +14,14 @@ export function GlossaryPanel() {
   const [newReading, setNewReading] = useState("");
   const [newMeaning, setNewMeaning] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [newMaskEnabled, setNewMaskEnabled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTerm, setEditTerm] = useState("");
   const [editMeaning, setEditMeaning] = useState("");
+  const [editMaskEnabled, setEditMaskEnabled] = useState(false);
 
   async function loadGlossary() {
     try {
@@ -48,6 +50,7 @@ export function GlossaryPanel() {
           reading: newReading.trim() || undefined,
           meaning: newMeaning.trim(),
           category: newCategory.trim() || undefined,
+          maskEnabled: newMaskEnabled,
         },
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -57,6 +60,7 @@ export function GlossaryPanel() {
       setNewReading("");
       setNewMeaning("");
       setNewCategory("");
+      setNewMaskEnabled(false);
       setCreating(false);
     } catch (err) {
       setError((err as Error).message);
@@ -82,7 +86,11 @@ export function GlossaryPanel() {
     try {
       const res = await api.api.glossary[":id"].$patch(rpcInit({
         param: { id },
-        json: { term: editTerm.trim(), meaning: editMeaning.trim() },
+        json: {
+          term: editTerm.trim(),
+          meaning: editMeaning.trim(),
+          maskEnabled: editMaskEnabled,
+        },
       }));
       if (res.ok) {
         setEditingId(null);
@@ -118,7 +126,7 @@ export function GlossaryPanel() {
       </div>
 
       <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", margin: "0 0 12px" }}>
-        組織固有の略語・プロジェクト名・専門用語を登録しておくと、AI（Lead Agentやローカル要約）がコンテキストとして自動参照し、誤読やハルシネーションを防止します。
+        組織固有の略語・プロジェクト名・専門用語を登録しておくと、AI（Lead Agentやローカル要約）がコンテキストとして自動参照し、誤読やハルシネーションを防止します。隠したい用語は「外部AI送信時にマスクする」をONにしてください。
       </p>
 
       {creating && (
@@ -179,6 +187,14 @@ export function GlossaryPanel() {
               />
             </label>
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 12 }}>
+            <input
+              type="checkbox"
+              checked={newMaskEnabled}
+              onChange={(e) => setNewMaskEnabled(e.target.checked)}
+            />
+            外部AI送信時にマスクする（人名と同じく TERM_n へ置換）
+          </label>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
@@ -259,6 +275,14 @@ export function GlossaryPanel() {
                       />
                     </label>
                   </div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8125rem", marginBottom: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={editMaskEnabled}
+                      onChange={(e) => setEditMaskEnabled(e.target.checked)}
+                    />
+                    外部AI送信時にマスクする
+                  </label>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
                       type="button"
@@ -281,7 +305,7 @@ export function GlossaryPanel() {
               ) : (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <strong style={{ fontSize: "0.9rem" }}>{item.term}</strong>
                       {item.reading && (
                         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>({item.reading})</span>
@@ -299,6 +323,20 @@ export function GlossaryPanel() {
                           {item.category}
                         </span>
                       )}
+                      {item.maskEnabled && (
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            backgroundColor: "color-mix(in srgb, var(--accent, #2563eb) 14%, transparent)",
+                            padding: "1px 6px",
+                            borderRadius: 4,
+                            color: "var(--accent, #2563eb)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          マスク対象
+                        </span>
+                      )}
                     </div>
                     <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--fg)" }}>{item.meaning}</p>
                   </div>
@@ -311,6 +349,7 @@ export function GlossaryPanel() {
                         setEditingId(item.id);
                         setEditTerm(item.term);
                         setEditMeaning(item.meaning);
+                        setEditMaskEnabled(item.maskEnabled === true);
                       }}
                     >
                       編集

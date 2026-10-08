@@ -7,6 +7,7 @@ import {
 import { normalizeAdviceStructured } from "../advice";
 import { dateStringToNoonTimestamp } from "../journal-date-parser";
 import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
+import { normalizeRethinkItems } from "../rethink-item";
 import type { SuggestedTheme } from "../theme-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
@@ -125,8 +126,8 @@ export function normalizeSuggestionCandidates(parsed: unknown): SuggestionCandid
       typeof raw.conclusion === "string" && raw.conclusion.trim() ? raw.conclusion.trim() : undefined;
     const logic = typeof raw.logic === "string" && raw.logic.trim() ? raw.logic.trim() : undefined;
     const facts = normalizeStringList(raw.facts);
-    const expansions = normalizeStringList(raw.expansions);
-    const challenges = normalizeStringList(raw.challenges);
+    const expansions = normalizeRethinkItems(raw.expansions);
+    const challenges = normalizeRethinkItems(raw.challenges);
     const explorations = normalizeExplorations(raw.explorations);
     const rejectedAlternatives = normalizeRejectedAlternatives(raw.rejectedAlternatives);
     const adviceStructured = normalizeAdviceStructured(
@@ -220,8 +221,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
         facts: normalizeStringList(parsed.facts),
         logic: parsed.logic,
         rejectedAlternatives: normalizeRejectedAlternatives(parsed.rejectedAlternatives),
-        expansions: normalizeStringList(parsed.expansions),
-        challenges: normalizeStringList(parsed.challenges),
+        expansions: normalizeRethinkItems(parsed.expansions),
+        challenges: normalizeRethinkItems(parsed.challenges),
         explorations: normalizeExplorations(parsed.explorations),
         ...(recommendation ? { recommendation } : {}),
         ...(suggestionTitle ? { suggestionTitle } : {}),

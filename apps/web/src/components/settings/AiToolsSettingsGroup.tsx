@@ -126,6 +126,25 @@ export function AiToolsSettingsGroup({ draft, onChange }: Props) {
         </p>
       </div>
 
+      <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>外部AIへのマスク</h3>
+      <div className={styles.field} style={{ maxWidth: 480, marginBottom: 16 }}>
+        <label
+          className={styles.axisTooltip}
+          data-tooltip="人名は名簿登録で常にマスク。社内用語は Glossary 登録で常にマスク。チーム名だけはこの設定で切り替えます"
+        >
+          <input
+            type="checkbox"
+            checked={draft.maskTeamNamesEnabled === true}
+            onChange={(e) => onChange({ maskTeamNamesEnabled: e.target.checked })}
+          />{" "}
+          チーム名を外部AI送信時にマスクする（既定OFF）
+        </label>
+        <p style={{ fontSize: "0.75rem", margin: "4px 0 0", color: "var(--text-muted)" }}>
+          ONにすると、保存・外部送信時にチーム名を TEAM_n に置換し、画面表示では元の名前に戻します。Glossary
+          の用語は各用語の「外部AI送信時にマスクする」で個別に選べます。
+        </p>
+      </div>
+
       <h3 style={{ fontSize: "0.875rem", marginTop: 0, marginBottom: 4 }}>利用するAIツールの優先順位・除外</h3>
       {(() => {
         const order = draft.cliOrder;

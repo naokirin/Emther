@@ -5,6 +5,8 @@ export const glossaryEntrySchema: z.ZodType<GlossaryEntry> = z.looseObject({
   id: z.string(),
   term: z.string(),
   meaning: z.string(),
+  maskId: z.string(),
+  maskEnabled: z.boolean(),
   createdAt: z.number(),
   updatedAt: z.number(),
 }) as z.ZodType<GlossaryEntry>;

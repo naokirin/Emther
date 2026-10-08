@@ -50,6 +50,7 @@ export const rulesAndConstraintsSchema: z.ZodType<RulesAndConstraints> = z.loose
   selfPersonId: z.string().nullable(),
   localChatModelPreset: localChatModelPresetSchema,
   localRerankEnabled: z.boolean(),
+  maskTeamNamesEnabled: z.boolean(),
 }) as z.ZodType<RulesAndConstraints>;
 
 export type { RulesAndConstraints };

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { findByIdPrefix } from "../id-prefix";
 import { mapAdviceStructuredStrings, normalizeAdviceStructured } from "../advice";
 import { maskForStorage, unmaskNames } from "../people-directory";
+import { mapRethinkItemStrings, normalizeRethinkItems } from "../rethink-item";
 import { createSqliteAgentRunRepository } from "../persistence/adapters/sqlite-agent-run-repository";
 import { getRulesAndConstraints } from "../settings-store";
 import {
@@ -81,7 +82,7 @@ export const WATCHDOG_INTERVAL_MS = 30_000;
 export async function sanitizeForCloud(run: AgentRun, text: string): Promise<string> {
   const masked = await maskForStorage(text);
   if (masked !== text) {
-    appendLog(run, "meta", "送信前に人物名を匿名化しました（人物名はローカルのみで保持）");
+    appendLog(run, "meta", "送信前にマスク対象（人名／社内用語／チーム名）を匿名化しました（実表記はローカルのみで保持）");
   }
   return masked;
 }
@@ -156,9 +157,9 @@ export function toRunView(run: AgentRun): AgentRun {
             option: unmaskNames(r.option),
             reason: unmaskNames(r.reason),
           })),
-          // 旧永続runは expansions/challenges/explorations 欠落がありうるため空配列で補う。
-          expansions: (run.proposal.expansions ?? []).map(unmaskNames),
-          challenges: (run.proposal.challenges ?? []).map(unmaskNames),
+          // 旧永続runは expansions/challenges/explorations 欠落・string[] がありうるため正規化して補う。
+          expansions: mapRethinkItemStrings(normalizeRethinkItems(run.proposal.expansions ?? []), unmaskNames),
+          challenges: mapRethinkItemStrings(normalizeRethinkItems(run.proposal.challenges ?? []), unmaskNames),
           explorations: (run.proposal.explorations ?? []).map((e) => ({
             kind: e.kind,
             observation: unmaskNames(e.observation),
@@ -177,8 +178,12 @@ export function toRunView(run: AgentRun): AgentRun {
                   ...(c.conclusion ? { conclusion: unmaskNames(c.conclusion) } : {}),
                   ...(c.facts?.length ? { facts: c.facts.map(unmaskNames) } : {}),
                   ...(c.logic ? { logic: unmaskNames(c.logic) } : {}),
-                  ...(c.expansions?.length ? { expansions: c.expansions.map(unmaskNames) } : {}),
-                  ...(c.challenges?.length ? { challenges: c.challenges.map(unmaskNames) } : {}),
+                  ...(c.expansions?.length
+                    ? { expansions: mapRethinkItemStrings(normalizeRethinkItems(c.expansions), unmaskNames) }
+                    : {}),
+                  ...(c.challenges?.length
+                    ? { challenges: mapRethinkItemStrings(normalizeRethinkItems(c.challenges), unmaskNames) }
+                    : {}),
                   ...(c.explorations?.length
                     ? {
                         explorations: c.explorations.map((e) => ({

@@ -268,6 +268,7 @@ const SETTINGS_RULES_FALLBACK: RulesAndConstraints = {
   selfPersonId: null,
   localChatModelPreset: "1.2b-jp",
   localRerankEnabled: false,
+  maskTeamNamesEnabled: false,
 };
 
 export function useSettingsRules(intervalMs = 8000) {

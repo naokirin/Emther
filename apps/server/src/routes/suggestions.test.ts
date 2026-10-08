@@ -251,8 +251,8 @@ describe("POST /api/suggestions", () => {
       facts: ["ファクトA"],
       logic: "ロジックだよ",
       rejectedAlternatives: [],
-      expansions: ["別の問題設定もあり得る"],
-      challenges: ["本当に発言量が問題か"],
+      expansions: [{ category: "", text: "別の問題設定もあり得る" }],
+      challenges: [{ category: "", text: "本当に発言量が問題か" }],
       explorations: [],
       advice: "計画のアドバイス",
     });
@@ -262,8 +262,8 @@ describe("POST /api/suggestions", () => {
     const json = await res.json();
     expect(json.suggestion.detail?.conclusion).toBe("結論だよ");
     expect(json.suggestion.detail?.facts).toEqual(["ファクトA"]);
-    expect(json.suggestion.detail?.expansions).toEqual(["別の問題設定もあり得る"]);
-    expect(json.suggestion.detail?.challenges).toEqual(["本当に発言量が問題か"]);
+    expect(json.suggestion.detail?.expansions).toEqual([{ category: "", text: "別の問題設定もあり得る" }]);
+    expect(json.suggestion.detail?.challenges).toEqual([{ category: "", text: "本当に発言量が問題か" }]);
     expect(json.suggestion.detail?.adviceStructured?.overview).toBe("計画のアドバイス");
     expect(json.suggestion.detail?.advice).toBeUndefined();
   });

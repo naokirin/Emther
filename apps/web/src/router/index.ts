@@ -15,8 +15,10 @@ export { validateSearchWith } from "./validateSearch";
 export {
   archivedFlagSearchSchema,
   chatSearchSchema,
+  CONSULT_ORIGIN_FILTERS,
   growthSearchSchema,
   orgSearchSchema,
   peopleSearchSchema,
   teamsSearchSchema,
 } from "./pageSearchSchemas";
+export type { ConsultOriginFilter } from "./pageSearchSchemas";

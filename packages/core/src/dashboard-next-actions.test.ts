@@ -80,8 +80,8 @@ function proposal(conclusion: string) {
     facts: [] as string[],
     logic: "",
     rejectedAlternatives: [] as { option: string; reason: string }[],
-    expansions: [] as string[],
-    challenges: [] as string[],
+    expansions: [] as { category: string; text: string }[],
+    challenges: [] as { category: string; text: string }[],
     explorations: [],
     recommendation: "suggestion" as const,
   };

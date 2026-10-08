@@ -9,15 +9,15 @@ function emptyTeamCharter(): TeamCharter {
   return { mission: "", constraints: "" };
 }
 
-function normalizeTeam(team: Team): Team {
-  return {
-    ...team,
-    charter: team.charter ?? emptyTeamCharter(),
-    archived: team.archived ?? false,
-    managedByEm: team.managedByEm ?? true,
-    aliases: team.aliases ?? [],
-    updatedAt: team.updatedAt ?? team.createdAt,
-  };
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceAllAtOnce(text: string, mapping: Map<string, string>): string {
+  const keys = [...mapping.keys()].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (keys.length === 0) return text;
+  const pattern = new RegExp(keys.map(escapeRegExp).join("|"), "g");
+  return text.replace(pattern, (match) => mapping.get(match) ?? match);
 }
 
 function maskMembers(members: string[]): string[] {
@@ -28,10 +28,85 @@ function maskMembers(members: string[]): string[] {
 }
 
 export function createTeamService(repo: TeamRepository) {
-  const teams: Team[] = repo.load().map(normalizeTeam);
+  let teamCounter = 0;
+
+  function nextMaskId(): string {
+    teamCounter += 1;
+    return `TEAM_${teamCounter}`;
+  }
+
+  function normalizeTeam(team: Team & { maskId?: string }): Team {
+    let maskId = team.maskId;
+    if (!maskId || !/^TEAM_\d+$/.test(maskId)) {
+      maskId = nextMaskId();
+    } else {
+      const n = Number(maskId.slice(5));
+      if (Number.isFinite(n) && n > teamCounter) teamCounter = n;
+    }
+    return {
+      ...team,
+      maskId,
+      charter: team.charter ?? emptyTeamCharter(),
+      archived: team.archived ?? false,
+      managedByEm: team.managedByEm ?? true,
+      aliases: team.aliases ?? [],
+      updatedAt: team.updatedAt ?? team.createdAt,
+    };
+  }
+
+  const loaded = repo.load();
+  let maskIdMigrated = false;
+  const teams: Team[] = loaded.map((raw) => {
+    const next = normalizeTeam(raw as Team & { maskId?: string });
+    if (next.maskId !== (raw as { maskId?: string }).maskId) maskIdMigrated = true;
+    return next;
+  });
+  if (maskIdMigrated) repo.save(teams);
 
   function persist(): void {
     repo.save(teams);
+  }
+
+  function formatTeamToken(maskId: string): string {
+    return `{{${maskId}}}`;
+  }
+
+  function buildTeamMaskMapping(): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const team of teams) {
+      for (const label of teamMatchLabels(team)) {
+        if (team.maskId) out.set(label, formatTeamToken(team.maskId));
+      }
+    }
+    return out;
+  }
+
+  /** 設定ON時のみ本文のチーム名をマスクする。OFFでも unmask は常に有効。 */
+  function maskTeamNames(text: string, enabled: boolean): string {
+    if (!enabled) return text;
+    return replaceAllAtOnce(text, buildTeamMaskMapping());
+  }
+
+  function unmaskTeamNames(text: string): string {
+    const idToName = new Map(
+      teams.filter((t): t is Team & { maskId: string } => !!t.maskId).map((t) => [t.maskId, teamDisplayName(t.name)]),
+    );
+    const fromTokens = text.replace(/\{\{(TEAM_\d+)\}\}/g, (full, id: string) => idToName.get(id) ?? full);
+    return fromTokens.replace(/TEAM_\d+/g, (full) => idToName.get(full) ?? full);
+  }
+
+  function detectLeakedTeamNames(text: string, enabled: boolean): string[] {
+    if (!enabled) return [];
+    const hits: string[] = [];
+    for (const label of buildTeamMaskMapping().keys()) {
+      if (label && text.includes(label)) hits.push(label);
+    }
+    return hits;
+  }
+
+  function teamLabelForPrompt(team: Team, maskEnabled: boolean): string {
+    if (maskEnabled && team.maskId) return team.maskId;
+    return teamDisplayName(team.name);
   }
 
   function listTeams(): Team[] {
@@ -114,6 +189,7 @@ export function createTeamService(repo: TeamRepository) {
       archived: false,
       managedByEm: true,
       aliases: [],
+      maskId: nextMaskId(),
       createdAt: now,
       updatedAt: now,
     };
@@ -234,5 +310,9 @@ export function createTeamService(repo: TeamRepository) {
     setTeamArchived,
     removeTeam,
     reassignPersonIdInTeams,
+    maskTeamNames,
+    unmaskTeamNames,
+    detectLeakedTeamNames,
+    teamLabelForPrompt,
   };
 }

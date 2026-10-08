@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import styles from "../../styles/page.module.css";
 import { growSuggestionsQueryKey, useGrowSuggestions, useRuns } from "../../lib/queries";
 import { api, rpcInit } from "../../lib/api-client";
-import type { GrowSuggestion } from "@emther/core/types";
+import { isGrowSuggestionHidden, type GrowSuggestion } from "@emther/core/types";
 import type { AgentRunMutationResponse, GrowSuggestionMutationResponse } from "@emther/api-contract";
 
 function formatDate(ts: number): string {
@@ -38,7 +38,7 @@ export function GrowSuggestionsPanel() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateStatus, setGenerateStatus] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
-  const [showDismissed, setShowDismissed] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   // 一覧は情報量が多く画面を占有するため、必要なときだけ開く
   const [expanded, setExpanded] = useState(false);
   // 同じ run の完了処理を二重に走らせない（runs ポーリングで status が何度も届くため）。
@@ -50,11 +50,11 @@ export function GrowSuggestionsPanel() {
   const waitingForRunList = !!pendingRunId && !pendingRun;
   const generating = starting || waitingForRunList || !!runBusy;
 
-  const dismissedCount = growSuggestions.filter((s) => s.status === "dismissed").length;
-  // 折りたたみ時の件数は「見送ったものを除く」件数（既定の一覧と同じ母集団）。
-  const activeCount = growSuggestions.filter((s) => s.status !== "dismissed").length;
+  const hiddenCount = growSuggestions.filter((s) => isGrowSuggestionHidden(s.status)).length;
+  // 折りたたみ時の件数は「確認済み・見送ったものを除く」件数（既定の一覧と同じ母集団）。
+  const activeCount = growSuggestions.filter((s) => !isGrowSuggestionHidden(s.status)).length;
   const visible = growSuggestions
-    .filter((s) => showDismissed || s.status !== "dismissed")
+    .filter((s) => showHidden || !isGrowSuggestionHidden(s.status))
     .sort((a, b) => b.generatedAt - a.generatedAt);
 
   useEffect(() => {
@@ -193,13 +193,22 @@ export function GrowSuggestionsPanel() {
                   marginTop: 12,
                   paddingTop: 12,
                   borderTop: "1px solid var(--border)",
-                  opacity: s.status === "dismissed" ? 0.6 : 1,
+                  opacity: isGrowSuggestionHidden(s.status) ? 0.6 : 1,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                   <strong style={{ fontSize: "0.9375rem" }}>{s.title}</strong>
                   {s.status === "unread" && (
                     <span style={{ fontSize: "0.6875rem", color: "var(--accent, #2563eb)", whiteSpace: "nowrap" }}>未確認</span>
+                  )}
+                  {s.status === "acknowledged" && (
+                    <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>確認中</span>
+                  )}
+                  {s.status === "confirmed" && (
+                    <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>確認済み</span>
+                  )}
+                  {s.status === "dismissed" && (
+                    <span style={{ fontSize: "0.6875rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>見送り</span>
                   )}
                 </div>
                 <p style={{ margin: "6px 0 0", fontSize: "0.9375rem", color: "var(--text-muted)" }}>{s.rationale}</p>
@@ -243,6 +252,15 @@ export function GrowSuggestionsPanel() {
                       disabled={statusUpdatingId === s.id}
                       onClick={() => handleSetStatus(s, "acknowledged")}
                     >
+                      確認中にする
+                    </button>
+                  )}
+                  {s.status !== "confirmed" && (
+                    <button
+                      className={styles.btnOutline}
+                      disabled={statusUpdatingId === s.id}
+                      onClick={() => handleSetStatus(s, "confirmed")}
+                    >
                       確認済みにする
                     </button>
                   )}
@@ -259,14 +277,16 @@ export function GrowSuggestionsPanel() {
               </div>
             ))
           )}
-          {dismissedCount > 0 && (
+          {hiddenCount > 0 && (
             <button
               type="button"
               className={`${styles.detailToggle} ${styles.detailToggleButton}`}
               style={{ marginTop: 12 }}
-              onClick={() => setShowDismissed(!showDismissed)}
+              onClick={() => setShowHidden(!showHidden)}
             >
-              {showDismissed ? "見送った提案を隠す" : `見送った提案を見る（${dismissedCount}）`}
+              {showHidden
+                ? "確認済み・見送った提案を隠す"
+                : `確認済み・見送った提案を見る（${hiddenCount}）`}
             </button>
           )}
         </div>

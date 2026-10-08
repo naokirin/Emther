@@ -278,8 +278,8 @@ describe("ExecutionState", () => {
         facts: ["fact1"],
         logic: "ロジック説明",
         rejectedAlternatives: [{ option: "案X", reason: "理由Y" }],
-        expansions: ["チーム全体の傾向かもしれない"],
-        challenges: ["発言量自体が問題なのか"],
+        expansions: [{ category: "カバレッジ", text: "チーム全体の傾向かもしれない" }],
+        challenges: [{ category: "問題設定", text: "発言量自体が問題なのか" }],
         explorations: [
           {
             kind: "unexplored_area",

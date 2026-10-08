@@ -35,6 +35,7 @@ export const settingsRulesPatchSchema = z
     autoMonthlyReportHour: optionalFiniteNumber,
     teamParallelKickoffEnabled: optionalBoolean,
     localRerankEnabled: optionalBoolean,
+    maskTeamNamesEnabled: optionalBoolean,
   })
   .catch({});
 

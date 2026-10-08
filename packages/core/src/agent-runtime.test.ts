@@ -201,9 +201,9 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
     });
   });
 
-  it("extractProposalはexpansions/challengesを拾う", async () => {
+  it("extractProposalはexpansions/challengesを拾う（旧string・新オブジェクト両対応）", async () => {
     const rt = await loadModule();
-    const text = [
+    const legacy = [
       "```proposal",
       JSON.stringify({
         conclusion: "c",
@@ -216,15 +216,35 @@ describe("extractYield / extractProposal / extractActionItems / extractConsult",
       }),
       "```",
     ].join("\n");
-    expect(rt.extractProposal(text)).toEqual({
+    expect(rt.extractProposal(legacy)).toEqual({
       conclusion: "c",
       facts: [],
       logic: "l",
       rejectedAlternatives: [],
-      expansions: ["チーム全体で発言が減っている可能性"],
-      challenges: ["発言量自体が問題なのか"],
+      expansions: [{ category: "", text: "チーム全体で発言が減っている可能性" }],
+      challenges: [{ category: "", text: "発言量自体が問題なのか" }],
       explorations: [],
     });
+
+    const categorized = [
+      "```proposal",
+      JSON.stringify({
+        conclusion: "c",
+        logic: "l",
+        facts: [],
+        rejectedAlternatives: [],
+        expansions: [{ category: "属人化", text: "特定メンバーに依存している可能性" }],
+        challenges: [{ category: "心理的負荷", text: "発言抑制が負荷のサインでは" }],
+        explorations: [],
+      }),
+      "```",
+    ].join("\n");
+    expect(rt.extractProposal(categorized)?.expansions).toEqual([
+      { category: "属人化", text: "特定メンバーに依存している可能性" },
+    ]);
+    expect(rt.extractProposal(categorized)?.challenges).toEqual([
+      { category: "心理的負荷", text: "発言抑制が負荷のサインでは" },
+    ]);
   });
 
   it("extractProposalはexplorationsを拾い上限3・不正kindをスキップする", async () => {
