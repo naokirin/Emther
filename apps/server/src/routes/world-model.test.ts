@@ -60,4 +60,30 @@ describe("/api/world-model", () => {
     expect((await worldModelRoute.request("/nope/adopt", send("POST"))).status).toBe(404);
     expect((await worldModelRoute.request("/?kind=bogus")).status).toBe(400);
   });
+
+  it("更新提案の一覧・適用・却下ができる", async () => {
+    const { worldModelRoute } = await import("./world-model");
+    const store = await import("@emther/core/world-model-store");
+    const el = await store.createWorldModelElement({
+      kind: "flow",
+      title: "判断の所在",
+      statement: "仕様判断はテックリードが行う",
+      origin: "user",
+    });
+    await store.ingestWorldModelChanges([
+      { action: "refine", targetId: el.id, reason: "合議に見える", statement: "PMとテックリードの合議" },
+      { action: "stale", targetId: el.id, reason: "最近観測されない" },
+    ]);
+    const list = await (await worldModelRoute.request("/updates")).json();
+    expect(list.updates).toHaveLength(2);
+
+    const stale = list.updates.find((u: { action: string }) => u.action === "stale");
+    const dismissed = await worldModelRoute.request(`/updates/${stale.id}/dismiss`, send("POST"));
+    expect((await dismissed.json()).update.status).toBe("dismissed");
+
+    const refine = list.updates.find((u: { action: string }) => u.action === "refine");
+    const applied = await (await worldModelRoute.request(`/updates/${refine.id}/apply`, send("POST"))).json();
+    expect(applied.element.statement).toBe("PMとテックリードの合議");
+    expect((await worldModelRoute.request(`/updates/${refine.id}/apply`, send("POST"))).status).toBe(404);
+  });
 });

@@ -9,6 +9,7 @@ import { dateStringToNoonTimestamp } from "../journal-date-parser";
 import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
 import { normalizeRethinkItems } from "../rethink-item";
 import type { SuggestedTheme } from "../theme-store";
+import { WORLD_MODEL_KINDS, type SuggestedWorldModelChange } from "../world-model-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
   AgentRun,
@@ -395,6 +396,58 @@ export function extractThemes(resultText: string): SuggestedTheme[] | undefined 
         ...(suggestedDirection ? { suggestedDirection } : {}),
         ...(evidenceJournalIds ? { evidenceJournalIds } : {}),
         ...(evidenceSuggestionIds ? { evidenceSuggestionIds } : {}),
+      });
+    }
+    return items.length > 0 ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function stringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return items.length > 0 ? items : undefined;
+}
+
+// 形式不正の項目だけを捨てる。対象の存在や評価的記述の検証は ingest 側で行う。
+export function extractWorldModelChanges(resultText: string): SuggestedWorldModelChange[] | undefined {
+  const match = resultText.match(/```world-model\s*\n?([\s\S]*?)```/);
+  if (!match) return undefined;
+  try {
+    const parsed = JSON.parse(match[1].trim());
+    if (!Array.isArray(parsed)) return undefined;
+    const items: SuggestedWorldModelChange[] = [];
+    for (const raw of parsed) {
+      if (!raw || typeof raw !== "object") continue;
+      const e = raw as Record<string, unknown>;
+      const action = e.action;
+      if (action !== "confirm" && action !== "contradict" && action !== "refine" && action !== "stale" && action !== "new") {
+        continue;
+      }
+      if (typeof e.reason !== "string" || !e.reason.trim()) continue;
+      const kind = typeof e.kind === "string" && (WORLD_MODEL_KINDS as readonly string[]).includes(e.kind) ? e.kind : undefined;
+      const confidence = e.confidence === "low" || e.confidence === "mid" || e.confidence === "high" ? e.confidence : undefined;
+      const rel = e.relationship as { parties?: unknown; aspect?: unknown; stance?: unknown } | undefined;
+      const relationship =
+        rel && Array.isArray(rel.parties) && rel.parties.length === 2 && typeof rel.aspect === "string" && typeof rel.stance === "string"
+          ? (rel as unknown as SuggestedWorldModelChange["relationship"])
+          : undefined;
+      items.push({
+        action,
+        reason: e.reason.trim(),
+        ...(typeof e.targetId === "string" ? { targetId: e.targetId } : {}),
+        ...(typeof e.statement === "string" && e.statement.trim() ? { statement: e.statement.trim() } : {}),
+        ...(kind ? { kind: kind as SuggestedWorldModelChange["kind"] } : {}),
+        ...(typeof e.title === "string" && e.title.trim() ? { title: e.title.trim() } : {}),
+        ...(stringList(e.teamIds) ? { teamIds: stringList(e.teamIds) } : {}),
+        ...(stringList(e.personIds) ? { personIds: stringList(e.personIds) } : {}),
+        ...(relationship ? { relationship } : {}),
+        ...(confidence ? { confidence } : {}),
+        evidence: {
+          journalIds: stringList(e.evidenceJournalIds),
+          suggestionIds: stringList(e.evidenceSuggestionIds),
+        },
       });
     }
     return items.length > 0 ? items : undefined;

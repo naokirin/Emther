@@ -72,10 +72,19 @@ export {
   type Goal,
 } from "./entities/org";
 export { orgThemeSchema, themeStatusSchema, type OrgTheme } from "./entities/theme";
-export { worldModelElementSchema, type WorldModelElement } from "./entities/world-model";
+export {
+  worldModelElementSchema,
+  worldModelUpdateSchema,
+  type WorldModelElement,
+  type WorldModelUpdate,
+} from "./entities/world-model";
 export {
   worldModelListResponseSchema,
   worldModelMutationResponseSchema,
+  worldModelUpdatesResponseSchema,
+  worldModelUpdateMutationResponseSchema,
+  type WorldModelUpdatesResponse,
+  type WorldModelUpdateMutationResponse,
   type WorldModelListResponse,
   type WorldModelMutationResponse,
 } from "./responses/world-model";

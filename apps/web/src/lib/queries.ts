@@ -32,6 +32,7 @@ import type {
   TeamsResponse,
   ThemesResponse,
   WorldModelListResponse,
+  WorldModelUpdatesResponse,
   TimelineResponse,
   VitalsResponse,
 } from "@emther/api-contract";
@@ -426,6 +427,24 @@ export function useWorldModel(intervalMs = 10000) {
     elements: query.data?.elements ?? [],
     elementsLoaded: !query.isPending,
     refreshElements: async () => {
+      await query.refetch();
+    },
+  };
+}
+
+export function useWorldModelUpdates(intervalMs = 10000) {
+  const query = usePolledRpc(
+    ["api", "world-model", "updates"],
+    async () =>
+      rpcJsonAs<WorldModelUpdatesResponse>(
+        await api.api["world-model"].updates.$get(),
+        "GET /api/world-model/updates",
+      ),
+    intervalMs,
+  );
+  return {
+    updates: query.data?.updates ?? [],
+    refreshUpdates: async () => {
       await query.refetch();
     },
   };

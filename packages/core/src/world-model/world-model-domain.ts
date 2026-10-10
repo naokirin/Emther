@@ -217,6 +217,27 @@ export function createWorldModelService(repo: WorldModelRepository) {
     return e;
   }
 
+  function addEvidence(id: string, evidence: Partial<WorldModelEvidence>): WorldModelElement | undefined {
+    const e = get(id);
+    if (!e) return undefined;
+    const add = normalizeEvidence(evidence);
+    e.evidence = {
+      eventIds: uniq([...e.evidence.eventIds, ...add.eventIds]),
+      journalIds: uniq([...e.evidence.journalIds, ...add.journalIds]),
+      suggestionIds: uniq([...e.evidence.suggestionIds, ...add.suggestionIds]),
+      themeIds: uniq([...e.evidence.themeIds, ...add.themeIds]),
+    };
+    e.updatedAt = Date.now();
+    persist();
+    return e;
+  }
+
+  function markStale(id: string): WorldModelElement | undefined {
+    const e = get(id);
+    if (!e || e.status === "dismissed" || e.status === "candidate") return e;
+    return setStatus(id, "stale");
+  }
+
   function markStaleOlderThan(days: number, now = Date.now()): string[] {
     const cutoff = now - days * 24 * 60 * 60 * 1000;
     const touched: string[] = [];
@@ -244,6 +265,8 @@ export function createWorldModelService(repo: WorldModelRepository) {
     annotate,
     revise,
     confirm,
+    addEvidence,
+    markStale,
     markStaleOlderThan,
   };
 }

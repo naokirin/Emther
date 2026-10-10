@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { WorldModelElement } from "@emther/core/world-model-store";
+import type { WorldModelElement, WorldModelUpdate } from "@emther/core/world-model-store";
 
 const partySchema = z.object({ type: z.enum(["team", "person"]), id: z.string() });
 
@@ -59,3 +59,23 @@ export const worldModelElementSchema: z.ZodType<WorldModelElement> = z.looseObje
 }) as z.ZodType<WorldModelElement>;
 
 export type { WorldModelElement };
+
+const evidenceSchema = z.object({
+  eventIds: z.array(z.string()),
+  journalIds: z.array(z.string()),
+  suggestionIds: z.array(z.string()),
+  themeIds: z.array(z.string()),
+});
+
+export const worldModelUpdateSchema: z.ZodType<WorldModelUpdate> = z.looseObject({
+  id: z.string(),
+  targetId: z.string(),
+  action: z.enum(["confirm", "contradict", "refine", "stale"]),
+  reason: z.string(),
+  statement: z.string().optional(),
+  evidence: evidenceSchema,
+  status: z.enum(["pending", "applied", "dismissed"]),
+  createdAt: z.number(),
+}) as z.ZodType<WorldModelUpdate>;
+
+export type { WorldModelUpdate };

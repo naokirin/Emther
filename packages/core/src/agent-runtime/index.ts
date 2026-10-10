@@ -58,6 +58,7 @@ export {
   extractProposal,
   extractSuggestionUpdates,
   extractThemes,
+  extractWorldModelChanges,
   extractYield,
   listSuggestionCandidatesFromProposal,
   findSuggestionCandidate,

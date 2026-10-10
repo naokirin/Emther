@@ -7,6 +7,7 @@ import { listEvents } from "../knowledge-store";
 import { maskNames } from "../people-directory";
 import { computeReportStats, getReport, type ReportStats } from "../report-store";
 import { listAdoptedThemes } from "../theme-store";
+import { listActiveWorldModelElements } from "../world-model-store";
 import { computeOrgVitals } from "../vitals";
 import { isJournalInBatchWindow, JOURNAL_BATCH_LIMIT } from "./journal-batch-window";
 import { METHODOLOGY_CANDIDATE_GUIDANCE } from "./philosophy-lenses";
@@ -176,6 +177,31 @@ export function buildJournalBatchContextBlock(): string {
 }
 
 const DISTILL_JOURNAL_LIMIT = 25;
+const DISTILL_WORLD_MODEL_LIMIT = 30;
+
+// 組織モデルは再生成せず差分で更新するため、既存要素を ID 付きで見せる。
+function buildWorldModelDistillSection(): string[] {
+  const active = listActiveWorldModelElements().slice(0, DISTILL_WORLD_MODEL_LIMIT);
+  const lines =
+    active.length > 0
+      ? active.map((e) => `- [${e.id}] (${e.kind}/${e.status}) ${e.title}: ${e.statement.slice(0, 140)}`)
+      : ["- （採用済みの要素なし）"];
+  return [
+    "",
+    "組織モデル（EMから観測できる範囲の組織の実態の見立て）の更新も、world-model ブロックで差分として返してください。",
+    "既存要素に対しては action を confirm（新しい観測が裏付ける）/ contradict（食い違う）/ refine（より正確にできる）/ stale（もう当てはまらない可能性）から選び、targetId に下記の[ID]を入れます。contradict と refine には置き換え案を statement に書きます。",
+    "既存要素に当てはまらない実態が繰り返し観測されたときだけ action=new で kind（structure/flow/dependency/dynamic/condition/external/risk/relationship/gap）・title・statement を付けて新規候補を出します（最大5件）。",
+    "relationship は2つの主体のあいだの関係で、relationship.parties に {type:team|person,id} を2件、aspect は work か psychological、stance は aspect に合う観点を入れます（work: collaboration/handoff/decision_rights/information_flow、psychological: trust/tension/psychological_safety/alignment）。",
+    "人物は PERSON_n のまま扱い、個人の能力・性格・性向の評価や断定は書かないこと。関係や状況の描写に限る。Goal/Policy/Theme（意図）と実態のずれは kind=gap で表す。",
+    "確信が持てない・新しい観測が無いときは何も返さなくてよい（空配列可）。reason に根拠を、evidenceJournalIds / evidenceSuggestionIds に下記一覧のIDを付けてください。",
+    "```world-model",
+    '[{ "action": "confirm", "targetId": "…", "reason": "…", "evidenceJournalIds": [] }, { "action": "new", "kind": "flow", "title": "…", "statement": "…", "reason": "…", "evidenceJournalIds": [] }]',
+    "```",
+    "",
+    "【採用済みの組織モデル要素】",
+    ...lines,
+  ];
+}
 const DISTILL_SUGGESTION_LIMIT = 20;
 
 // 蒸留の材料は run.task に載せない（巨大な task だと
@@ -233,6 +259,7 @@ export function buildDistillationContextBlock(): string {
     "",
     "【既に採用されているテーマ解釈】",
     ...themeLines,
+    ...buildWorldModelDistillSection(),
   ].join("\n");
 }
 

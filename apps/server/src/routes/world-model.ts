@@ -1,7 +1,16 @@
 import { Hono } from "hono";
-import type { WorldModelListResponse, WorldModelMutationResponse } from "@emther/api-contract";
+import type {
+  WorldModelListResponse,
+  WorldModelMutationResponse,
+  WorldModelUpdateMutationResponse,
+  WorldModelUpdatesResponse,
+} from "@emther/api-contract";
 import {
   adoptWorldModelElement,
+  applyWorldModelUpdate,
+  dismissWorldModelUpdate,
+  listWorldModelUpdates,
+  toWorldModelUpdateView,
   annotateWorldModelElement,
   confirmWorldModelElement,
   createWorldModelElement,
@@ -44,6 +53,28 @@ export const worldModelRoute = new Hono()
       if (err instanceof WorldModelValidationError) return c.json({ error: err.message }, 400);
       throw err;
     }
+  })
+  // "/updates" は "/:id" より先に定義する（静的パスを :id に飲ませない）。
+  .get("/updates", (c) => {
+    const body = {
+      updates: listWorldModelUpdates({ status: "pending" }).map(toWorldModelUpdateView),
+    } satisfies WorldModelUpdatesResponse;
+    return c.json(body);
+  })
+  .post("/updates/:id/apply", async (c) => {
+    const applied = await applyWorldModelUpdate(c.req.param("id"));
+    if (!applied) return c.json({ error: "not found" }, 404);
+    const body = {
+      update: toWorldModelUpdateView(applied.update),
+      element: applied.element ? toWorldModelView(applied.element) : undefined,
+    } satisfies WorldModelUpdateMutationResponse;
+    return c.json(body);
+  })
+  .post("/updates/:id/dismiss", (c) => {
+    const update = dismissWorldModelUpdate(c.req.param("id"));
+    if (!update) return c.json({ error: "not found" }, 404);
+    const body = { update: toWorldModelUpdateView(update) } satisfies WorldModelUpdateMutationResponse;
+    return c.json(body);
   })
   .get("/:id", (c) => {
     const el = getWorldModelElement(c.req.param("id"));

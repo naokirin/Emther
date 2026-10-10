@@ -43,8 +43,18 @@ describe("WorldModelPage", () => {
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         calls.push(`${init?.method ?? "GET"} ${url}`);
+        if (url === "/api/world-model/updates") {
+          return {
+            ok: true,
+            json: async () => ({
+              updates: [{ id: "u1", targetId: "e2", action: "refine", reason: "月末に偏る", statement: "月末に集中する", evidence: { eventIds: [], journalIds: [], suggestionIds: [], themeIds: [] }, status: "pending", createdAt: 0 }],
+            }),
+          };
+        }
+        if (url === "/api/teams") return { ok: true, json: async () => ({ teams: [] }) };
+        if (url === "/api/people") return { ok: true, json: async () => ({ people: [] }) };
         if (url.startsWith("/api/world-model") && (init?.method ?? "GET") === "GET") {
-          return { ok: true, json: async () => ({ elements: [element] }) };
+          return { ok: true, json: async () => ({ elements: [element, { ...element, id: "e2", title: "判断の所在", status: "adopted", kind: "flow" }] }) };
         }
         return { ok: true, json: async () => ({ element: { ...element, status: "adopted" } }) };
       }),
@@ -61,5 +71,24 @@ describe("WorldModelPage", () => {
     expect(await screen.findByText("レビュー待ち")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "採用" }));
     expect(calls).toContain("POST /api/world-model/e1/adopt");
+  });
+
+  it("更新提案を要素の下に表示し、適用操作が API に届く", async () => {
+    const user = userEvent.setup();
+    render(<WorldModelPage />, { wrapper });
+    expect(await screen.findByText(/月末に偏る/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "置き換え案を採用" }));
+    expect(calls).toContain("POST /api/world-model/updates/u1/apply");
+  });
+
+  it("関係性を手動追加できる", async () => {
+    const user = userEvent.setup();
+    render(<WorldModelPage />, { wrapper });
+    await user.click(await screen.findByRole("button", { name: "見立てを追加" }));
+    await user.selectOptions(screen.getByLabelText("種別"), "dependency");
+    await user.type(screen.getByLabelText("タイトル"), "レビュー待ち");
+    await user.type(screen.getByLabelText(/見立て/), "月末に詰まる");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+    expect(calls).toContain("POST /api/world-model");
   });
 });

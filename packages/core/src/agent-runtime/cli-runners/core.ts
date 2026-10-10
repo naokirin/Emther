@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "../../agent-knowledge-tools";
 import { createGrowSuggestions, enrichGrowSuggestionReferences } from "../../em-growth-store";
 import { getRulesAndConstraints } from "../../settings-store";
+import { ingestWorldModelChanges, markStaleWorldModelElements } from "../../world-model-store";
 import { CLI_LABELS, type CliName } from "../../types";
 import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt, selectRelatedSpecialists } from "../context-blocks";
 import {
@@ -14,6 +15,7 @@ import {
   extractProposal,
   extractSuggestionUpdates,
   extractThemes,
+  extractWorldModelChanges,
   extractYield,
 } from "../extraction";
 import { appendLog, runs, sanitizeForCloud, setRunTriageStatus } from "../store";
@@ -22,6 +24,8 @@ import { originRequiresProposalTriage } from "../run-meta";
 import { runAgyCliAttempt } from "./agy";
 import { runClaudeCliAttempt } from "./claude";
 import { runCursorCliAttempt } from "./cursor";
+
+const WORLD_MODEL_STALE_DAYS = 60;
 
 // 個人情報の分離: クラウドが返すテキストは、渡したプロンプトが
 // PERSON_n IDでマスクされている以上、常にPERSON_n IDのままである（クラウドが実名を
@@ -182,6 +186,21 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
         // ブロックしない。失敗しても学びの提案自体は既に保存済みなので無視してよい）。
         void enrichGrowSuggestionReferences(created).catch(() => {});
       }
+    }
+    // 適用はEMが組織モデル画面で行う。ここでは保存までで、既存要素は書き換えない。
+    if (run.origin === "auto-distill" && run.proposal) {
+      const changes = extractWorldModelChanges(resultText);
+      const runId = run.id;
+      void (async () => {
+        try {
+          markStaleWorldModelElements(WORLD_MODEL_STALE_DAYS);
+          if (!changes) return;
+          const r = await ingestWorldModelChanges(changes, { sourceRunId: runId });
+          appendLog(run, "system", `[組織モデル] 新規候補${r.created}件・更新提案${r.proposals}件（見送り${r.skipped}件）`);
+        } catch (err) {
+          appendLog(run, "system", `[組織モデル] 差分の保存に失敗しました: ${(err as Error).message}`);
+        }
+      })();
     }
     // Journal分析（EM明示の個別分析／日次の集約解釈）が提案化不要と
     // 明示したときだけ自動却下する。手動相談や提案更新分析はEMのトリアージ対象のまま残す。
