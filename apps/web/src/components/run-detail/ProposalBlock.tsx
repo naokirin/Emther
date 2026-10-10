@@ -5,6 +5,7 @@ import styles from "../../styles/page.module.css";
 import type { Proposal } from "@emther/core/agent-runtime";
 import { ExplorationFindingsList } from "./ExplorationFindingsList";
 import { RethinkItemsList } from "./RethinkItemsList";
+import { WorldModelRefs } from "./WorldModelRefs";
 import { listSuggestionCandidatesFromProposal } from "./run-view-helpers";
 
 type DetailTab = "conclusion" | "rethink" | "explore" | "evidence";
@@ -27,6 +28,7 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
     proposal.facts.length +
     (proposal.logic.trim() ? 1 : 0) +
     lensesUsed.length +
+    (proposal.worldModelRefs?.length ? 1 : 0) +
     proposal.rejectedAlternatives.length;
   const rethinkTabLabel = rethinkCount > 0 ? `問い直し（${rethinkCount}）` : "問い直し";
   const exploreTabLabel = exploreCount > 0 ? `探索（${exploreCount}）` : "探索";
@@ -175,6 +177,10 @@ export function ProposalBlock({ proposal }: { proposal: Proposal }) {
                     ))}
                   </ul>
                 </div>
+              )}
+
+              {proposal.worldModelRefs && proposal.worldModelRefs.length > 0 && (
+                <WorldModelRefs ids={proposal.worldModelRefs} />
               )}
 
               {proposal.rejectedAlternatives.length > 0 && (

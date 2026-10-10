@@ -9,7 +9,7 @@ import { dateStringToNoonTimestamp } from "../journal-date-parser";
 import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
 import { normalizeRethinkItems } from "../rethink-item";
 import type { SuggestedTheme } from "../theme-store";
-import { WORLD_MODEL_KINDS, type SuggestedWorldModelChange } from "../world-model-store";
+import { getWorldModelElement, WORLD_MODEL_KINDS, type SuggestedWorldModelChange } from "../world-model-store";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
   AgentRun,
@@ -217,6 +217,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         parsed.advice !== undefined ? parsed.advice : parsed.adviceStructured,
       );
       const lensesUsed = normalizeLensUsage(parsed.lensesUsed);
+      const worldModelRefs = normalizeStringList(parsed.worldModelRefs).filter((id) => !!getWorldModelElement(id));
       return {
         conclusion: parsed.conclusion,
         facts: normalizeStringList(parsed.facts),
@@ -230,6 +231,7 @@ export function extractProposal(resultText: string): Proposal | undefined {
         ...(suggestionCandidates ? { suggestionCandidates } : {}),
         ...(adviceStructured ? { adviceStructured } : {}),
         ...(lensesUsed ? { lensesUsed } : {}),
+        ...(worldModelRefs.length > 0 ? { worldModelRefs } : {}),
       };
     }
   } catch {

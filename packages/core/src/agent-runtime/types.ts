@@ -110,6 +110,8 @@ export type Proposal = {
   // 旧 string 形式の advice も抽出時に互換で読む（structured へ正規化）。
   advice?: string;
   adviceStructured?: AdviceStructured;
+  // 根拠にした／食い違った組織モデル要素の ID。
+  worldModelRefs?: string[];
 };
 
 // 以前は専門エージェント

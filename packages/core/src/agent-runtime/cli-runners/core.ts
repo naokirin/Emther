@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "../../agent-knowledge-tools";
 import { createGrowSuggestions, enrichGrowSuggestionReferences } from "../../em-growth-store";
 import { getRulesAndConstraints } from "../../settings-store";
+import { buildWorldModelContextBlock } from "../../world-model-context";
 import { ingestWorldModelChanges, markStaleWorldModelElements } from "../../world-model-store";
 import { CLI_LABELS, type CliName } from "../../types";
 import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt, selectRelatedSpecialists } from "../context-blocks";
@@ -287,7 +288,17 @@ export async function runClaudeTurn(
   const journalContext = await buildJournalContextBlock(contextQuery, run.agentName, run.sourceJournalId);
   const relatedContext = await buildRelatedContextForRun(run, contextQuery);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
-  const systemPrompt = buildSystemPrompt(run.agentName, allowConsult, run.id, journalContext, contextQuery, relatedContext);
+  // 蒸留は自前で組織モデルを材料として載せるため重複させない。
+  const worldModelContext = run.origin === "auto-distill" ? "" : await buildWorldModelContextBlock(contextQuery);
+  const systemPrompt = buildSystemPrompt(
+    run.agentName,
+    allowConsult,
+    run.id,
+    journalContext,
+    contextQuery,
+    relatedContext,
+    worldModelContext,
+  );
 
   // SettingsのcliOrder（全エージェント共通のCLI優先順位）。配列に含まれるCLIだけが候補
   // （除外＝配列から外す）。claudeも他と同様に除外可（空配列はAPI側で弾く）。

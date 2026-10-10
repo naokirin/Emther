@@ -471,6 +471,7 @@ export function buildSystemPrompt(
   journalContext?: string,
   rawText?: string,
   relatedContext?: string,
+  worldModelContext?: string,
 ): string {
   const requiredConsultAgents = (runId ? runs.get(runId)?.requiredConsultAgents : undefined)?.filter((a) =>
     SPECIALIST_AGENTS.includes(a),
@@ -741,6 +742,7 @@ export function buildSystemPrompt(
     goalsContext,
     backgroundContext,
     themesContext,
+    worldModelContext,
     glossaryContext,
     observationCoverageContext,
   ]
