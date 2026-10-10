@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { LOOKUP_MAX_ROUNDS, executeLookup, extractLookup, type LookupRequest } from "../../agent-knowledge-tools";
 import { createGrowSuggestions, enrichGrowSuggestionReferences } from "../../em-growth-store";
 import { getRulesAndConstraints } from "../../settings-store";
-import { buildWorldModelContextBlock } from "../../world-model-context";
+import {
+  buildJournalWorldModelInstruction,
+  buildWorldModelContextBlock,
+  filterJournalWorldModelChanges,
+  isJournalWorldModelOrigin,
+} from "../../world-model-context";
 import { ingestWorldModelChanges, markStaleWorldModelElements } from "../../world-model-store";
 import { CLI_LABELS, type CliName } from "../../types";
 import { buildJournalContextBlock, buildRelatedContextForRun, buildSystemPrompt, selectRelatedSpecialists } from "../context-blocks";
@@ -189,13 +194,15 @@ export function applyAssistantResultText(run: AgentRun, resultText: string, allo
       }
     }
     // 適用はEMが組織モデル画面で行う。ここでは保存までで、既存要素は書き換えない。
-    if (run.origin === "auto-distill" && run.proposal) {
-      const changes = extractWorldModelChanges(resultText);
+    const isDistill = run.origin === "auto-distill";
+    if ((isDistill || isJournalWorldModelOrigin(run.origin)) && run.proposal) {
+      const extracted = extractWorldModelChanges(resultText);
+      const changes = extracted && !isDistill ? filterJournalWorldModelChanges(extracted) : extracted;
       const runId = run.id;
       void (async () => {
         try {
-          markStaleWorldModelElements(WORLD_MODEL_STALE_DAYS);
-          if (!changes) return;
+          if (isDistill) markStaleWorldModelElements(WORLD_MODEL_STALE_DAYS);
+          if (!changes?.length) return;
           const r = await ingestWorldModelChanges(changes, { sourceRunId: runId });
           appendLog(run, "system", `[組織モデル] 新規候補${r.created}件・更新提案${r.proposals}件（見送り${r.skipped}件）`);
         } catch (err) {
@@ -289,7 +296,13 @@ export async function runClaudeTurn(
   const relatedContext = await buildRelatedContextForRun(run, contextQuery);
   const prompt = precomputedPrompt ?? (await sanitizeForCloud(run, rawPrompt));
   // 蒸留は自前で組織モデルを材料として載せるため重複させない。
-  const worldModelContext = run.origin === "auto-distill" ? "" : await buildWorldModelContextBlock(contextQuery);
+  const journalDiff = isJournalWorldModelOrigin(run.origin);
+  const worldModelContext =
+    run.origin === "auto-distill"
+      ? ""
+      : [await buildWorldModelContextBlock(contextQuery), journalDiff ? buildJournalWorldModelInstruction() : ""]
+          .filter(Boolean)
+          .join("\n\n");
   const systemPrompt = buildSystemPrompt(
     run.agentName,
     allowConsult,

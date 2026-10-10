@@ -89,4 +89,21 @@ describe("buildWorldModelContextBlock", () => {
     }
     expect(await buildWorldModelContextBlock("レビューが遅い")).toBe("");
   });
+
+  it("Journal 起点の差分は contradict と new（最大2件）だけを残す", async () => {
+    const { filterJournalWorldModelChanges, isJournalWorldModelOrigin } = await import("./world-model-context");
+    const out = filterJournalWorldModelChanges([
+      { action: "confirm" },
+      { action: "refine" },
+      { action: "stale" },
+      { action: "contradict" },
+      { action: "new" },
+      { action: "new" },
+      { action: "new" },
+    ]);
+    expect(out.map((c) => c.action)).toEqual(["contradict", "new", "new"]);
+    expect(isJournalWorldModelOrigin("auto-anomaly")).toBe(true);
+    expect(isJournalWorldModelOrigin("auto-journal-batch")).toBe(true);
+    expect(isJournalWorldModelOrigin("auto-distill")).toBe(false);
+  });
 });

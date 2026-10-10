@@ -85,3 +85,28 @@ export async function buildWorldModelContextBlock(queryText: string): Promise<st
     ...(omitted > 0 ? [`（他に ${omitted} 件の要素があるが、この件との関連が弱いため省略）`] : []),
   ].join("\n");
 }
+
+/** Journal 起点の run は、日次で EM の確認負荷が増えないよう食い違いと新規だけを返す（蒸留は全種類）。 */
+export const JOURNAL_WORLD_MODEL_ACTIONS = ["contradict", "new"] as const;
+const JOURNAL_NEW_LIMIT = 2;
+
+export function isJournalWorldModelOrigin(origin: string | undefined): boolean {
+  return origin === "auto-anomaly" || origin === "auto-journal-batch";
+}
+
+export function filterJournalWorldModelChanges<T extends { action: string }>(changes: T[]): T[] {
+  const allowed = changes.filter((c) => (JOURNAL_WORLD_MODEL_ACTIONS as readonly string[]).includes(c.action));
+  let news = 0;
+  return allowed.filter((c) => c.action !== "new" || ++news <= JOURNAL_NEW_LIMIT);
+}
+
+export function buildJournalWorldModelInstruction(): string {
+  return [
+    "組織モデルとの差分（任意）: この Journal が上記の組織モデル要素と食い違う場合だけ action=contradict で、targetId に[ID]・reason・必要なら置き換え案 statement を返してください。",
+    "既存要素に当てはまらない実態が複数の観測で繰り返し見えるときだけ action=new（kind・title・statement・reason）を最大2件まで。裏付け（confirm）や単発の出来事は返さないこと。",
+    "人物は PERSON_n のまま、個人の能力・性格の評価は書かず、関係や状況の描写に限る。該当が無ければブロック自体を省略してよい。",
+    "```world-model",
+    '[{ "action": "contradict", "targetId": "…", "reason": "…", "statement": "…", "evidenceJournalIds": [] }]',
+    "```",
+  ].join("\n");
+}

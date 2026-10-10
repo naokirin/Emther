@@ -1,7 +1,7 @@
 # 組織モデル（World Model）
 
 作成日: 2026-10-10  
-ステータス: **設計（Phase 0）。実装はフェーズごとに反映する**  
+ステータス: **Phase 1〜4 実装済み（store・API・UI、蒸留からの差分候補、Agent 前提への注入と提案での引用、Journal 分析での食い違い検出）**  
 関連: `docs/philosophy.md` / `docs/knowledge_distillation.md` / `docs/goal_policy_model.md`
 
 ## 0. 目的
