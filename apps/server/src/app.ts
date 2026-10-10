@@ -20,6 +20,7 @@ import { orgStrategyRoute } from "./routes/org-strategy";
 import { journalRoute } from "./routes/journal";
 import { settingsRulesRoute } from "./routes/settings-rules";
 import { themesRoute } from "./routes/themes";
+import { worldModelRoute } from "./routes/world-model";
 import { agentsRoute, agentsInboxRoute, agentsPendingUnmaskedRoute } from "./routes/agents";
 import { suggestionsRoute } from "./routes/suggestions";
 import { themesDistillRoute } from "./routes/themes-distill";
@@ -68,6 +69,7 @@ function createApiApp() {
     .route("/api/themes/distill", themesDistillRoute)
     .route("/api/themes/link/suggest-goal", themeGoalLinkSuggestRoute)
     .route("/api/themes", themesRoute)
+    .route("/api/world-model", worldModelRoute)
     .route("/api/agents/inbox", agentsInboxRoute)
     .route("/api/agents/pending-unmasked", agentsPendingUnmaskedRoute)
     .route("/api/agents", agentsRoute)

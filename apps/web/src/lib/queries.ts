@@ -31,6 +31,7 @@ import type {
   SuggestionsResponse,
   TeamsResponse,
   ThemesResponse,
+  WorldModelListResponse,
   TimelineResponse,
   VitalsResponse,
 } from "@emther/api-contract";
@@ -409,6 +410,22 @@ export function useThemes(intervalMs = 8000) {
     themes: query.data?.themes ?? [],
     themesLoaded: !query.isPending,
     refreshThemes: async () => {
+      await query.refetch();
+    },
+  };
+}
+
+export function useWorldModel(intervalMs = 10000) {
+  const query = usePolledRpc(
+    ["api", "world-model"],
+    async () =>
+      rpcJsonAs<WorldModelListResponse>(await api.api["world-model"].$get({ query: {} }), "GET /api/world-model"),
+    intervalMs,
+  );
+  return {
+    elements: query.data?.elements ?? [],
+    elementsLoaded: !query.isPending,
+    refreshElements: async () => {
       await query.refetch();
     },
   };

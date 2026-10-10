@@ -17,6 +17,7 @@ import { PersonDetailPage } from "../routes/people/PersonDetailPage";
 import { OrgPage } from "../routes/org/OrgPage";
 import { ReportsPage } from "../routes/reports/ReportsPage";
 import { GrowthPage } from "../routes/growth/GrowthPage";
+import { WorldModelPage } from "../routes/world-model/WorldModelPage";
 import { CheckinPage } from "../routes/checkin/CheckinPage";
 import { JournalPage } from "../routes/journal/JournalPage";
 import { SuggestionsPage } from "../routes/suggestions/SuggestionsPage";
@@ -82,6 +83,7 @@ export function createAppRouteTree() {
       component: OrgPage,
       validateSearch: validateSearchWith(orgSearchSchema),
     }),
+    page("/world-model", WorldModelPage),
     page("/reports", ReportsPage),
     page("/checkin", CheckinPage),
     createRoute({

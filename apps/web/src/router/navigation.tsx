@@ -77,6 +77,7 @@ function createMemoryRouteTree() {
     "/people",
     "/people/$id",
     "/org",
+    "/world-model",
     "/reports",
     "/checkin",
     "/growth",

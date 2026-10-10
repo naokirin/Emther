@@ -57,6 +57,7 @@ const STORY_GROUPS: StoryGroup[] = [
     items: [
       { href: "/people", label: "メンバー" },
       { href: "/teams", label: "チーム" },
+      { href: "/world-model", label: "組織モデル" },
     ],
   },
   {
