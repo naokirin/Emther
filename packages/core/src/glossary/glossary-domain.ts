@@ -81,6 +81,7 @@ export function createGlossaryService(repo: GlossaryRepository) {
       category: input.category?.trim() || undefined,
       maskId: nextMaskId(),
       maskEnabled: input.maskEnabled === true,
+      externalHint: input.externalHint?.trim() || undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -101,6 +102,7 @@ export function createGlossaryService(repo: GlossaryRepository) {
     if (patch.meaning !== undefined) entry.meaning = patch.meaning.trim();
     if (patch.category !== undefined) entry.category = patch.category.trim() || undefined;
     if (patch.maskEnabled !== undefined) entry.maskEnabled = patch.maskEnabled === true;
+    if (patch.externalHint !== undefined) entry.externalHint = patch.externalHint.trim() || undefined;
     entry.updatedAt = Date.now();
 
     persist();
@@ -147,17 +149,21 @@ export function createGlossaryService(repo: GlossaryRepository) {
     return hits;
   }
 
-  function buildGlossaryContextBlock(): string {
+  /** audience "local" は端末内のみで完結する呼び出し向けで、マスク対象の meaning もそのまま渡す。 */
+  function buildGlossaryContextBlock(options: { audience?: "external" | "local" } = {}): string {
     if (entries.length === 0) return "";
+    const local = options.audience === "local";
     const anyMasked = entries.some((e) => e.maskEnabled);
     const lines = entries.map((e) => {
       const cat = e.category ? `[${e.category}] ` : "";
-      const label = e.maskEnabled ? e.maskId : e.term;
-      return `- ${cat}${label}: ${e.meaning}`;
+      if (!e.maskEnabled) return `- ${cat}${e.term}: ${e.meaning}`;
+      // ヒントに用語自体が混ざっても外部送信前検査で送信が止まらないよう、ここでもマスクする。
+      const text = local ? e.meaning : e.externalHint ? maskGlossaryTerms(e.externalHint) : "";
+      return text ? `- ${cat}${e.maskId}: ${text}` : `- ${cat}${e.maskId}`;
     });
 
     const header = anyMasked
-      ? "社内用語・コンテキスト辞書（組織固有の略語・プロジェクト名・専門用語。解釈や要約時に正確に参照すること。TERM_n はマスク済みの社内用語 ID で、実表記は使わないこと）:"
+      ? "社内用語・コンテキスト辞書（組織固有の略語・プロジェクト名・専門用語。解釈や要約時に正確に参照すること。TERM_n はマスク済みの社内用語 ID で、実表記は使わないこと。説明が付いていない TERM_n は意味不明として扱い、推測で内容を断定しないこと）:"
       : "社内用語・コンテキスト辞書（組織固有の略語・プロジェクト名・専門用語。解釈や要約時に正確に参照すること）:";
 
     return [header, ...lines].join("\n");

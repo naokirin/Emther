@@ -20,12 +20,13 @@ export const glossaryRoute = new Hono()
     const reading = typeof body?.reading === "string" ? body.reading.trim() : undefined;
     const category = typeof body?.category === "string" ? body.category.trim() : undefined;
     const maskEnabled = typeof body?.maskEnabled === "boolean" ? body.maskEnabled : undefined;
+    const externalHint = typeof body?.externalHint === "string" ? body.externalHint.trim() : undefined;
 
     if (!term || !meaning) {
       return c.json({ error: "term と meaning は必須です" }, 400);
     }
 
-    const entry = addGlossaryEntry({ term, reading, meaning, category, maskEnabled });
+    const entry = addGlossaryEntry({ term, reading, meaning, category, maskEnabled, externalHint });
     const resBody = { entry } satisfies GlossaryEntryMutationResponse;
     return c.json(resBody, 201);
   })
@@ -43,6 +44,7 @@ export const glossaryRoute = new Hono()
       meaning: typeof body?.meaning === "string" ? body.meaning : undefined,
       category: typeof body?.category === "string" ? body.category : undefined,
       maskEnabled: typeof body?.maskEnabled === "boolean" ? body.maskEnabled : undefined,
+      externalHint: typeof body?.externalHint === "string" ? body.externalHint : undefined,
     });
 
     if (!updated) return c.json({ error: "not found" }, 404);

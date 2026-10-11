@@ -10,7 +10,7 @@ export async function summarizeLogLocally(rawText: string): Promise<string> {
   const trimmed = rawText.trim();
   if (!trimmed) return "";
 
-  const glossary = buildGlossaryContextBlock();
+  const glossary = buildGlossaryContextBlock({ audience: "local" });
   const systemPrompt = `あなたはエンジニアリングマネージャー（EM）を支援するアシスタントです。
 入力された議事録やチャットログから、機微な雑談や不要な詳細を削ぎ落とし、EMが判断・把握すべき最小限の重要シグナルを抽出してMarkdownで要約してください。
 ${glossary ? `\n${glossary}\n` : ""}

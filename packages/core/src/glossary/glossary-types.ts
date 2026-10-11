@@ -8,6 +8,8 @@ export type GlossaryEntry = {
   maskId: string;
   /** true のときだけ保存・外部送信時に TERM_n へマスクする（既定 false）。 */
   maskEnabled: boolean;
+  /** マスク対象のとき、TERM_n と組で外部AIへ送ってよい補足。meaning は送らない。 */
+  externalHint?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -18,4 +20,5 @@ export type NewGlossaryInput = {
   meaning: string;
   category?: string;
   maskEnabled?: boolean;
+  externalHint?: string;
 };

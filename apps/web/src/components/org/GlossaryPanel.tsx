@@ -15,6 +15,7 @@ export function GlossaryPanel() {
   const [newMeaning, setNewMeaning] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [newMaskEnabled, setNewMaskEnabled] = useState(false);
+  const [newExternalHint, setNewExternalHint] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +23,7 @@ export function GlossaryPanel() {
   const [editTerm, setEditTerm] = useState("");
   const [editMeaning, setEditMeaning] = useState("");
   const [editMaskEnabled, setEditMaskEnabled] = useState(false);
+  const [editExternalHint, setEditExternalHint] = useState("");
 
   async function loadGlossary() {
     try {
@@ -51,6 +53,7 @@ export function GlossaryPanel() {
           meaning: newMeaning.trim(),
           category: newCategory.trim() || undefined,
           maskEnabled: newMaskEnabled,
+          externalHint: newMaskEnabled ? newExternalHint.trim() : undefined,
         },
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -61,6 +64,7 @@ export function GlossaryPanel() {
       setNewMeaning("");
       setNewCategory("");
       setNewMaskEnabled(false);
+      setNewExternalHint("");
       setCreating(false);
     } catch (err) {
       setError((err as Error).message);
@@ -90,6 +94,7 @@ export function GlossaryPanel() {
           term: editTerm.trim(),
           meaning: editMeaning.trim(),
           maskEnabled: editMaskEnabled,
+          externalHint: editExternalHint.trim(),
         },
       }));
       if (res.ok) {
@@ -126,7 +131,7 @@ export function GlossaryPanel() {
       </div>
 
       <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", margin: "0 0 12px" }}>
-        組織固有の略語・プロジェクト名・専門用語を登録しておくと、AI（Lead Agentやローカル要約）がコンテキストとして自動参照し、誤読やハルシネーションを防止します。隠したい用語は「外部AI送信時にマスクする」をONにしてください。
+        組織固有の略語・プロジェクト名・専門用語を登録しておくと、AI（Lead Agentやローカル要約）がコンテキストとして自動参照し、誤読やハルシネーションを防止します。隠したい用語は「外部AI送信時にマスクする」をONにしてください。マスクした用語の意味・説明は外部へ送られないため、判断に必要な範囲だけを「外部AIに送ってよい補足」に書いてください。
       </p>
 
       {creating && (
@@ -195,6 +200,22 @@ export function GlossaryPanel() {
             />
             外部AI送信時にマスクする（人名と同じく TERM_n へ置換）
           </label>
+          {newMaskEnabled && (
+            <div className={styles.field} style={{ marginBottom: 12 }}>
+              <label>
+                外部AIに送ってよい補足（任意）
+                <textarea
+                  value={newExternalHint}
+                  onChange={(e) => setNewExternalHint(e.target.value)}
+                  placeholder="例: 社内の新規プロジェクト名。リリース時期の判断に関わる。"
+                  rows={2}
+                />
+              </label>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                TERM_n と一緒に外部AIへ送られます。用語そのものを書いても自動でマスクされます。空欄のときは上の「意味・説明」も送られません。
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
@@ -283,6 +304,18 @@ export function GlossaryPanel() {
                     />
                     外部AI送信時にマスクする
                   </label>
+                  {editMaskEnabled && (
+                    <div className={styles.field} style={{ marginBottom: 8 }}>
+                      <label>
+                        外部AIに送ってよい補足
+                        <textarea
+                          value={editExternalHint}
+                          onChange={(e) => setEditExternalHint(e.target.value)}
+                          rows={2}
+                        />
+                      </label>
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 6 }}>
                     <button
                       type="button"
@@ -339,6 +372,11 @@ export function GlossaryPanel() {
                       )}
                     </div>
                     <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--fg)" }}>{item.meaning}</p>
+                    {item.maskEnabled && (
+                      <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                        外部AIへの補足: {item.externalHint || "（なし）"}
+                      </p>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                     <button
@@ -350,6 +388,7 @@ export function GlossaryPanel() {
                         setEditTerm(item.term);
                         setEditMeaning(item.meaning);
                         setEditMaskEnabled(item.maskEnabled === true);
+                        setEditExternalHint(item.externalHint ?? "");
                       }}
                     >
                       編集
