@@ -6,10 +6,13 @@ import {
 } from "../types";
 import { normalizeAdviceStructured } from "../advice";
 import { dateStringToNoonTimestamp } from "../journal-date-parser";
-import type { GrowReference, GrowSuggestionDraft } from "../em-growth-store";
+import type { GrowReference, GrowSuggestionDraft } from "../em-growth/em-growth-types";
 import { normalizeRethinkItems } from "../rethink-item";
-import type { SuggestedTheme } from "../theme-store";
-import { getWorldModelElement, WORLD_MODEL_KINDS, type SuggestedWorldModelChange } from "../world-model-store";
+import type { SuggestedTheme } from "../theme/theme-types";
+// world-model-store（永続化）は import しない。run-meta → extraction がブラウザに載るため、
+// store を引くと persistence → node:os.homedir がクライアントで落ちる。
+import { WORLD_MODEL_KINDS } from "../world-model/world-model-types";
+import type { SuggestedWorldModelChange } from "../world-model/world-model-update-types";
 import { EXEC_AGENT_NAME, SPECIALIST_AGENTS } from "./agent-catalog";
 import type {
   AgentRun,
@@ -217,7 +220,8 @@ export function extractProposal(resultText: string): Proposal | undefined {
         parsed.advice !== undefined ? parsed.advice : parsed.adviceStructured,
       );
       const lensesUsed = normalizeLensUsage(parsed.lensesUsed);
-      const worldModelRefs = normalizeStringList(parsed.worldModelRefs).filter((id) => !!getWorldModelElement(id));
+      // 実在チェックは store 依存になるためここではしない（欠落 ID は UI がフォールバック表示）。
+      const worldModelRefs = normalizeStringList(parsed.worldModelRefs);
       return {
         conclusion: parsed.conclusion,
         facts: normalizeStringList(parsed.facts),

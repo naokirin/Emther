@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupIsolatedStoreEnv, teardownIsolatedStoreEnv } from "../test-helpers/store-env";
-import { extractWorldModelChanges } from "./extraction";
+import { describe, expect, it } from "vitest";
+import { extractProposal, extractWorldModelChanges } from "./extraction";
 
 describe("extractWorldModelChanges", () => {
   it("差分を取り出し、形式不正の項目だけを捨てる", () => {
@@ -29,32 +28,14 @@ describe("extractWorldModelChanges", () => {
 });
 
 describe("extractProposal の worldModelRefs", () => {
-  let dir: string;
-
-  beforeEach(() => {
-    dir = setupIsolatedStoreEnv();
-    vi.resetModules();
-  });
-
-  afterEach(() => {
-    teardownIsolatedStoreEnv(dir);
-  });
-
-  it("実在する要素 ID だけを残す", async () => {
-    const store = await import("../world-model-store");
-    const { extractProposal } = await import("./extraction");
-    const el = await store.createWorldModelElement({
-      kind: "flow",
-      title: "判断の所在",
-      statement: "テックリードが判断する",
-      origin: "user",
-    });
+  it("空でない文字列 ID をそのまま残す（store 非依存）", () => {
     const text =
       "```proposal\n" +
-      JSON.stringify({ conclusion: "c", logic: "l", facts: [], worldModelRefs: [el.id, "ghost"] }) +
+      JSON.stringify({ conclusion: "c", logic: "l", facts: [], worldModelRefs: ["e1", "ghost", ""] }) +
       "\n```";
-    expect(extractProposal(text)?.worldModelRefs).toEqual([el.id]);
-    const none = "```proposal\n" + JSON.stringify({ conclusion: "c", logic: "l", worldModelRefs: ["ghost"] }) + "\n```";
-    expect(extractProposal(none)?.worldModelRefs).toBeUndefined();
+    expect(extractProposal(text)?.worldModelRefs).toEqual(["e1", "ghost"]);
+    const empty =
+      "```proposal\n" + JSON.stringify({ conclusion: "c", logic: "l", worldModelRefs: ["", "  "] }) + "\n```";
+    expect(extractProposal(empty)?.worldModelRefs).toBeUndefined();
   });
 });
